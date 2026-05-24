@@ -1417,13 +1417,15 @@ textarea{height:80px;resize:none}
 <script>
 var shops=[], videos=[], bookings=[];
 
-// safe-img: data-fallback 속성으로 onerror 대체 (스크립트 문자열 이스케이프 문제 방지)
+// safe-img: data-fallback / data-fallback-text 속성으로 onerror 대체
 document.addEventListener('error', function(e){
   var t = e.target;
   if(t && t.tagName === 'IMG' && t.classList.contains('safe-img')){
     var fb = t.getAttribute('data-fallback');
-    if(fb) t.src = fb;
-    else t.style.display = 'none';
+    var fbText = t.getAttribute('data-fallback-text');
+    if(fb){ t.src = fb; }
+    else if(fbText && t.parentElement){ t.parentElement.textContent = fbText; }
+    else { t.style.display = 'none'; }
   }
 }, true);
 
@@ -1510,7 +1512,7 @@ function renderShops(){
     return '<div class="shop-card">'
       // 썸네일 or 이니셜
       +'<div style="width:52px;height:52px;border-radius:12px;overflow:hidden;flex-shrink:0;background:linear-gradient(135deg,rgba(255,77,141,.2),rgba(155,89,182,.2));display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#FF4D8D">'
-        +(s.thumbnail ? '<img src="'+s.thumbnail+'" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.textContent=\''+initial+'\'">' : initial)
+        +(s.thumbnail ? '<img src="'+s.thumbnail+'" class="safe-img" style="width:100%;height:100%;object-fit:cover" data-fallback-text="'+initial+'">' : initial)
       +'</div>'
       // 메타정보
       +'<div style="flex:1;min-width:0">'
