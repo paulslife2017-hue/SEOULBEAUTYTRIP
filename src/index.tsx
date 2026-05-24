@@ -697,6 +697,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 #ld .prog{height:100%;background:linear-gradient(90deg,var(--pk),var(--pu));animation:lp 1.8s ease forwards}
 @keyframes lp{from{width:0}to{width:100%}}
 #hd{position:fixed;top:0;left:0;right:0;z-index:100;padding:14px 16px 12px;background:linear-gradient(to bottom,rgba(13,13,24,.97) 55%,transparent)}
+#hd-inner{max-width:480px;margin:0 auto}
 .logo{display:flex;align-items:center;gap:9px;margin-bottom:11px}
 .logo-ic{width:36px;height:36px;border-radius:11px;background:linear-gradient(135deg,var(--pk),var(--pu));display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
 .logo-nm{font-size:16px;font-weight:900;letter-spacing:1px;background:linear-gradient(135deg,#fff,var(--pl));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
@@ -705,9 +706,14 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .cats::-webkit-scrollbar{display:none}
 .cat{flex-shrink:0;padding:6px 13px;border-radius:20px;border:1.5px solid rgba(255,77,141,.28);background:rgba(255,77,141,.05);color:rgba(255,255,255,.5);font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap}
 .cat.on,.cat:hover{background:linear-gradient(135deg,var(--pk),var(--pu));border-color:transparent;color:#fff}
-#feed{height:100vh;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none}
+#feed{height:100vh;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none;display:flex;flex-direction:column;align-items:center;background:#000}
 #feed::-webkit-scrollbar{display:none}
-.slide{height:100vh;width:100%;position:relative;scroll-snap-align:start;overflow:hidden;background:#000}
+.slide{height:100vh;width:100%;max-width:480px;position:relative;scroll-snap-align:start;overflow:hidden;background:#000;flex-shrink:0}
+/* PC: 슬라이드 양옆 블러 배경 패널 */
+.pc-blur-left,.pc-blur-right{display:none}
+@media(min-width:540px){
+  .pc-blur-left,.pc-blur-right{display:block}
+}
 .bg-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
 .slide video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1}
 .ov{position:absolute;inset:0;z-index:2;background:linear-gradient(to bottom,rgba(0,0,0,.08) 0%,transparent 22%,transparent 48%,rgba(0,0,0,.32) 68%,rgba(0,0,0,.88) 100%)}
@@ -733,6 +739,10 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .dot{width:3px;height:3px;border-radius:2px;background:rgba(255,255,255,.2);transition:all .3s}
 .dot.on{background:var(--pk);height:18px}
 #muteBtn{position:fixed;top:50%;right:12px;transform:translateY(-50%);z-index:200;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px)}
+@media(min-width:540px){
+  #dots{left:calc(50% - 248px)}
+  #muteBtn{right:calc(50% - 490px)}
+}
 /* 업체 모달 */
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;display:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(8px)}
 .modal-bg.open{display:flex}
@@ -794,6 +804,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 </div>
 
 <header id="hd">
+  <div id="hd-inner">
   <div class="logo" id="logoBtn" style="cursor:pointer;user-select:none">
     <div class="logo-ic">&#10024;</div>
     <div>
@@ -808,6 +819,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
     <button class="cat" data-cat="hair">&#128135; Hair</button>
     <button class="cat" data-cat="nail">&#128133; Nail</button>
     <button class="cat" data-cat="clinic">&#127973; Clinic</button>
+  </div>
   </div>
 </header>
 
@@ -885,6 +897,9 @@ function buildSlide(v, idx) {
   var tags = (v.tags||[]).map(function(t){return '<span class="vtag">'+esc(t)+'</span>';}).join('');
 
   s.innerHTML =
+    /* PC 양옆 블러 배경 (모바일에서는 display:none) */
+    '<div class="pc-blur-left" style="position:fixed;top:0;bottom:0;left:0;right:calc(50% + 240px);filter:blur(24px) brightness(.35) saturate(1.2);z-index:0;pointer-events:none;overflow:hidden"><img src="'+esc(v.thumbnail)+'" style="width:100%;height:100%;object-fit:cover;transform:scale(1.1)"></div>' +
+    '<div class="pc-blur-right" style="position:fixed;top:0;bottom:0;left:calc(50% + 240px);right:0;filter:blur(24px) brightness(.35) saturate(1.2);z-index:0;pointer-events:none;overflow:hidden"><img src="'+esc(v.thumbnail)+'" style="width:100%;height:100%;object-fit:cover;transform:scale(1.1)"></div>' +
     '<img class="bg-img" src="'+esc(v.thumbnail)+'" alt="'+esc(v.title)+'">' +
     '<video id="vid'+idx+'" src="'+esc(v.videoUrl)+'" loop muted playsinline preload="metadata" poster="'+esc(v.thumbnail)+'"></video>' +
     '<div class="ov"></div>' +
