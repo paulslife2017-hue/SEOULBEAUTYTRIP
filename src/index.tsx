@@ -1011,6 +1011,19 @@ textarea{height:80px;resize:none}
     <div class="card-header">
       <div class="card-title"><i class="fas fa-store" style="color:#FF4D8D"></i> 업체 등록</div>
     </div>
+    <!-- 구글맵 붙여넣기 박스 -->
+    <div style="background:rgba(66,133,244,.08);border:1px solid rgba(66,133,244,.25);border-radius:12px;padding:12px;margin-bottom:14px">
+      <div style="font-size:12px;font-weight:700;color:#60a5fa;margin-bottom:8px">
+        <i class="fas fa-map-marker-alt"></i> STEP 1 — 구글맵 링크 붙여넣기 <span style="font-weight:400;color:rgba(255,255,255,.4)">(주소·지역 자동 입력)</span>
+      </div>
+      <div style="font-size:11px;color:rgba(255,255,255,.45);margin-bottom:8px;line-height:1.6">
+        구글맵에서 업체 검색 → <b style="color:rgba(255,255,255,.7)">공유</b> 버튼 → 링크 복사 → 아래에 붙여넣기
+      </div>
+      <input id="sh-gmap-raw" placeholder="https://maps.app.goo.gl/... 또는 maps.google.com 링크" style="margin-bottom:6px" oninput="parseGmapUrl(this.value)">
+      <div id="sh-gmap-status" style="font-size:11px;color:rgba(255,255,255,.4)"></div>
+    </div>
+
+    <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:10px">STEP 2 — 업체 정보 입력</div>
     <div class="form-grid">
       <div class="full"><label>업체명 *</label><input id="sh-name" placeholder="예: 강남 글로우 스킨클리닉"></div>
       <div><label>카테고리 *</label>
@@ -1023,12 +1036,11 @@ textarea{height:80px;resize:none}
           <option value="spa">스파·마사지</option>
         </select>
       </div>
-      <div><label>지역</label><input id="sh-loc" placeholder="예: 강남, 홍대, 명동"></div>
-      <div class="full"><label>대표 서비스 (쉼표 구분)</label><input id="sh-svcs" placeholder="예: 딥클렌징, 하이드라페이셜, 글라스스킨"></div>
-      <!-- 가격 입력: 최소~최대 숫자 -->
+      <div><label>지역 <span style="font-size:11px;color:rgba(255,255,255,.4)">(자동입력됨)</span></label><input id="sh-loc" placeholder="예: 강남, 홍대, 명동"></div>
+      <div class="full"><label>주소 <span style="font-size:11px;color:rgba(255,255,255,.4)">(자동입력됨)</span></label><input id="sh-addr" placeholder="구글맵 링크를 붙여넣으면 자동으로 채워집니다"></div>
+      <div class="full"><label>대표 서비스 <span style="font-size:11px;color:rgba(255,255,255,.4)">(쉼표 구분)</span></label><input id="sh-svcs" placeholder="예: 딥클렌징, 하이드라페이셜, 글라스스킨"></div>
       <div><label>최소 가격 (₩)</label><input id="sh-price-min" type="number" placeholder="50000" min="0" step="1000"></div>
       <div><label>최대 가격 (₩)</label><input id="sh-price-max" type="number" placeholder="200000" min="0" step="1000"></div>
-      <div class="full"><label>구글맵 URL <span style="font-size:11px;color:rgba(255,255,255,.4)">(선택)</span></label><input id="sh-gmap" placeholder="https://maps.google.com/?q=..."></div>
       <div class="full"><label>썸네일 이미지 URL <span style="font-size:11px;color:rgba(255,255,255,.4)">(선택)</span></label><input id="sh-thumb" placeholder="https://...image.jpg"></div>
       <div class="full"><label>업체 소개 <span style="font-size:11px;color:rgba(255,255,255,.4)">(선택)</span></label><textarea id="sh-desc" placeholder="고객에게 보여질 업체 소개 문구..."></textarea></div>
     </div>
@@ -1297,6 +1309,85 @@ document.getElementById('vd-panel-close').addEventListener('click', closeVideoPa
 document.getElementById('vd-submit-btn').addEventListener('click', addVideo);
 document.getElementById('sh-submit-btn').addEventListener('click', addShop);
 
+// ── 구글맵 URL 파싱 → 주소·지역 자동입력 ──
+function parseGmapUrl(raw){
+  var status = document.getElementById('sh-gmap-status');
+  var url = raw.trim();
+  if(!url){ status.textContent=''; return; }
+
+  // 구글맵 URL에서 쿼리 파라미터 q= 추출 (maps.google.com/?q=주소)
+  var qIdx = url.indexOf('?q=');
+  if(qIdx === -1) qIdx = url.indexOf('&q=');
+  if(qIdx !== -1){
+    var qVal = url.slice(qIdx+3).split('&')[0];
+    var decoded = '';
+    try { decoded = decodeURIComponent(qVal.split('+').join(' ')); } catch(e){ decoded = qVal; }
+    if(decoded){
+      fillAddressFromText(decoded, url);
+      return;
+    }
+  }
+
+  // maps.app.goo.gl 단축 URL — 직접 좌표 추출 불가, URL 그대로 저장
+  if(url.indexOf('goo.gl') !== -1 || url.indexOf('maps.app') !== -1){
+    document.getElementById('sh-addr').value = '';
+    status.style.color = '#fbbf24';
+    status.textContent = '⚠ 단축 URL은 주소 자동추출이 안 됩니다. 주소를 직접 입력해주세요.';
+    // googleMapUrl은 그대로 저장
+    document.getElementById('sh-gmap-raw').setAttribute('data-gmap-url', url);
+    return;
+  }
+
+  // /place/ 형식: maps.google.com/maps/place/업체명+주소/...
+  var placeIdx = url.indexOf('/place/');
+  if(placeIdx !== -1){
+    var placePart = url.slice(placeIdx+7).split('/')[0];
+    var decoded2 = '';
+    try { decoded2 = decodeURIComponent(placePart.split('+').join(' ')); } catch(e){ decoded2 = placePart; }
+    if(decoded2){
+      fillAddressFromText(decoded2, url);
+      return;
+    }
+  }
+
+  status.style.color = 'rgba(255,255,255,.4)';
+  status.textContent = '주소를 직접 입력해주세요.';
+  document.getElementById('sh-gmap-raw').setAttribute('data-gmap-url', url);
+}
+
+function fillAddressFromText(text, gmapUrl){
+  var status = document.getElementById('sh-gmap-status');
+  // 주소 필드에 채우기
+  document.getElementById('sh-addr').value = text;
+  document.getElementById('sh-gmap-raw').setAttribute('data-gmap-url', gmapUrl);
+
+  // 지역 자동 추출 (서울 주요 동네 키워드)
+  var areaMap = [
+    ['강남','Gangnam'],['서초','Seocho'],['송파','Songpa'],['강동','Gangdong'],
+    ['홍대','Hongdae'],['마포','Mapo'],['신촌','Sinchon'],['합정','Hapjeong'],
+    ['이태원','Itaewon'],['용산','Yongsan'],['명동','Myeongdong'],['중구','Jung-gu'],
+    ['종로','Jongno'],['인사동','Insadong'],['동대문','Dongdaemun'],['성동','Seongdong'],
+    ['성수','Seongsu'],['건대','Konkuk'],['압구정','Apgujeong'],['청담','Cheongdam'],
+    ['잠실','Jamsil'],['신사','Sinsa'],['가로수길','Garosu-gil'],['삼성','Samsung-dong'],
+    ['역삼','Yeoksam'],['선릉','Seolleung'],['부산','Busan'],['제주','Jeju'],
+    ['대구','Daegu'],['인천','Incheon'],['수원','Suwon']
+  ];
+  var found = '';
+  var ltext = text.toLowerCase();
+  for(var i=0;i<areaMap.length;i++){
+    if(ltext.indexOf(areaMap[i][0].toLowerCase())!==-1 || ltext.indexOf(areaMap[i][1].toLowerCase())!==-1){
+      found = areaMap[i][0]+', Seoul';
+      break;
+    }
+  }
+  if(found && !document.getElementById('sh-loc').value){
+    document.getElementById('sh-loc').value = found;
+  }
+
+  status.style.color = '#4ade80';
+  status.textContent = '✅ 주소 자동입력 완료! 지역: '+(found||'직접 입력해주세요');
+}
+
 // ── 업체 등록 ──
 function addShop(){
   var name = document.getElementById('sh-name').value.trim();
@@ -1305,15 +1396,23 @@ function addShop(){
   var pMin = parseInt(document.getElementById('sh-price-min').value)||0;
   var pMax = parseInt(document.getElementById('sh-price-max').value)||0;
   var priceRange = (pMin||pMax) ? (fmtPrice(pMin)+(pMax?'~'+fmtPrice(pMax):'')) : 'Contact us';
-  var slug = name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') + '-' + Date.now().toString().slice(-4);
+  var slugBase = '';
+  for(var ci=0;ci<name.length;ci++){ var ch=name[ci].toLowerCase(); slugBase += (ch>='a'&&ch<='z')||(ch>='0'&&ch<='9') ? ch : '-'; }
+  while(slugBase.indexOf('--')!==-1) slugBase=slugBase.split('--').join('-');
+  slugBase = slugBase.replace ? slugBase : slugBase;
+  if(slugBase[0]==='-') slugBase=slugBase.slice(1);
+  if(slugBase[slugBase.length-1]==='-') slugBase=slugBase.slice(0,-1);
+  var slug = (slugBase||'shop') + '-' + Date.now().toString().slice(-4);
+  var rawInput = document.getElementById('sh-gmap-raw');
+  var gmapUrl = rawInput.getAttribute('data-gmap-url') || rawInput.value || '';
   fetch('/api/shops',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
     name:name, slug:slug,
     category:document.getElementById('sh-cat').value,
     location:document.getElementById('sh-loc').value||'Seoul',
     priceRange:priceRange,
     hours:'', commission:15,
-    address:'',
-    googleMapUrl:document.getElementById('sh-gmap').value||'',
+    address:document.getElementById('sh-addr').value||'',
+    googleMapUrl:gmapUrl,
     googleMapEmbed:'',
     thumbnail:document.getElementById('sh-thumb').value||'',
     services:svcs,
@@ -1321,7 +1420,11 @@ function addShop(){
     description:document.getElementById('sh-desc').value||'',
     rating:5.0, reviewCount:0
   })}).then(function(){
-    ['sh-name','sh-loc','sh-price-min','sh-price-max','sh-gmap','sh-thumb','sh-svcs','sh-desc'].forEach(function(id){document.getElementById(id).value='';});
+    ['sh-name','sh-loc','sh-addr','sh-price-min','sh-price-max','sh-thumb','sh-svcs','sh-desc','sh-gmap-raw'].forEach(function(id){
+      var el = document.getElementById(id);
+      if(el){ el.value=''; el.removeAttribute('data-gmap-url'); }
+    });
+    document.getElementById('sh-gmap-status').textContent='';
     loadAll();
   });
 }
