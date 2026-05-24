@@ -908,11 +908,33 @@ var catIcons = {skincare:'&#127807;',makeup:'&#128139;',hair:'&#128135;',headspa
 
 fetch('/api/platform').then(function(r){return r.json();}).then(function(d){ platform = d; });
 
+// 로딩 화면 숨기기 (API 완료 후 호출)
+var _ldHidden = false;
+function hideLd(){
+  if(_ldHidden) return;
+  _ldHidden = true;
+  var ld = document.getElementById('ld');
+  if(!ld) return;
+  ld.style.opacity = '0';
+  setTimeout(function(){ ld.style.display = 'none'; }, 500);
+}
+
 function loadVideos(cat) {
-  fetch('/api/videos?category='+(cat||'all')).then(function(r){return r.json();}).then(function(d){
-    vids = d.videos || [];
-    renderFeed();
-  });
+  fetch('/api/videos?category='+(cat||'all'))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      vids = d.videos || [];
+      renderFeed();
+      hideLd(); // ✅ 데이터 받은 후 로딩 숨김
+    })
+    .catch(function(){
+      // 네트워크 오류 시에도 로딩 숨기고 빈 피드 표시
+      vids = [];
+      renderFeed();
+      hideLd();
+    });
+  // 안전장치: 5초 안에 API 안오면 강제 숨김
+  setTimeout(hideLd, 5000);
 }
 
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -921,6 +943,10 @@ function renderFeed() {
   var feed = document.getElementById('feed');
   var dots = document.getElementById('dots');
   feed.innerHTML = ''; dots.innerHTML = '';
+  if(!vids.length){
+    feed.innerHTML = '<div style="height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:rgba(255,255,255,.35);font-size:14px"><i class="fas fa-film" style="font-size:36px;margin-bottom:4px"></i><div>등록된 영상이 없습니다</div><div style="font-size:12px;color:rgba(255,255,255,.2)">관리자에서 업체와 영상을 먼저 등록해주세요</div></div>';
+    return;
+  }
   for(var i=0;i<vids.length;i++){
     var dot=document.createElement('div');
     dot.className='dot'+(i===0?' on':''); dot.id='dot'+i;
@@ -993,8 +1019,16 @@ function setupObs(){
       if(e.isIntersecting){ if(vid){vid.muted=isMuted;vid.play().catch(function(){});} }
       else { if(vid){vid.pause();vid.currentTime=0;} }
     });
-  },{threshold:0.65});
+  },{threshold:0.5}); // 0.65 → 0.5 (모바일 주소창 등에서도 인식)
   document.querySelectorAll('.slide').forEach(function(s){obs.observe(s);});
+
+  // 첫 슬라이드 강제 재생 (observer 지연 보완)
+  setTimeout(function(){
+    var firstVid = document.getElementById('vid0');
+    if(firstVid && firstVid.paused){ firstVid.muted=isMuted; firstVid.play().catch(function(){}); }
+    var dot0 = document.getElementById('dot0');
+    if(dot0) dot0.classList.add('on');
+  }, 300);
 }
 
 function openWhatsApp(shop, videoTitle) {
@@ -1250,13 +1284,6 @@ window.addEventListener('load', function(){
   document.getElementById('adminModal').addEventListener('click', function(e){
     if(e.target === this) window.closeAdminModal();
   });
-
-  /* 로딩 스크린 */
-  setTimeout(function(){
-    var ld = document.getElementById('ld');
-    ld.style.opacity = '0';
-    setTimeout(function(){ ld.style.display = 'none'; }, 500);
-  }, 1800);
 
   loadVideos('all');
 });
