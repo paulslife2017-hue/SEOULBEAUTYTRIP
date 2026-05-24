@@ -1041,7 +1041,23 @@ textarea{height:80px;resize:none}
     <div class="form-grid">
       <div class="full"><label>업체 선택 *</label><select id="vd-shop"></select></div>
       <div class="full"><label>영상 제목 *</label><input id="vd-title" placeholder="예: 강남 럭셔리 페이셜 트리트먼트"></div>
-      <div class="full"><label>영상 URL * (MP4 직접 링크)</label><input id="vd-url" placeholder="https://example.com/video.mp4"></div>
+      <div class="full">
+        <label>영상 URL *</label>
+        <div style="background:rgba(255,77,141,.06);border:1px solid rgba(255,77,141,.2);border-radius:10px;padding:10px;margin-bottom:8px;font-size:12px">
+          <div style="color:#FF85B3;font-weight:700;margin-bottom:6px"><i class="fas fa-lightbulb"></i> 사용 가능한 URL 형식</div>
+          <div style="display:grid;gap:5px">
+            <div style="color:rgba(255,255,255,.7)">✅ <b style="color:#4ade80">Cloudflare R2</b> — <span style="color:rgba(255,255,255,.5)">https://pub-xxx.r2.dev/video.mp4 (가장 추천)</span></div>
+            <div style="color:rgba(255,255,255,.7)">✅ <b style="color:#60a5fa">구글 드라이브</b> — <span style="color:rgba(255,255,255,.5)">drive.google.com 링크 붙여넣기 → 자동 변환</span></div>
+            <div style="color:rgba(255,255,255,.7)">✅ <b style="color:#a78bfa">직접 MP4 링크</b> — <span style="color:rgba(255,255,255,.5)">https://example.com/video.mp4</span></div>
+          </div>
+        </div>
+        <div style="position:relative">
+          <input id="vd-url" placeholder="URL을 붙여넣으세요 (구글 드라이브 링크도 OK!)" oninput="handleVideoUrlInput(this.value)" style="padding-right:90px">
+          <div id="vd-url-badge" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);padding:2px 8px;border-radius:6px;font-size:10px;font-weight:800"></div>
+        </div>
+        <div id="vd-url-hint" style="display:none;margin-top:6px;padding:8px 10px;background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.25);border-radius:8px;font-size:12px;color:#4ade80"></div>
+        <div id="vd-url-preview" style="display:none;margin-top:8px"></div>
+      </div>
       <div class="full"><label>썸네일 URL</label><input id="vd-thumb" placeholder="https://...image.jpg"></div>
       <div class="full"><label>영상 설명</label><input id="vd-desc" placeholder="짧은 설명을 입력하세요..."></div>
       <div class="full"><label>태그 (쉼표로 구분)</label><input id="vd-tags" placeholder="#KBeauty, #서울, #스킨케어"></div>
@@ -1225,10 +1241,94 @@ function delShop(id){
   fetch('/api/shops/'+id,{method:'DELETE'}).then(loadAll);
 }
 
+// ── 구글 드라이브 URL 변환 함수 ──
+function convertGDriveUrl(url){
+  // 형식1: https://drive.google.com/file/d/FILE_ID/view?...
+  var m1 = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if(m1) return 'https://drive.google.com/uc?export=download&id=' + m1[1];
+  // 형식2: https://drive.google.com/open?id=FILE_ID
+  var m2 = url.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/);
+  if(m2) return 'https://drive.google.com/uc?export=download&id=' + m2[1];
+  // 형식3: 이미 uc?export 형식
+  if(url.includes('drive.google.com/uc')) return url;
+  return null;
+}
+
+function detectUrlType(url){
+  if(!url) return null;
+  if(url.includes('drive.google.com')) return 'gdrive';
+  if(url.includes('r2.dev') || url.includes('r2.cloudflarestorage')) return 'r2';
+  if(url.match(/\.(mp4|webm|mov|avi)(\?|$)/i)) return 'direct';
+  if(url.startsWith('https://') || url.startsWith('http://')) return 'url';
+  return null;
+}
+
+function handleVideoUrlInput(raw){
+  var badge = document.getElementById('vd-url-badge');
+  var hint  = document.getElementById('vd-url-hint');
+  var preview = document.getElementById('vd-url-preview');
+  var input = document.getElementById('vd-url');
+  if(!raw){ badge.style.display='none'; hint.style.display='none'; preview.style.display='none'; return; }
+
+  var type = detectUrlType(raw);
+
+  // 구글 드라이브 → 자동 변환
+  if(type === 'gdrive'){
+    var converted = convertGDriveUrl(raw);
+    if(converted){
+      input.value = converted;
+      badge.style.display='inline-block';
+      badge.style.background='linear-gradient(135deg,#4285F4,#34A853)';
+      badge.style.color='#fff';
+      badge.textContent='구글 드라이브';
+      hint.style.display='block';
+      hint.innerHTML='<i class="fas fa-check-circle"></i> 구글 드라이브 링크가 자동으로 변환되었습니다! <span style="color:rgba(255,255,255,.5);font-size:11px">(영상이 공개 공유 상태인지 확인하세요)</span>';
+      showVideoPreview(converted, preview);
+      return;
+    }
+  }
+
+  // R2 URL
+  if(type === 'r2'){
+    badge.style.display='inline-block';
+    badge.style.background='linear-gradient(135deg,#F6821F,#FAAD3D)';
+    badge.style.color='#fff';
+    badge.textContent='Cloudflare R2';
+    hint.style.display='block';
+    hint.innerHTML='<i class="fas fa-check-circle"></i> Cloudflare R2 URL — 가장 안정적입니다!';
+    showVideoPreview(raw, preview);
+    return;
+  }
+
+  // 직접 MP4
+  if(type === 'direct'){
+    badge.style.display='inline-block';
+    badge.style.background='linear-gradient(135deg,#9B59B6,#8E44AD)';
+    badge.style.color='#fff';
+    badge.textContent='MP4 직접링크';
+    hint.style.display='none';
+    showVideoPreview(raw, preview);
+    return;
+  }
+
+  // 일반 URL
+  badge.style.display='none';
+  hint.style.display='none';
+  preview.style.display='none';
+}
+
+function showVideoPreview(url, container){
+  container.style.display='block';
+  container.innerHTML='<div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:4px"><i class="fas fa-eye"></i> 미리보기</div>' +
+    '<video src="'+url+'" controls style="width:100%;max-height:160px;border-radius:10px;background:#000" onerror="this.parentElement.innerHTML=\'<div style=&quot;padding:12px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;font-size:12px;color:#f87171&quot;><i class=\\\"fas fa-exclamation-triangle\\\"></i> 영상을 불러올 수 없습니다. URL을 확인해주세요.</div>\'"></video>';
+}
+
 function addVideo(){
-  var title=document.getElementById('vd-title').value;
-  var url=document.getElementById('vd-url').value;
-  if(!title||!url){alert('Title and Video URL required!');return;}
+  var title=document.getElementById('vd-title').value.trim();
+  var url=document.getElementById('vd-url').value.trim();
+  if(!title){alert('영상 제목을 입력해주세요!');return;}
+  if(!url){alert('영상 URL을 입력해주세요!');return;}
+  if(!document.getElementById('vd-shop').value){alert('업체를 선택해주세요!');return;}
   var tags=document.getElementById('vd-tags').value.split(',').map(function(t){return t.trim();}).filter(Boolean);
   fetch('/api/videos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
     shopId:document.getElementById('vd-shop').value,
@@ -1238,6 +1338,9 @@ function addVideo(){
     tags:tags
   })}).then(function(){
     ['vd-title','vd-url','vd-thumb','vd-desc','vd-tags'].forEach(function(id){document.getElementById(id).value='';});
+    document.getElementById('vd-url-badge').style.display='none';
+    document.getElementById('vd-url-hint').style.display='none';
+    document.getElementById('vd-url-preview').style.display='none';
     loadAll(); alert('영상이 등록되었습니다!');
   });
 }
