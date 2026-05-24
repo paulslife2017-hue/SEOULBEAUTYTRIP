@@ -442,8 +442,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .vtags{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px}
 .vtag{font-size:11px;color:var(--pl);font-weight:700}
 .btns-row{display:flex;gap:8px;align-items:center}
-.wa-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 16px;border-radius:22px;border:none;background:linear-gradient(135deg,#25D366,#128C7E);color:#fff;font-size:12px;font-weight:800;cursor:pointer;text-decoration:none}
-.detail-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 14px;border-radius:22px;border:1.5px solid rgba(255,255,255,.3);background:rgba(255,255,255,.08);color:#fff;font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;backdrop-filter:blur(10px)}
+.wa-btn{display:inline-flex;align-items:center;gap:7px;padding:11px 20px;border-radius:24px;border:none;background:linear-gradient(135deg,#25D366,#128C7E);color:#fff;font-size:13px;font-weight:800;cursor:pointer;text-decoration:none;box-shadow:0 4px 14px rgba(37,211,102,.35);letter-spacing:.2px}
 .shop-info-mini{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:11.5px;color:rgba(255,255,255,.6)}
 .hint{position:absolute;bottom:4px;left:50%;transform:translateX(-50%);z-index:3;display:flex;flex-direction:column;align-items:center;gap:1px;opacity:.45;animation:hb 2.2s infinite}
 .hint span{font-size:9px;color:#fff;letter-spacing:1.5px}
@@ -500,20 +499,21 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .m-detail:hover{background:rgba(255,255,255,.09);color:#fff}
 #toast{position:fixed;bottom:70px;left:50%;transform:translateX(-50%) translateY(12px);background:rgba(255,77,141,.9);color:#fff;padding:8px 18px;border-radius:18px;font-size:12px;font-weight:700;z-index:600;opacity:0;transition:all .28s;white-space:nowrap;pointer-events:none}
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
-.adm{position:fixed;bottom:16px;left:16px;z-index:200;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.25);padding:5px 11px;border-radius:16px;font-size:10px;text-decoration:none}
+/* adm 링크 제거됨 */
 </style>
 </head>
 <body>
 <div id="ld">
   <div class="sub">Discover</div>
+  <div style="font-size:36px;margin-bottom:-4px">&#10024;</div>
   <div class="brand">SEOUL</div>
   <div class="sub2">BEAUTY TRIP</div>
   <div class="bar"><div class="prog"></div></div>
 </div>
 
 <header id="hd">
-  <div class="logo">
-    <div class="logo-ic">&#128132;</div>
+  <div class="logo" id="logoBtn" style="cursor:pointer;user-select:none">
+    <div class="logo-ic">&#10024;</div>
     <div>
       <div class="logo-nm">SEOUL BEAUTY TRIP</div>
       <div class="logo-tg">Korean Beauty Experience</div>
@@ -533,7 +533,24 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 <button id="muteBtn" onclick="toggleMute()"><i class="fas fa-volume-mute"></i></button>
 <div id="feed"></div>
 <div id="toast"></div>
-<a href="/admin" class="adm">&#9881; Admin</a>
+
+<!-- 관리자 비밀번호 모달 -->
+<div id="adminModal" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.88);backdrop-filter:blur(10px);align-items:center;justify-content:center">
+  <div style="background:#13132a;border:1px solid rgba(255,77,141,.25);border-radius:20px;padding:28px 24px;width:280px;max-width:90vw;text-align:center">
+    <div style="font-size:28px;margin-bottom:8px">&#128274;</div>
+    <div style="font-size:15px;font-weight:800;margin-bottom:4px;background:linear-gradient(135deg,#FF4D8D,#FF85B3);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Admin Access</div>
+    <div style="font-size:11px;color:rgba(255,255,255,.35);margin-bottom:18px">Enter password to continue</div>
+    <form onsubmit="checkAdminPw();return false;" autocomplete="off">
+      <input type="text" name="username" style="display:none" autocomplete="username">
+      <input id="adminPwInput" type="password" placeholder="Password" autocomplete="current-password" style="width:100%;padding:11px 14px;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,77,141,.25);border-radius:11px;color:#fff;font-size:15px;outline:none;text-align:center;letter-spacing:4px;margin-bottom:12px">
+      <div style="display:flex;gap:8px">
+        <button type="submit" style="flex:1;padding:11px;background:linear-gradient(135deg,#FF4D8D,#9B59B6);border:none;border-radius:11px;color:#fff;font-size:13px;font-weight:800;cursor:pointer">Enter</button>
+        <button type="button" onclick="closeAdminModal()" style="flex:1;padding:11px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:11px;color:rgba(255,255,255,.5);font-size:13px;font-weight:700;cursor:pointer">Cancel</button>
+      </div>
+    </form>
+    <div id="adminPwErr" style="font-size:11px;color:#ef4444;margin-top:10px;display:none">Wrong password. Try again.</div>
+  </div>
+</div>
 
 <!-- 업체 정보 모달 -->
 <div class="modal-bg" id="shopModal">
@@ -601,8 +618,7 @@ function buildSlide(v, idx) {
       '<div class="vd">'+esc(v.description)+'</div>' +
       '<div class="vtags">'+tags+'</div>' +
       '<div class="btns-row">' +
-        '<div class="wa-btn" id="wabtn'+idx+'"><i class="fab fa-whatsapp" style="font-size:15px"></i> Book Now</div>' +
-        '<div class="detail-btn" id="detbtn'+idx+'"><i class="fas fa-store"></i> Shop Info</div>' +
+        '<div class="wa-btn" id="wabtn'+idx+'"><i class="fab fa-whatsapp" style="font-size:15px"></i> Book & Shop Info</div>' +
       '</div>' +
     '</div>' +
     '<div class="hint"><i class="fas fa-chevron-up" style="font-size:11px"></i><span>SWIPE UP</span></div>';
@@ -615,8 +631,7 @@ function buildSlide(v, idx) {
     document.getElementById('alke'+vidIdx).onclick = function(){ doLike(vid.id); };
     document.getElementById('ashop'+vidIdx).onclick = function(){ openShopModal(shop); };
     document.getElementById('ashare'+vidIdx).onclick = function(){ doShare(vid.title); };
-    document.getElementById('wabtn'+vidIdx).onclick = function(){ openWhatsApp(shop, vid.title); };
-    document.getElementById('detbtn'+vidIdx).onclick = function(){ openShopModal(shop); };
+    document.getElementById('wabtn'+vidIdx).onclick = function(){ openShopModal(shop); };
     // 조회수 기록
     fetch('/api/videos/'+vid.id+'/view', {method:'POST'}).catch(function(){});
   })(v, idx, shop);
@@ -692,10 +707,9 @@ function openShopModal(shop) {
     priceHtml +
     mapHtml;
 
-  /* 하단 버튼 */
+  /* 하단 버튼 - WhatsApp 예약만 */
   document.getElementById('modalBtns').innerHTML =
-    '<a href="'+waUrl+'" target="_blank" class="m-wa"><i class="fab fa-whatsapp" style="font-size:19px"></i> Book via WhatsApp</a>' +
-    '<a href="/shop/'+(shop.slug||shop.id)+'" class="m-detail"><i class="fas fa-external-link-alt"></i> View Full Details</a>';
+    '<a href="'+waUrl+'" target="_blank" class="m-wa"><i class="fab fa-whatsapp" style="font-size:19px"></i> Book via WhatsApp</a>';
 
   document.getElementById('shopModal').classList.add('open');
   /* 열릴 때 스크롤 최상단으로 */
@@ -808,6 +822,53 @@ document.querySelectorAll('.cat').forEach(function(b){
     document.getElementById('feed').scrollTo({top:0});
   });
 });
+/* ── 로고 3번 클릭 → Admin 비밀번호 모달 ── */
+(function(){
+  var clickCount = 0, clickTimer = null;
+  var ADMIN_PW = '0907';
+
+  document.getElementById('logoBtn').addEventListener('click', function(){
+    clickCount++;
+    if(clickTimer) clearTimeout(clickTimer);
+    /* 3번 클릭 감지 (1.5초 내) */
+    if(clickCount >= 3){
+      clickCount = 0;
+      showAdminModal();
+    } else {
+      clickTimer = setTimeout(function(){ clickCount = 0; }, 1500);
+    }
+  });
+
+  window.showAdminModal = function(){
+    var m = document.getElementById('adminModal');
+    m.style.display = 'flex';
+    var inp = document.getElementById('adminPwInput');
+    inp.value = '';
+    document.getElementById('adminPwErr').style.display = 'none';
+    setTimeout(function(){ inp.focus(); }, 100);
+  };
+  window.closeAdminModal = function(){
+    document.getElementById('adminModal').style.display = 'none';
+  };
+  window.checkAdminPw = function(){
+    var pw = document.getElementById('adminPwInput').value;
+    if(pw === ADMIN_PW){
+      window.location.href = '/admin';
+    } else {
+      var err = document.getElementById('adminPwErr');
+      err.style.display = 'block';
+      var inp = document.getElementById('adminPwInput');
+      inp.value = '';
+      inp.style.borderColor = '#ef4444';
+      setTimeout(function(){ inp.style.borderColor = 'rgba(255,77,141,.25)'; }, 1200);
+    }
+  };
+  /* 배경 클릭으로 닫기 */
+  document.getElementById('adminModal').addEventListener('click', function(e){
+    if(e.target === this) window.closeAdminModal();
+  });
+})();
+
 window.addEventListener('load',function(){
   setTimeout(function(){
     var ld=document.getElementById('ld');
