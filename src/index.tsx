@@ -463,7 +463,23 @@ app.post('/api/shops', async (c) => {
 app.put('/api/shops/:id', async (c) => {
   const sql = getDb()
   const body = await c.req.json()
-  await sql`UPDATE shops SET name=${body.name},category=${body.category},location=${body.location},address=${body.address},description=${body.description},active=${body.active} WHERE id=${c.req.param('id')}`
+  await sql`UPDATE shops SET
+    name=${body.name||''},
+    slug=${body.slug||''},
+    category=${body.category||''},
+    location=${body.location||''},
+    address=${body.address||''},
+    google_map_url=${body.googleMapUrl||''},
+    google_map_embed=${body.googleMapEmbed||''},
+    price_range=${body.priceRange||''},
+    hours=${body.hours||''},
+    services=${JSON.stringify(body.services||[])},
+    service_prices=${JSON.stringify(body.servicePrices||[])},
+    description=${body.description||''},
+    thumbnail=${body.thumbnail||''},
+    commission=${body.commission||15},
+    active=${body.active!==false}
+    WHERE id=${c.req.param('id')}`
   return c.json({ ok: true })
 })
 app.delete('/api/shops/:id', async (c) => {
@@ -1380,6 +1396,47 @@ textarea{height:80px;resize:none}
     <div id="shopList"></div>
   </div>
 
+  <!-- ② 업체 수정 패널 -->
+  <div class="card" id="editShopPanel" style="display:none;margin-bottom:16px;border:1px solid rgba(59,130,246,.4)">
+    <div class="card-header" style="margin-bottom:12px">
+      <div class="card-title"><i class="fas fa-edit" style="color:#60a5fa"></i> 업체 수정 — <span id="edit-shop-name-label" style="color:#93c5fd"></span></div>
+      <button style="background:none;border:none;color:rgba(255,255,255,.4);font-size:18px;cursor:pointer" id="edit-panel-close">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="full"><label>업체명 *</label><input id="edit-sh-name" placeholder="업체명"></div>
+      <div>
+        <label>카테고리</label>
+        <select id="edit-sh-cat">
+          <option value="skincare">스킨케어</option>
+          <option value="makeup">메이크업</option>
+          <option value="hair">헤어</option>
+          <option value="nail">네일</option>
+          <option value="clinic">클리닉</option>
+          <option value="spa">스파·마사지</option>
+        </select>
+      </div>
+      <div><label>지역</label><input id="edit-sh-loc" placeholder="예: Gangnam, Seoul"></div>
+      <div class="full"><label>주소</label><input id="edit-sh-addr" placeholder="주소"></div>
+      <div class="full"><label>영업시간</label><input id="edit-sh-hours" placeholder="예: 10:00~20:00 (Mon~Sat)"></div>
+      <div class="full"><label>구글맵 링크</label><input id="edit-sh-gmap-url" placeholder="https://maps.google.com/..."></div>
+      <div class="full"><label>구글맵 임베드 src</label><input id="edit-sh-gmap-embed" placeholder="https://www.google.com/maps/embed?pb=..."></div>
+      <div class="full"><label>썸네일 URL</label><input id="edit-sh-thumb" placeholder="https://...image.jpg"></div>
+      <div><label>수수료 (%)</label><input id="edit-sh-commission" type="number" min="0" max="100" placeholder="15"></div>
+      <div></div>
+      <div class="full"><label>업체 소개</label><textarea id="edit-sh-desc" placeholder="업체 소개 문구..."></textarea></div>
+    </div>
+    <!-- 서비스 목록 수정 -->
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.07)">
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:8px">서비스 목록 (이름 + 가격)</div>
+      <div id="edit-svc-list"></div>
+      <button type="button" id="edit-svc-add-btn" style="margin-top:6px;background:rgba(255,255,255,.06);border:1px dashed rgba(255,255,255,.2);border-radius:10px;color:rgba(255,255,255,.5);padding:7px 14px;font-size:12px;cursor:pointer;width:100%">+ 서비스 추가</button>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn-pk" style="flex:1;padding:13px;font-size:14px" id="edit-sh-submit-btn"><i class="fas fa-save"></i> 수정 저장</button>
+      <button type="button" id="edit-panel-cancel" style="padding:13px 20px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:10px;color:rgba(255,255,255,.5);font-size:13px;font-weight:600;cursor:pointer">취소</button>
+    </div>
+  </div>
+
   <!-- ③ 영상 추가 패널 (업체 클릭 시 슬라이드다운) -->
   <div class="card" id="videoAddPanel" style="display:none;margin-bottom:16px;border:1px solid rgba(255,77,141,.35)">
     <div class="card-header" style="margin-bottom:12px">
@@ -1465,6 +1522,8 @@ document.querySelectorAll('.tab').forEach(function(t){
 document.addEventListener('click', function(e){
   var delShopBtn = e.target.closest('.del-shop-btn');
   if(delShopBtn){ delShop(delShopBtn.getAttribute('data-id')); return; }
+  var editShopBtn = e.target.closest('.edit-shop-btn');
+  if(editShopBtn){ openEditShopPanel(editShopBtn.getAttribute('data-id')); return; }
   var delVideoBtn = e.target.closest('.del-video-btn');
   if(delVideoBtn){ delVideo(delVideoBtn.getAttribute('data-id')); return; }
   var addVideoBtn = e.target.closest('[data-add-video]');
@@ -1550,6 +1609,7 @@ function renderShops(){
       // 액션 버튼
       +'<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">'
         +'<button data-add-video="'+s.id+'" style="padding:6px 12px;background:linear-gradient(135deg,#FF4D8D,#9B59B6);border:none;border-radius:8px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap"><i class="fas fa-plus"></i> 영상</button>'
+        +'<button class="edit-shop-btn" data-id="'+s.id+'" style="padding:6px 12px;background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.25);border-radius:8px;color:#60a5fa;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap"><i class="fas fa-edit"></i> 수정</button>'
         +'<button class="del-shop-btn" data-id="'+s.id+'" style="padding:6px 12px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.25);border-radius:8px;color:#f87171;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap"><i class="fas fa-trash"></i> 삭제</button>'
       +'</div>'
     +'</div>';
@@ -1665,6 +1725,150 @@ document.getElementById('vd-submit-btn').addEventListener('click', addVideo);
 document.getElementById('sh-submit-btn').addEventListener('click', addShop);
 document.getElementById('svc-add-btn').addEventListener('click', addSvcRow);
 document.getElementById('vid-add-btn').addEventListener('click', addVidRow);
+
+// ── 업체 수정 패널 열기 ──
+var editingShopId = null;
+function openEditShopPanel(shopId){
+  var shop = shops.find(function(s){ return String(s.id) === String(shopId); });
+  if(!shop){ alert('업체 정보를 찾을 수 없습니다.'); return; }
+  editingShopId = shopId;
+
+  // 탭 활성화
+  var tabShops = document.getElementById('tab-shops');
+  if(tabShops && !tabShops.classList.contains('on')){
+    document.querySelectorAll('.tab').forEach(function(x){ x.classList.remove('on'); });
+    document.querySelectorAll('.tab-content').forEach(function(x){ x.classList.remove('on'); });
+    var tabBtn = document.querySelector('.tab[data-tab="shops"]');
+    if(tabBtn) tabBtn.classList.add('on');
+    tabShops.classList.add('on');
+  }
+
+  // 폼에 기존값 채우기
+  document.getElementById('edit-shop-name-label').textContent = shop.name;
+  document.getElementById('edit-sh-name').value = shop.name || '';
+  document.getElementById('edit-sh-cat').value = shop.category || 'skincare';
+  document.getElementById('edit-sh-loc').value = shop.location || '';
+  document.getElementById('edit-sh-addr').value = shop.address || '';
+  document.getElementById('edit-sh-hours').value = shop.hours || '';
+  document.getElementById('edit-sh-gmap-url').value = shop.googleMapUrl || '';
+  document.getElementById('edit-sh-gmap-embed').value = shop.googleMapEmbed || '';
+  document.getElementById('edit-sh-thumb').value = shop.thumbnail || '';
+  document.getElementById('edit-sh-commission').value = shop.commission || 15;
+  document.getElementById('edit-sh-desc').value = shop.description || '';
+
+  // 서비스 목록 채우기
+  var svcList = document.getElementById('edit-svc-list');
+  svcList.innerHTML = '';
+  var prices = shop.servicePrices || [];
+  if(prices.length > 0){
+    prices.forEach(function(p){
+      var rawPrice = p.price ? p.price.replace(/[₩,]/g,'') : '';
+      addEditSvcRow(p.name, rawPrice);
+    });
+  } else {
+    addEditSvcRow('','');
+  }
+
+  document.getElementById('editShopPanel').style.display = 'block';
+  document.getElementById('videoAddPanel').style.display = 'none';
+  setTimeout(function(){
+    document.getElementById('editShopPanel').scrollIntoView({behavior:'smooth', block:'start'});
+  }, 50);
+}
+
+function closeEditShopPanel(){
+  document.getElementById('editShopPanel').style.display = 'none';
+  editingShopId = null;
+}
+
+function addEditSvcRow(name, price){
+  var list = document.getElementById('edit-svc-list');
+  var row = document.createElement('div');
+  row.className = 'edit-svc-row';
+  row.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;align-items:center';
+  var nameIn = document.createElement('input');
+  nameIn.className = 'edit-svc-name';
+  nameIn.placeholder = '서비스명';
+  nameIn.value = name || '';
+  nameIn.style.flex = '2';
+  var priceIn = document.createElement('input');
+  priceIn.className = 'edit-svc-price';
+  priceIn.type = 'number';
+  priceIn.placeholder = '가격 (예: 80000)';
+  priceIn.value = price || '';
+  priceIn.min = '0';
+  priceIn.step = '1000';
+  priceIn.style.flex = '1';
+  var del = document.createElement('button');
+  del.type = 'button';
+  del.textContent = '✕';
+  del.style.cssText = 'background:rgba(239,68,68,.15);border:none;border-radius:8px;color:#f87171;width:32px;height:32px;cursor:pointer;font-size:14px;flex-shrink:0';
+  del.addEventListener('click', function(){ row.remove(); });
+  row.appendChild(nameIn); row.appendChild(priceIn); row.appendChild(del);
+  list.appendChild(row);
+}
+
+function saveEditShop(){
+  if(!editingShopId){ return; }
+  var name = document.getElementById('edit-sh-name').value.trim();
+  if(!name){ alert('업체명을 입력해주세요!'); return; }
+
+  // 서비스 수집
+  var svcRows = document.querySelectorAll('#edit-svc-list .edit-svc-row');
+  var svcs = [], svcPrices = [], pMin = 0, pMax = 0;
+  svcRows.forEach(function(row){
+    var n = row.querySelector('.edit-svc-name').value.trim();
+    var p = parseInt(row.querySelector('.edit-svc-price').value)||0;
+    if(n){
+      svcs.push(n);
+      svcPrices.push({name:n, price: p ? fmtPrice(p) : ''});
+      if(p){ if(!pMin||p<pMin) pMin=p; if(p>pMax) pMax=p; }
+    }
+  });
+  var priceRange = (pMin||pMax) ? (fmtPrice(pMin)+(pMax&&pMax!==pMin?'~'+fmtPrice(pMax):'')) : (document.getElementById('edit-sh-hours').value ? 'Contact us' : '');
+
+  var btn = document.getElementById('edit-sh-submit-btn');
+  btn.disabled = true; btn.textContent = '저장 중...';
+
+  var shop = shops.find(function(s){ return String(s.id) === String(editingShopId); }) || {};
+
+  fetch('/api/shops/'+editingShopId, {
+    method:'PUT',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      name: name,
+      slug: shop.slug || '',
+      category: document.getElementById('edit-sh-cat').value,
+      location: document.getElementById('edit-sh-loc').value || 'Seoul',
+      address: document.getElementById('edit-sh-addr').value || '',
+      hours: document.getElementById('edit-sh-hours').value || '',
+      googleMapUrl: document.getElementById('edit-sh-gmap-url').value || '',
+      googleMapEmbed: document.getElementById('edit-sh-gmap-embed').value || '',
+      thumbnail: document.getElementById('edit-sh-thumb').value || '',
+      commission: parseInt(document.getElementById('edit-sh-commission').value)||15,
+      description: document.getElementById('edit-sh-desc').value || '',
+      services: svcs,
+      servicePrices: svcPrices,
+      priceRange: svcs.length > 0 ? priceRange : (shop.priceRange||''),
+      rating: shop.rating || 5.0,
+      reviewCount: shop.reviewCount || 0,
+      active: true
+    })
+  }).then(function(r){ return r.json(); }).then(function(){
+    btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> 수정 저장';
+    closeEditShopPanel();
+    loadAll();
+    alert('✅ 업체 정보가 수정되었습니다!');
+  }).catch(function(){
+    btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> 수정 저장';
+    alert('오류가 발생했습니다. 다시 시도해주세요.');
+  });
+}
+
+document.getElementById('edit-panel-close').addEventListener('click', closeEditShopPanel);
+document.getElementById('edit-panel-cancel').addEventListener('click', closeEditShopPanel);
+document.getElementById('edit-sh-submit-btn').addEventListener('click', saveEditShop);
+document.getElementById('edit-svc-add-btn').addEventListener('click', function(){ addEditSvcRow('',''); });
 
 // 구글맵 자동입력 버튼 + 붙여넣기 이벤트
 document.getElementById('sh-gmap-btn').addEventListener('click', function(){
