@@ -1,3 +1,28 @@
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+// api/index.ts
+var index_exports = {};
+__export(index_exports, {
+  default: () => handler
+});
+module.exports = __toCommonJS(index_exports);
+
 // node_modules/hono/dist/compose.js
 var compose = (middleware, onError, onNotFound) => {
   return (context, next) => {
@@ -4021,7 +4046,9 @@ loadAll();
 
 // api/index.ts
 async function handler(req, res) {
-  const url = `https://${req.headers.host || "localhost"}${req.url || "/"}`;
+  const proto = req.headers["x-forwarded-proto"] || "https";
+  const host = req.headers["x-forwarded-host"] || req.headers.host || "localhost";
+  const url = `${proto}://${host}${req.url || "/"}`;
   const method = req.method || "GET";
   const body = await new Promise((resolve) => {
     const chunks = [];
@@ -4041,16 +4068,18 @@ async function handler(req, res) {
   const request = new Request(url, {
     method,
     headers,
-    body: ["GET", "HEAD"].includes(method) ? void 0 : body
+    body: ["GET", "HEAD"].includes(method) ? void 0 : body.length > 0 ? body : void 0
   });
-  const response = await src_default.fetch(request);
-  res.statusCode = response.status;
-  response.headers.forEach((value, key) => {
-    res.setHeader(key, value);
-  });
-  const resBody = await response.arrayBuffer();
-  res.end(Buffer.from(resBody));
+  try {
+    const response = await src_default.fetch(request);
+    res.statusCode = response.status;
+    response.headers.forEach((value, key) => {
+      res.setHeader(key, value);
+    });
+    const resBody = await response.arrayBuffer();
+    res.end(Buffer.from(resBody));
+  } catch (e) {
+    res.statusCode = 500;
+    res.end("Internal Server Error: " + e.message);
+  }
 }
-export {
-  handler as default
-};

@@ -5,10 +5,10 @@ await build({
   bundle: true,
   platform: 'node',
   target: 'node20',
-  format: 'esm',
-  outfile: 'api/index.mjs',
+  format: 'cjs',
+  outfile: 'api/index.js',
   external: ['node:*'],
   minify: false,
 })
 
-console.log('✅ Build complete: api/index.mjs')
+console.log('✅ Build complete: api/index.js')
