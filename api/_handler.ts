@@ -1,13 +1,12 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import app from '../src/index'
 
-export default async function handler(req: IncomingMessage, res: ServerResponse) {
+async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const proto = (req.headers['x-forwarded-proto'] as string) || 'https'
   const host = (req.headers['x-forwarded-host'] as string) || req.headers.host || 'localhost'
   const url = `${proto}://${host}${req.url || '/'}`
   const method = req.method || 'GET'
 
-  // body 읽기
   const body = await new Promise<Buffer>((resolve) => {
     const chunks: Buffer[] = []
     req.on('data', (chunk: Buffer) => chunks.push(chunk))
@@ -41,6 +40,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     res.end(Buffer.from(resBody))
   } catch (e: any) {
     res.statusCode = 500
-    res.end('Internal Server Error: ' + e.message)
+    res.end('Internal Server Error: ' + (e.message || 'unknown'))
   }
 }
+
+module.exports = handler
+module.exports.default = handler

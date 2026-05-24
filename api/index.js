@@ -1,27 +1,3 @@
-var __defProp = Object.defineProperty;
-var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
-var __getOwnPropNames = Object.getOwnPropertyNames;
-var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __export = (target, all) => {
-  for (var name in all)
-    __defProp(target, name, { get: all[name], enumerable: true });
-};
-var __copyProps = (to, from, except, desc) => {
-  if (from && typeof from === "object" || typeof from === "function") {
-    for (let key of __getOwnPropNames(from))
-      if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
-  }
-  return to;
-};
-var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
-
-// api/_handler.ts
-var handler_exports = {};
-__export(handler_exports, {
-  default: () => handler
-});
-module.exports = __toCommonJS(handler_exports);
 
 // node_modules/hono/dist/compose.js
 var compose = (middleware, onError, onNotFound) => {
@@ -4080,6 +4056,14 @@ async function handler(req, res) {
     res.end(Buffer.from(resBody));
   } catch (e) {
     res.statusCode = 500;
-    res.end("Internal Server Error: " + e.message);
+    res.end("Internal Server Error: " + (e.message || "unknown"));
   }
+}
+module.exports = handler;
+module.exports.default = handler;
+
+
+// Vercel CJS handler export
+if (typeof handler === 'function') {
+  module.exports = handler;
 }

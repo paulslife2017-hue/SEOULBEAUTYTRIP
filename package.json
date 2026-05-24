@@ -1,6 +1,5 @@
 {
   "name": "webapp",
-  "type": "module",
   "scripts": {
     "dev": "npx tsx src/server.ts",
     "build": "node build.mjs",
