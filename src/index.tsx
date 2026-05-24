@@ -1093,6 +1093,16 @@ textarea{height:80px;resize:none}
 <script>
 var shops=[], videos=[], bookings=[];
 
+// safe-img: data-fallback 속성으로 onerror 대체 (스크립트 문자열 이스케이프 문제 방지)
+document.addEventListener('error', function(e){
+  var t = e.target;
+  if(t && t.tagName === 'IMG' && t.classList.contains('safe-img')){
+    var fb = t.getAttribute('data-fallback');
+    if(fb) t.src = fb;
+    else t.style.display = 'none';
+  }
+}, true);
+
 document.addEventListener('DOMContentLoaded', function(){
 
 // ── 탭 전환 ──
@@ -1105,6 +1115,18 @@ document.querySelectorAll('.tab').forEach(function(t){
   });
 });
 
+// ── 이벤트 위임: 삭제/상태 변경 버튼 ──
+document.addEventListener('click', function(e){
+  var delShopBtn = e.target.closest('.del-shop-btn');
+  if(delShopBtn){ delShop(delShopBtn.getAttribute('data-id')); return; }
+  var delVideoBtn = e.target.closest('.del-video-btn');
+  if(delVideoBtn){ delVideo(delVideoBtn.getAttribute('data-id')); return; }
+});
+document.addEventListener('change', function(e){
+  var sel = e.target.closest('.status-select');
+  if(sel){ updateStatus(sel.getAttribute('data-id'), sel.value); }
+});
+
 // LOAD ALL
 function loadAll(){
   fetch('/api/stats').then(function(r){return r.json();}).then(function(d){
@@ -1115,7 +1137,7 @@ function loadAll(){
     document.getElementById('topVids').innerHTML = (d.topVideos||[]).map(function(v,i){
       return '<div class="top-vid">'+
         '<div class="top-rank">#'+(i+1)+'</div>'+
-        '<img src="'+(v.thumbnail||'')+'" onerror="this.style.display=\'none\'">'+
+        '<img src="'+(v.thumbnail||'')+'" class="safe-img">'+
         '<div style="flex:1"><div style="font-size:13px;font-weight:700;margin-bottom:3px">'+v.title+'</div>'+
         '<div style="font-size:11px;color:rgba(255,255,255,.4)"><i class="fas fa-eye"></i> '+v.views+' 조회 &nbsp; <i class="fas fa-heart" style="color:#FF4D8D"></i> '+v.likes+' 좋아요</div></div>'+
         '</div>';
@@ -1145,14 +1167,14 @@ function renderShopSelect(){
 function renderShops(){
   document.getElementById('shopList').innerHTML = shops.map(function(s){
     return '<div class="shop-row">'+
-      '<img src="'+(s.thumbnail||'')+'" onerror="this.src=\'https://placehold.co/56x56/1c1c30/FF4D8D?text=Shop\'">'+
+      '<img src="'+(s.thumbnail||'')+'" class="safe-img" data-fallback="https://placehold.co/56x56/1c1c30/FF4D8D?text=Shop">'+
       '<div class="shop-meta">'+
         '<h4>'+s.name+'</h4>'+
         '<p><i class="fas fa-map-marker-alt" style="color:#FF4D8D"></i> '+s.location+' &nbsp;|&nbsp; <i class="fas fa-percentage" style="color:#FF4D8D"></i> '+s.commission+'% 수수료</p>'+
         '<p><i class="fas fa-clock" style="color:#FF4D8D"></i> '+s.hours+' &nbsp;|&nbsp; <i class="fas fa-won-sign" style="color:#FF4D8D"></i> '+s.priceRange+'</p>'+
         '<div class="tags"><span class="bdg bdg-cat">'+s.category+'</span></div>'+
       '</div>'+
-      '<button class="btn-sm btn-red" onclick="delShop(\''+s.id+'\')"><i class="fas fa-trash"></i></button>'+
+      '<button class="btn-sm btn-red del-shop-btn" data-id="'+s.id+'">X</button>'+
       '</div>';
   }).join('');
 }
@@ -1161,13 +1183,13 @@ function renderVideos(){
   document.getElementById('videoList').innerHTML = videos.map(function(v){
     var shop = shops.find(function(s){return s.id===v.shopId;})||{};
     return '<div class="vid-row">'+
-      '<img src="'+(v.thumbnail||'')+'" onerror="this.src=\'https://placehold.co/48x64/1c1c30/FF4D8D?text=Vid\'">'+
+      '<img src="'+(v.thumbnail||'')+'" class="safe-img" data-fallback="https://placehold.co/48x64/1c1c30/FF4D8D?text=Vid">'+
       '<div style="flex:1">'+
         '<div style="font-size:13px;font-weight:700;margin-bottom:3px">'+v.title+'</div>'+
         '<div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:4px">'+shop.name+'</div>'+
         '<div style="font-size:11px;color:rgba(255,255,255,.35)"><i class="fas fa-eye"></i> '+v.views+' &nbsp; <i class="fas fa-heart" style="color:#FF4D8D"></i> '+v.likes+'</div>'+
       '</div>'+
-      '<button class="btn-sm btn-red" onclick="delVideo(\''+v.id+'\')"><i class="fas fa-trash"></i></button>'+
+      '<button class="btn-sm btn-red del-video-btn" data-id="'+v.id+'">X</button>'+
       '</div>';
   }).join('');
 }
@@ -1186,7 +1208,7 @@ function renderBookings(){
       '<td style="font-size:12px"><span style="color:#10b981;font-weight:700">'+b.commissionRate+'%</span><br><span style="font-size:10px;color:rgba(255,255,255,.4)">'+b.estimatedAmount+'</span></td>'+
       '<td><span class="bdg '+statusClass[b.status]+'">'+statusLabels[b.status]+'</span></td>'+
       '<td>'+
-        '<select onchange="updateStatus(\''+b.id+'\',this.value)" style="padding:4px 6px;font-size:11px;width:auto">'+
+        '<select class="status-select" data-id="'+b.id+'" style="padding:4px 6px;font-size:11px;width:auto">'+
           Object.keys(statusLabels).map(function(k){return '<option value="'+k+'"'+(b.status===k?' selected':'')+'>'+statusLabels[k]+'</option>';}).join('')+
         '</select>'+
         '<br><a href="https://wa.me/'+b.phone.replace(/[^0-9]/g,'')+'" target="_blank" style="display:inline-flex;align-items:center;gap:3px;margin-top:4px;font-size:11px;color:#25D366;text-decoration:none"><i class="fab fa-whatsapp"></i> 연락하기</a>'+
@@ -1243,23 +1265,33 @@ function delShop(id){
 
 // ── 구글 드라이브 URL 변환 함수 ──
 function convertGDriveUrl(url){
-  // 형식1: https://drive.google.com/file/d/FILE_ID/view?...
-  var m1 = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
-  if(m1) return 'https://drive.google.com/uc?export=download&id=' + m1[1];
-  // 형식2: https://drive.google.com/open?id=FILE_ID
-  var m2 = url.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/);
-  if(m2) return 'https://drive.google.com/uc?export=download&id=' + m2[1];
+  // 형식1: drive.google.com/file/d/FILE_ID/view
+  var marker1 = 'drive.google.com/file/d/';
+  var idx1 = url.indexOf(marker1);
+  if(idx1 !== -1){
+    var rest1 = url.slice(idx1 + marker1.length);
+    var id1 = rest1.split('/')[0].split('?')[0];
+    if(id1) return 'https://drive.google.com/uc?export=download&id=' + id1;
+  }
+  // 형식2: drive.google.com/open?id=FILE_ID
+  var marker2 = 'drive.google.com/open?id=';
+  var idx2 = url.indexOf(marker2);
+  if(idx2 !== -1){
+    var id2 = url.slice(idx2 + marker2.length).split('&')[0];
+    if(id2) return 'https://drive.google.com/uc?export=download&id=' + id2;
+  }
   // 형식3: 이미 uc?export 형식
-  if(url.includes('drive.google.com/uc')) return url;
+  if(url.indexOf('drive.google.com/uc') !== -1) return url;
   return null;
 }
 
 function detectUrlType(url){
   if(!url) return null;
-  if(url.includes('drive.google.com')) return 'gdrive';
-  if(url.includes('r2.dev') || url.includes('r2.cloudflarestorage')) return 'r2';
-  if(url.match(/\.(mp4|webm|mov|avi)(\?|$)/i)) return 'direct';
-  if(url.startsWith('https://') || url.startsWith('http://')) return 'url';
+  if(url.indexOf('drive.google.com') !== -1) return 'gdrive';
+  if(url.indexOf('r2.dev') !== -1 || url.indexOf('r2.cloudflarestorage') !== -1) return 'r2';
+  var lower = url.toLowerCase().split('?')[0];
+  if(lower.slice(-4)==='.mp4'||lower.slice(-5)==='.webm'||lower.slice(-4)==='.mov'||lower.slice(-4)==='.avi') return 'direct';
+  if(url.indexOf('https://')===0 || url.indexOf('http://')===0) return 'url';
   return null;
 }
 
@@ -1282,7 +1314,7 @@ function handleVideoUrlInput(raw){
       badge.style.color='#fff';
       badge.textContent='구글 드라이브';
       hint.style.display='block';
-      hint.innerHTML='<i class="fas fa-check-circle"></i> 구글 드라이브 링크가 자동으로 변환되었습니다! <span style="color:rgba(255,255,255,.5);font-size:11px">(영상이 공개 공유 상태인지 확인하세요)</span>';
+      hint.textContent='✅ 구글 드라이브 링크가 자동으로 변환되었습니다! (영상이 공개 공유 상태인지 확인하세요)';
       showVideoPreview(converted, preview);
       return;
     }
@@ -1295,7 +1327,7 @@ function handleVideoUrlInput(raw){
     badge.style.color='#fff';
     badge.textContent='Cloudflare R2';
     hint.style.display='block';
-    hint.innerHTML='<i class="fas fa-check-circle"></i> Cloudflare R2 URL — 가장 안정적입니다!';
+    hint.textContent='✅ Cloudflare R2 URL — 가장 안정적입니다!';
     showVideoPreview(raw, preview);
     return;
   }
@@ -1319,8 +1351,26 @@ function handleVideoUrlInput(raw){
 
 function showVideoPreview(url, container){
   container.style.display='block';
-  container.innerHTML='<div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:4px"><i class="fas fa-eye"></i> 미리보기</div>' +
-    '<video src="'+url+'" controls style="width:100%;max-height:160px;border-radius:10px;background:#000" onerror="this.parentElement.innerHTML=\'<div style=&quot;padding:12px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;font-size:12px;color:#f87171&quot;><i class=\\\"fas fa-exclamation-triangle\\\"></i> 영상을 불러올 수 없습니다. URL을 확인해주세요.</div>\'"></video>';
+  var wrap = document.createElement('div');
+  var label = document.createElement('div');
+  label.style.cssText = 'font-size:11px;color:rgba(255,255,255,.4);margin-bottom:4px';
+  label.textContent = '▶ 미리보기';
+  var vid = document.createElement('video');
+  vid.src = url;
+  vid.controls = true;
+  vid.style.cssText = 'width:100%;max-height:160px;border-radius:10px;background:#000;display:block';
+  vid.onerror = function(){
+    var errDiv = document.createElement('div');
+    errDiv.style.cssText = 'padding:12px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;font-size:12px;color:#f87171';
+    errDiv.textContent = '⚠ 영상을 불러올 수 없습니다. URL을 확인해주세요.';
+    while(container.firstChild) container.removeChild(container.firstChild);
+    container.appendChild(label.cloneNode(true));
+    container.appendChild(errDiv);
+  };
+  wrap.appendChild(label);
+  wrap.appendChild(vid);
+  while(container.firstChild) container.removeChild(container.firstChild);
+  container.appendChild(wrap);
 }
 
 function addVideo(){
