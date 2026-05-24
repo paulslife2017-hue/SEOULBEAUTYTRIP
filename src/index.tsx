@@ -504,6 +504,17 @@ app.delete('/api/videos/:id', async (c) => {
   await sql`DELETE FROM videos WHERE id=${c.req.param('id')}`
   return c.json({ ok: true })
 })
+app.put('/api/videos/:id', async (c) => {
+  const sql = getDb()
+  const body = await c.req.json()
+  await sql`UPDATE videos SET
+    title=${body.title||''},
+    description=${body.description||''},
+    thumbnail=${body.thumbnail||''},
+    tags=${JSON.stringify(body.tags||[])}
+    WHERE id=${c.req.param('id')}`
+  return c.json({ ok: true })
+})
 app.post('/api/videos/:id/view', async (c) => {
   const sql = getDb()
   await sql`UPDATE videos SET views=views+1 WHERE id=${c.req.param('id')}`
@@ -842,6 +853,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
     <button class="cat" data-cat="skincare">&#127807; Skincare</button>
     <button class="cat" data-cat="makeup">&#128139; Makeup</button>
     <button class="cat" data-cat="hair">&#128135; Hair</button>
+    <button class="cat" data-cat="headspa">&#129496; Head Spa</button>
     <button class="cat" data-cat="nail">&#128133; Nail</button>
     <button class="cat" data-cat="clinic">&#127973; Clinic</button>
   </div>
@@ -887,7 +899,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 
 <script>
 var vids = [], isMuted = true, liked = {}, platform = {};
-var catIcons = {skincare:'&#127807;',makeup:'&#128139;',hair:'&#128135;',nail:'&#128133;',clinic:'&#127973;'};
+var catIcons = {skincare:'&#127807;',makeup:'&#128139;',hair:'&#128135;',headspa:'&#129496;',nail:'&#128133;',clinic:'&#127973;'};
 
 fetch('/api/platform').then(function(r){return r.json();}).then(function(d){ platform = d; });
 
@@ -1354,6 +1366,7 @@ textarea{height:80px;resize:none}
           <option value="skincare">스킨케어</option>
           <option value="makeup">메이크업</option>
           <option value="hair">헤어</option>
+          <option value="headspa">헤드스파</option>
           <option value="nail">네일</option>
           <option value="clinic">클리닉</option>
           <option value="spa">스파·마사지</option>
@@ -1410,6 +1423,7 @@ textarea{height:80px;resize:none}
           <option value="skincare">스킨케어</option>
           <option value="makeup">메이크업</option>
           <option value="hair">헤어</option>
+          <option value="headspa">헤드스파</option>
           <option value="nail">네일</option>
           <option value="clinic">클리닉</option>
           <option value="spa">스파·마사지</option>
@@ -1581,8 +1595,8 @@ function renderShops(){
     el.innerHTML = '<div style="text-align:center;padding:40px 24px;color:rgba(255,255,255,.25);font-size:13px"><div style="font-size:32px;margin-bottom:8px">🏪</div>등록된 업체가 없습니다<br><span style="font-size:11px">위 폼으로 업체를 등록해보세요</span></div>';
     return;
   }
-  var catColors = {skincare:'#f472b6',makeup:'#c084fc',hair:'#60a5fa',nail:'#34d399',clinic:'#fb923c',spa:'#a78bfa'};
-  var catLabels = {skincare:'스킨케어',makeup:'메이크업',hair:'헤어',nail:'네일',clinic:'클리닉',spa:'스파'};
+  var catColors = {skincare:'#f472b6',makeup:'#c084fc',hair:'#60a5fa',headspa:'#67e8f9',nail:'#34d399',clinic:'#fb923c',spa:'#a78bfa'};
+  var catLabels = {skincare:'스킨케어',makeup:'메이크업',hair:'헤어',headspa:'헤드스파',nail:'네일',clinic:'클리닉',spa:'스파'};
   el.innerHTML = '<div style="display:grid;gap:12px">' + shops.map(function(s){
     var vcount = videos.filter(function(v){return v.shopId===s.id;}).length;
     var catColor = catColors[s.category] || '#aaa';
