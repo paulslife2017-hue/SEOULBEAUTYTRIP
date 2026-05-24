@@ -1,7 +1,7 @@
 import { build } from 'esbuild'
 
 await build({
-  entryPoints: ['api/index.ts'],
+  entryPoints: ['api/_handler.ts'],
   bundle: true,
   platform: 'node',
   target: 'node20',

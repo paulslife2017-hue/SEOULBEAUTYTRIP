@@ -16,12 +16,12 @@ var __copyProps = (to, from, except, desc) => {
 };
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// api/index.ts
-var index_exports = {};
-__export(index_exports, {
+// api/_handler.ts
+var handler_exports = {};
+__export(handler_exports, {
   default: () => handler
 });
-module.exports = __toCommonJS(index_exports);
+module.exports = __toCommonJS(handler_exports);
 
 // node_modules/hono/dist/compose.js
 var compose = (middleware, onError, onNotFound) => {
@@ -4044,7 +4044,7 @@ loadAll();
 </body>
 </html>`;
 
-// api/index.ts
+// api/_handler.ts
 async function handler(req, res) {
   const proto = req.headers["x-forwarded-proto"] || "https";
   const host = req.headers["x-forwarded-host"] || req.headers.host || "localhost";
