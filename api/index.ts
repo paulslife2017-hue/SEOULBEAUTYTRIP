@@ -1,6 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import app from '../src/index'
 
+// multipart/form-data(파일 업로드)가 깨지지 않도록 Vercel 자동 파싱 비활성화
+export const config = { api: { bodyParser: false } }
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const proto = (req.headers['x-forwarded-proto'] as string) || 'https'
   const host = (req.headers['x-forwarded-host'] as string) || req.headers.host || 'localhost'

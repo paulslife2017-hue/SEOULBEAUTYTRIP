@@ -249,7 +249,7 @@ app.post('/api/resolve-gmap', async (c) => {
         const lon = coordMatch[2]
         try {
           const nomRes = await fetch(
-            'https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lon + '&accept-language=ko',
+            'https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lon + '&accept-language=en',
             { headers: { 'User-Agent': 'SeoulBeautyTrip/1.0' } }
           )
           const nomData = await nomRes.json() as any
