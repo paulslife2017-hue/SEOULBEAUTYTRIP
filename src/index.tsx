@@ -1,8 +1,8 @@
 import { Hono } from 'hono'
-import { serveStatic } from 'hono/cloudflare-workers'
+import { serveStatic } from '@hono/node-server/serve-static'
 
 const app = new Hono()
-app.use('/static/*', serveStatic({ root: './' }))
+app.use('/static/*', serveStatic({ root: './public' }))
 
 // ── 플랫폼 설정 ──
 const PLATFORM = {
@@ -187,10 +187,132 @@ app.get('/api/shops/:id', (c) => {
   const shopVideos = videos.filter(v => v.shopId === shop.id)
   return c.json({ shop, videos: shopVideos })
 })
+// ── 구글맵 단축URL 언팩 → 업체명·주소·지역 반환 ──
+app.post('/api/resolve-gmap', async (c) => {
+  try {
+    const { url } = await c.req.json() as { url: string }
+    if (!url) return c.json({ error: 'no url' }, 400)
+
+    // 단축 URL 리다이렉트 팔로우 (최대 5번)
+    let resolved = url
+    for (let i = 0; i < 5; i++) {
+      const r = await fetch(resolved, { method: 'HEAD', redirect: 'manual' })
+      const loc = r.headers.get('location')
+      if (!loc) break
+      resolved = loc.indexOf('http') === 0 ? loc : resolved
+      if (loc.indexOf('maps.google.com') !== -1 || loc.indexOf('/maps/place/') !== -1) break
+    }
+
+    // /place/ 파싱
+    const areaMap: [string, string][] = [
+      ['압구정','Apgujeong, Seoul'],['청담','Cheongdam, Seoul'],
+      ['가로수길','Sinsa, Seoul'],['신사','Sinsa, Seoul'],
+      ['역삼','Gangnam, Seoul'],['선릉','Gangnam, Seoul'],
+      ['강남','Gangnam, Seoul'],['서초','Seocho, Seoul'],
+      ['홍대','Hongdae, Seoul'],['합정','Hapjeong, Seoul'],
+      ['상수','Hapjeong, Seoul'],['신촌','Sinchon, Seoul'],
+      ['마포','Mapo, Seoul'],['이태원','Itaewon, Seoul'],
+      ['한남','Itaewon, Seoul'],['용산','Yongsan, Seoul'],
+      ['명동','Myeongdong, Seoul'],['중구','Myeongdong, Seoul'],
+      ['종로','Jongno, Seoul'],['인사동','Jongno, Seoul'],
+      ['동대문','Dongdaemun, Seoul'],['성수','Seongsu, Seoul'],
+      ['성동','Seongsu, Seoul'],['건대','Konkuk, Seoul'],
+      ['잠실','Jamsil, Seoul'],['송파','Songpa, Seoul'],
+      ['강동','Songpa, Seoul'],['여의도','Yeouido, Seoul'],
+      ['영등포','Yeouido, Seoul'],['강서','Gangseo, Seoul'],
+      ['목동','Gangseo, Seoul'],['노원','Nowon, Seoul'],
+      ['은평','Eunpyeong, Seoul'],['부산','Busan'],
+      ['해운대','Busan'],['서면','Busan'],['제주','Jeju'],
+      ['인천','Incheon'],['대구','Daegu'],['대전','Daejeon'],
+      ['광주','Gwangju'],['수원','Suwon']
+    ]
+
+    const findArea = (text: string) => {
+      const t = text.toLowerCase()
+      for (const [kw, val] of areaMap) {
+        if (t.indexOf(kw) !== -1) return val
+      }
+      return ''
+    }
+
+    const placeIdx = resolved.indexOf('/place/')
+    if (placeIdx !== -1) {
+      const raw = resolved.slice(placeIdx + 7).split('/')[0]
+      let decoded = ''
+      try { decoded = decodeURIComponent(raw.split('+').join(' ')) } catch { decoded = raw }
+      decoded = decoded.split('?')[0].trim()
+
+      // 업체명: 주소성 단어 전까지
+      const stopWords = ['서울','경기','부산','인천','대구','광주','대전','울산','특별시','광역시','구','동','로 ','길 ','번길','번지']
+      const parts = decoded.split(' ')
+      const nameParts: string[] = []
+      for (let i = 0; i < parts.length && i < 5; i++) {
+        const w = parts[i]
+        if (stopWords.some(s => w.indexOf(s) !== -1)) break
+        nameParts.push(w)
+      }
+      const name = nameParts.join(' ')
+      const location = findArea(decoded)
+      return c.json({ name, address: decoded, location })
+    }
+
+    // ?q= 파싱
+    let qIdx = resolved.indexOf('?q=')
+    if (qIdx === -1) qIdx = resolved.indexOf('&q=')
+    if (qIdx !== -1) {
+      const qVal = resolved.slice(qIdx + 3).split('&')[0]
+      let dec2 = ''
+      try { dec2 = decodeURIComponent(qVal.split('+').join(' ')) } catch { dec2 = qVal }
+      return c.json({ address: dec2, location: findArea(dec2), name: '' })
+    }
+
+    return c.json({ address: '', location: '', name: '' })
+  } catch (e: any) {
+    return c.json({ error: e.message || 'failed' }, 500)
+  }
+})
+
+// ── Cloudinary 업로드 프록시 ──
+app.post('/api/upload', async (c) => {
+  try {
+    const CLOUD_NAME = 'dc0ouozcd'
+    const API_KEY = '221647295675392'
+    const API_SECRET = 'g10Q4wv2UzDEAGV35QluPCYz4Ms'
+    const formData = await c.req.formData()
+    const file = formData.get('file') as File | null
+    if (!file) return c.json({ error: 'No file' }, 400)
+    const timestamp = Math.floor(Date.now() / 1000).toString()
+    const folder = 'seoul-beauty'
+    const strToSign = 'folder=' + folder + '&timestamp=' + timestamp + API_SECRET
+    // SHA-1 via Web Crypto
+    const enc = new TextEncoder()
+    const keyData = enc.encode(strToSign)
+    const hashBuf = await crypto.subtle.digest('SHA-1', keyData)
+    const hashArr = Array.from(new Uint8Array(hashBuf))
+    const signature = hashArr.map(b => b.toString(16).padStart(2, '0')).join('')
+    const uploadForm = new FormData()
+    uploadForm.append('file', file)
+    uploadForm.append('api_key', API_KEY)
+    uploadForm.append('timestamp', timestamp)
+    uploadForm.append('signature', signature)
+    uploadForm.append('folder', folder)
+    const res = await fetch('https://api.cloudinary.com/v1_1/' + CLOUD_NAME + '/video/upload', {
+      method: 'POST',
+      body: uploadForm
+    })
+    const data = await res.json() as any
+    if (!res.ok) return c.json({ error: data.error?.message || 'Upload failed' }, 500)
+    return c.json({ ok: true, url: data.secure_url, publicId: data.public_id })
+  } catch(e: any) {
+    return c.json({ error: e.message || 'Unknown error' }, 500)
+  }
+})
+
 app.post('/api/shops', async (c) => {
   const body = await c.req.json()
-  shops.push({ id: 's' + Date.now(), createdAt: new Date().toISOString().split('T')[0], active: true, ...body })
-  return c.json({ ok: true })
+  const newId = 's' + Date.now()
+  shops.push({ id: newId, createdAt: new Date().toISOString().split('T')[0], active: true, ...body })
+  return c.json({ ok: true, id: newId })
 })
 app.put('/api/shops/:id', async (c) => {
   const idx = shops.findIndex(s => s.id === c.req.param('id'))
@@ -1011,22 +1133,25 @@ textarea{height:80px;resize:none}
     <div class="card-header">
       <div class="card-title"><i class="fas fa-store" style="color:#FF4D8D"></i> 업체 등록</div>
     </div>
-    <!-- 구글맵 붙여넣기 박스 -->
-    <div style="background:rgba(66,133,244,.08);border:1px solid rgba(66,133,244,.25);border-radius:12px;padding:12px;margin-bottom:14px">
-      <div style="font-size:12px;font-weight:700;color:#60a5fa;margin-bottom:8px">
-        <i class="fas fa-map-marker-alt"></i> STEP 1 — 구글맵 링크 붙여넣기 <span style="font-weight:400;color:rgba(255,255,255,.4)">(주소·지역 자동 입력)</span>
+    <!-- 구글맵 붙여넣기 → 자동완성 -->
+    <div style="background:rgba(66,133,244,.08);border:1px solid rgba(66,133,244,.3);border-radius:14px;padding:14px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:700;color:#60a5fa;margin-bottom:10px">
+        <i class="fas fa-map-marker-alt"></i> 구글맵 링크 붙여넣기 <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,.4)">→ 업체명·주소·지역 자동입력</span>
       </div>
-      <div style="font-size:11px;color:rgba(255,255,255,.45);margin-bottom:8px;line-height:1.6">
-        구글맵에서 업체 검색 → <b style="color:rgba(255,255,255,.7)">공유</b> 버튼 → 링크 복사 → 아래에 붙여넣기
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <input id="sh-gmap-raw" placeholder="https://maps.app.goo.gl/... 링크를 여기에 붙여넣으세요" style="flex:1;font-size:14px;margin-bottom:0">
+        <button type="button" id="sh-gmap-btn" style="padding:0 18px;background:linear-gradient(135deg,#4285F4,#34A853);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0">자동입력</button>
       </div>
-      <input id="sh-gmap-raw" placeholder="https://maps.app.goo.gl/... 또는 maps.google.com 링크" style="margin-bottom:6px" oninput="parseGmapUrl(this.value)">
-      <div id="sh-gmap-status" style="font-size:11px;color:rgba(255,255,255,.4)"></div>
+      <div id="sh-gmap-status" style="font-size:12px;color:rgba(255,255,255,.4);min-height:18px"></div>
     </div>
 
-    <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:10px">STEP 2 — 업체 정보 입력</div>
     <div class="form-grid">
-      <div class="full"><label>업체명 *</label><input id="sh-name" placeholder="예: 강남 글로우 스킨클리닉"></div>
-      <div><label>카테고리 *</label>
+      <div class="full">
+        <label>업체명 *</label>
+        <input id="sh-name" placeholder="구글맵 붙여넣으면 자동입력">
+      </div>
+      <div>
+        <label>카테고리 *</label>
         <select id="sh-cat">
           <option value="skincare">스킨케어</option>
           <option value="makeup">메이크업</option>
@@ -1036,15 +1161,35 @@ textarea{height:80px;resize:none}
           <option value="spa">스파·마사지</option>
         </select>
       </div>
-      <div><label>지역 <span style="font-size:11px;color:rgba(255,255,255,.4)">(자동입력됨)</span></label><input id="sh-loc" placeholder="예: 강남, 홍대, 명동"></div>
-      <div class="full"><label>주소 <span style="font-size:11px;color:rgba(255,255,255,.4)">(자동입력됨)</span></label><input id="sh-addr" placeholder="구글맵 링크를 붙여넣으면 자동으로 채워집니다"></div>
-      <div class="full"><label>대표 서비스 <span style="font-size:11px;color:rgba(255,255,255,.4)">(쉼표 구분)</span></label><input id="sh-svcs" placeholder="예: 딥클렌징, 하이드라페이셜, 글라스스킨"></div>
-      <div><label>최소 가격 (₩)</label><input id="sh-price-min" type="number" placeholder="50000" min="0" step="1000"></div>
-      <div><label>최대 가격 (₩)</label><input id="sh-price-max" type="number" placeholder="200000" min="0" step="1000"></div>
-      <div class="full"><label>썸네일 이미지 URL <span style="font-size:11px;color:rgba(255,255,255,.4)">(선택)</span></label><input id="sh-thumb" placeholder="https://...image.jpg"></div>
-      <div class="full"><label>업체 소개 <span style="font-size:11px;color:rgba(255,255,255,.4)">(선택)</span></label><textarea id="sh-desc" placeholder="고객에게 보여질 업체 소개 문구..."></textarea></div>
+      <div>
+        <label>지역 <span style="font-size:11px;color:rgba(255,255,255,.4)">(자동입력)</span></label>
+        <input id="sh-loc" placeholder="구글맵 붙여넣으면 자동입력" readonly style="background:rgba(255,255,255,.04);color:rgba(255,255,255,.7)">
+      </div>
+      <div class="full">
+        <label>주소 <span style="font-size:11px;color:rgba(255,255,255,.4)">(자동입력)</span></label>
+        <input id="sh-addr" placeholder="구글맵 붙여넣으면 자동입력" readonly style="background:rgba(255,255,255,.04);color:rgba(255,255,255,.7)">
+      </div>
+      <div class="full">
+        <label>업체 소개 <span style="font-size:11px;color:rgba(255,255,255,.4)">(선택)</span></label>
+        <textarea id="sh-desc" placeholder="고객에게 보여질 소개 문구..."></textarea>
+      </div>
     </div>
-    <button class="btn-pk" style="margin-top:12px" id="sh-submit-btn"><i class="fas fa-plus"></i> 업체 등록</button>
+
+    <!-- 서비스 동적 추가 -->
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.07)">
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:10px">STEP 3 — 서비스 목록 <span style="font-weight:400;color:rgba(255,255,255,.3)">(이름 + 가격)</span></div>
+      <div id="svc-list"></div>
+      <button type="button" id="svc-add-btn" style="margin-top:8px;background:rgba(255,255,255,.06);border:1px dashed rgba(255,255,255,.2);border-radius:10px;color:rgba(255,255,255,.5);padding:8px 16px;font-size:12px;cursor:pointer;width:100%">+ 서비스 추가</button>
+    </div>
+
+    <!-- 영상 업로드 -->
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.07)">
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:10px">대표 영상 <span style="font-weight:400;color:rgba(255,255,255,.3)">(선택 · 나중에 추가 가능)</span></div>
+      <div id="vid-list"></div>
+      <button type="button" id="vid-add-btn" style="margin-top:8px;background:rgba(255,77,141,.06);border:1px dashed rgba(255,77,141,.3);border-radius:10px;color:rgba(255,77,141,.7);padding:8px 16px;font-size:12px;cursor:pointer;width:100%">+ 영상 추가</button>
+    </div>
+
+    <button class="btn-pk" style="margin-top:16px;width:100%;padding:14px;font-size:15px" id="sh-submit-btn"><i class="fas fa-check"></i> 업체 등록 완료</button>
   </div>
 
   <!-- ② 등록된 업체 목록 (클릭하면 영상 추가) -->
@@ -1308,103 +1453,363 @@ function closeVideoPanel(){
 document.getElementById('vd-panel-close').addEventListener('click', closeVideoPanel);
 document.getElementById('vd-submit-btn').addEventListener('click', addVideo);
 document.getElementById('sh-submit-btn').addEventListener('click', addShop);
+document.getElementById('svc-add-btn').addEventListener('click', addSvcRow);
+document.getElementById('vid-add-btn').addEventListener('click', addVidRow);
 
-// ── 구글맵 URL 파싱 → 주소·지역 자동입력 ──
+// 구글맵 자동입력 버튼 + 붙여넣기 이벤트
+document.getElementById('sh-gmap-btn').addEventListener('click', function(){
+  parseGmapUrl(document.getElementById('sh-gmap-raw').value);
+});
+document.getElementById('sh-gmap-raw').addEventListener('paste', function(e){
+  // paste 이벤트는 value 반영 전에 발생 → setTimeout으로 약간 딜레이
+  setTimeout(function(){
+    var val = document.getElementById('sh-gmap-raw').value.trim();
+    if(val) parseGmapUrl(val);
+  }, 100);
+});
+document.getElementById('sh-gmap-raw').addEventListener('keydown', function(e){
+  if(e.key === 'Enter'){
+    e.preventDefault();
+    parseGmapUrl(document.getElementById('sh-gmap-raw').value);
+  }
+});
+
+// 서비스 행 삭제 이벤트
+document.getElementById('svc-list').addEventListener('click', function(e){
+  var btn = e.target.closest('.svc-del');
+  if(btn) btn.closest('.svc-row').remove();
+});
+// 영상 행 삭제 이벤트
+document.getElementById('vid-list').addEventListener('click', function(e){
+  var btn = e.target.closest('.vid-del');
+  if(btn) btn.closest('.vid-row').remove();
+});
+
+// 초기 서비스 1행 추가
+addSvcRow();
+
+// ── 서비스 행 추가 ──
+function addSvcRow(name, price){
+  var list = document.getElementById('svc-list');
+  var row = document.createElement('div');
+  row.className = 'svc-row';
+  row.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;align-items:center';
+
+  var nameIn = document.createElement('input');
+  nameIn.className = 'svc-name';
+  nameIn.placeholder = '서비스명 (예: 딥클렌징 페이셜)';
+  nameIn.value = name || '';
+  nameIn.style.flex = '2';
+
+  var priceIn = document.createElement('input');
+  priceIn.className = 'svc-price';
+  priceIn.type = 'number';
+  priceIn.placeholder = '가격 (예: 80000)';
+  priceIn.value = price || '';
+  priceIn.min = '0';
+  priceIn.step = '1000';
+  priceIn.style.flex = '1';
+
+  var del = document.createElement('button');
+  del.type = 'button';
+  del.className = 'svc-del';
+  del.textContent = '✕';
+  del.style.cssText = 'background:rgba(239,68,68,.15);border:none;border-radius:8px;color:#f87171;width:32px;height:32px;cursor:pointer;font-size:14px;flex-shrink:0';
+
+  row.appendChild(nameIn);
+  row.appendChild(priceIn);
+  row.appendChild(del);
+  list.appendChild(row);
+}
+
+// ── 영상 행 추가 ──
+function addVidRow(){
+  var list = document.getElementById('vid-list');
+  var row = document.createElement('div');
+  row.className = 'vid-row-form';
+  row.style.cssText = 'background:rgba(255,77,141,.04);border:1px solid rgba(255,77,141,.15);border-radius:12px;padding:12px;margin-bottom:10px';
+
+  // 숨겨진 URL 저장용 input (addShop에서 수집)
+  var urlIn = document.createElement('input');
+  urlIn.className = 'vid-form-url';
+  urlIn.type = 'hidden';
+
+  // 숨겨진 title 저장용 (파일명 자동 사용)
+  var titleIn = document.createElement('input');
+  titleIn.className = 'vid-form-title';
+  titleIn.type = 'hidden';
+
+  // 숨겨진 desc
+  var descIn = document.createElement('input');
+  descIn.className = 'vid-form-desc';
+  descIn.type = 'hidden';
+  descIn.value = '';
+
+  // 업로드 영역
+  var uploadWrap = document.createElement('div');
+  uploadWrap.style.cssText = 'display:flex;align-items:center;gap:10px';
+
+  var fileIn = document.createElement('input');
+  fileIn.type = 'file';
+  fileIn.accept = 'video/*';
+  fileIn.style.cssText = 'display:none';
+
+  var uploadBtn = document.createElement('button');
+  uploadBtn.type = 'button';
+  uploadBtn.style.cssText = 'padding:8px 18px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap';
+  uploadBtn.textContent = '영상 파일 선택';
+
+  var uploadStatus = document.createElement('span');
+  uploadStatus.style.cssText = 'font-size:12px;color:rgba(255,255,255,.4)';
+  uploadStatus.textContent = '파일을 선택해주세요';
+
+  var delBtn = document.createElement('button');
+  delBtn.type = 'button';
+  delBtn.className = 'vid-del';
+  delBtn.textContent = '✕';
+  delBtn.style.cssText = 'margin-left:auto;background:rgba(239,68,68,.15);border:none;border-radius:8px;color:#f87171;width:30px;height:30px;cursor:pointer;font-size:13px;flex-shrink:0';
+
+  uploadBtn.addEventListener('click', function(){ fileIn.click(); });
+
+  fileIn.addEventListener('change', function(){
+    var file = fileIn.files && fileIn.files[0];
+    if(!file) return;
+    titleIn.value = file.name.split('.').slice(0,-1).join('.') || file.name;
+    uploadStatus.style.color = '#fbbf24';
+    uploadStatus.textContent = '업로드 중... (' + (file.size/1024/1024).toFixed(1) + 'MB)';
+    uploadBtn.disabled = true;
+    uploadBtn.textContent = '업로드 중...';
+    var fd = new FormData();
+    fd.append('file', file);
+    fetch('/api/upload', {method:'POST', body: fd})
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if(data.ok && data.url){
+          urlIn.value = data.url;
+          uploadStatus.style.color = '#4ade80';
+          uploadStatus.textContent = '✅ 업로드 완료!';
+          uploadBtn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
+          uploadBtn.textContent = '완료 ✓';
+        } else {
+          uploadStatus.style.color = '#f87171';
+          uploadStatus.textContent = '❌ 실패: ' + (data.error || '오류');
+          uploadBtn.disabled = false;
+          uploadBtn.textContent = '영상 파일 선택';
+        }
+      })
+      .catch(function(){
+        uploadStatus.style.color = '#f87171';
+        uploadStatus.textContent = '❌ 업로드 실패';
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = '영상 파일 선택';
+      });
+  });
+
+  uploadWrap.appendChild(fileIn);
+  uploadWrap.appendChild(uploadBtn);
+  uploadWrap.appendChild(uploadStatus);
+  uploadWrap.appendChild(delBtn);
+
+  row.appendChild(urlIn);
+  row.appendChild(titleIn);
+  row.appendChild(descIn);
+  row.appendChild(uploadWrap);
+  list.appendChild(row);
+}
+
+// 영상 행 URL 처리 (구글드라이브 자동변환)
+function handleVidRowUrl(input, badge){
+  var raw = input.value;
+  if(!raw){ badge.style.display='none'; return; }
+  if(raw.indexOf('drive.google.com') !== -1){
+    var converted = convertGDriveUrl(raw);
+    if(converted){
+      input.value = converted;
+      badge.style.display='inline-block';
+      badge.style.background='linear-gradient(135deg,#4285F4,#34A853)';
+      badge.style.color='#fff';
+      badge.textContent='G Drive';
+    }
+    return;
+  }
+  if(raw.indexOf('r2.dev') !== -1){
+    badge.style.display='inline-block';
+    badge.style.background='linear-gradient(135deg,#F6821F,#FAAD3D)';
+    badge.style.color='#fff';
+    badge.textContent='R2';
+    return;
+  }
+  badge.style.display='none';
+}
+
+// ── 지역 키워드 → 지역명 변환 ──
+function detectArea(text){
+  var areaMap = [
+    ['압구정','Apgujeong, Seoul'],['청담','Cheongdam, Seoul'],
+    ['가로수길','Sinsa, Seoul'],['신사','Sinsa, Seoul'],
+    ['역삼','Gangnam, Seoul'],['선릉','Gangnam, Seoul'],['삼성동','Gangnam, Seoul'],
+    ['강남','Gangnam, Seoul'],['서초','Seocho, Seoul'],
+    ['홍대','Hongdae, Seoul'],['합정','Hapjeong, Seoul'],['상수','Hapjeong, Seoul'],
+    ['신촌','Sinchon, Seoul'],['마포','Mapo, Seoul'],
+    ['이태원','Itaewon, Seoul'],['한남','Itaewon, Seoul'],['용산','Yongsan, Seoul'],
+    ['명동','Myeongdong, Seoul'],['충무로','Myeongdong, Seoul'],['중구','Myeongdong, Seoul'],
+    ['종로','Jongno, Seoul'],['인사동','Jongno, Seoul'],['북촌','Jongno, Seoul'],
+    ['동대문','Dongdaemun, Seoul'],['신설','Dongdaemun, Seoul'],
+    ['성수','Seongsu, Seoul'],['성동','Seongsu, Seoul'],['뚝섬','Seongsu, Seoul'],
+    ['건대','Konkuk, Seoul'],['광진','Konkuk, Seoul'],
+    ['잠실','Jamsil, Seoul'],['송파','Songpa, Seoul'],['강동','Songpa, Seoul'],
+    ['노원','Nowon, Seoul'],['도봉','Nowon, Seoul'],
+    ['신림','Sinlim, Seoul'],['관악','Sinlim, Seoul'],
+    ['여의도','Yeouido, Seoul'],['영등포','Yeouido, Seoul'],
+    ['강서','Gangseo, Seoul'],['목동','Gangseo, Seoul'],
+    ['은평','Eunpyeong, Seoul'],['연신내','Eunpyeong, Seoul'],
+    ['부산','Busan'],['해운대','Busan'],['서면','Busan'],
+    ['제주','Jeju'],['인천','Incheon'],['대구','Daegu'],
+    ['대전','Daejeon'],['광주','Gwangju'],['수원','Suwon']
+  ];
+  var t = text.toLowerCase();
+  for(var i=0;i<areaMap.length;i++){
+    if(t.indexOf(areaMap[i][0])!==-1) return areaMap[i][1];
+  }
+  return '';
+}
+
+// ── 업체명 추출 (place URL의 첫 토큰) ──
+function extractPlaceName(placeText){
+  // "강남 글로우 스킨클리닉 서울특별시 강남구..." → 첫 의미 단위 추출
+  var parts = placeText.split(' ');
+  // 앞에서 최대 4단어, 주소성 단어 나오면 중단
+  var stopWords = ['서울','경기','부산','인천','대구','광주','대전','울산','세종','특별시','광역시','도','시','구','동','로','길','번길','번지'];
+  var name = [];
+  for(var i=0;i<parts.length&&i<5;i++){
+    var w = parts[i];
+    var isStop = false;
+    for(var j=0;j<stopWords.length;j++){
+      if(w.indexOf(stopWords[j])!==-1){ isStop=true; break; }
+    }
+    if(isStop) break;
+    name.push(w);
+  }
+  return name.join(' ');
+}
+
+// ── 구글맵 URL 파싱 → 자동입력 ──
 function parseGmapUrl(raw){
   var status = document.getElementById('sh-gmap-status');
   var url = raw.trim();
   if(!url){ status.textContent=''; return; }
 
-  // 구글맵 URL에서 쿼리 파라미터 q= 추출 (maps.google.com/?q=주소)
-  var qIdx = url.indexOf('?q=');
-  if(qIdx === -1) qIdx = url.indexOf('&q=');
-  if(qIdx !== -1){
-    var qVal = url.slice(qIdx+3).split('&')[0];
-    var decoded = '';
-    try { decoded = decodeURIComponent(qVal.split('+').join(' ')); } catch(e){ decoded = qVal; }
-    if(decoded){
-      fillAddressFromText(decoded, url);
-      return;
-    }
-  }
+  document.getElementById('sh-gmap-raw').setAttribute('data-gmap-url', url);
 
-  // maps.app.goo.gl 단축 URL — 직접 좌표 추출 불가, URL 그대로 저장
-  if(url.indexOf('goo.gl') !== -1 || url.indexOf('maps.app') !== -1){
-    document.getElementById('sh-addr').value = '';
-    status.style.color = '#fbbf24';
-    status.textContent = '⚠ 단축 URL은 주소 자동추출이 안 됩니다. 주소를 직접 입력해주세요.';
-    // googleMapUrl은 그대로 저장
-    document.getElementById('sh-gmap-raw').setAttribute('data-gmap-url', url);
+  // 단축 URL (maps.app.goo.gl, goo.gl) → 서버 경유 언팩
+  if(url.indexOf('goo.gl')!==-1 || url.indexOf('maps.app')!==-1){
+    status.style.color='#fbbf24';
+    status.textContent='🔄 링크 분석 중...';
+    fetch('/api/resolve-gmap',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:url})})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if(d.name) document.getElementById('sh-name').value = d.name;
+        if(d.address) document.getElementById('sh-addr').value = d.address;
+        if(d.location) document.getElementById('sh-loc').value = d.location;
+        if(d.address||d.name){
+          status.style.color='#4ade80';
+          status.textContent='✅ 자동입력 완료! 내용을 확인해주세요.';
+        } else {
+          status.style.color='#fbbf24';
+          status.textContent='⚠ 일부 정보를 가져오지 못했어요. 직접 입력해주세요.';
+        }
+      })
+      .catch(function(){
+        status.style.color='#f87171';
+        status.textContent='❌ 분석 실패. 아래 정보를 직접 입력해주세요.';
+      });
     return;
   }
 
-  // /place/ 형식: maps.google.com/maps/place/업체명+주소/...
+  // /place/ 형식: maps.google.com/maps/place/업체명+주소/
   var placeIdx = url.indexOf('/place/');
-  if(placeIdx !== -1){
+  if(placeIdx!==-1){
     var placePart = url.slice(placeIdx+7).split('/')[0];
-    var decoded2 = '';
-    try { decoded2 = decodeURIComponent(placePart.split('+').join(' ')); } catch(e){ decoded2 = placePart; }
-    if(decoded2){
-      fillAddressFromText(decoded2, url);
+    var decoded='';
+    try{ decoded=decodeURIComponent(placePart.split('+').join(' ')); }catch(e){ decoded=placePart; }
+    if(decoded){
+      var pname = extractPlaceName(decoded);
+      var area = detectArea(decoded);
+      if(pname && !document.getElementById('sh-name').value) document.getElementById('sh-name').value = pname;
+      document.getElementById('sh-addr').value = decoded;
+      if(area) document.getElementById('sh-loc').value = area;
+      status.style.color='#4ade80';
+      status.textContent='✅ 자동입력 완료! 내용을 확인해주세요.';
       return;
     }
   }
 
-  status.style.color = 'rgba(255,255,255,.4)';
-  status.textContent = '주소를 직접 입력해주세요.';
-  document.getElementById('sh-gmap-raw').setAttribute('data-gmap-url', url);
-}
-
-function fillAddressFromText(text, gmapUrl){
-  var status = document.getElementById('sh-gmap-status');
-  // 주소 필드에 채우기
-  document.getElementById('sh-addr').value = text;
-  document.getElementById('sh-gmap-raw').setAttribute('data-gmap-url', gmapUrl);
-
-  // 지역 자동 추출 (서울 주요 동네 키워드)
-  var areaMap = [
-    ['강남','Gangnam'],['서초','Seocho'],['송파','Songpa'],['강동','Gangdong'],
-    ['홍대','Hongdae'],['마포','Mapo'],['신촌','Sinchon'],['합정','Hapjeong'],
-    ['이태원','Itaewon'],['용산','Yongsan'],['명동','Myeongdong'],['중구','Jung-gu'],
-    ['종로','Jongno'],['인사동','Insadong'],['동대문','Dongdaemun'],['성동','Seongdong'],
-    ['성수','Seongsu'],['건대','Konkuk'],['압구정','Apgujeong'],['청담','Cheongdam'],
-    ['잠실','Jamsil'],['신사','Sinsa'],['가로수길','Garosu-gil'],['삼성','Samsung-dong'],
-    ['역삼','Yeoksam'],['선릉','Seolleung'],['부산','Busan'],['제주','Jeju'],
-    ['대구','Daegu'],['인천','Incheon'],['수원','Suwon']
-  ];
-  var found = '';
-  var ltext = text.toLowerCase();
-  for(var i=0;i<areaMap.length;i++){
-    if(ltext.indexOf(areaMap[i][0].toLowerCase())!==-1 || ltext.indexOf(areaMap[i][1].toLowerCase())!==-1){
-      found = areaMap[i][0]+', Seoul';
-      break;
+  // ?q= 형식
+  var qIdx = url.indexOf('?q=');
+  if(qIdx===-1) qIdx=url.indexOf('&q=');
+  if(qIdx!==-1){
+    var qVal=url.slice(qIdx+3).split('&')[0];
+    var dec2='';
+    try{ dec2=decodeURIComponent(qVal.split('+').join(' ')); }catch(e){ dec2=qVal; }
+    if(dec2){
+      var area2=detectArea(dec2);
+      document.getElementById('sh-addr').value=dec2;
+      if(area2) document.getElementById('sh-loc').value=area2;
+      status.style.color='#4ade80';
+      status.textContent='✅ 주소 자동입력 완료!';
+      return;
     }
   }
-  if(found && !document.getElementById('sh-loc').value){
-    document.getElementById('sh-loc').value = found;
-  }
 
-  status.style.color = '#4ade80';
-  status.textContent = '✅ 주소 자동입력 완료! 지역: '+(found||'직접 입력해주세요');
+  status.style.color='rgba(255,255,255,.4)';
+  status.textContent='링크에서 정보를 찾지 못했어요. 아래에 직접 입력해주세요.';
 }
 
 // ── 업체 등록 ──
 function addShop(){
   var name = document.getElementById('sh-name').value.trim();
   if(!name){ alert('업체명을 입력해주세요!'); return; }
-  var svcs = document.getElementById('sh-svcs').value.split(',').map(function(s){return s.trim();}).filter(Boolean);
-  var pMin = parseInt(document.getElementById('sh-price-min').value)||0;
-  var pMax = parseInt(document.getElementById('sh-price-max').value)||0;
-  var priceRange = (pMin||pMax) ? (fmtPrice(pMin)+(pMax?'~'+fmtPrice(pMax):'')) : 'Contact us';
+
+  // 서비스 행 수집
+  var svcRows = document.querySelectorAll('#svc-list .svc-row');
+  var svcs = [], svcPrices = [], pMin = 0, pMax = 0;
+  svcRows.forEach(function(row){
+    var n = row.querySelector('.svc-name').value.trim();
+    var p = parseInt(row.querySelector('.svc-price').value)||0;
+    if(n){
+      svcs.push(n);
+      svcPrices.push({name:n, price: p ? fmtPrice(p) : ''});
+      if(p){ if(!pMin||p<pMin) pMin=p; if(p>pMax) pMax=p; }
+    }
+  });
+  var priceRange = (pMin||pMax) ? (fmtPrice(pMin)+(pMax&&pMax!==pMin?'~'+fmtPrice(pMax):'')) : 'Contact us';
+
+  // slug 생성 (한글 업체명도 안전하게)
   var slugBase = '';
   for(var ci=0;ci<name.length;ci++){ var ch=name[ci].toLowerCase(); slugBase += (ch>='a'&&ch<='z')||(ch>='0'&&ch<='9') ? ch : '-'; }
   while(slugBase.indexOf('--')!==-1) slugBase=slugBase.split('--').join('-');
-  slugBase = slugBase.replace ? slugBase : slugBase;
-  if(slugBase[0]==='-') slugBase=slugBase.slice(1);
-  if(slugBase[slugBase.length-1]==='-') slugBase=slugBase.slice(0,-1);
-  var slug = (slugBase||'shop') + '-' + Date.now().toString().slice(-4);
+  slugBase = slugBase.split('').filter(function(c){return c!=='-';}).length === 0 ? '' : slugBase;
+  if(slugBase && slugBase[0]==='-') slugBase=slugBase.slice(1);
+  if(slugBase && slugBase[slugBase.length-1]==='-') slugBase=slugBase.slice(0,-1);
+  var slug = (slugBase||'shop') + '-' + Date.now().toString().slice(-6);
+
   var rawInput = document.getElementById('sh-gmap-raw');
   var gmapUrl = rawInput.getAttribute('data-gmap-url') || rawInput.value || '';
+
+  // 영상 행 수집
+  var vidRows = document.querySelectorAll('#vid-list .vid-row-form');
+  var pendingVids = [];
+  vidRows.forEach(function(row){
+    var t = row.querySelector('.vid-form-title').value.trim();
+    var u = row.querySelector('.vid-form-url').value.trim();
+    var d = row.querySelector('.vid-form-desc').value.trim();
+    if(t && u) pendingVids.push({title:t, videoUrl:u, description:d});
+  });
+
+  var btn = document.getElementById('sh-submit-btn');
+  btn.disabled = true;
+  btn.textContent = '등록 중...';
+
   fetch('/api/shops',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
     name:name, slug:slug,
     category:document.getElementById('sh-cat').value,
@@ -1414,18 +1819,48 @@ function addShop(){
     address:document.getElementById('sh-addr').value||'',
     googleMapUrl:gmapUrl,
     googleMapEmbed:'',
-    thumbnail:document.getElementById('sh-thumb').value||'',
+    thumbnail:'',
     services:svcs,
-    servicePrices:[],
+    servicePrices:svcPrices,
     description:document.getElementById('sh-desc').value||'',
     rating:5.0, reviewCount:0
-  })}).then(function(){
-    ['sh-name','sh-loc','sh-addr','sh-price-min','sh-price-max','sh-thumb','sh-svcs','sh-desc','sh-gmap-raw'].forEach(function(id){
+  })}).then(function(r){return r.json();}).then(function(res){
+    var newShopId = res.id || null;
+    // 폼 초기화
+    ['sh-name','sh-loc','sh-addr','sh-desc','sh-gmap-raw'].forEach(function(id){
       var el = document.getElementById(id);
       if(el){ el.value=''; el.removeAttribute('data-gmap-url'); }
     });
     document.getElementById('sh-gmap-status').textContent='';
-    loadAll();
+    document.getElementById('svc-list').innerHTML='';
+    document.getElementById('vid-list').innerHTML='';
+    addSvcRow();
+    btn.disabled = false;
+    btn.textContent = '업체 등록 완료';
+    // 영상 순차 등록
+    if(newShopId && pendingVids.length > 0){
+      var chain = Promise.resolve();
+      pendingVids.forEach(function(v){
+        chain = chain.then(function(){
+          return fetch('/api/videos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+            shopId:newShopId,
+            title:v.title,
+            videoUrl:v.videoUrl,
+            description:v.description,
+            thumbnail:'',
+            tags:[],
+            views:0, likes:0
+          })});
+        });
+      });
+      chain.then(loadAll);
+    } else {
+      loadAll();
+    }
+  }).catch(function(){
+    btn.disabled = false;
+    btn.textContent = '업체 등록 완료';
+    alert('등록 중 오류가 발생했습니다.');
   });
 }
 
