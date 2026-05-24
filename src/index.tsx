@@ -32,6 +32,7 @@ interface Shop {
   rating: number
   reviewCount: number
   thumbnail: string
+  photos: string[]       // 추가 사진 URL 배열
   commission: number     // 10 or 20 (%)
   active: boolean
   createdAt: string
@@ -78,7 +79,8 @@ function rowToShop(r: any): Shop {
     hours: r.hours || '', services: r.services || [],
     servicePrices: r.service_prices || [], description: r.description || '',
     rating: r.rating || 5.0, reviewCount: r.review_count || 0,
-    thumbnail: r.thumbnail || '', commission: r.commission || 15,
+    thumbnail: r.thumbnail || '', photos: r.photos || [],
+    commission: r.commission || 15,
     active: r.active !== false, createdAt: r.created_at || ''
   }
 }
@@ -212,9 +214,11 @@ async function initDb() {
       price_range TEXT, hours TEXT, services JSONB DEFAULT '[]',
       service_prices JSONB DEFAULT '[]', description TEXT,
       rating REAL DEFAULT 5.0, review_count INTEGER DEFAULT 0,
-      thumbnail TEXT, commission INTEGER DEFAULT 15,
+      thumbnail TEXT, photos JSONB DEFAULT '[]', commission INTEGER DEFAULT 15,
       active BOOLEAN DEFAULT true, created_at TEXT
     )`
+    // photos 컬럼 없으면 추가 (기존 DB 마이그레이션)
+    try { await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS photos JSONB DEFAULT '[]'` } catch(e) {}
     await sql`CREATE TABLE IF NOT EXISTS videos (
       id TEXT PRIMARY KEY, shop_id TEXT REFERENCES shops(id) ON DELETE CASCADE,
       title TEXT, description TEXT, video_url TEXT, thumbnail TEXT,
@@ -427,23 +431,23 @@ app.post('/api/resolve-gmap', async (c) => {
   }
 })
 
-// ── Cloudinary 서명 발급 (클라이언트 직접 업로드용) ──
-// 브라우저 → 이 API로 서명 받고 → Cloudinary로 직접 업로드 (Vercel 4.5MB 제한 우회)
+// ── Cloudinary 서명 발급 (영상/이미지 공통) ──
+const CLD = { KEY: '221647295675392', SECRET: 'g10Q4wv2UzDEAGV35QluPCYz4Ms', NAME: 'dc0ouozcd' }
+async function makeSign(folder: string) {
+  const timestamp = Math.floor(Date.now() / 1000).toString()
+  const strToSign = 'folder=' + folder + '&timestamp=' + timestamp + CLD.SECRET
+  const enc = new TextEncoder()
+  const hashBuf = await crypto.subtle.digest('SHA-1', enc.encode(strToSign))
+  const signature = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('')
+  return { cloudName: CLD.NAME, apiKey: CLD.KEY, timestamp, signature, folder }
+}
 app.get('/api/upload-sign', async (c) => {
-  try {
-    const API_KEY = '221647295675392'
-    const API_SECRET = 'g10Q4wv2UzDEAGV35QluPCYz4Ms'
-    const CLOUD_NAME = 'dc0ouozcd'
-    const timestamp = Math.floor(Date.now() / 1000).toString()
-    const folder = 'seoul-beauty'
-    const strToSign = 'folder=' + folder + '&timestamp=' + timestamp + API_SECRET
-    const enc = new TextEncoder()
-    const hashBuf = await crypto.subtle.digest('SHA-1', enc.encode(strToSign))
-    const signature = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('')
-    return c.json({ cloudName: CLOUD_NAME, apiKey: API_KEY, timestamp, signature, folder })
-  } catch(e: any) {
-    return c.json({ error: e.message || 'Sign failed' }, 500)
-  }
+  try { return c.json(await makeSign('seoul-beauty')) }
+  catch(e: any) { return c.json({ error: e.message || 'Sign failed' }, 500) }
+})
+app.get('/api/upload-sign-image', async (c) => {
+  try { return c.json(await makeSign('seoul-beauty-photos')) }
+  catch(e: any) { return c.json({ error: e.message || 'Sign failed' }, 500) }
 })
 
 app.post('/api/shops', async (c) => {
@@ -451,12 +455,12 @@ app.post('/api/shops', async (c) => {
   const body = await c.req.json()
   const newId = 's' + Date.now()
   const today = new Date().toISOString().split('T')[0]
-  await sql`INSERT INTO shops (id,name,slug,category,location,address,google_map_url,google_map_embed,price_range,hours,services,service_prices,description,rating,review_count,thumbnail,commission,active,created_at) VALUES (
+  await sql`INSERT INTO shops (id,name,slug,category,location,address,google_map_url,google_map_embed,price_range,hours,services,service_prices,description,rating,review_count,thumbnail,photos,commission,active,created_at) VALUES (
     ${newId},${body.name||''},${body.slug||''},${body.category||''},${body.location||''},${body.address||''},
     ${body.googleMapUrl||''},${body.googleMapEmbed||''},${body.priceRange||''},${body.hours||''},
     ${JSON.stringify(body.services||[])},${JSON.stringify(body.servicePrices||[])},
     ${body.description||''},${body.rating||5.0},${body.reviewCount||0},${body.thumbnail||''},
-    ${body.commission||15},true,${today}
+    ${JSON.stringify(body.photos||[])},${body.commission||15},true,${today}
   )`
   return c.json({ ok: true, id: newId })
 })
@@ -477,6 +481,7 @@ app.put('/api/shops/:id', async (c) => {
     service_prices=${JSON.stringify(body.servicePrices||[])},
     description=${body.description||''},
     thumbnail=${body.thumbnail||''},
+    photos=${JSON.stringify(body.photos||[])},
     commission=${body.commission||15},
     active=${body.active!==false}
     WHERE id=${c.req.param('id')}`
@@ -935,6 +940,7 @@ function buildSlide(v, idx) {
   s.innerHTML =
     '<img class="bg-img" src="'+esc(v.thumbnail)+'" alt="'+esc(v.title)+'">' +
     '<video id="vid'+idx+'" src="'+esc(v.videoUrl)+'" loop muted playsinline preload="metadata" poster="'+esc(v.thumbnail)+'"></video>' +
+    '<div id="playic'+idx+'" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:4;width:64px;height:64px;border-radius:50%;background:rgba(0,0,0,.55);align-items:center;justify-content:center;pointer-events:none"><i class="fas fa-pause" style="font-size:22px;color:#fff"></i></div>' +
     '<div class="ov"></div>' +
     '<div class="acts">' +
       '<div class="act" id="alke'+idx+'"><div class="act-ic" id="lkic'+esc(v.id)+'"><i class="fas fa-heart"></i></div><span class="act-lb" id="lklb'+esc(v.id)+'">Like</span></div>' +
@@ -955,13 +961,24 @@ function buildSlide(v, idx) {
 
   feed.appendChild(s);
 
-  (function(vid, vidIdx, shop) {
+  (function(vid, vidIdx, shopData) {
     var ve = document.getElementById('vid'+vidIdx);
-    if(ve) ve.onerror = function(){ ve.style.display='none'; };
-    document.getElementById('alke'+vidIdx).onclick = function(){ doLike(vid.id); };
-    document.getElementById('ashop'+vidIdx).onclick = function(){ openShopModal(shop); };
-    document.getElementById('ashare'+vidIdx).onclick = function(){ doShare(vid.title); };
-    document.getElementById('wabtn'+vidIdx).onclick = function(){ openShopModal(shop); };
+    var playIc = document.getElementById('playic'+vidIdx);
+    if(ve) {
+      ve.onerror = function(){ ve.style.display='none'; };
+      // 영상 클릭 → 재생/정지 토글
+      ve.addEventListener('click', function(e){
+        e.stopPropagation();
+        if(ve.paused){ ve.play().catch(function(){}); }
+        else { ve.pause(); }
+      });
+      ve.addEventListener('play',  function(){ if(playIc) playIc.style.display='none'; });
+      ve.addEventListener('pause', function(){ if(playIc) playIc.style.display='flex'; });
+    }
+    document.getElementById('alke'+vidIdx).onclick = function(e){ e.stopPropagation(); doLike(vid.id); };
+    document.getElementById('ashop'+vidIdx).onclick = function(e){ e.stopPropagation(); openShopModal(vid.shopId||shopData.id); };
+    document.getElementById('ashare'+vidIdx).onclick = function(e){ e.stopPropagation(); doShare(vid.title); };
+    document.getElementById('wabtn'+vidIdx).onclick = function(e){ e.stopPropagation(); openShopModal(vid.shopId||shopData.id); };
     // 조회수 기록
     fetch('/api/videos/'+vid.id+'/view', {method:'POST'}).catch(function(){});
   })(v, idx, shop);
@@ -989,38 +1006,73 @@ function openWhatsApp(shop, videoTitle) {
   window.open(url, '_blank');
 }
 
-function openShopModal(shop) {
-  if(!shop || !shop.id) return;
+function openShopModal(shopId) {
+  if(!shopId) return;
+  // API로 최신 업체 정보 가져오기
+  document.getElementById('modalContent').innerHTML = '<div style="text-align:center;padding:40px 0;color:rgba(255,255,255,.3)"><i class="fas fa-spinner fa-spin" style="font-size:24px"></i></div>';
+  document.getElementById('modalBtns').innerHTML = '';
+  document.getElementById('shopModal').classList.add('open');
+  document.getElementById('modalContent').scrollTop = 0;
+
+  fetch('/api/shops/'+shopId).then(function(r){ return r.json(); }).then(function(d){
+    var shop = d.shop;
+    if(!shop){ document.getElementById('modalContent').innerHTML='<div style="padding:20px;color:#f87171">업체 정보를 불러올 수 없습니다.</div>'; return; }
+    renderShopModal(shop);
+  }).catch(function(){
+    document.getElementById('modalContent').innerHTML='<div style="padding:20px;color:#f87171">오류가 발생했습니다.</div>';
+  });
+}
+
+function renderShopModal(shop) {
   var waNum = platform.whatsapp || '821012345678';
   var waMsg = 'Hi! I found ' + (shop.name||'your shop') + ' on Seoul Beauty Trip and I would like to book a service. Shop: ' + (shop.name||'') + ' (' + (shop.location||'') + ')';
   var waUrl = 'https://wa.me/'+waNum+'?text='+encodeURIComponent(waMsg);
-  var mapUrl = shop.googleMapUrl || ('https://maps.google.com/?q='+encodeURIComponent((shop.name||'')+(shop.address?' '+shop.address:'')));
+
+  /* 사진 갤러리 */
+  var photos = shop.photos || [];
+  var allPhotos = [];
+  if(shop.thumbnail) allPhotos.push(shop.thumbnail);
+  photos.forEach(function(p){ if(p && p!==shop.thumbnail) allPhotos.push(p); });
+  var galleryHtml = '';
+  if(allPhotos.length > 0) {
+    var thumbs = allPhotos.map(function(url, i){
+      return '<div style="flex-shrink:0;width:'+(allPhotos.length===1?'100%':'48%')+';aspect-ratio:4/3;border-radius:12px;overflow:hidden;cursor:pointer" onclick="openPhotoViewer(\''+esc(url)+'\')">'
+        +'<img src="'+esc(url)+'" style="width:100%;height:100%;object-fit:cover" loading="lazy">'
+        +'</div>';
+    }).join('');
+    galleryHtml = '<div class="m-section"><div class="m-section-title"><i class="fas fa-images"></i> Photos</div>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:8px">'+thumbs+'</div></div>';
+  }
 
   /* 구글맵 임베드 */
   var embedSrc = shop.googleMapEmbed || '';
   var mapHtml = embedSrc
-    ? '<div class="m-section"><div class="m-section-title"><i class="fas fa-map"></i> Location</div><div class="m-map"><iframe src="'+embedSrc+'" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div></div>'
-    : '';
+    ? '<div class="m-section"><div class="m-section-title"><i class="fas fa-map"></i> Location</div><div class="m-map"><iframe src="'+embedSrc+'" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div>'
+      +(shop.googleMapUrl ? '<a href="'+esc(shop.googleMapUrl)+'" target="_blank" style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;color:#60a5fa;text-decoration:none"><i class="fas fa-external-link-alt"></i> Google Maps에서 열기</a>' : '')
+      +'</div>'
+    : (shop.googleMapUrl ? '<div class="m-section"><div class="m-section-title"><i class="fas fa-map"></i> Location</div><a href="'+esc(shop.googleMapUrl)+'" target="_blank" class="m-wa" style="background:linear-gradient(135deg,#4285F4,#34A853);font-size:13px;padding:11px"><i class="fas fa-map-marker-alt"></i> Google Maps에서 보기</a></div>' : '');
 
   /* 가격 리스트 */
   var prices = shop.servicePrices || [];
   var priceHtml = '';
   if(prices.length > 0) {
     var rows = prices.map(function(p){
-      return '<div class="m-price-item"><span class="m-price-name">'+p.name+'</span><span class="m-price-val">'+p.price+'</span></div>';
+      return '<div class="m-price-item"><span class="m-price-name">'+esc(p.name||'')+'</span><span class="m-price-val">'+esc(p.price||'')+'</span></div>';
     }).join('');
     priceHtml = '<div class="m-section"><div class="m-section-title"><i class="fas fa-tag"></i> Price List</div><div class="m-price-list">'+rows+'</div></div>';
   } else if(shop.priceRange) {
-    priceHtml = '<div class="m-section"><div class="m-section-title"><i class="fas fa-tag"></i> Price</div><div class="m-info-row"><i class="fas fa-won-sign"></i><span>'+shop.priceRange+'</span></div></div>';
+    priceHtml = '<div class="m-section"><div class="m-section-title"><i class="fas fa-tag"></i> Price</div><div class="m-info-row"><i class="fas fa-won-sign"></i><span>'+esc(shop.priceRange)+'</span></div></div>';
   }
 
-  /* 모달 콘텐츠 */
-  var thumbHtml = shop.thumbnail
-    ? '<img class="shop-thumb" id="mThumb" src="'+esc(shop.thumbnail)+'">'
+  /* 업체 설명 */
+  var descHtml = shop.description
+    ? '<div class="m-section"><div class="m-section-title"><i class="fas fa-info-circle"></i> About</div><div style="font-size:13px;color:rgba(255,255,255,.72);line-height:1.7">'+esc(shop.description)+'</div></div>'
     : '';
+
+  /* 모달 콘텐츠 */
   document.getElementById('modalContent').innerHTML =
-    '<div class="shop-header">' +
-      thumbHtml +
+    galleryHtml +
+    '<div class="shop-header" style="margin-top:'+(allPhotos.length?'12px':'0')+'">' +
       '<div style="flex:1;min-width:0">' +
         '<div class="shop-nm">'+esc(shop.name||'')+'</div>' +
         '<div class="shop-loc"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;font-size:11px"></i><span style="margin-left:2px">'+esc(shop.location||'')+'</span></div>' +
@@ -1030,23 +1082,25 @@ function openShopModal(shop) {
 
     '<div class="m-section">' +
       '<div class="m-section-title"><i class="fas fa-store"></i> Basic Info</div>' +
-      '<div class="m-info-row"><i class="fas fa-clock"></i><span>'+(shop.hours||'Please contact us')+'</span></div>' +
-      '<div class="m-info-row"><i class="fas fa-map-marker-alt"></i><span>'+(shop.address||shop.location||'')+'</span></div>' +
+      (shop.hours ? '<div class="m-info-row"><i class="fas fa-clock"></i><span>'+esc(shop.hours)+'</span></div>' : '') +
+      (shop.address ? '<div class="m-info-row"><i class="fas fa-map-marker-alt"></i><span>'+esc(shop.address)+'</span></div>' : '') +
     '</div>' +
 
-    priceHtml +
-    mapHtml;
+    descHtml + priceHtml + mapHtml;
 
-  /* 하단 버튼 - WhatsApp 예약만 */
+  /* 하단 버튼 */
   document.getElementById('modalBtns').innerHTML =
     '<a href="'+waUrl+'" target="_blank" class="m-wa"><i class="fab fa-whatsapp" style="font-size:19px"></i> Book via WhatsApp</a>';
+}
 
-  document.getElementById('shopModal').classList.add('open');
-  /* 열릴 때 스크롤 최상단으로 */
-  document.getElementById('modalContent').scrollTop = 0;
-  /* 썸네일 에러 처리 */
-  var mThumb = document.getElementById('mThumb');
-  if(mThumb) mThumb.onerror = function(){ this.style.display='none'; };
+/* 사진 전체화면 뷰어 */
+function openPhotoViewer(url) {
+  var ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.95);display:flex;align-items:center;justify-content:center;cursor:pointer';
+  ov.innerHTML = '<img src="'+esc(url)+'" style="max-width:95vw;max-height:90vh;object-fit:contain;border-radius:8px">'
+    +'<button style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,.1);border:none;color:#fff;font-size:20px;width:40px;height:40px;border-radius:50%;cursor:pointer">✕</button>';
+  ov.addEventListener('click', function(){ document.body.removeChild(ov); });
+  document.body.appendChild(ov);
 }
 
 function closeModal(){
@@ -1434,10 +1488,26 @@ textarea{height:80px;resize:none}
       <div class="full"><label>영업시간</label><input id="edit-sh-hours" placeholder="예: 10:00~20:00 (Mon~Sat)"></div>
       <div class="full"><label>구글맵 링크</label><input id="edit-sh-gmap-url" placeholder="https://maps.google.com/..."></div>
       <div class="full"><label>구글맵 임베드 src</label><input id="edit-sh-gmap-embed" placeholder="https://www.google.com/maps/embed?pb=..."></div>
-      <div class="full"><label>썸네일 URL</label><input id="edit-sh-thumb" placeholder="https://...image.jpg"></div>
+      <div class="full">
+        <label>대표 썸네일</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="edit-sh-thumb" placeholder="https://...image.jpg" style="flex:1">
+          <button type="button" id="edit-thumb-upload-btn" style="padding:8px 14px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;border-radius:10px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0"><i class="fas fa-upload"></i> 업로드</button>
+          <input type="file" id="edit-thumb-file" accept="image/*" style="display:none">
+        </div>
+        <div id="edit-thumb-status" style="font-size:11px;color:rgba(255,255,255,.4);margin-top:4px;min-height:16px"></div>
+        <div id="edit-thumb-preview" style="margin-top:6px;display:none"><img id="edit-thumb-preview-img" style="width:80px;height:60px;object-fit:cover;border-radius:8px;border:1px solid rgba(255,255,255,.1)"></div>
+      </div>
       <div><label>수수료 (%)</label><input id="edit-sh-commission" type="number" min="0" max="100" placeholder="15"></div>
       <div></div>
       <div class="full"><label>업체 소개</label><textarea id="edit-sh-desc" placeholder="업체 소개 문구..."></textarea></div>
+    </div>
+    <!-- 추가 사진 업로드 -->
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.07)">
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:8px"><i class="fas fa-images" style="color:#a78bfa;margin-right:4px"></i>추가 사진 <span style="font-weight:400;color:rgba(255,255,255,.3)">(고객에게 보여질 업체 사진)</span></div>
+      <div id="edit-photos-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px"></div>
+      <button type="button" id="edit-photo-add-btn" style="background:rgba(167,139,250,.08);border:1px dashed rgba(167,139,250,.35);border-radius:10px;color:rgba(167,139,250,.8);padding:8px 16px;font-size:12px;cursor:pointer;width:100%"><i class="fas fa-plus"></i> 사진 추가</button>
+      <input type="file" id="edit-photo-file" accept="image/*" style="display:none">
     </div>
     <!-- 서비스 목록 수정 -->
     <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.07)">
@@ -1478,11 +1548,6 @@ textarea{height:80px;resize:none}
     <button class="btn-pk" style="margin-top:12px" id="vd-submit-btn"><i class="fas fa-plus"></i> 영상 등록</button>
   </div>
 
-  <!-- ④ 영상 목록 (업체별) -->
-  <div class="card">
-    <div class="card-title" style="margin-bottom:14px"><i class="fas fa-film" style="color:#FF4D8D"></i> 등록된 영상 목록</div>
-    <div id="videoList"></div>
-  </div>
 </div>
 
 <!-- 설정 -->
@@ -1633,6 +1698,7 @@ function renderShops(){
 // ── 영상 목록 렌더 (업체별 그룹) ──
 function renderVideos(){
   var el = document.getElementById('videoList');
+  if(!el) return; // 영상 목록 카드 제거됨
   if(!videos.length){
     el.innerHTML = '<div style="text-align:center;padding:24px;color:rgba(255,255,255,.3);font-size:13px">등록된 영상이 없습니다</div>';
     return;
@@ -1783,6 +1849,26 @@ function openEditShopPanel(shopId){
     addEditSvcRow('','');
   }
 
+  // photos 배열 렌더링
+  var photosList = document.getElementById('edit-photos-list');
+  photosList.innerHTML = '';
+  var existingPhotos = shop.photos || [];
+  existingPhotos.forEach(function(url){
+    appendEditPhotoCard(url);
+  });
+
+  // 썸네일 미리보기 초기화
+  var thumbPreview = document.getElementById('edit-thumb-preview');
+  var thumbStatus = document.getElementById('edit-thumb-status');
+  var thumbPreviewImg = document.getElementById('edit-thumb-preview-img');
+  thumbStatus.textContent = '';
+  if(shop.thumbnail){
+    thumbPreview.style.display = 'block';
+    thumbPreviewImg.src = shop.thumbnail;
+  } else {
+    thumbPreview.style.display = 'none';
+  }
+
   document.getElementById('editShopPanel').style.display = 'block';
   document.getElementById('videoAddPanel').style.display = 'none';
   setTimeout(function(){
@@ -1846,6 +1932,14 @@ function saveEditShop(){
 
   var shop = shops.find(function(s){ return String(s.id) === String(editingShopId); }) || {};
 
+  // photos 수집
+  var photoCards = document.querySelectorAll('#edit-photos-list .edit-photo-card');
+  var photosArr = [];
+  photoCards.forEach(function(card){
+    var u = card.getAttribute('data-url');
+    if(u) photosArr.push(u);
+  });
+
   fetch('/api/shops/'+editingShopId, {
     method:'PUT',
     headers:{'Content-Type':'application/json'},
@@ -1866,7 +1960,8 @@ function saveEditShop(){
       priceRange: svcs.length > 0 ? priceRange : (shop.priceRange||''),
       rating: shop.rating || 5.0,
       reviewCount: shop.reviewCount || 0,
-      active: true
+      active: true,
+      photos: photosArr
     })
   }).then(function(r){ return r.json(); }).then(function(){
     btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> 수정 저장';
@@ -1883,6 +1978,116 @@ document.getElementById('edit-panel-close').addEventListener('click', closeEditS
 document.getElementById('edit-panel-cancel').addEventListener('click', closeEditShopPanel);
 document.getElementById('edit-sh-submit-btn').addEventListener('click', saveEditShop);
 document.getElementById('edit-svc-add-btn').addEventListener('click', function(){ addEditSvcRow('',''); });
+
+// ── 사진 카드 추가 헬퍼 ──
+function appendEditPhotoCard(url){
+  var list = document.getElementById('edit-photos-list');
+  var card = document.createElement('div');
+  card.className = 'edit-photo-card';
+  card.setAttribute('data-url', url);
+  card.style.cssText = 'position:relative;width:72px;height:72px;border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,.12);flex-shrink:0';
+  var img = document.createElement('img');
+  img.src = url;
+  img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block';
+  var delBtn = document.createElement('button');
+  delBtn.type = 'button';
+  delBtn.innerHTML = '&times;';
+  delBtn.style.cssText = 'position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;background:rgba(239,68,68,.85);border:none;color:#fff;font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0';
+  delBtn.addEventListener('click', function(){ card.remove(); });
+  card.appendChild(img);
+  card.appendChild(delBtn);
+  list.appendChild(card);
+}
+
+// ── Cloudinary 이미지 업로드 공통 함수 ──
+function uploadImageToCloudinary(file, onProgress, onSuccess, onError){
+  onProgress('서명 발급 중...');
+  fetch('/api/upload-sign-image')
+    .then(function(r){ return r.json(); })
+    .then(function(sign){
+      if(sign.error) throw new Error(sign.error);
+      var mb = (file.size/1024/1024).toFixed(1);
+      onProgress('업로드 중... (' + mb + 'MB)');
+      var fd = new FormData();
+      fd.append('file', file);
+      fd.append('api_key', sign.apiKey);
+      fd.append('timestamp', sign.timestamp);
+      fd.append('signature', sign.signature);
+      fd.append('folder', sign.folder);
+      return fetch('https://api.cloudinary.com/v1_1/' + sign.cloudName + '/image/upload', {
+        method:'POST', body:fd
+      }).then(function(r){ return r.json(); });
+    })
+    .then(function(data){
+      if(data.secure_url){ onSuccess(data.secure_url); }
+      else {
+        var msg = (data.error && data.error.message) ? data.error.message : JSON.stringify(data);
+        onError(msg);
+      }
+    })
+    .catch(function(err){ onError(err.message || '네트워크 오류'); });
+}
+
+// ── 썸네일 업로드 핸들러 ──
+document.getElementById('edit-thumb-upload-btn').addEventListener('click', function(){
+  document.getElementById('edit-thumb-file').click();
+});
+document.getElementById('edit-thumb-file').addEventListener('change', function(){
+  var file = this.files && this.files[0];
+  if(!file) return;
+  var statusEl = document.getElementById('edit-thumb-status');
+  var previewWrap = document.getElementById('edit-thumb-preview');
+  var previewImg = document.getElementById('edit-thumb-preview-img');
+  var btn = document.getElementById('edit-thumb-upload-btn');
+  statusEl.style.color = '#fbbf24';
+  btn.disabled = true;
+  uploadImageToCloudinary(
+    file,
+    function(msg){ statusEl.style.color='#fbbf24'; statusEl.textContent=msg; },
+    function(url){
+      document.getElementById('edit-sh-thumb').value = url;
+      statusEl.style.color = '#4ade80';
+      statusEl.textContent = '✅ 업로드 완료!';
+      previewImg.src = url;
+      previewWrap.style.display = 'block';
+      btn.disabled = false;
+    },
+    function(errMsg){
+      statusEl.style.color = '#f87171';
+      statusEl.textContent = '❌ ' + errMsg;
+      btn.disabled = false;
+    }
+  );
+  this.value = ''; // 파일 인풋 초기화 (같은 파일 재선택 가능)
+});
+
+// ── 추가 사진 업로드 핸들러 ──
+document.getElementById('edit-photo-add-btn').addEventListener('click', function(){
+  document.getElementById('edit-photo-file').click();
+});
+document.getElementById('edit-photo-file').addEventListener('change', function(){
+  var file = this.files && this.files[0];
+  if(!file) return;
+  var btn = document.getElementById('edit-photo-add-btn');
+  var origText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '업로드 중...';
+  uploadImageToCloudinary(
+    file,
+    function(){},
+    function(url){
+      appendEditPhotoCard(url);
+      btn.disabled = false;
+      btn.textContent = origText;
+    },
+    function(errMsg){
+      alert('사진 업로드 실패: ' + errMsg);
+      btn.disabled = false;
+      btn.textContent = origText;
+    }
+  );
+  this.value = ''; // 파일 인풋 초기화
+});
 
 // 구글맵 자동입력 버튼 + 붙여넣기 이벤트
 document.getElementById('sh-gmap-btn').addEventListener('click', function(){
