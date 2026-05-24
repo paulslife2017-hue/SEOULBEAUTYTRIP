@@ -1077,13 +1077,15 @@ textarea{height:80px;resize:none}
 <script>
 var shops=[], videos=[], bookings=[];
 
-// TABS
+document.addEventListener('DOMContentLoaded', function(){
+
+// ── 탭 전환 ──
 document.querySelectorAll('.tab').forEach(function(t){
-  t.addEventListener('click',function(){
-    document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('on');});
-    document.querySelectorAll('.tab-content').forEach(function(x){x.classList.remove('on');});
+  t.addEventListener('click', function(){
+    document.querySelectorAll('.tab').forEach(function(x){ x.classList.remove('on'); });
+    document.querySelectorAll('.tab-content').forEach(function(x){ x.classList.remove('on'); });
     t.classList.add('on');
-    document.getElementById('tab-'+t.getAttribute('data-tab')).classList.add('on');
+    document.getElementById('tab-' + t.getAttribute('data-tab')).classList.add('on');
   });
 });
 
@@ -1250,6 +1252,8 @@ function saveSettings(){
 }
 
 loadAll();
+
+}); // DOMContentLoaded
 </script>
 </body>
 </html>`
