@@ -239,7 +239,41 @@ app.post('/api/resolve-gmap', async (c) => {
       return ''
     }
 
-    // 단축 URL 팔로우
+    // ── 좌표 추출 함수 (두 가지 패턴 모두 지원) ──
+    const extractCoords = (u: string): { lat: string; lon: string } | null => {
+      // 패턴1: !3d37.5186!4d127.047 (data= 형태)
+      const m1 = u.match(/!3d([-\d.]+)!4d([-\d.]+)/)
+      if (m1) return { lat: m1[1], lon: m1[2] }
+      // 패턴2: @37.5186,127.047 (일반 공유 URL)
+      const m2 = u.match(/@([-\d.]+),([-\d.]+)/)
+      if (m2) return { lat: m2[1], lon: m2[2] }
+      // 패턴3: ?q=37.5186,127.047
+      const m3 = u.match(/[?&]q=([-\d.]+),([-\d.]+)/)
+      if (m3) return { lat: m3[1], lon: m3[2] }
+      return null
+    }
+
+    // ── Nominatim 역지오코딩 ──
+    const reverseGeocode = async (lat: string, lon: string) => {
+      try {
+        const r = await fetch(
+          'https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lon + '&accept-language=en',
+          { headers: { 'User-Agent': 'SeoulBeautyTrip/1.0' } }
+        )
+        const d = await r.json() as any
+        if (d && d.display_name) {
+          const addr = d.display_name
+          const loc = findArea(addr)
+            || findArea(d.address?.suburb || '')
+            || findArea(d.address?.city_district || '')
+            || findArea(d.address?.borough || '')
+          return { address: addr, location: loc }
+        }
+      } catch { /* ignore */ }
+      return null
+    }
+
+    // ── 단축 URL 팔로우 (goo.gl, maps.app) ──
     let resolved = url
     if (url.indexOf('goo.gl') !== -1 || url.indexOf('maps.app') !== -1) {
       for (let i = 0; i < 5; i++) {
@@ -247,59 +281,53 @@ app.post('/api/resolve-gmap', async (c) => {
           const r = await fetch(resolved, { method: 'GET', redirect: 'manual' })
           const loc = r.headers.get('location')
           if (!loc) break
-          resolved = loc.indexOf('http') === 0 ? loc : resolved
-          if (resolved.indexOf('maps.google.com') !== -1 || resolved.indexOf('/maps/place/') !== -1) break
+          resolved = loc.startsWith('http') ? loc : resolved
+          if (resolved.indexOf('/maps/place/') !== -1 || resolved.indexOf('maps.google.com') !== -1) break
         } catch { break }
       }
     }
 
-    // /place/ 파싱
+    // ── /place/ 파싱 ──
     const placeIdx = resolved.indexOf('/place/')
     if (placeIdx !== -1) {
-      // URL에서 업체명 추출
+      // 업체명 추출
       const afterPlace = resolved.slice(placeIdx + 7)
-      const raw = afterPlace.split('/')[0].split('?')[0]
+      const rawName = afterPlace.split('/')[0].split('?')[0].split('@')[0]
       let shopName = ''
-      try { shopName = decodeURIComponent(raw.split('+').join(' ')).trim() } catch { shopName = raw.trim() }
+      try { shopName = decodeURIComponent(rawName.split('+').join(' ')).trim() } catch { shopName = rawName.trim() }
 
-      // URL에 좌표가 있으면 (3d위도!4d경도 패턴) Nominatim 역지오코딩으로 주소 추출
-      const coordMatch = resolved.match(/!3d([-\d.]+)!4d([-\d.]+)/)
-      if (coordMatch) {
-        const lat = coordMatch[1]
-        const lon = coordMatch[2]
-        try {
-          const nomRes = await fetch(
-            'https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lon + '&accept-language=en',
-            { headers: { 'User-Agent': 'SeoulBeautyTrip/1.0' } }
-          )
-          const nomData = await nomRes.json() as any
-          if (nomData && nomData.display_name) {
-            const addr = nomData.display_name
-            const loc = findArea(addr) || findArea(nomData.address?.city || '') || findArea(nomData.address?.suburb || '')
-            return c.json({ name: shopName, address: addr, location: loc })
-          }
-        } catch { /* 역지오코딩 실패 시 이름만 반환 */ }
+      // 좌표 추출 시도
+      const coords = extractCoords(resolved)
+      if (coords) {
+        const geo = await reverseGeocode(coords.lat, coords.lon)
+        if (geo) {
+          return c.json({ name: shopName, address: geo.address, location: geo.location })
+        }
       }
 
-      // 업체명 + 주소 혼합된 경우
-      const stopWords = ['서울','경기','부산','인천','대구','광주','대전','울산','특별시','광역시']
-      const parts = shopName.split(' ')
-      const nameParts: string[] = []
-      for (let i = 0; i < parts.length && i < 5; i++) {
-        if (stopWords.some(s => parts[i].indexOf(s) !== -1)) break
-        nameParts.push(parts[i])
-      }
-      return c.json({ name: nameParts.join(' ') || shopName, address: shopName, location: findArea(shopName) })
+      // 좌표 없음 → 업체명만 반환 (주소는 비워둠)
+      return c.json({ name: shopName, address: '', location: findArea(shopName) })
     }
 
-    // ?q= 파싱
-    let qIdx = resolved.indexOf('?q=')
-    if (qIdx === -1) qIdx = resolved.indexOf('&q=')
-    if (qIdx !== -1) {
-      const qVal = resolved.slice(qIdx + 3).split('&')[0]
-      let dec2 = ''
-      try { dec2 = decodeURIComponent(qVal.split('+').join(' ')) } catch { dec2 = qVal }
-      return c.json({ address: dec2, location: findArea(dec2), name: '' })
+    // ── ?q= 파싱 ──
+    const qMatch = resolved.match(/[?&]q=([^&]+)/)
+    if (qMatch) {
+      let qVal = ''
+      try { qVal = decodeURIComponent(qMatch[1].split('+').join(' ')) } catch { qVal = qMatch[1] }
+      // 좌표값이면 역지오코딩
+      const coordsFromQ = extractCoords(resolved)
+      if (coordsFromQ) {
+        const geo = await reverseGeocode(coordsFromQ.lat, coordsFromQ.lon)
+        if (geo) return c.json({ name: '', address: geo.address, location: geo.location })
+      }
+      return c.json({ name: '', address: qVal, location: findArea(qVal) })
+    }
+
+    // ── 좌표만 있는 경우 ──
+    const coordsOnly = extractCoords(resolved)
+    if (coordsOnly) {
+      const geo = await reverseGeocode(coordsOnly.lat, coordsOnly.lon)
+      if (geo) return c.json({ name: '', address: geo.address, location: geo.location })
     }
 
     return c.json({ address: '', location: '', name: '' })
