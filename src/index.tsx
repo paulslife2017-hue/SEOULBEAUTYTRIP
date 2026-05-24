@@ -242,31 +242,23 @@ app.post('/api/resolve-gmap', async (c) => {
       let shopName = ''
       try { shopName = decodeURIComponent(raw.split('+').join(' ')).trim() } catch { shopName = raw.trim() }
 
-      // 업체명만 있고 주소 없는 경우 (Moclock/data=... 형태)
-      // → 구글 Places API 없이 페이지 HTML 긁어서 주소 추출 시도
-      if (shopName && shopName.indexOf(' ') === -1) {
-        // 영문 단어 하나 = 업체명만 있음 → HTML 페이지에서 주소 추출 시도
+      // URL에 좌표가 있으면 (3d위도!4d경도 패턴) Nominatim 역지오코딩으로 주소 추출
+      const coordMatch = resolved.match(/!3d([-\d.]+)!4d([-\d.]+)/)
+      if (coordMatch) {
+        const lat = coordMatch[1]
+        const lon = coordMatch[2]
         try {
-          const pageRes = await fetch(resolved, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1)' }
-          })
-          const html = await pageRes.text()
-          // 주소 패턴 찾기: "서울" 포함 주소
-          let addr = ''
-          const addrPatterns = [
-            /\"([^\"]*서울[^\"]{5,60})\"/,
-            /\"([^\"]*Seoul[^\"]{5,60})\"/i,
-            /\"([^\"]*\d+[^\"]*구[^\"]{3,40})\"/,
-          ]
-          for (const pat of addrPatterns) {
-            const m = html.match(pat)
-            if (m && m[1]) { addr = m[1]; break }
+          const nomRes = await fetch(
+            'https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lon + '&accept-language=ko',
+            { headers: { 'User-Agent': 'SeoulBeautyTrip/1.0' } }
+          )
+          const nomData = await nomRes.json() as any
+          if (nomData && nomData.display_name) {
+            const addr = nomData.display_name
+            const loc = findArea(addr) || findArea(nomData.address?.city || '') || findArea(nomData.address?.suburb || '')
+            return c.json({ name: shopName, address: addr, location: loc })
           }
-          if (addr) {
-            return c.json({ name: shopName, address: addr, location: findArea(addr) })
-          }
-        } catch { /* HTML 추출 실패 시 그냥 이름만 반환 */ }
-        return c.json({ name: shopName, address: '', location: '' })
+        } catch { /* 역지오코딩 실패 시 이름만 반환 */ }
       }
 
       // 업체명 + 주소 혼합된 경우
