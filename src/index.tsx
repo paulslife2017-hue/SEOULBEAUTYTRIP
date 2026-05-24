@@ -191,17 +191,6 @@ app.post('/api/resolve-gmap', async (c) => {
     const { url } = await c.req.json() as { url: string }
     if (!url) return c.json({ error: 'no url' }, 400)
 
-    // 단축 URL 리다이렉트 팔로우 (최대 5번)
-    let resolved = url
-    for (let i = 0; i < 5; i++) {
-      const r = await fetch(resolved, { method: 'HEAD', redirect: 'manual' })
-      const loc = r.headers.get('location')
-      if (!loc) break
-      resolved = loc.indexOf('http') === 0 ? loc : resolved
-      if (loc.indexOf('maps.google.com') !== -1 || loc.indexOf('/maps/place/') !== -1) break
-    }
-
-    // /place/ 파싱
     const areaMap: [string, string][] = [
       ['압구정','Apgujeong, Seoul'],['청담','Cheongdam, Seoul'],
       ['가로수길','Sinsa, Seoul'],['신사','Sinsa, Seoul'],
@@ -224,34 +213,71 @@ app.post('/api/resolve-gmap', async (c) => {
       ['인천','Incheon'],['대구','Daegu'],['대전','Daejeon'],
       ['광주','Gwangju'],['수원','Suwon']
     ]
-
     const findArea = (text: string) => {
       const t = text.toLowerCase()
-      for (const [kw, val] of areaMap) {
-        if (t.indexOf(kw) !== -1) return val
-      }
+      for (const [kw, val] of areaMap) { if (t.indexOf(kw) !== -1) return val }
       return ''
     }
 
+    // 단축 URL 팔로우
+    let resolved = url
+    if (url.indexOf('goo.gl') !== -1 || url.indexOf('maps.app') !== -1) {
+      for (let i = 0; i < 5; i++) {
+        try {
+          const r = await fetch(resolved, { method: 'GET', redirect: 'manual' })
+          const loc = r.headers.get('location')
+          if (!loc) break
+          resolved = loc.indexOf('http') === 0 ? loc : resolved
+          if (resolved.indexOf('maps.google.com') !== -1 || resolved.indexOf('/maps/place/') !== -1) break
+        } catch { break }
+      }
+    }
+
+    // /place/ 파싱
     const placeIdx = resolved.indexOf('/place/')
     if (placeIdx !== -1) {
-      const raw = resolved.slice(placeIdx + 7).split('/')[0]
-      let decoded = ''
-      try { decoded = decodeURIComponent(raw.split('+').join(' ')) } catch { decoded = raw }
-      decoded = decoded.split('?')[0].trim()
+      // URL에서 업체명 추출
+      const afterPlace = resolved.slice(placeIdx + 7)
+      const raw = afterPlace.split('/')[0].split('?')[0]
+      let shopName = ''
+      try { shopName = decodeURIComponent(raw.split('+').join(' ')).trim() } catch { shopName = raw.trim() }
 
-      // 업체명: 주소성 단어 전까지
-      const stopWords = ['서울','경기','부산','인천','대구','광주','대전','울산','특별시','광역시','구','동','로 ','길 ','번길','번지']
-      const parts = decoded.split(' ')
+      // 업체명만 있고 주소 없는 경우 (Moclock/data=... 형태)
+      // → 구글 Places API 없이 페이지 HTML 긁어서 주소 추출 시도
+      if (shopName && shopName.indexOf(' ') === -1) {
+        // 영문 단어 하나 = 업체명만 있음 → HTML 페이지에서 주소 추출 시도
+        try {
+          const pageRes = await fetch(resolved, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1)' }
+          })
+          const html = await pageRes.text()
+          // 주소 패턴 찾기: "서울" 포함 주소
+          let addr = ''
+          const addrPatterns = [
+            /\"([^\"]*서울[^\"]{5,60})\"/,
+            /\"([^\"]*Seoul[^\"]{5,60})\"/i,
+            /\"([^\"]*\d+[^\"]*구[^\"]{3,40})\"/,
+          ]
+          for (const pat of addrPatterns) {
+            const m = html.match(pat)
+            if (m && m[1]) { addr = m[1]; break }
+          }
+          if (addr) {
+            return c.json({ name: shopName, address: addr, location: findArea(addr) })
+          }
+        } catch { /* HTML 추출 실패 시 그냥 이름만 반환 */ }
+        return c.json({ name: shopName, address: '', location: '' })
+      }
+
+      // 업체명 + 주소 혼합된 경우
+      const stopWords = ['서울','경기','부산','인천','대구','광주','대전','울산','특별시','광역시']
+      const parts = shopName.split(' ')
       const nameParts: string[] = []
       for (let i = 0; i < parts.length && i < 5; i++) {
-        const w = parts[i]
-        if (stopWords.some(s => w.indexOf(s) !== -1)) break
-        nameParts.push(w)
+        if (stopWords.some(s => parts[i].indexOf(s) !== -1)) break
+        nameParts.push(parts[i])
       }
-      const name = nameParts.join(' ')
-      const location = findArea(decoded)
-      return c.json({ name, address: decoded, location })
+      return c.json({ name: nameParts.join(' ') || shopName, address: shopName, location: findArea(shopName) })
     }
 
     // ?q= 파싱
@@ -1161,11 +1187,11 @@ textarea{height:80px;resize:none}
       </div>
       <div>
         <label>지역 <span style="font-size:11px;color:rgba(255,255,255,.4)">(자동입력)</span></label>
-        <input id="sh-loc" placeholder="구글맵 붙여넣으면 자동입력" readonly style="background:rgba(255,255,255,.04);color:rgba(255,255,255,.7)">
+        <input id="sh-loc" placeholder="자동입력 또는 직접 입력">
       </div>
       <div class="full">
         <label>주소 <span style="font-size:11px;color:rgba(255,255,255,.4)">(자동입력)</span></label>
-        <input id="sh-addr" placeholder="구글맵 붙여넣으면 자동입력" readonly style="background:rgba(255,255,255,.04);color:rgba(255,255,255,.7)">
+        <input id="sh-addr" placeholder="자동입력 또는 직접 입력">
       </div>
       <div class="full">
         <label>업체 소개 <span style="font-size:11px;color:rgba(255,255,255,.4)">(선택)</span></label>
@@ -1699,8 +1725,8 @@ function parseGmapUrl(raw){
 
   document.getElementById('sh-gmap-raw').setAttribute('data-gmap-url', url);
 
-  // 단축 URL (maps.app.goo.gl, goo.gl) → 서버 경유 언팩
-  if(url.indexOf('goo.gl')!==-1 || url.indexOf('maps.app')!==-1){
+  // 구글맵 URL → 서버 경유 처리 (단축URL + /place/ 형태 모두)
+  if(url.indexOf('google.com/maps')!==-1 || url.indexOf('goo.gl')!==-1 || url.indexOf('maps.app')!==-1){
     status.style.color='#fbbf24';
     status.textContent='🔄 링크 분석 중...';
     fetch('/api/resolve-gmap',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:url})})
