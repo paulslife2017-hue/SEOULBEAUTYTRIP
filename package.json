@@ -1,9 +1,10 @@
 {
   "name": "webapp",
   "scripts": {
-    "build": "echo ok"
+    "build": "node scripts/build.js"
   },
   "dependencies": {
+    "@hono/vite-build": "^1.11.1",
     "@neondatabase/serverless": "^1.1.0",
     "@vercel/node": "^5.0.0",
     "hono": "^4.12.12"
