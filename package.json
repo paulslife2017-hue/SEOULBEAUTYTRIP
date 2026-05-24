@@ -4,8 +4,9 @@
     "build": "echo ok"
   },
   "dependencies": {
-    "hono": "^4.12.12",
-    "@vercel/node": "^5.0.0"
+    "@neondatabase/serverless": "^1.1.0",
+    "@vercel/node": "^5.0.0",
+    "hono": "^4.12.12"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

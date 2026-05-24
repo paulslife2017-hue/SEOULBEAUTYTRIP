@@ -1,4 +1,8 @@
 import { Hono } from 'hono'
+import { neon } from '@neondatabase/serverless'
+
+const DB_URL = 'postgresql://neondb_owner:npg_EH0lzSpsK4Ah@ep-floral-forest-aqvv2mhn-pooler.c-8.us-east-1.aws.neon.tech/neondb?sslmode=require'
+const getDb = () => neon(DB_URL)
 
 const app = new Hono()
 
@@ -64,7 +68,40 @@ interface Booking {
   createdAt: string
 }
 
-// ── 샘플 데이터 ──
+// ── DB 헬퍼: DB row → Shop 객체 ──
+function rowToShop(r: any): Shop {
+  return {
+    id: r.id, name: r.name, slug: r.slug || '',
+    category: r.category || '', location: r.location || '',
+    address: r.address || '', googleMapUrl: r.google_map_url || '',
+    googleMapEmbed: r.google_map_embed || '', priceRange: r.price_range || '',
+    hours: r.hours || '', services: r.services || [],
+    servicePrices: r.service_prices || [], description: r.description || '',
+    rating: r.rating || 5.0, reviewCount: r.review_count || 0,
+    thumbnail: r.thumbnail || '', commission: r.commission || 15,
+    active: r.active !== false, createdAt: r.created_at || ''
+  }
+}
+function rowToVideo(r: any): Video {
+  return {
+    id: r.id, shopId: r.shop_id, title: r.title || '',
+    description: r.description || '', videoUrl: r.video_url || '',
+    thumbnail: r.thumbnail || '', tags: r.tags || [],
+    views: r.views || 0, likes: r.likes || 0, createdAt: r.created_at || ''
+  }
+}
+function rowToBooking(r: any): Booking {
+  return {
+    id: r.id, shopId: r.shop_id, shopName: r.shop_name || '',
+    videoId: '', name: r.name || '', email: r.email || '',
+    phone: r.phone || '', date: r.date || '', people: r.people || '1',
+    service: r.service || '', message: r.message || '',
+    status: r.status || 'new', commissionRate: r.commission_rate || 10,
+    estimatedAmount: r.estimated_amount || '', createdAt: r.created_at || ''
+  }
+}
+
+// ── 샘플 데이터 (DB 초기화용, 최초 1회만) ──
 const shops: Shop[] = [
   {
     id: 's1', name: 'Gangnam Glow Skin Clinic',
@@ -164,26 +201,80 @@ const bookings: Booking[] = [
   { id: 'b4', shopId: 's5', shopName: 'Apgujeong Derma Lab', videoId: 'v5', name: 'Lisa Chen', email: 'lisa@example.com', phone: '+65-9123-4567', date: '2024-02-22', people: '1 Person', service: 'Laser Treatment', message: 'Interested in skin brightening', status: 'new', commissionRate: 20, estimatedAmount: '₩300,000', createdAt: '2024-02-14' }
 ]
 
+// ── DB 초기화: 샘플 데이터 없으면 삽입 ──
+async function initDb() {
+  const sql = getDb()
+  try {
+    // 테이블 생성
+    await sql`CREATE TABLE IF NOT EXISTS shops (
+      id TEXT PRIMARY KEY, name TEXT NOT NULL, slug TEXT, category TEXT,
+      location TEXT, address TEXT, google_map_url TEXT, google_map_embed TEXT,
+      price_range TEXT, hours TEXT, services JSONB DEFAULT '[]',
+      service_prices JSONB DEFAULT '[]', description TEXT,
+      rating REAL DEFAULT 5.0, review_count INTEGER DEFAULT 0,
+      thumbnail TEXT, commission INTEGER DEFAULT 15,
+      active BOOLEAN DEFAULT true, created_at TEXT
+    )`
+    await sql`CREATE TABLE IF NOT EXISTS videos (
+      id TEXT PRIMARY KEY, shop_id TEXT REFERENCES shops(id) ON DELETE CASCADE,
+      title TEXT, description TEXT, video_url TEXT, thumbnail TEXT,
+      tags JSONB DEFAULT '[]', views INTEGER DEFAULT 0,
+      likes INTEGER DEFAULT 0, created_at TEXT
+    )`
+    await sql`CREATE TABLE IF NOT EXISTS bookings (
+      id TEXT PRIMARY KEY, shop_id TEXT, shop_name TEXT, name TEXT,
+      email TEXT, phone TEXT, service TEXT, people TEXT DEFAULT '1',
+      date TEXT, message TEXT, status TEXT DEFAULT 'new',
+      commission_rate INTEGER DEFAULT 10, estimated_amount TEXT, created_at TEXT
+    )`
+    // 샘플 데이터 삽입 (비어있을 때만)
+    const cnt = await sql`SELECT COUNT(*) as c FROM shops`
+    if (Number(cnt[0].c) === 0) {
+      for (const s of shops) {
+        await sql`INSERT INTO shops VALUES (
+          ${s.id},${s.name},${s.slug},${s.category},${s.location},${s.address},
+          ${s.googleMapUrl},${s.googleMapEmbed},${s.priceRange},${s.hours},
+          ${JSON.stringify(s.services)},${JSON.stringify(s.servicePrices)},
+          ${s.description},${s.rating},${s.reviewCount},${s.thumbnail},
+          ${s.commission},${s.active},${s.createdAt}
+        ) ON CONFLICT (id) DO NOTHING`
+      }
+      for (const v of videos) {
+        await sql`INSERT INTO videos VALUES (
+          ${v.id},${v.shopId},${v.title},${v.description},${v.videoUrl},
+          ${v.thumbnail},${JSON.stringify(v.tags)},${v.views},${v.likes},${v.createdAt}
+        ) ON CONFLICT (id) DO NOTHING`
+      }
+    }
+  } catch(e) { console.error('initDb error:', e) }
+}
+initDb()
+
 // ── API ──
-app.get('/api/videos', (c) => {
+app.get('/api/videos', async (c) => {
+  const sql = getDb()
   const cat = c.req.query('category')
-  const list = (cat && cat !== 'all') ? videos.filter(v => {
-    const shop = shops.find(s => s.id === v.shopId)
-    return shop?.category === cat
-  }) : videos
-  const result = list.map(v => {
-    const shop = shops.find(s => s.id === v.shopId)
-    return { ...v, shop }
-  })
+  const rows = cat && cat !== 'all'
+    ? await sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.category=${cat} ORDER BY v.views DESC`
+    : await sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id ORDER BY v.views DESC`
+  const result = rows.map((r: any) => ({
+    ...rowToVideo(r),
+    shop: { id: r.shop_id, name: r.shop_name, category: r.shop_cat, location: r.shop_location, thumbnail: r.shop_thumb }
+  }))
   return c.json({ videos: result })
 })
 
-app.get('/api/shops', (c) => c.json({ shops }))
-app.get('/api/shops/:id', (c) => {
-  const shop = shops.find(s => s.id === c.req.param('id'))
-  if (!shop) return c.json({ error: 'Not found' }, 404)
-  const shopVideos = videos.filter(v => v.shopId === shop.id)
-  return c.json({ shop, videos: shopVideos })
+app.get('/api/shops', async (c) => {
+  const sql = getDb()
+  const rows = await sql`SELECT * FROM shops ORDER BY created_at DESC`
+  return c.json({ shops: rows.map(rowToShop) })
+})
+app.get('/api/shops/:id', async (c) => {
+  const sql = getDb()
+  const rows = await sql`SELECT * FROM shops WHERE id=${c.req.param('id')}`
+  if (!rows.length) return c.json({ error: 'Not found' }, 404)
+  const vidRows = await sql`SELECT * FROM videos WHERE shop_id=${c.req.param('id')} ORDER BY created_at DESC`
+  return c.json({ shop: rowToShop(rows[0]), videos: vidRows.map(rowToVideo) })
 })
 // ── 구글맵 단축URL 언팩 → 업체명·주소·지역 반환 ──
 app.post('/api/resolve-gmap', async (c) => {
@@ -356,80 +447,102 @@ app.get('/api/upload-sign', async (c) => {
 })
 
 app.post('/api/shops', async (c) => {
+  const sql = getDb()
   const body = await c.req.json()
   const newId = 's' + Date.now()
-  shops.push({ id: newId, createdAt: new Date().toISOString().split('T')[0], active: true, ...body })
+  const today = new Date().toISOString().split('T')[0]
+  await sql`INSERT INTO shops (id,name,slug,category,location,address,google_map_url,google_map_embed,price_range,hours,services,service_prices,description,rating,review_count,thumbnail,commission,active,created_at) VALUES (
+    ${newId},${body.name||''},${body.slug||''},${body.category||''},${body.location||''},${body.address||''},
+    ${body.googleMapUrl||''},${body.googleMapEmbed||''},${body.priceRange||''},${body.hours||''},
+    ${JSON.stringify(body.services||[])},${JSON.stringify(body.servicePrices||[])},
+    ${body.description||''},${body.rating||5.0},${body.reviewCount||0},${body.thumbnail||''},
+    ${body.commission||15},true,${today}
+  )`
   return c.json({ ok: true, id: newId })
 })
 app.put('/api/shops/:id', async (c) => {
-  const idx = shops.findIndex(s => s.id === c.req.param('id'))
-  if (idx === -1) return c.json({ error: 'Not found' }, 404)
+  const sql = getDb()
   const body = await c.req.json()
-  shops[idx] = { ...shops[idx], ...body }
+  await sql`UPDATE shops SET name=${body.name},category=${body.category},location=${body.location},address=${body.address},description=${body.description},active=${body.active} WHERE id=${c.req.param('id')}`
   return c.json({ ok: true })
 })
-app.delete('/api/shops/:id', (c) => {
-  const idx = shops.findIndex(s => s.id === c.req.param('id'))
-  if (idx !== -1) shops.splice(idx, 1)
+app.delete('/api/shops/:id', async (c) => {
+  const sql = getDb()
+  await sql`DELETE FROM shops WHERE id=${c.req.param('id')}`
   return c.json({ ok: true })
 })
 
 app.post('/api/videos', async (c) => {
+  const sql = getDb()
   const body = await c.req.json()
-  videos.push({ id: 'v' + Date.now(), views: 0, likes: 0, createdAt: new Date().toISOString().split('T')[0], ...body })
+  const newId = 'v' + Date.now()
+  const today = new Date().toISOString().split('T')[0]
+  await sql`INSERT INTO videos (id,shop_id,title,description,video_url,thumbnail,tags,views,likes,created_at) VALUES (
+    ${newId},${body.shopId||''},${body.title||''},${body.description||''},${body.videoUrl||''},
+    ${body.thumbnail||''},${JSON.stringify(body.tags||[])},0,0,${today}
+  )`
+  return c.json({ ok: true, id: newId })
+})
+app.delete('/api/videos/:id', async (c) => {
+  const sql = getDb()
+  await sql`DELETE FROM videos WHERE id=${c.req.param('id')}`
   return c.json({ ok: true })
 })
-app.delete('/api/videos/:id', (c) => {
-  const idx = videos.findIndex(v => v.id === c.req.param('id'))
-  if (idx !== -1) videos.splice(idx, 1)
-  return c.json({ ok: true })
-})
-app.post('/api/videos/:id/view', (c) => {
-  const v = videos.find(x => x.id === c.req.param('id'))
-  if (v) v.views++
+app.post('/api/videos/:id/view', async (c) => {
+  const sql = getDb()
+  await sql`UPDATE videos SET views=views+1 WHERE id=${c.req.param('id')}`
   return c.json({ ok: true })
 })
 
-app.get('/api/bookings', (c) => c.json({ bookings }))
+app.get('/api/bookings', async (c) => {
+  const sql = getDb()
+  const rows = await sql`SELECT * FROM bookings ORDER BY created_at DESC`
+  return c.json({ bookings: rows.map(rowToBooking) })
+})
 app.post('/api/bookings', async (c) => {
+  const sql = getDb()
   const body = await c.req.json()
-  const shop = shops.find(s => s.id === body.shopId)
-  bookings.unshift({
-    id: 'b' + Date.now(),
-    shopName: shop?.name || '',
-    status: 'new',
-    commissionRate: shop?.commission || 10,
-    createdAt: new Date().toISOString().split('T')[0],
-    ...body
-  })
+  const shopRows = await sql`SELECT name, commission FROM shops WHERE id=${body.shopId||''}`
+  const shop = shopRows[0]
+  const newId = 'b' + Date.now()
+  const today = new Date().toISOString().split('T')[0]
+  await sql`INSERT INTO bookings (id,shop_id,shop_name,name,email,phone,service,people,date,message,status,commission_rate,estimated_amount,created_at) VALUES (
+    ${newId},${body.shopId||''},${shop?.name||body.shopName||''},${body.name||''},${body.email||''},
+    ${body.phone||''},${body.service||''},${body.people||'1'},${body.date||''},${body.message||''},
+    'new',${shop?.commission||10},${body.estimatedAmount||''},${today}
+  )`
   return c.json({ ok: true })
 })
 app.put('/api/bookings/:id/status', async (c) => {
-  const b = bookings.find(x => x.id === c.req.param('id'))
-  if (!b) return c.json({ error: 'Not found' }, 404)
+  const sql = getDb()
   const { status } = await c.req.json()
-  b.status = status
+  await sql`UPDATE bookings SET status=${status} WHERE id=${c.req.param('id')}`
   return c.json({ ok: true })
 })
 
-app.get('/api/stats', (c) => {
-  const totalViews = videos.reduce((a, v) => a + v.views, 0)
-  const totalBookings = bookings.length
-  const newBookings = bookings.filter(b => b.status === 'new').length
-  const confirmedBookings = bookings.filter(b => b.status === 'confirmed' || b.status === 'completed').length
-  const topVideos = [...videos].sort((a, b) => b.views - a.views).slice(0, 3).map(v => ({
-    ...v, shop: shops.find(s => s.id === v.shopId)
-  }))
-  return c.json({ totalViews, totalBookings, newBookings, confirmedBookings, totalShops: shops.length, topVideos })
+app.get('/api/stats', async (c) => {
+  const sql = getDb()
+  const [vStats] = await sql`SELECT COALESCE(SUM(views),0) as total_views, COUNT(*) as total FROM videos`
+  const [bStats] = await sql`SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE status='new') as new_cnt FROM bookings`
+  const [sStats] = await sql`SELECT COUNT(*) as total FROM shops`
+  const topRows = await sql`SELECT v.*, s.name as shop_name FROM videos v LEFT JOIN shops s ON v.shop_id=s.id ORDER BY v.views DESC LIMIT 3`
+  return c.json({
+    totalViews: Number(vStats.total_views), totalBookings: Number(bStats.total),
+    newBookings: Number(bStats.new_cnt), totalShops: Number(sStats.total),
+    topVideos: topRows.map((r: any) => ({ ...rowToVideo(r), shop: { name: r.shop_name } }))
+  })
 })
 
 app.get('/api/platform', (c) => c.json(PLATFORM))
 
 // ── SEO 업체 상세 페이지 ──
-app.get('/shop/:slug', (c) => {
-  const shop = shops.find(s => s.slug === c.req.param('slug'))
-  if (!shop) return c.notFound()
-  const shopVideos = videos.filter(v => v.shopId === shop.id)
+app.get('/shop/:slug', async (c) => {
+  const sql = getDb()
+  const shopRows = await sql`SELECT * FROM shops WHERE slug=${c.req.param('slug')}`
+  if (!shopRows.length) return c.notFound()
+  const shop = rowToShop(shopRows[0])
+  const vidRows = await sql`SELECT * FROM videos WHERE shop_id=${shop.id} ORDER BY views DESC`
+  const shopVideos = vidRows.map(rowToVideo)
   const waMsg = encodeURIComponent(`Hi! I found ${shop.name} on Seoul Beauty Trip and I'd like to book a service. Shop: ${shop.name} (${shop.location})`)
   const waUrl = `https://wa.me/${PLATFORM.whatsapp}?text=${waMsg}`
   return c.html(`<!DOCTYPE html>
@@ -1382,29 +1495,41 @@ function fmtPrice(n){
 function renderShops(){
   var el = document.getElementById('shopList');
   if(!shops.length){
-    el.innerHTML = '<div style="text-align:center;padding:24px;color:rgba(255,255,255,.3);font-size:13px">등록된 업체가 없습니다</div>';
+    el.innerHTML = '<div style="text-align:center;padding:40px 24px;color:rgba(255,255,255,.25);font-size:13px"><div style="font-size:32px;margin-bottom:8px">🏪</div>등록된 업체가 없습니다<br><span style="font-size:11px">위 폼으로 업체를 등록해보세요</span></div>';
     return;
   }
-  el.innerHTML = shops.map(function(s){
+  var catColors = {skincare:'#f472b6',makeup:'#c084fc',hair:'#60a5fa',nail:'#34d399',clinic:'#fb923c',spa:'#a78bfa'};
+  var catLabels = {skincare:'스킨케어',makeup:'메이크업',hair:'헤어',nail:'네일',clinic:'클리닉',spa:'스파'};
+  el.innerHTML = '<div style="display:grid;gap:12px">' + shops.map(function(s){
     var vcount = videos.filter(function(v){return v.shopId===s.id;}).length;
-    var priceStr = s.priceRange || '';
-    return '<div class="shop-row add-video-row" data-id="'+s.id+'" style="cursor:pointer" title="클릭하면 영상 추가">'+
-      '<img src="'+(s.thumbnail||'')+'" class="safe-img" data-fallback="https://placehold.co/56x56/1c1c30/FF4D8D?text=S">'+
-      '<div class="shop-meta" style="flex:1">'+
-        '<h4>'+s.name+'</h4>'+
-        '<div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:2px">'+
-          '<span class="bdg bdg-cat" style="margin-right:6px">'+s.category+'</span>'+
-          (s.location ? s.location+' &nbsp;' : '')+
-          (priceStr ? '&nbsp; '+priceStr : '')+
-        '</div>'+
-        '<div style="font-size:11px;color:#a78bfa;margin-top:4px">'+vcount+'개 영상</div>'+
-      '</div>'+
-      '<div style="display:flex;gap:6px;align-items:center">'+
-        '<button class="btn-sm" style="background:linear-gradient(135deg,#FF4D8D,#9B59B6);color:#fff;white-space:nowrap" data-add-video="'+s.id+'">+ 영상</button>'+
-        '<button class="btn-sm btn-red del-shop-btn" data-id="'+s.id+'">삭제</button>'+
-      '</div>'+
-    '</div>';
-  }).join('');
+    var catColor = catColors[s.category] || '#aaa';
+    var catLabel = catLabels[s.category] || s.category;
+    var initial = (s.name||'S')[0].toUpperCase();
+    return '<div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px;display:flex;gap:14px;align-items:flex-start;transition:border .2s" onmouseover="this.style.borderColor=\'rgba(255,77,141,.4)\'" onmouseout="this.style.borderColor=\'rgba(255,255,255,.08)\'">'
+      // 썸네일 or 이니셜
+      +'<div style="width:52px;height:52px;border-radius:12px;overflow:hidden;flex-shrink:0;background:linear-gradient(135deg,rgba(255,77,141,.2),rgba(155,89,182,.2));display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#FF4D8D">'
+        +(s.thumbnail ? '<img src="'+s.thumbnail+'" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.textContent=\''+initial+'\'">' : initial)
+      +'</div>'
+      // 메타정보
+      +'<div style="flex:1;min-width:0">'
+        +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">'
+          +'<span style="font-size:14px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+s.name+'</span>'
+          +'<span style="flex-shrink:0;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;background:rgba(255,255,255,.07);color:'+catColor+'">'+catLabel+'</span>'
+        +'</div>'
+        +(s.location ? '<div style="font-size:11px;color:rgba(255,255,255,.45);margin-bottom:4px"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:4px"></i>'+s.location+'</div>' : '')
+        +(s.address ? '<div style="font-size:11px;color:rgba(255,255,255,.3);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+s.address+'</div>' : '')
+        +'<div style="display:flex;align-items:center;gap:10px">'
+          +'<span style="font-size:11px;color:#a78bfa"><i class="fas fa-film" style="margin-right:3px"></i>'+vcount+'개 영상</span>'
+          +(s.priceRange ? '<span style="font-size:11px;color:#34d399">'+s.priceRange+'</span>' : '')
+        +'</div>'
+      +'</div>'
+      // 액션 버튼
+      +'<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">'
+        +'<button data-add-video="'+s.id+'" style="padding:6px 12px;background:linear-gradient(135deg,#FF4D8D,#9B59B6);border:none;border-radius:8px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap"><i class="fas fa-plus"></i> 영상</button>'
+        +'<button class="del-shop-btn" data-id="'+s.id+'" style="padding:6px 12px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.25);border-radius:8px;color:#f87171;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap"><i class="fas fa-trash"></i> 삭제</button>'
+      +'</div>'
+    +'</div>';
+  }).join('') + '</div>';
 }
 
 // ── 영상 목록 렌더 (업체별 그룹) ──

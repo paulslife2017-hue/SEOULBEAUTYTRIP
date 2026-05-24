@@ -18,7 +18,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  let bodyInit: BodyInit | undefined = undefined
+  let bodyInit: Buffer | undefined = undefined
   if (!['GET', 'HEAD'].includes(method)) {
     const raw = await new Promise<Buffer>((resolve) => {
       const chunks: Buffer[] = []
