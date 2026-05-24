@@ -192,6 +192,7 @@ app.post('/api/resolve-gmap', async (c) => {
     if (!url) return c.json({ error: 'no url' }, 400)
 
     const areaMap: [string, string][] = [
+      // 한국어 키워드
       ['압구정','Apgujeong, Seoul'],['청담','Cheongdam, Seoul'],
       ['가로수길','Sinsa, Seoul'],['신사','Sinsa, Seoul'],
       ['역삼','Gangnam, Seoul'],['선릉','Gangnam, Seoul'],
@@ -208,14 +209,33 @@ app.post('/api/resolve-gmap', async (c) => {
       ['강동','Songpa, Seoul'],['여의도','Yeouido, Seoul'],
       ['영등포','Yeouido, Seoul'],['강서','Gangseo, Seoul'],
       ['목동','Gangseo, Seoul'],['노원','Nowon, Seoul'],
-      ['은평','Eunpyeong, Seoul'],['부산','Busan'],
-      ['해운대','Busan'],['서면','Busan'],['제주','Jeju'],
-      ['인천','Incheon'],['대구','Daegu'],['대전','Daejeon'],
-      ['광주','Gwangju'],['수원','Suwon']
+      ['은평','Eunpyeong, Seoul'],
+      // 영어 키워드 (Nominatim 결과 대응)
+      ['apgujeong','Apgujeong, Seoul'],['cheongdam','Cheongdam, Seoul'],
+      ['sinsa','Sinsa, Seoul'],['gangnam','Gangnam, Seoul'],
+      ['seocho','Seocho, Seoul'],['hongdae','Hongdae, Seoul'],
+      ['hapjeong','Hapjeong, Seoul'],['sinchon','Sinchon, Seoul'],
+      ['mapo','Mapo, Seoul'],['itaewon','Itaewon, Seoul'],
+      ['hannam','Itaewon, Seoul'],['yongsan','Yongsan, Seoul'],
+      ['myeongdong','Myeongdong, Seoul'],['jongno','Jongno, Seoul'],
+      ['insadong','Jongno, Seoul'],['dongdaemun','Dongdaemun, Seoul'],
+      ['seongsu','Seongsu, Seoul'],['seongdong','Seongsu, Seoul'],
+      ['jamsil','Jamsil, Seoul'],['songpa','Songpa, Seoul'],
+      ['yeouido','Yeouido, Seoul'],['gangseo','Gangseo, Seoul'],
+      ['nowon','Nowon, Seoul'],['eunpyeong','Eunpyeong, Seoul'],
+      // 광역시/도시
+      ['부산','Busan'],['해운대','Busan'],['서면','Busan'],
+      ['busan','Busan'],['haeundae','Busan'],
+      ['제주','Jeju'],['jeju','Jeju'],
+      ['인천','Incheon'],['incheon','Incheon'],
+      ['대구','Daegu'],['daegu','Daegu'],
+      ['대전','Daejeon'],['daejeon','Daejeon'],
+      ['광주','Gwangju'],['gwangju','Gwangju'],
+      ['수원','Suwon'],['suwon','Suwon']
     ]
     const findArea = (text: string) => {
       const t = text.toLowerCase()
-      for (const [kw, val] of areaMap) { if (t.indexOf(kw) !== -1) return val }
+      for (const [kw, val] of areaMap) { if (t.indexOf(kw.toLowerCase()) !== -1) return val }
       return ''
     }
 
@@ -288,39 +308,22 @@ app.post('/api/resolve-gmap', async (c) => {
   }
 })
 
-// ── Cloudinary 업로드 프록시 ──
-app.post('/api/upload', async (c) => {
+// ── Cloudinary 서명 발급 (클라이언트 직접 업로드용) ──
+// 브라우저 → 이 API로 서명 받고 → Cloudinary로 직접 업로드 (Vercel 4.5MB 제한 우회)
+app.get('/api/upload-sign', async (c) => {
   try {
-    const CLOUD_NAME = 'dc0ouozcd'
     const API_KEY = '221647295675392'
     const API_SECRET = 'g10Q4wv2UzDEAGV35QluPCYz4Ms'
-    const formData = await c.req.formData()
-    const file = formData.get('file') as File | null
-    if (!file) return c.json({ error: 'No file' }, 400)
+    const CLOUD_NAME = 'dc0ouozcd'
     const timestamp = Math.floor(Date.now() / 1000).toString()
     const folder = 'seoul-beauty'
     const strToSign = 'folder=' + folder + '&timestamp=' + timestamp + API_SECRET
-    // SHA-1 via Web Crypto
     const enc = new TextEncoder()
-    const keyData = enc.encode(strToSign)
-    const hashBuf = await crypto.subtle.digest('SHA-1', keyData)
-    const hashArr = Array.from(new Uint8Array(hashBuf))
-    const signature = hashArr.map(b => b.toString(16).padStart(2, '0')).join('')
-    const uploadForm = new FormData()
-    uploadForm.append('file', file)
-    uploadForm.append('api_key', API_KEY)
-    uploadForm.append('timestamp', timestamp)
-    uploadForm.append('signature', signature)
-    uploadForm.append('folder', folder)
-    const res = await fetch('https://api.cloudinary.com/v1_1/' + CLOUD_NAME + '/video/upload', {
-      method: 'POST',
-      body: uploadForm
-    })
-    const data = await res.json() as any
-    if (!res.ok) return c.json({ error: data.error?.message || 'Upload failed' }, 500)
-    return c.json({ ok: true, url: data.secure_url, publicId: data.public_id })
+    const hashBuf = await crypto.subtle.digest('SHA-1', enc.encode(strToSign))
+    const signature = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('')
+    return c.json({ cloudName: CLOUD_NAME, apiKey: API_KEY, timestamp, signature, folder })
   } catch(e: any) {
-    return c.json({ error: e.message || 'Unknown error' }, 500)
+    return c.json({ error: e.message || 'Sign failed' }, 500)
   }
 })
 
