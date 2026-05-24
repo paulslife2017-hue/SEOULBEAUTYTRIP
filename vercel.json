@@ -1,6 +1,7 @@
 {
+  "buildCommand": "node build.mjs",
   "functions": {
-    "api/index.ts": {
+    "api/index.mjs": {
       "memory": 256,
       "maxDuration": 30
     }
@@ -8,7 +9,7 @@
   "rewrites": [
     {
       "source": "/(.*)",
-      "destination": "/api/index"
+      "destination": "/api/index.mjs"
     }
   ]
 }
