@@ -968,8 +968,7 @@ textarea{height:80px;resize:none}
 <div class="tabs">
   <div class="tab on" data-tab="dashboard"><i class="fas fa-chart-bar"></i> 대시보드</div>
   <div class="tab" data-tab="bookings"><i class="fas fa-calendar-check"></i> 예약관리</div>
-  <div class="tab" data-tab="shops"><i class="fas fa-store"></i> 업체관리</div>
-  <div class="tab" data-tab="videos"><i class="fas fa-film"></i> 영상관리</div>
+  <div class="tab" data-tab="shops"><i class="fas fa-store"></i> 업체 · 영상</div>
   <div class="tab" data-tab="settings"><i class="fas fa-cog"></i> 설정</div>
 </div>
 
@@ -1004,66 +1003,72 @@ textarea{height:80px;resize:none}
   </div>
 </div>
 
-<!-- 업체관리 -->
+<!-- 업체·영상 통합관리 -->
 <div class="tab-content" id="tab-shops">
+
+  <!-- ① 업체 등록 폼 -->
   <div class="card" style="margin-bottom:16px">
-    <div class="card-header"><div class="card-title"><i class="fas fa-plus-circle" style="color:#FF4D8D"></i> 새 업체 등록</div></div>
+    <div class="card-header">
+      <div class="card-title"><i class="fas fa-store" style="color:#FF4D8D"></i> 업체 등록</div>
+    </div>
     <div class="form-grid">
-      <div><label>업체명 *</label><input id="sh-name" placeholder="예: 강남 글로우 클리닉"></div>
+      <div class="full"><label>업체명 *</label><input id="sh-name" placeholder="예: 강남 글로우 스킨클리닉"></div>
       <div><label>카테고리 *</label>
         <select id="sh-cat">
-          <option value="skincare">스킨케어</option><option value="makeup">메이크업</option>
-          <option value="hair">헤어</option><option value="nail">네일</option><option value="clinic">클리닉</option>
+          <option value="skincare">스킨케어</option>
+          <option value="makeup">메이크업</option>
+          <option value="hair">헤어</option>
+          <option value="nail">네일</option>
+          <option value="clinic">클리닉</option>
+          <option value="spa">스파·마사지</option>
         </select>
       </div>
-      <div><label>위치</label><input id="sh-loc" placeholder="예: 강남구, 서울"></div>
-      <div><label>가격대</label><input id="sh-price" placeholder="예: &#8361;80,000~&#8361;200,000"></div>
-      <div><label>영업시간</label><input id="sh-hours" placeholder="예: 10:00~20:00 (월~토)"></div>
-      <div><label>수수료 % (10~20)</label><input id="sh-comm" type="number" placeholder="15" min="10" max="20"></div>
-      <div class="full"><label>주소</label><input id="sh-addr" placeholder="전체 주소 입력"></div>
-      <div class="full"><label>구글맵 URL</label><input id="sh-gmap" placeholder="https://maps.google.com/?q=..."></div>
-      <div class="full"><label>썸네일 이미지 URL</label><input id="sh-thumb" placeholder="https://...image.jpg"></div>
-      <div class="full"><label>서비스 목록 (쉼표로 구분)</label><input id="sh-svcs" placeholder="딥클렌징, 하이드라페이션, 글라스스킨"></div>
-      <div class="full"><label>업체 소개</label><textarea id="sh-desc" placeholder="업체 설명을 입력하세요..."></textarea></div>
+      <div><label>지역</label><input id="sh-loc" placeholder="예: 강남, 홍대, 명동"></div>
+      <div class="full"><label>대표 서비스 (쉼표 구분)</label><input id="sh-svcs" placeholder="예: 딥클렌징, 하이드라페이셜, 글라스스킨"></div>
+      <!-- 가격 입력: 최소~최대 숫자 -->
+      <div><label>최소 가격 (₩)</label><input id="sh-price-min" type="number" placeholder="50000" min="0" step="1000"></div>
+      <div><label>최대 가격 (₩)</label><input id="sh-price-max" type="number" placeholder="200000" min="0" step="1000"></div>
+      <div class="full"><label>구글맵 URL <span style="font-size:11px;color:rgba(255,255,255,.4)">(선택)</span></label><input id="sh-gmap" placeholder="https://maps.google.com/?q=..."></div>
+      <div class="full"><label>썸네일 이미지 URL <span style="font-size:11px;color:rgba(255,255,255,.4)">(선택)</span></label><input id="sh-thumb" placeholder="https://...image.jpg"></div>
+      <div class="full"><label>업체 소개 <span style="font-size:11px;color:rgba(255,255,255,.4)">(선택)</span></label><textarea id="sh-desc" placeholder="고객에게 보여질 업체 소개 문구..."></textarea></div>
     </div>
-    <button class="btn-pk" style="margin-top:10px" onclick="addShop()"><i class="fas fa-plus"></i> 업체 등록</button>
+    <button class="btn-pk" style="margin-top:12px" id="sh-submit-btn"><i class="fas fa-plus"></i> 업체 등록</button>
   </div>
-  <div class="card">
-    <div class="card-title" style="margin-bottom:14px"><i class="fas fa-store" style="color:#FF4D8D"></i> 등록된 업체 목록</div>
+
+  <!-- ② 등록된 업체 목록 (클릭하면 영상 추가) -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-title" style="margin-bottom:14px"><i class="fas fa-list" style="color:#FF4D8D"></i> 등록된 업체 <span style="font-size:12px;color:rgba(255,255,255,.4);font-weight:400">— 업체 클릭 시 영상 추가</span></div>
     <div id="shopList"></div>
   </div>
-</div>
 
-<!-- 영상관리 -->
-<div class="tab-content" id="tab-videos">
-  <div class="card" style="margin-bottom:16px">
-    <div class="card-header"><div class="card-title"><i class="fas fa-plus-circle" style="color:#FF4D8D"></i> 새 영상 등록</div></div>
+  <!-- ③ 영상 추가 패널 (업체 클릭 시 슬라이드다운) -->
+  <div class="card" id="videoAddPanel" style="display:none;margin-bottom:16px;border:1px solid rgba(255,77,141,.35)">
+    <div class="card-header" style="margin-bottom:12px">
+      <div class="card-title"><i class="fas fa-film" style="color:#FF4D8D"></i> 영상 추가 — <span id="vd-shop-name" style="color:#FF85B3"></span></div>
+      <button style="background:none;border:none;color:rgba(255,255,255,.4);font-size:18px;cursor:pointer" id="vd-panel-close">✕</button>
+    </div>
     <div class="form-grid">
-      <div class="full"><label>업체 선택 *</label><select id="vd-shop"></select></div>
-      <div class="full"><label>영상 제목 *</label><input id="vd-title" placeholder="예: 강남 럭셔리 페이셜 트리트먼트"></div>
+      <div class="full"><label>영상 제목 *</label><input id="vd-title" placeholder="예: 강남 럭셔리 페이셜 60분 풀코스"></div>
       <div class="full">
         <label>영상 URL *</label>
-        <div style="background:rgba(255,77,141,.06);border:1px solid rgba(255,77,141,.2);border-radius:10px;padding:10px;margin-bottom:8px;font-size:12px">
-          <div style="color:#FF85B3;font-weight:700;margin-bottom:6px"><i class="fas fa-lightbulb"></i> 사용 가능한 URL 형식</div>
-          <div style="display:grid;gap:5px">
-            <div style="color:rgba(255,255,255,.7)">✅ <b style="color:#4ade80">Cloudflare R2</b> — <span style="color:rgba(255,255,255,.5)">https://pub-xxx.r2.dev/video.mp4 (가장 추천)</span></div>
-            <div style="color:rgba(255,255,255,.7)">✅ <b style="color:#60a5fa">구글 드라이브</b> — <span style="color:rgba(255,255,255,.5)">drive.google.com 링크 붙여넣기 → 자동 변환</span></div>
-            <div style="color:rgba(255,255,255,.7)">✅ <b style="color:#a78bfa">직접 MP4 링크</b> — <span style="color:rgba(255,255,255,.5)">https://example.com/video.mp4</span></div>
-          </div>
+        <div style="background:rgba(255,77,141,.06);border:1px solid rgba(255,77,141,.15);border-radius:10px;padding:10px;margin-bottom:8px;font-size:12px;color:rgba(255,255,255,.6)">
+          구글 드라이브 공유 링크를 그대로 붙여넣으면 자동 변환됩니다 ✨
         </div>
         <div style="position:relative">
-          <input id="vd-url" placeholder="URL을 붙여넣으세요 (구글 드라이브 링크도 OK!)" oninput="handleVideoUrlInput(this.value)" style="padding-right:90px">
+          <input id="vd-url" placeholder="영상 URL 또는 구글 드라이브 링크" oninput="handleVideoUrlInput(this.value)" style="padding-right:100px">
           <div id="vd-url-badge" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);padding:2px 8px;border-radius:6px;font-size:10px;font-weight:800"></div>
         </div>
         <div id="vd-url-hint" style="display:none;margin-top:6px;padding:8px 10px;background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.25);border-radius:8px;font-size:12px;color:#4ade80"></div>
         <div id="vd-url-preview" style="display:none;margin-top:8px"></div>
       </div>
-      <div class="full"><label>썸네일 URL</label><input id="vd-thumb" placeholder="https://...image.jpg"></div>
-      <div class="full"><label>영상 설명</label><input id="vd-desc" placeholder="짧은 설명을 입력하세요..."></div>
-      <div class="full"><label>태그 (쉼표로 구분)</label><input id="vd-tags" placeholder="#KBeauty, #서울, #스킨케어"></div>
+      <div class="full"><label>썸네일 URL <span style="font-size:11px;color:rgba(255,255,255,.4)">(선택)</span></label><input id="vd-thumb" placeholder="https://...image.jpg (비워두면 업체 썸네일 사용)"></div>
+      <div class="full"><label>영상 설명 <span style="font-size:11px;color:rgba(255,255,255,.4)">(선택)</span></label><input id="vd-desc" placeholder="짧은 설명..."></div>
+      <div class="full"><label>태그 <span style="font-size:11px;color:rgba(255,255,255,.4)">(선택, 쉼표 구분)</span></label><input id="vd-tags" placeholder="#KBeauty, #강남, #스킨케어"></div>
     </div>
-    <button class="btn-pk" style="margin-top:10px" onclick="addVideo()"><i class="fas fa-plus"></i> 영상 등록</button>
+    <button class="btn-pk" style="margin-top:12px" id="vd-submit-btn"><i class="fas fa-plus"></i> 영상 등록</button>
   </div>
+
+  <!-- ④ 영상 목록 (업체별) -->
   <div class="card">
     <div class="card-title" style="margin-bottom:14px"><i class="fas fa-film" style="color:#FF4D8D"></i> 등록된 영상 목록</div>
     <div id="videoList"></div>
@@ -1115,19 +1120,24 @@ document.querySelectorAll('.tab').forEach(function(t){
   });
 });
 
-// ── 이벤트 위임: 삭제/상태 변경 버튼 ──
+// ── 이벤트 위임 ──
 document.addEventListener('click', function(e){
   var delShopBtn = e.target.closest('.del-shop-btn');
   if(delShopBtn){ delShop(delShopBtn.getAttribute('data-id')); return; }
   var delVideoBtn = e.target.closest('.del-video-btn');
   if(delVideoBtn){ delVideo(delVideoBtn.getAttribute('data-id')); return; }
+  var addVideoBtn = e.target.closest('[data-add-video]');
+  if(addVideoBtn){ openVideoPanel(addVideoBtn.getAttribute('data-add-video')); return; }
 });
 document.addEventListener('change', function(e){
   var sel = e.target.closest('.status-select');
   if(sel){ updateStatus(sel.getAttribute('data-id'), sel.value); }
 });
 
-// LOAD ALL
+// ── 현재 영상 추가 중인 업체 ID ──
+var currentShopId = null;
+
+// ── 데이터 로드 ──
 function loadAll(){
   fetch('/api/stats').then(function(r){return r.json();}).then(function(d){
     document.getElementById('st-views').textContent = d.totalViews>=1000?(d.totalViews/1000).toFixed(1)+'K':d.totalViews;
@@ -1139,14 +1149,13 @@ function loadAll(){
         '<div class="top-rank">#'+(i+1)+'</div>'+
         '<img src="'+(v.thumbnail||'')+'" class="safe-img">'+
         '<div style="flex:1"><div style="font-size:13px;font-weight:700;margin-bottom:3px">'+v.title+'</div>'+
-        '<div style="font-size:11px;color:rgba(255,255,255,.4)"><i class="fas fa-eye"></i> '+v.views+' 조회 &nbsp; <i class="fas fa-heart" style="color:#FF4D8D"></i> '+v.likes+' 좋아요</div></div>'+
+        '<div style="font-size:11px;color:rgba(255,255,255,.4)">'+v.views+' 조회 &nbsp; '+v.likes+' 좋아요</div></div>'+
         '</div>';
     }).join('');
   });
   fetch('/api/shops').then(function(r){return r.json();}).then(function(d){
     shops = d.shops||[];
     renderShops();
-    renderShopSelect();
     renderSeoLinks();
   });
   fetch('/api/videos').then(function(r){return r.json();}).then(function(d){
@@ -1159,61 +1168,94 @@ function loadAll(){
   });
 }
 
-function renderShopSelect(){
-  var sel=document.getElementById('vd-shop');
-  sel.innerHTML=shops.map(function(s){return '<option value="'+s.id+'">'+s.name+'</option>';}).join('');
+// ── 가격 포맷 (숫자 → ₩xx,xxx) ──
+function fmtPrice(n){
+  if(!n || isNaN(n)) return '';
+  return '\u20a9'+Number(n).toLocaleString();
 }
 
+// ── 업체 목록 렌더 ──
 function renderShops(){
-  document.getElementById('shopList').innerHTML = shops.map(function(s){
-    return '<div class="shop-row">'+
-      '<img src="'+(s.thumbnail||'')+'" class="safe-img" data-fallback="https://placehold.co/56x56/1c1c30/FF4D8D?text=Shop">'+
-      '<div class="shop-meta">'+
+  var el = document.getElementById('shopList');
+  if(!shops.length){
+    el.innerHTML = '<div style="text-align:center;padding:24px;color:rgba(255,255,255,.3);font-size:13px">등록된 업체가 없습니다</div>';
+    return;
+  }
+  el.innerHTML = shops.map(function(s){
+    var vcount = videos.filter(function(v){return v.shopId===s.id;}).length;
+    var priceStr = s.priceRange || '';
+    return '<div class="shop-row add-video-row" data-id="'+s.id+'" style="cursor:pointer" title="클릭하면 영상 추가">'+
+      '<img src="'+(s.thumbnail||'')+'" class="safe-img" data-fallback="https://placehold.co/56x56/1c1c30/FF4D8D?text=S">'+
+      '<div class="shop-meta" style="flex:1">'+
         '<h4>'+s.name+'</h4>'+
-        '<p><i class="fas fa-map-marker-alt" style="color:#FF4D8D"></i> '+s.location+' &nbsp;|&nbsp; <i class="fas fa-percentage" style="color:#FF4D8D"></i> '+s.commission+'% 수수료</p>'+
-        '<p><i class="fas fa-clock" style="color:#FF4D8D"></i> '+s.hours+' &nbsp;|&nbsp; <i class="fas fa-won-sign" style="color:#FF4D8D"></i> '+s.priceRange+'</p>'+
-        '<div class="tags"><span class="bdg bdg-cat">'+s.category+'</span></div>'+
+        '<div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:2px">'+
+          '<span class="bdg bdg-cat" style="margin-right:6px">'+s.category+'</span>'+
+          (s.location ? s.location+' &nbsp;' : '')+
+          (priceStr ? '&nbsp; '+priceStr : '')+
+        '</div>'+
+        '<div style="font-size:11px;color:#a78bfa;margin-top:4px">'+vcount+'개 영상</div>'+
       '</div>'+
-      '<button class="btn-sm btn-red del-shop-btn" data-id="'+s.id+'">X</button>'+
-      '</div>';
+      '<div style="display:flex;gap:6px;align-items:center">'+
+        '<button class="btn-sm" style="background:linear-gradient(135deg,#FF4D8D,#9B59B6);color:#fff;white-space:nowrap" data-add-video="'+s.id+'">+ 영상</button>'+
+        '<button class="btn-sm btn-red del-shop-btn" data-id="'+s.id+'">삭제</button>'+
+      '</div>'+
+    '</div>';
   }).join('');
 }
 
+// ── 영상 목록 렌더 (업체별 그룹) ──
 function renderVideos(){
-  document.getElementById('videoList').innerHTML = videos.map(function(v){
-    var shop = shops.find(function(s){return s.id===v.shopId;})||{};
-    return '<div class="vid-row">'+
-      '<img src="'+(v.thumbnail||'')+'" class="safe-img" data-fallback="https://placehold.co/48x64/1c1c30/FF4D8D?text=Vid">'+
-      '<div style="flex:1">'+
-        '<div style="font-size:13px;font-weight:700;margin-bottom:3px">'+v.title+'</div>'+
-        '<div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:4px">'+shop.name+'</div>'+
-        '<div style="font-size:11px;color:rgba(255,255,255,.35)"><i class="fas fa-eye"></i> '+v.views+' &nbsp; <i class="fas fa-heart" style="color:#FF4D8D"></i> '+v.likes+'</div>'+
-      '</div>'+
-      '<button class="btn-sm btn-red del-video-btn" data-id="'+v.id+'">X</button>'+
+  var el = document.getElementById('videoList');
+  if(!videos.length){
+    el.innerHTML = '<div style="text-align:center;padding:24px;color:rgba(255,255,255,.3);font-size:13px">등록된 영상이 없습니다</div>';
+    return;
+  }
+  // 업체별 그룹핑
+  var byShop = {};
+  videos.forEach(function(v){
+    if(!byShop[v.shopId]) byShop[v.shopId] = [];
+    byShop[v.shopId].push(v);
+  });
+  var html = '';
+  Object.keys(byShop).forEach(function(sid){
+    var shop = shops.find(function(s){return s.id===sid;})||{name:'(삭제된 업체)'};
+    html += '<div style="font-size:12px;font-weight:700;color:#FF85B3;padding:8px 0 4px;border-bottom:1px solid rgba(255,77,141,.15);margin-bottom:6px">'+shop.name+'</div>';
+    byShop[sid].forEach(function(v){
+      html += '<div class="vid-row">'+
+        '<img src="'+(v.thumbnail||'')+'" class="safe-img" data-fallback="https://placehold.co/48x64/1c1c30/FF4D8D?text=V">'+
+        '<div style="flex:1">'+
+          '<div style="font-size:13px;font-weight:700;margin-bottom:2px">'+v.title+'</div>'+
+          '<div style="font-size:11px;color:rgba(255,255,255,.4)">'+v.views+' 조회 &nbsp; '+v.likes+' 좋아요</div>'+
+        '</div>'+
+        '<button class="btn-sm btn-red del-video-btn" data-id="'+v.id+'">삭제</button>'+
       '</div>';
-  }).join('');
+    });
+    html += '<div style="margin-bottom:12px"></div>';
+  });
+  el.innerHTML = html;
 }
 
 var statusLabels={new:'신규',contacted:'연락중',confirmed:'확정',completed:'완료',cancelled:'취소'};
-var statusClass={new:'bdg-new',contacted:'bdg-contacted',confirmed:'bdg-confirmed',completed:'bdg-completed',cancelled:'bdg-cancelled'};
+var statusColors={new:'#60a5fa',contacted:'#fbbf24',confirmed:'#34d399',completed:'#a78bfa',cancelled:'#f87171'};
 
 function renderBookings(){
   document.getElementById('bookingTbody').innerHTML = bookings.map(function(b){
+    var sc = statusColors[b.status]||'#aaa';
     return '<tr>'+
-      '<td style="white-space:nowrap">'+b.createdAt+'</td>'+
-      '<td><div style="font-weight:700">'+b.name+'</div><div style="font-size:11px;color:rgba(255,255,255,.4)">'+b.email+'</div></td>'+
+      '<td style="white-space:nowrap;font-size:11px">'+b.createdAt+'</td>'+
+      '<td><div style="font-weight:700;font-size:13px">'+b.name+'</div><div style="font-size:11px;color:rgba(255,255,255,.4)">'+b.email+'</div></td>'+
       '<td style="font-size:12px">'+b.shopName+'</td>'+
       '<td style="font-size:12px">'+b.service+'</td>'+
       '<td style="font-size:12px">'+b.people+'</td>'+
-      '<td style="font-size:12px"><span style="color:#10b981;font-weight:700">'+b.commissionRate+'%</span><br><span style="font-size:10px;color:rgba(255,255,255,.4)">'+b.estimatedAmount+'</span></td>'+
-      '<td><span class="bdg '+statusClass[b.status]+'">'+statusLabels[b.status]+'</span></td>'+
+      '<td style="font-size:12px;color:#10b981;font-weight:700">'+b.estimatedAmount+'</td>'+
+      '<td><span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;background:rgba(255,255,255,.07);color:'+sc+'">'+statusLabels[b.status]+'</span></td>'+
       '<td>'+
-        '<select class="status-select" data-id="'+b.id+'" style="padding:4px 6px;font-size:11px;width:auto">'+
+        '<select class="status-select" data-id="'+b.id+'" style="padding:4px 6px;font-size:11px;width:auto;background:#1c1c30;color:#fff;border:1px solid rgba(255,255,255,.15);border-radius:6px">'+
           Object.keys(statusLabels).map(function(k){return '<option value="'+k+'"'+(b.status===k?' selected':'')+'>'+statusLabels[k]+'</option>';}).join('')+
         '</select>'+
-        '<br><a href="https://wa.me/'+b.phone.replace(/[^0-9]/g,'')+'" target="_blank" style="display:inline-flex;align-items:center;gap:3px;margin-top:4px;font-size:11px;color:#25D366;text-decoration:none"><i class="fab fa-whatsapp"></i> 연락하기</a>'+
+        '<br><a href="https://wa.me/'+b.phone.replace(/[^0-9]/g,'')+'" target="_blank" style="display:inline-flex;align-items:center;gap:3px;margin-top:4px;font-size:11px;color:#25D366;text-decoration:none">WA 연락</a>'+
       '</td>'+
-      '</tr>';
+    '</tr>';
   }).join('');
 }
 
@@ -1223,7 +1265,7 @@ function renderSeoLinks(){
     return '<div style="font-size:12px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05)">'+
       '<a href="'+url+'" target="_blank" style="color:#60a5fa;text-decoration:none">'+url+'</a>'+
       ' <span style="color:rgba(255,255,255,.3);font-size:11px">— '+s.name+'</span>'+
-      '</div>';
+    '</div>';
   }).join('');
 }
 
@@ -1232,40 +1274,65 @@ function updateStatus(id, status){
     .then(loadAll);
 }
 
+// ── 영상 추가 패널 열기/닫기 ──
+function openVideoPanel(shopId){
+  var shop = shops.find(function(s){return s.id===shopId;});
+  if(!shop) return;
+  currentShopId = shopId;
+  document.getElementById('vd-shop-name').textContent = shop.name;
+  document.getElementById('videoAddPanel').style.display = 'block';
+  document.getElementById('videoAddPanel').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function closeVideoPanel(){
+  document.getElementById('videoAddPanel').style.display = 'none';
+  currentShopId = null;
+  ['vd-title','vd-url','vd-thumb','vd-desc','vd-tags'].forEach(function(id){document.getElementById(id).value='';});
+  document.getElementById('vd-url-badge').style.display='none';
+  document.getElementById('vd-url-hint').style.display='none';
+  document.getElementById('vd-url-preview').style.display='none';
+}
+
+document.getElementById('vd-panel-close').addEventListener('click', closeVideoPanel);
+document.getElementById('vd-submit-btn').addEventListener('click', addVideo);
+document.getElementById('sh-submit-btn').addEventListener('click', addShop);
+
+// ── 업체 등록 ──
 function addShop(){
-  var name=document.getElementById('sh-name').value;
-  if(!name){alert('Shop name required!');return;}
-  var svcsRaw=document.getElementById('sh-svcs').value;
-  var svcs=svcsRaw?svcsRaw.split(',').map(function(s){return s.trim();}).filter(Boolean):[];
-  var slug=name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+  var name = document.getElementById('sh-name').value.trim();
+  if(!name){ alert('업체명을 입력해주세요!'); return; }
+  var svcs = document.getElementById('sh-svcs').value.split(',').map(function(s){return s.trim();}).filter(Boolean);
+  var pMin = parseInt(document.getElementById('sh-price-min').value)||0;
+  var pMax = parseInt(document.getElementById('sh-price-max').value)||0;
+  var priceRange = (pMin||pMax) ? (fmtPrice(pMin)+(pMax?'~'+fmtPrice(pMax):'')) : 'Contact us';
+  var slug = name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') + '-' + Date.now().toString().slice(-4);
   fetch('/api/shops',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-    name:name,slug:slug,
+    name:name, slug:slug,
     category:document.getElementById('sh-cat').value,
     location:document.getElementById('sh-loc').value||'Seoul',
-    priceRange:document.getElementById('sh-price').value||'Contact us',
-    hours:document.getElementById('sh-hours').value||'10:00~20:00',
-    commission:parseInt(document.getElementById('sh-comm').value)||15,
-    address:document.getElementById('sh-addr').value||'',
-    googleMapUrl:document.getElementById('sh-gmap').value||'https://maps.google.com/?q=Seoul',
+    priceRange:priceRange,
+    hours:'', commission:15,
+    address:'',
+    googleMapUrl:document.getElementById('sh-gmap').value||'',
     googleMapEmbed:'',
     thumbnail:document.getElementById('sh-thumb').value||'',
     services:svcs,
+    servicePrices:[],
     description:document.getElementById('sh-desc').value||'',
     rating:5.0, reviewCount:0
   })}).then(function(){
-    ['sh-name','sh-loc','sh-price','sh-hours','sh-comm','sh-addr','sh-gmap','sh-thumb','sh-svcs','sh-desc'].forEach(function(id){document.getElementById(id).value='';});
-    loadAll(); alert('업체가 등록되었습니다!');
+    ['sh-name','sh-loc','sh-price-min','sh-price-max','sh-gmap','sh-thumb','sh-svcs','sh-desc'].forEach(function(id){document.getElementById(id).value='';});
+    loadAll();
   });
 }
 
 function delShop(id){
-  if(!confirm('이 업체를 삭제하시겠습니까?'))return;
+  if(!confirm('업체를 삭제하면 연결된 영상도 모두 사라집니다. 계속하시겠습니까?'))return;
   fetch('/api/shops/'+id,{method:'DELETE'}).then(loadAll);
 }
 
-// ── 구글 드라이브 URL 변환 함수 ──
+// ── 구글 드라이브 URL 변환 ──
 function convertGDriveUrl(url){
-  // 형식1: drive.google.com/file/d/FILE_ID/view
   var marker1 = 'drive.google.com/file/d/';
   var idx1 = url.indexOf(marker1);
   if(idx1 !== -1){
@@ -1273,14 +1340,12 @@ function convertGDriveUrl(url){
     var id1 = rest1.split('/')[0].split('?')[0];
     if(id1) return 'https://drive.google.com/uc?export=download&id=' + id1;
   }
-  // 형식2: drive.google.com/open?id=FILE_ID
   var marker2 = 'drive.google.com/open?id=';
   var idx2 = url.indexOf(marker2);
   if(idx2 !== -1){
     var id2 = url.slice(idx2 + marker2.length).split('&')[0];
     if(id2) return 'https://drive.google.com/uc?export=download&id=' + id2;
   }
-  // 형식3: 이미 uc?export 형식
   if(url.indexOf('drive.google.com/uc') !== -1) return url;
   return null;
 }
@@ -1301,10 +1366,7 @@ function handleVideoUrlInput(raw){
   var preview = document.getElementById('vd-url-preview');
   var input = document.getElementById('vd-url');
   if(!raw){ badge.style.display='none'; hint.style.display='none'; preview.style.display='none'; return; }
-
   var type = detectUrlType(raw);
-
-  // 구글 드라이브 → 자동 변환
   if(type === 'gdrive'){
     var converted = convertGDriveUrl(raw);
     if(converted){
@@ -1314,36 +1376,29 @@ function handleVideoUrlInput(raw){
       badge.style.color='#fff';
       badge.textContent='구글 드라이브';
       hint.style.display='block';
-      hint.textContent='✅ 구글 드라이브 링크가 자동으로 변환되었습니다! (영상이 공개 공유 상태인지 확인하세요)';
+      hint.textContent='✅ 구글 드라이브 링크 자동 변환 완료!';
       showVideoPreview(converted, preview);
       return;
     }
   }
-
-  // R2 URL
   if(type === 'r2'){
     badge.style.display='inline-block';
     badge.style.background='linear-gradient(135deg,#F6821F,#FAAD3D)';
     badge.style.color='#fff';
     badge.textContent='Cloudflare R2';
-    hint.style.display='block';
-    hint.textContent='✅ Cloudflare R2 URL — 가장 안정적입니다!';
-    showVideoPreview(raw, preview);
-    return;
-  }
-
-  // 직접 MP4
-  if(type === 'direct'){
-    badge.style.display='inline-block';
-    badge.style.background='linear-gradient(135deg,#9B59B6,#8E44AD)';
-    badge.style.color='#fff';
-    badge.textContent='MP4 직접링크';
     hint.style.display='none';
     showVideoPreview(raw, preview);
     return;
   }
-
-  // 일반 URL
+  if(type === 'direct'){
+    badge.style.display='inline-block';
+    badge.style.background='linear-gradient(135deg,#9B59B6,#8E44AD)';
+    badge.style.color='#fff';
+    badge.textContent='MP4 링크';
+    hint.style.display='none';
+    showVideoPreview(raw, preview);
+    return;
+  }
   badge.style.display='none';
   hint.style.display='none';
   preview.style.display='none';
@@ -1361,7 +1416,7 @@ function showVideoPreview(url, container){
   vid.style.cssText = 'width:100%;max-height:160px;border-radius:10px;background:#000;display:block';
   vid.onerror = function(){
     var errDiv = document.createElement('div');
-    errDiv.style.cssText = 'padding:12px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;font-size:12px;color:#f87171';
+    errDiv.style.cssText = 'padding:10px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;font-size:12px;color:#f87171';
     errDiv.textContent = '⚠ 영상을 불러올 수 없습니다. URL을 확인해주세요.';
     while(container.firstChild) container.removeChild(container.firstChild);
     container.appendChild(label.cloneNode(true));
@@ -1373,25 +1428,24 @@ function showVideoPreview(url, container){
   container.appendChild(wrap);
 }
 
+// ── 영상 등록 ──
 function addVideo(){
-  var title=document.getElementById('vd-title').value.trim();
-  var url=document.getElementById('vd-url').value.trim();
-  if(!title){alert('영상 제목을 입력해주세요!');return;}
-  if(!url){alert('영상 URL을 입력해주세요!');return;}
-  if(!document.getElementById('vd-shop').value){alert('업체를 선택해주세요!');return;}
-  var tags=document.getElementById('vd-tags').value.split(',').map(function(t){return t.trim();}).filter(Boolean);
+  if(!currentShopId){ alert('업체를 먼저 선택해주세요!'); return; }
+  var title = document.getElementById('vd-title').value.trim();
+  var url   = document.getElementById('vd-url').value.trim();
+  if(!title){ alert('영상 제목을 입력해주세요!'); return; }
+  if(!url){   alert('영상 URL을 입력해주세요!'); return; }
+  var shop = shops.find(function(s){return s.id===currentShopId;})||{};
+  var tags = document.getElementById('vd-tags').value.split(',').map(function(t){return t.trim();}).filter(Boolean);
   fetch('/api/videos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-    shopId:document.getElementById('vd-shop').value,
+    shopId:currentShopId,
     title:title, videoUrl:url,
-    thumbnail:document.getElementById('vd-thumb').value||'',
+    thumbnail:document.getElementById('vd-thumb').value || shop.thumbnail || '',
     description:document.getElementById('vd-desc').value||'',
     tags:tags
   })}).then(function(){
-    ['vd-title','vd-url','vd-thumb','vd-desc','vd-tags'].forEach(function(id){document.getElementById(id).value='';});
-    document.getElementById('vd-url-badge').style.display='none';
-    document.getElementById('vd-url-hint').style.display='none';
-    document.getElementById('vd-url-preview').style.display='none';
-    loadAll(); alert('영상이 등록되었습니다!');
+    closeVideoPanel();
+    loadAll();
   });
 }
 
@@ -1401,7 +1455,7 @@ function delVideo(id){
 }
 
 function saveSettings(){
-  alert('설정이 저장되었습니다! (왓츠앱: '+document.getElementById('cfg-wa').value+')');
+  alert('저장되었습니다!');
 }
 
 loadAll();
