@@ -1222,6 +1222,8 @@ textarea{height:80px;resize:none}
 .bdg-cancelled{background:rgba(239,68,68,.2);color:#ef4444}
 .bdg-cat{background:rgba(255,77,141,.15);color:var(--pk)}
 /* SHOP CARD */
+.shop-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px;display:flex;gap:14px;align-items:flex-start;transition:border-color .2s}
+.shop-card:hover{border-color:rgba(255,77,141,.4)}
 .shop-row{display:flex;gap:12px;align-items:flex-start;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.05)}
 .shop-row:last-child{border:none}
 .shop-row img{width:56px;height:56px;border-radius:10px;object-fit:cover;flex-shrink:0}
@@ -1505,7 +1507,7 @@ function renderShops(){
     var catColor = catColors[s.category] || '#aaa';
     var catLabel = catLabels[s.category] || s.category;
     var initial = (s.name||'S')[0].toUpperCase();
-    return '<div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px;display:flex;gap:14px;align-items:flex-start;transition:border .2s" onmouseover="this.style.borderColor=\'rgba(255,77,141,.4)\'" onmouseout="this.style.borderColor=\'rgba(255,255,255,.08)\'">'
+    return '<div class="shop-card">'
       // 썸네일 or 이니셜
       +'<div style="width:52px;height:52px;border-radius:12px;overflow:hidden;flex-shrink:0;background:linear-gradient(135deg,rgba(255,77,141,.2),rgba(155,89,182,.2));display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#FF4D8D">'
         +(s.thumbnail ? '<img src="'+s.thumbnail+'" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.textContent=\''+initial+'\'">' : initial)
