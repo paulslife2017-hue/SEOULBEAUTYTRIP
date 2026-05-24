@@ -252,10 +252,21 @@ async function initDb() {
     }
   } catch(e) { console.error('initDb error:', e) }
 }
-initDb()
+
+// ── lazy init: 첫 요청 시 1회만 실행 ──
+let _dbInited = false
+async function ensureDb() {
+  if (_dbInited) return
+  _dbInited = true
+  await initDb()
+}
+
+// ── favicon.ico 404 방지 ──
+app.get('/favicon.ico', (c) => c.body(null, 204))
 
 // ── API ──
 app.get('/api/videos', async (c) => {
+  await ensureDb()
   const sql = getDb()
   const cat = c.req.query('category')
   const rows = cat && cat !== 'all'
@@ -1069,8 +1080,8 @@ function renderShopModal(shop) {
   photos.forEach(function(p){ if(p && p!==shop.thumbnail) allPhotos.push(p); });
   var galleryHtml = '';
   if(allPhotos.length > 0) {
-    var thumbs = allPhotos.map(function(url, i){
-      return '<div style="flex-shrink:0;width:'+(allPhotos.length===1?'100%':'48%')+';aspect-ratio:4/3;border-radius:12px;overflow:hidden;cursor:pointer" onclick="openPhotoViewer(\''+esc(url)+'\')">'
+    var thumbs = allPhotos.map(function(url){
+      return '<div class="photo-thumb" data-photo-url="'+esc(url)+'" style="flex-shrink:0;width:'+(allPhotos.length===1?'100%':'48%')+';aspect-ratio:4/3;border-radius:12px;overflow:hidden;cursor:pointer">'
         +'<img src="'+esc(url)+'" style="width:100%;height:100%;object-fit:cover" loading="lazy">'
         +'</div>';
     }).join('');
@@ -1152,6 +1163,12 @@ function closeModal(){
 /* 배경 클릭으로 닫기 */
 document.getElementById('shopModal').addEventListener('click', function(e){
   if(e.target === this) closeModal();
+});
+
+/* 사진 썸네일 클릭 → 전체화면 뷰어 (이벤트 위임) */
+document.getElementById('modalContent').addEventListener('click', function(e){
+  var thumb = e.target.closest('.photo-thumb');
+  if(thumb){ openPhotoViewer(thumb.getAttribute('data-photo-url')); }
 });
 
 /* 스와이프 다운으로 닫기 */
