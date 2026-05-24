@@ -1612,7 +1612,10 @@ function addVidRow(){
         fd.append('timestamp', sign.timestamp);
         fd.append('signature', sign.signature);
         fd.append('folder', sign.folder);
-        return fetch('https://api.cloudinary.com/v1_1/' + sign.cloudName + '/video/upload', {
+        // resource_type: video (mp4, mov 등), image (jpg, png 등), auto (자동감지)
+        var resType = 'video';
+        if(file.type && file.type.indexOf('image') !== -1) resType = 'image';
+        return fetch('https://api.cloudinary.com/v1_1/' + sign.cloudName + '/' + resType + '/upload', {
           method: 'POST', body: fd
         }).then(function(r){ return r.json(); });
       })
@@ -1624,15 +1627,16 @@ function addVidRow(){
           uploadBtn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
           uploadBtn.textContent = '완료 ✓';
         } else {
+          var errMsg = (data.error && data.error.message) ? data.error.message : JSON.stringify(data);
           uploadStatus.style.color = '#f87171';
-          uploadStatus.textContent = '❌ 실패: ' + (data.error && data.error.message ? data.error.message : '오류');
+          uploadStatus.textContent = '❌ ' + errMsg;
           uploadBtn.disabled = false;
           uploadBtn.textContent = '영상 파일 선택';
         }
       })
       .catch(function(err){
         uploadStatus.style.color = '#f87171';
-        uploadStatus.textContent = '❌ 업로드 실패: ' + (err.message || '');
+        uploadStatus.textContent = '❌ ' + (err.message || '네트워크 오류');
         uploadBtn.disabled = false;
         uploadBtn.textContent = '영상 파일 선택';
       });
