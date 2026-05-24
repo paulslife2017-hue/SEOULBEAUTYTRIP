@@ -696,6 +696,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 #ld .bar{width:140px;height:2px;background:rgba(255,255,255,.1);border-radius:2px;margin-top:16px;overflow:hidden}
 #ld .prog{height:100%;background:linear-gradient(90deg,var(--pk),var(--pu));animation:lp 1.8s ease forwards}
 @keyframes lp{from{width:0}to{width:100%}}
+/* ── 헤더: PC에서 중앙 정렬 ── */
 #hd{position:fixed;top:0;left:0;right:0;z-index:100;padding:14px 16px 12px;background:linear-gradient(to bottom,rgba(13,13,24,.97) 55%,transparent)}
 .logo{display:flex;align-items:center;gap:9px;margin-bottom:11px}
 .logo-ic{width:36px;height:36px;border-radius:11px;background:linear-gradient(135deg,var(--pk),var(--pu));display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
@@ -705,11 +706,13 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .cats::-webkit-scrollbar{display:none}
 .cat{flex-shrink:0;padding:6px 13px;border-radius:20px;border:1.5px solid rgba(255,77,141,.28);background:rgba(255,77,141,.05);color:rgba(255,255,255,.5);font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap}
 .cat.on,.cat:hover{background:linear-gradient(135deg,var(--pk),var(--pu));border-color:transparent;color:#fff}
-#feed{height:100vh;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none}
+/* ── 피드: PC/모바일 공통 ── */
+#feed{height:100vh;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none;display:flex;flex-direction:column;align-items:center}
 #feed::-webkit-scrollbar{display:none}
-.slide{height:100vh;width:100%;position:relative;scroll-snap-align:start;overflow:hidden;background:#000}
+/* ── 슬라이드: 모바일 기본 (전체 폭) ── */
+.slide{height:100vh;width:100%;max-width:100%;position:relative;scroll-snap-align:start;overflow:hidden;background:#000;flex-shrink:0}
 .bg-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
-.slide video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1}
+.slide video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;z-index:1;background:#000}
 .ov{position:absolute;inset:0;z-index:2;background:linear-gradient(to bottom,rgba(0,0,0,.08) 0%,transparent 22%,transparent 48%,rgba(0,0,0,.32) 68%,rgba(0,0,0,.88) 100%)}
 .acts{position:absolute;right:12px;bottom:150px;z-index:3;display:flex;flex-direction:column;gap:16px;align-items:center}
 .act{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer}
@@ -733,6 +736,23 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .dot{width:3px;height:3px;border-radius:2px;background:rgba(255,255,255,.2);transition:all .3s}
 .dot.on{background:var(--pk);height:18px}
 #muteBtn{position:fixed;top:50%;right:12px;transform:translateY(-50%);z-index:200;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px)}
+/* ── PC 반응형: 768px 이상 ── */
+@media(min-width:768px){
+  #hd{padding:16px 0 14px;left:50%;transform:translateX(-50%);width:420px;max-width:420px;padding-left:16px;padding-right:16px}
+  #feed{background:#08080f}
+  .slide{
+    width:420px;
+    max-width:420px;
+    height:100vh;
+    border-radius:0;
+    box-shadow:0 0 80px rgba(255,77,141,.08)
+  }
+  #dots{left:calc(50% - 234px)}
+  #muteBtn{position:fixed;top:50%;right:calc(50% - 210px - 56px);transform:translateY(-50%)}
+  .acts{right:16px}
+  .modal{max-width:420px}
+  .hint{display:none}
+}
 /* 업체 모달 */
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;display:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(8px)}
 .modal-bg.open{display:flex}
