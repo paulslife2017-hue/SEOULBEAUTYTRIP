@@ -1595,30 +1595,44 @@ function addVidRow(){
     if(!file) return;
     titleIn.value = file.name.split('.').slice(0,-1).join('.') || file.name;
     uploadStatus.style.color = '#fbbf24';
-    uploadStatus.textContent = '업로드 중... (' + (file.size/1024/1024).toFixed(1) + 'MB)';
+    uploadStatus.textContent = '서명 발급 중...';
     uploadBtn.disabled = true;
     uploadBtn.textContent = '업로드 중...';
-    var fd = new FormData();
-    fd.append('file', file);
-    fetch('/api/upload', {method:'POST', body: fd})
+    // 1) 서버에서 서명 받기
+    fetch('/api/upload-sign')
       .then(function(r){ return r.json(); })
+      .then(function(sign){
+        if(sign.error){ throw new Error(sign.error); }
+        // 2) Cloudinary에 직접 업로드 (Vercel 크기제한 우회)
+        var mb = (file.size/1024/1024).toFixed(1);
+        uploadStatus.textContent = '업로드 중... (' + mb + 'MB)';
+        var fd = new FormData();
+        fd.append('file', file);
+        fd.append('api_key', sign.apiKey);
+        fd.append('timestamp', sign.timestamp);
+        fd.append('signature', sign.signature);
+        fd.append('folder', sign.folder);
+        return fetch('https://api.cloudinary.com/v1_1/' + sign.cloudName + '/video/upload', {
+          method: 'POST', body: fd
+        }).then(function(r){ return r.json(); });
+      })
       .then(function(data){
-        if(data.ok && data.url){
-          urlIn.value = data.url;
+        if(data.secure_url){
+          urlIn.value = data.secure_url;
           uploadStatus.style.color = '#4ade80';
           uploadStatus.textContent = '✅ 업로드 완료!';
           uploadBtn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
           uploadBtn.textContent = '완료 ✓';
         } else {
           uploadStatus.style.color = '#f87171';
-          uploadStatus.textContent = '❌ 실패: ' + (data.error || '오류');
+          uploadStatus.textContent = '❌ 실패: ' + (data.error && data.error.message ? data.error.message : '오류');
           uploadBtn.disabled = false;
           uploadBtn.textContent = '영상 파일 선택';
         }
       })
-      .catch(function(){
+      .catch(function(err){
         uploadStatus.style.color = '#f87171';
-        uploadStatus.textContent = '❌ 업로드 실패';
+        uploadStatus.textContent = '❌ 업로드 실패: ' + (err.message || '');
         uploadBtn.disabled = false;
         uploadBtn.textContent = '영상 파일 선택';
       });
