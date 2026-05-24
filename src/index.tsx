@@ -1570,7 +1570,7 @@ function addVidRow(){
 
   var fileIn = document.createElement('input');
   fileIn.type = 'file';
-  fileIn.accept = 'video/*';
+  fileIn.accept = 'video/mp4,video/quicktime,video/x-m4v';
   fileIn.style.cssText = 'display:none';
 
   var uploadBtn = document.createElement('button');
@@ -1612,10 +1612,7 @@ function addVidRow(){
         fd.append('timestamp', sign.timestamp);
         fd.append('signature', sign.signature);
         fd.append('folder', sign.folder);
-        // resource_type: video (mp4, mov 등), image (jpg, png 등), auto (자동감지)
-        var resType = 'video';
-        if(file.type && file.type.indexOf('image') !== -1) resType = 'image';
-        return fetch('https://api.cloudinary.com/v1_1/' + sign.cloudName + '/' + resType + '/upload', {
+        return fetch('https://api.cloudinary.com/v1_1/' + sign.cloudName + '/video/upload', {
           method: 'POST', body: fd
         }).then(function(r){ return r.json(); });
       })
