@@ -1,15 +1,14 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "module": "ES2020",
+    "module": "commonjs",
     "moduleResolution": "node",
     "strict": false,
     "skipLibCheck": true,
+    "esModuleInterop": true,
     "lib": ["ES2020"],
     "jsx": "react-jsx",
-    "jsxImportSource": "hono/jsx",
-    "outDir": "dist",
-    "esModuleInterop": true
+    "jsxImportSource": "hono/jsx"
   },
   "include": ["src", "api"]
 }
