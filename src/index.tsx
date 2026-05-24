@@ -71,7 +71,7 @@ interface Booking {
 // ── DB 헬퍼: DB row → Shop 객체 ──
 function rowToShop(r: any): Shop {
   return {
-    id: r.id, name: r.name, slug: r.slug || '',
+    id: String(r.id), name: r.name, slug: r.slug || '',
     category: r.category || '', location: r.location || '',
     address: r.address || '', googleMapUrl: r.google_map_url || '',
     googleMapEmbed: r.google_map_embed || '', priceRange: r.price_range || '',
@@ -84,7 +84,7 @@ function rowToShop(r: any): Shop {
 }
 function rowToVideo(r: any): Video {
   return {
-    id: r.id, shopId: r.shop_id, title: r.title || '',
+    id: String(r.id), shopId: String(r.shop_id), title: r.title || '',
     description: r.description || '', videoUrl: r.video_url || '',
     thumbnail: r.thumbnail || '', tags: r.tags || [],
     views: r.views || 0, likes: r.likes || 0, createdAt: r.created_at || ''
@@ -1605,12 +1605,26 @@ function updateStatus(id, status){
 
 // ── 영상 추가 패널 열기/닫기 ──
 function openVideoPanel(shopId){
-  var shop = shops.find(function(s){return s.id===shopId;});
-  if(!shop) return;
+  // id 타입 불일치 방지: 문자열로 통일해서 비교
+  var shop = shops.find(function(s){ return String(s.id) === String(shopId); });
   currentShopId = shopId;
-  document.getElementById('vd-shop-name').textContent = shop.name;
+
+  // tab-shops 탭이 비활성화 상태면 자동 활성화
+  var tabShops = document.getElementById('tab-shops');
+  if(tabShops && !tabShops.classList.contains('on')){
+    document.querySelectorAll('.tab').forEach(function(x){ x.classList.remove('on'); });
+    document.querySelectorAll('.tab-content').forEach(function(x){ x.classList.remove('on'); });
+    var tabBtn = document.querySelector('.tab[data-tab="shops"]');
+    if(tabBtn) tabBtn.classList.add('on');
+    tabShops.classList.add('on');
+  }
+
+  // shop을 찾지 못해도 패널은 열어줌 (이름은 shopId로 표시)
+  document.getElementById('vd-shop-name').textContent = shop ? shop.name : ('#' + shopId);
   document.getElementById('videoAddPanel').style.display = 'block';
-  document.getElementById('videoAddPanel').scrollIntoView({behavior:'smooth', block:'start'});
+  setTimeout(function(){
+    document.getElementById('videoAddPanel').scrollIntoView({behavior:'smooth', block:'start'});
+  }, 50);
 }
 
 function closeVideoPanel(){
