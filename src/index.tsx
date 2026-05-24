@@ -538,17 +538,17 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 <div id="adminModal" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.88);backdrop-filter:blur(10px);align-items:center;justify-content:center">
   <div style="background:#13132a;border:1px solid rgba(255,77,141,.25);border-radius:20px;padding:28px 24px;width:280px;max-width:90vw;text-align:center">
     <div style="font-size:28px;margin-bottom:8px">&#128274;</div>
-    <div style="font-size:15px;font-weight:800;margin-bottom:4px;background:linear-gradient(135deg,#FF4D8D,#FF85B3);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Admin Access</div>
-    <div style="font-size:11px;color:rgba(255,255,255,.35);margin-bottom:18px">Enter password to continue</div>
+    <div style="font-size:15px;font-weight:800;margin-bottom:4px;background:linear-gradient(135deg,#FF4D8D,#FF85B3);-webkit-background-clip:text;-webkit-text-fill-color:transparent">관리자 로그인</div>
+    <div style="font-size:11px;color:rgba(255,255,255,.35);margin-bottom:18px">비밀번호를 입력하세요</div>
     <form onsubmit="checkAdminPw();return false;" autocomplete="off">
       <input type="text" name="username" style="display:none" autocomplete="username">
-      <input id="adminPwInput" type="password" placeholder="Password" autocomplete="current-password" style="width:100%;padding:11px 14px;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,77,141,.25);border-radius:11px;color:#fff;font-size:15px;outline:none;text-align:center;letter-spacing:4px;margin-bottom:12px">
+      <input id="adminPwInput" type="password" placeholder="비밀번호" autocomplete="current-password" style="width:100%;padding:11px 14px;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,77,141,.25);border-radius:11px;color:#fff;font-size:15px;outline:none;text-align:center;letter-spacing:4px;margin-bottom:12px">
       <div style="display:flex;gap:8px">
-        <button type="submit" style="flex:1;padding:11px;background:linear-gradient(135deg,#FF4D8D,#9B59B6);border:none;border-radius:11px;color:#fff;font-size:13px;font-weight:800;cursor:pointer">Enter</button>
-        <button type="button" onclick="closeAdminModal()" style="flex:1;padding:11px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:11px;color:rgba(255,255,255,.5);font-size:13px;font-weight:700;cursor:pointer">Cancel</button>
+        <button type="submit" style="flex:1;padding:11px;background:linear-gradient(135deg,#FF4D8D,#9B59B6);border:none;border-radius:11px;color:#fff;font-size:13px;font-weight:800;cursor:pointer">확인</button>
+        <button type="button" onclick="closeAdminModal()" style="flex:1;padding:11px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:11px;color:rgba(255,255,255,.5);font-size:13px;font-weight:700;cursor:pointer">취소</button>
       </div>
     </form>
-    <div id="adminPwErr" style="font-size:11px;color:#ef4444;margin-top:10px;display:none">Wrong password. Try again.</div>
+    <div id="adminPwErr" style="font-size:11px;color:#ef4444;margin-top:10px;display:none">❌ 비밀번호가 틀렸습니다</div>
   </div>
 </div>
 
@@ -814,23 +814,24 @@ function showToast(msg){
   t.innerHTML=msg; t.classList.add('on');
   setTimeout(function(){t.classList.remove('on');},3000);
 }
-document.querySelectorAll('.cat').forEach(function(b){
-  b.addEventListener('click',function(){
-    document.querySelectorAll('.cat').forEach(function(x){x.classList.remove('on');});
-    b.classList.add('on');
-    loadVideos(b.getAttribute('data-cat'));
-    document.getElementById('feed').scrollTo({top:0});
+window.addEventListener('load', function(){
+  /* 카테고리 필터 */
+  document.querySelectorAll('.cat').forEach(function(b){
+    b.addEventListener('click', function(){
+      document.querySelectorAll('.cat').forEach(function(x){ x.classList.remove('on'); });
+      b.classList.add('on');
+      loadVideos(b.getAttribute('data-cat'));
+      document.getElementById('feed').scrollTo({top:0});
+    });
   });
-});
-/* ── 로고 3번 클릭 → Admin 비밀번호 모달 ── */
-(function(){
+
+  /* ── 로고 3번 클릭 → 관리자 비밀번호 모달 ── */
   var clickCount = 0, clickTimer = null;
   var ADMIN_PW = '0907';
 
   document.getElementById('logoBtn').addEventListener('click', function(){
     clickCount++;
     if(clickTimer) clearTimeout(clickTimer);
-    /* 3번 클릭 감지 (1.5초 내) */
     if(clickCount >= 3){
       clickCount = 0;
       showAdminModal();
@@ -845,7 +846,7 @@ document.querySelectorAll('.cat').forEach(function(b){
     var inp = document.getElementById('adminPwInput');
     inp.value = '';
     document.getElementById('adminPwErr').style.display = 'none';
-    setTimeout(function(){ inp.focus(); }, 100);
+    setTimeout(function(){ inp.focus(); }, 150);
   };
   window.closeAdminModal = function(){
     document.getElementById('adminModal').style.display = 'none';
@@ -855,26 +856,24 @@ document.querySelectorAll('.cat').forEach(function(b){
     if(pw === ADMIN_PW){
       window.location.href = '/admin';
     } else {
-      var err = document.getElementById('adminPwErr');
-      err.style.display = 'block';
+      document.getElementById('adminPwErr').style.display = 'block';
       var inp = document.getElementById('adminPwInput');
       inp.value = '';
       inp.style.borderColor = '#ef4444';
       setTimeout(function(){ inp.style.borderColor = 'rgba(255,77,141,.25)'; }, 1200);
     }
   };
-  /* 배경 클릭으로 닫기 */
   document.getElementById('adminModal').addEventListener('click', function(e){
     if(e.target === this) window.closeAdminModal();
   });
-})();
 
-window.addEventListener('load',function(){
+  /* 로딩 스크린 */
   setTimeout(function(){
-    var ld=document.getElementById('ld');
-    ld.style.opacity='0';
-    setTimeout(function(){ld.style.display='none';},500);
-  },1800);
+    var ld = document.getElementById('ld');
+    ld.style.opacity = '0';
+    setTimeout(function(){ ld.style.display = 'none'; }, 500);
+  }, 1800);
+
   loadVideos('all');
 });
 </script>
@@ -962,42 +961,42 @@ textarea{height:80px;resize:none}
 </head>
 <body>
 <nav class="nav">
-  <div class="nav-logo">&#128132; Seoul Beauty Trip — Admin</div>
-  <a href="/" class="nav-back"><i class="fas fa-arrow-left"></i> Site</a>
+  <div class="nav-logo">&#10024; Seoul Beauty Trip — 관리자</div>
+  <a href="/" class="nav-back"><i class="fas fa-arrow-left"></i> 사이트로</a>
 </nav>
 
 <div class="tabs">
-  <div class="tab on" data-tab="dashboard"><i class="fas fa-chart-bar"></i> Dashboard</div>
-  <div class="tab" data-tab="bookings"><i class="fas fa-calendar-check"></i> Bookings</div>
-  <div class="tab" data-tab="shops"><i class="fas fa-store"></i> Shops</div>
-  <div class="tab" data-tab="videos"><i class="fas fa-film"></i> Videos</div>
-  <div class="tab" data-tab="settings"><i class="fas fa-cog"></i> Settings</div>
+  <div class="tab on" data-tab="dashboard"><i class="fas fa-chart-bar"></i> 대시보드</div>
+  <div class="tab" data-tab="bookings"><i class="fas fa-calendar-check"></i> 예약관리</div>
+  <div class="tab" data-tab="shops"><i class="fas fa-store"></i> 업체관리</div>
+  <div class="tab" data-tab="videos"><i class="fas fa-film"></i> 영상관리</div>
+  <div class="tab" data-tab="settings"><i class="fas fa-cog"></i> 설정</div>
 </div>
 
-<!-- DASHBOARD -->
+<!-- 대시보드 -->
 <div class="tab-content on" id="tab-dashboard">
   <div class="stats-grid" id="statsGrid">
-    <div class="stat-card"><div class="stat-icon">&#128065;</div><div class="stat-val" id="st-views">-</div><div class="stat-lbl">Total Views</div></div>
-    <div class="stat-card"><div class="stat-icon">&#128197;</div><div class="stat-val" id="st-bookings">-</div><div class="stat-lbl">Total Bookings</div></div>
-    <div class="stat-card"><div class="stat-icon" style="color:#3b82f6">&#128276;</div><div class="stat-val" id="st-new" style="color:#60a5fa">-</div><div class="stat-lbl">New (Unread)</div></div>
-    <div class="stat-card"><div class="stat-icon" style="color:#10b981">&#127968;</div><div class="stat-val" id="st-shops" style="color:#10b981">-</div><div class="stat-lbl">Active Shops</div></div>
+    <div class="stat-card"><div class="stat-icon">&#128065;</div><div class="stat-val" id="st-views">-</div><div class="stat-lbl">총 조회수</div></div>
+    <div class="stat-card"><div class="stat-icon">&#128197;</div><div class="stat-val" id="st-bookings">-</div><div class="stat-lbl">총 예약수</div></div>
+    <div class="stat-card"><div class="stat-icon" style="color:#3b82f6">&#128276;</div><div class="stat-val" id="st-new" style="color:#60a5fa">-</div><div class="stat-lbl">신규 예약</div></div>
+    <div class="stat-card"><div class="stat-icon" style="color:#10b981">&#127968;</div><div class="stat-val" id="st-shops" style="color:#10b981">-</div><div class="stat-lbl">등록 업체</div></div>
   </div>
   <div class="card">
-    <div class="card-header"><div class="card-title"><i class="fas fa-fire" style="color:#FF4D8D"></i> Top Videos</div></div>
+    <div class="card-header"><div class="card-title"><i class="fas fa-fire" style="color:#FF4D8D"></i> 인기 영상 TOP 3</div></div>
     <div id="topVids"></div>
   </div>
 </div>
 
-<!-- BOOKINGS -->
+<!-- 예약관리 -->
 <div class="tab-content" id="tab-bookings">
   <div class="card">
     <div class="card-header">
-      <div class="card-title"><i class="fas fa-calendar-check" style="color:#FF4D8D"></i> Booking Requests</div>
+      <div class="card-title"><i class="fas fa-calendar-check" style="color:#FF4D8D"></i> 예약 요청 목록</div>
     </div>
     <div id="bookingList" style="overflow-x:auto">
       <table class="tbl">
         <thead><tr>
-          <th>Date</th><th>Name</th><th>Shop</th><th>Service</th><th>People</th><th>Commission</th><th>Status</th><th>Action</th>
+          <th>날짜</th><th>고객명</th><th>업체</th><th>서비스</th><th>인원</th><th>수수료</th><th>상태</th><th>처리</th>
         </tr></thead>
         <tbody id="bookingTbody"></tbody>
       </table>
@@ -1005,71 +1004,71 @@ textarea{height:80px;resize:none}
   </div>
 </div>
 
-<!-- SHOPS -->
+<!-- 업체관리 -->
 <div class="tab-content" id="tab-shops">
   <div class="card" style="margin-bottom:16px">
-    <div class="card-header"><div class="card-title"><i class="fas fa-plus-circle" style="color:#FF4D8D"></i> Add New Shop</div></div>
+    <div class="card-header"><div class="card-title"><i class="fas fa-plus-circle" style="color:#FF4D8D"></i> 새 업체 등록</div></div>
     <div class="form-grid">
-      <div><label>Shop Name *</label><input id="sh-name" placeholder="e.g. Gangnam Glow Clinic"></div>
-      <div><label>Category *</label>
+      <div><label>업체명 *</label><input id="sh-name" placeholder="예: 강남 글로우 클리닉"></div>
+      <div><label>카테고리 *</label>
         <select id="sh-cat">
-          <option value="skincare">Skincare</option><option value="makeup">Makeup</option>
-          <option value="hair">Hair</option><option value="nail">Nail</option><option value="clinic">Clinic</option>
+          <option value="skincare">스킨케어</option><option value="makeup">메이크업</option>
+          <option value="hair">헤어</option><option value="nail">네일</option><option value="clinic">클리닉</option>
         </select>
       </div>
-      <div><label>Location</label><input id="sh-loc" placeholder="e.g. Gangnam, Seoul"></div>
-      <div><label>Price Range</label><input id="sh-price" placeholder="e.g. &#8361;80,000~&#8361;200,000"></div>
-      <div><label>Hours</label><input id="sh-hours" placeholder="e.g. 10:00~20:00 (Mon~Sat)"></div>
-      <div><label>Commission % (10~20)</label><input id="sh-comm" type="number" placeholder="15" min="10" max="20"></div>
-      <div class="full"><label>Address</label><input id="sh-addr" placeholder="Full address"></div>
-      <div class="full"><label>Google Map URL</label><input id="sh-gmap" placeholder="https://maps.google.com/?q=..."></div>
-      <div class="full"><label>Thumbnail URL</label><input id="sh-thumb" placeholder="https://...image.jpg"></div>
-      <div class="full"><label>Services (comma separated)</label><input id="sh-svcs" placeholder="Deep Cleansing, Hydra Facial, Glass Skin"></div>
-      <div class="full"><label>Description</label><textarea id="sh-desc" placeholder="Shop description..."></textarea></div>
+      <div><label>위치</label><input id="sh-loc" placeholder="예: 강남구, 서울"></div>
+      <div><label>가격대</label><input id="sh-price" placeholder="예: &#8361;80,000~&#8361;200,000"></div>
+      <div><label>영업시간</label><input id="sh-hours" placeholder="예: 10:00~20:00 (월~토)"></div>
+      <div><label>수수료 % (10~20)</label><input id="sh-comm" type="number" placeholder="15" min="10" max="20"></div>
+      <div class="full"><label>주소</label><input id="sh-addr" placeholder="전체 주소 입력"></div>
+      <div class="full"><label>구글맵 URL</label><input id="sh-gmap" placeholder="https://maps.google.com/?q=..."></div>
+      <div class="full"><label>썸네일 이미지 URL</label><input id="sh-thumb" placeholder="https://...image.jpg"></div>
+      <div class="full"><label>서비스 목록 (쉼표로 구분)</label><input id="sh-svcs" placeholder="딥클렌징, 하이드라페이션, 글라스스킨"></div>
+      <div class="full"><label>업체 소개</label><textarea id="sh-desc" placeholder="업체 설명을 입력하세요..."></textarea></div>
     </div>
-    <button class="btn-pk" style="margin-top:10px" onclick="addShop()"><i class="fas fa-plus"></i> Add Shop</button>
+    <button class="btn-pk" style="margin-top:10px" onclick="addShop()"><i class="fas fa-plus"></i> 업체 등록</button>
   </div>
   <div class="card">
-    <div class="card-title" style="margin-bottom:14px"><i class="fas fa-store" style="color:#FF4D8D"></i> Registered Shops</div>
+    <div class="card-title" style="margin-bottom:14px"><i class="fas fa-store" style="color:#FF4D8D"></i> 등록된 업체 목록</div>
     <div id="shopList"></div>
   </div>
 </div>
 
-<!-- VIDEOS -->
+<!-- 영상관리 -->
 <div class="tab-content" id="tab-videos">
   <div class="card" style="margin-bottom:16px">
-    <div class="card-header"><div class="card-title"><i class="fas fa-plus-circle" style="color:#FF4D8D"></i> Add New Video</div></div>
+    <div class="card-header"><div class="card-title"><i class="fas fa-plus-circle" style="color:#FF4D8D"></i> 새 영상 등록</div></div>
     <div class="form-grid">
-      <div class="full"><label>Shop *</label><select id="vd-shop" id="vd-shop"></select></div>
-      <div class="full"><label>Title *</label><input id="vd-title" placeholder="e.g. Gangnam Luxury Facial Treatment"></div>
-      <div class="full"><label>Video URL * (MP4 direct link)</label><input id="vd-url" placeholder="https://example.com/video.mp4"></div>
-      <div class="full"><label>Thumbnail URL</label><input id="vd-thumb" placeholder="https://...image.jpg"></div>
-      <div class="full"><label>Description</label><input id="vd-desc" placeholder="Short description..."></div>
-      <div class="full"><label>Tags (comma separated)</label><input id="vd-tags" placeholder="#KBeauty, #Seoul, #Skincare"></div>
+      <div class="full"><label>업체 선택 *</label><select id="vd-shop"></select></div>
+      <div class="full"><label>영상 제목 *</label><input id="vd-title" placeholder="예: 강남 럭셔리 페이셜 트리트먼트"></div>
+      <div class="full"><label>영상 URL * (MP4 직접 링크)</label><input id="vd-url" placeholder="https://example.com/video.mp4"></div>
+      <div class="full"><label>썸네일 URL</label><input id="vd-thumb" placeholder="https://...image.jpg"></div>
+      <div class="full"><label>영상 설명</label><input id="vd-desc" placeholder="짧은 설명을 입력하세요..."></div>
+      <div class="full"><label>태그 (쉼표로 구분)</label><input id="vd-tags" placeholder="#KBeauty, #서울, #스킨케어"></div>
     </div>
-    <button class="btn-pk" style="margin-top:10px" onclick="addVideo()"><i class="fas fa-plus"></i> Add Video</button>
+    <button class="btn-pk" style="margin-top:10px" onclick="addVideo()"><i class="fas fa-plus"></i> 영상 등록</button>
   </div>
   <div class="card">
-    <div class="card-title" style="margin-bottom:14px"><i class="fas fa-film" style="color:#FF4D8D"></i> Registered Videos</div>
+    <div class="card-title" style="margin-bottom:14px"><i class="fas fa-film" style="color:#FF4D8D"></i> 등록된 영상 목록</div>
     <div id="videoList"></div>
   </div>
 </div>
 
-<!-- SETTINGS -->
+<!-- 설정 -->
 <div class="tab-content" id="tab-settings">
   <div class="card">
-    <div class="card-title" style="margin-bottom:16px"><i class="fas fa-cog" style="color:#FF4D8D"></i> Platform Settings</div>
+    <div class="card-title" style="margin-bottom:16px"><i class="fas fa-cog" style="color:#FF4D8D"></i> 플랫폼 설정</div>
     <div style="margin-bottom:12px">
-      <label>WhatsApp Number (with country code, no +)</label>
+      <label>왓츠앱 번호 (국가코드 포함, + 없이)</label>
       <input id="cfg-wa" placeholder="821012345678" value="821012345678">
     </div>
     <div style="margin-bottom:12px">
-      <label>Commission Range</label>
+      <label>수수료 범위</label>
       <input id="cfg-comm" placeholder="10~20%" value="10~20%">
     </div>
-    <button class="btn-pk" onclick="saveSettings()"><i class="fas fa-save"></i> Save Settings</button>
+    <button class="btn-pk" onclick="saveSettings()"><i class="fas fa-save"></i> 설정 저장</button>
     <div style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,.08)">
-      <div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:8px">SEO Pages (업체별 구글 검색 노출 URL)</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:8px">SEO 페이지 — 업체별 구글 검색 노출 URL</div>
       <div id="seoLinks"></div>
     </div>
   </div>
@@ -1100,7 +1099,7 @@ function loadAll(){
         '<div class="top-rank">#'+(i+1)+'</div>'+
         '<img src="'+(v.thumbnail||'')+'" onerror="this.style.display=\'none\'">'+
         '<div style="flex:1"><div style="font-size:13px;font-weight:700;margin-bottom:3px">'+v.title+'</div>'+
-        '<div style="font-size:11px;color:rgba(255,255,255,.4)"><i class="fas fa-eye"></i> '+v.views+' views &nbsp; <i class="fas fa-heart" style="color:#FF4D8D"></i> '+v.likes+' likes</div></div>'+
+        '<div style="font-size:11px;color:rgba(255,255,255,.4)"><i class="fas fa-eye"></i> '+v.views+' 조회 &nbsp; <i class="fas fa-heart" style="color:#FF4D8D"></i> '+v.likes+' 좋아요</div></div>'+
         '</div>';
     }).join('');
   });
@@ -1131,7 +1130,7 @@ function renderShops(){
       '<img src="'+(s.thumbnail||'')+'" onerror="this.src=\'https://placehold.co/56x56/1c1c30/FF4D8D?text=Shop\'">'+
       '<div class="shop-meta">'+
         '<h4>'+s.name+'</h4>'+
-        '<p><i class="fas fa-map-marker-alt" style="color:#FF4D8D"></i> '+s.location+' &nbsp;|&nbsp; <i class="fas fa-percentage" style="color:#FF4D8D"></i> '+s.commission+'% commission</p>'+
+        '<p><i class="fas fa-map-marker-alt" style="color:#FF4D8D"></i> '+s.location+' &nbsp;|&nbsp; <i class="fas fa-percentage" style="color:#FF4D8D"></i> '+s.commission+'% 수수료</p>'+
         '<p><i class="fas fa-clock" style="color:#FF4D8D"></i> '+s.hours+' &nbsp;|&nbsp; <i class="fas fa-won-sign" style="color:#FF4D8D"></i> '+s.priceRange+'</p>'+
         '<div class="tags"><span class="bdg bdg-cat">'+s.category+'</span></div>'+
       '</div>'+
@@ -1155,7 +1154,7 @@ function renderVideos(){
   }).join('');
 }
 
-var statusLabels={new:'New',contacted:'Contacted',confirmed:'Confirmed',completed:'Completed',cancelled:'Cancelled'};
+var statusLabels={new:'신규',contacted:'연락중',confirmed:'확정',completed:'완료',cancelled:'취소'};
 var statusClass={new:'bdg-new',contacted:'bdg-contacted',confirmed:'bdg-confirmed',completed:'bdg-completed',cancelled:'bdg-cancelled'};
 
 function renderBookings(){
@@ -1172,7 +1171,7 @@ function renderBookings(){
         '<select onchange="updateStatus(\''+b.id+'\',this.value)" style="padding:4px 6px;font-size:11px;width:auto">'+
           Object.keys(statusLabels).map(function(k){return '<option value="'+k+'"'+(b.status===k?' selected':'')+'>'+statusLabels[k]+'</option>';}).join('')+
         '</select>'+
-        '<br><a href="https://wa.me/'+b.phone.replace(/[^0-9]/g,'')+'" target="_blank" style="display:inline-flex;align-items:center;gap:3px;margin-top:4px;font-size:11px;color:#25D366;text-decoration:none"><i class="fab fa-whatsapp"></i> Contact</a>'+
+        '<br><a href="https://wa.me/'+b.phone.replace(/[^0-9]/g,'')+'" target="_blank" style="display:inline-flex;align-items:center;gap:3px;margin-top:4px;font-size:11px;color:#25D366;text-decoration:none"><i class="fab fa-whatsapp"></i> 연락하기</a>'+
       '</td>'+
       '</tr>';
   }).join('');
@@ -1215,12 +1214,12 @@ function addShop(){
     rating:5.0, reviewCount:0
   })}).then(function(){
     ['sh-name','sh-loc','sh-price','sh-hours','sh-comm','sh-addr','sh-gmap','sh-thumb','sh-svcs','sh-desc'].forEach(function(id){document.getElementById(id).value='';});
-    loadAll(); alert('Shop added!');
+    loadAll(); alert('업체가 등록되었습니다!');
   });
 }
 
 function delShop(id){
-  if(!confirm('Delete this shop?'))return;
+  if(!confirm('이 업체를 삭제하시겠습니까?'))return;
   fetch('/api/shops/'+id,{method:'DELETE'}).then(loadAll);
 }
 
@@ -1237,17 +1236,17 @@ function addVideo(){
     tags:tags
   })}).then(function(){
     ['vd-title','vd-url','vd-thumb','vd-desc','vd-tags'].forEach(function(id){document.getElementById(id).value='';});
-    loadAll(); alert('Video added!');
+    loadAll(); alert('영상이 등록되었습니다!');
   });
 }
 
 function delVideo(id){
-  if(!confirm('Delete this video?'))return;
+  if(!confirm('이 영상을 삭제하시겠습니까?'))return;
   fetch('/api/videos/'+id,{method:'DELETE'}).then(loadAll);
 }
 
 function saveSettings(){
-  alert('Settings saved! (WhatsApp: '+document.getElementById('cfg-wa').value+')');
+  alert('설정이 저장되었습니다! (왓츠앱: '+document.getElementById('cfg-wa').value+')');
 }
 
 loadAll();
