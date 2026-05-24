@@ -1,8 +1,6 @@
 import { Hono } from 'hono'
-import { serveStatic } from '@hono/node-server/serve-static'
 
 const app = new Hono()
-app.use('/static/*', serveStatic({ root: './public' }))
 
 // ── 플랫폼 설정 ──
 const PLATFORM = {

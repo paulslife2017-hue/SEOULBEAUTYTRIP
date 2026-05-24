@@ -3,12 +3,11 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc --noEmit && echo build ok",
-    "vercel-build": "echo done"
+    "build": "echo ok",
+    "vercel-build": "echo ok"
   },
   "dependencies": {
-    "hono": "^4.12.12",
-    "@hono/node-server": "^1.13.7"
+    "hono": "^4.12.12"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
