@@ -1170,6 +1170,10 @@ function loadVideos(cat) {
 }
 
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function areaOnly(loc) {
+  if(!loc) return '';
+  return String(loc).split(',')[0].trim();
+}
 
 function renderFeed() {
   var feed = document.getElementById('feed');
@@ -1220,7 +1224,7 @@ function buildSlide(v, idx) {
     '<div class="info">' +
       '<div class="badge"><span class="badge-dot"></span>'+(catIcons[shop.category]||'&#10024;')+' '+esc(shop.category||'')+'</div>' +
       '<h2 class="vt" itemprop="name" style="font-size:17px">'+esc(v.title)+'</h2>' +
-      '<div class="shop-info-mini"><i class="fas fa-store"></i>'+esc(shop.name||'')+'<span class="shop-info-sep">|</span><i class="fas fa-map-marker-alt"></i>'+esc(shop.location||'')+'</div>' +
+      '<div class="shop-info-mini"><i class="fas fa-store"></i>'+esc(shop.name||'')+'<span class="shop-info-sep">|</span><i class="fas fa-map-marker-alt"></i>'+esc(areaOnly(shop.location||''))+'</div>' +
       '<div class="vd">'+esc(v.description)+'</div>' +
       '<div class="vtags">'+tags+'</div>' +
       '<div class="btns-row">' +
@@ -1351,7 +1355,10 @@ function renderShopModal(shop) {
     infoCards += '<div class="m-info-card"><div class="m-info-card-label">Hours</div><div class="m-info-card-val"><i class="fas fa-clock"></i>'+esc(shop.hours)+'</div></div>';
   }
   if(shop.location) {
-    infoCards += '<div class="m-info-card"><div class="m-info-card-label">Area</div><div class="m-info-card-val"><i class="fas fa-map-marker-alt"></i>'+esc(shop.location)+'</div></div>';
+    var locArea = areaOnly(shop.location);
+    var locFull = String(shop.location||'');
+    var locSuffix = locFull.indexOf(',') !== -1 ? '<span style="font-size:10px;opacity:.5;font-weight:400"> · '+esc(locFull.slice(locFull.indexOf(',')+1).trim())+'</span>' : '';
+    infoCards += '<div class="m-info-card"><div class="m-info-card-label">Area</div><div class="m-info-card-val"><i class="fas fa-map-marker-alt"></i>'+esc(locArea)+locSuffix+'</div></div>';
   }
   if(shop.priceRange) {
     infoCards += '<div class="m-info-card"><div class="m-info-card-label">Price Range</div><div class="m-info-card-val"><i class="fas fa-won-sign"></i>'+esc(shop.priceRange)+'</div></div>';
@@ -1419,7 +1426,7 @@ function renderShopModal(shop) {
     '<div class="m-shop-header">'
       +'<div class="m-shop-name">'+esc(shop.name||'')+'</div>'
       +'<div class="m-shop-sub">'
-        +(shop.location ? '<div class="m-shop-loc"><i class="fas fa-map-marker-alt"></i>'+esc(shop.location)+'</div>' : '')
+        +(shop.location ? '<div class="m-shop-loc"><i class="fas fa-map-marker-alt"></i>'+esc(areaOnly(shop.location))+'</div>' : '')
         +(reviewCount > 0 ? '<div class="m-divider"></div><span class="m-stars">'+starsHtml+'</span><span class="m-rating-txt">'+rating+' ('+reviewCount+')</span>' : '')
       +'</div>'
     +'</div>'
@@ -1589,6 +1596,61 @@ window.addEventListener('load', function(){
   };
   document.getElementById('adminModal').addEventListener('click', function(e){
     if(e.target === this) window.closeAdminModal();
+  });
+
+  /* ── PC: cats bar wheel → horizontal scroll ── */
+  var catsEl = document.getElementById('cats');
+  if(catsEl) {
+    catsEl.addEventListener('wheel', function(e) {
+      if(Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        e.preventDefault();
+        catsEl.scrollLeft += e.deltaY;
+      }
+    }, {passive: false});
+  }
+
+  /* ── PC: feed wheel + keyboard navigation ── */
+  var feedEl = document.getElementById('feed');
+  var wheelLocked = false;
+  if(feedEl) {
+    feedEl.addEventListener('wheel', function(e) {
+      e.preventDefault();
+      if(wheelLocked) return;
+      wheelLocked = true;
+      var dir = e.deltaY > 0 ? 1 : -1;
+      var slides = document.querySelectorAll('.slide');
+      var feedRect = feedEl.getBoundingClientRect();
+      var current = 0;
+      slides.forEach(function(sl, i) {
+        var r = sl.getBoundingClientRect();
+        if(Math.abs(r.top - feedRect.top) < feedRect.height * 0.5) current = i;
+      });
+      var next = Math.max(0, Math.min(slides.length - 1, current + dir));
+      slides[next].scrollIntoView({behavior:'smooth', block:'start'});
+      setTimeout(function(){ wheelLocked = false; }, 700);
+    }, {passive: false});
+  }
+
+  document.addEventListener('keydown', function(e) {
+    var modal = document.getElementById('shopModal');
+    if(modal && modal.classList.contains('open')) return;
+    if(e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+    var feedEl2 = document.getElementById('feed');
+    if(!feedEl2) return;
+    var delta = 0;
+    if(e.key === 'ArrowDown' || e.key === 'PageDown') delta = 1;
+    if(e.key === 'ArrowUp'   || e.key === 'PageUp')   delta = -1;
+    if(delta === 0) return;
+    e.preventDefault();
+    var slides = document.querySelectorAll('.slide');
+    var feedRect2 = feedEl2.getBoundingClientRect();
+    var current2 = 0;
+    slides.forEach(function(sl, i) {
+      var r = sl.getBoundingClientRect();
+      if(Math.abs(r.top - feedRect2.top) < feedRect2.height * 0.5) current2 = i;
+    });
+    var next2 = Math.max(0, Math.min(slides.length - 1, current2 + delta));
+    slides[next2].scrollIntoView({behavior:'smooth', block:'start'});
   });
 
   loadVideos('all');
