@@ -1040,8 +1040,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 /* 지도 */
 .m-map{border-radius:16px;overflow:hidden;height:210px;border:1px solid rgba(255,255,255,.08);position:relative;box-shadow:0 8px 32px rgba(0,0,0,.5)}
 .m-map iframe{width:100%;height:100%;border:0;display:block}
-.m-map-link{display:inline-flex;align-items:center;gap:5px;margin-top:8px;font-size:11px;color:rgba(96,165,250,.8);text-decoration:none;font-weight:500}
-.m-map-link:hover{color:#93c5fd}
+.m-map-zoom{position:absolute;bottom:10px;right:10px;z-index:3;display:flex;flex-direction:column;gap:4px}
+.m-map-zoom button{width:32px;height:32px;border-radius:8px;border:none;background:rgba(15,15,25,.82);backdrop-filter:blur(8px);color:#fff;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.4);transition:background .15s}
+.m-map-zoom button:hover{background:rgba(232,65,122,.7)}
 /* 버튼 */
 .m-btns{flex-shrink:0;padding:14px 20px 0}
 .m-wa{
@@ -1414,12 +1415,17 @@ function renderShopModal(shop) {
     if(!q && shop.name)    q = shop.name + ' Seoul';
     if(q) embedSrc = 'https://www.google.com/maps?q='+encodeURIComponent(q)+'&output=embed&hl=en';
   }
-  /* 지도 표시만 (클릭 차단 - 예약은 WhatsApp으로) */
+  /* 지도 표시만 (클릭 차단) + 확대/축소 버튼 */
+  var mapFrameId = 'mmap-'+Date.now();
   var mapHtml = embedSrc
     ? '<div class="m-sec"><div class="m-sec-title">Location</div>'
-        +'<div class="m-map" style="position:relative">'
-          +'<iframe src="'+embedSrc+'" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" style="pointer-events:none"></iframe>'
+        +'<div class="m-map">'
+          +'<iframe id="'+mapFrameId+'" src="'+embedSrc+'" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" style="pointer-events:none"></iframe>'
           +'<div style="position:absolute;inset:0;z-index:2"></div>'
+          +'<div class="m-map-zoom">'
+            +'<button onclick="mapZoom('+"'"+mapFrameId+"'"+',-1)" title="Zoom out">&#8722;</button>'
+            +'<button onclick="mapZoom('+"'"+mapFrameId+"'"+',1)" title="Zoom in">&#43;</button>'
+          +'</div>'
         +'</div>'
       +'</div>'
     : '';
@@ -1449,6 +1455,22 @@ function renderShopModal(shop) {
         +'<span>'+esc(shop.name||'this shop')+'</span>'
       +'</span>'
     +'</a>';
+}
+
+function mapZoom(frameId, dir) {
+  var fr = document.getElementById(frameId);
+  if(!fr) return;
+  var src = fr.src || fr.getAttribute('src') || '';
+  /* zoom= 파라미터 조정 (없으면 15 기본) */
+  var zMatch = src.match(/[?&]z=(\d+)/);
+  var cur = zMatch ? parseInt(zMatch[1]) : 15;
+  var next = Math.min(20, Math.max(10, cur + dir));
+  if(src.indexOf('z=') !== -1) {
+    src = src.replace(/([?&]z=)\d+/, '$1'+next);
+  } else {
+    src += (src.indexOf('?') !== -1 ? '&' : '?') + 'z='+next;
+  }
+  fr.src = src;
 }
 
 function setMHero(url, el) {
