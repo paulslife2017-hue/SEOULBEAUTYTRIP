@@ -1172,12 +1172,7 @@ function loadVideos(cat) {
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function areaOnly(loc) {
   if(!loc) return '';
-  var s = String(loc).trim();
-  var cityOnly = ['seoul','busan','incheon','daegu','daejeon','gwangju','ulsan','jeju','suwon'];
-  var first = s.split(',')[0].trim();
-  // city-only value (no district info) -> hide
-  if(cityOnly.indexOf(first.toLowerCase()) !== -1 && s.indexOf(',') === -1) return '';
-  return first;
+  return String(loc).split(',')[0].trim();
 }
 
 function renderFeed() {
@@ -1229,7 +1224,7 @@ function buildSlide(v, idx) {
     '<div class="info">' +
       '<div class="badge"><span class="badge-dot"></span>'+(catIcons[shop.category]||'&#10024;')+' '+esc(shop.category||'')+'</div>' +
       '<h2 class="vt" itemprop="name" style="font-size:17px">'+esc(v.title)+'</h2>' +
-      (function(){ var _a=areaOnly(shop.location||''); return '<div class="shop-info-mini"><i class="fas fa-store"></i>'+esc(shop.name||'')+(_a?'<span class="shop-info-sep">|</span><i class="fas fa-map-marker-alt"></i>'+esc(_a):'')+'</div>'; })() +
+      '<div class="shop-info-mini"><i class="fas fa-store"></i>'+esc(shop.name||'')+(areaOnly(shop.location||'')?'<span class="shop-info-sep">|</span><i class="fas fa-map-marker-alt"></i>'+esc(areaOnly(shop.location||'')):'')+'</div>' +
       '<div class="vd">'+esc(v.description)+'</div>' +
       '<div class="vtags">'+tags+'</div>' +
       '<div class="btns-row">' +
@@ -1361,11 +1356,9 @@ function renderShopModal(shop) {
   }
   if(shop.location) {
     var locArea = areaOnly(shop.location);
-    if(locArea) {
-      var locFull = String(shop.location||'');
-      var locSuffix = locFull.indexOf(',') !== -1 ? '<span style="font-size:10px;opacity:.5;font-weight:400"> · '+esc(locFull.slice(locFull.indexOf(',')+1).trim())+'</span>' : '';
-      infoCards += '<div class="m-info-card"><div class="m-info-card-label">Area</div><div class="m-info-card-val"><i class="fas fa-map-marker-alt"></i>'+esc(locArea)+locSuffix+'</div></div>';
-    }
+    var locFull = String(shop.location||'');
+    var locSuffix = locFull.indexOf(',') !== -1 ? '<span style="font-size:10px;opacity:.5;font-weight:400"> · '+esc(locFull.slice(locFull.indexOf(',')+1).trim())+'</span>' : '';
+    infoCards += '<div class="m-info-card"><div class="m-info-card-label">Area</div><div class="m-info-card-val"><i class="fas fa-map-marker-alt"></i>'+esc(locArea)+locSuffix+'</div></div>';
   }
   if(shop.priceRange) {
     infoCards += '<div class="m-info-card"><div class="m-info-card-label">Price Range</div><div class="m-info-card-val"><i class="fas fa-won-sign"></i>'+esc(shop.priceRange)+'</div></div>';
