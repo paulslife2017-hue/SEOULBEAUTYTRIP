@@ -1019,16 +1019,16 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .m-sec-title{font-size:9px;font-weight:800;color:var(--gold);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:5px;padding-bottom:7px;border-bottom:1px solid var(--border)}
 .m-info-row{display:flex;align-items:flex-start;gap:9px;font-size:13px;color:rgba(255,255,255,.7);margin-bottom:8px;line-height:1.5}
 .m-info-row i{color:var(--pk2);width:14px;flex-shrink:0;margin-top:2px;font-size:11px}
-/* 가격 리스트 */
+/* price list */
 .m-price-list{display:flex;flex-direction:column;gap:0}
 .m-price-item{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04)}
 .m-price-item:last-child{border-bottom:none}
 .m-price-name{font-size:13px;color:rgba(255,255,255,.75);font-weight:500}
 .m-price-val{font-size:13px;color:var(--gold);font-weight:800}
-/* 서비스 태그 */
+/* service tags */
 .m-svc-tags{display:flex;flex-wrap:wrap;gap:6px}
 .m-svc-tag{padding:5px 11px;background:rgba(232,65,122,.07);border:1px solid rgba(232,65,122,.18);border-radius:18px;font-size:11px;color:var(--pk3);font-weight:600}
-/* 구글맵 */
+/* google map */
 .m-map{border-radius:12px;overflow:hidden;height:170px;border:1px solid var(--border);position:relative}
 .m-map iframe{width:100%;height:100%;border:0;display:block}
 .m-map-link{display:flex;align-items:center;gap:5px;margin-top:8px;font-size:11px;color:#60a5fa;text-decoration:none}
@@ -1120,7 +1120,7 @@ var catIcons = {skincare:'&#127807;',makeup:'&#128139;',hair:'&#128135;',headspa
 
 fetch('/api/platform').then(function(r){return r.json();}).then(function(d){ platform = d; });
 
-/* ── 로딩 숨기기 ── */
+/* loading hide */
 var _ldHidden = false;
 function hideLd(){
   if(_ldHidden) return;
@@ -1167,15 +1167,11 @@ function renderFeed() {
 }
 
 function getAutoThumb(videoUrl) {
-  // Cloudinary 영상 URL → 자동 썸네일 (mp4 → jpg 변환)
   if(!videoUrl) return '';
-  if(videoUrl.indexOf('cloudinary.com') !== -1) {
-    // /video/upload/ → /video/upload/so_0/ 로 첫 프레임 추출 후 jpg
-    return videoUrl
-      .replace('/video/upload/', '/video/upload/so_0,w_800,h_600,c_fill,q_auto,f_jpg/')
-      .replace(/\.(mp4|mov|webm|avi)(\?.*)?$/, '.jpg');
-  }
-  return '';
+  if(videoUrl.indexOf('cloudinary.com') === -1) return '';
+  var u = videoUrl.replace('/video/upload/', '/video/upload/so_0,w_800,h_600,c_fill,q_auto,f_jpg/');
+  var dot = u.lastIndexOf('.');
+  return dot !== -1 ? u.slice(0, dot) + '.jpg' : u + '.jpg';
 }
 
 function buildSlide(v, idx) {
@@ -1187,7 +1183,7 @@ function buildSlide(v, idx) {
   s.setAttribute('itemtype','https://schema.org/VideoObject');
   var tags = (v.tags||[]).map(function(t){return '<span class="vtag">'+esc(t)+'</span>';}).join('');
   var uploadDate = v.createdAt || new Date().toISOString().split('T')[0];
-  // thumbnail 없으면 Cloudinary 자동 썸네일 사용
+  // use auto thumbnail
   var thumb = v.thumbnail || getAutoThumb(v.videoUrl) || '';
 
   s.innerHTML =
@@ -1256,7 +1252,7 @@ function setupObs(){
   },{threshold:0.5});
   document.querySelectorAll('.slide').forEach(function(s){obs.observe(s);});
 
-  // 첫 슬라이드 즉시 재생 시도
+  // play first slide
   var firstVid0 = document.getElementById('vid0');
   if(firstVid0){ firstVid0.muted=true; firstVid0.play().catch(function(){}); }
   setTimeout(function(){
@@ -1289,19 +1285,19 @@ function renderShopModal(shop) {
   var waMsg = 'Hi! I found ' + (shop.name||'your shop') + ' on Seoul Beauty Trip and I would like to book a service. Shop: ' + (shop.name||'') + ' (' + (shop.location||'') + ')';
   var waUrl = 'https://wa.me/'+waNum+'?text='+encodeURIComponent(waMsg);
 
-  /* 사진 배열 */
+  /* photo array */
   var photos = shop.photos || [];
   var allPhotos = [];
   if(shop.thumbnail) allPhotos.push(shop.thumbnail);
   photos.forEach(function(p){ if(p && p!==shop.thumbnail) allPhotos.push(p); });
 
-  /* 히어로 이미지 */
+  /* hero image */
   var heroHtml = '';
   if(allPhotos.length > 0) {
     heroHtml = '<div class="m-hero"><img class="m-hero-img" id="mHeroImg" src="'+esc(allPhotos[0])+'" alt="'+esc(shop.name)+'" loading="lazy"><div class="m-hero-ov"></div></div>';
     if(allPhotos.length > 1) {
       var thumbs = allPhotos.map(function(url, i){
-        return '<div class="m-gthumb'+(i===0?' on':'')+'" data-photo-url="'+esc(url)+'" onclick="setMHero(\''+esc(url)+'\',this)">'
+        return '<div class="m-gthumb'+(i===0?' on':'')+'" data-photo-url="'+esc(url)+'" onclick="setMHero(this.dataset.photoUrl,this)">'
           +'<img src="'+esc(url)+'" alt="" loading="lazy">'
           +'</div>';
       }).join('');
@@ -1310,7 +1306,7 @@ function renderShopModal(shop) {
   }
   document.getElementById('modalHero').innerHTML = heroHtml;
 
-  /* 가격 리스트 */
+  /* price list */
   var prices = shop.servicePrices || [];
   var priceHtml = '';
   if(prices.length > 0) {
@@ -1322,14 +1318,14 @@ function renderShopModal(shop) {
     priceHtml = '<div class="m-sec"><div class="m-sec-title"><i class="fas fa-tag"></i> Price</div><div class="m-info-row"><i class="fas fa-won-sign"></i><span>'+esc(shop.priceRange)+'</span></div></div>';
   }
 
-  /* 서비스 태그 */
+  /* service tags */
   var svcHtml = '';
   if(shop.services && shop.services.length > 0) {
     var svcs = shop.services.map(function(s){ return '<span class="m-svc-tag">'+esc(s)+'</span>'; }).join('');
     svcHtml = '<div class="m-sec"><div class="m-sec-title"><i class="fas fa-spa"></i> Services</div><div class="m-svc-tags">'+svcs+'</div></div>';
   }
 
-  /* 구글맵 */
+  /* google map */
   var embedSrc = shop.googleMapEmbed || '';
   var mapHtml = embedSrc
     ? '<div class="m-sec"><div class="m-sec-title"><i class="fas fa-map"></i> Location</div><div class="m-map"><iframe src="'+embedSrc+'" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div>'
@@ -1337,18 +1333,18 @@ function renderShopModal(shop) {
       +'</div>'
     : (shop.googleMapUrl ? '<div class="m-sec"><div class="m-sec-title"><i class="fas fa-map"></i> Location</div><a href="'+esc(shop.googleMapUrl)+'" target="_blank" rel="noopener" class="m-wa" style="background:linear-gradient(135deg,#4285F4,#34A853);font-size:13px;padding:11px"><i class="fas fa-map-marker-alt"></i> Open in Google Maps</a></div>' : '');
 
-  /* 업체 설명 */
+  /* description */
   var descHtml = shop.description
     ? '<div class="m-sec"><div class="m-sec-title"><i class="fas fa-info-circle"></i> About</div><div style="font-size:13px;color:rgba(255,255,255,.68);line-height:1.7">'+esc(shop.description)+'</div></div>'
     : '';
 
-  /* 별점 표시 */
+  /* rating */
   var rating = shop.rating || 5.0;
   var reviewCount = shop.reviewCount || 0;
   var starsHtml = '';
   for(var i=0;i<5;i++) starsHtml += (i < Math.round(rating)) ? '&#9733;' : '&#9734;';
 
-  /* 모달 콘텐츠 */
+  /* modal content */
   document.getElementById('modalContent').innerHTML =
     '<div class="m-shop-cat">'+(catIcons[shop.category]||'&#10024;')+' '+esc(shop.category||'')+'</div>' +
     '<div class="m-shop-name">'+esc(shop.name||'')+'</div>' +
@@ -1365,7 +1361,7 @@ function renderShopModal(shop) {
 
     descHtml + priceHtml + svcHtml + mapHtml;
 
-  /* 하단 버튼 */
+  /* bottom buttons */
   var detailBtn = '';
   if(shop.slug) {
     detailBtn = '<a href="/shop/'+esc(shop.slug)+'" class="m-detail" target="_blank"><i class="fas fa-external-link-alt"></i> View Full Shop Page</a>';
@@ -1382,7 +1378,7 @@ function setMHero(url, el) {
   el.classList.add('on');
 }
 
-/* 사진 전체화면 뷰어 */
+/* fullscreen viewer */
 function openPhotoViewer(url) {
   var ov = document.createElement('div');
   ov.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.96);display:flex;align-items:center;justify-content:center;cursor:pointer';
@@ -1404,12 +1400,12 @@ function closeModal(){
   }, 280);
 }
 
-/* 배경 클릭으로 닫기 */
+/* close on backdrop click */
 document.getElementById('shopModal').addEventListener('click', function(e){
   if(e.target === this) closeModal();
 });
 
-/* 스와이프 다운으로 닫기 */
+/* close on swipe down */
 (function(){
   var panel = document.getElementById('modalPanel');
   var handle = document.getElementById('modalHandle');
@@ -1483,7 +1479,7 @@ window.addEventListener('load', function(){
     });
   });
 
-  /* 로고 3번 클릭 → 관리자 */
+  /* logo 3x click -> admin */
   var clickCount = 0, clickTimer = null;
   var ADMIN_PW = '0907';
 
