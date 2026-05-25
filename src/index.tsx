@@ -2681,10 +2681,12 @@ function addVidRow(){
   urlIn.className = 'vid-form-url';
   urlIn.type = 'hidden';
 
-  // 숨겨진 title 저장용 (파일명 자동 사용)
+  // 영상 제목 입력 (파일 선택 시 기본값, 수정 가능)
   var titleIn = document.createElement('input');
   titleIn.className = 'vid-form-title';
-  titleIn.type = 'hidden';
+  titleIn.type = 'text';
+  titleIn.placeholder = 'Video title (e.g. Gangnam Facial Treatment)';
+  titleIn.style.cssText = 'width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:8px 12px;color:#fff;font-size:12px;margin-bottom:8px;box-sizing:border-box;';
 
   // 숨겨진 desc
   var descIn = document.createElement('input');
@@ -2721,7 +2723,7 @@ function addVidRow(){
   fileIn.addEventListener('change', function(){
     var file = fileIn.files && fileIn.files[0];
     if(!file) return;
-    titleIn.value = file.name.split('.').slice(0,-1).join('.') || file.name;
+    if(!titleIn.value) titleIn.value = file.name.split('.').slice(0,-1).join('.').replace(/[-_]/g,' ') || file.name;
     uploadStatus.style.color = '#fbbf24';
     uploadStatus.textContent = '서명 발급 중...';
     uploadBtn.disabled = true;
@@ -2773,8 +2775,8 @@ function addVidRow(){
   uploadWrap.appendChild(delBtn);
 
   row.appendChild(urlIn);
-  row.appendChild(titleIn);
   row.appendChild(descIn);
+  row.appendChild(titleIn);
   row.appendChild(uploadWrap);
   list.appendChild(row);
 }
