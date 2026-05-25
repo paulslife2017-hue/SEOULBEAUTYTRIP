@@ -1574,7 +1574,24 @@ textarea{height:80px;resize:none}
     </div>
   </div>
 
-  <!-- ③ 영상 추가 패널 (업체 클릭 시 슬라이드다운) -->
+  <!-- ③-1 영상 수정 패널 -->
+  <div class="card" id="videoEditPanel" style="display:none;margin-bottom:16px;border:1px solid rgba(99,102,241,.45)">
+    <div class="card-header" style="margin-bottom:12px">
+      <div class="card-title"><i class="fas fa-pen" style="color:#a5b4fc"></i> 영상 수정 — <span id="ve-title-label" style="color:#a5b4fc;font-size:13px"></span></div>
+      <button style="background:none;border:none;color:rgba(255,255,255,.4);font-size:18px;cursor:pointer" id="ve-panel-close">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="full"><label>영상 제목 *</label><input id="ve-title" placeholder="영상 제목을 입력하세요"></div>
+      <div class="full"><label>영상 설명 <span style="font-size:11px;color:rgba(255,255,255,.4)">(선택)</span></label><input id="ve-desc" placeholder="짧은 설명..."></div>
+      <div class="full"><label>태그 <span style="font-size:11px;color:rgba(255,255,255,.4)">(쉼표 구분)</span></label><input id="ve-tags" placeholder="#KBeauty, #강남, #스킨케어"></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:12px">
+      <button class="btn-pk" style="flex:1;padding:12px;font-size:14px" id="ve-submit-btn"><i class="fas fa-save"></i> 저장</button>
+      <button type="button" id="ve-panel-cancel" style="padding:12px 20px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:10px;color:rgba(255,255,255,.5);font-size:13px;font-weight:600;cursor:pointer">취소</button>
+    </div>
+  </div>
+
+  <!-- ③-2 영상 추가 패널 (업체 클릭 시 슬라이드다운) -->
   <div class="card" id="videoAddPanel" style="display:none;margin-bottom:16px;border:1px solid rgba(255,77,141,.35)">
     <div class="card-header" style="margin-bottom:12px">
       <div class="card-title"><i class="fas fa-film" style="color:#FF4D8D"></i> 영상 추가 — <span id="vd-shop-name" style="color:#FF85B3"></span></div>
@@ -1661,68 +1678,9 @@ document.addEventListener('click', function(e){
   var addVideoBtn = e.target.closest('[data-add-video]');
   if(addVideoBtn){ openVideoPanel(addVideoBtn.getAttribute('data-add-video')); return; }
 
-  // ── 영상 제목 수정 버튼 ──
+  // ── 영상 수정 버튼 → 수정 패널 열기 ──
   var vidEditBtn = e.target.closest('.vid-edit-btn');
-  if(vidEditBtn){
-    var vid = vidEditBtn.getAttribute('data-id');
-    document.getElementById('vid-title-view-'+vid).style.display = 'none';
-    document.getElementById('vid-title-edit-'+vid).style.display = 'block';
-    vidEditBtn.style.display = 'none';
-    document.getElementById('vid-save-btn-'+vid) && (document.getElementById('vid-save-btn-'+vid).style.display='');
-    // data-id로 save/cancel 찾기
-    var row = document.getElementById('vid-row-'+vid);
-    if(row){
-      var saveBtn = row.querySelector('.vid-save-btn');
-      var cancelBtn = row.querySelector('.vid-cancel-btn');
-      if(saveBtn) saveBtn.style.display = '';
-      if(cancelBtn) cancelBtn.style.display = '';
-    }
-    var inp = document.getElementById('vid-title-input-'+vid);
-    if(inp){ inp.focus(); inp.select(); }
-    return;
-  }
-
-  // ── 영상 제목 저장 버튼 ──
-  var vidSaveBtn = e.target.closest('.vid-save-btn');
-  if(vidSaveBtn){
-    var vid = vidSaveBtn.getAttribute('data-id');
-    var inp = document.getElementById('vid-title-input-'+vid);
-    var newTitle = inp ? inp.value.trim() : '';
-    if(!newTitle){ alert('제목을 입력해주세요.'); return; }
-    vidSaveBtn.disabled = true; vidSaveBtn.textContent = '저장 중...';
-    fetch('/api/videos/'+vid, {
-      method:'PUT',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ title: newTitle, titleOnly: true })
-    }).then(function(r){ return r.json(); }).then(function(){
-      // 로컬 videos 배열 업데이트
-      var vObj = videos.find(function(x){ return x.id===vid; });
-      if(vObj) vObj.title = newTitle;
-      loadAll(); // 목록 새로고침
-    }).catch(function(){
-      alert('저장 실패. 다시 시도해주세요.');
-      vidSaveBtn.disabled = false; vidSaveBtn.innerHTML = '<i class="fas fa-check"></i> 저장';
-    });
-    return;
-  }
-
-  // ── 영상 제목 수정 취소 ──
-  var vidCancelBtn = e.target.closest('.vid-cancel-btn');
-  if(vidCancelBtn){
-    var vid = vidCancelBtn.getAttribute('data-id');
-    document.getElementById('vid-title-view-'+vid).style.display = '';
-    document.getElementById('vid-title-edit-'+vid).style.display = 'none';
-    var row = document.getElementById('vid-row-'+vid);
-    if(row){
-      var editBtn = row.querySelector('.vid-edit-btn');
-      var saveBtn = row.querySelector('.vid-save-btn');
-      var cancelBtn = row.querySelector('.vid-cancel-btn');
-      if(editBtn) editBtn.style.display = '';
-      if(saveBtn) saveBtn.style.display = 'none';
-      if(cancelBtn) cancelBtn.style.display = 'none';
-    }
-    return;
-  }
+  if(vidEditBtn){ openVideoEditPanel(vidEditBtn.getAttribute('data-id')); return; }
 });
 document.addEventListener('change', function(e){
   var sel = e.target.closest('.status-select');
@@ -1787,24 +1745,14 @@ function renderShops(){
     var shopVids = videos.filter(function(v){ return v.shopId === s.id; });
     var vidsHtml = shopVids.length
       ? shopVids.map(function(v){
-          return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid rgba(255,255,255,.05)" id="vid-row-'+v.id+'">'
+          return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid rgba(255,255,255,.05)">'
             +'<img src="'+(v.thumbnail||'')+'" class="safe-img" data-fallback="https://placehold.co/36x48/1c1c30/FF4D8D?text=V" style="width:36px;height:48px;border-radius:6px;object-fit:cover;flex-shrink:0">'
             +'<div style="flex:1;min-width:0">'
-              // 기본 표시 상태
-              +'<div id="vid-title-view-'+v.id+'" style="font-size:12px;font-weight:700;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px">'+v.title+'</div>'
-              // 편집 상태 (기본 숨김)
-              +'<div id="vid-title-edit-'+v.id+'" style="display:none;margin-bottom:2px">'
-                +'<input id="vid-title-input-'+v.id+'" value="'+v.title.replace(/"/g,'&quot;')+'" style="width:100%;padding:4px 8px;font-size:12px;background:rgba(255,255,255,.08);border:1px solid rgba(255,77,141,.4);border-radius:6px;color:#fff">'
-              +'</div>'
+              +'<div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px">'+v.title+'</div>'
               +'<div style="font-size:10px;color:rgba(255,255,255,.3)">'+v.views+' 조회</div>'
             +'</div>'
-            +'<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">'
-              // 수정 버튼
-              +'<button class="vid-edit-btn" data-id="'+v.id+'" style="padding:4px 8px;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);border-radius:6px;color:#a5b4fc;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap"><i class="fas fa-pen"></i> 수정</button>'
-              // 저장 버튼 (기본 숨김)
-              +'<button class="vid-save-btn" data-id="'+v.id+'" style="display:none;padding:4px 8px;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);border-radius:6px;color:#34d399;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap"><i class="fas fa-check"></i> 저장</button>'
-              // 취소 버튼 (기본 숨김)
-              +'<button class="vid-cancel-btn" data-id="'+v.id+'" style="display:none;padding:4px 8px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:6px;color:rgba(255,255,255,.4);font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap">취소</button>'
+            +'<div style="display:flex;gap:4px;flex-shrink:0">'
+              +'<button class="vid-edit-btn" data-id="'+v.id+'" style="padding:4px 10px;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);border-radius:6px;color:#a5b4fc;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap"><i class="fas fa-pen"></i> 수정</button>'
               +'<button class="del-video-btn" data-id="'+v.id+'" style="padding:4px 8px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.25);border-radius:6px;color:#f87171;font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap"><i class="fas fa-trash"></i></button>'
             +'</div>'
           +'</div>';
@@ -1953,6 +1901,62 @@ document.getElementById('vd-submit-btn').addEventListener('click', addVideo);
 document.getElementById('sh-submit-btn').addEventListener('click', addShop);
 document.getElementById('svc-add-btn').addEventListener('click', addSvcRow);
 document.getElementById('vid-add-btn').addEventListener('click', addVidRow);
+
+// ── 영상 수정 패널 ──
+var editingVideoId = null;
+function openVideoEditPanel(videoId){
+  var vid = videos.find(function(v){ return v.id === videoId; });
+  if(!vid){ alert('영상 정보를 찾을 수 없습니다.'); return; }
+  editingVideoId = videoId;
+
+  document.getElementById('ve-title-label').textContent = vid.title;
+  document.getElementById('ve-title').value = vid.title || '';
+  document.getElementById('ve-desc').value = vid.description || '';
+  document.getElementById('ve-tags').value = (vid.tags||[]).join(', ');
+
+  // 패널 열기 (영상 추가 패널 닫기)
+  document.getElementById('videoEditPanel').style.display = 'block';
+  document.getElementById('videoAddPanel').style.display = 'none';
+  document.getElementById('editShopPanel').style.display = 'none';
+  setTimeout(function(){
+    document.getElementById('videoEditPanel').scrollIntoView({behavior:'smooth', block:'start'});
+    document.getElementById('ve-title').focus();
+    document.getElementById('ve-title').select();
+  }, 50);
+}
+function closeVideoEditPanel(){
+  document.getElementById('videoEditPanel').style.display = 'none';
+  editingVideoId = null;
+}
+function saveVideoEdit(){
+  if(!editingVideoId) return;
+  var title = document.getElementById('ve-title').value.trim();
+  if(!title){ alert('영상 제목을 입력해주세요!'); return; }
+  var desc  = document.getElementById('ve-desc').value.trim();
+  var tags  = document.getElementById('ve-tags').value.split(',').map(function(t){ return t.trim(); }).filter(Boolean);
+
+  var btn = document.getElementById('ve-submit-btn');
+  btn.disabled = true; btn.textContent = '저장 중...';
+
+  // 기존 thumbnail 유지
+  var vid = videos.find(function(v){ return v.id === editingVideoId; }) || {};
+  fetch('/api/videos/'+editingVideoId, {
+    method:'PUT',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ title: title, description: desc, thumbnail: vid.thumbnail||'', tags: tags })
+  }).then(function(r){ return r.json(); }).then(function(){
+    btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> 저장';
+    closeVideoEditPanel();
+    loadAll();
+    alert('✅ 영상 정보가 수정되었습니다!');
+  }).catch(function(){
+    btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> 저장';
+    alert('오류가 발생했습니다. 다시 시도해주세요.');
+  });
+}
+document.getElementById('ve-panel-close').addEventListener('click', closeVideoEditPanel);
+document.getElementById('ve-panel-cancel').addEventListener('click', closeVideoEditPanel);
+document.getElementById('ve-submit-btn').addEventListener('click', saveVideoEdit);
 
 // ── 업체 수정 패널 열기 ──
 var editingShopId = null;
