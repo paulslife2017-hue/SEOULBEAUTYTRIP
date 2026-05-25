@@ -1414,22 +1414,15 @@ function renderShopModal(shop) {
     if(!q && shop.name)    q = shop.name + ' Seoul';
     if(q) embedSrc = 'https://www.google.com/maps?q='+encodeURIComponent(q)+'&output=embed&hl=en';
   }
-  /* 지도 클릭 -> 구글맵 앱 바로 열기 (iframe 위에 투명 링크 오버레이) */
-  var mapsTarget = shop.googleMapUrl || (shop.address ? 'https://maps.google.com/?q='+encodeURIComponent(shop.address) : '') || (shop.name ? 'https://maps.google.com/?q='+encodeURIComponent(shop.name+' Seoul') : '');
+  /* 지도 표시만 (클릭 차단 - 예약은 WhatsApp으로) */
   var mapHtml = embedSrc
     ? '<div class="m-sec"><div class="m-sec-title">Location</div>'
         +'<div class="m-map" style="position:relative">'
-          +'<iframe src="'+embedSrc+'" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>'
-          +(mapsTarget ? '<a href="'+esc(mapsTarget)+'" target="_blank" rel="noopener" style="position:absolute;inset:0;z-index:2;display:block" aria-label="Open in Google Maps"></a>' : '')
+          +'<iframe src="'+embedSrc+'" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" style="pointer-events:none"></iframe>'
+          +'<div style="position:absolute;inset:0;z-index:2"></div>'
         +'</div>'
       +'</div>'
-    : (mapsTarget
-        ? '<div class="m-sec"><div class="m-sec-title">Location</div>'
-            +'<a href="'+esc(mapsTarget)+'" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:10px;padding:14px 16px;background:rgba(66,133,244,.08);border:1px solid rgba(66,133,244,.2);border-radius:14px;color:#60a5fa;font-size:13px;font-weight:700;text-decoration:none">'
-              +'<i class="fas fa-map-marker-alt" style="font-size:18px;color:#4285F4"></i> Tap to open in Google Maps'
-            +'</a>'
-          +'</div>'
-        : '');
+    : '';
 
   /* ── 본문 조립 ── */
   document.getElementById('modalContent').innerHTML =
