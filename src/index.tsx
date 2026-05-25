@@ -999,23 +999,37 @@ function buildSlide(v, idx) {
   feed.appendChild(s);
 
   (function(vid, vidIdx, shopData) {
-    var ve = document.getElementById('vid'+vidIdx);
+    var ve  = document.getElementById('vid'+vidIdx);
+    var ov  = s.querySelector('.ov');          // 영상 위 그라데이션 오버레이
     var playIc = document.getElementById('playic'+vidIdx);
+
     if(ve) {
       ve.onerror = function(){ ve.style.display='none'; };
-      // 영상 클릭 → 재생/정지 토글
-      ve.addEventListener('click', function(e){
-        e.stopPropagation();
-        if(ve.paused){ ve.play().catch(function(){}); }
-        else { ve.pause(); }
-      });
       ve.addEventListener('play',  function(){ if(playIc) playIc.style.display='none'; });
       ve.addEventListener('pause', function(){ if(playIc) playIc.style.display='flex'; });
     }
-    document.getElementById('alke'+vidIdx).onclick = function(e){ e.stopPropagation(); doLike(vid.id); };
+
+    // ── 오버레이(.ov) 클릭 → 재생/정지 토글 ──
+    // .ov 는 영상 바로 위(z-index:2), .acts/.info 는 z-index:3 으로 버튼 클릭과 분리됨
+    if(ov && ve) {
+      ov.style.cursor = 'pointer';
+      ov.addEventListener('click', function(e){
+        e.stopPropagation();
+        if(ve.paused){ ve.muted=isMuted; ve.play().catch(function(){}); }
+        else { ve.pause(); }
+      });
+    }
+
+    // 우측 액션 버튼들 — 클릭이 .ov 로 bubbling되지 않게 차단
+    document.getElementById('alke'+vidIdx).onclick  = function(e){ e.stopPropagation(); doLike(vid.id); };
     document.getElementById('ashop'+vidIdx).onclick = function(e){ e.stopPropagation(); openShopModal(vid.shopId||shopData.id); };
-    document.getElementById('ashare'+vidIdx).onclick = function(e){ e.stopPropagation(); doShare(vid.title); };
+    document.getElementById('ashare'+vidIdx).onclick= function(e){ e.stopPropagation(); doShare(vid.title); };
     document.getElementById('wabtn'+vidIdx).onclick = function(e){ e.stopPropagation(); openShopModal(vid.shopId||shopData.id); };
+
+    // .info 영역 (제목·설명·태그) — 클릭이 .ov 로 bubbling되지 않게 차단
+    var infoEl = s.querySelector('.info');
+    if(infoEl) infoEl.addEventListener('click', function(e){ e.stopPropagation(); });
+
     // 조회수 기록
     fetch('/api/videos/'+vid.id+'/view', {method:'POST'}).catch(function(){});
   })(v, idx, shop);
