@@ -757,11 +757,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .bg-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
 .slide video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;z-index:1;background:#000}
 .ov{position:absolute;inset:0;z-index:2;background:linear-gradient(to bottom,rgba(0,0,0,.08) 0%,transparent 22%,transparent 48%,rgba(0,0,0,.32) 68%,rgba(0,0,0,.88) 100%)}
-.acts{position:absolute;right:12px;bottom:150px;z-index:3;display:flex;flex-direction:column;gap:16px;align-items:center}
-.act{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer}
-.act-ic{width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,.12);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:19px;color:#fff;transition:all .18s}
-.act-ic:active{transform:scale(.9)}
-.act-lb{font-size:10px;font-weight:700;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.9)}
+
 .info{position:absolute;bottom:0;left:0;right:64px;padding:14px 16px 24px;z-index:3}
 .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 11px;border-radius:18px;background:linear-gradient(135deg,var(--pk),var(--pu));font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px}
 .vt{font-size:16px;font-weight:800;line-height:1.3;margin-bottom:4px;text-shadow:0 2px 8px rgba(0,0,0,.7)}
@@ -792,7 +788,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   }
   #dots{left:calc(50% - 234px)}
   #muteBtn{position:fixed;top:50%;right:calc(50% - 210px - 56px);transform:translateY(-50%)}
-  .acts{right:16px}
+
   .modal{max-width:420px}
   .hint{display:none}
 }
@@ -979,11 +975,7 @@ function buildSlide(v, idx) {
     '<video id="vid'+idx+'" src="'+esc(v.videoUrl)+'" loop muted playsinline preload="metadata" poster="'+esc(v.thumbnail)+'"></video>' +
     '<div id="playic'+idx+'" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:4;width:64px;height:64px;border-radius:50%;background:rgba(0,0,0,.55);align-items:center;justify-content:center;pointer-events:none"><i class="fas fa-pause" style="font-size:22px;color:#fff"></i></div>' +
     '<div class="ov"></div>' +
-    '<div class="acts">' +
-      '<div class="act" id="alke'+idx+'"><div class="act-ic" id="lkic'+esc(v.id)+'"><i class="fas fa-heart"></i></div><span class="act-lb" id="lklb'+esc(v.id)+'">Like</span></div>' +
-      '<div class="act" id="ashop'+idx+'"><div class="act-ic"><i class="fas fa-store"></i></div><span class="act-lb">Shop</span></div>' +
-      '<div class="act" id="ashare'+idx+'"><div class="act-ic"><i class="fas fa-share"></i></div><span class="act-lb">Share</span></div>' +
-    '</div>' +
+
     '<div class="info">' +
       '<div class="badge">'+(catIcons[shop.category]||'&#10024;')+' '+esc(shop.category||'')+'</div>' +
       '<div class="vt">'+esc(v.title)+'</div>' +
@@ -1021,9 +1013,7 @@ function buildSlide(v, idx) {
     }
 
     // 우측 액션 버튼들 — 클릭이 .ov 로 bubbling되지 않게 차단
-    document.getElementById('alke'+vidIdx).onclick  = function(e){ e.stopPropagation(); doLike(vid.id); };
-    document.getElementById('ashop'+vidIdx).onclick = function(e){ e.stopPropagation(); openShopModal(vid.shopId||shopData.id); };
-    document.getElementById('ashare'+vidIdx).onclick= function(e){ e.stopPropagation(); doShare(vid.title); };
+
     document.getElementById('wabtn'+vidIdx).onclick = function(e){ e.stopPropagation(); openShopModal(vid.shopId||shopData.id); };
 
     // .info 영역 (제목·설명·태그) — 클릭이 .ov 로 bubbling되지 않게 차단
