@@ -523,12 +523,17 @@ app.delete('/api/videos/:id', async (c) => {
 app.put('/api/videos/:id', async (c) => {
   const sql = getDb()
   const body = await c.req.json()
-  await sql`UPDATE videos SET
-    title=${body.title||''},
-    description=${body.description||''},
-    thumbnail=${body.thumbnail||''},
-    tags=${JSON.stringify(body.tags||[])}
-    WHERE id=${c.req.param('id')}`
+  // title만 넘어온 경우 title만 업데이트, 나머지 필드는 기존값 유지
+  if(body.titleOnly) {
+    await sql`UPDATE videos SET title=${body.title||''} WHERE id=${c.req.param('id')}`
+  } else {
+    await sql`UPDATE videos SET
+      title=${body.title||''},
+      description=${body.description||''},
+      thumbnail=${body.thumbnail||''},
+      tags=${JSON.stringify(body.tags||[])}
+      WHERE id=${c.req.param('id')}`
+  }
   return c.json({ ok: true })
 })
 app.post('/api/videos/:id/view', async (c) => {
@@ -1655,6 +1660,69 @@ document.addEventListener('click', function(e){
   if(delVideoBtn){ delVideo(delVideoBtn.getAttribute('data-id')); return; }
   var addVideoBtn = e.target.closest('[data-add-video]');
   if(addVideoBtn){ openVideoPanel(addVideoBtn.getAttribute('data-add-video')); return; }
+
+  // ── 영상 제목 수정 버튼 ──
+  var vidEditBtn = e.target.closest('.vid-edit-btn');
+  if(vidEditBtn){
+    var vid = vidEditBtn.getAttribute('data-id');
+    document.getElementById('vid-title-view-'+vid).style.display = 'none';
+    document.getElementById('vid-title-edit-'+vid).style.display = 'block';
+    vidEditBtn.style.display = 'none';
+    document.getElementById('vid-save-btn-'+vid) && (document.getElementById('vid-save-btn-'+vid).style.display='');
+    // data-id로 save/cancel 찾기
+    var row = document.getElementById('vid-row-'+vid);
+    if(row){
+      var saveBtn = row.querySelector('.vid-save-btn');
+      var cancelBtn = row.querySelector('.vid-cancel-btn');
+      if(saveBtn) saveBtn.style.display = '';
+      if(cancelBtn) cancelBtn.style.display = '';
+    }
+    var inp = document.getElementById('vid-title-input-'+vid);
+    if(inp){ inp.focus(); inp.select(); }
+    return;
+  }
+
+  // ── 영상 제목 저장 버튼 ──
+  var vidSaveBtn = e.target.closest('.vid-save-btn');
+  if(vidSaveBtn){
+    var vid = vidSaveBtn.getAttribute('data-id');
+    var inp = document.getElementById('vid-title-input-'+vid);
+    var newTitle = inp ? inp.value.trim() : '';
+    if(!newTitle){ alert('제목을 입력해주세요.'); return; }
+    vidSaveBtn.disabled = true; vidSaveBtn.textContent = '저장 중...';
+    fetch('/api/videos/'+vid, {
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ title: newTitle, titleOnly: true })
+    }).then(function(r){ return r.json(); }).then(function(){
+      // 로컬 videos 배열 업데이트
+      var vObj = videos.find(function(x){ return x.id===vid; });
+      if(vObj) vObj.title = newTitle;
+      loadAll(); // 목록 새로고침
+    }).catch(function(){
+      alert('저장 실패. 다시 시도해주세요.');
+      vidSaveBtn.disabled = false; vidSaveBtn.innerHTML = '<i class="fas fa-check"></i> 저장';
+    });
+    return;
+  }
+
+  // ── 영상 제목 수정 취소 ──
+  var vidCancelBtn = e.target.closest('.vid-cancel-btn');
+  if(vidCancelBtn){
+    var vid = vidCancelBtn.getAttribute('data-id');
+    document.getElementById('vid-title-view-'+vid).style.display = '';
+    document.getElementById('vid-title-edit-'+vid).style.display = 'none';
+    var row = document.getElementById('vid-row-'+vid);
+    if(row){
+      var editBtn = row.querySelector('.vid-edit-btn');
+      var saveBtn = row.querySelector('.vid-save-btn');
+      var cancelBtn = row.querySelector('.vid-cancel-btn');
+      if(editBtn) editBtn.style.display = '';
+      if(saveBtn) saveBtn.style.display = 'none';
+      if(cancelBtn) cancelBtn.style.display = 'none';
+    }
+    return;
+  }
 });
 document.addEventListener('change', function(e){
   var sel = e.target.closest('.status-select');
@@ -1715,30 +1783,62 @@ function renderShops(){
     var catColor = catColors[s.category] || '#aaa';
     var catLabel = catLabels[s.category] || s.category;
     var initial = (s.name||'S')[0].toUpperCase();
-    return '<div class="shop-card">'
-      // 썸네일 or 이니셜
-      +'<div style="width:52px;height:52px;border-radius:12px;overflow:hidden;flex-shrink:0;background:linear-gradient(135deg,rgba(255,77,141,.2),rgba(155,89,182,.2));display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#FF4D8D">'
-        +(s.thumbnail ? '<img src="'+s.thumbnail+'" class="safe-img" style="width:100%;height:100%;object-fit:cover" data-fallback-text="'+initial+'">' : initial)
-      +'</div>'
-      // 메타정보
-      +'<div style="flex:1;min-width:0">'
-        +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">'
-          +'<span style="font-size:14px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+s.name+'</span>'
-          +'<span style="flex-shrink:0;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;background:rgba(255,255,255,.07);color:'+catColor+'">'+catLabel+'</span>'
+    // 이 업체 소속 영상 목록
+    var shopVids = videos.filter(function(v){ return v.shopId === s.id; });
+    var vidsHtml = shopVids.length
+      ? shopVids.map(function(v){
+          return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid rgba(255,255,255,.05)" id="vid-row-'+v.id+'">'
+            +'<img src="'+(v.thumbnail||'')+'" class="safe-img" data-fallback="https://placehold.co/36x48/1c1c30/FF4D8D?text=V" style="width:36px;height:48px;border-radius:6px;object-fit:cover;flex-shrink:0">'
+            +'<div style="flex:1;min-width:0">'
+              // 기본 표시 상태
+              +'<div id="vid-title-view-'+v.id+'" style="font-size:12px;font-weight:700;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px">'+v.title+'</div>'
+              // 편집 상태 (기본 숨김)
+              +'<div id="vid-title-edit-'+v.id+'" style="display:none;margin-bottom:2px">'
+                +'<input id="vid-title-input-'+v.id+'" value="'+v.title.replace(/"/g,'&quot;')+'" style="width:100%;padding:4px 8px;font-size:12px;background:rgba(255,255,255,.08);border:1px solid rgba(255,77,141,.4);border-radius:6px;color:#fff">'
+              +'</div>'
+              +'<div style="font-size:10px;color:rgba(255,255,255,.3)">'+v.views+' 조회</div>'
+            +'</div>'
+            +'<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">'
+              // 수정 버튼
+              +'<button class="vid-edit-btn" data-id="'+v.id+'" style="padding:4px 8px;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);border-radius:6px;color:#a5b4fc;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap"><i class="fas fa-pen"></i> 수정</button>'
+              // 저장 버튼 (기본 숨김)
+              +'<button class="vid-save-btn" data-id="'+v.id+'" style="display:none;padding:4px 8px;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);border-radius:6px;color:#34d399;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap"><i class="fas fa-check"></i> 저장</button>'
+              // 취소 버튼 (기본 숨김)
+              +'<button class="vid-cancel-btn" data-id="'+v.id+'" style="display:none;padding:4px 8px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:6px;color:rgba(255,255,255,.4);font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap">취소</button>'
+              +'<button class="del-video-btn" data-id="'+v.id+'" style="padding:4px 8px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.25);border-radius:6px;color:#f87171;font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap"><i class="fas fa-trash"></i></button>'
+            +'</div>'
+          +'</div>';
+        }).join('')
+      : '<div style="font-size:11px;color:rgba(255,255,255,.2);padding:8px 0;border-top:1px solid rgba(255,255,255,.05)">등록된 영상 없음</div>';
+
+    return '<div class="shop-card" style="flex-direction:column;gap:0">'
+      // 업체 헤더행
+      +'<div style="display:flex;gap:10px;align-items:center;margin-bottom:10px">'
+        // 썸네일 or 이니셜
+        +'<div style="width:52px;height:52px;border-radius:12px;overflow:hidden;flex-shrink:0;background:linear-gradient(135deg,rgba(255,77,141,.2),rgba(155,89,182,.2));display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#FF4D8D">'
+          +(s.thumbnail ? '<img src="'+s.thumbnail+'" class="safe-img" style="width:100%;height:100%;object-fit:cover" data-fallback-text="'+initial+'">' : initial)
         +'</div>'
-        +(s.location ? '<div style="font-size:11px;color:rgba(255,255,255,.45);margin-bottom:4px"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:4px"></i>'+s.location+'</div>' : '')
-        +(s.address ? '<div style="font-size:11px;color:rgba(255,255,255,.3);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+s.address+'</div>' : '')
-        +'<div style="display:flex;align-items:center;gap:10px">'
-          +'<span style="font-size:11px;color:#a78bfa"><i class="fas fa-film" style="margin-right:3px"></i>'+vcount+'개 영상</span>'
-          +(s.priceRange ? '<span style="font-size:11px;color:#34d399">'+s.priceRange+'</span>' : '')
+        // 메타정보
+        +'<div style="flex:1;min-width:0">'
+          +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">'
+            +'<span style="font-size:14px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+s.name+'</span>'
+            +'<span style="flex-shrink:0;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;background:rgba(255,255,255,.07);color:'+catColor+'">'+catLabel+'</span>'
+          +'</div>'
+          +(s.location ? '<div style="font-size:11px;color:rgba(255,255,255,.45);margin-bottom:4px"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:4px"></i>'+s.location+'</div>' : '')
+          +'<div style="display:flex;align-items:center;gap:10px">'
+            +'<span style="font-size:11px;color:#a78bfa"><i class="fas fa-film" style="margin-right:3px"></i>'+vcount+'개 영상</span>'
+            +(s.priceRange ? '<span style="font-size:11px;color:#34d399">'+s.priceRange+'</span>' : '')
+          +'</div>'
+        +'</div>'
+        // 업체 액션 버튼
+        +'<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">'
+          +'<button data-add-video="'+s.id+'" style="padding:6px 12px;background:linear-gradient(135deg,#FF4D8D,#9B59B6);border:none;border-radius:8px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap"><i class="fas fa-plus"></i> 영상</button>'
+          +'<button class="edit-shop-btn" data-id="'+s.id+'" style="padding:6px 12px;background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.25);border-radius:8px;color:#60a5fa;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap"><i class="fas fa-edit"></i> 수정</button>'
+          +'<button class="del-shop-btn" data-id="'+s.id+'" style="padding:6px 12px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.25);border-radius:8px;color:#f87171;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap"><i class="fas fa-trash"></i> 삭제</button>'
         +'</div>'
       +'</div>'
-      // 액션 버튼
-      +'<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">'
-        +'<button data-add-video="'+s.id+'" style="padding:6px 12px;background:linear-gradient(135deg,#FF4D8D,#9B59B6);border:none;border-radius:8px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap"><i class="fas fa-plus"></i> 영상</button>'
-        +'<button class="edit-shop-btn" data-id="'+s.id+'" style="padding:6px 12px;background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.25);border-radius:8px;color:#60a5fa;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap"><i class="fas fa-edit"></i> 수정</button>'
-        +'<button class="del-shop-btn" data-id="'+s.id+'" style="padding:6px 12px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.25);border-radius:8px;color:#f87171;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap"><i class="fas fa-trash"></i> 삭제</button>'
-      +'</div>'
+      // 영상 목록
+      + vidsHtml
     +'</div>';
   }).join('') + '</div>';
 }
