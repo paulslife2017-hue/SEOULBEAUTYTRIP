@@ -943,7 +943,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 /* ── 슬라이드 ── */
 .slide{height:100vh;width:100%;max-width:100%;position:relative;scroll-snap-align:start;overflow:hidden;background:#000;flex-shrink:0}
 .bg-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
-.slide video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;z-index:1;background:#000}
+.slide video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;background:#000}
 .ov{position:absolute;inset:0;z-index:2;background:linear-gradient(to bottom,rgba(0,0,0,.06) 0%,transparent 20%,transparent 45%,rgba(0,0,0,.28) 65%,rgba(0,0,0,.85) 100%);cursor:pointer}
 /* ── 슬라이드 정보 영역 ── */
 .info{position:absolute;bottom:0;left:0;right:0;padding:14px 16px 28px;z-index:3}
@@ -1166,6 +1166,18 @@ function renderFeed() {
   setupObs();
 }
 
+function getAutoThumb(videoUrl) {
+  // Cloudinary 영상 URL → 자동 썸네일 (mp4 → jpg 변환)
+  if(!videoUrl) return '';
+  if(videoUrl.indexOf('cloudinary.com') !== -1) {
+    // /video/upload/ → /video/upload/so_0/ 로 첫 프레임 추출 후 jpg
+    return videoUrl
+      .replace('/video/upload/', '/video/upload/so_0,w_800,h_600,c_fill,q_auto,f_jpg/')
+      .replace(/\.(mp4|mov|webm|avi)(\?.*)?$/, '.jpg');
+  }
+  return '';
+}
+
 function buildSlide(v, idx) {
   var feed = document.getElementById('feed');
   var shop = v.shop || {};
@@ -1175,14 +1187,16 @@ function buildSlide(v, idx) {
   s.setAttribute('itemtype','https://schema.org/VideoObject');
   var tags = (v.tags||[]).map(function(t){return '<span class="vtag">'+esc(t)+'</span>';}).join('');
   var uploadDate = v.createdAt || new Date().toISOString().split('T')[0];
+  // thumbnail 없으면 Cloudinary 자동 썸네일 사용
+  var thumb = v.thumbnail || getAutoThumb(v.videoUrl) || '';
 
   s.innerHTML =
     '<meta itemprop="name" content="'+esc(v.title)+'">' +
     '<meta itemprop="description" content="'+esc(v.description)+'">' +
-    '<meta itemprop="thumbnailUrl" content="'+esc(v.thumbnail)+'">' +
+    '<meta itemprop="thumbnailUrl" content="'+esc(thumb)+'">' +
     '<meta itemprop="uploadDate" content="'+esc(uploadDate)+'">' +
-    '<img class="bg-img" src="'+esc(v.thumbnail)+'" alt="'+esc(v.title)+'" loading="lazy">' +
-    '<video id="vid'+idx+'" src="'+esc(v.videoUrl)+'" loop muted playsinline preload="metadata" poster="'+esc(v.thumbnail)+'" itemprop="contentUrl"></video>' +
+    (thumb ? '<img class="bg-img" src="'+esc(thumb)+'" alt="'+esc(v.title)+'" loading="lazy">' : '<div class="bg-img" style="background:linear-gradient(135deg,#1a0a14 0%,#1c0e22 40%,#0f0816 100%)"></div>') +
+    '<video id="vid'+idx+'" src="'+esc(v.videoUrl)+'" loop muted playsinline preload="auto" poster="'+esc(thumb)+'" itemprop="contentUrl"></video>' +
     '<div id="playic'+idx+'" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:4;width:56px;height:56px;border-radius:50%;background:rgba(0,0,0,.55);align-items:center;justify-content:center;pointer-events:none;backdrop-filter:blur(4px)"><i class="fas fa-pause" style="font-size:20px;color:#fff"></i></div>' +
     '<div class="ov"></div>' +
     '<div class="info">' +
@@ -1242,12 +1256,15 @@ function setupObs(){
   },{threshold:0.5});
   document.querySelectorAll('.slide').forEach(function(s){obs.observe(s);});
 
+  // 첫 슬라이드 즉시 재생 시도
+  var firstVid0 = document.getElementById('vid0');
+  if(firstVid0){ firstVid0.muted=true; firstVid0.play().catch(function(){}); }
   setTimeout(function(){
     var firstVid = document.getElementById('vid0');
     if(firstVid && firstVid.paused){ firstVid.muted=isMuted; firstVid.play().catch(function(){}); }
     var dot0 = document.getElementById('dot0');
     if(dot0) dot0.classList.add('on');
-  }, 300);
+  }, 400);
 }
 
 function openShopModal(shopId) {
