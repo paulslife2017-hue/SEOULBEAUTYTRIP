@@ -1029,15 +1029,31 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .m-svc-tags{display:flex;flex-wrap:wrap;gap:6px}
 .m-svc-tag{padding:5px 11px;background:rgba(232,65,122,.07);border:1px solid rgba(232,65,122,.18);border-radius:18px;font-size:11px;color:var(--pk3);font-weight:600}
 /* google map */
-.m-map{border-radius:12px;overflow:hidden;height:170px;border:1px solid var(--border);position:relative}
+.m-map{border-radius:14px;overflow:hidden;height:200px;border:1px solid rgba(255,255,255,.1);position:relative;box-shadow:0 4px 20px rgba(0,0,0,.4)}
 .m-map iframe{width:100%;height:100%;border:0;display:block}
 .m-map-link{display:flex;align-items:center;gap:5px;margin-top:8px;font-size:11px;color:#60a5fa;text-decoration:none}
 /* 버튼 */
-.m-btns{display:flex;flex-direction:column;gap:8px;padding:14px 20px 0}
-.m-wa{display:flex;align-items:center;justify-content:center;gap:9px;padding:15px;background:linear-gradient(135deg,#25D366,#0EA855);border:none;border-radius:14px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;text-decoration:none;box-shadow:0 4px 20px rgba(37,211,102,.28);transition:opacity .2s}
-.m-wa:hover{opacity:.9}
-.m-detail{display:flex;align-items:center;justify-content:center;gap:7px;padding:12px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:14px;color:rgba(255,255,255,.55);font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;transition:all .2s}
-.m-detail:hover{background:rgba(255,255,255,.07);color:#fff}
+.m-btns{display:flex;flex-direction:column;gap:10px;padding:16px 20px 4px}
+.m-wa{
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  padding:16px 20px;
+  background:linear-gradient(135deg,#25D366 0%,#0EA855 100%);
+  border:none;border-radius:16px;color:#fff;
+  font-size:15px;font-weight:800;letter-spacing:.3px;
+  cursor:pointer;text-decoration:none;
+  box-shadow:0 6px 24px rgba(37,211,102,.35),0 2px 8px rgba(0,0,0,.3);
+  transition:transform .18s,box-shadow .18s;
+  position:relative;overflow:hidden;
+}
+.m-wa::before{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.12) 0%,transparent 60%);pointer-events:none}
+.m-wa:hover{transform:translateY(-1px);box-shadow:0 10px 32px rgba(37,211,102,.45),0 4px 12px rgba(0,0,0,.3)}
+.m-wa:active{transform:translateY(0);box-shadow:0 4px 16px rgba(37,211,102,.3)}
+.m-wa-icon{width:36px;height:36px;background:rgba(255,255,255,.18);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.m-wa-text{display:flex;flex-direction:column;align-items:flex-start;gap:1px}
+.m-wa-text b{font-size:14px;font-weight:800;line-height:1.2}
+.m-wa-text small{font-size:10px;font-weight:500;opacity:.8;letter-spacing:.2px}
+.m-map-open{display:flex;align-items:center;gap:8px;padding:12px 16px;background:rgba(66,133,244,.1);border:1px solid rgba(66,133,244,.25);border-radius:14px;color:#93bbff;font-size:13px;font-weight:600;text-decoration:none;transition:all .18s}
+.m-map-open:hover{background:rgba(66,133,244,.18);border-color:rgba(66,133,244,.4);color:#c0d8ff}
 /* 토스트 */
 #toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%) translateY(12px);background:rgba(232,65,122,.92);color:#fff;padding:8px 18px;border-radius:18px;font-size:12px;font-weight:700;z-index:600;opacity:0;transition:all .28s;white-space:nowrap;pointer-events:none;backdrop-filter:blur(8px)}
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -1328,10 +1344,8 @@ function renderShopModal(shop) {
   /* google map */
   var embedSrc = shop.googleMapEmbed || '';
   var mapHtml = embedSrc
-    ? '<div class="m-sec"><div class="m-sec-title"><i class="fas fa-map"></i> Location</div><div class="m-map"><iframe src="'+embedSrc+'" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div>'
-      +(shop.googleMapUrl ? '<a href="'+esc(shop.googleMapUrl)+'" target="_blank" rel="noopener" class="m-map-link"><i class="fas fa-external-link-alt"></i> Open in Google Maps</a>' : '')
-      +'</div>'
-    : (shop.googleMapUrl ? '<div class="m-sec"><div class="m-sec-title"><i class="fas fa-map"></i> Location</div><a href="'+esc(shop.googleMapUrl)+'" target="_blank" rel="noopener" class="m-wa" style="background:linear-gradient(135deg,#4285F4,#34A853);font-size:13px;padding:11px"><i class="fas fa-map-marker-alt"></i> Open in Google Maps</a></div>' : '');
+    ? '<div class="m-sec"><div class="m-sec-title"><i class="fas fa-map-marker-alt"></i> Location</div><div class="m-map"><iframe src="'+embedSrc+'" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div></div>'
+    : '';
 
   /* description */
   var descHtml = shop.description
@@ -1362,13 +1376,15 @@ function renderShopModal(shop) {
     descHtml + priceHtml + svcHtml + mapHtml;
 
   /* bottom buttons */
-  var detailBtn = '';
-  if(shop.slug) {
-    detailBtn = '<a href="/shop/'+esc(shop.slug)+'" class="m-detail" target="_blank"><i class="fas fa-external-link-alt"></i> View Full Shop Page</a>';
-  }
+  var mapBtn = (shop.googleMapUrl)
+    ? '<a href="'+esc(shop.googleMapUrl)+'" target="_blank" rel="noopener" class="m-map-open"><i class="fab fa-google" style="font-size:13px"></i> Open in Google Maps</a>'
+    : '';
   document.getElementById('modalBtns').innerHTML =
-    '<a href="'+waUrl+'" target="_blank" rel="noopener" class="m-wa"><i class="fab fa-whatsapp" style="font-size:18px"></i> Book via WhatsApp</a>' +
-    detailBtn;
+    '<a href="'+waUrl+'" target="_blank" rel="noopener" class="m-wa">'
+      +'<span class="m-wa-icon"><i class="fab fa-whatsapp" style="font-size:18px"></i></span>'
+      +'<span class="m-wa-text"><b>Book via WhatsApp</b><small>Fast reply guaranteed</small></span>'
+    +'</a>'
+    + mapBtn;
 }
 
 function setMHero(url, el) {
@@ -1701,6 +1717,14 @@ textarea{height:80px;resize:none}
         <label>업체 소개 <span style="font-size:11px;color:rgba(255,255,255,.4)">(선택)</span></label>
         <textarea id="sh-desc" placeholder="고객에게 보여질 소개 문구..."></textarea>
       </div>
+      <div class="full">
+        <label>구글맵 임베드 URL <span style="font-size:11px;color:rgba(255,255,255,.4)">(지도가 모달 안에 표시됨)</span></label>
+        <input id="sh-gmap-embed" placeholder="구글맵 → 공유 → 지도 퍼가기 → src=\"...\" 부분 붙여넣기" oninput="updateGmapEmbedPreview('sh-gmap-embed-preview','sh-gmap-embed')">
+        <div style="font-size:11px;color:rgba(255,255,255,.3);margin-top:4px">Google Maps → Share → Embed a map → src=\"...\" 값만 복사</div>
+        <div id="sh-gmap-embed-preview" style="display:none;margin-top:8px;border-radius:12px;overflow:hidden;height:160px;border:1px solid rgba(255,255,255,.1)">
+          <iframe id="sh-gmap-embed-frame" src="" allowfullscreen loading="lazy" style="width:100%;height:100%;border:0"></iframe>
+        </div>
+      </div>
     </div>
 
     <!-- 서비스 동적 추가 -->
@@ -1749,8 +1773,18 @@ textarea{height:80px;resize:none}
       <div><label>지역</label><input id="edit-sh-loc" placeholder="예: Gangnam, Seoul"></div>
       <div class="full"><label>주소</label><input id="edit-sh-addr" placeholder="주소"></div>
       <div class="full"><label>영업시간</label><input id="edit-sh-hours" placeholder="예: 10:00~20:00 (Mon~Sat)"></div>
-      <div class="full"><label>구글맵 링크</label><input id="edit-sh-gmap-url" placeholder="https://maps.google.com/..."></div>
-      <div class="full"><label>구글맵 임베드 src</label><input id="edit-sh-gmap-embed" placeholder="https://www.google.com/maps/embed?pb=..."></div>
+      <div class="full">
+        <label>구글맵 링크 <span style="font-size:10px;color:rgba(255,255,255,.35)">(Google Maps URL)</span></label>
+        <input id="edit-sh-gmap-url" placeholder="https://maps.google.com/...">
+      </div>
+      <div class="full">
+        <label>구글맵 임베드 src <span style="font-size:10px;color:rgba(255,255,255,.35)">(지도가 모달 안에 표시됨)</span></label>
+        <input id="edit-sh-gmap-embed" placeholder="https://www.google.com/maps/embed?pb=..." oninput="updateGmapEmbedPreview('edit-gmap-preview','edit-sh-gmap-embed')">
+        <div style="font-size:11px;color:rgba(255,255,255,.3);margin-top:3px">Google Maps → Share → Embed a map → src=\"...\" 값만 복사</div>
+        <div id="edit-gmap-preview" style="display:none;margin-top:8px;border-radius:12px;overflow:hidden;height:180px;border:1px solid rgba(66,133,244,.3)">
+          <iframe id="edit-gmap-frame" src="" allowfullscreen loading="lazy" style="width:100%;height:100%;border:0"></iframe>
+        </div>
+      </div>
       <div class="full">
         <label>대표 썸네일</label>
         <div style="display:flex;gap:8px;align-items:center">
@@ -2194,6 +2228,8 @@ function openEditShopPanel(shopId){
   document.getElementById('edit-sh-hours').value = shop.hours || '';
   document.getElementById('edit-sh-gmap-url').value = shop.googleMapUrl || '';
   document.getElementById('edit-sh-gmap-embed').value = shop.googleMapEmbed || '';
+  // embed 미리보기 갱신
+  setTimeout(function(){ updateGmapEmbedPreview('edit-gmap-preview','edit-sh-gmap-embed'); }, 50);
   document.getElementById('edit-sh-thumb').value = shop.thumbnail || '';
   document.getElementById('edit-sh-commission').value = shop.commission || 15;
   document.getElementById('edit-sh-desc').value = shop.description || '';
@@ -2703,6 +2739,25 @@ function extractPlaceName(placeText){
   return name.join(' ');
 }
 
+// embed iframe preview helper
+function updateGmapEmbedPreview(previewId, inputId) {
+  var input = document.getElementById(inputId);
+  var preview = document.getElementById(previewId);
+  if(!input || !preview) return;
+  var val = input.value.trim();
+  // src="..." 형태로 붙여넣으면 src 값만 추출
+  var srcMatch = val.match(/src=["']([^"']+)["']/);
+  if(srcMatch) { val = srcMatch[1]; input.value = val; }
+  if(val.indexOf('google.com/maps/embed') !== -1) {
+    var frameId = previewId.replace('preview','frame').replace('gmap-preview','gmap-frame');
+    var frame = document.getElementById(frameId) || preview.querySelector('iframe');
+    if(frame) frame.src = val;
+    preview.style.display = 'block';
+  } else if(!val) {
+    preview.style.display = 'none';
+  }
+}
+
 // ── 구글맵 URL 파싱 → 자동입력 ──
 function parseGmapUrl(raw){
   var status = document.getElementById('sh-gmap-status');
@@ -2828,7 +2883,7 @@ function addShop(){
     hours:'', commission:15,
     address:document.getElementById('sh-addr').value||'',
     googleMapUrl:gmapUrl,
-    googleMapEmbed:'',
+    googleMapEmbed:document.getElementById('sh-gmap-embed').value||'',
     thumbnail:'',
     services:svcs,
     servicePrices:svcPrices,
@@ -2837,6 +2892,8 @@ function addShop(){
   })}).then(function(r){return r.json();}).then(function(res){
     var newShopId = res.id || null;
     // 폼 초기화
+    var gepEl = document.getElementById('sh-gmap-embed'); if(gepEl){ gepEl.value=''; }
+    var gepPrev = document.getElementById('sh-gmap-embed-preview'); if(gepPrev) gepPrev.style.display='none';
     ['sh-name','sh-loc','sh-addr','sh-desc','sh-gmap-raw'].forEach(function(id){
       var el = document.getElementById(id);
       if(el){ el.value=''; el.removeAttribute('data-gmap-url'); }
