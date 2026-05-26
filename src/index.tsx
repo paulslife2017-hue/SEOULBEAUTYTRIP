@@ -599,7 +599,7 @@ app.get('/shop/:slug', async (c) => {
   const shop = rowToShop(shopRows[0])
   const vidRows = await sql`SELECT * FROM videos WHERE shop_id=${shop.id} ORDER BY views DESC`
   const shopVideos = vidRows.map(rowToVideo)
-  const waMsg = encodeURIComponent(`Hi! I found ${shop.name} on Seoul Beauty Trip and I'd like to book a service. Shop: ${shop.name} (${shop.location})`)
+  const waMsg = encodeURIComponent(`Hi! I would like to book at ${shop.name} 💆\n\n📍 Shop: ${shop.name}${shop.location ? ' (' + shop.location + ')' : ''}\n🗓 Date: \n⏰ Time: \n💆 Service: \n👤 Name: \n👥 Party size: \n\nFound via Seoul Beauty Trip ✨`)
   const waUrl = `https://wa.me/${PLATFORM.whatsapp}?text=${waMsg}`
   const base = 'https://seoulbeautytrip.com'
   const canonicalUrl = `${base}/shop/${shop.slug}`
@@ -1324,17 +1324,18 @@ function renderShopModal(shop) {
   var shopSvcs = (shop.services && shop.services.length)
     ? shop.services.slice(0,3).join(', ')
     : (shopCat || 'Beauty service');
+  var NL = String.fromCharCode(10);
   var waMsg =
-    'Hi! 👋 I\'d like to book at ' + shopName + '\n'
-    + '\n'
-    + '📍 Shop: ' + shopName + (shopLoc ? ' (' + shopLoc + ')' : '') + '\n'
-    + '🗓 Date: \n'
-    + '⏰ Time: \n'
-    + '💆 Service: ' + shopSvcs + '\n'
-    + '👤 Name: \n'
-    + '👥 Party size: \n'
-    + '\n'
-    + 'Found via Seoul Beauty Trip ✨';
+    'Hi! I would like to book at ' + shopName + NL
+    + NL
+    + '\u{1F4CD} Shop: ' + shopName + (shopLoc ? ' (' + shopLoc + ')' : '') + NL
+    + '\u{1F5D3} Date: ' + NL
+    + '\u23F0 Time: ' + NL
+    + '\u{1F486} Service: ' + shopSvcs + NL
+    + '\u{1F464} Name: ' + NL
+    + '\u{1F465} Party size: ' + NL
+    + NL
+    + 'Found via Seoul Beauty Trip \u2728';
   var waUrl = 'https://wa.me/'+waNum+'?text='+encodeURIComponent(waMsg);
 
   /* ── 사진 배열 (thumbnail + photos, 중복 제거) ── */
