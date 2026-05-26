@@ -779,9 +779,6 @@ ${(()=>{const allP=[shop.thumbnail,...(shop.photos||[]).filter((p:string)=>p&&p!
     <a href="${waUrl}" target="_blank" rel="noopener" class="sp-wa">
       <i class="fab fa-whatsapp" style="font-size:19px"></i> WhatsApp Book
     </a>
-    <a href="${shop.googleMapUrl||'#'}" target="_blank" rel="noopener" class="sp-gmap">
-      <i class="fas fa-map-marker-alt"></i> Google Map
-    </a>
   </div>
 
   <div class="sp-card">
@@ -796,7 +793,7 @@ ${(()=>{const allP=[shop.thumbnail,...(shop.photos||[]).filter((p:string)=>p&&p!
 
   ${shop.services&&shop.services.length>0?`<div class="sp-card"><div class="sp-card-title"><i class="fas fa-spa"></i> Services</div><div class="sp-svc-tags">${shop.services.map((s:string)=>`<span class="sp-svc-tag">${s}</span>`).join('')}</div></div>`:''}
 
-  ${shop.googleMapEmbed?`<div class="sp-card"><div class="sp-card-title"><i class="fas fa-map"></i> Location</div><div class="sp-map"><iframe src="${shop.googleMapEmbed}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div>${shop.googleMapUrl?`<a href="${shop.googleMapUrl}" target="_blank" rel="noopener" class="sp-map-link"><i class="fas fa-external-link-alt"></i> Open in Google Maps</a>`:''}</div>`:shop.googleMapUrl?`<a href="${shop.googleMapUrl}" target="_blank" rel="noopener" class="sp-gmap" style="margin-bottom:14px"><i class="fas fa-map-marker-alt"></i> View on Google Maps</a>`:''}
+  ${shop.googleMapEmbed?`<div class="sp-card"><div class="sp-card-title"><i class="fas fa-map"></i> Location</div><div class="sp-map"><iframe src="${shop.googleMapEmbed}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div></div>`:shop.address?`<div class="sp-card"><div class="sp-card-title"><i class="fas fa-map"></i> Location</div><div style="padding:12px;font-size:13px;color:rgba(0,0,0,.7)"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>`:''}
 
   ${shopVideos.length>0?`<div class="sp-card"><div class="sp-card-title"><i class="fas fa-play-circle"></i> Videos</div><div class="sp-vid-grid">${shopVideos.map((v:any)=>`<div class="sp-vid-card" onclick="window.location='/'"><img src="${v.thumbnail}" alt="${v.title}" loading="lazy"><div class="sp-play-ic"><i class="fas fa-play" style="font-size:14px;color:#fff;margin-left:2px"></i></div><div class="sp-vid-card-ov"><div class="sp-vid-card-title">${v.title}</div><div class="sp-vid-views"><i class="fas fa-eye"></i> ${v.views>=1000?(v.views/1000).toFixed(1)+'K':v.views}</div></div></div>`).join('')}</div></div>`:''}
 
@@ -959,14 +956,14 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .badge-dot{width:5px;height:5px;border-radius:50%;background:var(--pk);display:inline-block;animation:bdp 2s infinite}
 @keyframes bdp{0%,100%{opacity:1}50%{opacity:.3}}
 .vt{font-size:17px;font-weight:800;line-height:1.28;margin-bottom:5px;text-shadow:0 2px 12px rgba(0,0,0,.8);font-family:var(--ff-sans);letter-spacing:-.2px}
-.shop-info-mini{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:11.5px;color:rgba(255,255,255,.55)}
+.shop-info-mini{display:flex;align-items:center;gap:6px;font-size:11.5px;color:rgba(255,255,255,.55);flex:1;overflow:hidden;min-width:0}
 .shop-info-mini i{color:var(--pk2);font-size:10px}
 .shop-info-sep{color:rgba(255,255,255,.2)}
 .vd{font-size:12px;color:rgba(255,255,255,.58);line-height:1.6;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .vtags{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px}
 .vtag{font-size:11px;color:var(--pk3);font-weight:700}
-.btns-row{display:flex;gap:8px;align-items:center}
-.wa-btn{display:inline-flex;align-items:center;gap:7px;padding:11px 20px;border-radius:24px;border:none;background:linear-gradient(135deg,#25D366,#0EA855);color:#fff;font-size:13px;font-weight:800;cursor:pointer;text-decoration:none;box-shadow:0 4px 16px rgba(37,211,102,.3);letter-spacing:.2px;transition:opacity .2s}
+.btns-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.wa-btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:22px;border:none;background:linear-gradient(135deg,#25D366,#0EA855);color:#fff;font-size:12px;font-weight:800;cursor:pointer;text-decoration:none;box-shadow:0 4px 14px rgba(37,211,102,.3);letter-spacing:.2px;transition:opacity .2s;white-space:nowrap;flex-shrink:0}
 .wa-btn:hover{opacity:.9}
 /* ── 인디케이터 ── */
 .hint{position:absolute;bottom:6px;left:50%;transform:translateX(-50%);z-index:3;display:flex;flex-direction:column;align-items:center;gap:2px;opacity:.4;animation:hb 2.4s infinite}
@@ -1233,11 +1230,11 @@ function buildSlide(v, idx) {
     '<div class="info">' +
       '<div class="badge"><span class="badge-dot"></span>'+(catIcons[shop.category]||'&#10024;')+' '+esc(shop.category||'')+'</div>' +
       '<h2 class="vt" itemprop="name" style="font-size:17px">'+esc(v.title)+'</h2>' +
-      '<div class="shop-info-mini"><i class="fas fa-store"></i>'+esc(shop.name||'')+(areaOnly(shop.location||'')?'<span class="shop-info-sep">|</span><i class="fas fa-map-marker-alt"></i>'+esc(areaOnly(shop.location||'')):'')+'</div>' +
       '<div class="vd">'+esc(v.description)+'</div>' +
       '<div class="vtags">'+tags+'</div>' +
       '<div class="btns-row">' +
-        '<button class="wa-btn" id="wabtn'+idx+'"><i class="fab fa-whatsapp" style="font-size:15px"></i> Book & Info</button>' +
+        '<div class="shop-info-mini"><i class="fas fa-store"></i>'+esc(shop.name||'')+(areaOnly(shop.location||'')?'<span class="shop-info-sep">|</span><i class="fas fa-map-marker-alt"></i>'+esc(areaOnly(shop.location||'')):'')+'</div>' +
+        '<button class="wa-btn" id="wabtn'+idx+'"><i class="fab fa-whatsapp" style="font-size:15px"></i> Book</button>' +
       '</div>' +
     '</div>' +
     '<div class="hint"><i class="fas fa-chevron-up" style="font-size:10px"></i><span>Swipe Up</span></div>';
