@@ -1048,8 +1048,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .m-map{border-radius:16px;overflow:hidden;height:210px;border:1px solid rgba(255,255,255,.08);position:relative;box-shadow:0 8px 32px rgba(0,0,0,.5)}
 .m-map iframe{width:100%;height:100%;border:0;display:block}
 /* 구글맵 "View on Google Maps" 링크 완전 차단 오버레이 */
-.m-map-cover{position:absolute;top:0;left:0;width:140px;height:32px;z-index:4;background:linear-gradient(120deg,rgba(232,65,122,.55) 0%,rgba(124,58,237,.4) 100%);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);pointer-events:all;cursor:default;display:flex;align-items:center;justify-content:center;border-bottom-right-radius:16px;border:0;box-shadow:0 2px 12px rgba(232,65,122,.25)}
-.m-map-cover-txt{font-size:8px;font-weight:900;letter-spacing:2.8px;text-transform:uppercase;font-family:var(--ff-serif);background:linear-gradient(100deg,#fff 0%,var(--pk3) 60%,var(--gold2) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;white-space:nowrap}
+.m-map-cover{position:absolute;top:0;left:0;width:140px;height:32px;z-index:4;background:rgba(255,255,255,0.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);pointer-events:all;cursor:default;display:flex;align-items:center;justify-content:center;border-bottom-right-radius:14px;box-shadow:0 1px 8px rgba(0,0,0,.08)}
+.m-map-cover-txt{font-size:8px;font-weight:900;letter-spacing:2.5px;text-transform:uppercase;font-family:var(--ff-serif);background:linear-gradient(100deg,var(--pk) 0%,#7C3AED 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;white-space:nowrap}
 .m-map-zoom{position:absolute;bottom:10px;right:10px;z-index:3;display:flex;flex-direction:column;gap:4px}
 .m-map-zoom button{width:32px;height:32px;border-radius:8px;border:none;background:rgba(15,15,25,.82);backdrop-filter:blur(8px);color:#fff;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.4);transition:background .15s}
 .m-map-zoom button:hover{background:rgba(232,65,122,.7)}
