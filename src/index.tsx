@@ -929,19 +929,24 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .ld-prog{height:100%;background:linear-gradient(90deg,var(--pk),var(--gold));animation:ldpg 1.8s ease forwards}
 @keyframes ldpg{from{width:0}to{width:100%}}
 /* ── 헤더 ── */
-#hd{position:fixed;top:0;left:0;right:0;z-index:100;padding:14px 16px 0;background:linear-gradient(to bottom,rgba(8,8,14,.97) 55%,transparent)}
-.hd-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-.logo{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
-.logo-mark{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--pk),#7C3AED);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;box-shadow:0 4px 16px rgba(232,65,122,.3)}
-.logo-name{font-family:var(--ff-serif);font-size:15px;font-weight:700;background:linear-gradient(135deg,#fff,var(--pk3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:.3px}
-.logo-tag{font-size:8px;color:var(--gold);letter-spacing:3px;text-transform:uppercase;-webkit-text-fill-color:var(--gold)}
-.mute-btn{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.06);border:1px solid var(--border);color:rgba(255,255,255,.6);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
+#hd{position:fixed;top:0;left:0;right:0;z-index:100;padding:12px 16px 0;background:linear-gradient(to bottom,rgba(8,8,14,.96) 60%,transparent)}
+.hd-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.logo{display:flex;align-items:center;gap:9px;cursor:pointer;user-select:none}
+.logo-mark{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,var(--pk) 0%,#7C3AED 100%);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 3px 14px rgba(232,65,122,.38),0 0 0 1px rgba(255,255,255,.08);font-size:0}
+.logo-mark::after{content:'';display:block;width:14px;height:14px;border-radius:50%;border:2.5px solid rgba(255,255,255,.9);box-shadow:0 0 0 3px rgba(255,255,255,.15)}
+.logo-text{display:flex;flex-direction:column;gap:1px}
+.logo-name{font-family:var(--ff-serif);font-size:16px;font-weight:900;letter-spacing:.2px;line-height:1;background:linear-gradient(100deg,#fff 30%,var(--pk3) 80%,var(--gold2) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.logo-tag{font-size:7.5px;color:rgba(201,168,76,.75);letter-spacing:3.5px;text-transform:uppercase;-webkit-text-fill-color:rgba(201,168,76,.75);font-weight:600}
+.hd-right{display:flex;align-items:center;gap:8px}
+.mute-btn{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);color:rgba(255,255,255,.5);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
 .mute-btn:hover{background:rgba(255,255,255,.1);color:#fff}
 /* ── 카테고리 탭 ── */
-.cats{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:12px}
+.cats{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;padding-bottom:12px}
 .cats::-webkit-scrollbar{display:none}
-.cat{flex-shrink:0;padding:6px 13px;border-radius:20px;border:1px solid rgba(232,65,122,.2);background:rgba(232,65,122,.04);color:rgba(255,255,255,.45);font-size:11px;font-weight:700;cursor:pointer;transition:all .22s;white-space:nowrap;font-family:var(--ff-sans)}
-.cat.on,.cat:hover{background:linear-gradient(135deg,var(--pk),#7C3AED);border-color:transparent;color:#fff;box-shadow:0 2px 12px rgba(232,65,122,.3)}
+.cat{flex-shrink:0;display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:20px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.05);color:rgba(255,255,255,.4);font-size:10.5px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap;font-family:var(--ff-sans);letter-spacing:.1px}
+.cat:hover{background:rgba(232,65,122,.12);border-color:rgba(232,65,122,.3);color:rgba(255,255,255,.75)}
+.cat.on{background:linear-gradient(135deg,var(--pk) 0%,#7C3AED 100%);border-color:transparent;color:#fff;box-shadow:0 2px 14px rgba(232,65,122,.4),0 0 0 1px rgba(255,255,255,.08) inset}
+.cat i{font-size:9px;opacity:.85}
 /* ── 피드 ── */
 #feed{height:100vh;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none;display:flex;flex-direction:column;align-items:center}
 #feed::-webkit-scrollbar{display:none}
@@ -949,19 +954,19 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .slide{height:100vh;width:100%;max-width:100%;position:relative;scroll-snap-align:start;overflow:hidden;background:#000;flex-shrink:0}
 .bg-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
 .slide video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;background:#000}
-.ov{position:absolute;inset:0;z-index:2;background:linear-gradient(to bottom,rgba(0,0,0,.06) 0%,transparent 20%,transparent 45%,rgba(0,0,0,.28) 65%,rgba(0,0,0,.85) 100%);cursor:pointer}
+.ov{position:absolute;inset:0;z-index:2;background:linear-gradient(to bottom,rgba(0,0,0,.08) 0%,transparent 25%,transparent 40%,rgba(0,0,0,.2) 60%,rgba(0,0,0,.7) 80%,rgba(0,0,0,.92) 100%);cursor:pointer}
 /* ── 슬라이드 정보 영역 ── */
-.info{position:absolute;bottom:0;left:0;right:0;padding:14px 16px 24px;z-index:3}
-.slide-cat-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:16px;background:rgba(255,255,255,.1);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.18);font-size:9px;font-weight:800;letter-spacing:1.6px;text-transform:uppercase;color:rgba(255,255,255,.9);margin-bottom:8px;align-self:flex-start}
-.slide-cat-badge i{font-size:10px;color:var(--pk3)}
-.shop-info-mini{display:flex;align-items:center;gap:6px;font-size:15px;font-weight:800;color:#fff;flex:1;overflow:hidden;min-width:0;text-shadow:0 2px 12px rgba(0,0,0,.8);letter-spacing:-.2px;white-space:nowrap}
-.shop-info-mini .si-icon{color:var(--pk3);font-size:12px;flex-shrink:0}
-.shop-info-sep{color:rgba(255,255,255,.25);font-size:13px;flex-shrink:0}
-.shop-info-loc{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:rgba(255,255,255,.55);flex-shrink:0;white-space:nowrap}
-.shop-info-loc i{font-size:10px;color:rgba(255,255,255,.4)}
-.btns-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px}
-.wa-btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:22px;border:none;background:linear-gradient(135deg,#25D366,#0EA855);color:#fff;font-size:12px;font-weight:800;cursor:pointer;text-decoration:none;box-shadow:0 4px 14px rgba(37,211,102,.3);letter-spacing:.2px;transition:opacity .2s;white-space:nowrap;flex-shrink:0}
-.wa-btn:hover{opacity:.9}
+.info{position:absolute;bottom:0;left:0;right:0;padding:16px 18px 26px;z-index:3;display:flex;flex-direction:column;gap:0}
+.slide-cat-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:20px;background:linear-gradient(135deg,rgba(232,65,122,.25),rgba(124,58,237,.2));backdrop-filter:blur(12px);border:1px solid rgba(232,65,122,.3);font-size:9px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;color:rgba(255,255,255,.95);margin-bottom:7px;align-self:flex-start;box-shadow:0 2px 8px rgba(232,65,122,.15)}
+.slide-cat-badge i{font-size:9px;color:var(--pk3)}
+.shop-info-mini{display:flex;align-items:center;gap:7px;font-size:17px;font-weight:900;color:#fff;flex:1;overflow:hidden;min-width:0;text-shadow:0 2px 16px rgba(0,0,0,.9);letter-spacing:-.3px;white-space:nowrap}
+.shop-info-mini .si-icon{color:var(--pk3);font-size:13px;flex-shrink:0;filter:drop-shadow(0 0 4px rgba(255,179,204,.4))}
+.shop-info-sep{color:rgba(255,255,255,.2);font-size:14px;flex-shrink:0;margin:0 1px}
+.shop-info-loc{display:inline-flex;align-items:center;gap:3px;font-size:12px;font-weight:600;color:rgba(255,255,255,.5);flex-shrink:0;white-space:nowrap}
+.shop-info-loc i{font-size:9px;color:var(--pk);opacity:.8}
+.btns-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:0}
+.wa-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border-radius:22px;border:none;background:linear-gradient(135deg,#25D366 0%,#128C5E 100%);color:#fff;font-size:12px;font-weight:800;cursor:pointer;text-decoration:none;box-shadow:0 4px 16px rgba(37,211,102,.35),0 0 0 1px rgba(255,255,255,.08) inset;letter-spacing:.2px;transition:all .2s;white-space:nowrap;flex-shrink:0}
+.wa-btn:hover{opacity:.9;transform:scale(1.03)}
 /* ── 인디케이터 ── */
 .hint{position:absolute;bottom:6px;left:50%;transform:translateX(-50%);z-index:3;display:flex;flex-direction:column;align-items:center;gap:2px;opacity:.4;animation:hb 2.4s infinite}
 .hint span{font-size:8px;color:#fff;letter-spacing:2px;text-transform:uppercase}
@@ -1080,22 +1085,25 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 <header id="hd">
   <div class="hd-top">
     <div class="logo" id="logoBtn">
-      <div class="logo-mark">&#10024;</div>
-      <div>
+      <div class="logo-mark"></div>
+      <div class="logo-text">
         <div class="logo-name">Seoul Beauty Trip</div>
         <div class="logo-tag">Korean Beauty Experience</div>
       </div>
     </div>
-    <button class="mute-btn" id="muteBtn" onclick="toggleMute()"><i class="fas fa-volume-mute"></i></button>
+    <div class="hd-right">
+      <button class="mute-btn" id="muteBtn" onclick="toggleMute()"><i class="fas fa-volume-mute"></i></button>
+    </div>
   </div>
   <nav class="cats" id="cats" aria-label="Beauty categories">
-    <button class="cat on" data-cat="all">&#10024; All</button>
-    <button class="cat" data-cat="skincare">&#127807; Skincare</button>
-    <button class="cat" data-cat="makeup">&#128139; Makeup</button>
-    <button class="cat" data-cat="hair">&#128135; Hair</button>
-    <button class="cat" data-cat="headspa">&#129496; Head Spa</button>
-    <button class="cat" data-cat="nail">&#128133; Nail</button>
-    <button class="cat" data-cat="clinic">&#127973; Clinic</button>
+    <button class="cat on" data-cat="all"><i class="fas fa-star"></i> All</button>
+    <button class="cat" data-cat="skincare"><i class="fas fa-leaf"></i> Skincare</button>
+    <button class="cat" data-cat="makeup"><i class="fas fa-magic"></i> Makeup</button>
+    <button class="cat" data-cat="hair"><i class="fas fa-cut"></i> Hair</button>
+    <button class="cat" data-cat="headspa"><i class="fas fa-spa"></i> Head Spa</button>
+    <button class="cat" data-cat="nail"><i class="fas fa-hand-sparkles"></i> Nail</button>
+    <button class="cat" data-cat="clinic"><i class="fas fa-briefcase-medical"></i> Clinic</button>
+    <button class="cat" data-cat="spa"><i class="fas fa-hot-tub"></i> Spa</button>
   </nav>
 </header>
 
