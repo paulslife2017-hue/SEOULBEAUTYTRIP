@@ -957,14 +957,14 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .ov{position:absolute;inset:0;z-index:2;background:linear-gradient(to bottom,rgba(0,0,0,.08) 0%,transparent 25%,transparent 40%,rgba(0,0,0,.2) 60%,rgba(0,0,0,.7) 80%,rgba(0,0,0,.92) 100%);cursor:pointer}
 /* ── 슬라이드 정보 영역 ── */
 .info{position:absolute;bottom:0;left:0;right:0;padding:16px 18px 26px;z-index:3;display:flex;flex-direction:column;gap:0}
-.slide-cat-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:20px;background:linear-gradient(135deg,rgba(232,65,122,.25),rgba(124,58,237,.2));backdrop-filter:blur(12px);border:1px solid rgba(232,65,122,.3);font-size:9px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;color:rgba(255,255,255,.95);margin-bottom:7px;align-self:flex-start;box-shadow:0 2px 8px rgba(232,65,122,.15)}
+.slide-cat-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:20px;background:linear-gradient(135deg,rgba(232,65,122,.25),rgba(124,58,237,.2));backdrop-filter:blur(12px);border:1px solid rgba(232,65,122,.3);font-size:9px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;color:rgba(255,255,255,.95);margin-bottom:6px;align-self:flex-start;box-shadow:0 2px 8px rgba(232,65,122,.15)}
 .slide-cat-badge i{font-size:9px;color:var(--pk3)}
-.shop-info-mini{display:flex;align-items:center;gap:7px;font-size:17px;font-weight:900;color:#fff;flex:1;overflow:hidden;min-width:0;text-shadow:0 2px 16px rgba(0,0,0,.9);letter-spacing:-.3px;white-space:nowrap}
-.shop-info-mini .si-icon{color:var(--pk3);font-size:13px;flex-shrink:0;filter:drop-shadow(0 0 4px rgba(255,179,204,.4))}
-.shop-info-sep{color:rgba(255,255,255,.2);font-size:14px;flex-shrink:0;margin:0 1px}
-.shop-info-loc{display:inline-flex;align-items:center;gap:3px;font-size:12px;font-weight:600;color:rgba(255,255,255,.5);flex-shrink:0;white-space:nowrap}
-.shop-info-loc i{font-size:9px;color:var(--pk);opacity:.8}
-.btns-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:0}
+.shop-info-block{flex:1;overflow:hidden;min-width:0;margin-right:10px}
+.shop-info-name{display:flex;align-items:center;gap:6px;font-size:17px;font-weight:900;color:#fff;text-shadow:0 2px 16px rgba(0,0,0,.9);letter-spacing:-.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
+.shop-info-name .si-icon{color:var(--pk3);font-size:13px;flex-shrink:0;filter:drop-shadow(0 0 4px rgba(255,179,204,.4))}
+.shop-info-loc{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;color:rgba(255,255,255,.5);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shop-info-loc i{font-size:9px;color:var(--pk);opacity:.85}
+.btns-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:0;overflow:hidden}
 .wa-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border-radius:22px;border:none;background:linear-gradient(135deg,#25D366 0%,#128C5E 100%);color:#fff;font-size:12px;font-weight:800;cursor:pointer;text-decoration:none;box-shadow:0 4px 16px rgba(37,211,102,.35),0 0 0 1px rgba(255,255,255,.08) inset;letter-spacing:.2px;transition:all .2s;white-space:nowrap;flex-shrink:0}
 .wa-btn:hover{opacity:.9;transform:scale(1.03)}
 /* ── 인디케이터 ── */
@@ -1236,12 +1236,10 @@ function buildSlide(v, idx) {
     '<div class="info">' +
       '<div class="slide-cat-badge"><i class="fas '+(catFaIcons[shop.category]||'fa-star')+'"></i> '+esc((shop.category||'').toUpperCase())+'</div>' +
       '<div class="btns-row">' +
-        '<div class="shop-info-mini">'
-          +'<i class="fas fa-store si-icon"></i>'
-          +esc(shop.name||'')
+        '<div class="shop-info-block">'
+          +'<div class="shop-info-name"><i class="fas fa-store si-icon"></i>'+esc(shop.name||'')+'</div>'
           +(areaOnly(shop.location||'')
-            ?'<span class="shop-info-sep">·</span>'
-             +'<span class="shop-info-loc"><i class="fas fa-map-marker-alt"></i>'+esc(areaOnly(shop.location||''))+'</span>'
+            ?'<div class="shop-info-loc"><i class="fas fa-map-marker-alt"></i>'+esc(areaOnly(shop.location||''))+'</div>'
             :'')
         +'</div>' +
         '<button class="wa-btn" id="wabtn'+idx+'"><i class="fab fa-whatsapp" style="font-size:14px"></i> Book</button>' +
