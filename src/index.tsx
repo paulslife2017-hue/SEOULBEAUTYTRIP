@@ -8,7 +8,7 @@ const app = new Hono()
 
 // ── 플랫폼 설정 ──
 const PLATFORM = {
-  whatsapp: '821012345678',   // 운영자 왓츠앱 번호 (국가코드 포함, +없이)
+  whatsapp: '8201058947690',   // 운영자 왓츠앱 번호 (국가코드 포함, +없이)
   name: 'SEOUL BEAUTY TRIP',
   instagram: 'seoulbeautytrip',
   commission: '10~20%'
@@ -1316,8 +1316,25 @@ function openShopModal(shopId) {
 }
 
 function renderShopModal(shop) {
-  var waNum = platform.whatsapp || '821012345678';
-  var waMsg = 'Hi! I found ' + (shop.name||'your shop') + ' on Seoul Beauty Trip and would like to book. Shop: ' + (shop.name||'') + (shop.location ? ' - ' + shop.location : '');
+  var waNum = platform.whatsapp || '8201058947690';
+  /* ── 업체별 구조화된 예약 메시지 ── */
+  var shopName = shop.name || 'your shop';
+  var shopLoc  = shop.location ? areaOnly(shop.location) : '';
+  var shopCat  = shop.category ? (shop.category.charAt(0).toUpperCase() + shop.category.slice(1)) : '';
+  var shopSvcs = (shop.services && shop.services.length)
+    ? shop.services.slice(0,3).join(', ')
+    : (shopCat || 'Beauty service');
+  var waMsg =
+    'Hi! 👋 I\'d like to book at ' + shopName + '\n'
+    + '\n'
+    + '📍 Shop: ' + shopName + (shopLoc ? ' (' + shopLoc + ')' : '') + '\n'
+    + '🗓 Date: \n'
+    + '⏰ Time: \n'
+    + '💆 Service: ' + shopSvcs + '\n'
+    + '👤 Name: \n'
+    + '👥 Party size: \n'
+    + '\n'
+    + 'Found via Seoul Beauty Trip ✨';
   var waUrl = 'https://wa.me/'+waNum+'?text='+encodeURIComponent(waMsg);
 
   /* ── 사진 배열 (thumbnail + photos, 중복 제거) ── */
