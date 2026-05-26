@@ -951,7 +951,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .slide video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;background:#000}
 .ov{position:absolute;inset:0;z-index:2;background:linear-gradient(to bottom,rgba(0,0,0,.06) 0%,transparent 20%,transparent 45%,rgba(0,0,0,.28) 65%,rgba(0,0,0,.85) 100%);cursor:pointer}
 /* ── 슬라이드 정보 영역 ── */
-.slide-cat-badge{position:absolute;top:56px;left:16px;z-index:3;display:inline-flex;align-items:center;gap:5px;padding:5px 13px;border-radius:20px;background:rgba(8,8,14,.55);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.13);font-size:9px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;color:rgba(255,255,255,.88)}
+.slide-cat-badge{position:absolute;top:56px;left:16px;z-index:3;display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;background:rgba(8,8,14,.6);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.15);font-size:10px;font-weight:800;letter-spacing:1.6px;text-transform:uppercase;color:#fff;box-shadow:0 2px 12px rgba(0,0,0,.25)}
+.slide-cat-badge i{font-size:11px;color:var(--pk3)}
 .info{position:absolute;bottom:0;left:0;right:0;padding:14px 16px 24px;z-index:3}
 .shop-info-mini{display:flex;align-items:center;gap:6px;font-size:16px;font-weight:800;color:#fff;flex:1;overflow:hidden;min-width:0;text-shadow:0 2px 12px rgba(0,0,0,.8);letter-spacing:-.2px}
 .shop-info-sep{color:rgba(255,255,255,.3);font-weight:400;font-size:14px}
@@ -1138,7 +1139,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 
 <script>
 var vids = [], isMuted = true, liked = {}, platform = {};
-var catIcons = {skincare:'&#127807;',makeup:'&#128139;',hair:'&#128135;',headspa:'&#129496;',nail:'&#128133;',clinic:'&#127973;'};
+var catIcons = {skincare:'&#127807;',makeup:'&#128139;',hair:'&#128135;',headspa:'&#129496;',nail:'&#128133;',clinic:'&#127973;',spa:'&#129510;'};
+var catFaIcons = {skincare:'fa-leaf',makeup:'fa-magic',hair:'fa-cut',headspa:'fa-spa',nail:'fa-hand-sparkles',clinic:'fa-briefcase-medical',spa:'fa-hot-tub'};
 
 fetch('/api/platform').then(function(r){return r.json();}).then(function(d){ platform = d; });
 
@@ -1221,7 +1223,7 @@ function buildSlide(v, idx) {
     '<video id="vid'+idx+'" src="'+esc(v.videoUrl)+'" loop muted playsinline preload="auto" poster="'+esc(thumb)+'" itemprop="contentUrl"></video>' +
     '<div id="playic'+idx+'" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:4;width:56px;height:56px;border-radius:50%;background:rgba(0,0,0,.55);align-items:center;justify-content:center;pointer-events:none;backdrop-filter:blur(4px)"><i class="fas fa-pause" style="font-size:20px;color:#fff"></i></div>' +
     '<div class="ov"></div>' +
-    '<div class="slide-cat-badge">'+(catIcons[shop.category]||'&#10024;')+'&nbsp;'+esc((shop.category||'').toUpperCase())+'</div>' +
+    '<div class="slide-cat-badge"><i class="fas '+(catFaIcons[shop.category]||'fa-star')+'"></i> '+esc((shop.category||'').toUpperCase())+'</div>' +
     '<div class="info">' +
       '<div class="btns-row">' +
         '<div class="shop-info-mini">'+esc(shop.name||'')+(areaOnly(shop.location||'')?'<span class="shop-info-sep"> · </span><span class="shop-info-loc">'+esc(areaOnly(shop.location||''))+'</span>':'')+'</div>' +
