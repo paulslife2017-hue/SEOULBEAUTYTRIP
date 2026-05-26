@@ -24,6 +24,8 @@ interface Shop {
   address: string
   googleMapUrl: string
   googleMapEmbed: string // embed용 src
+  lat: string
+  lng: string
   priceRange: string     // e.g. "₩80,000~₩150,000"
   hours: string          // e.g. "10:00~20:00 (Mon-Sat)"
   services: string[]     // ['Deep Cleansing', 'Hydra Facial', ...]
@@ -75,7 +77,8 @@ function rowToShop(r: any): Shop {
     id: String(r.id), name: r.name, slug: r.slug || '',
     category: r.category || '', location: r.location || '',
     address: r.address || '', googleMapUrl: r.google_map_url || '',
-    googleMapEmbed: r.google_map_embed || '', priceRange: r.price_range || '',
+    googleMapEmbed: r.google_map_embed || '', lat: r.lat || '', lng: r.lng || '',
+    priceRange: r.price_range || '',
     hours: r.hours || '', services: r.services || [],
     servicePrices: r.service_prices || [], description: r.description || '',
     rating: r.rating || 5.0, reviewCount: r.review_count || 0,
@@ -219,6 +222,8 @@ async function initDb() {
     )`
     // photos 컬럼 없으면 추가 (기존 DB 마이그레이션)
     try { await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS photos JSONB DEFAULT '[]'` } catch(e) {}
+    try { await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS lat TEXT DEFAULT ''` } catch(e) {}
+    try { await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS lng TEXT DEFAULT ''` } catch(e) {}
     await sql`CREATE TABLE IF NOT EXISTS videos (
       id TEXT PRIMARY KEY, shop_id TEXT REFERENCES shops(id) ON DELETE CASCADE,
       title TEXT, description TEXT, video_url TEXT, thumbnail TEXT,
@@ -407,12 +412,12 @@ app.post('/api/resolve-gmap', async (c) => {
       if (coords) {
         const geo = await reverseGeocode(coords.lat, coords.lon)
         if (geo) {
-          return c.json({ name: shopName, address: geo.address, location: geo.location })
+          return c.json({ name: shopName, address: geo.address, location: geo.location, lat: coords.lat, lng: coords.lon })
         }
       }
 
       // 좌표 없음 → 업체명만 반환 (주소는 비워둠)
-      return c.json({ name: shopName, address: '', location: findArea(shopName) })
+      return c.json({ name: shopName, address: '', location: findArea(shopName), lat: '', lng: '' })
     }
 
     // ── ?q= 파싱 ──
@@ -424,19 +429,19 @@ app.post('/api/resolve-gmap', async (c) => {
       const coordsFromQ = extractCoords(resolved)
       if (coordsFromQ) {
         const geo = await reverseGeocode(coordsFromQ.lat, coordsFromQ.lon)
-        if (geo) return c.json({ name: '', address: geo.address, location: geo.location })
+        if (geo) return c.json({ name: '', address: geo.address, location: geo.location, lat: coordsFromQ.lat, lng: coordsFromQ.lon })
       }
-      return c.json({ name: '', address: qVal, location: findArea(qVal) })
+      return c.json({ name: '', address: qVal, location: findArea(qVal), lat: '', lng: '' })
     }
 
     // ── 좌표만 있는 경우 ──
     const coordsOnly = extractCoords(resolved)
     if (coordsOnly) {
       const geo = await reverseGeocode(coordsOnly.lat, coordsOnly.lon)
-      if (geo) return c.json({ name: '', address: geo.address, location: geo.location })
+      if (geo) return c.json({ name: '', address: geo.address, location: geo.location, lat: coordsOnly.lat, lng: coordsOnly.lon })
     }
 
-    return c.json({ address: '', location: '', name: '' })
+    return c.json({ address: '', location: '', name: '', lat: '', lng: '' })
   } catch (e: any) {
     return c.json({ error: e.message || 'failed' }, 500)
   }
@@ -466,9 +471,10 @@ app.post('/api/shops', async (c) => {
   const body = await c.req.json()
   const newId = 's' + Date.now()
   const today = new Date().toISOString().split('T')[0]
-  await sql`INSERT INTO shops (id,name,slug,category,location,address,google_map_url,google_map_embed,price_range,hours,services,service_prices,description,rating,review_count,thumbnail,photos,commission,active,created_at) VALUES (
+  await sql`INSERT INTO shops (id,name,slug,category,location,address,google_map_url,google_map_embed,lat,lng,price_range,hours,services,service_prices,description,rating,review_count,thumbnail,photos,commission,active,created_at) VALUES (
     ${newId},${body.name||''},${body.slug||''},${body.category||''},${body.location||''},${body.address||''},
-    ${body.googleMapUrl||''},${body.googleMapEmbed||''},${body.priceRange||''},${body.hours||''},
+    ${body.googleMapUrl||''},${body.googleMapEmbed||''},${body.lat||''},${body.lng||''},
+    ${body.priceRange||''},${body.hours||''},
     ${JSON.stringify(body.services||[])},${JSON.stringify(body.servicePrices||[])},
     ${body.description||''},${body.rating||5.0},${body.reviewCount||0},${body.thumbnail||''},
     ${JSON.stringify(body.photos||[])},${body.commission||15},true,${today}
@@ -486,6 +492,8 @@ app.put('/api/shops/:id', async (c) => {
     address=${body.address||''},
     google_map_url=${body.googleMapUrl||''},
     google_map_embed=${body.googleMapEmbed||''},
+    lat=${body.lat||''},
+    lng=${body.lng||''},
     price_range=${body.priceRange||''},
     hours=${body.hours||''},
     services=${JSON.stringify(body.services||[])},
@@ -1415,20 +1423,23 @@ function renderShopModal(shop) {
     if(!q && shop.name)    q = shop.name + ' Seoul';
     if(q) embedSrc = 'https://www.google.com/maps?q='+encodeURIComponent(q)+'&output=embed&hl=en';
   }
-  /* 지도 표시만 (클릭 차단) + 확대/축소 버튼 */
+  /* My Maps - 업체 좌표로 줌인 (클릭 차단) */
   var mapFrameId = 'mmap-'+Date.now();
-  var mapHtml = embedSrc
-    ? '<div class="m-sec"><div class="m-sec-title">Location</div>'
-        +'<div class="m-map">'
-          +'<iframe id="'+mapFrameId+'" src="'+embedSrc+'" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" style="pointer-events:none"></iframe>'
-          +'<div style="position:absolute;inset:0;z-index:2"></div>'
-          +'<div class="m-map-zoom">'
-            +'<button onclick="mapZoom('+"'"+mapFrameId+"'"+',-1)" title="Zoom out">&#8722;</button>'
-            +'<button onclick="mapZoom('+"'"+mapFrameId+"'"+',1)" title="Zoom in">&#43;</button>'
-          +'</div>'
-        +'</div>'
+  var myMapsBase = 'https://www.google.com/maps/d/embed?mid=1osjQrXf7adnoM7XoYDkbsMJuAABY7Do';
+  var myMapsSrc = myMapsBase;
+  if(shop.lat && shop.lng) {
+    myMapsSrc = myMapsBase + '&ll='+shop.lat+','+shop.lng+'&z=16';
+  }
+  var mapHtml = '<div class="m-sec"><div class="m-sec-title">Location</div>'
+    +'<div class="m-map">'
+      +'<iframe id="'+mapFrameId+'" src="'+myMapsSrc+'" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" style="pointer-events:none"></iframe>'
+      +'<div style="position:absolute;inset:0;z-index:2"></div>'
+      +'<div class="m-map-zoom">'
+        +'<button onclick="mapZoom('+"'"+mapFrameId+"'"+',-1)" title="Zoom out">&#8722;</button>'
+        +'<button onclick="mapZoom('+"'"+mapFrameId+"'"+',1)" title="Zoom in">&#43;</button>'
       +'</div>'
-    : '';
+    +'</div>'
+  +'</div>';
 
   /* ── 본문 조립 ── */
   document.getElementById('modalContent').innerHTML =
@@ -1867,6 +1878,8 @@ textarea{height:80px;resize:none}
         </div>
       </div>
     </div>
+    <input type="hidden" id="sh-lat" value="">
+    <input type="hidden" id="sh-lng" value="">
 
     <!-- 서비스 동적 추가 -->
     <div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.07)">
@@ -1921,6 +1934,8 @@ textarea{height:80px;resize:none}
       <div class="full">
         <label>구글맵 임베드 src <span style="font-size:10px;color:rgba(255,255,255,.35)">(지도가 모달 안에 표시됨)</span></label>
         <input id="edit-sh-gmap-embed" placeholder="https://www.google.com/maps/embed?pb=..." oninput="updateGmapEmbedPreview('edit-gmap-preview','edit-sh-gmap-embed')">
+        <input type="hidden" id="edit-sh-lat" value="">
+        <input type="hidden" id="edit-sh-lng" value="">
         <div style="font-size:11px;color:rgba(255,255,255,.3);margin-top:3px">Google Maps → Share → Embed a map → src=\"...\" 값만 복사</div>
         <div id="edit-gmap-preview" style="display:none;margin-top:8px;border-radius:12px;overflow:hidden;height:180px;border:1px solid rgba(66,133,244,.3)">
           <iframe id="edit-gmap-frame" src="" allowfullscreen loading="lazy" style="width:100%;height:100%;border:0"></iframe>
@@ -2369,6 +2384,8 @@ function openEditShopPanel(shopId){
   document.getElementById('edit-sh-hours').value = shop.hours || '';
   document.getElementById('edit-sh-gmap-url').value = shop.googleMapUrl || '';
   document.getElementById('edit-sh-gmap-embed').value = shop.googleMapEmbed || '';
+  document.getElementById('edit-sh-lat').value = shop.lat || '';
+  document.getElementById('edit-sh-lng').value = shop.lng || '';
   // embed 미리보기 갱신
   setTimeout(function(){ updateGmapEmbedPreview('edit-gmap-preview','edit-sh-gmap-embed'); }, 50);
   document.getElementById('edit-sh-thumb').value = shop.thumbnail || '';
@@ -2491,6 +2508,8 @@ function saveEditShop(){
       hours: document.getElementById('edit-sh-hours').value || '',
       googleMapUrl: document.getElementById('edit-sh-gmap-url').value || '',
       googleMapEmbed: document.getElementById('edit-sh-gmap-embed').value || '',
+      lat: document.getElementById('edit-sh-lat').value || '',
+      lng: document.getElementById('edit-sh-lng').value || '',
       thumbnail: document.getElementById('edit-sh-thumb').value || '',
       commission: parseInt(document.getElementById('edit-sh-commission').value)||15,
       description: document.getElementById('edit-sh-desc').value || '',
@@ -2919,6 +2938,8 @@ function parseGmapUrl(raw){
         if(d.name) document.getElementById('sh-name').value = d.name;
         if(d.address) document.getElementById('sh-addr').value = d.address;
         if(d.location) document.getElementById('sh-loc').value = d.location;
+        if(d.lat) document.getElementById('sh-lat').value = d.lat;
+        if(d.lng) document.getElementById('sh-lng').value = d.lng;
         if(d.address||d.name){
           status.style.color='#4ade80';
           status.textContent='✅ 자동입력 완료! 내용을 확인해주세요.';
@@ -3027,6 +3048,8 @@ function addShop(){
     address:document.getElementById('sh-addr').value||'',
     googleMapUrl:gmapUrl,
     googleMapEmbed:document.getElementById('sh-gmap-embed').value||'',
+    lat:document.getElementById('sh-lat').value||'',
+    lng:document.getElementById('sh-lng').value||'',
     thumbnail:'',
     services:svcs,
     servicePrices:svcPrices,
