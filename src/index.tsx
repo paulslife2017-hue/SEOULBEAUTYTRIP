@@ -951,18 +951,12 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .slide video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;background:#000}
 .ov{position:absolute;inset:0;z-index:2;background:linear-gradient(to bottom,rgba(0,0,0,.06) 0%,transparent 20%,transparent 45%,rgba(0,0,0,.28) 65%,rgba(0,0,0,.85) 100%);cursor:pointer}
 /* ── 슬라이드 정보 영역 ── */
-.info{position:absolute;bottom:0;left:0;right:0;padding:14px 16px 28px;z-index:3}
-.badge{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:20px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:7px;backdrop-filter:blur(8px);color:rgba(255,255,255,.85)}
-.badge-dot{width:5px;height:5px;border-radius:50%;background:var(--pk);display:inline-block;animation:bdp 2s infinite}
-@keyframes bdp{0%,100%{opacity:1}50%{opacity:.3}}
-.vt{font-size:17px;font-weight:800;line-height:1.28;margin-bottom:5px;text-shadow:0 2px 12px rgba(0,0,0,.8);font-family:var(--ff-sans);letter-spacing:-.2px}
-.shop-info-mini{display:flex;align-items:center;gap:6px;font-size:11.5px;color:rgba(255,255,255,.55);flex:1;overflow:hidden;min-width:0}
-.shop-info-mini i{color:var(--pk2);font-size:10px}
-.shop-info-sep{color:rgba(255,255,255,.2)}
-.vd{font-size:12px;color:rgba(255,255,255,.58);line-height:1.6;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.vtags{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px}
-.vtag{font-size:11px;color:var(--pk3);font-weight:700}
-.btns-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.slide-cat-badge{position:absolute;top:56px;left:16px;z-index:3;display:inline-flex;align-items:center;gap:5px;padding:5px 13px;border-radius:20px;background:rgba(8,8,14,.55);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.13);font-size:9px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;color:rgba(255,255,255,.88)}
+.info{position:absolute;bottom:0;left:0;right:0;padding:14px 16px 24px;z-index:3}
+.shop-info-mini{display:flex;align-items:center;gap:6px;font-size:16px;font-weight:800;color:#fff;flex:1;overflow:hidden;min-width:0;text-shadow:0 2px 12px rgba(0,0,0,.8);letter-spacing:-.2px}
+.shop-info-sep{color:rgba(255,255,255,.3);font-weight:400;font-size:14px}
+.shop-info-loc{font-size:12px;font-weight:600;color:rgba(255,255,255,.55);flex-shrink:0;white-space:nowrap}
+.btns-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
 .wa-btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:22px;border:none;background:linear-gradient(135deg,#25D366,#0EA855);color:#fff;font-size:12px;font-weight:800;cursor:pointer;text-decoration:none;box-shadow:0 4px 14px rgba(37,211,102,.3);letter-spacing:.2px;transition:opacity .2s;white-space:nowrap;flex-shrink:0}
 .wa-btn:hover{opacity:.9}
 /* ── 인디케이터 ── */
@@ -1227,14 +1221,11 @@ function buildSlide(v, idx) {
     '<video id="vid'+idx+'" src="'+esc(v.videoUrl)+'" loop muted playsinline preload="auto" poster="'+esc(thumb)+'" itemprop="contentUrl"></video>' +
     '<div id="playic'+idx+'" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:4;width:56px;height:56px;border-radius:50%;background:rgba(0,0,0,.55);align-items:center;justify-content:center;pointer-events:none;backdrop-filter:blur(4px)"><i class="fas fa-pause" style="font-size:20px;color:#fff"></i></div>' +
     '<div class="ov"></div>' +
+    '<div class="slide-cat-badge">'+(catIcons[shop.category]||'&#10024;')+'&nbsp;'+esc((shop.category||'').toUpperCase())+'</div>' +
     '<div class="info">' +
-      '<div class="badge"><span class="badge-dot"></span>'+(catIcons[shop.category]||'&#10024;')+' '+esc(shop.category||'')+'</div>' +
-      '<h2 class="vt" itemprop="name" style="font-size:17px">'+esc(v.title)+'</h2>' +
-      '<div class="vd">'+esc(v.description)+'</div>' +
-      '<div class="vtags">'+tags+'</div>' +
       '<div class="btns-row">' +
-        '<div class="shop-info-mini"><i class="fas fa-store"></i>'+esc(shop.name||'')+(areaOnly(shop.location||'')?'<span class="shop-info-sep">|</span><i class="fas fa-map-marker-alt"></i>'+esc(areaOnly(shop.location||'')):'')+'</div>' +
-        '<button class="wa-btn" id="wabtn'+idx+'"><i class="fab fa-whatsapp" style="font-size:15px"></i> Book</button>' +
+        '<div class="shop-info-mini">'+esc(shop.name||'')+(areaOnly(shop.location||'')?'<span class="shop-info-sep"> · </span><span class="shop-info-loc">'+esc(areaOnly(shop.location||''))+'</span>':'')+'</div>' +
+        '<button class="wa-btn" id="wabtn'+idx+'"><i class="fab fa-whatsapp" style="font-size:14px"></i> Book</button>' +
       '</div>' +
     '</div>' +
     '<div class="hint"><i class="fas fa-chevron-up" style="font-size:10px"></i><span>Swipe Up</span></div>';
