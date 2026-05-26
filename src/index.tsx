@@ -599,7 +599,7 @@ app.get('/shop/:slug', async (c) => {
   const shop = rowToShop(shopRows[0])
   const vidRows = await sql`SELECT * FROM videos WHERE shop_id=${shop.id} ORDER BY views DESC`
   const shopVideos = vidRows.map(rowToVideo)
-  const waMsg = encodeURIComponent(`Hi! I would like to book at ${shop.name} 💆\n\n📍 Shop: ${shop.name}${shop.location ? ' (' + shop.location + ')' : ''}\n🗓 Date: \n⏰ Time: \n💆 Service: \n👤 Name: \n👥 Party size: \n\nFound via Seoul Beauty Trip ✨`)
+  const waMsg = encodeURIComponent(`Hi! I would like to book at ${shop.name}\n\nShop: ${shop.name}\nDate: \nService: \nName: `)
   const waUrl = `https://wa.me/${PLATFORM.whatsapp}?text=${waMsg}`
   const base = 'https://seoulbeautytrip.com'
   const canonicalUrl = `${base}/shop/${shop.slug}`
@@ -1319,23 +1319,14 @@ function renderShopModal(shop) {
   var waNum = platform.whatsapp || '8201058947690';
   /* ── 업체별 구조화된 예약 메시지 ── */
   var shopName = shop.name || 'your shop';
-  var shopLoc  = shop.location ? areaOnly(shop.location) : '';
-  var shopCat  = shop.category ? (shop.category.charAt(0).toUpperCase() + shop.category.slice(1)) : '';
-  var shopSvcs = (shop.services && shop.services.length)
-    ? shop.services.slice(0,3).join(', ')
-    : (shopCat || 'Beauty service');
   var NL = String.fromCharCode(10);
   var waMsg =
     'Hi! I would like to book at ' + shopName + NL
     + NL
-    + '\u{1F4CD} Shop: ' + shopName + (shopLoc ? ' (' + shopLoc + ')' : '') + NL
-    + '\u{1F5D3} Date: ' + NL
-    + '\u23F0 Time: ' + NL
-    + '\u{1F486} Service: ' + shopSvcs + NL
-    + '\u{1F464} Name: ' + NL
-    + '\u{1F465} Party size: ' + NL
-    + NL
-    + 'Found via Seoul Beauty Trip \u2728';
+    + 'Shop: ' + shopName + NL
+    + 'Date: ' + NL
+    + 'Service: ' + NL
+    + 'Name: ';
   var waUrl = 'https://wa.me/'+waNum+'?text='+encodeURIComponent(waMsg);
 
   /* ── 사진 배열 (thumbnail + photos, 중복 제거) ── */
@@ -1441,23 +1432,22 @@ function renderShopModal(shop) {
     if(!q && shop.name)    q = shop.name + ' Seoul';
     if(q) embedSrc = 'https://www.google.com/maps?q='+encodeURIComponent(q)+'&output=embed&hl=en';
   }
-  /* My Maps - 업체 좌표로 줌인 (클릭 차단) */
-  var mapFrameId = 'mmap-'+Date.now();
-  var myMapsBase = 'https://www.google.com/maps/d/embed?mid=1osjQrXf7adnoM7XoYDkbsMJuAABY7Do';
-  var myMapsSrc = myMapsBase;
-  if(shop.lat && shop.lng) {
-    myMapsSrc = myMapsBase + '&ll='+shop.lat+','+shop.lng+'&z=16';
-  }
-  var mapHtml = '<div class="m-sec"><div class="m-sec-title">Location</div>'
-    +'<div class="m-map">'
-      +'<iframe id="'+mapFrameId+'" src="'+myMapsSrc+'" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" style="pointer-events:none"></iframe>'
-      +'<div style="position:absolute;inset:0;z-index:2"></div>'
-      +'<div class="m-map-zoom">'
-        +'<button onclick="mapZoom('+"'"+mapFrameId+"'"+',-1)" title="Zoom out">&#8722;</button>'
-        +'<button onclick="mapZoom('+"'"+mapFrameId+"'"+',1)" title="Zoom in">&#43;</button>'
+  /* Location: embed URL 직접 표시 또는 주소 텍스트 */
+  var mapHtml = '';
+  if(embedSrc) {
+    mapHtml = '<div class="m-sec"><div class="m-sec-title">Location</div>'
+      +'<div class="m-map">'
+        +'<iframe src="'+embedSrc+'" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" style="width:100%;height:100%;border:0"></iframe>'
       +'</div>'
-    +'</div>'
-  +'</div>';
+    +'</div>';
+  } else if(shop.address || shop.location) {
+    mapHtml = '<div class="m-sec"><div class="m-sec-title">Location</div>'
+      +'<div style="padding:14px;background:rgba(255,255,255,.04);border-radius:12px;font-size:13px;color:rgba(255,255,255,.75)">'
+        +(shop.address ? '<div><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>'+esc(shop.address)+'</div>' : '')
+        +(shop.location && shop.location !== shop.address ? '<div style="margin-top:5px;color:rgba(255,255,255,.4);font-size:12px">'+esc(shop.location)+'</div>' : '')
+      +'</div>'
+    +'</div>';
+  }
 
   /* ── 본문 조립 ── */
   document.getElementById('modalContent').innerHTML =
@@ -1888,10 +1878,12 @@ textarea{height:80px;resize:none}
         <textarea id="sh-desc" placeholder="고객에게 보여질 소개 문구..."></textarea>
       </div>
       <div class="full">
-        <label>구글맵 임베드 URL <span style="font-size:11px;color:rgba(255,255,255,.4)">(지도가 모달 안에 표시됨)</span></label>
-        <input id="sh-gmap-embed" placeholder="구글맵 → 공유 → 지도 퍼가기 → src=\"...\" 부분 붙여넣기" oninput="updateGmapEmbedPreview('sh-gmap-embed-preview','sh-gmap-embed')">
-        <div style="font-size:11px;color:rgba(255,255,255,.3);margin-top:4px">Google Maps → Share → Embed a map → src=\"...\" 값만 복사</div>
-        <div id="sh-gmap-embed-preview" style="display:none;margin-top:8px;border-radius:12px;overflow:hidden;height:160px;border:1px solid rgba(255,255,255,.1)">
+        <label style="color:#60a5fa;font-weight:800">🗺️ 지도 embed URL <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,.5)">(모달에서 지도 표시)</span></label>
+        <div style="font-size:11px;color:rgba(255,255,255,.45);margin-bottom:6px;line-height:1.6">
+          Google Maps에서 업체 검색 → <b style="color:rgba(255,255,255,.7)">공유</b> → <b style="color:rgba(255,255,255,.7)">지도 퍼가기</b> → HTML 코드 안의 <code style="background:rgba(255,255,255,.1);padding:1px 5px;border-radius:4px;font-size:10px">src="..."</code> 값만 복사
+        </div>
+        <input id="sh-gmap-embed" placeholder="https://www.google.com/maps/embed?pb=..." oninput="updateGmapEmbedPreview('sh-gmap-embed-preview','sh-gmap-embed')" style="border-color:rgba(96,165,250,.4)">
+        <div id="sh-gmap-embed-preview" style="display:none;margin-top:8px;border-radius:12px;overflow:hidden;height:180px;border:1px solid rgba(96,165,250,.3)">
           <iframe id="sh-gmap-embed-frame" src="" allowfullscreen loading="lazy" style="width:100%;height:100%;border:0"></iframe>
         </div>
       </div>
@@ -1946,16 +1938,13 @@ textarea{height:80px;resize:none}
       <div class="full"><label>주소</label><input id="edit-sh-addr" placeholder="주소"></div>
       <div class="full"><label>영업시간</label><input id="edit-sh-hours" placeholder="예: 10:00~20:00 (Mon~Sat)"></div>
       <div class="full">
-        <label>구글맵 링크 <span style="font-size:10px;color:rgba(255,255,255,.35)">(Google Maps URL)</span></label>
-        <input id="edit-sh-gmap-url" placeholder="https://maps.google.com/...">
-      </div>
-      <div class="full">
-        <label>구글맵 임베드 src <span style="font-size:10px;color:rgba(255,255,255,.35)">(지도가 모달 안에 표시됨)</span></label>
-        <input id="edit-sh-gmap-embed" placeholder="https://www.google.com/maps/embed?pb=..." oninput="updateGmapEmbedPreview('edit-gmap-preview','edit-sh-gmap-embed')">
+        <label style="color:#60a5fa;font-weight:800">🗺️ 지도 embed URL <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,.45)">(모달에서 지도 표시)</span></label>
+        <div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:6px">Google Maps → 공유 → 지도 퍼가기 → src="..." 값만 복사</div>
+        <input id="edit-sh-gmap-embed" placeholder="https://www.google.com/maps/embed?pb=..." oninput="updateGmapEmbedPreview('edit-gmap-preview','edit-sh-gmap-embed')" style="border-color:rgba(96,165,250,.4)">
+        <input type="hidden" id="edit-sh-gmap-url" value="">
         <input type="hidden" id="edit-sh-lat" value="">
         <input type="hidden" id="edit-sh-lng" value="">
-        <div style="font-size:11px;color:rgba(255,255,255,.3);margin-top:3px">Google Maps → Share → Embed a map → src=\"...\" 값만 복사</div>
-        <div id="edit-gmap-preview" style="display:none;margin-top:8px;border-radius:12px;overflow:hidden;height:180px;border:1px solid rgba(66,133,244,.3)">
+        <div id="edit-gmap-preview" style="display:none;margin-top:8px;border-radius:12px;overflow:hidden;height:180px;border:1px solid rgba(96,165,250,.3)">
           <iframe id="edit-gmap-frame" src="" allowfullscreen loading="lazy" style="width:100%;height:100%;border:0"></iframe>
         </div>
       </div>
