@@ -1054,21 +1054,21 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 /* 버튼 */
 .m-btns{flex-shrink:0;padding:14px 20px 0}
 .m-wa{
-  display:flex;align-items:center;justify-content:center;gap:12px;
-  padding:17px 20px;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  padding:15px 20px;
   background:linear-gradient(135deg,#25D366 0%,#128C5E 100%);
-  border:none;border-radius:18px;color:#fff;
+  border:none;border-radius:16px;color:#fff;
   text-decoration:none;cursor:pointer;
-  box-shadow:0 8px 28px rgba(37,211,102,.32),inset 0 1px 0 rgba(255,255,255,.18);
+  box-shadow:0 6px 20px rgba(37,211,102,.32),inset 0 1px 0 rgba(255,255,255,.18);
   transition:transform .16s,box-shadow .16s;
   position:relative;overflow:hidden;
 }
 .m-wa:active{transform:scale(.98)}
-.m-wa:hover{transform:translateY(-2px);box-shadow:0 14px 36px rgba(37,211,102,.42),inset 0 1px 0 rgba(255,255,255,.18)}
-.m-wa-icon{width:40px;height:40px;background:rgba(255,255,255,.15);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px}
-.m-wa-text{display:flex;flex-direction:column;align-items:flex-start}
-.m-wa-text b{font-size:15px;font-weight:800;letter-spacing:.2px;line-height:1.2}
-.m-wa-text span{font-size:11px;opacity:.72;font-weight:500}
+.m-wa:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(37,211,102,.42)}
+.m-wa-icon{width:32px;height:32px;background:rgba(255,255,255,.15);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:17px}
+.m-wa-text{display:flex;flex-direction:row;align-items:center;gap:6px;white-space:nowrap;overflow:hidden}
+.m-wa-text b{font-size:14px;font-weight:800;letter-spacing:.2px;flex-shrink:0}
+.m-wa-text span{font-size:13px;opacity:.82;font-weight:600;overflow:hidden;text-overflow:ellipsis}
 /* 토스트 */
 #toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%) translateY(12px);background:rgba(232,65,122,.92);color:#fff;padding:8px 18px;border-radius:18px;font-size:12px;font-weight:700;z-index:600;opacity:0;transition:all .28s;white-space:nowrap;pointer-events:none;backdrop-filter:blur(8px)}
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -1463,7 +1463,7 @@ function renderShopModal(shop) {
       +'<span class="m-wa-icon"><i class="fab fa-whatsapp"></i></span>'
       +'<span class="m-wa-text">'
         +'<b>Book via WhatsApp</b>'
-        +'<span>'+esc(shop.name||'this shop')+'</span>'
+        +'<span>· '+esc(shop.name||'this shop')+'</span>'
       +'</span>'
     +'</a>';
 }
