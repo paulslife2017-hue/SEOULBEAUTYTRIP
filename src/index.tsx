@@ -1048,7 +1048,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .m-map{border-radius:16px;overflow:hidden;height:210px;border:1px solid rgba(255,255,255,.08);position:relative;box-shadow:0 8px 32px rgba(0,0,0,.5)}
 .m-map iframe{width:100%;height:100%;border:0;display:block}
 /* 구글맵 "View on Google Maps" 링크 완전 차단 오버레이 */
-.m-map-cover{position:absolute;inset:0;z-index:4;background:transparent;pointer-events:all;cursor:default}
+.m-map-cover{position:absolute;top:0;left:0;width:180px;height:38px;z-index:4;background:transparent;pointer-events:all;cursor:default;display:flex;align-items:center;padding-left:10px}
+.m-map-cover-txt{font-size:9px;font-weight:900;letter-spacing:2.5px;color:rgba(255,255,255,.75);text-shadow:0 1px 8px rgba(0,0,0,.9),0 0 20px rgba(0,0,0,.6);font-family:var(--ff-serif)}
 .m-map-zoom{position:absolute;bottom:10px;right:10px;z-index:3;display:flex;flex-direction:column;gap:4px}
 .m-map-zoom button{width:32px;height:32px;border-radius:8px;border:none;background:rgba(15,15,25,.82);backdrop-filter:blur(8px);color:#fff;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.4);transition:background .15s}
 .m-map-zoom button:hover{background:rgba(232,65,122,.7)}
@@ -1445,7 +1446,7 @@ function renderShopModal(shop) {
     mapHtml = '<div class="m-sec"><div class="m-sec-title">Location</div>'
       +'<div class="m-map">'
         +'<iframe src="'+embedSrc+'" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" style="width:100%;height:100%;border:0"></iframe>'
-        +'<div class="m-map-cover"></div>'
+        +'<div class="m-map-cover"><span class="m-map-cover-txt">SEOUL BEAUTY TRIP</span></div>'
       +'</div>'
     +'</div>';
   } else if(shop.address || shop.location) {
