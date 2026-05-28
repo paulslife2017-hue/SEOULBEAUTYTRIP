@@ -10,15 +10,7 @@ const getDb = () => neon(DB_URL)
 
 const app = new Hono<{ Bindings: Env }>()
 
-// ── www → non-www 301 영구 리다이렉트 ──
-app.use('*', async (c, next) => {
-  const host = c.req.header('host') || ''
-  if (host.startsWith('www.')) {
-    const newUrl = c.req.url.replace('://www.', '://')
-    return c.redirect(newUrl, 301)
-  }
-  await next()
-})
+
 
 // ── 플랫폼 설정 ──
 const PLATFORM = {
