@@ -694,13 +694,24 @@ app.put('/api/bookings/:id/status', async (c) => {
 app.get('/api/stats', async (c) => {
   const sql = getDb()
   const [vStats] = await sql`SELECT COALESCE(SUM(views),0) as total_views, COUNT(*) as total FROM videos`
-  const [bStats] = await sql`SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE status='new') as new_cnt FROM bookings`
-  const [sStats] = await sql`SELECT COUNT(*) as total FROM shops`
-  const topRows = await sql`SELECT v.*, s.name as shop_name FROM videos v LEFT JOIN shops s ON v.shop_id=s.id ORDER BY v.views DESC LIMIT 3`
+  const [bStats] = await sql`SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE status='new') as new_cnt, COUNT(*) FILTER (WHERE status='confirmed') as confirmed_cnt, COUNT(*) FILTER (WHERE status='contacted') as contacted_cnt FROM bookings`
+  const [sStats] = await sql`SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE active=true) as active_cnt FROM shops`
+  const topRows = await sql`SELECT v.*, s.name as shop_name FROM videos v LEFT JOIN shops s ON v.shop_id=s.id ORDER BY v.views DESC LIMIT 5`
+  // 카테고리별 업체 수
+  const catRows = await sql`SELECT category, COUNT(*) as cnt FROM shops WHERE active=true GROUP BY category ORDER BY cnt DESC`
+  // 업체별 총 조회수 TOP5
+  const shopViewRows = await sql`SELECT s.name, s.category, COALESCE(SUM(v.views),0) as total_views FROM shops s LEFT JOIN videos v ON v.shop_id=s.id GROUP BY s.id, s.name, s.category ORDER BY total_views DESC LIMIT 5`
+  // 최근 7일 예약 (날짜별)
+  const recentBookings = await sql`SELECT DATE(created_at) as day, COUNT(*) as cnt FROM bookings WHERE created_at >= NOW() - INTERVAL '7 days' GROUP BY day ORDER BY day`
   return c.json({
     totalViews: Number(vStats.total_views), totalBookings: Number(bStats.total),
-    newBookings: Number(bStats.new_cnt), totalShops: Number(sStats.total),
-    topVideos: topRows.map((r: any) => ({ ...rowToVideo(r), shop: { name: r.shop_name } }))
+    newBookings: Number(bStats.new_cnt), confirmedBookings: Number(bStats.confirmed_cnt),
+    contactedBookings: Number(bStats.contacted_cnt),
+    totalShops: Number(sStats.total), activeShops: Number(sStats.active_cnt),
+    topVideos: topRows.map((r: any) => ({ ...rowToVideo(r), shop: { name: r.shop_name } })),
+    categoryStats: catRows.map((r: any) => ({ category: r.category, count: Number(r.cnt) })),
+    shopViewStats: shopViewRows.map((r: any) => ({ name: r.name, category: r.category, views: Number(r.total_views) })),
+    recentBookings: recentBookings.map((r: any) => ({ day: r.day, count: Number(r.cnt) }))
   })
 })
 
@@ -2729,6 +2740,7 @@ const ADMIN_HTML = `<!DOCTYPE html>
 <title>Seoul Beauty Trip - Admin</title>
 <script>var _GSK_TOKEN = '__GSK_TOKEN__';</script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--pk:#FF4D8D;--pl:#FF85B3;--pu:#9B59B6;--bg:#0d0d18;--bg2:#13132a;--cd:#1c1c30;--green:#10b981;--yellow:#f59e0b;--red:#ef4444;--blue:#3b82f6}
@@ -2799,7 +2811,12 @@ textarea{height:80px;resize:none}
 .top-vid:last-child{border:none}
 .top-vid img{width:40px;height:52px;border-radius:7px;object-fit:cover;flex-shrink:0}
 .top-rank{font-size:18px;font-weight:900;color:var(--pk);width:24px;flex-shrink:0}
-@media(max-width:540px){.stats-grid{grid-template-columns:1fr 1fr}.form-grid{grid-template-columns:1fr}}
+@media(max-width:540px){.stats-grid{grid-template-columns:1fr 1fr!important}.form-grid{grid-template-columns:1fr}}
+.bar-wrap{display:flex;align-items:center;gap:8px;font-size:12px}
+.bar-bg{flex:1;height:8px;border-radius:4px;background:rgba(255,255,255,.08);overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width .6s cubic-bezier(.4,0,.2,1)}
+.bar-label{min-width:90px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:rgba(255,255,255,.7);font-size:11px}
+.bar-val{min-width:36px;text-align:right;color:rgba(255,255,255,.45);font-size:11px}
 </style>
 </head>
 <body>
@@ -2817,14 +2834,39 @@ textarea{height:80px;resize:none}
 
 <!-- 대시보드 -->
 <div class="tab-content on" id="tab-dashboard">
-  <div class="stats-grid" id="statsGrid">
+  <!-- 핵심 지표 카드 6개 -->
+  <div class="stats-grid" id="statsGrid" style="grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">
     <div class="stat-card"><div class="stat-icon">&#128065;</div><div class="stat-val" id="st-views">-</div><div class="stat-lbl">총 조회수</div></div>
-    <div class="stat-card"><div class="stat-icon">&#128197;</div><div class="stat-val" id="st-bookings">-</div><div class="stat-lbl">총 예약수</div></div>
-    <div class="stat-card"><div class="stat-icon" style="color:#3b82f6">&#128276;</div><div class="stat-val" id="st-new" style="color:#60a5fa">-</div><div class="stat-lbl">신규 예약</div></div>
     <div class="stat-card"><div class="stat-icon" style="color:#10b981">&#127968;</div><div class="stat-val" id="st-shops" style="color:#10b981">-</div><div class="stat-lbl">등록 업체</div></div>
+    <div class="stat-card"><div class="stat-icon">&#128197;</div><div class="stat-val" id="st-bookings">-</div><div class="stat-lbl">총 예약</div></div>
+    <div class="stat-card" style="background:rgba(59,130,246,.08);border-color:rgba(59,130,246,.2)"><div class="stat-icon" style="color:#60a5fa">&#128276;</div><div class="stat-val" id="st-new" style="color:#60a5fa">-</div><div class="stat-lbl">신규 예약</div></div>
+    <div class="stat-card" style="background:rgba(16,185,129,.08);border-color:rgba(16,185,129,.2)"><div class="stat-icon" style="color:#34d399">&#9989;</div><div class="stat-val" id="st-confirmed" style="color:#34d399">-</div><div class="stat-lbl">확정 예약</div></div>
+    <div class="stat-card" style="background:rgba(251,146,60,.08);border-color:rgba(251,146,60,.2)"><div class="stat-icon" style="color:#fb923c">&#128172;</div><div class="stat-val" id="st-contacted" style="color:#fb923c">-</div><div class="stat-lbl">연락 완료</div></div>
   </div>
+
+  <!-- 차트 행 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+    <!-- 카테고리별 업체 분포 -->
+    <div class="card" style="margin-bottom:0;padding:16px">
+      <div class="card-title" style="font-size:12px;margin-bottom:12px"><i class="fas fa-chart-pie" style="color:#a78bfa"></i> 카테고리별 업체</div>
+      <canvas id="catChart" height="180"></canvas>
+    </div>
+    <!-- 예약 상태 도넛 -->
+    <div class="card" style="margin-bottom:0;padding:16px">
+      <div class="card-title" style="font-size:12px;margin-bottom:12px"><i class="fas fa-chart-donut" style="color:#f472b6"></i> 예약 상태 현황</div>
+      <canvas id="bookingChart" height="180"></canvas>
+    </div>
+  </div>
+
+  <!-- 업체별 조회수 TOP5 -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-header"><div class="card-title"><i class="fas fa-trophy" style="color:#fbbf24"></i> 업체별 조회수 TOP 5</div></div>
+    <div id="shopViewStats" style="display:flex;flex-direction:column;gap:8px;padding:0 4px"></div>
+  </div>
+
+  <!-- 인기 영상 TOP5 -->
   <div class="card">
-    <div class="card-header"><div class="card-title"><i class="fas fa-fire" style="color:#FF4D8D"></i> 인기 영상 TOP 3</div></div>
+    <div class="card-header"><div class="card-title"><i class="fas fa-fire" style="color:#FF4D8D"></i> 인기 영상 TOP 5</div></div>
     <div id="topVids"></div>
   </div>
 
@@ -3211,16 +3253,65 @@ var currentShopId = null;
 // ── 데이터 로드 ──
 function loadAll(){
   fetch('/api/stats').then(function(r){return r.json();}).then(function(d){
-    document.getElementById('st-views').textContent = d.totalViews>=1000?(d.totalViews/1000).toFixed(1)+'K':d.totalViews;
+    // ── 핵심 지표 카드 ──
+    var fmtNum = function(n){ return n>=1000?(n/1000).toFixed(1)+'K':n; };
+    document.getElementById('st-views').textContent = fmtNum(d.totalViews);
     document.getElementById('st-bookings').textContent = d.totalBookings;
     document.getElementById('st-new').textContent = d.newBookings;
+    document.getElementById('st-confirmed').textContent = d.confirmedBookings||0;
+    document.getElementById('st-contacted').textContent = d.contactedBookings||0;
     document.getElementById('st-shops').textContent = d.totalShops;
+
+    // ── 카테고리별 업체 도넛 차트 ──
+    var catLabels = {skincare:'스킨케어',makeup:'메이크업',hair:'헤어',headspa:'헤드스파',nail:'네일',clinic:'클리닉',spa:'스파'};
+    var catColors = ['#f472b6','#c084fc','#60a5fa','#67e8f9','#34d399','#fb923c','#a78bfa'];
+    var cats = d.categoryStats||[];
+    if(cats.length && document.getElementById('catChart')){
+      new Chart(document.getElementById('catChart'), {
+        type:'doughnut',
+        data:{
+          labels: cats.map(function(c){ return catLabels[c.category]||c.category; }),
+          datasets:[{data: cats.map(function(c){ return c.count; }), backgroundColor: catColors.slice(0,cats.length), borderWidth:2, borderColor:'#1c1c30'}]
+        },
+        options:{plugins:{legend:{position:'right',labels:{color:'rgba(255,255,255,.6)',font:{size:11},boxWidth:12,padding:8}}},cutout:'62%'}
+      });
+    }
+
+    // ── 예약 상태 도넛 차트 ──
+    if(document.getElementById('bookingChart')){
+      new Chart(document.getElementById('bookingChart'), {
+        type:'doughnut',
+        data:{
+          labels:['신규','연락완료','확정'],
+          datasets:[{data:[d.newBookings||0, d.contactedBookings||0, d.confirmedBookings||0],
+            backgroundColor:['#60a5fa','#fb923c','#34d399'], borderWidth:2, borderColor:'#1c1c30'}]
+        },
+        options:{plugins:{legend:{position:'right',labels:{color:'rgba(255,255,255,.6)',font:{size:11},boxWidth:12,padding:8}}},cutout:'62%'}
+      });
+    }
+
+    // ── 업체별 조회수 TOP5 바 차트 ──
+    var svEl = document.getElementById('shopViewStats');
+    var svData = d.shopViewStats||[];
+    var maxV = svData.length ? svData[0].views : 1;
+    var barColors = {skincare:'#f472b6',makeup:'#c084fc',hair:'#60a5fa',headspa:'#67e8f9',nail:'#34d399',clinic:'#fb923c',spa:'#a78bfa'};
+    svEl.innerHTML = svData.length ? svData.map(function(s,i){
+      var pct = maxV>0 ? Math.round(s.views/maxV*100) : 0;
+      var col = barColors[s.category]||'#aaa';
+      return '<div class="bar-wrap">'+
+        '<div class="bar-label">'+(i+1)+'. '+s.name+'</div>'+
+        '<div class="bar-bg"><div class="bar-fill" style="width:'+pct+'%;background:'+col+'"></div></div>'+
+        '<div class="bar-val">'+fmtNum(s.views)+'</div>'+
+        '</div>';
+    }).join('') : '<div style="color:rgba(255,255,255,.3);font-size:12px;padding:8px">데이터 없음</div>';
+
+    // ── 인기 영상 TOP5 ──
     document.getElementById('topVids').innerHTML = (d.topVideos||[]).map(function(v,i){
       return '<div class="top-vid">'+
         '<div class="top-rank">#'+(i+1)+'</div>'+
         '<img src="'+(v.thumbnail||'')+'" class="safe-img">'+
         '<div style="flex:1"><div style="font-size:13px;font-weight:700;margin-bottom:3px">'+v.title+'</div>'+
-        '<div style="font-size:11px;color:rgba(255,255,255,.4)">'+v.views+' 조회 &nbsp; '+v.likes+' 좋아요</div></div>'+
+        '<div style="font-size:11px;color:rgba(255,255,255,.4)">'+fmtNum(v.views)+' 조회 &nbsp; '+v.likes+' 좋아요</div></div>'+
         '</div>';
     }).join('');
   });
