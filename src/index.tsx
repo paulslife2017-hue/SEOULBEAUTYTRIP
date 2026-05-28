@@ -529,7 +529,7 @@ Return ONLY valid JSON:
     const res = await fetch('https://www.genspark.ai/api/llm_proxy/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }], max_tokens: 1000 })
+      body: JSON.stringify({ model: 'gpt-5-mini', messages: [{ role: 'user', content: prompt }], max_tokens: 1000 })
     })
     if (!res.ok) return null
     const data: any = await res.json()
