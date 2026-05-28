@@ -1736,6 +1736,7 @@ const MAIN_HTML = `<!DOCTYPE html>
 <meta name="description" content="Discover and book the best Korean beauty salons in Seoul. Skincare, makeup, hair, nail art and derma clinics — foreign-friendly with WhatsApp booking. K-beauty at its finest.">
 <meta name="keywords" content="Seoul beauty salon, Korean skincare, K-beauty booking, Seoul hair salon, Seoul nail art, Korean makeup, Seoul derma clinic, beauty travel Korea">
 <meta name="robots" content="index, follow">
+<meta name="msvalidate.01" content="DD5A8D9AA094B888C8A409EADE4610E9">
 <link rel="canonical" href="https://seoulbeautytrip.com/">
 <!-- Open Graph -->
 <meta property="og:type" content="website">
