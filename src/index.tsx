@@ -48,6 +48,7 @@ interface Shop {
   googlePlaceId: string
   metaDescription: string
   seoKeywords: string
+  menuItems: {name: string; price: string; description: string; image: string}[]
 }
 
 interface Video {
@@ -98,7 +99,8 @@ function rowToShop(r: any): Shop {
     reviews: (() => { if(!r.reviews) return []; if(Array.isArray(r.reviews)) return r.reviews; try { return JSON.parse(r.reviews) } catch { return [] } })(),
     googlePlaceId: r.google_place_id || '',
     metaDescription: r.meta_description || '',
-    seoKeywords: r.seo_keywords || ''
+    seoKeywords: r.seo_keywords || '',
+    menuItems: (() => { if(!r.menu_items) return []; if(Array.isArray(r.menu_items)) return r.menu_items; try { return JSON.parse(r.menu_items) } catch { return [] } })()
   }
 }
 function rowToVideo(r: any): Video {
@@ -617,7 +619,8 @@ app.put('/api/shops/:id', async (c) => {
     commission=${body.commission||15},
     active=${body.active!==false},
     reviews=${JSON.stringify(body.reviews||[])},
-    google_place_id=${body.googlePlaceId||''}
+    google_place_id=${body.googlePlaceId||''},
+    menu_items=${JSON.stringify(body.menuItems||[])}
     WHERE id=${c.req.param('id')}`
   return c.json({ ok: true, seoGenerated: !body.description || !!body.regenerateSeo })
 })
@@ -1873,6 +1876,41 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   .modal{max-width:420px}
   .hint{display:none}
 }
+/* ── PC 사이드 카탈로그 (1200px+) ── */
+@media(min-width:1200px){
+  body{overflow:hidden}
+  #pc-layout{display:flex!important}
+  #feed-col{width:420px;flex-shrink:0;position:relative}
+  #hd{left:0;transform:none;width:420px;right:auto}
+  #dots{left:8px;top:50%}
+  #muteBtn{right:auto;left:calc(420px + 16px);top:50%}
+  .modal-bg{left:0;width:420px}
+  .modal{max-width:420px}
+  #toast{left:210px}
+}
+/* ── PC 카탈로그 패널 ── */
+#pc-layout{display:none;height:100vh;overflow:hidden}
+#feed-col{height:100vh;position:relative}
+#shop-panel{flex:1;height:100vh;overflow-y:auto;background:#0d0d18;border-left:1px solid rgba(255,255,255,.06);padding:16px;scrollbar-width:thin;scrollbar-color:rgba(255,77,141,.3) transparent}
+#shop-panel::-webkit-scrollbar{width:4px}
+#shop-panel::-webkit-scrollbar-thumb{background:rgba(255,77,141,.3);border-radius:2px}
+.sp-header{padding:8px 4px 12px;border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:14px}
+.sp-title{font-size:13px;font-weight:900;color:#fff;letter-spacing:-.2px;margin-bottom:4px}
+.sp-subtitle{font-size:11px;color:rgba(255,255,255,.35)}
+.sp-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sp-card{background:#13132a;border:1px solid rgba(255,255,255,.07);border-radius:14px;overflow:hidden;cursor:pointer;transition:all .2s;position:relative}
+.sp-card:hover{border-color:rgba(232,65,122,.4);transform:translateY(-2px);box-shadow:0 8px 24px rgba(232,65,122,.12)}
+.sp-card-img{width:100%;height:100px;object-fit:cover;display:block;background:#1a1a2e}
+.sp-card-body{padding:9px 10px 10px}
+.sp-card-cat{font-size:9px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--pk);margin-bottom:3px;opacity:.85}
+.sp-card-name{font-size:12px;font-weight:800;color:#fff;line-height:1.3;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sp-card-loc{font-size:10px;color:rgba(255,255,255,.38);display:flex;align-items:center;gap:3px}
+.sp-card-loc i{font-size:8px;color:var(--pk);opacity:.7}
+.sp-card-rating{position:absolute;top:7px;right:7px;background:rgba(0,0,0,.72);backdrop-filter:blur(8px);border-radius:20px;padding:3px 7px;font-size:10px;font-weight:700;color:#fbbf24;display:flex;align-items:center;gap:3px}
+.sp-filter{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px}
+.sp-flt{padding:4px 10px;border-radius:20px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);color:rgba(255,255,255,.4);font-size:10px;font-weight:700;cursor:pointer;transition:all .18s;white-space:nowrap}
+.sp-flt.on{background:linear-gradient(135deg,var(--pk),#7C3AED);border-color:transparent;color:#fff}
+.sp-empty{grid-column:1/-1;text-align:center;padding:40px 16px;color:rgba(255,255,255,.25);font-size:12px}
 /* ── 업체 모달 ── */
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:500;display:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(16px)}
 .modal-bg.open{display:flex}
@@ -2021,8 +2059,31 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   </nav>
 </header>
 
-<div id="dots" aria-hidden="true"></div>
-<div id="feed" role="feed" aria-label="Beauty videos"></div>
+<!-- PC 레이아웃 래퍼 -->
+<div id="pc-layout">
+  <div id="feed-col">
+    <div id="dots" aria-hidden="true"></div>
+    <div id="feed" role="feed" aria-label="Beauty videos"></div>
+  </div>
+  <!-- PC 우측 업체 카탈로그 -->
+  <aside id="shop-panel" aria-label="Shop catalog">
+    <div class="sp-header">
+      <div class="sp-title">✨ Seoul Beauty Catalog</div>
+      <div class="sp-subtitle" id="sp-count">Loading...</div>
+    </div>
+    <div class="sp-filter" id="sp-filter">
+      <button class="sp-flt on" data-cat="all">All</button>
+      <button class="sp-flt" data-cat="skincare">🌿 Skincare</button>
+      <button class="sp-flt" data-cat="headspa">🧖 Head Spa</button>
+      <button class="sp-flt" data-cat="hair">💇 Hair</button>
+      <button class="sp-flt" data-cat="nail">💅 Nail</button>
+      <button class="sp-flt" data-cat="clinic">🏥 Clinic</button>
+      <button class="sp-flt" data-cat="makeup">💋 Makeup</button>
+      <button class="sp-flt" data-cat="spa">🛁 Spa</button>
+    </div>
+    <div class="sp-grid" id="sp-grid"></div>
+  </aside>
+</div>
 <div id="toast" role="status" aria-live="polite"></div>
 
 <!-- 관리자 비밀번호 모달 -->
@@ -2062,7 +2123,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 </div>
 
 <script>
-var vids = [], isMuted = true, liked = {}, platform = {};
+var vids = [], isMuted = true, liked = {}, platform = {}, allShopsData = [];
 var catIcons = {skincare:'&#127807;',makeup:'&#128139;',hair:'&#128135;',headspa:'&#129496;',nail:'&#128133;',clinic:'&#127973;',spa:'&#129510;'};
 var catFaIcons = {skincare:'fa-leaf',makeup:'fa-magic',hair:'fa-cut',headspa:'fa-spa',nail:'fa-hand-sparkles',clinic:'fa-briefcase-medical',spa:'fa-hot-tub'};
 
@@ -2321,9 +2382,7 @@ function renderShopModal(shop) {
     var locArea = areaOnly(shop.location);
     infoCards += '<div class="m-info-card"><div class="m-info-card-label">Area</div><div class="m-info-card-val"><i class="fas fa-map-marker-alt"></i>'+esc(locArea)+'</div></div>';
   }
-  if(shop.priceRange) {
-    infoCards += '<div class="m-info-card"><div class="m-info-card-label">Price Range</div><div class="m-info-card-val"><i class="fas fa-won-sign"></i>'+esc(shop.priceRange)+'</div></div>';
-  }
+  // Price Range 인포카드 제거
   if(reviewCount > 0) {
     infoCards += '<div class="m-info-card"><div class="m-info-card-label">Rating</div><div class="m-info-card-val"><span class="m-stars">'+starsHtml+'</span>&nbsp;'+rating+'</div></div>';
   }
@@ -2344,14 +2403,39 @@ function renderShopModal(shop) {
       +'</div>'
     : '';
 
-  /* ── 가격 리스트 ── */
+  /* ── 가격 섹션 — 가격 있으면 테이블, 없으면 상담 안내 ── */
   var prices = shop.servicePrices || [];
   var priceHtml = '';
   if(prices.length > 0) {
+    // 가격 공개 업체 → Price List 테이블
     var rows = prices.map(function(p){
       return '<div class="m-price-item"><span class="m-price-name">'+esc(p.name||'')+'</span><span class="m-price-val">'+esc(p.price||'')+'</span></div>';
     }).join('');
-    priceHtml = '<div class="m-sec"><div class="m-sec-title">Price List</div><div class="m-price-list">'+rows+'</div></div>';
+    priceHtml = '<div class="m-sec"><div class="m-sec-title"><i class="fas fa-won-sign" style="color:var(--gold);margin-right:4px"></i>Price List</div><div class="m-price-list">'+rows+'</div></div>';
+  } else {
+    // 가격 비공개 업체 → 상담 안내 + WhatsApp 버튼 2개
+    var consultMsg = encodeURIComponent('Hi! I would like to inquire about pricing at '+shopName+'\n\nService I\'m interested in: \nName: ');
+    var consultUrl = 'https://wa.me/'+waNum+'?text='+consultMsg;
+    var igUrl = 'https://instagram.com/'+(platform.instagram||'seoulbeautytrip');
+    priceHtml = '<div class="m-sec">'+
+      '<div class="m-sec-title"><i class="fas fa-comment-dots" style="color:var(--pk);margin-right:4px"></i>Pricing</div>'+
+      '<div style="background:rgba(255,77,141,.06);border:1px solid rgba(255,77,141,.15);border-radius:14px;padding:16px 14px">'+
+        '<div style="font-size:13px;color:rgba(255,255,255,.75);line-height:1.7;margin-bottom:14px">'+
+          '💬 Prices vary by treatment &amp; consultation.<br>'+
+          '<span style="color:rgba(255,255,255,.45);font-size:12px">Contact us for a free quote!</span>'+
+        '</div>'+
+        '<div style="display:flex;gap:8px">'+
+          '<a href="'+consultUrl+'" target="_blank" rel="noopener" '+
+            'style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 12px;border-radius:22px;background:linear-gradient(135deg,#25D366,#128C5E);color:#fff;font-size:12px;font-weight:800;text-decoration:none">'+
+            '<i class="fab fa-whatsapp" style="font-size:14px"></i> WhatsApp'+
+          '</a>'+
+          '<a href="'+waUrl+'" target="_blank" rel="noopener" '+
+            'style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 12px;border-radius:22px;background:linear-gradient(135deg,var(--pk),#7C3AED);color:#fff;font-size:12px;font-weight:800;text-decoration:none">'+
+            '<i class="fas fa-calendar-check" style="font-size:12px"></i> Book Now'+
+          '</a>'+
+        '</div>'+
+      '</div>'+
+    '</div>';
   }
 
   /* ── 서비스 태그 ── */
@@ -2671,7 +2755,48 @@ window.addEventListener('load', function(){
   });
 
   loadVideos('all');
+
+  // ── PC 카탈로그 패널 ──
+  if(window.innerWidth >= 1200) {
+    fetch('/api/shops').then(function(r){ return r.json(); }).then(function(d){
+      allShopsData = d.shops || [];
+      renderShopPanel('all');
+    });
+    document.querySelectorAll('#sp-filter .sp-flt').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        document.querySelectorAll('#sp-filter .sp-flt').forEach(function(b){ b.classList.remove('on'); });
+        btn.classList.add('on');
+        renderShopPanel(btn.getAttribute('data-cat'));
+      });
+    });
+  }
 });
+
+function renderShopPanel(cat) {
+  var grid = document.getElementById('sp-grid');
+  var countEl = document.getElementById('sp-count');
+  if(!grid) return;
+  var catColors = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',nail:'#34d399',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa'};
+  var filtered = cat === 'all' ? allShopsData : allShopsData.filter(function(s){ return s.category === cat; });
+  if(countEl) countEl.textContent = filtered.length + '개 업체';
+  if(!filtered.length){
+    grid.innerHTML = '<div class="sp-empty"><div style="font-size:28px;margin-bottom:8px">🔍</div>해당 카테고리 업체가 없어요</div>';
+    return;
+  }
+  grid.innerHTML = filtered.map(function(s){
+    var col = catColors[s.category] || '#aaa';
+    var stars = s.rating >= 4.5 ? '★★★★★' : s.rating >= 4.0 ? '★★★★☆' : '★★★☆☆';
+    return '<div class="sp-card" onclick="openShopModal(\''+s.id+'\')">'+
+      '<img class="sp-card-img" src="'+(s.thumbnail||'https://via.placeholder.com/200x100/1a1a2e/fff?text='+encodeURIComponent(s.name))+'" alt="'+esc(s.name)+'" loading="lazy">'+
+      '<div class="sp-card-rating"><i class="fas fa-star" style="font-size:8px"></i> '+s.rating+'</div>'+
+      '<div class="sp-card-body">'+
+        '<div class="sp-card-cat" style="color:'+col+'">'+esc(s.category)+'</div>'+
+        '<div class="sp-card-name">'+esc(s.name)+'</div>'+
+        '<div class="sp-card-loc"><i class="fas fa-map-marker-alt"></i>'+esc((s.location||'').split(',')[0])+'</div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
 </script>
 
 <!-- ★ Best 랜딩 페이지 내부 링크 — 구글 크롤러가 발견하도록 DOM에 삽입 -->
