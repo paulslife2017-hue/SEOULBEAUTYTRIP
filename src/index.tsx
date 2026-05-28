@@ -2413,19 +2413,8 @@ function renderShopModal(shop) {
     +'</div>';
   }
 
-  /* ── 사진 그리드 (4장 이상 있을 때 별도 섹션) ── */
+  /* ── 사진 그리드 제거 (상단 히어로+썸네일로 충분) ── */
   var photosGridHtml = '';
-  if(allPhotos.length >= 4) {
-    var gridImgs = allPhotos.slice(0, 6).map(function(url, i){
-      return '<img src="'+esc(url)+'" alt="'+esc(shop.name)+' photo '+(i+1)+'" loading="lazy"'
-        +' data-photo-url="'+esc(url)+'" onclick="setMHero(this.dataset.photoUrl,null)"'
-        +' onerror="this.parentElement.remove()">';
-    }).join('');
-    photosGridHtml = '<div class="m-sec">'
-      +'<div class="m-sec-title"><i class="fas fa-images" style="color:var(--gold);margin-right:4px"></i>Photos</div>'
-      +'<div class="m-photos-grid">'+gridImgs+'</div>'
-    +'</div>';
-  }
 
   /* ── 본문 조립 ── */
   document.getElementById('modalContent').innerHTML =
