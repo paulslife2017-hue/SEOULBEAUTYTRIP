@@ -1628,7 +1628,7 @@ function renderShopModal(shop) {
       var stripPhotos = allPhotos.slice(0, 6);
       var strips = stripPhotos.map(function(url, i){
         return '<div class="m-ts-thumb'+(i===0?' on':'')+'" data-photo-url="'+esc(url)+'" onclick="setMHero(this.dataset.photoUrl,this)">'
-          +'<img src="'+esc(url)+'" alt="" loading="lazy" onerror="this.parentElement.style.display=\'none\'">'
+          +'<img src="'+esc(url)+'" alt="" loading="lazy" onerror="this.parentElement.remove()">'
           +'</div>';
       }).join('');
       heroHtml += '<div class="m-thumbstrip">'+strips+'</div>';
@@ -1783,7 +1783,7 @@ function renderShopModal(shop) {
     var gridImgs = allPhotos.slice(0, 6).map(function(url, i){
       return '<img src="'+esc(url)+'" alt="'+esc(shop.name)+' photo '+(i+1)+'" loading="lazy"'
         +' onclick="setMHero(\''+esc(url)+'\',null)"'
-        +' onerror="this.parentElement.style.display=\'none\'">';
+        +' onerror="this.parentElement.remove()">';
     }).join('');
     photosGridHtml = '<div class="m-sec">'
       +'<div class="m-sec-title"><i class="fas fa-images" style="color:var(--gold);margin-right:4px"></i>Photos</div>'
@@ -2804,7 +2804,7 @@ function openEditShopPanel(shopId){
   var phPrev = document.getElementById('edit-sh-photos-preview');
   if(!phPrev){ phPrev=document.createElement('div');phPrev.id='edit-sh-photos-preview';phPrev.style.cssText='display:flex;flex-wrap:wrap;gap:4px;margin-top:8px'; document.body.appendChild(phPrev); }
   var existingPhotos = shop.photos||[];
-  phPrev.innerHTML = existingPhotos.map(function(url){ return '<img src="'+url+'" style="width:60px;height:60px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,.15)" onerror="this.style.display=\'none\'">'; }).join('');
+  phPrev.innerHTML = existingPhotos.map(function(url){ return '<img src="'+url+'" style="width:60px;height:60px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,.15)" onerror="this.remove()">'; }).join('');
 
   // 서비스 목록 채우기
   var svcList = document.getElementById('edit-svc-list');
@@ -3480,7 +3480,7 @@ function addShop(){
     reviews:(function(){ try{ var el=document.getElementById('sh-reviews'); return el?JSON.parse(el.value||'[]'):[];} catch(e){return[];}}()),
     googlePlaceId:(function(){ var el=document.getElementById('sh-place-id'); return el?el.value:'';})(),
     rating:(function(){ var el=document.getElementById('sh-rating'); return el?parseFloat(el.value)||5.0:5.0;})(),
-    reviewCount:(function(){ var el=document.getElementById('sh-review-count'); return el?parseInt(el.value)||0:0;})(void 0),
+    reviewCount:(function(){ var el=document.getElementById('sh-review-count'); return el?parseInt(el.value)||0:0;})(),
     photos:(function(){ try{ var el=document.getElementById('sh-photos'); return el?JSON.parse(el.value||'[]'):[];} catch(e){return[];}}())
   })}).then(function(r){return r.json();}).then(function(res){
     var newShopId = res.id || null;
@@ -3832,7 +3832,7 @@ async function fetchPlacesInfo(prefix) {
       if (previewEl) {
         previewEl.innerHTML = d.photos.map(function(url) {
           return '<div style="position:relative;display:inline-block;margin:3px">'
-            + '<img src="'+url+'" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid rgba(255,255,255,.15)" onerror="this.style.display=\'none\'">'
+            + '<img src="'+url+'" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid rgba(255,255,255,.15)" onerror="this.remove()">'  
             + '</div>';
         }).join('');
         previewEl.style.display = 'flex';
