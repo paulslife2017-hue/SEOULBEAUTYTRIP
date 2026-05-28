@@ -1866,8 +1866,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .dot.on{background:var(--pk);height:18px;box-shadow:0 0 6px rgba(232,65,122,.5)}
 #muteBtn{position:fixed;top:50%;right:12px;transform:translateY(-50%);z-index:200;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.15);color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(12px);transition:all .2s}
 #muteBtn:hover{background:rgba(232,65,122,.3);border-color:rgba(232,65,122,.5)}
-/* ── PC 반응형 ── */
-@media(min-width:768px){
+/* ── PC 반응형 (768px~1199px) ── */
+@media(min-width:768px) and (max-width:1199px){
   #hd{padding:16px 0 0;left:50%;transform:translateX(-50%);width:420px;max-width:420px;padding-left:16px;padding-right:16px}
   #feed{background:#040408}
   .slide{width:420px;max-width:420px;height:100vh;box-shadow:0 0 80px rgba(232,65,122,.06)}
@@ -1879,19 +1879,25 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 /* ── PC 사이드 카탈로그 (1200px+) ── */
 @media(min-width:1200px){
   body{overflow:hidden}
-  #pc-layout{display:flex!important}
-  #feed-col{width:420px;flex-shrink:0;position:relative}
-  #hd{left:0;transform:none;width:420px;right:auto}
-  #dots{left:8px;top:50%}
-  #muteBtn{right:auto;left:calc(420px + 16px);top:50%}
-  .modal-bg{left:0;width:420px}
+  /* pc-layout: 피드(좌) + 카탈로그(우) 나란히 */
+  #pc-layout{display:flex!important;height:100vh;overflow:hidden}
+  #shop-panel{display:flex;flex-direction:column}
+  #feed-col{width:420px;flex-shrink:0;height:100vh;position:relative;overflow:hidden}
+  /* header: feed-col 안에서 fixed 대신 feed-col 기준으로 */
+  #hd{position:absolute;top:0;left:0;right:0;width:100%}
+  #feed{height:100vh;background:#040408}
+  .slide{width:420px;max-width:420px;height:100vh;box-shadow:0 0 80px rgba(232,65,122,.06)}
+  #dots{position:absolute;left:8px;top:50%;transform:translateY(-50%)}
+  #muteBtn{position:absolute;right:12px;top:50%;transform:translateY(-50%)}
+  .modal-bg{position:fixed;left:0;width:420px}
   .modal{max-width:420px}
-  #toast{left:210px}
+  #toast{left:210px;transform:translateX(-50%) translateY(12px)}
+  .hint{display:none}
 }
 /* ── PC 카탈로그 패널 ── */
-#pc-layout{display:none;height:100vh;overflow:hidden}
-#feed-col{height:100vh;position:relative}
-#shop-panel{flex:1;height:100vh;overflow-y:auto;background:#0d0d18;border-left:1px solid rgba(255,255,255,.06);padding:16px;scrollbar-width:thin;scrollbar-color:rgba(255,77,141,.3) transparent}
+#pc-layout{display:block;width:100%}
+#feed-col{position:relative}
+#shop-panel{display:none;flex:1;height:100vh;overflow-y:auto;background:#0d0d18;border-left:1px solid rgba(255,255,255,.06);padding:16px;scrollbar-width:thin;scrollbar-color:rgba(255,77,141,.3) transparent}
 #shop-panel::-webkit-scrollbar{width:4px}
 #shop-panel::-webkit-scrollbar-thumb{background:rgba(255,77,141,.3);border-radius:2px}
 .sp-header{padding:8px 4px 12px;border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:14px}
@@ -2068,18 +2074,18 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   <!-- PC 우측 업체 카탈로그 -->
   <aside id="shop-panel" aria-label="Shop catalog">
     <div class="sp-header">
-      <div class="sp-title">✨ Seoul Beauty Catalog</div>
+      <div class="sp-title">Seoul Beauty Catalog</div>
       <div class="sp-subtitle" id="sp-count">Loading...</div>
     </div>
     <div class="sp-filter" id="sp-filter">
       <button class="sp-flt on" data-cat="all">All</button>
-      <button class="sp-flt" data-cat="skincare">🌿 Skincare</button>
-      <button class="sp-flt" data-cat="headspa">🧖 Head Spa</button>
-      <button class="sp-flt" data-cat="hair">💇 Hair</button>
-      <button class="sp-flt" data-cat="nail">💅 Nail</button>
-      <button class="sp-flt" data-cat="clinic">🏥 Clinic</button>
-      <button class="sp-flt" data-cat="makeup">💋 Makeup</button>
-      <button class="sp-flt" data-cat="spa">🛁 Spa</button>
+      <button class="sp-flt" data-cat="skincare">Skincare</button>
+      <button class="sp-flt" data-cat="headspa">Head Spa</button>
+      <button class="sp-flt" data-cat="hair">Hair</button>
+      <button class="sp-flt" data-cat="nail">Nail</button>
+      <button class="sp-flt" data-cat="clinic">Clinic</button>
+      <button class="sp-flt" data-cat="makeup">Makeup</button>
+      <button class="sp-flt" data-cat="spa">Spa</button>
     </div>
     <div class="sp-grid" id="sp-grid"></div>
   </aside>
@@ -2414,15 +2420,16 @@ function renderShopModal(shop) {
     priceHtml = '<div class="m-sec"><div class="m-sec-title"><i class="fas fa-won-sign" style="color:var(--gold);margin-right:4px"></i>Price List</div><div class="m-price-list">'+rows+'</div></div>';
   } else {
     // 가격 비공개 업체 → 상담 안내 + WhatsApp 버튼 2개
-    var consultMsg = encodeURIComponent('Hi! I would like to inquire about pricing at '+shopName+'\n\nService I\'m interested in: \nName: ');
+    var NL2 = String.fromCharCode(10);
+    var consultMsg = encodeURIComponent('Hi! I would like to inquire about pricing at '+shopName+NL2+NL2+'Service interested in: '+NL2+'Name: ');
     var consultUrl = 'https://wa.me/'+waNum+'?text='+consultMsg;
     var igUrl = 'https://instagram.com/'+(platform.instagram||'seoulbeautytrip');
     priceHtml = '<div class="m-sec">'+
       '<div class="m-sec-title"><i class="fas fa-comment-dots" style="color:var(--pk);margin-right:4px"></i>Pricing</div>'+
       '<div style="background:rgba(255,77,141,.06);border:1px solid rgba(255,77,141,.15);border-radius:14px;padding:16px 14px">'+
         '<div style="font-size:13px;color:rgba(255,255,255,.75);line-height:1.7;margin-bottom:14px">'+
-          '💬 Prices vary by treatment &amp; consultation.<br>'+
-          '<span style="color:rgba(255,255,255,.45);font-size:12px">Contact us for a free quote!</span>'+
+          'Prices vary by treatment &amp; consultation.<br>'+
+          '<span style="color:rgba(255,255,255,.45);font-size:12px">Contact us for a free quote via WhatsApp!</span>'+
         '</div>'+
         '<div style="display:flex;gap:8px">'+
           '<a href="'+consultUrl+'" target="_blank" rel="noopener" '+
@@ -2756,20 +2763,18 @@ window.addEventListener('load', function(){
 
   loadVideos('all');
 
-  // ── PC 카탈로그 패널 ──
-  if(window.innerWidth >= 1200) {
-    fetch('/api/shops').then(function(r){ return r.json(); }).then(function(d){
-      allShopsData = d.shops || [];
-      renderShopPanel('all');
+  // ── PC 카탈로그 패널 (항상 로드, CSS로 표시/숨김 제어) ──
+  fetch('/api/shops').then(function(r){ return r.json(); }).then(function(d){
+    allShopsData = d.shops || [];
+    renderShopPanel('all');
+  });
+  document.querySelectorAll('#sp-filter .sp-flt').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('#sp-filter .sp-flt').forEach(function(b){ b.classList.remove('on'); });
+      btn.classList.add('on');
+      renderShopPanel(btn.getAttribute('data-cat'));
     });
-    document.querySelectorAll('#sp-filter .sp-flt').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        document.querySelectorAll('#sp-filter .sp-flt').forEach(function(b){ b.classList.remove('on'); });
-        btn.classList.add('on');
-        renderShopPanel(btn.getAttribute('data-cat'));
-      });
-    });
-  }
+  });
 });
 
 function renderShopPanel(cat) {
@@ -2778,16 +2783,16 @@ function renderShopPanel(cat) {
   if(!grid) return;
   var catColors = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',nail:'#34d399',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa'};
   var filtered = cat === 'all' ? allShopsData : allShopsData.filter(function(s){ return s.category === cat; });
-  if(countEl) countEl.textContent = filtered.length + '개 업체';
+  if(countEl) countEl.textContent = filtered.length + ' shops';
   if(!filtered.length){
-    grid.innerHTML = '<div class="sp-empty"><div style="font-size:28px;margin-bottom:8px">🔍</div>해당 카테고리 업체가 없어요</div>';
+    grid.innerHTML = '<div class="sp-empty"><div style="font-size:28px;margin-bottom:8px">&#128269;</div>No shops in this category</div>';
     return;
   }
   grid.innerHTML = filtered.map(function(s){
     var col = catColors[s.category] || '#aaa';
-    var stars = s.rating >= 4.5 ? '★★★★★' : s.rating >= 4.0 ? '★★★★☆' : '★★★☆☆';
-    return '<div class="sp-card" onclick="openShopModal(\''+s.id+'\')">'+
-      '<img class="sp-card-img" src="'+(s.thumbnail||'https://via.placeholder.com/200x100/1a1a2e/fff?text='+encodeURIComponent(s.name))+'" alt="'+esc(s.name)+'" loading="lazy">'+
+    var sid = s.id.replace(/'/g, '');
+    return '<div class="sp-card" onclick="openShopModal(&quot;'+sid+'&quot;)">'+
+      '<img class="sp-card-img" src="'+(s.thumbnail||'')+'" alt="'+esc(s.name)+'" loading="lazy" onerror="this.style.background=&quot;#1a1a2e&quot;">'+
       '<div class="sp-card-rating"><i class="fas fa-star" style="font-size:8px"></i> '+s.rating+'</div>'+
       '<div class="sp-card-body">'+
         '<div class="sp-card-cat" style="color:'+col+'">'+esc(s.category)+'</div>'+
@@ -3465,7 +3470,7 @@ function fmtPrice(n){
 function renderShops(){
   var el = document.getElementById('shopList');
   if(!shops.length){
-    el.innerHTML = '<div style="text-align:center;padding:40px 24px;color:rgba(255,255,255,.25);font-size:13px"><div style="font-size:32px;margin-bottom:8px">🏪</div>등록된 업체가 없습니다<br><span style="font-size:11px">위 폼으로 업체를 등록해보세요</span></div>';
+    el.innerHTML = '<div style="text-align:center;padding:40px 24px;color:rgba(255,255,255,.25);font-size:13px"><div style="font-size:32px;margin-bottom:8px">&#127978;</div>No shops registered<br><span style="font-size:11px">Add a shop using the form above</span></div>';
     return;
   }
   var catColors = {skincare:'#f472b6',makeup:'#c084fc',hair:'#60a5fa',headspa:'#67e8f9',nail:'#34d399',clinic:'#fb923c',spa:'#a78bfa'};
@@ -4294,7 +4299,7 @@ function parseGmapUrl(raw){
   // 구글맵 URL → 서버 경유 처리 (단축URL + /place/ 형태 모두)
   if(url.indexOf('google.com/maps')!==-1 || url.indexOf('goo.gl')!==-1 || url.indexOf('maps.app')!==-1){
     status.style.color='#fbbf24';
-    status.textContent='🔄 링크 분석 중...';
+    status.textContent='Analyzing link...';
     fetch('/api/resolve-gmap',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:url})})
       .then(function(r){return r.json();})
       .then(function(d){
@@ -4735,7 +4740,7 @@ async function genAiSeo(prefix) {
   }
 
   if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 생성 중...'; }
-  if (statusEl) statusEl.textContent = '🤖 AI가 SEO 최적화 설명을 분석 중...';
+  if (statusEl) statusEl.textContent = 'AI is generating SEO description...';
 
   // 서비스 목록 수집
   var services = [];
