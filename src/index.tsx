@@ -683,13 +683,13 @@ app.post('/api/places-fetch', async (c) => {
     const { query } = await c.req.json() as { query: string }
     if (!query) return c.json({ error: 'query required' }, 400)
 
-    // 1. Text Search로 place_id + 기본 정보 취득 (photos 포함)
+    // 1. Text Search — languageCode:'en' 으로 영문 정보 직접 취득
     const searchRes = await fetch('https://places.googleapis.com/v1/places:searchText', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Goog-Api-Key': GOOGLE_PLACES_KEY,
-        'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.regularOpeningHours,places.rating,places.userRatingCount,places.reviews,places.priceLevel,places.photos'
+        'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.shortFormattedAddress,places.addressComponents,places.regularOpeningHours,places.rating,places.userRatingCount,places.reviews,places.priceLevel,places.photos,places.websiteUri,places.internationalPhoneNumber'
       },
       body: JSON.stringify({ textQuery: query, languageCode: 'en' })
     })
@@ -701,23 +701,64 @@ app.post('/api/places-fetch', async (c) => {
     const place = searchData.places?.[0]
     if (!place) return c.json({ error: 'No place found' }, 404)
 
-    // 2. 영업시간 포맷 (요일별 배열)
+    // 2. 영문 주소 정제
+    // formattedAddress가 영문이면 그대로, 한국어가 섞이면 addressComponents로 재조합
+    const rawAddr: string = place.formattedAddress || ''
+    const hasKorean = /[\uAC00-\uD7A3]/.test(rawAddr)
+    let engAddress = rawAddr
+
+    if (hasKorean) {
+      // addressComponents에서 영문(long_name) 으로 재조합
+      const comps: any[] = place.addressComponents || []
+      // 필요한 타입만 추려서 영문으로 조합: subpremise > premise > sublocality_level_1 > locality > administrative_area_level_1
+      const pick = (types: string[]) => {
+        const c = comps.find((x: any) => types.some((t: string) => x.types?.includes(t)))
+        return c?.languageCode === 'ko' ? (c?.longText || '') : (c?.longText || '')
+      }
+      const parts = [
+        pick(['subpremise']),
+        pick(['premise', 'point_of_interest', 'establishment']),
+        pick(['sublocality_level_4', 'sublocality_level_3', 'sublocality_level_2', 'sublocality_level_1']),
+        pick(['locality', 'administrative_area_level_2']),
+        pick(['administrative_area_level_1']),
+        'South Korea'
+      ].filter(Boolean)
+      engAddress = parts.length > 1 ? parts.join(', ') : rawAddr
+      // 여전히 한국어 포함이면 place.shortFormattedAddress 시도
+      if (/[\uAC00-\uD7A3]/.test(engAddress)) {
+        engAddress = place.shortFormattedAddress || rawAddr
+      }
+    }
+
+    // 3. 지역명 추출 (location 필드용: "Gangnam, Seoul" 형태)
+    const comps: any[] = place.addressComponents || []
+    const locality = comps.find((x: any) => x.types?.includes('sublocality_level_1') || x.types?.includes('locality'))
+    const area = locality?.longText || ''
+    const location = area ? `${area}, Seoul` : 'Seoul'
+
+    // 4. 업체 영문명
+    const engName: string = place.displayName?.text || ''
+
+    // 5. 전화번호, 웹사이트
+    const phone: string = place.internationalPhoneNumber || ''
+    const website: string = place.websiteUri || ''
+
+    // 6. 영업시간 (요일별 배열 — 영문)
     const weekdays: string[] = place.regularOpeningHours?.weekdayDescriptions || []
-    const hoursStr = weekdays.join(' / ')
+    const hoursStr = weekdays.join(' | ')
 
-    // 3. 영어 리뷰 최대 5개 필터링
+    // 7. 리뷰: 영어 우선, 부족하면 전체에서 보충 (최대 5개)
     const rawReviews: any[] = place.reviews || []
-    const reviews = rawReviews
-      .filter((r: any) => r.text?.languageCode === 'en' && r.text?.text?.length > 20)
-      .slice(0, 5)
-      .map((r: any) => ({
-        author: r.authorAttribution?.displayName || 'Guest',
-        rating: r.rating || 5,
-        text: r.text?.text || '',
-        time: r.relativePublishTimeDescription || ''
-      }))
+    const enReviews = rawReviews.filter((r: any) => r.text?.languageCode === 'en' && (r.text?.text?.length || 0) > 20)
+    const otherReviews = rawReviews.filter((r: any) => r.text?.languageCode !== 'en' && (r.text?.text?.length || 0) > 20)
+    const reviews = [...enReviews, ...otherReviews].slice(0, 5).map((r: any) => ({
+      author: r.authorAttribution?.displayName || 'Guest',
+      rating: r.rating || 5,
+      text: r.text?.text || '',
+      time: r.relativePublishTimeDescription || ''
+    }))
 
-    // 4. 사진 URL 생성 (최대 6장) — 상대 프록시 경로로 저장 (어떤 도메인에서든 동작)
+    // 8. 사진 URL (최대 6장) — 상대경로 프록시
     const rawPhotos: any[] = place.photos || []
     const photos = rawPhotos.slice(0, 6).map((p: any) => {
       const name = encodeURIComponent(p.name || '')
@@ -725,12 +766,16 @@ app.post('/api/places-fetch', async (c) => {
     })
 
     return c.json({
-      placeId: place.id || '',
-      address: place.formattedAddress || '',
-      hours: hoursStr,
+      placeId:             place.id || '',
+      name:                engName,
+      address:             engAddress,
+      location:            location,
+      phone:               phone,
+      website:             website,
+      hours:               hoursStr,
       weekdayDescriptions: weekdays,
-      rating: place.rating || 0,
-      reviewCount: place.userRatingCount || 0,
+      rating:              place.rating || 0,
+      reviewCount:         place.userRatingCount || 0,
       reviews,
       photos
     })
@@ -2182,22 +2227,37 @@ textarea{height:80px;resize:none}
     <div class="card-header">
       <div class="card-title"><i class="fas fa-store" style="color:#FF4D8D"></i> 업체 등록</div>
     </div>
-    <!-- 구글맵 붙여넣기 → 자동완성 -->
-    <div style="background:rgba(66,133,244,.08);border:1px solid rgba(66,133,244,.3);border-radius:14px;padding:14px;margin-bottom:16px">
-      <div style="font-size:13px;font-weight:700;color:#60a5fa;margin-bottom:10px">
-        <i class="fas fa-map-marker-alt"></i> 구글맵 링크 붙여넣기 <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,.4)">→ 업체명·주소·지역 자동입력</span>
+
+    <!-- STEP 1: 구글 자동가져오기 (최우선) -->
+    <div style="background:linear-gradient(135deg,rgba(66,133,244,.12),rgba(52,168,83,.08));border:1px solid rgba(66,133,244,.35);border-radius:16px;padding:16px;margin-bottom:18px">
+      <div style="font-size:13px;font-weight:800;color:#60a5fa;margin-bottom:12px">
+        <i class="fab fa-google"></i> STEP 1 — 구글에서 업체 정보 자동가져오기
+        <div style="font-size:11px;font-weight:400;color:rgba(255,255,255,.4);margin-top:3px">업체명 입력 후 버튼 클릭 → 영문주소·영업시간·사진·리뷰 한번에 자동입력</div>
       </div>
-      <div style="display:flex;gap:8px;margin-bottom:8px">
-        <input id="sh-gmap-raw" placeholder="https://maps.app.goo.gl/... 링크를 여기에 붙여넣으세요" style="flex:1;font-size:14px;margin-bottom:0">
-        <button type="button" id="sh-gmap-btn" style="padding:0 18px;background:linear-gradient(135deg,#4285F4,#34A853);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0">자동입력</button>
+      <!-- 구글맵 링크 붙여넣기 -->
+      <div style="margin-bottom:10px">
+        <div style="font-size:11px;color:rgba(255,255,255,.45);margin-bottom:5px"><i class="fas fa-link"></i> 구글맵 링크로 자동입력 (선택)</div>
+        <div style="display:flex;gap:8px">
+          <input id="sh-gmap-raw" placeholder="https://maps.app.goo.gl/... 붙여넣기" style="flex:1;font-size:13px;margin-bottom:0">
+          <button type="button" id="sh-gmap-btn" style="padding:0 16px;background:rgba(66,133,244,.25);border:1px solid rgba(66,133,244,.4);border-radius:10px;color:#93c5fd;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0"><i class="fas fa-magic"></i> 링크입력</button>
+        </div>
+        <div id="sh-gmap-status" style="font-size:11px;color:rgba(255,255,255,.4);min-height:16px;margin-top:4px"></div>
       </div>
-      <div id="sh-gmap-status" style="font-size:12px;color:rgba(255,255,255,.4);min-height:18px"></div>
+      <!-- 구글 전체 자동가져오기 버튼 -->
+      <button type="button" onclick="fetchPlacesInfo('sh')" id="sh-places-btn"
+        style="width:100%;padding:11px;background:linear-gradient(135deg,#4285F4,#34A853);border:none;border-radius:12px;color:#fff;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+        <i class="fab fa-google"></i> 구글 Places API로 전체 정보 자동가져오기
+        <span style="font-size:10px;opacity:.7">(주소·영업시간·평점·리뷰·사진)</span>
+      </button>
+      <div id="sh-places-status" style="margin-top:8px;min-height:16px"></div>
     </div>
 
+    <!-- STEP 2: 기본 정보 입력 -->
+    <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.4);margin-bottom:10px">STEP 2 — 기본 정보 <span style="font-weight:400;color:rgba(255,255,255,.25)">(자동입력 또는 직접 수정)</span></div>
     <div class="form-grid">
       <div class="full">
-        <label>업체명 *</label>
-        <input id="sh-name" placeholder="구글맵 붙여넣으면 자동입력">
+        <label>업체명 * <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,.35)">(자동가져오기 전에 한국어 업체명 입력)</span></label>
+        <input id="sh-name" placeholder="예: 압구정 헤어팩토리">
       </div>
       <div>
         <label>카테고리 *</label>
@@ -2212,26 +2272,20 @@ textarea{height:80px;resize:none}
         </select>
       </div>
       <div>
-        <label>지역 <span style="font-size:11px;color:rgba(255,255,255,.4)">(자동입력)</span></label>
-        <input id="sh-loc" placeholder="자동입력 또는 직접 입력">
+        <label>지역 <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,.35)">(자동입력)</span></label>
+        <input id="sh-loc" placeholder="예: Gangnam, Seoul">
       </div>
       <div class="full">
-        <label>주소 <span style="font-size:11px;color:rgba(255,255,255,.4)">(자동입력)</span></label>
-        <input id="sh-addr" placeholder="자동입력 또는 직접 입력">
+        <label>영문 주소 <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,.35)">(자동가져오기로 영문 자동입력)</span></label>
+        <input id="sh-addr" placeholder="자동가져오기 후 자동입력됩니다">
       </div>
       <div class="full">
-        <label style="display:flex;align-items:center;justify-content:space-between">
-          <span>영업시간 <span style="font-size:11px;color:rgba(255,255,255,.4)">(구글 자동)</span></span>
-          <button type="button" onclick="fetchPlacesInfo('sh')" id="sh-places-btn" style="display:flex;align-items:center;gap:5px;padding:4px 12px;background:linear-gradient(135deg,#4285F4,#34A853);border:none;border-radius:20px;color:#fff;font-size:11px;font-weight:700;cursor:pointer">
-            <i class="fab fa-google"></i> 구글에서 자동가져오기
-          </button>
-        </label>
-        <input id="sh-hours" placeholder="예: Mon-Fri 10AM-7PM, Sat 10AM-5PM, Sun Closed">
-        <div id="sh-places-status" style="font-size:11px;color:rgba(255,255,255,.4);margin-top:4px;min-height:16px"></div>
+        <label>영업시간 <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,.35)">(자동가져오기로 요일별 자동입력)</span></label>
+        <input id="sh-hours" placeholder="자동가져오기 후 자동입력됩니다">
       </div>
       <div class="full">
         <label style="display:flex;align-items:center;justify-content:space-between">
-          <span>업체 소개 <span style="font-size:11px;color:rgba(255,255,255,.4)">(선택)</span></span>
+          <span>업체 소개 <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,.35)">(선택)</span></span>
           <button type="button" onclick="genAiSeo('sh')" style="display:flex;align-items:center;gap:5px;padding:4px 12px;background:linear-gradient(135deg,#7C3AED,#E8417A);border:none;border-radius:20px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;transition:opacity .2s" id="sh-ai-btn">
             <i class="fas fa-magic"></i> AI SEO 자동생성
           </button>
@@ -2288,6 +2342,18 @@ textarea{height:80px;resize:none}
       <div class="card-title"><i class="fas fa-edit" style="color:#60a5fa"></i> 업체 수정 — <span id="edit-shop-name-label" style="color:#93c5fd"></span></div>
       <button style="background:none;border:none;color:rgba(255,255,255,.4);font-size:18px;cursor:pointer" id="edit-panel-close">✕</button>
     </div>
+    <!-- 구글 자동가져오기 섹션 -->
+    <div style="background:linear-gradient(135deg,rgba(66,133,244,.1),rgba(52,168,83,.07));border:1px solid rgba(66,133,244,.3);border-radius:14px;padding:14px;margin-bottom:16px">
+      <div style="font-size:12px;font-weight:800;color:#60a5fa;margin-bottom:10px"><i class="fab fa-google"></i> 구글 Places API 자동가져오기
+        <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,.4);margin-left:6px">영문주소·영업시간·평점·리뷰·사진 한번에</span>
+      </div>
+      <button type="button" onclick="fetchPlacesInfo('edit-sh')" id="edit-sh-places-btn"
+        style="width:100%;padding:10px;background:linear-gradient(135deg,#4285F4,#34A853);border:none;border-radius:10px;color:#fff;font-size:12px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px">
+        <i class="fab fa-google"></i> 구글에서 전체 정보 다시 가져오기
+      </button>
+      <div id="edit-sh-places-status" style="margin-top:8px;min-height:16px"></div>
+    </div>
+
     <div class="form-grid">
       <div class="full"><label>업체명 *</label><input id="edit-sh-name" placeholder="업체명"></div>
       <div>
@@ -2303,16 +2369,13 @@ textarea{height:80px;resize:none}
         </select>
       </div>
       <div><label>지역</label><input id="edit-sh-loc" placeholder="예: Gangnam, Seoul"></div>
-      <div class="full"><label>주소</label><input id="edit-sh-addr" placeholder="주소"></div>
       <div class="full">
-        <label style="display:flex;align-items:center;justify-content:space-between">
-          <span>영업시간</span>
-          <button type="button" onclick="fetchPlacesInfo('edit-sh')" id="edit-sh-places-btn" style="display:flex;align-items:center;gap:5px;padding:4px 12px;background:linear-gradient(135deg,#4285F4,#34A853);border:none;border-radius:20px;color:#fff;font-size:11px;font-weight:700;cursor:pointer">
-            <i class="fab fa-google"></i> 구글에서 자동가져오기
-          </button>
-        </label>
-        <input id="edit-sh-hours" placeholder="예: Mon-Fri 10AM-7PM, Sat 10AM-5PM, Sun Closed">
-        <div id="edit-sh-places-status" style="font-size:11px;color:rgba(255,255,255,.4);margin-top:4px;min-height:16px"></div>
+        <label>영문 주소 <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,.35)">(자동가져오기로 영문 주소 자동입력)</span></label>
+        <input id="edit-sh-addr" placeholder="자동가져오기 후 영문 주소 자동입력">
+      </div>
+      <div class="full">
+        <label>영업시간 <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,.35)">(자동가져오기로 요일별 자동입력)</span></label>
+        <input id="edit-sh-hours" placeholder="자동가져오기 후 자동입력">
       </div>
       <div class="full">
         <label style="color:#60a5fa;font-weight:800">🗺️ 지도 embed URL <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,.45)">(모달에서 지도 표시)</span></label>
@@ -3656,104 +3719,7 @@ function saveSettings(){
   alert('저장되었습니다!');
 }
 
-/* ── Google Places 자동가져오기 ── */
-async function fetchPlacesInfo(prefix) {
-  var nameEl = document.getElementById(prefix + '-name');
-  var locEl  = document.getElementById(prefix + '-loc');
-  var addrEl = document.getElementById(prefix + '-addr');
-  var hoursEl= document.getElementById(prefix + '-hours');
-  var statusEl = document.getElementById(prefix + '-places-status');
-  var btn    = document.getElementById(prefix + '-places-btn');
-
-  var shopName = (nameEl ? nameEl.value : '').trim();
-  var location = (locEl  ? locEl.value  : '').trim();
-  if (!shopName) { alert('업체명을 먼저 입력해주세요.'); return; }
-
-  var query = shopName + (location ? ' ' + location : '') + ' Seoul Korea';
-
-  if(statusEl) statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 구글에서 정보 가져오는 중...';
-  if(btn) { btn.disabled = true; btn.style.opacity = '.6'; }
-
-  try {
-    var res = await fetch('/api/places-fetch', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: query })
-    });
-    var data = await res.json();
-
-    if (data.error) {
-      if(statusEl) statusEl.innerHTML = '<span style="color:#f87171">❌ ' + (data.error === 'No place found' ? '구글에서 업체를 찾을 수 없습니다.' : data.error) + '</span>';
-      return;
-    }
-
-    // 주소 업데이트
-    if (data.address && addrEl) addrEl.value = data.address;
-
-    // 영업시간 업데이트 (요일별 상세)
-    if (data.hours && hoursEl) hoursEl.value = data.hours;
-
-    // 별점/리뷰수 저장 (hidden 필드에)
-    if (data.rating) {
-      var ratingHid = document.getElementById(prefix + '-rating');
-      if (!ratingHid) {
-        ratingHid = document.createElement('input');
-        ratingHid.type = 'hidden';
-        ratingHid.id = prefix + '-rating';
-        document.body.appendChild(ratingHid);
-      }
-      ratingHid.value = data.rating;
-    }
-    if (data.reviewCount) {
-      var rcHid = document.getElementById(prefix + '-review-count');
-      if (!rcHid) {
-        rcHid = document.createElement('input');
-        rcHid.type = 'hidden';
-        rcHid.id = prefix + '-review-count';
-        document.body.appendChild(rcHid);
-      }
-      rcHid.value = data.reviewCount;
-    }
-
-    // 리뷰 JSON 저장
-    if (data.reviews) {
-      var revHid = document.getElementById(prefix + '-reviews');
-      if (!revHid) {
-        revHid = document.createElement('input');
-        revHid.type = 'hidden';
-        revHid.id = prefix + '-reviews';
-        document.body.appendChild(revHid);
-      }
-      revHid.value = JSON.stringify(data.reviews);
-    }
-
-    // PlaceId 저장
-    if (data.placeId) {
-      var pidHid = document.getElementById(prefix + '-place-id');
-      if (!pidHid) {
-        pidHid = document.createElement('input');
-        pidHid.type = 'hidden';
-        pidHid.id = prefix + '-place-id';
-        document.body.appendChild(pidHid);
-      }
-      pidHid.value = data.placeId;
-    }
-
-    var summary = [];
-    if (data.address)     summary.push('주소 ✅');
-    if (data.hours)       summary.push('영업시간 ✅');
-    if (data.rating)      summary.push('별점 ' + data.rating + '⭐');
-    if (data.reviews && data.reviews.length) summary.push('리뷰 ' + data.reviews.length + '개 ✅');
-    if(statusEl) statusEl.innerHTML = '<span style="color:#4ade80">✅ ' + summary.join(' · ') + '</span>';
-
-  } catch(e) {
-    if(statusEl) statusEl.innerHTML = '<span style="color:#f87171">❌ 오류: ' + e.message + '</span>';
-  } finally {
-    if(btn) { btn.disabled = false; btn.style.opacity = '1'; }
-  }
-}
-
-/* ── Google Places 자동가져오기 (영업시간 + 영문주소 + 리뷰) ── */
+/* ── Google Places 자동가져오기 (통합) ── */
 async function fetchPlacesInfo(prefix) {
   var nameEl   = document.getElementById(prefix + '-name');
   var locEl    = document.getElementById(prefix + '-loc');
@@ -3764,11 +3730,14 @@ async function fetchPlacesInfo(prefix) {
 
   var shopName = nameEl ? nameEl.value.trim() : '';
   var location = locEl  ? locEl.value.trim()  : '';
-  if (!shopName) { if(statusEl) statusEl.innerHTML = '<span style="color:#f87171">업체명을 먼저 입력하세요</span>'; return; }
+  if (!shopName) {
+    if(statusEl) statusEl.innerHTML = '<span style="color:#f87171">⚠️ 업체명을 먼저 입력하세요</span>';
+    return;
+  }
 
   var query = shopName + (location ? ' ' + location : '') + ' Seoul Korea';
   if(statusEl) statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 구글에서 정보 가져오는 중...';
-  if(btnEl) { btnEl.disabled = true; }
+  if(btnEl) { btnEl.disabled = true; btnEl.style.opacity = '.6'; }
 
   try {
     var res = await fetch('/api/places-fetch', {
@@ -3777,62 +3746,70 @@ async function fetchPlacesInfo(prefix) {
       body: JSON.stringify({ query: query })
     });
     var d = await res.json();
-    if (d.error) { if(statusEl) statusEl.innerHTML = '<span style="color:#f87171">❌ ' + d.error + '</span>'; return; }
+    if (d.error) {
+      if(statusEl) statusEl.innerHTML = '<span style="color:#f87171">❌ ' + (d.error === 'No place found' ? '구글에서 업체를 찾을 수 없습니다.' : d.error) + '</span>';
+      return;
+    }
 
     var updated = [];
 
-    // 영문 주소
+    // 1. 업체 영문명 (비어있을 때만 덮어씀)
+    if (d.name && nameEl && !nameEl.value.trim()) {
+      nameEl.value = d.name;
+      updated.push('업체명');
+    }
+
+    // 2. 영문 주소
     if (d.address && addrEl) {
       addrEl.value = d.address;
-      updated.push('주소');
+      updated.push('주소 ✅');
     }
 
-    // 영업시간 (요일별 전체 — 구분자 ' | ')
+    // 3. 지역 (location)
+    if (d.location && locEl && !locEl.value.trim()) {
+      locEl.value = d.location;
+      updated.push('지역');
+    }
+
+    // 4. 영업시간 (요일별)
     if (d.weekdayDescriptions && d.weekdayDescriptions.length > 0 && hoursEl) {
       hoursEl.value = d.weekdayDescriptions.join(' | ');
-      updated.push('영업시간');
+      updated.push('영업시간 ✅');
     } else if (d.hours && hoursEl) {
       hoursEl.value = d.hours;
-      updated.push('영업시간');
+      updated.push('영업시간 ✅');
     }
 
-    // 평점/리뷰수 hidden 저장
-    if (d.rating) {
-      var ratingEl = document.getElementById(prefix + '-rating');
-      if (ratingEl) ratingEl.value = d.rating;
-      updated.push('평점 ' + d.rating + '★');
+    // 5. 평점/리뷰수 hidden 저장
+    var ratingEl = document.getElementById(prefix + '-rating');
+    if (d.rating && ratingEl) { ratingEl.value = d.rating; updated.push('평점 ' + d.rating + '★'); }
+    var rcEl = document.getElementById(prefix + '-review-count');
+    if (d.reviewCount && rcEl) { rcEl.value = d.reviewCount; }
+
+    // 6. 리뷰 JSON hidden 저장
+    var rvEl = document.getElementById(prefix + '-reviews');
+    if (d.reviews && d.reviews.length > 0 && rvEl) {
+      rvEl.value = JSON.stringify(d.reviews);
+      updated.push('리뷰 ' + d.reviews.length + '개 ✅');
     }
-    if (d.reviewCount) {
-      var rcEl = document.getElementById(prefix + '-review-count');
-      if (rcEl) rcEl.value = d.reviewCount;
-    }
-    // reviews JSON hidden 저장
-    if (d.reviews && d.reviews.length > 0) {
-      var rvEl = document.getElementById(prefix + '-reviews');
-      if (rvEl) rvEl.value = JSON.stringify(d.reviews);
-      updated.push('리뷰 ' + d.reviews.length + '개');
-    }
-    // placeId hidden 저장
-    if (d.placeId) {
-      var pidEl = document.getElementById(prefix + '-place-id');
-      if (pidEl) pidEl.value = d.placeId;
-    }
-    // 사진 (최대 6장) — 썸네일/photos hidden에 저장 + 미리보기
+
+    // 7. placeId hidden 저장
+    var pidEl = document.getElementById(prefix + '-place-id');
+    if (d.placeId && pidEl) { pidEl.value = d.placeId; }
+
+    // 8. 사진 (최대 6장) — 썸네일 + photos hidden + 미리보기
     if (d.photos && d.photos.length > 0) {
       var thumbEl = document.getElementById(prefix + '-thumb');
-      // 썸네일이 비어 있으면 첫 번째 사진으로
       if (thumbEl && !thumbEl.value) { thumbEl.value = d.photos[0]; }
-      // photos hidden (첫 번째 제외한 나머지)
       var photosHiddenEl = document.getElementById(prefix + '-photos');
       if (photosHiddenEl) { photosHiddenEl.value = JSON.stringify(d.photos); }
-      updated.push('사진 ' + d.photos.length + '장');
-      // 사진 미리보기 렌더링
+      updated.push('사진 ' + d.photos.length + '장 ✅');
       var previewId = prefix === 'sh' ? 'sh-photos-preview' : 'edit-sh-photos-preview';
       var previewEl = document.getElementById(previewId);
       if (previewEl) {
         previewEl.innerHTML = d.photos.map(function(url) {
           return '<div style="position:relative;display:inline-block;margin:3px">'
-            + '<img src="'+url+'" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid rgba(255,255,255,.15)" onerror="this.remove()">'  
+            + '<img src="' + url + '" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid rgba(255,255,255,.15)" onerror="this.remove()">'
             + '</div>';
         }).join('');
         previewEl.style.display = 'flex';
@@ -3842,11 +3819,22 @@ async function fetchPlacesInfo(prefix) {
       }
     }
 
-    if(statusEl) statusEl.innerHTML = '<span style="color:#4ade80">✅ ' + updated.join(' · ') + ' 가져오기 완료!</span>';
+    // 9. 결과 요약 카드 렌더링
+    var resultCard = '<div style="background:rgba(74,222,128,.06);border:1px solid rgba(74,222,128,.2);border-radius:10px;padding:10px 12px;margin-top:6px">'
+      + '<div style="font-size:11px;font-weight:800;color:#4ade80;margin-bottom:6px"><i class="fab fa-google"></i> 구글 정보 가져오기 완료!</div>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:5px">';
+    updated.forEach(function(item) {
+      resultCard += '<span style="background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.25);border-radius:20px;padding:2px 9px;font-size:10px;color:#86efac">' + item + '</span>';
+    });
+    resultCard += '</div>';
+    if (d.name) resultCard += '<div style="margin-top:6px;font-size:11px;color:rgba(255,255,255,.5)">영문명: <b style="color:rgba(255,255,255,.8)">' + d.name + '</b></div>';
+    resultCard += '</div>';
+    if(statusEl) statusEl.innerHTML = resultCard;
+
   } catch(e) {
     if(statusEl) statusEl.innerHTML = '<span style="color:#f87171">❌ 오류: ' + e.message + '</span>';
   } finally {
-    if(btnEl) { btnEl.disabled = false; }
+    if(btnEl) { btnEl.disabled = false; btnEl.style.opacity = '1'; }
   }
 }
 
