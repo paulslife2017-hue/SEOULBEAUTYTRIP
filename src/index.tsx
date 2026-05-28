@@ -683,13 +683,13 @@ app.post('/api/places-fetch', async (c) => {
     const { query } = await c.req.json() as { query: string }
     if (!query) return c.json({ error: 'query required' }, 400)
 
-    // 1. Text Search로 place_id + 기본 정보 취득
+    // 1. Text Search로 place_id + 기본 정보 취득 (photos 포함)
     const searchRes = await fetch('https://places.googleapis.com/v1/places:searchText', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Goog-Api-Key': GOOGLE_PLACES_KEY,
-        'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.regularOpeningHours,places.rating,places.userRatingCount,places.reviews,places.priceLevel'
+        'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.regularOpeningHours,places.rating,places.userRatingCount,places.reviews,places.priceLevel,places.photos'
       },
       body: JSON.stringify({ textQuery: query, languageCode: 'en' })
     })
@@ -701,8 +701,8 @@ app.post('/api/places-fetch', async (c) => {
     const place = searchData.places?.[0]
     if (!place) return c.json({ error: 'No place found' }, 404)
 
-    // 2. 영업시간 포맷 (요일별 → 간략)
-    const weekdays = place.regularOpeningHours?.weekdayDescriptions || []
+    // 2. 영업시간 포맷 (요일별 배열)
+    const weekdays: string[] = place.regularOpeningHours?.weekdayDescriptions || []
     const hoursStr = weekdays.join(' / ')
 
     // 3. 영어 리뷰 최대 5개 필터링
@@ -717,6 +717,13 @@ app.post('/api/places-fetch', async (c) => {
         time: r.relativePublishTimeDescription || ''
       }))
 
+    // 4. 사진 URL 생성 (최대 6장) — Places API (New) photo URL 형식
+    const rawPhotos: any[] = place.photos || []
+    const photos = rawPhotos.slice(0, 6).map((p: any) => {
+      const name = p.name || ''
+      return `https://places.googleapis.com/v1/${name}/media?key=${GOOGLE_PLACES_KEY}&maxHeightPx=800&maxWidthPx=800`
+    })
+
     return c.json({
       placeId: place.id || '',
       address: place.formattedAddress || '',
@@ -724,8 +731,34 @@ app.post('/api/places-fetch', async (c) => {
       weekdayDescriptions: weekdays,
       rating: place.rating || 0,
       reviewCount: place.userRatingCount || 0,
-      reviews
+      reviews,
+      photos
     })
+  } catch(e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+})
+
+// ── Google Places 사진만 가져오기 ──
+app.post('/api/places-photos', async (c) => {
+  try {
+    const { placeId } = await c.req.json() as { placeId: string }
+    if (!placeId) return c.json({ error: 'placeId required' }, 400)
+
+    const res = await fetch(`https://places.googleapis.com/v1/places/${placeId}`, {
+      headers: {
+        'X-Goog-Api-Key': GOOGLE_PLACES_KEY,
+        'X-Goog-FieldMask': 'photos'
+      }
+    })
+    if (!res.ok) return c.json({ error: 'Places API error' }, 500)
+    const data: any = await res.json()
+    const rawPhotos: any[] = data.photos || []
+    const photos = rawPhotos.slice(0, 6).map((p: any) => {
+      const name = p.name || ''
+      return `https://places.googleapis.com/v1/${name}/media?key=${GOOGLE_PLACES_KEY}&maxHeightPx=800&maxWidthPx=800`
+    })
+    return c.json({ photos })
   } catch(e: any) {
     return c.json({ error: e.message }, 500)
   }
@@ -1157,7 +1190,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 /* ── 업체 모달 ── */
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:500;display:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(16px)}
 .modal-bg.open{display:flex}
-.modal{background:linear-gradient(180deg,#111118 0%,#0d0d14 100%);border-radius:28px 28px 0 0;padding:0 0 44px;width:100%;max-width:520px;border:1px solid rgba(255,255,255,.08);border-bottom:none;animation:msu .35s cubic-bezier(.22,1,.36,1);position:relative;height:88vh;display:flex;flex-direction:column;touch-action:pan-y}
+.modal{background:linear-gradient(180deg,#111118 0%,#0d0d14 100%);border-radius:28px 28px 0 0;padding:0;width:100%;max-width:520px;border:1px solid rgba(255,255,255,.08);border-bottom:none;animation:msu .35s cubic-bezier(.22,1,.36,1);position:relative;height:88vh;display:flex;flex-direction:column;touch-action:pan-y}
 @keyframes msu{from{transform:translateY(100%);opacity:.6}to{transform:translateY(0);opacity:1}}
 /* 핸들 */
 .modal-handle-area{flex-shrink:0;padding:10px 20px 0;cursor:grab;display:flex;flex-direction:column;align-items:center;gap:10px}
@@ -1183,7 +1216,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .m-ts-thumb img{width:100%;height:100%;object-fit:cover;display:block}
 .m-ts-more{flex:1;height:52px;border-radius:8px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:rgba(255,255,255,.45);cursor:pointer;gap:3px}
 /* 본문 */
-.m-body{padding:16px 20px 0}
+.m-body{padding:16px 20px 20px}
 /* 샵 헤더 */
 .m-shop-header{margin-bottom:16px}
 .m-shop-name{font-family:var(--ff-serif);font-size:22px;font-weight:700;line-height:1.2;margin-bottom:6px;letter-spacing:-.2px}
@@ -1222,8 +1255,31 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .m-map-zoom{position:absolute;bottom:10px;right:10px;z-index:3;display:flex;flex-direction:column;gap:4px}
 .m-map-zoom button{width:32px;height:32px;border-radius:8px;border:none;background:rgba(15,15,25,.82);backdrop-filter:blur(8px);color:#fff;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.4);transition:background .15s}
 .m-map-zoom button:hover{background:rgba(232,65,122,.7)}
+/* 영업시간 테이블 */
+.m-hours-table{width:100%;border-collapse:collapse}
+.m-hours-table tr{border-bottom:1px solid rgba(255,255,255,.05)}
+.m-hours-table tr:last-child{border-bottom:none}
+.m-hours-table td{padding:7px 4px;font-size:12px;line-height:1.4}
+.m-hours-td-day{color:rgba(255,255,255,.5);font-weight:600;width:88px;white-space:nowrap}
+.m-hours-td-time{color:rgba(255,255,255,.82);font-weight:500}
+.m-hours-td-time.closed{color:rgba(255,100,100,.6);font-style:italic}
+.m-hours-td-today{background:rgba(201,168,76,.07);border-radius:6px}
+.m-hours-td-today .m-hours-td-day{color:var(--gold)}
+.m-hours-td-today .m-hours-td-time{color:var(--gold);font-weight:700}
+/* 리뷰 카드 */
+.m-review-card{padding:14px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.m-review-card:last-child{border-bottom:none}
+.m-review-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.m-review-author{font-size:12px;font-weight:700;color:rgba(255,255,255,.85)}
+.m-review-stars{font-size:12px;color:var(--gold);letter-spacing:1px}
+.m-review-text{font-size:12.5px;color:rgba(255,255,255,.62);line-height:1.75}
+.m-review-time{font-size:10px;color:rgba(255,255,255,.28);margin-top:5px}
+/* 사진 그리드 */
+.m-photos-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;border-radius:12px;overflow:hidden}
+.m-photos-grid img{width:100%;aspect-ratio:1;object-fit:cover;cursor:pointer;transition:opacity .2s}
+.m-photos-grid img:hover{opacity:.85}
 /* 버튼 */
-.m-btns{flex-shrink:0;padding:14px 20px 0}
+.m-btns{flex-shrink:0;padding:10px 20px 28px;background:linear-gradient(0deg,#0d0d14 60%,transparent)}
 .m-wa{
   display:flex;align-items:center;justify-content:center;gap:10px;
   padding:15px 20px;
@@ -1521,18 +1577,14 @@ function renderShopModal(shop) {
         +'<div class="m-hero-badge">'+(catIcons[shop.category]||'')+'&nbsp;'+esc((shop.category||'').toUpperCase())+'</div>'
       +'</div>';
 
-    /* 히어로 바로 아래 최대 3개 썸네일 스트립 */
+    /* 히어로 바로 아래 전체 썸네일 스트립 (최대 6장) */
     if(allPhotos.length > 1) {
-      var stripPhotos = allPhotos.slice(0, 3);
-      var extraCount  = allPhotos.length - 3;
+      var stripPhotos = allPhotos.slice(0, 6);
       var strips = stripPhotos.map(function(url, i){
         return '<div class="m-ts-thumb'+(i===0?' on':'')+'" data-photo-url="'+esc(url)+'" onclick="setMHero(this.dataset.photoUrl,this)">'
-          +'<img src="'+esc(url)+'" alt="" loading="lazy">'
+          +'<img src="'+esc(url)+'" alt="" loading="lazy" onerror="this.parentElement.style.display=\'none\'">'
           +'</div>';
       }).join('');
-      if(extraCount > 0) {
-        strips += '<div class="m-ts-more"><i class="fas fa-images"></i>+'+extraCount+'</div>';
-      }
       heroHtml += '<div class="m-thumbstrip">'+strips+'</div>';
     }
   }
@@ -1544,16 +1596,44 @@ function renderShopModal(shop) {
   var starsHtml = '';
   for(var si=0; si<5; si++) starsHtml += (si < Math.round(rating)) ? '&#9733;' : '&#9734;';
 
+  /* ── 영업시간 파싱 (요일별 테이블) ── */
+  var hoursHtml = '';
+  if(shop.hours) {
+    // "Monday: 10:00 AM – 7:00 PM / Tuesday: ..." 또는 "| " 구분자 처리
+    var days = shop.hours.split(/\s*[\/|]\s*/).map(function(s){ return s.trim(); }).filter(Boolean);
+    var dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    var today = new Date().getDay(); // 0=Sun
+    if(days.length > 1) {
+      // 구글 Places 포맷
+      var rows = days.map(function(line) {
+        var col = line.indexOf(':');
+        var dayPart = col > -1 ? line.slice(0, col).trim() : line;
+        var timePart = col > -1 ? line.slice(col+1).trim() : '';
+        var isToday = dayNames[today] && dayPart.toLowerCase().startsWith(dayNames[today].toLowerCase());
+        var isClosed = timePart.toLowerCase().includes('closed');
+        return '<tr class="'+(isToday?'m-hours-td-today':'')+'">'
+          +'<td class="m-hours-td-day">'+esc(dayPart.slice(0,3).toUpperCase())+'</td>'
+          +'<td class="m-hours-td-time'+(isClosed?' closed':'')+'">'+esc(timePart||'Closed')+'</td>'
+          +'</tr>';
+      }).join('');
+      hoursHtml = '<div class="m-sec"><div class="m-sec-title"><i class="fas fa-clock" style="color:var(--gold);margin-right:4px"></i>Hours</div>'
+        +'<div style="background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:6px 14px">'
+        +'<table class="m-hours-table">'+rows+'</table></div></div>';
+    } else {
+      // 단순 텍스트
+      hoursHtml = '<div class="m-sec"><div class="m-sec-title"><i class="fas fa-clock" style="color:var(--gold);margin-right:4px"></i>Hours</div>'
+        +'<div style="font-size:13px;color:rgba(255,255,255,.72)">'+esc(shop.hours)+'</div></div>';
+    }
+  }
+
   /* ── 정보 카드 그리드 ── */
   var infoCards = '';
-  if(shop.hours) {
-    infoCards += '<div class="m-info-card"><div class="m-info-card-label">Hours</div><div class="m-info-card-val"><i class="fas fa-clock"></i>'+esc(shop.hours)+'</div></div>';
+  if(shop.location) {
+    // Hours는 이제 별도 섹션으로 처리 — 여기선 제외
   }
   if(shop.location) {
     var locArea = areaOnly(shop.location);
-    var locFull = String(shop.location||'');
-    var locSuffix = locFull.indexOf(',') !== -1 ? '<span style="font-size:10px;opacity:.5;font-weight:400"> · '+esc(locFull.slice(locFull.indexOf(',')+1).trim())+'</span>' : '';
-    infoCards += '<div class="m-info-card"><div class="m-info-card-label">Area</div><div class="m-info-card-val"><i class="fas fa-map-marker-alt"></i>'+esc(locArea)+locSuffix+'</div></div>';
+    infoCards += '<div class="m-info-card"><div class="m-info-card-label">Area</div><div class="m-info-card-val"><i class="fas fa-map-marker-alt"></i>'+esc(locArea)+'</div></div>';
   }
   if(shop.priceRange) {
     infoCards += '<div class="m-info-card"><div class="m-info-card-label">Price Range</div><div class="m-info-card-val"><i class="fas fa-won-sign"></i>'+esc(shop.priceRange)+'</div></div>';
@@ -1632,22 +1712,36 @@ function renderShopModal(shop) {
   var shopReviews = shop.reviews || [];
   if (shopReviews.length > 0) {
     var reviewCards = shopReviews.map(function(rv) {
-      var rvStars = '';
-      for(var ri=0; ri<5; ri++) rvStars += ri < rv.rating ? '★' : '☆';
-      return '<div style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,.06)">'
-        +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
-          +'<span style="font-size:12px;font-weight:700;color:rgba(255,255,255,.8)">'+esc(rv.author||'Guest')+'</span>'
-          +'<span style="font-size:11px;color:var(--gold)">'+rvStars+'</span>'
+      var rvRating = Number(rv.rating) || 5;
+      var rvStars = '★'.repeat(Math.min(5,Math.max(0,rvRating))) + '☆'.repeat(Math.max(0,5-rvRating));
+      return '<div class="m-review-card">'
+        +'<div class="m-review-top">'
+          +'<span class="m-review-author">'+esc(rv.author||'Guest')+'</span>'
+          +'<span class="m-review-stars">'+rvStars+'</span>'
         +'</div>'
-        +'<div style="font-size:12px;color:rgba(255,255,255,.58);line-height:1.7">'+esc(rv.text||'')+'</div>'
-        +(rv.time?'<div style="font-size:10px;color:rgba(255,255,255,.28);margin-top:4px">'+esc(rv.time)+'</div>':'')
+        +'<div class="m-review-text">'+esc(rv.text||'')+'</div>'
+        +(rv.time?'<div class="m-review-time">'+esc(rv.time)+'</div>':'')
       +'</div>';
     }).join('');
     reviewsHtml = '<div class="m-sec">'
       +'<div class="m-sec-title"><i class="fas fa-star" style="color:var(--gold);margin-right:4px"></i>Google Reviews'
-        +(reviewCount?' <span style="font-size:10px;color:rgba(255,255,255,.35);font-weight:400">('+rating+'★ · '+reviewCount+' reviews)</span>':'')
+        +(reviewCount?' <span style="font-size:10px;color:rgba(255,255,255,.35);font-weight:400">('+rating+'★ &nbsp;·&nbsp; '+reviewCount.toLocaleString()+' reviews)</span>':'')
       +'</div>'
-      +'<div>'+reviewCards+'</div>'
+      +'<div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:4px 14px">'+reviewCards+'</div>'
+    +'</div>';
+  }
+
+  /* ── 사진 그리드 (4장 이상 있을 때 별도 섹션) ── */
+  var photosGridHtml = '';
+  if(allPhotos.length >= 4) {
+    var gridImgs = allPhotos.slice(0, 6).map(function(url, i){
+      return '<img src="'+esc(url)+'" alt="'+esc(shop.name)+' photo '+(i+1)+'" loading="lazy"'
+        +' onclick="setMHero(\''+esc(url)+'\',null)"'
+        +' onerror="this.parentElement.style.display=\'none\'">';
+    }).join('');
+    photosGridHtml = '<div class="m-sec">'
+      +'<div class="m-sec-title"><i class="fas fa-images" style="color:var(--gold);margin-right:4px"></i>Photos</div>'
+      +'<div class="m-photos-grid">'+gridImgs+'</div>'
     +'</div>';
   }
 
@@ -1657,14 +1751,16 @@ function renderShopModal(shop) {
       +'<div class="m-shop-name">'+esc(shop.name||'')+'</div>'
       +'<div class="m-shop-sub">'
         +(shop.location ? '<div class="m-shop-loc"><i class="fas fa-map-marker-alt"></i>'+esc(areaOnly(shop.location))+'</div>' : '')
-        +(reviewCount > 0 ? '<div class="m-divider"></div><span class="m-stars">'+starsHtml+'</span><span class="m-rating-txt">'+rating+' ('+reviewCount+')</span>' : '')
+        +(reviewCount > 0 ? '<div class="m-divider"></div><span class="m-stars">'+starsHtml+'</span><span class="m-rating-txt">'+rating+' ('+reviewCount.toLocaleString()+')</span>' : '')
       +'</div>'
     +'</div>'
     + addrHtml
     + infoGridHtml
     + descHtml
+    + hoursHtml
     + priceHtml
     + svcHtml
+    + photosGridHtml
     + reviewsHtml
     + mapHtml;
 
@@ -2114,6 +2210,8 @@ textarea{height:80px;resize:none}
     <input type="hidden" id="sh-review-count" value="">
     <input type="hidden" id="sh-reviews" value="[]">
     <input type="hidden" id="sh-place-id" value="">
+    <input type="hidden" id="sh-photos" value="[]">
+    <div id="sh-photos-preview" style="display:none;flex-wrap:wrap;gap:4px;margin-top:4px"></div>
 
     <!-- 서비스 동적 추가 -->
     <div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.07)">
@@ -2640,13 +2738,27 @@ function openEditShopPanel(shopId){
   document.getElementById('edit-sh-thumb').value = shop.thumbnail || '';
   document.getElementById('edit-sh-commission').value = shop.commission || 15;
   document.getElementById('edit-sh-desc').value = shop.description || '';
-  // 리뷰/Places 데이터 hidden 필드 초기화
+  // 리뷰/Places/photos 데이터 hidden 필드 초기화
   var rEl = document.getElementById('edit-sh-reviews');
   if(!rEl){ rEl=document.createElement('input');rEl.type='hidden';rEl.id='edit-sh-reviews';document.body.appendChild(rEl); }
   rEl.value = JSON.stringify(shop.reviews||[]);
   var pidEl = document.getElementById('edit-sh-place-id');
   if(!pidEl){ pidEl=document.createElement('input');pidEl.type='hidden';pidEl.id='edit-sh-place-id';document.body.appendChild(pidEl); }
   pidEl.value = shop.googlePlaceId||'';
+  var rcEl = document.getElementById('edit-sh-review-count');
+  if(!rcEl){ rcEl=document.createElement('input');rcEl.type='hidden';rcEl.id='edit-sh-review-count';document.body.appendChild(rcEl); }
+  rcEl.value = shop.reviewCount||0;
+  var ratEl = document.getElementById('edit-sh-rating');
+  if(!ratEl){ ratEl=document.createElement('input');ratEl.type='hidden';ratEl.id='edit-sh-rating';document.body.appendChild(ratEl); }
+  ratEl.value = shop.rating||5.0;
+  var phEl = document.getElementById('edit-sh-photos');
+  if(!phEl){ phEl=document.createElement('input');phEl.type='hidden';phEl.id='edit-sh-photos';document.body.appendChild(phEl); }
+  phEl.value = JSON.stringify(shop.photos||[]);
+  // 사진 미리보기
+  var phPrev = document.getElementById('edit-sh-photos-preview');
+  if(!phPrev){ phPrev=document.createElement('div');phPrev.id='edit-sh-photos-preview';phPrev.style.cssText='display:flex;flex-wrap:wrap;gap:4px;margin-top:8px'; document.body.appendChild(phPrev); }
+  var existingPhotos = shop.photos||[];
+  phPrev.innerHTML = existingPhotos.map(function(url){ return '<img src="'+url+'" style="width:60px;height:60px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,.15)" onerror="this.style.display=\'none\'">'; }).join('');
 
   // 서비스 목록 채우기
   var svcList = document.getElementById('edit-svc-list');
@@ -2744,13 +2856,19 @@ function saveEditShop(){
 
   var shop = shops.find(function(s){ return String(s.id) === String(editingShopId); }) || {};
 
-  // photos 수집
+  // photos 수집 (수동 업로드 + Places API 자동가져오기 병합)
   var photoCards = document.querySelectorAll('#edit-photos-list .edit-photo-card');
   var photosArr = [];
   photoCards.forEach(function(card){
     var u = card.getAttribute('data-url');
     if(u) photosArr.push(u);
   });
+  // Places API로 가져온 photos도 병합 (중복 제거)
+  try {
+    var placesPhotosEl = document.getElementById('edit-sh-photos');
+    var placesPhotos = placesPhotosEl ? JSON.parse(placesPhotosEl.value||'[]') : [];
+    placesPhotos.forEach(function(u){ if(u && photosArr.indexOf(u)===-1) photosArr.push(u); });
+  } catch(e2){};
 
   fetch('/api/shops/'+editingShopId, {
     method:'PUT',
@@ -3316,7 +3434,8 @@ function addShop(){
     reviews:(function(){ try{ var el=document.getElementById('sh-reviews'); return el?JSON.parse(el.value||'[]'):[];} catch(e){return[];}}()),
     googlePlaceId:(function(){ var el=document.getElementById('sh-place-id'); return el?el.value:'';})(),
     rating:(function(){ var el=document.getElementById('sh-rating'); return el?parseFloat(el.value)||5.0:5.0;})(),
-    reviewCount:(function(){ var el=document.getElementById('sh-review-count'); return el?parseInt(el.value)||0:0;})()
+    reviewCount:(function(){ var el=document.getElementById('sh-review-count'); return el?parseInt(el.value)||0:0;})(void 0),
+    photos:(function(){ try{ var el=document.getElementById('sh-photos'); return el?JSON.parse(el.value||'[]'):[];} catch(e){return[];}}())
   })}).then(function(r){return r.json();}).then(function(res){
     var newShopId = res.id || null;
     // 폼 초기화
@@ -3622,7 +3741,7 @@ async function fetchPlacesInfo(prefix) {
       updated.push('주소');
     }
 
-    // 영업시간 (요일별 전체)
+    // 영업시간 (요일별 전체 — 구분자 ' | ')
     if (d.weekdayDescriptions && d.weekdayDescriptions.length > 0 && hoursEl) {
       hoursEl.value = d.weekdayDescriptions.join(' | ');
       updated.push('영업시간');
@@ -3635,9 +3754,9 @@ async function fetchPlacesInfo(prefix) {
     if (d.rating) {
       var ratingEl = document.getElementById(prefix + '-rating');
       if (ratingEl) ratingEl.value = d.rating;
+      updated.push('평점 ' + d.rating + '★');
     }
     if (d.reviewCount) {
-      // sh → sh-review-count, edit-sh → edit-sh-review-count
       var rcEl = document.getElementById(prefix + '-review-count');
       if (rcEl) rcEl.value = d.reviewCount;
     }
@@ -3652,8 +3771,32 @@ async function fetchPlacesInfo(prefix) {
       var pidEl = document.getElementById(prefix + '-place-id');
       if (pidEl) pidEl.value = d.placeId;
     }
+    // 사진 (최대 6장) — 썸네일/photos hidden에 저장 + 미리보기
+    if (d.photos && d.photos.length > 0) {
+      var thumbEl = document.getElementById(prefix + '-thumb');
+      // 썸네일이 비어 있으면 첫 번째 사진으로
+      if (thumbEl && !thumbEl.value) { thumbEl.value = d.photos[0]; }
+      // photos hidden (첫 번째 제외한 나머지)
+      var photosHiddenEl = document.getElementById(prefix + '-photos');
+      if (photosHiddenEl) { photosHiddenEl.value = JSON.stringify(d.photos); }
+      updated.push('사진 ' + d.photos.length + '장');
+      // 사진 미리보기 렌더링
+      var previewId = prefix === 'sh' ? 'sh-photos-preview' : 'edit-sh-photos-preview';
+      var previewEl = document.getElementById(previewId);
+      if (previewEl) {
+        previewEl.innerHTML = d.photos.map(function(url) {
+          return '<div style="position:relative;display:inline-block;margin:3px">'
+            + '<img src="'+url+'" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid rgba(255,255,255,.15)" onerror="this.style.display=\'none\'">'
+            + '</div>';
+        }).join('');
+        previewEl.style.display = 'flex';
+        previewEl.style.flexWrap = 'wrap';
+        previewEl.style.gap = '4px';
+        previewEl.style.marginTop = '8px';
+      }
+    }
 
-    if(statusEl) statusEl.innerHTML = '<span style="color:#4ade80">✅ ' + updated.join(', ') + ' 가져오기 완료!</span>';
+    if(statusEl) statusEl.innerHTML = '<span style="color:#4ade80">✅ ' + updated.join(' · ') + ' 가져오기 완료!</span>';
   } catch(e) {
     if(statusEl) statusEl.innerHTML = '<span style="color:#f87171">❌ 오류: ' + e.message + '</span>';
   } finally {
