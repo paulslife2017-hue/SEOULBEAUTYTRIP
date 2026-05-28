@@ -1,10 +1,12 @@
 import { Hono } from 'hono'
 import { neon } from '@neondatabase/serverless'
 
+type Env = { GENSPARK_TOKEN: string; GSK_TOKEN: string }
+
 const DB_URL = 'postgresql://neondb_owner:npg_EH0lzSpsK4Ah@ep-floral-forest-aqvv2mhn-pooler.c-8.us-east-1.aws.neon.tech/neondb?sslmode=require'
 const getDb = () => neon(DB_URL)
 
-const app = new Hono()
+const app = new Hono<{ Bindings: Env }>()
 
 // ── 플랫폼 설정 ──
 const PLATFORM = {
@@ -591,6 +593,78 @@ app.get('/api/stats', async (c) => {
 
 app.get('/api/platform', (c) => c.json(PLATFORM))
 
+// ── AI SEO 설명 자동생성 ──
+app.post('/api/ai-seo', async (c) => {
+  try {
+    const body = await c.req.json()
+    const { name, location, category, services, priceRange, hours } = body
+    if (!name) return c.json({ error: 'name required' }, 400)
+
+    // 카테고리별 외국인 검색 키워드
+    const catKeywords: Record<string,string> = {
+      skincare: 'Korean skincare, facial treatment, skin clinic, glass skin, K-beauty skincare',
+      makeup:   'Korean makeup, K-beauty makeup, makeup artist Seoul, Korean beauty look',
+      hair:     'Korean hair salon, K-pop hair, hair dyeing Seoul, Korean hairstyle, balayage Seoul',
+      headspa:  'head spa Seoul, Korean scalp treatment, scalp care, relaxing head massage',
+      nail:     'Korean nail art, nail salon Seoul, K-pop nail design, gel nails Seoul',
+      clinic:   'Korean dermatology, skin clinic Seoul, laser treatment Korea, aesthetic clinic',
+      spa:      'Korean spa, body treatment Seoul, Korean massage, relaxation spa Seoul',
+    }
+    const keywords = catKeywords[category] || 'Korean beauty, K-beauty Seoul'
+    const area = (location || 'Seoul').split(',')[0].trim()
+
+    const prompt = `You are an SEO expert for a Korean beauty booking platform for foreign tourists in Seoul.
+
+Generate SEO content for this beauty shop:
+- Shop Name: ${name}
+- Area: ${area}, Seoul, South Korea
+- Category: ${category}
+- Services: ${services || 'beauty services'}
+- Price Range: ${priceRange || 'varies'}
+- Target keywords: ${keywords}, ${area} ${category} Seoul, best ${category} ${area}, ${name} Seoul
+
+Rules:
+1. metaDescription: 140-155 chars, includes shop name + area + category, ends with "Book via WhatsApp"
+2. description: 2-3 natural sentences for the shop page (180-240 chars), SEO-friendly, English-friendly tone
+3. keywords: 6 keywords foreigners actually search on Google
+4. titleSuffix: short phrase like "Gangnam Head Spa Seoul"
+5. No quotes inside text values, no special characters
+
+Return ONLY this JSON (no markdown, no explanation):
+{"metaDescription":"...","description":"...","keywords":["k1","k2","k3","k4","k5","k6"],"titleSuffix":"..."}`
+
+    const OPENAI_KEY = c.env?.GSK_TOKEN || c.env?.GENSPARK_TOKEN || ''
+    if (!OPENAI_KEY) return c.json({ error: 'API key not configured' }, 500)
+    const res = await fetch('https://www.genspark.ai/api/llm_proxy/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-5',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 3000
+      })
+    })
+    if (!res.ok) {
+      const err = await res.text()
+      return c.json({ error: 'AI API error', detail: err }, 500)
+    }
+    const data: any = await res.json()
+    const text = data.choices?.[0]?.message?.content || ''
+    if (!text) return c.json({ error: 'empty response from AI' }, 500)
+    // JSON 파싱 (마크다운 코드블록 제거)
+    const cleaned = text.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim()
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) return c.json({ error: 'parse error', raw: text }, 500)
+    const result = JSON.parse(jsonMatch[0])
+    return c.json(result)
+  } catch(e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+})
+
 // ── SEO 업체 상세 페이지 ──
 app.get('/shop/:slug', async (c) => {
   const sql = getDb()
@@ -610,9 +684,9 @@ app.get('/shop/:slug', async (c) => {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${shop.name} | ${shop.location} ${shop.category} Beauty | Seoul Beauty Trip</title>
-<meta name="description" content="${shop.description.slice(0,155)}. Located in ${shop.location}. Price: ${shop.priceRange}. Book via WhatsApp.">
-<meta name="keywords" content="${shop.location} ${shop.category}, ${shop.location} beauty salon, Seoul ${shop.category}, K-beauty, ${shop.services.slice(0,4).join(', ')}">
+<title>${shop.name} | Best ${shop.category.charAt(0).toUpperCase()+shop.category.slice(1)} in ${shop.location.split(',')[0].trim()} Seoul | Seoul Beauty Trip</title>
+<meta name="description" content="${(shop.description||'Top-rated Korean beauty salon in Seoul. Book via WhatsApp — English-friendly service.').slice(0,155)}">
+<meta name="keywords" content="${shop.name}, ${shop.name} Seoul, ${shop.location.split(',')[0].trim()} ${shop.category}, best ${shop.category} ${shop.location.split(',')[0].trim()} Seoul, Korean ${shop.category} Seoul, K-beauty ${shop.location.split(',')[0].trim()}, ${shop.category} salon Seoul foreigners, English friendly ${shop.category} Seoul, book ${shop.category} Seoul WhatsApp, ${shop.services.slice(0,5).join(', ')}">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="${canonicalUrl}">
 <!-- Open Graph -->
@@ -633,41 +707,65 @@ app.get('/shop/:slug', async (c) => {
   "@context":"https://schema.org",
   "@graph":[
     {
-      "@type":"LocalBusiness",
+      "@type":["LocalBusiness","BeautySalon"],
       "@id":"${canonicalUrl}",
       "name":"${shop.name}",
-      "description":"${shop.description.replace(/"/g,"'")}",
-      "image":"${shop.thumbnail}",
+      "description":"${(shop.description||'').replace(/"/g,"'")}",
+      "image":["${shop.thumbnail}"${shop.photos&&shop.photos.length?','+shop.photos.map((p:string)=>'"'+p+'"').join(','):''}],
       "url":"${canonicalUrl}",
-      "telephone":"",
       "address":{
         "@type":"PostalAddress",
         "streetAddress":"${shop.address.replace(/"/g,"'")}",
-        "addressLocality":"Seoul",
+        "addressLocality":"${shop.location.split(',')[0].trim()}",
+        "addressRegion":"Seoul",
         "addressCountry":"KR"
       },
-      "geo":{},
+      "geo":{
+        "@type":"GeoCoordinates",
+        "latitude":"${shop.lat||''}",
+        "longitude":"${shop.lng||''}"
+      },
       "openingHours":"${shop.hours.replace(/"/g,"'")}",
       "priceRange":"${shop.priceRange}",
+      "currenciesAccepted":"KRW",
+      "paymentAccepted":"Cash, Credit Card",
+      "areaServed":{"@type":"City","name":"Seoul"},
       "aggregateRating":{
         "@type":"AggregateRating",
         "ratingValue":"${shop.rating}",
-        "reviewCount":"${shop.reviewCount}"
+        "bestRating":"5",
+        "worstRating":"1",
+        "reviewCount":"${Math.max(shop.reviewCount,1)}"
       },
       "hasOfferCatalog":{
         "@type":"OfferCatalog",
-        "name":"Services",
-        "itemListElement":[${shop.servicePrices.map((sp:any,i:number)=>`{"@type":"Offer","position":${i+1},"name":"${sp.name}","price":"${sp.price}","priceCurrency":"KRW"}`).join(',')}]
+        "name":"${shop.category} Services at ${shop.name}",
+        "itemListElement":[${shop.servicePrices.map((sp:any,i:number)=>`{"@type":"Offer","position":${i+1},"name":"${sp.name}","price":"${sp.price}","priceCurrency":"KRW","availability":"https://schema.org/InStock"}`).join(',')}]
       },
-      "sameAs":["https://seoulbeautytrip.com"]
+      "contactPoint":{
+        "@type":"ContactPoint",
+        "contactType":"reservations",
+        "availableLanguage":["English","Korean"]
+      },
+      "sameAs":["https://seoulbeautytrip.com","https://www.instagram.com/seoulbeautytrip/"]
     },
     {
       "@type":"BreadcrumbList",
       "itemListElement":[
         {"@type":"ListItem","position":1,"name":"Seoul Beauty Trip","item":"${base}/"},
-        {"@type":"ListItem","position":2,"name":"${shop.category.charAt(0).toUpperCase()+shop.category.slice(1)}"},
+        {"@type":"ListItem","position":2,"name":"${shop.category.charAt(0).toUpperCase()+shop.category.slice(1)}","item":"${base}/?cat=${shop.category}"},
         {"@type":"ListItem","position":3,"name":"${shop.name}","item":"${canonicalUrl}"}
       ]
+    },
+    {
+      "@type":"WebPage",
+      "@id":"${canonicalUrl}#webpage",
+      "url":"${canonicalUrl}",
+      "name":"${shop.name} | Best ${shop.category.charAt(0).toUpperCase()+shop.category.slice(1)} in ${shop.location.split(',')[0].trim()} Seoul",
+      "description":"${(shop.description||'').replace(/"/g,"'").slice(0,155)}",
+      "inLanguage":"en",
+      "isPartOf":{"@id":"${base}/#website"},
+      "primaryImageOfPage":{"@type":"ImageObject","url":"${shop.thumbnail}"}
     }
   ]
 }
@@ -760,9 +858,9 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
   <img class="sp-hero-img" src="${shop.thumbnail}" alt="${shop.name} — ${shop.location} ${shop.category}" itemprop="image">
   <div class="sp-hero-ov"></div>
   <div class="sp-hero-info">
-    <div class="sp-cat-badge">${catIcon} ${shop.category}</div>
+    <div class="sp-cat-badge">${catIcon} ${shop.category.charAt(0).toUpperCase()+shop.category.slice(1)} · ${shop.location.split(',')[0].trim()} Seoul</div>
     <h1 class="sp-title" itemprop="name">${shop.name}</h1>
-    <div class="sp-loc"><i class="fas fa-map-marker-alt" style="color:var(--pk)"></i><span itemprop="addressLocality">${shop.location}</span></div>
+    <div class="sp-loc"><i class="fas fa-map-marker-alt" style="color:var(--pk)"></i><span itemprop="addressLocality">${shop.location}, Seoul</span></div>
     <div class="sp-rating">
       <span class="sp-stars">★★★★★</span>
       <span class="sp-rating-num" itemprop="aggregateRating" itemscope itemtype="https://schema.org/AggregateRating">
@@ -848,7 +946,11 @@ Sitemap: https://seoulbeautytrip.com/sitemap.xml
 
 // ── MAIN PAGE ──
 app.get('/', (c) => c.html(MAIN_HTML))
-app.get('/admin', (c) => c.html(ADMIN_HTML))
+app.get('/admin', (c) => {
+  const token = c.env?.GSK_TOKEN || ''
+  const html = ADMIN_HTML.replace('__GSK_TOKEN__', token)
+  return c.html(html)
+})
 export default app
 
 // ════════════════════════════════════════════
@@ -1048,8 +1150,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .m-map{border-radius:16px;overflow:hidden;height:210px;border:1px solid rgba(255,255,255,.08);position:relative;box-shadow:0 8px 32px rgba(0,0,0,.5)}
 .m-map iframe{width:100%;height:100%;border:0;display:block}
 /* 구글맵 "View on Google Maps" 링크 완전 차단 오버레이 */
-.m-map-cover{position:absolute;top:0;left:0;width:150px;height:32px;z-index:4;background:#fff;pointer-events:all;cursor:default;display:flex;align-items:center;padding-left:10px;border-radius:0 0 8px 0;box-shadow:0 1px 4px rgba(0,0,0,.15)}
-.m-map-cover-txt{font-size:11px;font-weight:500;color:#1a73e8;font-family:Roboto,Arial,sans-serif;letter-spacing:0;white-space:nowrap}
+.m-map-cover{position:absolute;top:4px;left:4px;z-index:4;background:#fff;pointer-events:all;cursor:default;display:inline-flex;align-items:center;gap:5px;padding:6px 10px;border-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,.25);border:1px solid rgba(0,0,0,.08)}
+.m-map-cover-txt{font-size:12px;font-weight:400;color:#5f6368;font-family:Roboto,Arial,sans-serif;letter-spacing:0;white-space:nowrap}
+.m-map-cover-icon{font-size:12px;color:#1a73e8}
 .m-map-zoom{position:absolute;bottom:10px;right:10px;z-index:3;display:flex;flex-direction:column;gap:4px}
 .m-map-zoom button{width:32px;height:32px;border-radius:8px;border:none;background:rgba(15,15,25,.82);backdrop-filter:blur(8px);color:#fff;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.4);transition:background .15s}
 .m-map-zoom button:hover{background:rgba(232,65,122,.7)}
@@ -1446,7 +1549,7 @@ function renderShopModal(shop) {
     mapHtml = '<div class="m-sec"><div class="m-sec-title">Location</div>'
       +'<div class="m-map">'
         +'<iframe src="'+embedSrc+'" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" style="width:100%;height:100%;border:0"></iframe>'
-        +'<div class="m-map-cover"><span class="m-map-cover-txt">SeoulBeautyTrip</span></div>'
+        +'<div class="m-map-cover"><i class="fas fa-map-marker-alt m-map-cover-icon"></i><span class="m-map-cover-txt">SeoulBeautyTrip</span></div>'
       +'</div>'
     +'</div>';
   } else if(shop.address || shop.location) {
@@ -1719,6 +1822,7 @@ const ADMIN_HTML = `<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Seoul Beauty Trip - Admin</title>
+<script>var _GSK_TOKEN = '__GSK_TOKEN__';</script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -1883,8 +1987,14 @@ textarea{height:80px;resize:none}
         <input id="sh-addr" placeholder="자동입력 또는 직접 입력">
       </div>
       <div class="full">
-        <label>업체 소개 <span style="font-size:11px;color:rgba(255,255,255,.4)">(선택)</span></label>
-        <textarea id="sh-desc" placeholder="고객에게 보여질 소개 문구..."></textarea>
+        <label style="display:flex;align-items:center;justify-content:space-between">
+          <span>업체 소개 <span style="font-size:11px;color:rgba(255,255,255,.4)">(선택)</span></span>
+          <button type="button" onclick="genAiSeo('sh')" style="display:flex;align-items:center;gap:5px;padding:4px 12px;background:linear-gradient(135deg,#7C3AED,#E8417A);border:none;border-radius:20px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;transition:opacity .2s" id="sh-ai-btn">
+            <i class="fas fa-magic"></i> AI SEO 자동생성
+          </button>
+        </label>
+        <textarea id="sh-desc" placeholder="AI SEO 자동생성 버튼을 누르거나 직접 입력하세요..."></textarea>
+        <div id="sh-ai-status" style="font-size:11px;color:rgba(255,255,255,.4);margin-top:4px;min-height:16px"></div>
       </div>
       <div class="full">
         <label style="color:#60a5fa;font-weight:800">🗺️ 지도 embed URL <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,.5)">(모달에서 지도 표시)</span></label>
@@ -1969,7 +2079,16 @@ textarea{height:80px;resize:none}
       </div>
       <div><label>수수료 (%)</label><input id="edit-sh-commission" type="number" min="0" max="100" placeholder="15"></div>
       <div></div>
-      <div class="full"><label>업체 소개</label><textarea id="edit-sh-desc" placeholder="업체 소개 문구..."></textarea></div>
+      <div class="full">
+        <label style="display:flex;align-items:center;justify-content:space-between">
+          <span>업체 소개</span>
+          <button type="button" onclick="genAiSeo('edit-sh')" style="display:flex;align-items:center;gap:5px;padding:4px 12px;background:linear-gradient(135deg,#7C3AED,#E8417A);border:none;border-radius:20px;color:#fff;font-size:11px;font-weight:700;cursor:pointer" id="edit-sh-ai-btn">
+            <i class="fas fa-magic"></i> AI SEO 자동생성
+          </button>
+        </label>
+        <textarea id="edit-sh-desc" placeholder="AI SEO 자동생성 버튼을 누르거나 직접 입력..."></textarea>
+        <div id="edit-sh-ai-status" style="font-size:11px;color:rgba(255,255,255,.4);margin-top:4px;min-height:16px"></div>
+      </div>
     </div>
     <!-- 추가 사진 업로드 -->
     <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.07)">
@@ -3243,6 +3362,94 @@ function delVideo(id){
 
 function saveSettings(){
   alert('저장되었습니다!');
+}
+
+/* ── AI SEO 자동생성 ── */
+async function genAiSeo(prefix) {
+  var nameEl   = document.getElementById(prefix + '-name');
+  var locEl    = document.getElementById(prefix + '-loc');
+  var catEl    = document.getElementById(prefix + '-cat');
+  var descEl   = document.getElementById(prefix + '-desc');
+  var statusEl = document.getElementById(prefix + '-ai-status');
+  var btnEl    = document.getElementById(prefix + '-ai-btn');
+
+  var name     = nameEl ? nameEl.value.trim() : '';
+  var location = locEl  ? locEl.value.trim()  : '';
+  var category = catEl  ? catEl.value         : '';
+
+  if (!name) {
+    if (statusEl) statusEl.textContent = '⚠️ 업체명을 먼저 입력하세요';
+    return;
+  }
+
+  if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 생성 중...'; }
+  if (statusEl) statusEl.textContent = '🤖 AI가 SEO 최적화 설명을 분석 중...';
+
+  // 서비스 목록 수집
+  var services = [];
+  var svcInputs = document.querySelectorAll('[id^="' + (prefix==='sh'?'sh':'edit-sh') + '"] .svc-name-input, .svc-name-input');
+  svcInputs.forEach(function(el){ if(el.value) services.push(el.value); });
+
+  // 가격대, 영업시간 수집
+  var priceRange = (document.getElementById(prefix + '-price') || {}).value || '';
+  var hours      = (document.getElementById(prefix + '-hours') || {}).value || '';
+
+  var catKeywords = {
+    skincare:'Korean skincare, facial treatment, glass skin, K-beauty skincare, skin clinic Seoul',
+    makeup:'Korean makeup artist, K-beauty makeup Seoul, Korean beauty look, makeup studio Seoul',
+    hair:'Korean hair salon, K-pop hairstyle Seoul, hair coloring Seoul, balayage Korean salon',
+    headspa:'head spa Seoul, Korean scalp treatment, scalp care Seoul, relaxing head massage Korea',
+    nail:'Korean nail art Seoul, nail salon Seoul, K-pop nail design, gel nails Korea',
+    clinic:'Korean dermatology Seoul, skin clinic Korea, laser treatment Seoul, aesthetic clinic Korea',
+    spa:'Korean spa Seoul, body treatment Korea, Korean massage Seoul, relaxation spa Korea'
+  };
+  var keywords = catKeywords[category] || 'Korean beauty Seoul, K-beauty';
+  var area = (location || 'Seoul').split(',')[0].trim();
+
+  var prompt = 'You are an SEO expert for a Korean beauty booking platform for foreign tourists.\n\n'
+    + 'Generate SEO content for this shop:\n'
+    + '- Name: ' + name + '\n'
+    + '- Area: ' + area + ', Seoul\n'
+    + '- Category: ' + category + '\n'
+    + '- Services: ' + (services.join(', ') || 'beauty services') + '\n'
+    + '- Keywords to include naturally: ' + keywords + ', ' + area + ' ' + category + ' Seoul, best ' + category + ' ' + area + '\n\n'
+    + 'Rules:\n'
+    + '1. metaDescription: 140-155 chars, natural English, include shop name + area + category, end with Book via WhatsApp\n'
+    + '2. description: 2 sentences, 180-240 chars, SEO-friendly, English-friendly tone\n'
+    + '3. keywords: exactly 6 strings foreigners search on Google\n'
+    + '4. titleSuffix: short phrase like Gangnam Head Spa Seoul\n'
+    + '5. No quotes inside text, no markdown\n\n'
+    + 'Return ONLY valid JSON: {"metaDescription":"...","description":"...","keywords":["k1","k2","k3","k4","k5","k6"],"titleSuffix":"..."}';
+
+  try {
+    var aiRes = await fetch('https://www.genspark.ai/api/llm_proxy/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _GSK_TOKEN },
+      body: JSON.stringify({ model: 'gpt-5', messages: [{ role: 'user', content: prompt }], max_tokens: 3000 })
+    });
+    var aiData = await aiRes.json();
+    var text = (aiData.choices && aiData.choices[0] && aiData.choices[0].message && aiData.choices[0].message.content) || '';
+    if (!text) throw new Error('AI 응답이 비어있습니다');
+
+    var cleaned = text.trim();
+    if (cleaned.indexOf('{') > 0) cleaned = cleaned.slice(cleaned.indexOf('{'));
+    var match = cleaned.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error('JSON 파싱 실패');
+    var data = JSON.parse(match[0]);
+
+    if (descEl && data.description) {
+      descEl.value = data.description;
+      descEl.style.borderColor = 'rgba(124,58,237,.6)';
+    }
+    if (statusEl) {
+      var kw = (data.keywords || []).slice(0,4).join(', ');
+      statusEl.innerHTML = '<span style="color:#a78bfa">✅ SEO 설명 생성 완료!</span> <span style="color:rgba(255,255,255,.35);font-size:10px"> 키워드: ' + kw + '</span>';
+    }
+  } catch(e) {
+    if (statusEl) statusEl.innerHTML = '<span style="color:#f87171">❌ 실패: ' + e.message + '</span>';
+  } finally {
+    if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = '<i class="fas fa-magic"></i> AI SEO 자동생성'; }
+  }
 }
 
 loadAll();
