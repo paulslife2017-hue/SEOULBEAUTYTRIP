@@ -1782,7 +1782,7 @@ function renderShopModal(shop) {
   if(allPhotos.length >= 4) {
     var gridImgs = allPhotos.slice(0, 6).map(function(url, i){
       return '<img src="'+esc(url)+'" alt="'+esc(shop.name)+' photo '+(i+1)+'" loading="lazy"'
-        +' onclick="setMHero(\''+esc(url)+'\',null)"'
+        +' data-photo-url="'+esc(url)+'" onclick="setMHero(this.dataset.photoUrl,null)"'
         +' onerror="this.parentElement.remove()">';
     }).join('');
     photosGridHtml = '<div class="m-sec">'
