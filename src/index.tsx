@@ -3892,19 +3892,20 @@ async function genAiSeo(prefix) {
   var keywords = catKeywords[category] || 'Korean beauty Seoul, K-beauty';
   var area = (location || 'Seoul').split(',')[0].trim();
 
-  var prompt = 'You are an SEO expert for a Korean beauty booking platform for foreign tourists.\n\n'
-    + 'Generate SEO content for this shop:\n'
-    + '- Name: ' + name + '\n'
-    + '- Area: ' + area + ', Seoul\n'
-    + '- Category: ' + category + '\n'
-    + '- Services: ' + (services.join(', ') || 'beauty services') + '\n'
-    + '- Keywords to include naturally: ' + keywords + ', ' + area + ' ' + category + ' Seoul, best ' + category + ' ' + area + '\n\n'
-    + 'Rules:\n'
-    + '1. metaDescription: 140-155 chars, natural English, include shop name + area + category, end with Book via WhatsApp\n'
-    + '2. description: 2 sentences, 180-240 chars, SEO-friendly, English-friendly tone\n'
-    + '3. keywords: exactly 6 strings foreigners search on Google\n'
-    + '4. titleSuffix: short phrase like Gangnam Head Spa Seoul\n'
-    + '5. No quotes inside text, no markdown\n\n'
+  var NL = String.fromCharCode(10);
+  var prompt = "You are an SEO expert for a Korean beauty booking platform for foreign tourists." + NL + NL
+    + "Generate SEO content for this shop:" + NL
+    + "- Name: " + name + NL
+    + "- Area: " + area + ", Seoul" + NL
+    + "- Category: " + category + NL
+    + "- Services: " + (services.join(", ") || "beauty services") + NL
+    + "- Keywords to include naturally: " + keywords + ", " + area + " " + category + " Seoul, best " + category + " " + area + NL + NL
+    + "Rules:" + NL
+    + "1. metaDescription: 140-155 chars, natural English, include shop name + area + category, end with Book via WhatsApp" + NL
+    + "2. description: 2 sentences, 180-240 chars, SEO-friendly, English-friendly tone" + NL
+    + "3. keywords: exactly 6 strings foreigners search on Google" + NL
+    + "4. titleSuffix: short phrase like Gangnam Head Spa Seoul" + NL
+    + "5. No quotes inside text, no markdown" + NL + NL
     + 'Return ONLY valid JSON: {"metaDescription":"...","description":"...","keywords":["k1","k2","k3","k4","k5","k6"],"titleSuffix":"..."}';
 
   try {
