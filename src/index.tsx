@@ -3,6 +3,8 @@ import { neon } from '@neondatabase/serverless'
 
 type Env = { GENSPARK_TOKEN: string; GSK_TOKEN: string }
 
+const GOOGLE_PLACES_KEY = 'AIzaSyCcM03wGoZrSkmCMOS-Vib-JR1oKNPsSkY'
+
 const DB_URL = 'postgresql://neondb_owner:npg_EH0lzSpsK4Ah@ep-floral-forest-aqvv2mhn-pooler.c-8.us-east-1.aws.neon.tech/neondb?sslmode=require'
 const getDb = () => neon(DB_URL)
 
@@ -40,6 +42,8 @@ interface Shop {
   commission: number     // 10 or 20 (%)
   active: boolean
   createdAt: string
+  reviews: {author: string; rating: number; text: string; time: string}[]
+  googlePlaceId: string
 }
 
 interface Video {
@@ -86,7 +90,9 @@ function rowToShop(r: any): Shop {
     rating: r.rating || 5.0, reviewCount: r.review_count || 0,
     thumbnail: r.thumbnail || '', photos: r.photos || [],
     commission: r.commission || 15,
-    active: r.active !== false, createdAt: r.created_at || ''
+    active: r.active !== false, createdAt: r.created_at || '',
+    reviews: (() => { if(!r.reviews) return []; if(Array.isArray(r.reviews)) return r.reviews; try { return JSON.parse(r.reviews) } catch { return [] } })(),
+    googlePlaceId: r.google_place_id || ''
   }
 }
 function rowToVideo(r: any): Video {
@@ -226,6 +232,8 @@ async function initDb() {
     try { await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS photos JSONB DEFAULT '[]'` } catch(e) {}
     try { await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS lat TEXT DEFAULT ''` } catch(e) {}
     try { await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS lng TEXT DEFAULT ''` } catch(e) {}
+    try { await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS reviews JSONB DEFAULT '[]'` } catch(e) {}
+    try { await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS google_place_id TEXT DEFAULT ''` } catch(e) {}
     await sql`CREATE TABLE IF NOT EXISTS videos (
       id TEXT PRIMARY KEY, shop_id TEXT REFERENCES shops(id) ON DELETE CASCADE,
       title TEXT, description TEXT, video_url TEXT, thumbnail TEXT,
@@ -501,10 +509,14 @@ app.put('/api/shops/:id', async (c) => {
     services=${JSON.stringify(body.services||[])},
     service_prices=${JSON.stringify(body.servicePrices||[])},
     description=${body.description||''},
+    rating=${body.rating||5.0},
+    review_count=${body.reviewCount||0},
     thumbnail=${body.thumbnail||''},
     photos=${JSON.stringify(body.photos||[])},
     commission=${body.commission||15},
-    active=${body.active!==false}
+    active=${body.active!==false},
+    reviews=${JSON.stringify(body.reviews||[])},
+    google_place_id=${body.googlePlaceId||''}
     WHERE id=${c.req.param('id')}`
   return c.json({ ok: true })
 })
@@ -660,6 +672,60 @@ Return ONLY this JSON (no markdown, no explanation):
     if (!jsonMatch) return c.json({ error: 'parse error', raw: text }, 500)
     const result = JSON.parse(jsonMatch[0])
     return c.json(result)
+  } catch(e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+})
+
+// ── Google Places API 자동가져오기 ──
+app.post('/api/places-fetch', async (c) => {
+  try {
+    const { query } = await c.req.json() as { query: string }
+    if (!query) return c.json({ error: 'query required' }, 400)
+
+    // 1. Text Search로 place_id + 기본 정보 취득
+    const searchRes = await fetch('https://places.googleapis.com/v1/places:searchText', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': GOOGLE_PLACES_KEY,
+        'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.regularOpeningHours,places.rating,places.userRatingCount,places.reviews,places.priceLevel'
+      },
+      body: JSON.stringify({ textQuery: query, languageCode: 'en' })
+    })
+    if (!searchRes.ok) {
+      const err = await searchRes.text()
+      return c.json({ error: 'Places API error', detail: err }, 500)
+    }
+    const searchData: any = await searchRes.json()
+    const place = searchData.places?.[0]
+    if (!place) return c.json({ error: 'No place found' }, 404)
+
+    // 2. 영업시간 포맷 (요일별 → 간략)
+    const weekdays = place.regularOpeningHours?.weekdayDescriptions || []
+    const hoursStr = weekdays.join(' / ')
+
+    // 3. 영어 리뷰 최대 5개 필터링
+    const rawReviews: any[] = place.reviews || []
+    const reviews = rawReviews
+      .filter((r: any) => r.text?.languageCode === 'en' && r.text?.text?.length > 20)
+      .slice(0, 5)
+      .map((r: any) => ({
+        author: r.authorAttribution?.displayName || 'Guest',
+        rating: r.rating || 5,
+        text: r.text?.text || '',
+        time: r.relativePublishTimeDescription || ''
+      }))
+
+    return c.json({
+      placeId: place.id || '',
+      address: place.formattedAddress || '',
+      hours: hoursStr,
+      weekdayDescriptions: weekdays,
+      rating: place.rating || 0,
+      reviewCount: place.userRatingCount || 0,
+      reviews
+    })
   } catch(e: any) {
     return c.json({ error: e.message }, 500)
   }
@@ -1561,6 +1627,30 @@ function renderShopModal(shop) {
     +'</div>';
   }
 
+  /* ── 구글 리뷰 섹션 ── */
+  var reviewsHtml = '';
+  var shopReviews = shop.reviews || [];
+  if (shopReviews.length > 0) {
+    var reviewCards = shopReviews.map(function(rv) {
+      var rvStars = '';
+      for(var ri=0; ri<5; ri++) rvStars += ri < rv.rating ? '★' : '☆';
+      return '<div style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,.06)">'
+        +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
+          +'<span style="font-size:12px;font-weight:700;color:rgba(255,255,255,.8)">'+esc(rv.author||'Guest')+'</span>'
+          +'<span style="font-size:11px;color:var(--gold)">'+rvStars+'</span>'
+        +'</div>'
+        +'<div style="font-size:12px;color:rgba(255,255,255,.58);line-height:1.7">'+esc(rv.text||'')+'</div>'
+        +(rv.time?'<div style="font-size:10px;color:rgba(255,255,255,.28);margin-top:4px">'+esc(rv.time)+'</div>':'')
+      +'</div>';
+    }).join('');
+    reviewsHtml = '<div class="m-sec">'
+      +'<div class="m-sec-title"><i class="fas fa-star" style="color:var(--gold);margin-right:4px"></i>Google Reviews'
+        +(reviewCount?' <span style="font-size:10px;color:rgba(255,255,255,.35);font-weight:400">('+rating+'★ · '+reviewCount+' reviews)</span>':'')
+      +'</div>'
+      +'<div>'+reviewCards+'</div>'
+    +'</div>';
+  }
+
   /* ── 본문 조립 ── */
   document.getElementById('modalContent').innerHTML =
     '<div class="m-shop-header">'
@@ -1575,6 +1665,7 @@ function renderShopModal(shop) {
     + descHtml
     + priceHtml
     + svcHtml
+    + reviewsHtml
     + mapHtml;
 
   /* ── WhatsApp 버튼 ── */
@@ -1988,6 +2079,16 @@ textarea{height:80px;resize:none}
       </div>
       <div class="full">
         <label style="display:flex;align-items:center;justify-content:space-between">
+          <span>영업시간 <span style="font-size:11px;color:rgba(255,255,255,.4)">(구글 자동)</span></span>
+          <button type="button" onclick="fetchPlacesInfo('sh')" id="sh-places-btn" style="display:flex;align-items:center;gap:5px;padding:4px 12px;background:linear-gradient(135deg,#4285F4,#34A853);border:none;border-radius:20px;color:#fff;font-size:11px;font-weight:700;cursor:pointer">
+            <i class="fab fa-google"></i> 구글에서 자동가져오기
+          </button>
+        </label>
+        <input id="sh-hours" placeholder="예: Mon-Fri 10AM-7PM, Sat 10AM-5PM, Sun Closed">
+        <div id="sh-places-status" style="font-size:11px;color:rgba(255,255,255,.4);margin-top:4px;min-height:16px"></div>
+      </div>
+      <div class="full">
+        <label style="display:flex;align-items:center;justify-content:space-between">
           <span>업체 소개 <span style="font-size:11px;color:rgba(255,255,255,.4)">(선택)</span></span>
           <button type="button" onclick="genAiSeo('sh')" style="display:flex;align-items:center;gap:5px;padding:4px 12px;background:linear-gradient(135deg,#7C3AED,#E8417A);border:none;border-radius:20px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;transition:opacity .2s" id="sh-ai-btn">
             <i class="fas fa-magic"></i> AI SEO 자동생성
@@ -2009,6 +2110,10 @@ textarea{height:80px;resize:none}
     </div>
     <input type="hidden" id="sh-lat" value="">
     <input type="hidden" id="sh-lng" value="">
+    <input type="hidden" id="sh-rating" value="">
+    <input type="hidden" id="sh-review-count" value="">
+    <input type="hidden" id="sh-reviews" value="[]">
+    <input type="hidden" id="sh-place-id" value="">
 
     <!-- 서비스 동적 추가 -->
     <div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.07)">
@@ -2055,7 +2160,16 @@ textarea{height:80px;resize:none}
       </div>
       <div><label>지역</label><input id="edit-sh-loc" placeholder="예: Gangnam, Seoul"></div>
       <div class="full"><label>주소</label><input id="edit-sh-addr" placeholder="주소"></div>
-      <div class="full"><label>영업시간</label><input id="edit-sh-hours" placeholder="예: 10:00~20:00 (Mon~Sat)"></div>
+      <div class="full">
+        <label style="display:flex;align-items:center;justify-content:space-between">
+          <span>영업시간</span>
+          <button type="button" onclick="fetchPlacesInfo('edit-sh')" id="edit-sh-places-btn" style="display:flex;align-items:center;gap:5px;padding:4px 12px;background:linear-gradient(135deg,#4285F4,#34A853);border:none;border-radius:20px;color:#fff;font-size:11px;font-weight:700;cursor:pointer">
+            <i class="fab fa-google"></i> 구글에서 자동가져오기
+          </button>
+        </label>
+        <input id="edit-sh-hours" placeholder="예: Mon-Fri 10AM-7PM, Sat 10AM-5PM, Sun Closed">
+        <div id="edit-sh-places-status" style="font-size:11px;color:rgba(255,255,255,.4);margin-top:4px;min-height:16px"></div>
+      </div>
       <div class="full">
         <label style="color:#60a5fa;font-weight:800">🗺️ 지도 embed URL <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,.45)">(모달에서 지도 표시)</span></label>
         <div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:6px">Google Maps → 공유 → 지도 퍼가기 → src="..." 값만 복사</div>
@@ -2526,6 +2640,13 @@ function openEditShopPanel(shopId){
   document.getElementById('edit-sh-thumb').value = shop.thumbnail || '';
   document.getElementById('edit-sh-commission').value = shop.commission || 15;
   document.getElementById('edit-sh-desc').value = shop.description || '';
+  // 리뷰/Places 데이터 hidden 필드 초기화
+  var rEl = document.getElementById('edit-sh-reviews');
+  if(!rEl){ rEl=document.createElement('input');rEl.type='hidden';rEl.id='edit-sh-reviews';document.body.appendChild(rEl); }
+  rEl.value = JSON.stringify(shop.reviews||[]);
+  var pidEl = document.getElementById('edit-sh-place-id');
+  if(!pidEl){ pidEl=document.createElement('input');pidEl.type='hidden';pidEl.id='edit-sh-place-id';document.body.appendChild(pidEl); }
+  pidEl.value = shop.googlePlaceId||'';
 
   // 서비스 목록 채우기
   var svcList = document.getElementById('edit-svc-list');
@@ -2651,8 +2772,10 @@ function saveEditShop(){
       services: svcs,
       servicePrices: svcPrices,
       priceRange: svcs.length > 0 ? priceRange : (shop.priceRange||''),
-      rating: shop.rating || 5.0,
-      reviewCount: shop.reviewCount || 0,
+      rating: (function(){ var el=document.getElementById('edit-sh-rating'); return el?parseFloat(el.value)||shop.rating||5.0:shop.rating||5.0;})(),
+      reviewCount: (function(){ var el=document.getElementById('edit-sh-review-count'); return el?parseInt(el.value)||shop.reviewCount||0:shop.reviewCount||0;})(),
+      reviews: (function(){ try{ var el=document.getElementById('edit-sh-reviews'); return el?JSON.parse(el.value||'[]'):shop.reviews||[];} catch(e){return shop.reviews||[];}}()),
+      googlePlaceId: (function(){ var el=document.getElementById('edit-sh-place-id'); return el&&el.value?el.value:shop.googlePlaceId||'';})(),
       active: true,
       photos: photosArr
     })
@@ -3179,7 +3302,8 @@ function addShop(){
     category:document.getElementById('sh-cat').value,
     location:document.getElementById('sh-loc').value||'Seoul',
     priceRange:priceRange,
-    hours:'', commission:15,
+    hours:document.getElementById('sh-hours').value||'',
+    commission:15,
     address:document.getElementById('sh-addr').value||'',
     googleMapUrl:gmapUrl,
     googleMapEmbed:document.getElementById('sh-gmap-embed').value||'',
@@ -3189,7 +3313,10 @@ function addShop(){
     services:svcs,
     servicePrices:svcPrices,
     description:document.getElementById('sh-desc').value||'',
-    rating:5.0, reviewCount:0
+    reviews:(function(){ try{ var el=document.getElementById('sh-reviews'); return el?JSON.parse(el.value||'[]'):[];} catch(e){return[];}}()),
+    googlePlaceId:(function(){ var el=document.getElementById('sh-place-id'); return el?el.value:'';})(),
+    rating:(function(){ var el=document.getElementById('sh-rating'); return el?parseFloat(el.value)||5.0:5.0;})(),
+    reviewCount:(function(){ var el=document.getElementById('sh-review-count'); return el?parseInt(el.value)||0:0;})()
   })}).then(function(r){return r.json();}).then(function(res){
     var newShopId = res.id || null;
     // 폼 초기화
@@ -3362,6 +3489,176 @@ function delVideo(id){
 
 function saveSettings(){
   alert('저장되었습니다!');
+}
+
+/* ── Google Places 자동가져오기 ── */
+async function fetchPlacesInfo(prefix) {
+  var nameEl = document.getElementById(prefix + '-name');
+  var locEl  = document.getElementById(prefix + '-loc');
+  var addrEl = document.getElementById(prefix + '-addr');
+  var hoursEl= document.getElementById(prefix + '-hours');
+  var statusEl = document.getElementById(prefix + '-places-status');
+  var btn    = document.getElementById(prefix + '-places-btn');
+
+  var shopName = (nameEl ? nameEl.value : '').trim();
+  var location = (locEl  ? locEl.value  : '').trim();
+  if (!shopName) { alert('업체명을 먼저 입력해주세요.'); return; }
+
+  var query = shopName + (location ? ' ' + location : '') + ' Seoul Korea';
+
+  if(statusEl) statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 구글에서 정보 가져오는 중...';
+  if(btn) { btn.disabled = true; btn.style.opacity = '.6'; }
+
+  try {
+    var res = await fetch('/api/places-fetch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: query })
+    });
+    var data = await res.json();
+
+    if (data.error) {
+      if(statusEl) statusEl.innerHTML = '<span style="color:#f87171">❌ ' + (data.error === 'No place found' ? '구글에서 업체를 찾을 수 없습니다.' : data.error) + '</span>';
+      return;
+    }
+
+    // 주소 업데이트
+    if (data.address && addrEl) addrEl.value = data.address;
+
+    // 영업시간 업데이트 (요일별 상세)
+    if (data.hours && hoursEl) hoursEl.value = data.hours;
+
+    // 별점/리뷰수 저장 (hidden 필드에)
+    if (data.rating) {
+      var ratingHid = document.getElementById(prefix + '-rating');
+      if (!ratingHid) {
+        ratingHid = document.createElement('input');
+        ratingHid.type = 'hidden';
+        ratingHid.id = prefix + '-rating';
+        document.body.appendChild(ratingHid);
+      }
+      ratingHid.value = data.rating;
+    }
+    if (data.reviewCount) {
+      var rcHid = document.getElementById(prefix + '-review-count');
+      if (!rcHid) {
+        rcHid = document.createElement('input');
+        rcHid.type = 'hidden';
+        rcHid.id = prefix + '-review-count';
+        document.body.appendChild(rcHid);
+      }
+      rcHid.value = data.reviewCount;
+    }
+
+    // 리뷰 JSON 저장
+    if (data.reviews) {
+      var revHid = document.getElementById(prefix + '-reviews');
+      if (!revHid) {
+        revHid = document.createElement('input');
+        revHid.type = 'hidden';
+        revHid.id = prefix + '-reviews';
+        document.body.appendChild(revHid);
+      }
+      revHid.value = JSON.stringify(data.reviews);
+    }
+
+    // PlaceId 저장
+    if (data.placeId) {
+      var pidHid = document.getElementById(prefix + '-place-id');
+      if (!pidHid) {
+        pidHid = document.createElement('input');
+        pidHid.type = 'hidden';
+        pidHid.id = prefix + '-place-id';
+        document.body.appendChild(pidHid);
+      }
+      pidHid.value = data.placeId;
+    }
+
+    var summary = [];
+    if (data.address)     summary.push('주소 ✅');
+    if (data.hours)       summary.push('영업시간 ✅');
+    if (data.rating)      summary.push('별점 ' + data.rating + '⭐');
+    if (data.reviews && data.reviews.length) summary.push('리뷰 ' + data.reviews.length + '개 ✅');
+    if(statusEl) statusEl.innerHTML = '<span style="color:#4ade80">✅ ' + summary.join(' · ') + '</span>';
+
+  } catch(e) {
+    if(statusEl) statusEl.innerHTML = '<span style="color:#f87171">❌ 오류: ' + e.message + '</span>';
+  } finally {
+    if(btn) { btn.disabled = false; btn.style.opacity = '1'; }
+  }
+}
+
+/* ── Google Places 자동가져오기 (영업시간 + 영문주소 + 리뷰) ── */
+async function fetchPlacesInfo(prefix) {
+  var nameEl   = document.getElementById(prefix + '-name');
+  var locEl    = document.getElementById(prefix + '-loc');
+  var addrEl   = document.getElementById(prefix + '-addr');
+  var hoursEl  = document.getElementById(prefix + '-hours');
+  var statusEl = document.getElementById(prefix + '-places-status');
+  var btnEl    = document.getElementById(prefix + '-places-btn');
+
+  var shopName = nameEl ? nameEl.value.trim() : '';
+  var location = locEl  ? locEl.value.trim()  : '';
+  if (!shopName) { if(statusEl) statusEl.innerHTML = '<span style="color:#f87171">업체명을 먼저 입력하세요</span>'; return; }
+
+  var query = shopName + (location ? ' ' + location : '') + ' Seoul Korea';
+  if(statusEl) statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 구글에서 정보 가져오는 중...';
+  if(btnEl) { btnEl.disabled = true; }
+
+  try {
+    var res = await fetch('/api/places-fetch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: query })
+    });
+    var d = await res.json();
+    if (d.error) { if(statusEl) statusEl.innerHTML = '<span style="color:#f87171">❌ ' + d.error + '</span>'; return; }
+
+    var updated = [];
+
+    // 영문 주소
+    if (d.address && addrEl) {
+      addrEl.value = d.address;
+      updated.push('주소');
+    }
+
+    // 영업시간 (요일별 전체)
+    if (d.weekdayDescriptions && d.weekdayDescriptions.length > 0 && hoursEl) {
+      hoursEl.value = d.weekdayDescriptions.join(' | ');
+      updated.push('영업시간');
+    } else if (d.hours && hoursEl) {
+      hoursEl.value = d.hours;
+      updated.push('영업시간');
+    }
+
+    // 평점/리뷰수 hidden 저장
+    if (d.rating) {
+      var ratingEl = document.getElementById(prefix + '-rating');
+      if (ratingEl) ratingEl.value = d.rating;
+    }
+    if (d.reviewCount) {
+      // sh → sh-review-count, edit-sh → edit-sh-review-count
+      var rcEl = document.getElementById(prefix + '-review-count');
+      if (rcEl) rcEl.value = d.reviewCount;
+    }
+    // reviews JSON hidden 저장
+    if (d.reviews && d.reviews.length > 0) {
+      var rvEl = document.getElementById(prefix + '-reviews');
+      if (rvEl) rvEl.value = JSON.stringify(d.reviews);
+      updated.push('리뷰 ' + d.reviews.length + '개');
+    }
+    // placeId hidden 저장
+    if (d.placeId) {
+      var pidEl = document.getElementById(prefix + '-place-id');
+      if (pidEl) pidEl.value = d.placeId;
+    }
+
+    if(statusEl) statusEl.innerHTML = '<span style="color:#4ade80">✅ ' + updated.join(', ') + ' 가져오기 완료!</span>';
+  } catch(e) {
+    if(statusEl) statusEl.innerHTML = '<span style="color:#f87171">❌ 오류: ' + e.message + '</span>';
+  } finally {
+    if(btnEl) { btnEl.disabled = false; }
+  }
 }
 
 /* ── AI SEO 자동생성 ── */
