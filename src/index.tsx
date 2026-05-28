@@ -1831,8 +1831,13 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .mute-btn{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);color:rgba(255,255,255,.5);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
 .mute-btn:hover{background:rgba(255,255,255,.1);color:#fff}
 /* ── 카테고리 탭 ── */
-.cats{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;padding-bottom:12px}
+.cats{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;padding-bottom:12px;-webkit-overflow-scrolling:touch;touch-action:pan-x}
 .cats::-webkit-scrollbar{display:none}
+/* PC에서 cats 가로 스크롤 강제 활성화 */
+@media(min-width:768px){
+  .cats{overflow-x:scroll;cursor:grab}
+  .cats:active{cursor:grabbing}
+}
 .cat{flex-shrink:0;display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:20px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.05);color:rgba(255,255,255,.4);font-size:10.5px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap;font-family:var(--ff-sans);letter-spacing:.1px}
 .cat:hover{background:rgba(232,65,122,.12);border-color:rgba(232,65,122,.3);color:rgba(255,255,255,.75)}
 .cat.on{background:linear-gradient(135deg,var(--pk) 0%,#7C3AED 100%);border-color:transparent;color:#fff;box-shadow:0 2px 14px rgba(232,65,122,.4),0 0 0 1px rgba(255,255,255,.08) inset}
@@ -1881,18 +1886,20 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   body{overflow:hidden}
   /* pc-layout: 피드(좌) + 카탈로그(우) 나란히 */
   #pc-layout{display:flex!important;height:100vh;overflow:hidden}
-  #shop-panel{display:flex;flex-direction:column}
-  #feed-col{width:420px;flex-shrink:0;height:100vh;position:relative;overflow:hidden}
-  /* header: feed-col 안에서 fixed 대신 feed-col 기준으로 */
-  #hd{position:absolute;top:0;left:0;right:0;width:100%}
-  #feed{height:100vh;background:#040408}
+  #shop-panel{display:flex!important;flex-direction:column}
+  #feed-col{width:420px;flex-shrink:0;height:100vh;position:relative}
+  /* header: feed-col 안에서 fixed → absolute */
+  #hd{position:absolute;top:0;left:0;width:420px;right:auto}
+  #feed{height:100vh;background:#040408;overflow:hidden}
   .slide{width:420px;max-width:420px;height:100vh;box-shadow:0 0 80px rgba(232,65,122,.06)}
-  #dots{position:absolute;left:8px;top:50%;transform:translateY(-50%)}
-  #muteBtn{position:absolute;right:12px;top:50%;transform:translateY(-50%)}
+  #dots{position:absolute;left:8px;top:50%;transform:translateY(-50%);z-index:200}
+  #muteBtn{position:absolute;right:12px;top:50%;transform:translateY(-50%);z-index:200}
   .modal-bg{position:fixed;left:0;width:420px}
   .modal{max-width:420px}
   #toast{left:210px;transform:translateX(-50%) translateY(12px)}
   .hint{display:none}
+  /* 카탈로그 패널 레이아웃 */
+  #shop-panel{flex:1;min-width:0}
 }
 /* ── PC 카탈로그 패널 ── */
 #pc-layout{display:block;width:100%}
@@ -1913,7 +1920,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .sp-card-loc{font-size:10px;color:rgba(255,255,255,.38);display:flex;align-items:center;gap:3px}
 .sp-card-loc i{font-size:8px;color:var(--pk);opacity:.7}
 .sp-card-rating{position:absolute;top:7px;right:7px;background:rgba(0,0,0,.72);backdrop-filter:blur(8px);border-radius:20px;padding:3px 7px;font-size:10px;font-weight:700;color:#fbbf24;display:flex;align-items:center;gap:3px}
-.sp-filter{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px}
+.sp-filter{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;padding-bottom:8px;margin-bottom:8px;-webkit-overflow-scrolling:touch}
+.sp-filter::-webkit-scrollbar{display:none}
 .sp-flt{padding:4px 10px;border-radius:20px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);color:rgba(255,255,255,.4);font-size:10px;font-weight:700;cursor:pointer;transition:all .18s;white-space:nowrap}
 .sp-flt.on{background:linear-gradient(135deg,var(--pk),#7C3AED);border-color:transparent;color:#fff}
 .sp-empty{grid-column:1/-1;text-align:center;padding:40px 16px;color:rgba(255,255,255,.25);font-size:12px}
@@ -2762,6 +2770,24 @@ window.addEventListener('load', function(){
   });
 
   loadVideos('all');
+
+  // ── 카테고리 탭 마우스 드래그 스크롤 (PC) ──
+  var catsEl = document.getElementById('cats');
+  if(catsEl) {
+    var isDragging = false, startX = 0, scrollLeft = 0;
+    catsEl.addEventListener('mousedown', function(e){
+      isDragging = true; startX = e.pageX - catsEl.offsetLeft; scrollLeft = catsEl.scrollLeft;
+      catsEl.style.cursor = 'grabbing';
+    });
+    document.addEventListener('mouseup', function(){ isDragging = false; catsEl.style.cursor = 'grab'; });
+    catsEl.addEventListener('mousemove', function(e){
+      if(!isDragging) return;
+      e.preventDefault();
+      var x = e.pageX - catsEl.offsetLeft;
+      catsEl.scrollLeft = scrollLeft - (x - startX);
+    });
+    catsEl.addEventListener('mouseleave', function(){ isDragging = false; catsEl.style.cursor = 'grab'; });
+  }
 
   // ── PC 카탈로그 패널 (항상 로드, CSS로 표시/숨김 제어) ──
   fetch('/api/shops').then(function(r){ return r.json(); }).then(function(d){
