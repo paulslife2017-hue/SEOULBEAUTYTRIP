@@ -2428,11 +2428,10 @@ function renderShopModal(shop) {
     + addrHtml
     + infoGridHtml
     + descHtml
-    + hoursHtml
     + priceHtml
     + svcHtml
-    + photosGridHtml
     + reviewsHtml
+    + hoursHtml
     + mapHtml;
 
   /* ── WhatsApp 버튼 ── */
