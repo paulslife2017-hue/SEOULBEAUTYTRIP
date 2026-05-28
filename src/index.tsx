@@ -717,11 +717,11 @@ app.post('/api/places-fetch', async (c) => {
         time: r.relativePublishTimeDescription || ''
       }))
 
-    // 4. 사진 URL 생성 (최대 6장) — Places API (New) photo URL 형식
+    // 4. 사진 URL 생성 (최대 6장) — 상대 프록시 경로로 저장 (어떤 도메인에서든 동작)
     const rawPhotos: any[] = place.photos || []
     const photos = rawPhotos.slice(0, 6).map((p: any) => {
-      const name = p.name || ''
-      return `https://places.googleapis.com/v1/${name}/media?key=${GOOGLE_PLACES_KEY}&maxHeightPx=800&maxWidthPx=800`
+      const name = encodeURIComponent(p.name || '')
+      return `/api/photo?name=${name}`
     })
 
     return c.json({
@@ -755,12 +755,58 @@ app.post('/api/places-photos', async (c) => {
     const data: any = await res.json()
     const rawPhotos: any[] = data.photos || []
     const photos = rawPhotos.slice(0, 6).map((p: any) => {
-      const name = p.name || ''
-      return `https://places.googleapis.com/v1/${name}/media?key=${GOOGLE_PLACES_KEY}&maxHeightPx=800&maxWidthPx=800`
+      const name = encodeURIComponent(p.name || '')
+      return `/api/photo?name=${name}`
     })
     return c.json({ photos })
   } catch(e: any) {
     return c.json({ error: e.message }, 500)
+  }
+})
+
+// ── Google Places 사진 프록시 (Referer 제한 우회) ──
+// URL: /api/photo?name=places%2FPLACE_ID%2Fphotos%2FPHOTO_REF
+app.get('/api/photo', async (c) => {
+  const name = c.req.query('name') || ''
+  if (!name) return c.text('name required', 400)
+
+  // name에 /media suffix가 포함된 경우 제거 (중복 방지)
+  const cleanName = name.replace(/\/media$/, '')
+  // 1단계: skipHttpRedirect=true로 photoUri JSON 받기
+  const apiUrl = `https://places.googleapis.com/v1/${cleanName}/media?key=${GOOGLE_PLACES_KEY}&maxHeightPx=800&maxWidthPx=800&skipHttpRedirect=true`
+  try {
+    const res = await fetch(apiUrl)
+    const ct = res.headers.get('content-type') || ''
+
+    let imgUrl = ''
+    if (ct.includes('application/json')) {
+      // JSON에서 photoUri 추출
+      const json: any = await res.json()
+      imgUrl = json.photoUri || ''
+    } else if (res.ok) {
+      // 직접 이미지로 온 경우
+      const buf = await res.arrayBuffer()
+      return new Response(buf, {
+        headers: { 'Content-Type': ct || 'image/jpeg', 'Cache-Control': 'public, max-age=86400', 'Access-Control-Allow-Origin': '*' }
+      })
+    }
+
+    if (!imgUrl) return c.text('no photo uri', 502)
+
+    // 2단계: 실제 lh3.googleusercontent.com 이미지 fetch
+    const imgRes = await fetch(imgUrl)
+    if (!imgRes.ok) return c.text('img fetch failed: ' + imgRes.status, 502)
+    const buf = await imgRes.arrayBuffer()
+    const imgCt = imgRes.headers.get('content-type') || 'image/jpeg'
+    return new Response(buf, {
+      headers: {
+        'Content-Type': imgCt,
+        'Cache-Control': 'public, max-age=86400',
+        'Access-Control-Allow-Origin': '*'
+      }
+    })
+  } catch(e: any) {
+    return c.text('proxy error: ' + e.message, 500)
   }
 })
 
