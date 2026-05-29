@@ -1327,7 +1327,9 @@ ${(()=>{const allP=[shop.thumbnail,...(shop.photos||[]).filter((p:string)=>p&&p!
 
   ${(()=>{
     const embedUrl = shop.googleMapEmbed
-      || (shop.googlePlaceId ? `https://www.google.com/maps?q=place_id:${shop.googlePlaceId}&output=embed&hl=en` : '');
+      || (shop.lat && shop.lng
+        ? `https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d800!2d${shop.lng}!3d${shop.lat}!3m2!1i1024!2i768!4f13.1!3m3!1m2!${shop.googlePlaceId?'!1s'+shop.googlePlaceId:''}!2s${encodeURIComponent(shop.name||'Shop')}!5e0!3m2!1sen!2skr!4v1`
+        : '');
     return embedUrl
       ? `<div class="sp-card"><div class="sp-card-title"><i class="fas fa-map"></i> Location</div><div class="sp-map"><iframe src="${embedUrl}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div></div>`
       : shop.address ? `<div class="sp-card"><div class="sp-card-title"><i class="fas fa-map"></i> Location</div><div style="padding:12px;font-size:13px;color:rgba(0,0,0,.7)"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : '';
@@ -2493,11 +2495,14 @@ function renderShopModal(shop) {
     svcHtml = '<div class="m-sec"><div class="m-sec-title">Services</div><div class="m-svc-tags">'+svcs+'</div></div>';
   }
 
-  /* ── 구글맵 embed: place_id > embed > URL 순으로 시도 ── */
+  /* ── 구글맵 embed: lat/lng+place_id > embed > address 순으로 시도 ── */
   var embedSrc = shop.googleMapEmbed || '';
-  // 1순위: google_place_id → 정확한 핀 표시 (API 키 불필요)
-  if(!embedSrc && shop.googlePlaceId) {
-    embedSrc = 'https://www.google.com/maps?q=place_id:'+shop.googlePlaceId+'&output=embed&hl=en';
+  // 1순위: lat/lng + place_id로 정확한 핀 표시 (zoom=17 근접)
+  if(!embedSrc && shop.lat && shop.lng) {
+    var lat = parseFloat(shop.lat), lng = parseFloat(shop.lng);
+    var pidPart = shop.googlePlaceId ? '!1s'+shop.googlePlaceId : '';
+    var namePart = encodeURIComponent(shop.name||'Shop');
+    embedSrc = 'https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d800!2d'+lng+'!3d'+lat+'!3m2!1i1024!2i768!4f13.1!3m3!1m2!'+pidPart+'!2s'+namePart+'!5e0!3m2!1sen!2skr!4v1';
   }
   // 2순위: URL에서 파싱
   if(!embedSrc && shop.googleMapUrl) {
