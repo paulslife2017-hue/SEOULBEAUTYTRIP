@@ -2570,6 +2570,27 @@ function showSkeletonFeed() {
   feed.innerHTML = buildSkeleton();
 }
 
+/* ── 스플래시 중 shops 데이터 Prefetch ──
+   스플래시가 보이는 ~2.2초 동안 /api/shops 를 미리 가져와서
+   shopCache 에 채워둠 → 모달 열 때 fetch 없이 즉시 렌더 */
+var _prefetchDone = false;
+function prefetchShops(){
+  if(_prefetchDone) return;
+  _prefetchDone = true;
+  fetch('/api/shops')
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var list = d.shops || [];
+      list.forEach(function(s){
+        // 기본 정보만 있는 상태로 캐시 (상세 API 전까지 레이어 1 캐시)
+        if(s && s.id && !shopCache[s.id]) shopCache[s.id] = s;
+      });
+    })
+    .catch(function(){}); // 실패해도 무시 — 기존 로직이 fallback
+}
+// 페이지 로드 즉시 시작 (스플래시가 떠있는 동안 병렬로 실행)
+prefetchShops();
+
 /* loading hide */
 var _ldHidden = false;
 function hideLd(){
@@ -2856,13 +2877,32 @@ function openShopModal(shopId) {
   document.getElementById('shopModal').classList.add('open');
   document.getElementById('modalScroll').scrollTop = 0;
 
-  // 1) 캐시에 있으면 즉시 렌더 (스피너 없음)
-  if(shopCache[shopId]) {
-    renderShopModal(shopCache[shopId]);
+  // 1) 캐시에 있고 상세 정보(services 등)도 있으면 → 즉시 렌더, 백그라운드 갱신은 생략
+  var cached = shopCache[shopId];
+  if(cached && cached._detail) {
+    renderShopModal(cached);
     return;
   }
 
-  // 2) vids 배열에서 shop 기본정보 찾아 스켈레톤 즉시 표시
+  // 2) prefetch 로 기본 정보만 있는 캐시 → 즉시 기본 렌더 후 상세 정보 백그라운드 보완
+  if(cached && cached.name) {
+    renderShopModal(cached); // 스피너 없이 기본 정보로 먼저 표시
+    // 상세 정보 백그라운드 fetch → 조용히 덮어씌우기
+    fetch('/api/shops/'+shopId)
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var shop = d.shop; if(!shop) return;
+        shop._detail = true; // 상세 완료 마커
+        shopCache[shopId] = shop;
+        // 모달이 아직 열려있으면 자연스럽게 업데이트
+        if(document.getElementById('shopModal').classList.contains('open')) {
+          renderShopModal(shop);
+        }
+      }).catch(function(){});
+    return;
+  }
+
+  // 3) 캐시 없음: vids 배열에서 shop 기본정보 찾아 스켈레톤 즉시 표시
   var quickShop = null;
   for(var i=0;i<vids.length;i++){
     if(vids[i].shopId===shopId || (vids[i].shop&&vids[i].shop.id===shopId)){
@@ -2880,10 +2920,11 @@ function openShopModal(shopId) {
     document.getElementById('modalContent').innerHTML = '<div style="text-align:center;padding:40px 0;color:rgba(255,255,255,.25)"><i class="fas fa-spinner fa-spin" style="font-size:22px"></i></div>';
   }
 
-  // 3) 상세 API fetch → 캐시 저장 후 렌더
+  // 4) 상세 API fetch → 캐시 저장 후 렌더
   fetch('/api/shops/'+shopId).then(function(r){ return r.json(); }).then(function(d){
     var shop = d.shop;
     if(!shop){ document.getElementById('modalContent').innerHTML='<div style="padding:20px;color:#f87171">Shop information unavailable.</div>'; return; }
+    shop._detail = true; // 상세 완료 마커
     shopCache[shopId] = shop;
     renderShopModal(shop);
   }).catch(function(){
