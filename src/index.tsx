@@ -1902,21 +1902,22 @@ Sitemap: https://seoulbeautytrip.com/sitemap.xml
 app.get('/', async (c) => {
   const sql = getDb()
   try {
-    const [vidRows, platRows] = await Promise.all([
-      sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.active=true ORDER BY RANDOM()`,
-      sql`SELECT * FROM platform LIMIT 1`
-    ])
+    const vidRows = await sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.active=true ORDER BY RANDOM()`
     const initVideos = vidRows.map((r: any) => ({
       id: r.id, shopId: r.shop_id, title: r.title, description: r.description,
       videoUrl: r.video_url, thumbnail: r.thumbnail, tags: r.tags || [],
       views: r.views, likes: r.likes, createdAt: r.created_at,
       shop: { id: r.shop_id, name: r.shop_name, category: r.shop_cat, location: r.shop_location, thumbnail: r.shop_thumb }
     }))
-    const initPlatform = platRows[0] || {}
-    const inlineScript = `<script>window.__INIT_VIDEOS__=${JSON.stringify(initVideos)};window.__INIT_PLATFORM__=${JSON.stringify(initPlatform)};<\/script>`
-    return c.html(MAIN_HTML.replace('/*__INLINE_DATA__*/', inlineScript))
-  } catch(e) {
-    return c.html(MAIN_HTML.replace('/*__INLINE_DATA__*/', ''))
+    // platform 테이블 대신 PLATFORM 상수 사용
+    const initPlatform = { whatsapp: PLATFORM.whatsapp, name: PLATFORM.name, instagram: PLATFORM.instagram }
+    // </script> 문자열이 JSON 안에 있으면 HTML 파서가 스크립트를 조기 종료 → 이스케이프 처리
+    const safeJson = (obj: any) => JSON.stringify(obj).replace(/<\/script>/gi, '<\\/script>').replace(/<!--/g, '<\\!--')
+    const inlineScript = `<script>window.__INIT_VIDEOS__=${safeJson(initVideos)};window.__INIT_PLATFORM__=${safeJson(initPlatform)};<\/script>`
+    return c.html(MAIN_HTML.replace('__INLINE_DATA_PLACEHOLDER__', inlineScript))
+  } catch(e: any) {
+    console.error('[/ route error]', e?.message || e)
+    return c.html(MAIN_HTML.replace('__INLINE_DATA_PLACEHOLDER__', ''))
   }
 })
 app.get('/admin', (c) => {
@@ -2401,13 +2402,15 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   </div>
 </div>
 
+__INLINE_DATA_PLACEHOLDER__
 <script>
 var vids = [], isMuted = true, liked = {}, platform = {}, allShopsData = [];
 var shopCache = {}; // 모달 캐시: shopId → shop 객체
 var catIcons = {skincare:'&#127807;',makeup:'&#128139;',hair:'&#128135;',headspa:'&#129496;',nail:'&#128133;',clinic:'&#127973;',spa:'&#129510;'};
 var catFaIcons = {skincare:'fa-leaf',makeup:'fa-magic',hair:'fa-cut',headspa:'fa-spa',nail:'fa-hand-sparkles',clinic:'fa-briefcase-medical',spa:'fa-hot-tub'};
 
-fetch('/api/platform').then(function(r){return r.json();}).then(function(d){ platform = d; });
+if(window.__INIT_PLATFORM__) { platform = window.__INIT_PLATFORM__; }
+else { fetch('/api/platform').then(function(r){return r.json();}).then(function(d){ platform = d; }); }
 
 /* ── 로딩 팁 ── */
 var _ldTips = [
@@ -3007,8 +3010,8 @@ function renderShopModal(shop) {
   var shareSupported = !!navigator.share;
 
   var btn2Row = '<div class="m-btns-row2">';
-  // Share 버튼
-  btn2Row += '<button class="m-btn-share" onclick="shareShop(\''+esc(shop.name||'')+'\',\''+esc(pageUrl)+'\')">'
+  // Share 버튼 — data-* 속성으로 값 전달 (따옴표 충돌 방지)
+  btn2Row += '<button class="m-btn-share" id="shareBtn" data-name="'+esc(shop.name||'')+'" data-url="'+esc(pageUrl)+'" onclick="shareShopBtn(this)">'
     +'<i class="fas fa-share-alt"></i> Share'
   +'</button>';
   // View Page 버튼 (slug 있을 때만)
@@ -3042,6 +3045,11 @@ function renderShopModal(shop) {
   document.getElementById('modalBtns').innerHTML = waBtn + btn2Row;
 }
 
+function shareShopBtn(btn) {
+  var name = btn.getAttribute('data-name') || '';
+  var path = btn.getAttribute('data-url') || '';
+  shareShop(name, path);
+}
 function shareShop(name, path) {
   var url = path ? (location.origin + path) : location.href;
   if(navigator.share) {
@@ -3222,7 +3230,7 @@ function onSearch(q){
       var href = s.slug ? '/shop/'+s.slug : '#';
       var clickAttr = s.slug ? '' : ' onclick="event.preventDefault();closeSearch();openShopModal(\''+s.id+'\')"';
       return '<a class="so-card" href="'+href+'"'+clickAttr+'>'
-        +'<img class="so-card-img" src="'+(s.thumbnail||'')+'" alt="'+esc(s.name)+'" loading="lazy" onerror="this.style.background=\'#1a1a2e\'">'
+        +'<img class="so-card-img" src="'+(s.thumbnail||'')+'" alt="'+esc(s.name)+'" loading="lazy" onerror="this.style.background=&quot;#1a1a2e&quot;">'
         +'<div class="so-card-body">'
           +'<div class="so-card-cat" style="color:'+col+'">'+esc(s.category)+'</div>'
           +'<div class="so-card-name">'+esc(s.name)+'</div>'
