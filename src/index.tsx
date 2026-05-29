@@ -1842,15 +1842,40 @@ const MAIN_HTML = `<!DOCTYPE html>
   --ff-sans:'Inter',sans-serif;
 }
 html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-family:var(--ff-sans)}
-/* ── 로딩 ── */
+/* ── 로딩 스플래시 ── */
 #ld{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;transition:opacity .6s}
 .ld-pre{font-size:10px;letter-spacing:5px;color:rgba(255,255,255,.28);text-transform:uppercase;font-family:var(--ff-sans)}
-.ld-logo{font-family:var(--ff-serif);font-size:34px;font-weight:900;background:linear-gradient(135deg,#fff 0%,var(--pk3) 60%,var(--gold2) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:1px;text-align:center;line-height:1.1}
+.ld-logo{font-family:var(--ff-serif);font-size:34px;font-weight:900;background:linear-gradient(135deg,#fff 0%,var(--pk3) 60%,var(--gold2) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:1px;text-align:center;line-height:1.1;animation:ldpulse 2s ease-in-out infinite}
 .ld-sub{font-size:9px;letter-spacing:6px;color:rgba(255,255,255,.25);text-transform:uppercase;margin-top:2px}
 .ld-line{width:1px;height:28px;background:linear-gradient(to bottom,transparent,rgba(201,168,76,.5),transparent);margin:10px 0 6px}
-.ld-bar{width:120px;height:1px;background:rgba(255,255,255,.08);border-radius:1px;overflow:hidden}
-.ld-prog{height:100%;background:linear-gradient(90deg,var(--pk),var(--gold));animation:ldpg 1.8s ease forwards}
+.ld-bar{width:140px;height:2px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden;margin-top:4px}
+.ld-prog{height:100%;background:linear-gradient(90deg,var(--pk),var(--gold));animation:ldpg 2.2s cubic-bezier(.4,0,.2,1) forwards}
+.ld-tips{font-size:10px;color:rgba(255,255,255,.18);margin-top:18px;letter-spacing:.3px;text-align:center;min-height:14px;transition:opacity .4s}
 @keyframes ldpg{from{width:0}to{width:100%}}
+@keyframes ldpulse{0%,100%{opacity:1}50%{opacity:.75}}
+/* ── 스켈레톤 슬라이드 ── */
+.skeleton-feed{height:100vh;width:100%;max-width:100%;position:relative;scroll-snap-align:start;overflow:hidden;background:#0a0a14;flex-shrink:0;display:flex;flex-direction:column;justify-content:flex-end}
+.sk-bg{position:absolute;inset:0;background:linear-gradient(135deg,#0e0e20 0%,#12121e 50%,#0a0a16 100%)}
+.sk-shimmer{position:absolute;inset:0;background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,.035) 50%,transparent 60%);background-size:200% 100%;animation:shimmer 1.8s infinite linear}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.sk-info{position:absolute;bottom:0;left:0;right:0;padding:16px 18px 80px;z-index:3;display:flex;flex-direction:column;gap:8px}
+.sk-badge{width:80px;height:18px;border-radius:10px;background:rgba(255,255,255,.06);animation:skpulse 1.5s ease-in-out infinite}
+.sk-title{width:65%;height:20px;border-radius:6px;background:rgba(255,255,255,.07);animation:skpulse 1.5s ease-in-out infinite .1s}
+.sk-desc{width:45%;height:13px;border-radius:5px;background:rgba(255,255,255,.05);animation:skpulse 1.5s ease-in-out infinite .2s}
+.sk-shop{display:flex;align-items:center;gap:8px;margin-top:4px}
+.sk-avatar{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.06);animation:skpulse 1.5s ease-in-out infinite .15s;flex-shrink:0}
+.sk-shop-info{display:flex;flex-direction:column;gap:5px}
+.sk-shop-name{width:90px;height:12px;border-radius:4px;background:rgba(255,255,255,.06);animation:skpulse 1.5s ease-in-out infinite .2s}
+.sk-shop-loc{width:60px;height:10px;border-radius:4px;background:rgba(255,255,255,.04);animation:skpulse 1.5s ease-in-out infinite .3s}
+.sk-actions{position:absolute;right:14px;bottom:100px;display:flex;flex-direction:column;gap:16px;align-items:center;z-index:3}
+.sk-act-btn{width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.05);animation:skpulse 1.5s ease-in-out infinite}
+.sk-act-label{width:24px;height:8px;border-radius:3px;background:rgba(255,255,255,.04);animation:skpulse 1.5s ease-in-out infinite .1s}
+@keyframes skpulse{0%,100%{opacity:.6}50%{opacity:1}}
+/* ── 카테고리 전환 오버레이 ── */
+#cat-loading{position:absolute;inset:0;z-index:50;display:none;align-items:center;justify-content:center;pointer-events:none}
+#cat-loading.on{display:flex}
+.cat-spin{width:28px;height:28px;border:2.5px solid rgba(232,65,122,.15);border-top-color:var(--pk);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 /* ── 헤더 ── */
 #hd{position:fixed;top:0;left:0;right:0;z-index:100;padding:12px 16px 0;background:linear-gradient(to bottom,rgba(8,8,14,.96) 60%,transparent)}
 .hd-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
@@ -2075,6 +2100,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   <div class="ld-sub">Korean Beauty Experience</div>
   <div class="ld-line"></div>
   <div class="ld-bar"><div class="ld-prog"></div></div>
+  <div class="ld-tips" id="ldTips"></div>
 </div>
 
 <header id="hd">
@@ -2104,9 +2130,10 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 
 <!-- PC 레이아웃 래퍼 -->
 <div id="pc-layout">
-  <div id="feed-col">
+  <div id="feed-col" style="position:relative">
     <div id="dots" aria-hidden="true"></div>
     <div id="feed" role="feed" aria-label="Beauty videos"></div>
+    <div id="cat-loading"><div class="cat-spin"></div></div>
   </div>
   <!-- PC 우측 업체 카탈로그 -->
   <aside id="shop-panel" aria-label="Shop catalog">
@@ -2173,6 +2200,56 @@ var catFaIcons = {skincare:'fa-leaf',makeup:'fa-magic',hair:'fa-cut',headspa:'fa
 
 fetch('/api/platform').then(function(r){return r.json();}).then(function(d){ platform = d; });
 
+/* ── 로딩 팁 ── */
+var _ldTips = [
+  '✨ Swipe up to explore more looks',
+  '💄 Tap the shop name to book',
+  '📍 Real shops in Seoul, Korea',
+  '🌸 Curated K-beauty experiences',
+  '💬 Contact via WhatsApp to reserve'
+];
+(function(){
+  var el = document.getElementById('ldTips');
+  if(!el) return;
+  var idx = 0;
+  el.textContent = _ldTips[0];
+  setInterval(function(){
+    el.style.opacity = '0';
+    setTimeout(function(){
+      idx = (idx + 1) % _ldTips.length;
+      el.textContent = _ldTips[idx];
+      el.style.opacity = '1';
+    }, 400);
+  }, 2200);
+})();
+
+/* ── 스켈레톤 슬라이드 ── */
+function buildSkeleton() {
+  return '<div class="skeleton-feed">'
+    +'<div class="sk-bg"></div>'
+    +'<div class="sk-shimmer"></div>'
+    +'<div class="sk-actions">'
+      +'<div style="display:flex;flex-direction:column;align-items:center;gap:4px"><div class="sk-act-btn"></div><div class="sk-act-label"></div></div>'
+      +'<div style="display:flex;flex-direction:column;align-items:center;gap:4px"><div class="sk-act-btn"></div><div class="sk-act-label"></div></div>'
+      +'<div style="display:flex;flex-direction:column;align-items:center;gap:4px"><div class="sk-act-btn"></div><div class="sk-act-label"></div></div>'
+    +'</div>'
+    +'<div class="sk-info">'
+      +'<div class="sk-badge"></div>'
+      +'<div class="sk-title"></div>'
+      +'<div class="sk-desc"></div>'
+      +'<div class="sk-shop">'
+        +'<div class="sk-avatar"></div>'
+        +'<div class="sk-shop-info"><div class="sk-shop-name"></div><div class="sk-shop-loc"></div></div>'
+      +'</div>'
+    +'</div>'
+  +'</div>';
+}
+function showSkeletonFeed() {
+  var feed = document.getElementById('feed');
+  if(!feed) return;
+  feed.innerHTML = buildSkeleton();
+}
+
 /* loading hide */
 var _ldHidden = false;
 function hideLd(){
@@ -2183,6 +2260,10 @@ function hideLd(){
   ld.style.opacity = '0';
   setTimeout(function(){ ld.style.display = 'none'; }, 600);
 }
+
+/* 카테고리 전환 스피너 */
+function showCatLoading(){ var el=document.getElementById('cat-loading'); if(el) el.classList.add('on'); }
+function hideCatLoading(){ var el=document.getElementById('cat-loading'); if(el) el.classList.remove('on'); }
 
 function loadVideos(cat) {
   // 첫 로드이고 cat='all'이면 SSR 인라인 데이터 즉시 사용 (fetch 생략)
@@ -2198,6 +2279,12 @@ function loadVideos(cat) {
     hideLd();
     return;
   }
+  // 카테고리 전환: 스켈레톤 + 스피너 표시
+  var isCatSwitch = _ldHidden; // 스플래시 이미 숨겼으면 카테고리 전환
+  if(isCatSwitch) {
+    showSkeletonFeed();
+    showCatLoading();
+  }
   fetch('/api/videos?category='+(cat||'all'))
     .then(function(r){ return r.json(); })
     .then(function(d){
@@ -2207,15 +2294,17 @@ function loadVideos(cat) {
         var j=Math.floor(Math.random()*(i+1));
         var tmp=vids[i]; vids[i]=vids[j]; vids[j]=tmp;
       }
+      hideCatLoading();
       renderFeed();
       hideLd();
     })
     .catch(function(){
       vids = [];
+      hideCatLoading();
       renderFeed();
       hideLd();
     });
-  setTimeout(hideLd, 5000);
+  setTimeout(function(){ hideLd(); hideCatLoading(); }, 5000);
 }
 
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
