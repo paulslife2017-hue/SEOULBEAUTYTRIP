@@ -1827,10 +1827,13 @@ a{text-decoration:none;color:inherit}
 .sc-grid{
   height:100%;
   display:grid;
-  /* 9개 기준: 3×3 → auto-fill로 높이에 맞게 */
-  grid-template-columns:repeat(3,1fr);
-  grid-template-rows:repeat(3,1fr);
+  /* PC 기본: 5열×2행 */
+  grid-template-columns:repeat(5,1fr);
+  grid-template-rows:repeat(2,1fr);
   gap:8px;
+}
+@media(max-width:700px){
+  .sc-grid{grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr)}
 }
 
 /* CARD */
@@ -1945,11 +1948,17 @@ function render(){
   /* 보이는 카드 수에 맞게 그리드 레이아웃 재계산 */
   var grid = document.getElementById('scGrid');
   var cols, rows;
-  if(vis<=3){cols=vis||1; rows=1;}
-  else if(vis<=6){cols=3; rows=2;}
-  else if(vis<=9){cols=3; rows=3;}
-  else if(vis<=12){cols=4; rows=3;}
-  else {cols=4; rows=Math.ceil(vis/4);}
+  var isMobile = window.innerWidth < 700;
+  if(vis === 0){ cols=1; rows=1; }
+  else if(isMobile){
+    /* 모바일: 최대 3열, 필요한 만큼 행 */
+    rows = vis <= 3 ? 1 : vis <= 6 ? 2 : 3;
+    cols = Math.ceil(vis / rows);
+  } else {
+    /* PC: 항상 2행, 열 수는 카드 수에 맞게 자동 */
+    rows = vis <= 4 ? 1 : 2;
+    cols = Math.ceil(vis / rows);
+  }
   grid.style.gridTemplateColumns = 'repeat('+cols+',1fr)';
   grid.style.gridTemplateRows    = 'repeat('+rows+',1fr)';
 
