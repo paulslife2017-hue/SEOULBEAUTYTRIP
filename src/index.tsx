@@ -2134,6 +2134,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 
 <script>
 var vids = [], isMuted = true, liked = {}, platform = {}, allShopsData = [];
+var shopCache = {}; // 모달 캐시: shopId → shop 객체
 var catIcons = {skincare:'&#127807;',makeup:'&#128139;',hair:'&#128135;',headspa:'&#129496;',nail:'&#128133;',clinic:'&#127973;',spa:'&#129510;'};
 var catFaIcons = {skincare:'fa-leaf',makeup:'fa-magic',hair:'fa-cut',headspa:'fa-spa',nail:'fa-hand-sparkles',clinic:'fa-briefcase-medical',spa:'fa-hot-tub'};
 
@@ -2308,14 +2309,39 @@ function setupObs(){
 function openShopModal(shopId) {
   if(!shopId) return;
   document.getElementById('modalHero').innerHTML = '';
-  document.getElementById('modalContent').innerHTML = '<div style="text-align:center;padding:40px 0;color:rgba(255,255,255,.25)"><i class="fas fa-spinner fa-spin" style="font-size:22px"></i></div>';
   document.getElementById('modalBtns').innerHTML = '';
   document.getElementById('shopModal').classList.add('open');
   document.getElementById('modalScroll').scrollTop = 0;
 
+  // 1) 캐시에 있으면 즉시 렌더 (스피너 없음)
+  if(shopCache[shopId]) {
+    renderShopModal(shopCache[shopId]);
+    return;
+  }
+
+  // 2) vids 배열에서 shop 기본정보 찾아 스켈레톤 즉시 표시
+  var quickShop = null;
+  for(var i=0;i<vids.length;i++){
+    if(vids[i].shopId===shopId || (vids[i].shop&&vids[i].shop.id===shopId)){
+      quickShop = vids[i].shop || null; break;
+    }
+  }
+  if(quickShop && quickShop.name) {
+    document.getElementById('modalContent').innerHTML =
+      '<div class="m-shop-header">'
+        +'<div class="m-shop-name">'+esc(quickShop.name||'')+'</div>'
+        +(quickShop.location?'<div class="m-shop-sub"><div class="m-shop-loc"><i class="fas fa-map-marker-alt"></i>'+esc(areaOnly(quickShop.location))+'</div></div>':'')
+      +'</div>'
+      +'<div style="text-align:center;padding:24px 0;color:rgba(255,255,255,.2)"><i class="fas fa-spinner fa-spin" style="font-size:18px"></i></div>';
+  } else {
+    document.getElementById('modalContent').innerHTML = '<div style="text-align:center;padding:40px 0;color:rgba(255,255,255,.25)"><i class="fas fa-spinner fa-spin" style="font-size:22px"></i></div>';
+  }
+
+  // 3) 상세 API fetch → 캐시 저장 후 렌더
   fetch('/api/shops/'+shopId).then(function(r){ return r.json(); }).then(function(d){
     var shop = d.shop;
     if(!shop){ document.getElementById('modalContent').innerHTML='<div style="padding:20px;color:#f87171">Shop information unavailable.</div>'; return; }
+    shopCache[shopId] = shop;
     renderShopModal(shop);
   }).catch(function(){
     document.getElementById('modalContent').innerHTML='<div style="padding:20px;color:#f87171">An error occurred.</div>';
@@ -2440,8 +2466,14 @@ function renderShopModal(shop) {
     }).join('');
     priceHtml = '<div class="m-sec"><div class="m-sec-title"><i class="fas fa-won-sign" style="color:var(--gold);margin-right:4px"></i>Price List</div><div class="m-price-list">'+rows+'</div></div>';
   } else {
-    // 가격 비공개 업체 → 섹션 표시 안 함
-    priceHtml = '';
+    // 가격 비공개 업체 → 안내 텍스트만 표시
+    priceHtml = '<div class="m-sec">'
+      +'<div class="m-sec-title"><i class="fas fa-won-sign" style="color:var(--gold);margin-right:4px"></i>Pricing</div>'
+      +'<div style="font-size:13px;color:rgba(255,255,255,.55);line-height:1.7;padding:4px 0">'
+        +'Prices vary by treatment &amp; consultation. '
+        +'<span style="color:rgba(255,255,255,.35)">Contact us via WhatsApp below for a free quote.</span>'
+      +'</div>'
+    +'</div>';
   }
 
   /* ── 서비스 태그 ── */
