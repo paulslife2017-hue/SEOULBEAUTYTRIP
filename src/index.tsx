@@ -2207,9 +2207,23 @@ function renderFeed() {
 function getAutoThumb(videoUrl) {
   if(!videoUrl) return '';
   if(videoUrl.indexOf('cloudinary.com') === -1) return '';
-  var u = videoUrl.replace('/video/upload/', '/video/upload/so_0,w_800,h_600,c_fill,q_auto,f_jpg/');
+  // 9:16 세로 썸네일, WebP, 저화질(q_auto:low) → 빠른 poster 표시
+  var u = videoUrl.replace('/video/upload/', '/video/upload/so_0,w_420,h_748,c_fill,q_auto:low,f_webp/');
   var dot = u.lastIndexOf('.');
-  return dot !== -1 ? u.slice(0, dot) + '.jpg' : u + '.jpg';
+  return dot !== -1 ? u.slice(0, dot) + '.webp' : u + '.webp';
+}
+
+function cdnImg(url, w, h) {
+  // Cloudinary 이미지 최적화: WebP 변환 + 크기 조정 + 자동 압축
+  if(!url || url.indexOf('res.cloudinary.com') === -1) return url;
+  var transform = 'w_'+w+(h?',h_'+h:'')+',c_fill,q_auto:good,f_webp,dpr_auto';
+  return url.replace('/image/upload/', '/image/upload/'+transform+'/');
+}
+
+function cdnVideo(url) {
+  // Cloudinary 영상 스트리밍 최적화: 화질 자동, 스트리밍 힌트
+  if(!url || url.indexOf('res.cloudinary.com') === -1) return url;
+  return url.replace('/video/upload/', '/video/upload/q_auto:low,vc_auto,br_800k/');
 }
 
 function buildSlide(v, idx) {
@@ -2221,15 +2235,18 @@ function buildSlide(v, idx) {
   s.setAttribute('itemtype','https://schema.org/VideoObject');
   var tags = (v.tags||[]).map(function(t){return '<span class="vtag">'+esc(t)+'</span>';}).join('');
   var uploadDate = v.createdAt || new Date().toISOString().split('T')[0];
-  // use auto thumbnail
+  // 썸네일: Cloudinary 저화질 WebP 자동 생성 (poster 빠른 표시용)
   var thumb = v.thumbnail || getAutoThumb(v.videoUrl) || '';
+  // 첫번째 슬라이드는 eager load, 나머지는 lazy
+  var imgLoading = idx === 0 ? 'eager' : 'lazy';
+  var imgPriority = idx === 0 ? ' fetchpriority="high"' : '';
 
   s.innerHTML =
     '<meta itemprop="name" content="'+esc(v.title)+'">' +
     '<meta itemprop="description" content="'+esc(v.description)+'">' +
     '<meta itemprop="thumbnailUrl" content="'+esc(thumb)+'">' +
     '<meta itemprop="uploadDate" content="'+esc(uploadDate)+'">' +
-    (thumb ? '<img class="bg-img" src="'+esc(thumb)+'" alt="'+esc(v.title)+'" loading="lazy">' : '<div class="bg-img" style="background:linear-gradient(135deg,#1a0a14 0%,#1c0e22 40%,#0f0816 100%)"></div>') +
+    (thumb ? '<img class="bg-img" src="'+esc(thumb)+'" alt="'+esc(v.title)+'" loading="'+imgLoading+'" decoding="async"'+imgPriority+'>' : '<div class="bg-img" style="background:linear-gradient(135deg,#1a0a14 0%,#1c0e22 40%,#0f0816 100%)"></div>') +
     '<video id="vid'+idx+'" loop muted playsinline preload="none" poster="'+esc(thumb)+'" itemprop="contentUrl"></video>' +
     '<div id="playic'+idx+'" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:4;width:56px;height:56px;border-radius:50%;background:rgba(0,0,0,.55);align-items:center;justify-content:center;pointer-events:none;backdrop-filter:blur(4px)"><i class="fas fa-pause" style="font-size:20px;color:#fff"></i></div>' +
     '<div class="ov"></div>' +
@@ -2256,7 +2273,8 @@ function buildSlide(v, idx) {
 
     if(ve) {
       // src는 여기서 세팅 안 함 — IntersectionObserver에서 화면에 들어올 때만 로드
-      ve.setAttribute('data-src', esc(v.videoUrl));
+      // Cloudinary 영상은 저화질 스트리밍 최적화 URL 사용
+      ve.setAttribute('data-src', esc(cdnVideo(v.videoUrl)));
       ve.onerror = function(){ ve.style.display='none'; };
       ve.addEventListener('play',  function(){ if(playIc) playIc.style.display='none'; });
       ve.addEventListener('pause', function(){ if(playIc) playIc.style.display='flex'; });
@@ -2384,7 +2402,7 @@ function renderShopModal(shop) {
   if(allPhotos.length > 0) {
     heroHtml =
       '<div class="m-hero">'
-        +'<img class="m-hero-img" id="mHeroImg" src="'+esc(allPhotos[0])+'" alt="'+esc(shop.name)+'" loading="lazy">'
+        +'<img class="m-hero-img" id="mHeroImg" src="'+esc(cdnImg(allPhotos[0],800,600))+'" alt="'+esc(shop.name)+'" loading="eager" fetchpriority="high" decoding="async">'
         +'<div class="m-hero-ov"></div>'
         +'<div class="m-hero-badge">'+(catIcons[shop.category]||'')+'&nbsp;'+esc((shop.category||'').toUpperCase())+'</div>'
       +'</div>';
@@ -2393,8 +2411,8 @@ function renderShopModal(shop) {
     if(allPhotos.length > 1) {
       var stripPhotos = allPhotos.slice(0, 6);
       var strips = stripPhotos.map(function(url, i){
-        return '<div class="m-ts-thumb'+(i===0?' on':'')+'" data-photo-url="'+esc(url)+'" onclick="setMHero(this.dataset.photoUrl,this)">'
-          +'<img src="'+esc(url)+'" alt="" loading="lazy" onerror="this.parentElement.remove()">'
+        return '<div class="m-ts-thumb'+(i===0?' on':'')+'" data-photo-url="'+esc(cdnImg(url,800,600))+'" onclick="setMHero(this.dataset.photoUrl,this)">'
+          +'<img src="'+esc(cdnImg(url,120,120))+'" alt="" loading="lazy" decoding="async" onerror="this.parentElement.remove()">'
           +'</div>';
       }).join('');
       heroHtml += '<div class="m-thumbstrip">'+strips+'</div>';
