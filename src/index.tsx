@@ -1740,8 +1740,27 @@ Disallow: /admin
 Sitemap: https://seoulbeautytrip.com/sitemap.xml
 `))
 
-// ── MAIN PAGE ──
-app.get('/', (c) => c.html(MAIN_HTML))
+// ── MAIN PAGE ── (초기 데이터 인라인으로 삽입해 첫 fetch 제거)
+app.get('/', async (c) => {
+  const sql = getDb()
+  try {
+    const [vidRows, platRows] = await Promise.all([
+      sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.active=true ORDER BY RANDOM()`,
+      sql`SELECT * FROM platform LIMIT 1`
+    ])
+    const initVideos = vidRows.map((r: any) => ({
+      id: r.id, shopId: r.shop_id, title: r.title, description: r.description,
+      videoUrl: r.video_url, thumbnail: r.thumbnail, tags: r.tags || [],
+      views: r.views, likes: r.likes, createdAt: r.created_at,
+      shop: { id: r.shop_id, name: r.shop_name, category: r.shop_cat, location: r.shop_location, thumbnail: r.shop_thumb }
+    }))
+    const initPlatform = platRows[0] || {}
+    const inlineScript = `<script>window.__INIT_VIDEOS__=${JSON.stringify(initVideos)};window.__INIT_PLATFORM__=${JSON.stringify(initPlatform)};<\/script>`
+    return c.html(MAIN_HTML.replace('/*__INLINE_DATA__*/', inlineScript))
+  } catch(e) {
+    return c.html(MAIN_HTML.replace('/*__INLINE_DATA__*/', ''))
+  }
+})
 app.get('/admin', (c) => {
   const token = c.env?.GSK_TOKEN || ''
   const html = ADMIN_HTML.replace('__GSK_TOKEN__', token)
@@ -1803,9 +1822,14 @@ const MAIN_HTML = `<!DOCTYPE html>
   ]
 }
 </script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://res.cloudinary.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"></noscript>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"></noscript>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -2161,6 +2185,19 @@ function hideLd(){
 }
 
 function loadVideos(cat) {
+  // 첫 로드이고 cat='all'이면 SSR 인라인 데이터 즉시 사용 (fetch 생략)
+  if((cat === 'all' || !cat) && window.__INIT_VIDEOS__ && window.__INIT_VIDEOS__.length) {
+    vids = window.__INIT_VIDEOS__;
+    window.__INIT_VIDEOS__ = null; // 한 번만 사용
+    // Fisher-Yates shuffle
+    for(var i=vids.length-1;i>0;i--){
+      var j=Math.floor(Math.random()*(i+1));
+      var tmp=vids[i]; vids[i]=vids[j]; vids[j]=tmp;
+    }
+    renderFeed();
+    hideLd();
+    return;
+  }
   fetch('/api/videos?category='+(cat||'all'))
     .then(function(r){ return r.json(); })
     .then(function(d){
