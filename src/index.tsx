@@ -1328,7 +1328,7 @@ ${(()=>{const allP=[shop.thumbnail,...(shop.photos||[]).filter((p:string)=>p&&p!
   ${(()=>{
     const embedUrl = shop.googleMapEmbed
       || (shop.lat && shop.lng
-        ? `https://maps.google.com/maps?q=${shop.lat},${shop.lng}&z=17&output=embed`
+        ? `https://maps.google.com/maps?q=${shop.lat},${shop.lng}&z=17&output=embed&hl=en`
         : '');
     return embedUrl
       ? `<div class="sp-card"><div class="sp-card-title"><i class="fas fa-map"></i> Location</div><div class="sp-map"><iframe src="${embedUrl}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div></div>`
@@ -2500,7 +2500,7 @@ function renderShopModal(shop) {
   // 1순위: lat/lng 좌표로 핀 표시 (z=17 근접 줌, API키 불필요)
   if(!embedSrc && shop.lat && shop.lng) {
     var mlat = parseFloat(shop.lat), mlng = parseFloat(shop.lng);
-    embedSrc = 'https://maps.google.com/maps?q='+mlat+','+mlng+'&z=17&output=embed';
+    embedSrc = 'https://maps.google.com/maps?q='+mlat+','+mlng+'&z=17&output=embed&hl=en';
   }
   // 2순위: URL에서 파싱
   if(!embedSrc && shop.googleMapUrl) {
