@@ -1056,7 +1056,8 @@ app.get('/shop/:slug', async (c) => {
   const shop = rowToShop(shopRows[0])
   const vidRows = await sql`SELECT * FROM videos WHERE shop_id=${shop.id} ORDER BY views DESC`
   const shopVideos = vidRows.map(rowToVideo)
-  const waMsg = encodeURIComponent(`Hi! I would like to book at ${shop.name}\n\nShop: ${shop.name}\nDate: \nService: \nName: `)
+  const shopArea = shop.location ? ` (${shop.location.split(',')[0].trim()})` : ''
+  const waMsg = encodeURIComponent(`[ Booking Request ]\nShop: ${shop.name}${shopArea}\n\nDate: \nTime: \nService: \nName: \nPeople: `)
   const waUrl = `https://wa.me/${PLATFORM.whatsapp}?text=${waMsg}`
   const base = 'https://seoulbeautytrip.com'
   const canonicalUrl = `${base}/shop/${shop.slug}`
@@ -2353,13 +2354,16 @@ function renderShopModal(shop) {
   /* ── 업체별 구조화된 예약 메시지 ── */
   var shopName = shop.name || 'your shop';
   var NL = String.fromCharCode(10);
+  var shopLocation = shop.location ? ' ('+areaOnly(shop.location)+')' : '';
   var waMsg =
-    'Hi! I would like to book at ' + shopName + NL
+    '[ Booking Request ]' + NL
+    + 'Shop: ' + shopName + shopLocation + NL
     + NL
-    + 'Shop: ' + shopName + NL
     + 'Date: ' + NL
+    + 'Time: ' + NL
     + 'Service: ' + NL
-    + 'Name: ';
+    + 'Name: ' + NL
+    + 'People: ';
   var waUrl = 'https://wa.me/'+waNum+'?text='+encodeURIComponent(waMsg);
 
   /* ── 사진 배열 (thumbnail + photos, 중복 제거) ── */
