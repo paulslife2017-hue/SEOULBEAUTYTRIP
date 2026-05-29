@@ -1697,6 +1697,164 @@ details[open] .faq-q::after{transform:rotate(180deg)}
 </html>`)
 })
 
+// ── /shops 카탈로그 전용 페이지 ──
+app.get('/shops', async (c) => {
+  const sql = getDb()
+  const rows = await sql`SELECT * FROM shops WHERE active=true ORDER BY rating DESC, created_at DESC`
+  const shops = rows.map(rowToShop)
+  const catColors: Record<string,string> = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',nail:'#34d399',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa'}
+  const catEmoji: Record<string,string> = {skincare:'🌿',makeup:'💋',hair:'💇',headspa:'🧖',nail:'💅',clinic:'🏥',spa:'🛁'}
+  const cats = ['all','skincare','makeup','hair','headspa','nail','clinic','spa']
+  const catLabels: Record<string,string> = {all:'All',skincare:'Skincare',makeup:'Makeup',hair:'Hair',headspa:'Head Spa',nail:'Nail',clinic:'Clinic',spa:'Spa'}
+
+  const cardsHtml = shops.map(shop => {
+    const col = catColors[shop.category] || '#aaa'
+    const href = shop.slug ? `/shop/${shop.slug}` : '#'
+    const emoji = catEmoji[shop.category] || '✨'
+    return `<a class="sc-card" href="${href}" data-cat="${shop.category}">
+      <div class="sc-card-img-wrap">
+        <img class="sc-card-img" src="${shop.thumbnail||''}" alt="${shop.name}" loading="lazy" onerror="this.style.background='#1a1a2e'">
+        <div class="sc-card-rating"><i class="fas fa-star" style="font-size:9px"></i> ${shop.rating}</div>
+        <div class="sc-card-cat-badge" style="background:${col}22;color:${col};border-color:${col}44">${emoji} ${shop.category}</div>
+      </div>
+      <div class="sc-card-body">
+        <div class="sc-card-name">${shop.name}</div>
+        <div class="sc-card-loc"><i class="fas fa-map-marker-alt"></i>${(shop.location||'').split(',')[0]}</div>
+        ${shop.priceRange ? `<div class="sc-card-price"><i class="fas fa-tag"></i>${shop.priceRange}</div>` : ''}
+        ${shop.hours ? `<div class="sc-card-hours"><i class="far fa-clock"></i>${shop.hours.split('|')[0].trim()}</div>` : ''}
+      </div>
+    </a>`
+  }).join('')
+
+  const filterBtns = cats.map(cat =>
+    `<button class="sc-flt${cat==='all'?' on':''}" data-cat="${cat}">${catLabels[cat]}</button>`
+  ).join('')
+
+  return c.html(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Seoul Beauty Catalog — All K-Beauty Shops | Seoul Beauty Trip</title>
+<meta name="description" content="Browse all Korean beauty salons in Seoul. Skincare, hair, nail, makeup, head spa and clinic — all foreigner-friendly with English support.">
+<link rel="canonical" href="https://seoulbeautytrip.com/shops">
+<meta property="og:title" content="Seoul Beauty Catalog | Seoul Beauty Trip">
+<meta property="og:description" content="Browse all Korean beauty salons in Seoul — foreigner-friendly with WhatsApp booking.">
+<meta property="og:image" content="${shops[0]?.thumbnail||''}">
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--pk:#E8417A;--pk2:#FF6B9D;--pk3:#FFB3CC;--gold:#C9A84C;--bg:#08080E;--bg2:#0F0F1A;--border:rgba(255,255,255,.07);--ff-serif:'Playfair Display',serif;--ff-sans:'Inter',sans-serif}
+body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh}
+a{text-decoration:none;color:inherit}
+/* 헤더 */
+.sc-nav{position:sticky;top:0;z-index:100;background:rgba(8,8,14,.95);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:12px 16px}
+.sc-nav-row{display:flex;align-items:center;gap:12px;max-width:900px;margin:0 auto}
+.sc-back{display:flex;align-items:center;gap:7px;color:rgba(255,255,255,.5);font-size:13px;font-weight:700;cursor:pointer;transition:color .18s;flex-shrink:0}
+.sc-back:hover{color:#fff}
+.sc-nav-title{font-family:var(--ff-serif);font-size:18px;font-weight:900;background:linear-gradient(100deg,#fff 30%,var(--pk3) 80%,var(--gold) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.sc-nav-count{font-size:11px;color:rgba(255,255,255,.28);font-weight:600;margin-left:auto}
+/* 검색 + 필터 */
+.sc-controls{max-width:900px;margin:16px auto;padding:0 16px;display:flex;flex-direction:column;gap:10px}
+.sc-search-wrap{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:10px 14px}
+.sc-search-wrap:focus-within{border-color:rgba(232,65,122,.4);background:rgba(232,65,122,.04)}
+.sc-search-wrap i{color:rgba(255,255,255,.28);font-size:13px;flex-shrink:0}
+#scSearch{flex:1;background:none;border:none;outline:none;color:#fff;font-size:14px;font-family:var(--ff-sans)}
+#scSearch::placeholder{color:rgba(255,255,255,.25)}
+.sc-filters{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.sc-filters::-webkit-scrollbar{display:none}
+.sc-flt{flex-shrink:0;padding:7px 14px;border-radius:20px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);color:rgba(255,255,255,.45);font-size:11px;font-weight:700;cursor:pointer;transition:all .18s;white-space:nowrap;font-family:var(--ff-sans)}
+.sc-flt.on{background:linear-gradient(135deg,var(--pk),#7C3AED);border-color:transparent;color:#fff;box-shadow:0 2px 12px rgba(232,65,122,.35)}
+/* 그리드 */
+.sc-grid{max-width:900px;margin:0 auto;padding:4px 16px 60px;display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+@media(min-width:540px){.sc-grid{grid-template-columns:repeat(3,1fr)}}
+@media(min-width:768px){.sc-grid{grid-template-columns:repeat(4,1fr)}}
+/* 카드 */
+.sc-card{background:#13132a;border:1px solid rgba(255,255,255,.07);border-radius:16px;overflow:hidden;transition:all .22s;display:block}
+.sc-card:hover{border-color:rgba(232,65,122,.4);transform:translateY(-3px);box-shadow:0 10px 28px rgba(232,65,122,.15)}
+.sc-card-img-wrap{position:relative;overflow:hidden}
+.sc-card-img{width:100%;height:130px;object-fit:cover;display:block;background:#1a1a2e;transition:transform .4s}
+.sc-card:hover .sc-card-img{transform:scale(1.04)}
+.sc-card-rating{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.72);backdrop-filter:blur(8px);border-radius:20px;padding:3px 8px;font-size:10px;font-weight:700;color:#fbbf24;display:flex;align-items:center;gap:3px}
+.sc-card-cat-badge{position:absolute;bottom:8px;left:8px;padding:3px 9px;border-radius:10px;border:1px solid;font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;backdrop-filter:blur(8px)}
+.sc-card-body{padding:10px 12px 12px;display:flex;flex-direction:column;gap:5px}
+.sc-card-name{font-size:13px;font-weight:800;color:#fff;line-height:1.3}
+.sc-card-loc,.sc-card-price,.sc-card-hours{display:flex;align-items:center;gap:5px;font-size:11px;color:rgba(255,255,255,.38)}
+.sc-card-loc i{color:var(--pk);font-size:9px}
+.sc-card-price i{color:var(--gold);font-size:9px}
+.sc-card-price{color:rgba(201,168,76,.85)}
+.sc-card-hours i{color:rgba(255,255,255,.3);font-size:9px}
+/* 빈 상태 */
+.sc-empty{grid-column:1/-1;text-align:center;padding:80px 20px;color:rgba(255,255,255,.2);font-size:14px}
+.sc-empty i{font-size:40px;display:block;margin-bottom:12px;opacity:.3}
+</style>
+</head>
+<body>
+<nav class="sc-nav">
+  <div class="sc-nav-row">
+    <a href="/" class="sc-back"><i class="fas fa-arrow-left"></i> Back</a>
+    <span class="sc-nav-title">Seoul Beauty</span>
+    <span class="sc-nav-count" id="scCount">${shops.length} shops</span>
+  </div>
+</nav>
+
+<div class="sc-controls">
+  <div class="sc-search-wrap">
+    <i class="fas fa-search"></i>
+    <input id="scSearch" type="search" placeholder="Search shops, area or treatment..." autocomplete="off" oninput="filterShops()">
+  </div>
+  <div class="sc-filters" id="scFilters">
+    ${filterBtns}
+  </div>
+</div>
+
+<div class="sc-grid" id="scGrid">
+  ${cardsHtml}
+</div>
+
+<script>
+var _activeCat = 'all';
+var _kw = '';
+document.querySelectorAll('.sc-flt').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    document.querySelectorAll('.sc-flt').forEach(function(b){ b.classList.remove('on'); });
+    btn.classList.add('on');
+    _activeCat = btn.getAttribute('data-cat');
+    filterShops();
+  });
+});
+function filterShops(){
+  _kw = (document.getElementById('scSearch').value||'').toLowerCase().trim();
+  var cards = document.querySelectorAll('.sc-card');
+  var visible = 0;
+  cards.forEach(function(card){
+    var cat = card.getAttribute('data-cat');
+    var text = card.textContent.toLowerCase();
+    var catOk = _activeCat === 'all' || cat === _activeCat;
+    var kwOk = !_kw || text.indexOf(_kw) !== -1;
+    var show = catOk && kwOk;
+    card.style.display = show ? '' : 'none';
+    if(show) visible++;
+  });
+  var empty = document.getElementById('sc-empty');
+  if(!empty){
+    empty = document.createElement('div');
+    empty.id = 'sc-empty';
+    empty.className = 'sc-empty';
+    empty.innerHTML = '<i class="fas fa-search"></i>No shops found';
+    document.getElementById('scGrid').appendChild(empty);
+  }
+  empty.style.display = visible === 0 ? '' : 'none';
+  document.getElementById('scCount').textContent = visible + ' shop' + (visible!==1?'s':'');
+}
+</script>
+</body>
+</html>`)
+})
+
 // ── sitemap.xml ──
 app.get('/sitemap.xml', async (c) => {
   const sql = getDb()
@@ -2071,7 +2229,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .m-photos-grid img{width:100%;aspect-ratio:1;object-fit:cover;cursor:pointer;transition:opacity .2s}
 .m-photos-grid img:hover{opacity:.85}
 /* 버튼 */
-.m-btns{flex-shrink:0;padding:10px 20px 28px;background:linear-gradient(0deg,#0d0d14 60%,transparent)}
+.m-btns{flex-shrink:0;padding:10px 20px 28px;background:linear-gradient(0deg,#0d0d14 60%,transparent);display:flex;flex-direction:column;gap:8px}
 .m-wa{
   display:flex;align-items:center;justify-content:center;gap:10px;
   padding:15px 20px;
@@ -2088,6 +2246,42 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .m-wa-text{display:flex;flex-direction:row;align-items:center;gap:6px;white-space:nowrap;overflow:hidden}
 .m-wa-text b{font-size:14px;font-weight:800;letter-spacing:.2px;flex-shrink:0}
 .m-wa-text span{font-size:13px;opacity:.82;font-weight:600;overflow:hidden;text-overflow:ellipsis}
+/* 모달 하단 2차 버튼 행 */
+.m-btns-row2{display:flex;gap:8px}
+.m-btn-share{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:14px;color:rgba(255,255,255,.7);font-size:13px;font-weight:700;cursor:pointer;transition:all .18s;text-decoration:none}
+.m-btn-share:hover{background:rgba(255,255,255,.1);color:#fff;border-color:rgba(255,255,255,.2)}
+.m-btn-page{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:12px;background:rgba(232,65,122,.08);border:1px solid rgba(232,65,122,.2);border-radius:14px;color:var(--pk2);font-size:13px;font-weight:700;cursor:pointer;transition:all .18s;text-decoration:none}
+.m-btn-page:hover{background:rgba(232,65,122,.15);border-color:rgba(232,65,122,.4);color:#fff}
+/* \uac80\uc0c9 */
+.srch-btn{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);color:rgba(255,255,255,.5);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
+.srch-btn:hover,.srch-btn.on{background:rgba(232,65,122,.15);color:var(--pk2);border-color:rgba(232,65,122,.3)}
+#search-bar{overflow:hidden;max-height:0;transition:max-height .32s cubic-bezier(.4,0,.2,1),opacity .28s;opacity:0;padding:0 0 0}
+#search-bar.open{max-height:60px;opacity:1;padding:0 0 10px}
+.srch-wrap{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:9px 14px;transition:border-color .2s}
+.srch-wrap:focus-within{border-color:rgba(232,65,122,.4);background:rgba(232,65,122,.04)}
+#srchInput{flex:1;background:none;border:none;outline:none;color:#fff;font-size:14px;font-family:var(--ff-sans)}
+#srchInput::placeholder{color:rgba(255,255,255,.28)}
+.srch-clear{background:none;border:none;color:rgba(255,255,255,.3);cursor:pointer;font-size:13px;padding:0;line-height:1;transition:color .15s;display:none}
+.srch-clear.on{display:block}
+.srch-clear:hover{color:rgba(255,255,255,.7)}
+/* \uac80\uc0c9 \uacb0\uacfc \uc624\ubc84\ub808\uc774 */
+#search-overlay{display:none;position:fixed;inset:0;z-index:800;background:rgba(8,8,14,.96);backdrop-filter:blur(16px);flex-direction:column;padding-top:130px;overflow-y:auto}
+#search-overlay.open{display:flex}
+.so-header{padding:0 20px 16px;font-size:11px;font-weight:700;color:rgba(255,255,255,.3);letter-spacing:1.5px;text-transform:uppercase}
+.so-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;padding:0 16px 40px}
+@media(min-width:480px){.so-grid{grid-template-columns:repeat(3,1fr)}}
+.so-card{background:#13132a;border:1px solid rgba(255,255,255,.07);border-radius:14px;overflow:hidden;cursor:pointer;transition:all .2s;text-decoration:none;display:block}
+.so-card:hover{border-color:rgba(232,65,122,.4);transform:translateY(-2px);box-shadow:0 8px 24px rgba(232,65,122,.12)}
+.so-card-img{width:100%;height:90px;object-fit:cover;display:block;background:#1a1a2e}
+.so-card-body{padding:9px 10px 11px}
+.so-card-cat{font-size:9px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--pk);margin-bottom:3px}
+.so-card-name{font-size:12px;font-weight:800;color:#fff;line-height:1.3;margin-bottom:3px}
+.so-card-loc{font-size:10px;color:rgba(255,255,255,.38);display:flex;align-items:center;gap:3px}
+.so-empty{padding:60px 20px;text-align:center;color:rgba(255,255,255,.25);font-size:14px}
+/* \ud5e4\ub354\uc5d0 Catalog \ubc84\ud2bc */
+.catalog-btn{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:20px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);color:rgba(255,255,255,.5);font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;text-decoration:none;white-space:nowrap}
+.catalog-btn:hover{background:rgba(232,65,122,.12);border-color:rgba(232,65,122,.3);color:rgba(255,255,255,.9)}
+.catalog-btn i{font-size:10px}
 /* 토스트 */
 #toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%) translateY(12px);background:rgba(232,65,122,.92);color:#fff;padding:8px 18px;border-radius:18px;font-size:12px;font-weight:700;z-index:600;opacity:0;transition:all .28s;white-space:nowrap;pointer-events:none;backdrop-filter:blur(8px)}
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -2113,7 +2307,16 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
       </div>
     </div>
     <div class="hd-right">
+      <a href="/shops" class="catalog-btn"><i class="fas fa-th-large"></i> Catalog</a>
+      <button class="srch-btn" id="srchToggle" onclick="toggleSearch()" aria-label="Search shops"><i class="fas fa-search"></i></button>
       <button class="mute-btn" id="muteBtn" onclick="toggleMute()"><i class="fas fa-volume-mute"></i></button>
+    </div>
+  </div>
+  <div id="search-bar">
+    <div class="srch-wrap">
+      <i class="fas fa-search" style="color:rgba(255,255,255,.28);font-size:12px;flex-shrink:0"></i>
+      <input id="srchInput" type="search" placeholder="Search shops, area, category..." autocomplete="off" oninput="onSearch(this.value)">
+      <button class="srch-clear" id="srchClear" onclick="clearSearch()"><i class="fas fa-times"></i></button>
     </div>
   </div>
   <nav class="cats" id="cats" aria-label="Beauty categories">
@@ -2127,6 +2330,12 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
     <button class="cat" data-cat="spa"><i class="fas fa-hot-tub"></i> Spa</button>
   </nav>
 </header>
+
+<!-- 검색 결과 오버레이 -->
+<div id="search-overlay" role="dialog" aria-label="Search results">
+  <div class="so-header" id="so-header">Results</div>
+  <div class="so-grid" id="so-grid"></div>
+</div>
 
 <!-- PC 레이아웃 래퍼 -->
 <div id="pc-layout">
@@ -2792,15 +3001,66 @@ function renderShopModal(shop) {
     + hoursHtml
     + mapHtml;
 
-  /* ── WhatsApp 버튼 ── */
-  document.getElementById('modalBtns').innerHTML =
-    '<a href="'+waUrl+'" target="_blank" rel="noopener" class="m-wa">'
+  /* ── 버튼 영역 ── */
+  var shopSlug = shop.slug || '';
+  var pageUrl = shopSlug ? '/shop/'+shopSlug : '';
+  var shareSupported = !!navigator.share;
+
+  var btn2Row = '<div class="m-btns-row2">';
+  // Share 버튼
+  btn2Row += '<button class="m-btn-share" onclick="shareShop(\''+esc(shop.name||'')+'\',\''+esc(pageUrl)+'\')">'
+    +'<i class="fas fa-share-alt"></i> Share'
+  +'</button>';
+  // View Page 버튼 (slug 있을 때만)
+  if(pageUrl) {
+    btn2Row += '<a href="'+pageUrl+'" class="m-btn-page">'
+      +'<i class="fas fa-external-link-alt"></i> View Page'
+    +'</a>';
+  }
+  btn2Row += '</div>';
+
+  // 가격 없는 업체: WhatsApp 버튼 없이 안내 텍스트만 있으면 버튼 행도 심플하게
+  var waBtn = '';
+  if(shop.priceRange || (shop.servicePrices && shop.servicePrices.length > 0)) {
+    waBtn = '<a href="'+waUrl+'" target="_blank" rel="noopener" class="m-wa">'
       +'<span class="m-wa-icon"><i class="fab fa-whatsapp"></i></span>'
       +'<span class="m-wa-text">'
         +'<b>Book via WhatsApp</b>'
         +'<span>· '+esc(shop.name||'this shop')+'</span>'
       +'</span>'
     +'</a>';
+  } else {
+    waBtn = '<a href="'+waUrl+'" target="_blank" rel="noopener" class="m-wa" style="background:linear-gradient(135deg,rgba(37,211,102,.7),rgba(18,140,94,.7))">'
+      +'<span class="m-wa-icon"><i class="fab fa-whatsapp"></i></span>'
+      +'<span class="m-wa-text">'
+        +'<b>Ask via WhatsApp</b>'
+        +'<span>· Free quote</span>'
+      +'</span>'
+    +'</a>';
+  }
+
+  document.getElementById('modalBtns').innerHTML = waBtn + btn2Row;
+}
+
+function shareShop(name, path) {
+  var url = path ? (location.origin + path) : location.href;
+  if(navigator.share) {
+    navigator.share({ title: name + ' | Seoul Beauty Trip', url: url }).catch(function(){});
+  } else {
+    // 클립보드 복사 fallback
+    try {
+      navigator.clipboard.writeText(url).then(function(){
+        showToast('Link copied!');
+      });
+    } catch(e) {
+      // 구형 브라우저
+      var ta = document.createElement('textarea');
+      ta.value = url; ta.style.position='fixed'; ta.style.opacity='0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); showToast('Link copied!'); } catch(e2) {}
+      document.body.removeChild(ta);
+    }
+  }
 }
 
 function mapZoom(frameId, dir) {
@@ -2917,6 +3177,82 @@ function showToast(msg){
   t.innerHTML=msg; t.classList.add('on');
   setTimeout(function(){t.classList.remove('on');},3000);
 }
+
+/* ── 검색 기능 ── */
+var _searchOpen = false;
+function toggleSearch(){
+  _searchOpen = !_searchOpen;
+  var bar = document.getElementById('search-bar');
+  var btn = document.getElementById('srchToggle');
+  var overlay = document.getElementById('search-overlay');
+  bar.classList.toggle('open', _searchOpen);
+  btn.classList.toggle('on', _searchOpen);
+  if(_searchOpen){
+    setTimeout(function(){ var inp = document.getElementById('srchInput'); if(inp) inp.focus(); }, 340);
+  } else {
+    clearSearch();
+    overlay.classList.remove('open');
+  }
+}
+function onSearch(q){
+  var clear = document.getElementById('srchClear');
+  var overlay = document.getElementById('search-overlay');
+  var grid = document.getElementById('so-grid');
+  var header = document.getElementById('so-header');
+  if(clear) clear.classList.toggle('on', q.length > 0);
+  if(!q.trim()){
+    overlay.classList.remove('open');
+    return;
+  }
+  var kw = q.toLowerCase().trim();
+  var results = allShopsData.filter(function(s){
+    return (s.name||'').toLowerCase().indexOf(kw) !== -1
+      || (s.category||'').toLowerCase().indexOf(kw) !== -1
+      || (s.location||'').toLowerCase().indexOf(kw) !== -1
+      || (s.description||'').toLowerCase().indexOf(kw) !== -1
+      || (s.services||[]).some(function(sv){ return sv.toLowerCase().indexOf(kw) !== -1; });
+  });
+  var catColors = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',nail:'#34d399',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa'};
+  if(header) header.textContent = results.length + ' result' + (results.length!==1?'s':'') + ' for "' + q + '"';
+  if(!results.length){
+    grid.innerHTML = '<div class="so-empty" style="grid-column:1/-1"><i class="fas fa-search" style="font-size:32px;margin-bottom:12px;display:block;opacity:.3"></i>No shops found</div>';
+  } else {
+    grid.innerHTML = results.map(function(s){
+      var col = catColors[s.category] || 'var(--pk)';
+      var href = s.slug ? '/shop/'+s.slug : '#';
+      var clickAttr = s.slug ? '' : ' onclick="event.preventDefault();closeSearch();openShopModal(\''+s.id+'\')"';
+      return '<a class="so-card" href="'+href+'"'+clickAttr+'>'
+        +'<img class="so-card-img" src="'+(s.thumbnail||'')+'" alt="'+esc(s.name)+'" loading="lazy" onerror="this.style.background=\'#1a1a2e\'">'
+        +'<div class="so-card-body">'
+          +'<div class="so-card-cat" style="color:'+col+'">'+esc(s.category)+'</div>'
+          +'<div class="so-card-name">'+esc(s.name)+'</div>'
+          +'<div class="so-card-loc"><i class="fas fa-map-marker-alt" style="font-size:8px;color:var(--pk)"></i>'+esc((s.location||'').split(',')[0])+'</div>'
+        +'</div>'
+      +'</a>';
+    }).join('');
+  }
+  overlay.classList.add('open');
+}
+function clearSearch(){
+  var inp = document.getElementById('srchInput');
+  var clear = document.getElementById('srchClear');
+  var overlay = document.getElementById('search-overlay');
+  if(inp) inp.value = '';
+  if(clear) clear.classList.remove('on');
+  if(overlay) overlay.classList.remove('open');
+}
+function closeSearch(){
+  _searchOpen = false;
+  var bar = document.getElementById('search-bar');
+  var btn = document.getElementById('srchToggle');
+  bar.classList.remove('open');
+  btn.classList.remove('on');
+  clearSearch();
+}
+// ESC 키로 검색 닫기
+document.addEventListener('keydown', function(e){
+  if(e.key === 'Escape') closeSearch();
+});
 window.addEventListener('load', function(){
   document.querySelectorAll('.cat').forEach(function(b){
     b.addEventListener('click', function(){
@@ -3072,9 +3408,14 @@ function renderShopPanel(cat) {
   grid.innerHTML = filtered.map(function(s){
     var col = catColors[s.category] || '#aaa';
     var sid = s.id.replace(/'/g, '');
-    return '<div class="sp-card" onclick="openShopModal(&quot;'+sid+'&quot;)">'+
+    var hasSlug = s.slug && s.slug.length > 0;
+    var clickAttr = hasSlug
+      ? 'onclick="location.href=\'/shop/'+s.slug+'\'"'
+      : 'onclick="openShopModal(&quot;'+sid+'&quot;)"';
+    return '<div class="sp-card" '+clickAttr+'>'+
       '<img class="sp-card-img" src="'+(s.thumbnail||'')+'" alt="'+esc(s.name)+'" loading="lazy" onerror="this.style.background=&quot;#1a1a2e&quot;">'+
       '<div class="sp-card-rating"><i class="fas fa-star" style="font-size:8px"></i> '+s.rating+'</div>'+
+      (hasSlug ? '<div style="position:absolute;top:7px;left:7px;background:rgba(232,65,122,.85);border-radius:6px;padding:2px 6px;font-size:9px;font-weight:800;color:#fff;letter-spacing:.5px"><i class="fas fa-link" style="font-size:8px"></i></div>' : '')+
       '<div class="sp-card-body">'+
         '<div class="sp-card-cat" style="color:'+col+'">'+esc(s.category)+'</div>'+
         '<div class="sp-card-name">'+esc(s.name)+'</div>'+
