@@ -2414,11 +2414,11 @@ else { fetch('/api/platform').then(function(r){return r.json();}).then(function(
 
 /* ── 로딩 팁 ── */
 var _ldTips = [
-  '✨ Swipe up to explore more looks',
-  '💄 Tap the shop name to book',
-  '📍 Real shops in Seoul, Korea',
-  '🌸 Curated K-beauty experiences',
-  '💬 Contact via WhatsApp to reserve'
+  'Swipe up to explore more looks',
+  'Tap the shop name to book',
+  'Real shops in Seoul, Korea',
+  'Curated K-beauty experiences',
+  'Contact via WhatsApp to reserve'
 ];
 (function(){
   var el = document.getElementById('ldTips');
@@ -3228,7 +3228,7 @@ function onSearch(q){
     grid.innerHTML = results.map(function(s){
       var col = catColors[s.category] || 'var(--pk)';
       var href = s.slug ? '/shop/'+s.slug : '#';
-      var clickAttr = s.slug ? '' : ' onclick="event.preventDefault();closeSearch();openShopModal(\''+s.id+'\')"';
+      var clickAttr = s.slug ? '' : ' data-sid="'+s.id+'" onclick="event.preventDefault();closeSearch();openShopModal(this.dataset.sid)"';
       return '<a class="so-card" href="'+href+'"'+clickAttr+'>'
         +'<img class="so-card-img" src="'+(s.thumbnail||'')+'" alt="'+esc(s.name)+'" loading="lazy" onerror="this.style.background=&quot;#1a1a2e&quot;">'
         +'<div class="so-card-body">'
@@ -3418,7 +3418,7 @@ function renderShopPanel(cat) {
     var sid = s.id.replace(/'/g, '');
     var hasSlug = s.slug && s.slug.length > 0;
     var clickAttr = hasSlug
-      ? 'onclick="location.href=\'/shop/'+s.slug+'\'"'
+      ? 'data-slug="/shop/'+s.slug+'" onclick="location.href=this.dataset.slug"'
       : 'onclick="openShopModal(&quot;'+sid+'&quot;)"';
     return '<div class="sp-card" '+clickAttr+'>'+
       '<img class="sp-card-img" src="'+(s.thumbnail||'')+'" alt="'+esc(s.name)+'" loading="lazy" onerror="this.style.background=&quot;#1a1a2e&quot;">'+

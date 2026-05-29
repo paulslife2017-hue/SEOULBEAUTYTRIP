@@ -14,7 +14,7 @@ console.log('[build] Building src/index.tsx → dist/_worker.js ...');
 
 try {
   execSync(
-    `node_modules/.bin/esbuild src/index.tsx --bundle --outfile=dist/_worker.js --format=esm --platform=browser --external:node:* --define:process.env.NODE_ENV='"production"'`,
+    `node_modules/.bin/esbuild src/index.tsx --bundle --outfile=dist/_worker.js --format=esm --platform=browser --external:node:* --define:process.env.NODE_ENV='"production"' --charset=ascii`,
     { stdio: 'inherit', cwd: path.join(__dirname, '..') }
   );
   console.log('[build] ✅ Build complete: dist/_worker.js');
