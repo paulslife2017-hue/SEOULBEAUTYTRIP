@@ -1869,7 +1869,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 #dots{position:fixed;left:8px;top:50%;transform:translateY(-50%);z-index:200;display:flex;flex-direction:column;gap:5px}
 .dot{width:3px;height:3px;border-radius:2px;background:rgba(255,255,255,.18);transition:all .3s}
 .dot.on{background:var(--pk);height:18px;box-shadow:0 0 6px rgba(232,65,122,.5)}
-#muteBtn{position:fixed;top:50%;right:12px;transform:translateY(-50%);z-index:200;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.15);color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(12px);transition:all .2s}
+#muteBtn{position:fixed;top:16px;right:12px;transform:none;z-index:200;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.15);color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(12px);transition:all .2s}
 #muteBtn:hover{background:rgba(232,65,122,.3);border-color:rgba(232,65,122,.5)}
 /* ── PC 반응형 (768px~1199px) ── */
 @media(min-width:768px) and (max-width:1199px){
@@ -1881,25 +1881,21 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   .modal{max-width:420px}
   .hint{display:none}
 }
-/* ── PC 사이드 카탈로그 (1200px+) ── */
+/* ── PC 사이드 카탈로그 완전 제거 ── */
+#shop-panel{display:none!important}
+#pc-layout{display:block!important}
+#feed-col{width:100%}
+/* ── PC 반응형 (1200px+) ── */
 @media(min-width:1200px){
   body{overflow:hidden}
   /* pc-layout: 피드(좌) + 카탈로그(우) 나란히 */
-  #pc-layout{display:flex!important;height:100vh;overflow:hidden}
-  #shop-panel{display:flex!important;flex-direction:column}
-  #feed-col{width:420px;flex-shrink:0;height:100vh;position:relative}
-  /* header: feed-col 안에서 fixed → absolute */
-  #hd{position:absolute;top:0;left:0;width:420px;right:auto}
-  #feed{height:100vh;background:#040408;overflow:hidden}
+  #hd{padding:16px 0 0;left:50%;transform:translateX(-50%);width:420px;max-width:420px;padding-left:16px;padding-right:16px}
+  #feed{background:#040408}
   .slide{width:420px;max-width:420px;height:100vh;box-shadow:0 0 80px rgba(232,65,122,.06)}
-  #dots{position:absolute;left:8px;top:50%;transform:translateY(-50%);z-index:200}
-  #muteBtn{position:absolute;right:12px;top:50%;transform:translateY(-50%);z-index:200}
-  .modal-bg{position:fixed;left:0;width:420px}
+  #dots{left:calc(50% - 234px)}
+  #muteBtn{right:calc(50% - 210px - 56px)}
   .modal{max-width:420px}
-  #toast{left:210px;transform:translateX(-50%) translateY(12px)}
   .hint{display:none}
-  /* 카탈로그 패널 레이아웃 */
-  #shop-panel{flex:1;min-width:0}
 }
 /* ── PC 카탈로그 패널 ── */
 #pc-layout{display:block;width:100%}
@@ -2219,7 +2215,7 @@ function buildSlide(v, idx) {
     '<meta itemprop="thumbnailUrl" content="'+esc(thumb)+'">' +
     '<meta itemprop="uploadDate" content="'+esc(uploadDate)+'">' +
     (thumb ? '<img class="bg-img" src="'+esc(thumb)+'" alt="'+esc(v.title)+'" loading="lazy">' : '<div class="bg-img" style="background:linear-gradient(135deg,#1a0a14 0%,#1c0e22 40%,#0f0816 100%)"></div>') +
-    '<video id="vid'+idx+'" src="'+esc(v.videoUrl)+'" loop muted playsinline preload="auto" poster="'+esc(thumb)+'" itemprop="contentUrl"></video>' +
+    '<video id="vid'+idx+'" loop muted playsinline preload="none" poster="'+esc(thumb)+'" itemprop="contentUrl"></video>' +
     '<div id="playic'+idx+'" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:4;width:56px;height:56px;border-radius:50%;background:rgba(0,0,0,.55);align-items:center;justify-content:center;pointer-events:none;backdrop-filter:blur(4px)"><i class="fas fa-pause" style="font-size:20px;color:#fff"></i></div>' +
     '<div class="ov"></div>' +
     '<div class="info">' +
@@ -2244,6 +2240,8 @@ function buildSlide(v, idx) {
     var playIc = document.getElementById('playic'+vidIdx);
 
     if(ve) {
+      // src는 여기서 세팅 안 함 — IntersectionObserver에서 화면에 들어올 때만 로드
+      ve.setAttribute('data-src', esc(v.videoUrl));
       ve.onerror = function(){ ve.style.display='none'; };
       ve.addEventListener('play',  function(){ if(playIc) playIc.style.display='none'; });
       ve.addEventListener('pause', function(){ if(playIc) playIc.style.display='flex'; });
@@ -2275,18 +2273,28 @@ function setupObs(){
       var idx=parseInt(e.target.id.replace('sl',''));
       var vid=document.getElementById('vid'+idx);
       document.querySelectorAll('.dot').forEach(function(d,i){d.classList.toggle('on',i===idx);});
-      if(e.isIntersecting){ if(vid){vid.muted=isMuted;vid.play().catch(function(){});} }
-      else { if(vid){vid.pause();vid.currentTime=0;} }
+      if(e.isIntersecting){
+        if(vid){
+          if(!vid.src && vid.dataset.src){ vid.src = vid.dataset.src; }
+          vid.muted=isMuted;vid.play().catch(function(){});
+        }
+      } else { if(vid){vid.pause();vid.currentTime=0;} }
     });
   },{threshold:0.5});
   document.querySelectorAll('.slide').forEach(function(s){obs.observe(s);});
 
-  // play first slide
+  // play first slide (lazy load)
   var firstVid0 = document.getElementById('vid0');
-  if(firstVid0){ firstVid0.muted=true; firstVid0.play().catch(function(){}); }
+  if(firstVid0){
+    if(!firstVid0.src && firstVid0.dataset.src){ firstVid0.src = firstVid0.dataset.src; }
+    firstVid0.muted=true; firstVid0.play().catch(function(){});
+  }
   setTimeout(function(){
     var firstVid = document.getElementById('vid0');
-    if(firstVid && firstVid.paused){ firstVid.muted=isMuted; firstVid.play().catch(function(){}); }
+    if(firstVid){
+      if(!firstVid.src && firstVid.dataset.src){ firstVid.src = firstVid.dataset.src; }
+      if(firstVid.paused){ firstVid.muted=isMuted; firstVid.play().catch(function(){}); }
+    }
     var dot0 = document.getElementById('dot0');
     if(dot0) dot0.classList.add('on');
   }, 400);
