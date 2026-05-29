@@ -295,8 +295,8 @@ app.get('/api/videos', async (c) => {
   const sql = getDb()
   const cat = c.req.query('category')
   const rows = cat && cat !== 'all'
-    ? await sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.category=${cat} ORDER BY v.views DESC`
-    : await sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id ORDER BY v.views DESC`
+    ? await sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.category=${cat} ORDER BY RANDOM()`
+    : await sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id ORDER BY RANDOM()`
   const result = rows.map((r: any) => ({
     ...rowToVideo(r),
     shop: { id: r.shop_id, name: r.shop_name, category: r.shop_cat, location: r.shop_location, thumbnail: r.shop_thumb }
@@ -2155,6 +2155,11 @@ function loadVideos(cat) {
     .then(function(r){ return r.json(); })
     .then(function(d){
       vids = d.videos || [];
+      // Fisher-Yates shuffle
+      for(var i=vids.length-1;i>0;i--){
+        var j=Math.floor(Math.random()*(i+1));
+        var tmp=vids[i]; vids[i]=vids[j]; vids[j]=tmp;
+      }
       renderFeed();
       hideLd();
     })
@@ -2435,30 +2440,8 @@ function renderShopModal(shop) {
     }).join('');
     priceHtml = '<div class="m-sec"><div class="m-sec-title"><i class="fas fa-won-sign" style="color:var(--gold);margin-right:4px"></i>Price List</div><div class="m-price-list">'+rows+'</div></div>';
   } else {
-    // 가격 비공개 업체 → 상담 안내 + WhatsApp 버튼 2개
-    var NL2 = String.fromCharCode(10);
-    var consultMsg = encodeURIComponent('Hi! I would like to inquire about pricing at '+shopName+NL2+NL2+'Service interested in: '+NL2+'Name: ');
-    var consultUrl = 'https://wa.me/'+waNum+'?text='+consultMsg;
-    var igUrl = 'https://instagram.com/'+(platform.instagram||'seoulbeautytrip');
-    priceHtml = '<div class="m-sec">'+
-      '<div class="m-sec-title"><i class="fas fa-comment-dots" style="color:var(--pk);margin-right:4px"></i>Pricing</div>'+
-      '<div style="background:rgba(255,77,141,.06);border:1px solid rgba(255,77,141,.15);border-radius:14px;padding:16px 14px">'+
-        '<div style="font-size:13px;color:rgba(255,255,255,.75);line-height:1.7;margin-bottom:14px">'+
-          'Prices vary by treatment &amp; consultation.<br>'+
-          '<span style="color:rgba(255,255,255,.45);font-size:12px">Contact us for a free quote via WhatsApp!</span>'+
-        '</div>'+
-        '<div style="display:flex;gap:8px">'+
-          '<a href="'+consultUrl+'" target="_blank" rel="noopener" '+
-            'style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 12px;border-radius:22px;background:linear-gradient(135deg,#25D366,#128C5E);color:#fff;font-size:12px;font-weight:800;text-decoration:none">'+
-            '<i class="fab fa-whatsapp" style="font-size:14px"></i> WhatsApp'+
-          '</a>'+
-          '<a href="'+waUrl+'" target="_blank" rel="noopener" '+
-            'style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 12px;border-radius:22px;background:linear-gradient(135deg,var(--pk),#7C3AED);color:#fff;font-size:12px;font-weight:800;text-decoration:none">'+
-            '<i class="fas fa-calendar-check" style="font-size:12px"></i> Book Now'+
-          '</a>'+
-        '</div>'+
-      '</div>'+
-    '</div>';
+    // 가격 비공개 업체 → 섹션 표시 안 함
+    priceHtml = '';
   }
 
   /* ── 서비스 태그 ── */
