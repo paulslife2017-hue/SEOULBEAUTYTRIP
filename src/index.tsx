@@ -2375,6 +2375,7 @@ function buildSlide(v, idx) {
     (thumb ? '<img class="bg-img" src="'+esc(thumb)+'" alt="'+esc(v.title)+'" loading="'+imgLoading+'" decoding="async"'+imgPriority+'>' : '<div class="bg-img" style="background:linear-gradient(135deg,#1a0a14 0%,#1c0e22 40%,#0f0816 100%)"></div>') +
     '<video id="vid'+idx+'" loop muted playsinline preload="none" poster="'+esc(thumb)+'" itemprop="contentUrl"></video>' +
     '<div id="playic'+idx+'" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:4;width:56px;height:56px;border-radius:50%;background:rgba(0,0,0,.55);align-items:center;justify-content:center;pointer-events:none;backdrop-filter:blur(4px)"><i class="fas fa-pause" style="font-size:20px;color:#fff"></i></div>' +
+    '<div id="bufic'+idx+'" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:5;pointer-events:none"><div style="width:40px;height:40px;border:3px solid rgba(255,255,255,.15);border-top-color:rgba(255,255,255,.8);border-radius:50%;animation:spin .7s linear infinite"></div></div>' +
     '<div class="ov"></div>' +
     '<div class="info">' +
       '<div class="slide-cat-badge"><i class="fas '+(catFaIcons[shop.category]||'fa-star')+'"></i> '+esc((shop.category||'').toUpperCase())+'</div>' +
@@ -2393,17 +2394,54 @@ function buildSlide(v, idx) {
   feed.appendChild(s);
 
   (function(vid, vidIdx, shopData) {
-    var ve  = document.getElementById('vid'+vidIdx);
-    var ov  = s.querySelector('.ov');
+    var ve     = document.getElementById('vid'+vidIdx);
+    var ov     = s.querySelector('.ov');
     var playIc = document.getElementById('playic'+vidIdx);
+    var bufIc  = document.getElementById('bufic'+vidIdx);
 
     if(ve) {
-      // src는 여기서 세팅 안 함 — IntersectionObserver에서 화면에 들어올 때만 로드
-      // Cloudinary 영상은 저화질 스트리밍 최적화 URL 사용
       ve.setAttribute('data-src', esc(cdnVideo(v.videoUrl)));
-      ve.onerror = function(){ ve.style.display='none'; };
-      ve.addEventListener('play',  function(){ if(playIc) playIc.style.display='none'; });
-      ve.addEventListener('pause', function(){ if(playIc) playIc.style.display='flex'; });
+
+      // ── 버퍼링 스피너 제어 ──
+      function showBuf(){ if(bufIc) bufIc.style.display='flex'; }
+      function hideBuf(){ if(bufIc) bufIc.style.display='none'; }
+
+      ve.addEventListener('waiting',  showBuf);   // 버퍼 비면 스피너
+      ve.addEventListener('stalled',  showBuf);   // 네트워크 지연
+      ve.addEventListener('seeking',  showBuf);
+      ve.addEventListener('canplay',  hideBuf);   // 재생 준비 완료
+      ve.addEventListener('playing',  hideBuf);   // 실제 재생 시작
+      ve.addEventListener('play',     function(){ hideBuf(); if(playIc) playIc.style.display='none'; });
+      ve.addEventListener('pause',    function(){ hideBuf(); if(playIc) playIc.style.display='flex'; });
+
+      // ── 에러/멈춤 시 자동 재시도 ──
+      ve.addEventListener('error', function(){
+        hideBuf();
+        // 1초 후 src 재세팅으로 재시도
+        setTimeout(function(){
+          if(ve.dataset.src && !ve.dataset.retried){
+            ve.dataset.retried = '1';
+            ve.src = ve.dataset.src;
+            ve.load();
+            ve.play().catch(function(){});
+          }
+        }, 1000);
+      });
+
+      // ── stalled 3초 지속 시 강제 load() ──
+      var _stallTimer = null;
+      ve.addEventListener('stalled', function(){
+        clearTimeout(_stallTimer);
+        _stallTimer = setTimeout(function(){
+          if(ve.dataset.src && ve.networkState === 2 /* NETWORK_LOADING */){
+            var t = ve.currentTime;
+            ve.load();
+            ve.currentTime = t;
+            ve.play().catch(function(){});
+          }
+        }, 3000);
+      });
+      ve.addEventListener('playing', function(){ clearTimeout(_stallTimer); });
     }
 
     if(ov && ve) {
@@ -2426,37 +2464,69 @@ function buildSlide(v, idx) {
   })(v, idx, shop);
 }
 
+function loadVidSrc(vid){
+  if(vid && !vid.src && vid.dataset.src){
+    vid.src = vid.dataset.src;
+  }
+}
+function preloadNext(idx){
+  // 다음 1개 슬라이드 src 미리 세팅 (preload="none"이라 네트워크 요청은 최소)
+  var next = document.getElementById('vid'+(idx+1));
+  if(next && !next.src && next.dataset.src){ next.src = next.dataset.src; }
+}
+
 function setupObs(){
   var obs = new IntersectionObserver(function(entries){
     entries.forEach(function(e){
-      var idx=parseInt(e.target.id.replace('sl',''));
-      var vid=document.getElementById('vid'+idx);
-      document.querySelectorAll('.dot').forEach(function(d,i){d.classList.toggle('on',i===idx);});
+      var idx = parseInt(e.target.id.replace('sl',''));
+      var vid = document.getElementById('vid'+idx);
+      var bufIc = document.getElementById('bufic'+idx);
+      document.querySelectorAll('.dot').forEach(function(d,i){ d.classList.toggle('on',i===idx); });
+
       if(e.isIntersecting){
         if(vid){
-          if(!vid.src && vid.dataset.src){ vid.src = vid.dataset.src; }
-          vid.muted=isMuted;vid.play().catch(function(){});
+          // src 없으면 세팅 + 스피너 즉시 표시
+          if(!vid.src && vid.dataset.src){
+            if(bufIc) bufIc.style.display = 'flex';
+            vid.src = vid.dataset.src;
+          }
+          vid.muted = isMuted;
+          // canplay 후 재생 시도 (이미 준비됐으면 즉시)
+          if(vid.readyState >= 3){
+            vid.play().catch(function(){});
+          } else {
+            if(bufIc) bufIc.style.display = 'flex';
+            vid.addEventListener('canplay', function onCp(){
+              vid.removeEventListener('canplay', onCp);
+              vid.play().catch(function(){});
+            });
+            vid.play().catch(function(){});
+          }
+          preloadNext(idx); // 다음 슬라이드 미리 로드
         }
-      } else { if(vid){vid.pause();vid.currentTime=0;} }
+      } else {
+        if(vid){ vid.pause(); vid.currentTime = 0; }
+        if(bufIc) bufIc.style.display = 'none';
+      }
     });
-  },{threshold:0.5});
-  document.querySelectorAll('.slide').forEach(function(s){obs.observe(s);});
+  },{threshold: 0.6});
 
-  // play first slide (lazy load)
-  var firstVid0 = document.getElementById('vid0');
-  if(firstVid0){
-    if(!firstVid0.src && firstVid0.dataset.src){ firstVid0.src = firstVid0.dataset.src; }
-    firstVid0.muted=true; firstVid0.play().catch(function(){});
-  }
-  setTimeout(function(){
-    var firstVid = document.getElementById('vid0');
-    if(firstVid){
-      if(!firstVid.src && firstVid.dataset.src){ firstVid.src = firstVid.dataset.src; }
-      if(firstVid.paused){ firstVid.muted=isMuted; firstVid.play().catch(function(){}); }
+  document.querySelectorAll('.slide').forEach(function(s){ obs.observe(s); });
+
+  // 첫 슬라이드 즉시 로드 + 재생
+  var v0 = document.getElementById('vid0');
+  if(v0){
+    var buf0 = document.getElementById('bufic0');
+    if(!v0.src && v0.dataset.src){
+      if(buf0) buf0.style.display = 'flex';
+      v0.src = v0.dataset.src;
     }
-    var dot0 = document.getElementById('dot0');
-    if(dot0) dot0.classList.add('on');
-  }, 400);
+    v0.muted = true;
+    v0.play().catch(function(){});
+    preloadNext(0);
+  }
+  var dot0 = document.getElementById('dot0');
+  if(dot0) dot0.classList.add('on');
 }
 
 function openShopModal(shopId) {
