@@ -1325,7 +1325,13 @@ ${(()=>{const allP=[shop.thumbnail,...(shop.photos||[]).filter((p:string)=>p&&p!
 
   ${shop.services&&shop.services.length>0?`<div class="sp-card"><div class="sp-card-title"><i class="fas fa-spa"></i> Services</div><div class="sp-svc-tags">${shop.services.map((s:string)=>`<span class="sp-svc-tag">${s}</span>`).join('')}</div></div>`:''}
 
-  ${shop.googleMapEmbed?`<div class="sp-card"><div class="sp-card-title"><i class="fas fa-map"></i> Location</div><div class="sp-map"><iframe src="${shop.googleMapEmbed}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div></div>`:shop.address?`<div class="sp-card"><div class="sp-card-title"><i class="fas fa-map"></i> Location</div><div style="padding:12px;font-size:13px;color:rgba(0,0,0,.7)"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>`:''}
+  ${(()=>{
+    const embedUrl = shop.googleMapEmbed
+      || (shop.googlePlaceId ? `https://www.google.com/maps?q=place_id:${shop.googlePlaceId}&output=embed&hl=en` : '');
+    return embedUrl
+      ? `<div class="sp-card"><div class="sp-card-title"><i class="fas fa-map"></i> Location</div><div class="sp-map"><iframe src="${embedUrl}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div></div>`
+      : shop.address ? `<div class="sp-card"><div class="sp-card-title"><i class="fas fa-map"></i> Location</div><div style="padding:12px;font-size:13px;color:rgba(0,0,0,.7)"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : '';
+  })()}
 
   ${shopVideos.length>0?`<div class="sp-card"><div class="sp-card-title"><i class="fas fa-play-circle"></i> Videos</div><div class="sp-vid-grid">${shopVideos.map((v:any)=>`<div class="sp-vid-card" onclick="window.location='/'"><img src="${v.thumbnail}" alt="${v.title}" loading="lazy"><div class="sp-play-ic"><i class="fas fa-play" style="font-size:14px;color:#fff;margin-left:2px"></i></div><div class="sp-vid-card-ov"><div class="sp-vid-card-title">${v.title}</div><div class="sp-vid-views"><i class="fas fa-eye"></i> ${v.views>=1000?(v.views/1000).toFixed(1)+'K':v.views}</div></div></div>`).join('')}</div></div>`:''}
 
@@ -2487,8 +2493,13 @@ function renderShopModal(shop) {
     svcHtml = '<div class="m-sec"><div class="m-sec-title">Services</div><div class="m-svc-tags">'+svcs+'</div></div>';
   }
 
-  /* ── 구글맵 embed (없으면 URL로 자동 생성) ── */
+  /* ── 구글맵 embed: place_id > embed > URL 순으로 시도 ── */
   var embedSrc = shop.googleMapEmbed || '';
+  // 1순위: google_place_id → 정확한 핀 표시 (API 키 불필요)
+  if(!embedSrc && shop.googlePlaceId) {
+    embedSrc = 'https://www.google.com/maps?q=place_id:'+shop.googlePlaceId+'&output=embed&hl=en';
+  }
+  // 2순위: URL에서 파싱
   if(!embedSrc && shop.googleMapUrl) {
     var q = '';
     var qm = shop.googleMapUrl.match(/[?&]q=([^&]+)/);
