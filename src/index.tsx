@@ -1327,8 +1327,8 @@ ${(()=>{const allP=[shop.thumbnail,...(shop.photos||[]).filter((p:string)=>p&&p!
 
   ${(()=>{
     const embedUrl = shop.googleMapEmbed
-      || (shop.googlePlaceId && shop.lat && shop.lng
-        ? `https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d500!2d${shop.lng}!3d${shop.lat}!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s${shop.googlePlaceId}!2s${encodeURIComponent(shop.name||'Shop')}!5e0!3m2!1sen!2skr!4v1`
+      || (shop.lat && shop.lng
+        ? `https://maps.google.com/maps?q=${shop.lat},${shop.lng}&z=17&output=embed`
         : '');
     return embedUrl
       ? `<div class="sp-card"><div class="sp-card-title"><i class="fas fa-map"></i> Location</div><div class="sp-map"><iframe src="${embedUrl}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div></div>`
@@ -2497,10 +2497,10 @@ function renderShopModal(shop) {
 
   /* ── 구글맵 embed: lat/lng+place_id > embed > address 순으로 시도 ── */
   var embedSrc = shop.googleMapEmbed || '';
-  // 1순위: place_id + lat/lng → 핀 + 근접 줌
-  if(!embedSrc && shop.googlePlaceId && shop.lat && shop.lng) {
+  // 1순위: lat/lng 좌표로 핀 표시 (z=17 근접 줌, API키 불필요)
+  if(!embedSrc && shop.lat && shop.lng) {
     var mlat = parseFloat(shop.lat), mlng = parseFloat(shop.lng);
-    embedSrc = 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d500!2d'+mlng+'!3d'+mlat+'!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s'+shop.googlePlaceId+'!2s'+encodeURIComponent(shop.name||'Shop')+'!5e0!3m2!1sen!2skr!4v1';
+    embedSrc = 'https://maps.google.com/maps?q='+mlat+','+mlng+'&z=17&output=embed';
   }
   // 2순위: URL에서 파싱
   if(!embedSrc && shop.googleMapUrl) {
