@@ -1703,36 +1703,34 @@ app.get('/shops', async (c) => {
   const rows = await sql`SELECT * FROM shops WHERE active=true ORDER BY rating DESC, created_at DESC`
   const shops = rows.map(rowToShop)
   const catColors: Record<string,string> = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',nail:'#34d399',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa'}
-  const catIcons: Record<string,string> = {skincare:'fa-leaf',makeup:'fa-magic',hair:'fa-cut',headspa:'fa-spa',nail:'fa-hand-sparkles',clinic:'fa-briefcase-medical',spa:'fa-hot-tub'}
-  const cats = ['all','skincare','makeup','hair','headspa','nail','clinic','spa']
+  const catIcons:  Record<string,string> = {skincare:'fa-leaf',makeup:'fa-magic',hair:'fa-cut',headspa:'fa-spa',nail:'fa-hand-sparkles',clinic:'fa-briefcase-medical',spa:'fa-hot-tub'}
+  const cats      = ['all','skincare','makeup','hair','headspa','nail','clinic','spa']
   const catLabels: Record<string,string> = {all:'All',skincare:'Skincare',makeup:'Makeup',hair:'Hair',headspa:'Head Spa',nail:'Nail',clinic:'Clinic',spa:'Spa'}
 
   const catCountMap: Record<string,number> = {}
   shops.forEach((s: any) => { catCountMap[s.category] = (catCountMap[s.category]||0)+1 })
 
   const cardsHtml = shops.map((shop: any) => {
-    const col = catColors[shop.category] || '#aaa'
-    const icon = catIcons[shop.category] || 'fa-star'
-    const href = shop.slug ? `/shop/${shop.slug}` : '#'
-    const loc = (shop.location||'').split(',')[0].trim()
+    const col   = catColors[shop.category] || '#aaa'
+    const icon  = catIcons[shop.category]  || 'fa-star'
+    const href  = shop.slug ? `/shop/${shop.slug}` : '#'
+    const loc   = (shop.location||'').split(',')[0].trim()
     const nameL = shop.name.toLowerCase().replace(/"/g,'')
-    const locL  = loc.toLowerCase()
-    return `<a class="sc-card" href="${href}" data-cat="${shop.category}" data-name="${nameL}" data-loc="${locL}">
-  <div class="sc-img-wrap">
-    <img src="${shop.thumbnail||''}" alt="" loading="lazy" onerror="this.style.background='#1a1a2e'">
-    <div class="sc-rating"><i class="fas fa-star"></i>${shop.rating}</div>
-  </div>
-  <div class="sc-body">
+    return `<a class="sc-card" href="${href}" data-cat="${shop.category}" data-name="${nameL}" data-loc="${loc.toLowerCase()}">
+  <div class="sc-img"><img src="${shop.thumbnail||''}" alt="" loading="lazy" onerror="this.style.background='#1a1a2e'"></div>
+  <div class="sc-info">
     <div class="sc-cat" style="color:${col}"><i class="fas ${icon}"></i>${catLabels[shop.category]||shop.category}</div>
     <div class="sc-name">${shop.name}</div>
     <div class="sc-loc"><i class="fas fa-map-marker-alt"></i>${loc}</div>
   </div>
+  <div class="sc-rating-wrap"><i class="fas fa-star"></i>${shop.rating}</div>
 </a>`
   }).join('')
 
   const filterBtns = cats.map(cat => {
     const cnt = cat==='all' ? shops.length : (catCountMap[cat]||0)
-    return `<button class="sc-flt${cat==='all'?' on':''}" data-cat="${cat}">${catLabels[cat]}<span class="sc-flt-cnt">${cnt}</span></button>`
+    if(cnt===0) return ''
+    return `<button class="sc-flt${cat==='all'?' on':''}" data-cat="${cat}">${catLabels[cat]} <span class="sc-flt-n">${cnt}</span></button>`
   }).join('')
 
   return c.html(`<!DOCTYPE html>
@@ -1741,9 +1739,8 @@ app.get('/shops', async (c) => {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Seoul Beauty Catalog \u2014 All K-Beauty Shops | Seoul Beauty Trip</title>
-<meta name="description" content="Browse all Korean beauty salons in Seoul. Skincare, hair, nail, makeup, head spa and clinic \u2014 all foreigner-friendly with English support.">
+<meta name="description" content="Browse all Korean beauty salons in Seoul \u2014 foreigner-friendly with English support.">
 <link rel="canonical" href="https://seoulbeautytrip.com/shops">
-<meta property="og:title" content="Seoul Beauty Catalog | Seoul Beauty Trip">
 <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
@@ -1754,223 +1751,214 @@ app.get('/shops', async (c) => {
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
   --pk:#E8417A;--pk2:#FF6B9D;--pk3:#FFB3CC;--gold:#C9A84C;
-  --bg:#08080E;--bg2:#0F0F1A;--border:rgba(255,255,255,.07);
+  --bg:#08080E;--border:rgba(255,255,255,.07);
+  --nav-h:52px;--ctrl-h:84px;
   --ff-serif:'Playfair Display',serif;--ff-sans:'Inter',sans-serif
 }
-body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh;overflow-x:hidden}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:#fff;font-family:var(--ff-sans);display:flex;flex-direction:column}
 a{text-decoration:none;color:inherit}
 
 /* NAV */
 .sc-nav{
-  position:sticky;top:0;z-index:100;
-  background:rgba(8,8,14,.96);backdrop-filter:blur(20px);
-  border-bottom:1px solid var(--border);padding:0 16px;
-}
-.sc-nav-inner{
-  max-width:960px;margin:0 auto;
-  display:flex;align-items:center;gap:10px;height:52px;
+  flex-shrink:0;height:var(--nav-h);
+  background:rgba(8,8,14,.97);backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);
+  padding:0 14px;
+  display:flex;align-items:center;gap:10px;
 }
 .sc-back{
   display:flex;align-items:center;justify-content:center;
-  width:32px;height:32px;border-radius:50%;
+  width:30px;height:30px;border-radius:50%;
   border:1px solid rgba(255,255,255,.1);
-  color:rgba(255,255,255,.45);font-size:13px;
+  color:rgba(255,255,255,.45);font-size:12px;
   transition:all .18s;flex-shrink:0;
 }
-.sc-back:hover{border-color:var(--pk);color:var(--pk2);background:rgba(232,65,122,.08)}
+.sc-back:hover{border-color:var(--pk);color:var(--pk2)}
 .sc-title{
-  font-family:var(--ff-serif);font-size:17px;font-weight:900;
-  background:linear-gradient(100deg,#fff 20%,var(--pk3) 70%,var(--gold) 100%);
+  font-family:var(--ff-serif);font-size:16px;font-weight:900;
+  background:linear-gradient(100deg,#fff 20%,var(--pk3) 65%,var(--gold) 100%);
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;
 }
 .sc-spacer{flex:1}
-.sc-count-badge{
-  background:rgba(232,65,122,.1);border:1px solid rgba(232,65,122,.22);
-  border-radius:16px;padding:4px 10px;
-  font-size:11px;font-weight:700;color:var(--pk2);
-  white-space:nowrap;
+.sc-badge{
+  background:rgba(232,65,122,.1);border:1px solid rgba(232,65,122,.2);
+  border-radius:14px;padding:3px 9px;
+  font-size:10px;font-weight:700;color:var(--pk2);
 }
 
-/* STICKY CONTROLS */
-.sc-sticky{
-  position:sticky;top:52px;z-index:90;
-  background:rgba(8,8,14,.96);backdrop-filter:blur(16px);
+/* CONTROLS */
+.sc-ctrl{
+  flex-shrink:0;height:var(--ctrl-h);
+  background:rgba(8,8,14,.97);backdrop-filter:blur(16px);
   border-bottom:1px solid var(--border);
-  padding:9px 16px;
+  padding:8px 14px;display:flex;flex-direction:column;gap:7px;
 }
-.sc-sticky-inner{max-width:960px;margin:0 auto;display:flex;flex-direction:column;gap:8px}
-
-/* SEARCH */
-.sc-search-wrap{
-  display:flex;align-items:center;gap:8px;
+.sc-srch{
+  display:flex;align-items:center;gap:7px;
   background:rgba(255,255,255,.05);
   border:1px solid rgba(255,255,255,.08);
-  border-radius:10px;padding:8px 12px;
+  border-radius:9px;padding:7px 11px;
   transition:border-color .18s;
 }
-.sc-search-wrap:focus-within{border-color:rgba(232,65,122,.32);background:rgba(232,65,122,.04)}
-.sc-search-wrap i{color:rgba(255,255,255,.2);font-size:12px;flex-shrink:0}
-.sc-search-wrap input{flex:1;background:none;border:none;outline:none;color:#fff;font-size:13px;font-family:var(--ff-sans)}
-.sc-search-wrap input::placeholder{color:rgba(255,255,255,.18)}
-.sc-search-clear{background:none;border:none;color:rgba(255,255,255,.22);font-size:11px;cursor:pointer;padding:0;display:none}
-.sc-search-clear.show{display:block}
-
-/* FILTER CHIPS */
-.sc-filters{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
-.sc-filters::-webkit-scrollbar{display:none}
+.sc-srch:focus-within{border-color:rgba(232,65,122,.3)}
+.sc-srch i{color:rgba(255,255,255,.2);font-size:11px;flex-shrink:0}
+.sc-srch input{flex:1;background:none;border:none;outline:none;color:#fff;font-size:13px;font-family:var(--ff-sans)}
+.sc-srch input::placeholder{color:rgba(255,255,255,.18)}
+.sc-srch-x{background:none;border:none;color:rgba(255,255,255,.2);font-size:10px;cursor:pointer;padding:0;display:none}
+.sc-srch-x.on{display:block}
+.sc-flts{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none}
+.sc-flts::-webkit-scrollbar{display:none}
 .sc-flt{
-  flex-shrink:0;padding:5px 11px;
-  border-radius:14px;
-  border:1px solid rgba(255,255,255,.07);
-  background:transparent;
-  color:rgba(255,255,255,.38);
-  font-size:11px;font-weight:700;
-  cursor:pointer;transition:all .16s;
-  white-space:nowrap;font-family:var(--ff-sans);
-  display:flex;align-items:center;gap:5px;
+  flex-shrink:0;padding:4px 10px;border-radius:12px;
+  border:1px solid rgba(255,255,255,.07);background:transparent;
+  color:rgba(255,255,255,.38);font-size:11px;font-weight:700;
+  cursor:pointer;transition:all .15s;white-space:nowrap;font-family:var(--ff-sans);
 }
-.sc-flt:hover{color:rgba(255,255,255,.7);border-color:rgba(255,255,255,.15)}
-.sc-flt.on{
-  background:linear-gradient(135deg,var(--pk),#7C3AED);
-  border-color:transparent;color:#fff;
-  box-shadow:0 2px 10px rgba(232,65,122,.28);
-}
-.sc-flt-cnt{
-  font-size:9px;font-weight:800;
-  background:rgba(255,255,255,.13);
-  border-radius:8px;padding:1px 5px;line-height:1.5;
-}
-.sc-flt.on .sc-flt-cnt{background:rgba(255,255,255,.22)}
+.sc-flt:hover{color:rgba(255,255,255,.7)}
+.sc-flt.on{background:linear-gradient(135deg,var(--pk),#7C3AED);border-color:transparent;color:#fff;box-shadow:0 2px 8px rgba(232,65,122,.3)}
+.sc-flt-n{font-size:9px;opacity:.75;margin-left:2px}
 
-/* GRID */
-.sc-grid-wrap{max-width:960px;margin:0 auto;padding:12px 12px 80px}
+/* GRID AREA - fills remaining height */
+.sc-area{
+  flex:1;overflow:hidden;
+  padding:10px 12px 10px;
+}
 .sc-grid{
+  height:100%;
   display:grid;
+  /* 9개 기준: 3×3 → auto-fill로 높이에 맞게 */
   grid-template-columns:repeat(3,1fr);
+  grid-template-rows:repeat(3,1fr);
   gap:8px;
 }
-@media(min-width:420px){.sc-grid{grid-template-columns:repeat(4,1fr)}}
-@media(min-width:560px){.sc-grid{grid-template-columns:repeat(5,1fr)}}
-@media(min-width:700px){.sc-grid{grid-template-columns:repeat(6,1fr)}}
-@media(min-width:860px){.sc-grid{grid-template-columns:repeat(7,1fr)}}
 
 /* CARD */
 .sc-card{
   background:#0d0d1f;
   border:1px solid rgba(255,255,255,.07);
-  border-radius:11px;overflow:hidden;
-  transition:transform .2s,border-color .2s,box-shadow .2s;
+  border-radius:10px;overflow:hidden;
   display:flex;flex-direction:column;
+  transition:border-color .18s,box-shadow .18s,transform .18s;
+  min-height:0;
 }
-.sc-card:hover{
-  transform:translateY(-2px);
-  border-color:rgba(232,65,122,.3);
-  box-shadow:0 6px 20px rgba(232,65,122,.1);
-}
-.sc-img-wrap{position:relative;overflow:hidden;flex-shrink:0}
-.sc-img-wrap img{
-  width:100%;aspect-ratio:1/1;
-  object-fit:cover;display:block;background:#1a1a2e;
-  transition:transform .3s;
-}
-.sc-card:hover .sc-img-wrap img{transform:scale(1.05)}
-.sc-rating{
+.sc-card:hover{border-color:rgba(232,65,122,.35);box-shadow:0 4px 16px rgba(232,65,122,.12);transform:scale(1.02)}
+.sc-img{flex:1;overflow:hidden;min-height:0;position:relative}
+.sc-img img{width:100%;height:100%;object-fit:cover;display:block;background:#1a1a2e;transition:transform .3s}
+.sc-card:hover .sc-img img{transform:scale(1.06)}
+.sc-rating-wrap{
   position:absolute;top:5px;right:5px;
-  background:rgba(0,0,0,.7);backdrop-filter:blur(6px);
-  border-radius:10px;padding:2px 5px;
+  background:rgba(0,0,0,.7);backdrop-filter:blur(4px);
+  border-radius:8px;padding:2px 5px;
   font-size:9px;font-weight:800;color:#fbbf24;
   display:flex;align-items:center;gap:2px;
+  pointer-events:none;
 }
-.sc-rating i{font-size:7px}
-.sc-body{padding:6px 8px 8px;display:flex;flex-direction:column;gap:3px}
-.sc-cat{
-  font-size:9px;font-weight:800;
-  text-transform:uppercase;letter-spacing:.3px;
-  display:flex;align-items:center;gap:3px;opacity:.8;
+.sc-rating-wrap i{font-size:7px}
+.sc-info{
+  flex-shrink:0;padding:5px 7px 6px;
+  display:flex;flex-direction:column;gap:2px;
+  background:#0d0d1f;
 }
+.sc-cat{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;display:flex;align-items:center;gap:3px;opacity:.85}
 .sc-cat i{font-size:7px}
-.sc-name{
-  font-size:11px;font-weight:800;color:#fff;
-  line-height:1.2;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-}
-.sc-loc{
-  display:flex;align-items:center;gap:3px;
-  font-size:9px;color:rgba(255,255,255,.28);
-}
+.sc-name{font-size:11px;font-weight:800;color:#fff;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sc-loc{display:flex;align-items:center;gap:3px;font-size:9px;color:rgba(255,255,255,.28)}
 .sc-loc i{color:var(--pk);font-size:7px;flex-shrink:0}
 
-/* EMPTY */
+/* HIDDEN / EMPTY */
+.sc-card.hide{display:none}
 .sc-empty{
-  grid-column:1/-1;text-align:center;
-  padding:60px 20px;
-  color:rgba(255,255,255,.18);font-size:13px;
+  display:none;grid-column:1/-1;grid-row:1/-1;
+  align-items:center;justify-content:center;flex-direction:column;gap:8px;
+  color:rgba(255,255,255,.2);font-size:13px;
 }
-.sc-empty i{font-size:32px;display:block;margin-bottom:10px;opacity:.2}
+.sc-empty.show{display:flex}
+.sc-empty i{font-size:32px;opacity:.2}
 </style>
 </head>
 <body>
 
 <nav class="sc-nav">
-  <div class="sc-nav-inner">
-    <a href="/" class="sc-back"><i class="fas fa-arrow-left"></i></a>
-    <div class="sc-title">Seoul Beauty</div>
-    <div class="sc-spacer"></div>
-    <div class="sc-count-badge" id="scCountBadge">${shops.length} shops</div>
-  </div>
+  <a href="/" class="sc-back"><i class="fas fa-arrow-left"></i></a>
+  <div class="sc-title">Seoul Beauty</div>
+  <div class="sc-spacer"></div>
+  <div class="sc-badge" id="scBadge">${shops.length} shops</div>
 </nav>
 
-<div class="sc-sticky">
-  <div class="sc-sticky-inner">
-    <div class="sc-search-wrap">
-      <i class="fas fa-search"></i>
-      <input id="scSearch" type="search" placeholder="Name, area, category..." autocomplete="off" oninput="onSrch(this)">
-      <button class="sc-search-clear" id="scClear" onclick="clearSrch()"><i class="fas fa-times"></i></button>
-    </div>
-    <div class="sc-filters" id="scFilters">
-      ${filterBtns}
-    </div>
+<div class="sc-ctrl">
+  <div class="sc-srch">
+    <i class="fas fa-search"></i>
+    <input id="scQ" type="search" placeholder="Name, area, category..." autocomplete="off" oninput="doFilter(this.value)">
+    <button class="sc-srch-x" id="scX" onclick="clearQ()"><i class="fas fa-times"></i></button>
+  </div>
+  <div class="sc-flts">
+    ${filterBtns}
   </div>
 </div>
 
-<div class="sc-grid-wrap">
+<div class="sc-area">
   <div class="sc-grid" id="scGrid">
     ${cardsHtml}
+    <div class="sc-empty" id="scEmpty"><i class="fas fa-search"></i>No shops found</div>
   </div>
 </div>
 
 <script>
-var _cat='all', _kw='';
+var _cat='all', _q='';
+
+/* 카테고리 필터 */
 document.querySelectorAll('.sc-flt').forEach(function(b){
-  b.addEventListener('click',function(){
-    document.querySelectorAll('.sc-flt').forEach(function(x){x.classList.remove('on');});
+  b.addEventListener('click', function(){
+    document.querySelectorAll('.sc-flt').forEach(function(x){x.classList.remove('on')});
     b.classList.add('on');
-    _cat=b.dataset.cat;
+    _cat = b.dataset.cat;
     render();
   });
 });
-function onSrch(inp){
-  _kw=inp.value.toLowerCase().trim();
-  document.getElementById('scClear').classList.toggle('show',!!_kw);
+
+/* 검색 */
+function doFilter(v){
+  _q = v.toLowerCase().trim();
+  document.getElementById('scX').classList.toggle('on', !!_q);
   render();
 }
-function clearSrch(){
-  document.getElementById('scSearch').value='';
-  document.getElementById('scClear').classList.remove('show');
-  _kw=''; render();
+function clearQ(){
+  document.getElementById('scQ').value='';
+  document.getElementById('scX').classList.remove('on');
+  _q=''; render();
 }
+
+/* 렌더 */
 function render(){
-  var cards=document.querySelectorAll('.sc-card'), vis=0;
+  var cards = document.querySelectorAll('.sc-card');
+  var vis = 0;
   cards.forEach(function(c){
-    var ok=(_cat==='all'||c.dataset.cat===_cat)&&(!_kw||(c.dataset.name||'').indexOf(_kw)!==-1||(c.dataset.loc||'').indexOf(_kw)!==-1||(c.dataset.cat||'').indexOf(_kw)!==-1);
-    c.style.display=ok?'':'none';
-    if(ok)vis++;
+    var ok = (_cat==='all' || c.dataset.cat===_cat)
+          && (!_q || (c.dataset.name||'').indexOf(_q)!==-1
+                  || (c.dataset.loc||'').indexOf(_q)!==-1
+                  || (c.dataset.cat||'').indexOf(_q)!==-1);
+    c.classList.toggle('hide', !ok);
+    if(ok) vis++;
   });
-  var el=document.getElementById('sc-empty');
-  if(!el){el=document.createElement('div');el.id='sc-empty';el.className='sc-empty';el.innerHTML='<i class="fas fa-search"></i>No shops found';document.getElementById('scGrid').appendChild(el);}
-  el.style.display=vis===0?'':'none';
-  document.getElementById('scCountBadge').textContent=vis+' shop'+(vis!==1?'s':'');
+
+  /* 보이는 카드 수에 맞게 그리드 레이아웃 재계산 */
+  var grid = document.getElementById('scGrid');
+  var cols, rows;
+  if(vis<=3){cols=vis||1; rows=1;}
+  else if(vis<=6){cols=3; rows=2;}
+  else if(vis<=9){cols=3; rows=3;}
+  else if(vis<=12){cols=4; rows=3;}
+  else {cols=4; rows=Math.ceil(vis/4);}
+  grid.style.gridTemplateColumns = 'repeat('+cols+',1fr)';
+  grid.style.gridTemplateRows    = 'repeat('+rows+',1fr)';
+
+  document.getElementById('scEmpty').classList.toggle('show', vis===0);
+  document.getElementById('scBadge').textContent = vis+' shop'+(vis!==1?'s':'');
 }
+
+/* 초기 레이아웃 */
+render();
 </script>
 </body>
 </html>`)
