@@ -2868,28 +2868,29 @@ function heroImgLoaded(el){ var w=el.closest('.m-hero'); if(w) w.classList.add('
 function thumbImgLoaded(el){ el.classList.add('img-loaded'); if(el.parentElement) el.parentElement.classList.add('img-loaded'); }
 
 /* ── 스플래시 로딩 조율 ──
-   shops fetch + videos 렌더 두 작업이 모두 끝나면 스플래시 해제.
-   최소 1200ms 는 표시, 최대 3500ms fallback. */
+   흐름: shops fetch → 첫 영상 src 세팅(백그라운드 다운로드 시작)
+         → canplay 이벤트 수신 → 그때 스플래시 해제 → 즉시 재생
+   최대 fallback: 6초 (느린 네트워크 대비) */
 var _ldStartTime = Date.now();
-var _MIN_SPLASH_MS = 1200; // 최소 표시 시간(ms)
-var _ldReadyFlags = { shops: false, videos: false };
+var _MIN_SPLASH_MS = 800;  // 최소 표시 시간(ms)
+var _ldReadyFlags = { shops: false, firstVideo: false };
+var _ldFallbackTimer = null;
 
 /* 프로그레스 바 단계 제어 */
 function setLdProgress(pct) {
   var prog = document.querySelector('.ld-prog');
   if(!prog) return;
-  // CSS 애니메이션 대신 JS 직접 제어
   prog.style.animation = 'none';
-  prog.style.transition = 'width .4s ease';
+  prog.style.transition = 'width .5s ease';
   prog.style.width = pct + '%';
 }
 
 /* loading hide */
 var _ldHidden = false;
-var _onLdHidden = null; // 스플래시 완전히 사라진 뒤 실행할 콜백
 function hideLd(){
   if(_ldHidden) return;
   _ldHidden = true;
+  if(_ldFallbackTimer){ clearTimeout(_ldFallbackTimer); _ldFallbackTimer = null; }
   var ld = document.getElementById('ld');
   if(!ld) return;
   setLdProgress(100);
@@ -2897,18 +2898,26 @@ function hideLd(){
     ld.style.opacity = '0';
     setTimeout(function(){
       ld.style.display = 'none';
-      // 스플래시 완전히 사라진 뒤 영상 로드 시작
-      if(_onLdHidden){ _onLdHidden(); _onLdHidden = null; }
-    }, 600);
-  }, 180); // 100% 잠깐 보여준 뒤 페이드
+      // 스플래시 완전히 사라진 뒤 IntersectionObserver + 재생 시작
+      setupObs();
+    }, 500);
+  }, 150);
 }
 
-/* 두 플래그가 모두 true 이면 최소시간 지킨 뒤 hideLd() */
+/* shops + firstVideo 둘 다 준비되면 최소시간 후 hideLd() */
 function _checkLdReady() {
-  if(!_ldReadyFlags.shops || !_ldReadyFlags.videos) return;
+  if(!_ldReadyFlags.shops || !_ldReadyFlags.firstVideo) return;
   var elapsed = Date.now() - _ldStartTime;
   var delay = Math.max(0, _MIN_SPLASH_MS - elapsed);
   setTimeout(hideLd, delay);
+}
+
+/* 첫 영상 canplay 신호 — 스플래시 해제 트리거 */
+function _onFirstVideoReady() {
+  if(_ldReadyFlags.firstVideo) return;
+  _ldReadyFlags.firstVideo = true;
+  setLdProgress(95);
+  _checkLdReady();
 }
 
 /* ── 스플래시 중 shops 데이터 Prefetch ──
@@ -2918,7 +2927,7 @@ var _prefetchDone = false;
 function prefetchShops(){
   if(_prefetchDone) return;
   _prefetchDone = true;
-  setLdProgress(15); // 시작: 15%
+  setLdProgress(10);
   fetch('/api/shops')
     .then(function(r){ return r.json(); })
     .then(function(d){
@@ -2926,17 +2935,17 @@ function prefetchShops(){
       list.forEach(function(s){
         if(s && s.id && !shopCache[s.id]) shopCache[s.id] = s;
       });
-      setLdProgress(55); // shops 완료: 55%
+      setLdProgress(40); // shops 완료: 40%
       _ldReadyFlags.shops = true;
       _checkLdReady();
     })
     .catch(function(){
-      setLdProgress(55);
+      setLdProgress(40);
       _ldReadyFlags.shops = true;
       _checkLdReady();
     });
 }
-// 페이지 로드 즉시 시작 (스플래시가 떠있는 동안 병렬로 실행)
+// 페이지 로드 즉시 시작
 prefetchShops();
 
 /* 카테고리 전환 스피너 */
@@ -2947,21 +2956,19 @@ function loadVideos(cat) {
   // 첫 로드이고 cat='all'이면 SSR 인라인 데이터 즉시 사용 (fetch 생략)
   if((cat === 'all' || !cat) && window.__INIT_VIDEOS__ && window.__INIT_VIDEOS__.length) {
     vids = window.__INIT_VIDEOS__;
-    window.__INIT_VIDEOS__ = null; // 한 번만 사용
-    // Fisher-Yates shuffle
+    window.__INIT_VIDEOS__ = null;
     for(var i=vids.length-1;i>0;i--){
       var j=Math.floor(Math.random()*(i+1));
       var tmp=vids[i]; vids[i]=vids[j]; vids[j]=tmp;
     }
-    renderFeed();
-    // SSR 데이터 사용: 렌더 즉시 videos 완료 플래그
-    setLdProgress(90);
-    _ldReadyFlags.videos = true;
-    _checkLdReady();
+    renderFeed(); // DOM 구성 (video src는 아직 없음)
+    setLdProgress(70);
+    // 첫 영상 src를 스플래시 뒤에서 미리 세팅 → 다운로드 시작
+    _startFirstVideoLoad();
     return;
   }
   // 카테고리 전환: 스켈레톤 + 스피너 표시
-  var isCatSwitch = _ldHidden; // 스플래시 이미 숨겼으면 카테고리 전환
+  var isCatSwitch = _ldHidden;
   if(isCatSwitch) {
     showSkeletonFeed();
     showCatLoading();
@@ -2970,7 +2977,6 @@ function loadVideos(cat) {
     .then(function(r){ return r.json(); })
     .then(function(d){
       vids = d.videos || [];
-      // Fisher-Yates shuffle
       for(var i=vids.length-1;i>0;i--){
         var j=Math.floor(Math.random()*(i+1));
         var tmp=vids[i]; vids[i]=vids[j]; vids[j]=tmp;
@@ -2978,22 +2984,18 @@ function loadVideos(cat) {
       hideCatLoading();
       renderFeed();
       if(!_ldHidden){
-        setLdProgress(90);
-        _ldReadyFlags.videos = true;
-        _checkLdReady();
+        setLdProgress(70);
+        _startFirstVideoLoad();
       }
     })
     .catch(function(){
       vids = [];
       hideCatLoading();
       renderFeed();
-      if(!_ldHidden){
-        _ldReadyFlags.videos = true;
-        _checkLdReady();
-      }
+      if(!_ldHidden){ hideLd(); }
     });
-  // 최대 3.5초 fallback (기존 5초에서 단축)
-  setTimeout(function(){ hideLd(); hideCatLoading(); }, 3500);
+  // 최대 6초 fallback
+  _ldFallbackTimer = setTimeout(function(){ hideLd(); hideCatLoading(); }, 6000);
 }
 
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -3002,12 +3004,35 @@ function areaOnly(loc) {
   return String(loc).split(',')[0].trim();
 }
 
+/* 스플래시 중 첫 영상 미리 다운로드 시작 → canplay 시 스플래시 해제 */
+function _startFirstVideoLoad() {
+  var v0 = document.getElementById('vid0');
+  if(!v0 || !v0.dataset.src) {
+    // 영상 없으면 그냥 해제
+    _onFirstVideoReady();
+    return;
+  }
+  // canplay = 재생 가능한 만큼 버퍼링 완료
+  v0.addEventListener('canplay', function onCp0(){
+    v0.removeEventListener('canplay', onCp0);
+    _onFirstVideoReady();
+  });
+  // loadeddata = 첫 프레임 디코딩 완료 (canplay보다 빠름)
+  v0.addEventListener('loadeddata', function onLd0(){
+    v0.removeEventListener('loadeddata', onLd0);
+    _onFirstVideoReady();
+  });
+  v0.src = v0.dataset.src; // 다운로드 시작
+  v0.load();
+}
+
 function renderFeed() {
   var feed = document.getElementById('feed');
   var dots = document.getElementById('dots');
   feed.innerHTML = ''; dots.innerHTML = '';
   if(!vids.length){
     feed.innerHTML = '<div style="height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:rgba(255,255,255,.28);font-size:14px"><i class="fas fa-film" style="font-size:40px;margin-bottom:4px;color:rgba(232,65,122,.3)"></i><div>No videos yet</div><div style="font-size:12px;color:rgba(255,255,255,.18)">Add shops and videos from the admin panel</div></div>';
+    if(!_ldHidden) hideLd();
     return;
   }
   for(var i=0;i<vids.length;i++){
@@ -3016,13 +3041,9 @@ function renderFeed() {
     dots.appendChild(dot);
   }
   for(var i=0;i<vids.length;i++){ buildSlide(vids[i],i); }
-  // 스플래시가 아직 표시 중이면 → 완전히 사라진 뒤 영상 src 세팅 시작
-  // 이미 숨겨진 상태(카테고리 전환 등)면 → 즉시 실행
-  if(!_ldHidden){
-    _onLdHidden = setupObs;
-  } else {
-    setupObs();
-  }
+  // 카테고리 전환(스플래시 이미 없음)이면 즉시 setupObs
+  if(_ldHidden) setupObs();
+  // 첫 로드면 _startFirstVideoLoad()가 따로 호출됨 → setupObs는 hideLd 후 실행
 }
 
 function getAutoThumb(videoUrl) {
@@ -3208,10 +3229,11 @@ function setupObs(){
 
   document.querySelectorAll('.slide').forEach(function(s){ obs.observe(s); });
 
-  // 첫 슬라이드 즉시 로드 + 재생
+  // 첫 슬라이드 재생 (src는 이미 _startFirstVideoLoad에서 세팅됨)
   var v0 = document.getElementById('vid0');
   if(v0){
     var buf0 = document.getElementById('bufic0');
+    // src가 없으면 지금 세팅 (카테고리 전환 경로)
     if(!v0.src && v0.dataset.src){
       if(buf0) buf0.style.display = 'flex';
       v0.src = v0.dataset.src;
