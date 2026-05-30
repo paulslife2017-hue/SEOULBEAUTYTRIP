@@ -446,7 +446,8 @@ app.post('/api/resolve-gmap', async (c) => {
     const placeToJson = (place: any) => {
       if (!place) return null
       const comps: any[] = place.addressComponents || []
-      const isKor = (s: string) => /[\uAC00-\uD7A3]/.test(s)
+      // 한국어 + 일본어 + 한자 모두 포함
+      const isKor = (s: string) => /[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]/.test(s)
       const stripKor = (s: string) => s.replace(/[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]+/g,'').replace(/\s{2,}/g,' ').trim()
       const get = (...types: string[]) => {
         const c = comps.find((x: any) => types.some(t => x.types?.includes(t)))
@@ -461,12 +462,17 @@ app.post('/api/resolve-gmap', async (c) => {
       let address = [street, sub1, district, province, 'South Korea'].filter(Boolean).join(', ')
       if (isKor(address)) address = stripKor(place.formattedAddress||'') || 'Seoul, South Korea'
 
+      // 업체명: '|' 또는 '｜' 구분자로 분리 후 CJK 없는 첫 파트 선택
       const rawName: string = place.displayName?.text || ''
-      const engName = rawName.split('|').map((s: string) => s.trim()).find((s: string) => !isKor(s) && s.length > 0)
-        || stripKor(rawName) || rawName
+      const nameParts = rawName.split(/[|\uff5c]/).map((s: string) => s.trim()).filter(Boolean)
+      const engName = nameParts.find((s: string) => !isKor(s) && s.length > 0)
+        || (() => { const stripped = stripKor(rawName); return stripped.length > 1 ? stripped : '' })()
+        || rawName
 
+      // location: sublocality_level_2 → level_1 → 주소 순으로 시도
       const sub1Text = comps.find((x: any) => x.types?.includes('sublocality_level_1'))?.longText || ''
-      const location = findArea(sub1Text) || findArea(place.formattedAddress || '') || 'Seoul'
+      const sub2Text = comps.find((x: any) => x.types?.includes('sublocality_level_2'))?.longText || ''
+      const location = findArea(sub2Text) || findArea(sub1Text) || findArea(address) || findArea(place.formattedAddress || '') || 'Seoul'
 
       const weekdays: string[] = place.regularOpeningHours?.weekdayDescriptions || []
       const rawReviews: any[] = place.reviews || []
@@ -634,7 +640,7 @@ Return ONLY valid JSON:
     const res = await fetch('https://www.genspark.ai/api/llm_proxy/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: 'gpt-5-mini', messages: [{ role: 'user', content: prompt }], max_tokens: 1000 })
+      body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }], max_tokens: 1000 })
     })
     if (!res.ok) return null
     const data: any = await res.json()
@@ -894,7 +900,7 @@ Return ONLY valid JSON:
         'Authorization': `Bearer ${OPENAI_KEY}`
       },
       body: JSON.stringify({
-        model: 'gpt-5',
+        model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 3000
       })
@@ -924,9 +930,10 @@ app.post('/api/places-fetch', async (c) => {
     const { query, placeId: directPlaceId } = body
 
     // ── 공통 헬퍼 ──
-    const isKorean = (s: string) => /[\uAC00-\uD7A3]/.test(s)
+    // 한국어 + 일본어 + 한자 모두 포함 (업체명에 한자가 붙어오는 경우 대응)
+    const isKorean = (s: string) => /[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]/.test(s)
 
-    // 한국어 제거 — 영어/숫자/공백/쉼표/하이픈/마침표/슬래시만 남김
+    // 한국어/일본어/한자 제거 — 영어/숫자/공백/기호만 남김
     const stripKorean = (s: string) =>
       s.replace(/[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]+/g, '').replace(/\s{2,}/g, ' ').trim()
 
@@ -1030,22 +1037,30 @@ app.post('/api/places-fetch', async (c) => {
       if (!place) return c.json({ error: 'No place found' }, 404)
     }
 
-    // ── 업체 영문명: 한국어/일본어/중국어 제거 ──
+    // ── 업체 영문명: 한국어/일본어/한자 제거 ──
     const rawDisplayName: string = place.displayName?.text || ''
-    // 다국어가 섞인 경우 '|' 구분자로 첫 번째 영문 파트만 추출
-    const engName = rawDisplayName.split('|').map((s: string) => s.trim()).find((s: string) => !isKorean(s) && s.length > 0)
-      || stripKorean(rawDisplayName)
+    // 1) '|' 구분자로 split → 비(非)CJK 파트 우선
+    const nameParts = rawDisplayName.split(/[|｜]/).map((s: string) => s.trim()).filter(Boolean)
+    const engName = nameParts.find((s: string) => !isKorean(s) && s.length > 0)
+      || (() => { const stripped = stripKorean(rawDisplayName); return stripped.length > 1 ? stripped : '' })()
       || rawDisplayName
 
     // ── 영문 주소 ──
     const comps: any[] = place.addressComponents || []
     const engAddress = buildEngAddress(comps, place.formattedAddress || '')
 
-    // ── 지역 (location) — addressComponents sublocality_level_1 우선 ──
+    // ── 지역 (location) — addressComponents sublocality_level_1 우선, 없으면 주소 전체 검색 ──
     const sub1Comp = comps.find((x: any) => x.types?.includes('sublocality_level_1'))
+    const sub2Comp = comps.find((x: any) => x.types?.includes('sublocality_level_2'))
     const sub1Text = sub1Comp?.longText || sub1Comp?.shortText || ''
-    const location = detectLocation(sub1Text) !== 'Seoul'
+    const sub2Text = sub2Comp?.longText || sub2Comp?.shortText || ''
+    // sublocality_level_2 → level_1 → formattedAddress 순으로 시도
+    const location = detectLocation(sub2Text) !== 'Seoul'
+      ? detectLocation(sub2Text)
+      : detectLocation(sub1Text) !== 'Seoul'
       ? detectLocation(sub1Text)
+      : detectLocation(engAddress) !== 'Seoul'
+      ? detectLocation(engAddress)
       : detectLocation(place.formattedAddress || '')
 
     // ── 영업시간 ──
