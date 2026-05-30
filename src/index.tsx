@@ -425,7 +425,7 @@ app.post('/api/resolve-gmap', async (c) => {
         headers: {
           'Content-Type': 'application/json',
           'X-Goog-Api-Key': GOOGLE_PLACES_KEY,
-          'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.addressComponents,places.regularOpeningHours,places.rating,places.userRatingCount,places.reviews,places.photos,places.internationalPhoneNumber,places.websiteUri,places.location'
+          'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.addressComponents,places.regularOpeningHours,places.rating,places.userRatingCount,places.reviews,places.photos,places.internationalPhoneNumber,places.websiteUri,places.location,places.editorialSummary,places.primaryType,places.types'
         },
         body: JSON.stringify({ textQuery, languageCode: 'en' })
       })
@@ -435,7 +435,7 @@ app.post('/api/resolve-gmap', async (c) => {
     }
 
     const placeDetailsById = async (pid: string): Promise<any> => {
-      const fieldMask = 'id,displayName,formattedAddress,addressComponents,regularOpeningHours,rating,userRatingCount,reviews,photos,internationalPhoneNumber,websiteUri,location'
+      const fieldMask = 'id,displayName,formattedAddress,addressComponents,regularOpeningHours,rating,userRatingCount,reviews,photos,internationalPhoneNumber,websiteUri,location,editorialSummary,primaryType,types'
       const r = await fetch(`https://places.googleapis.com/v1/places/${pid}?languageCode=en`, {
         headers: { 'X-Goog-Api-Key': GOOGLE_PLACES_KEY, 'X-Goog-FieldMask': fieldMask }
       })
@@ -486,10 +486,23 @@ app.post('/api/resolve-gmap', async (c) => {
       const lat = place.location?.latitude?.toString() || ''
       const lng = place.location?.longitude?.toString() || ''
 
+      // 업체 소개 (editorialSummary)
+      const description: string = place.editorialSummary?.text || ''
+
+      // primaryType/types → 카테고리 자동감지
+      const allTypes = [place.primaryType||'', ...(place.types||[])].map((t: string) => t.toLowerCase())
+      let suggestedCategory = ''
+      if (allTypes.some((t: string) => ['beauty_salon','hair_care','hair_salon','barber_shop'].includes(t))) suggestedCategory = 'hair'
+      else if (allTypes.some((t: string) => ['nail_salon'].includes(t))) suggestedCategory = 'nail'
+      else if (allTypes.some((t: string) => ['spa','massage','sauna'].includes(t))) suggestedCategory = 'spa'
+      else if (allTypes.some((t: string) => ['doctor','hospital','medical_lab','physiotherapist','skin_care','plastic_surgeon','dermatologist'].includes(t))) suggestedCategory = 'clinic'
+      else if (allTypes.some((t: string) => ['makeup_artist'].includes(t))) suggestedCategory = 'makeup'
+
       return {
         placeId: place.id||'', name: engName, address, location,
         phone: place.internationalPhoneNumber||'', website: place.websiteUri||'',
         hours: weekdays.join(' | '), weekdayDescriptions: weekdays,
+        description, suggestedCategory,
         rating: place.rating||0, reviewCount: place.userRatingCount||0,
         reviews, photos, lat, lng,
         _fromPlaces: true  // Places API로 가져왔음을 admin에서 인식
@@ -534,6 +547,11 @@ app.post('/api/resolve-gmap', async (c) => {
       if (result) {
         if (latStr && !result.lat) result.lat = latStr
         if (lngStr && !result.lng) result.lng = lngStr
+        // URL 업체명에서 지역 힌트 추출 (예: "TUNE CLINIC APGUJEONG" → Apgujeong)
+        if (!result.location || result.location === 'Seoul') {
+          const locFromName = findArea(shopName)
+          if (locFromName) result.location = locFromName
+        }
         return c.json(result)
       }
 
@@ -997,18 +1015,33 @@ app.post('/api/places-fetch', async (c) => {
       return candidate || stripKorean(fallbackAddr) || 'Seoul, South Korea'
     }
 
+    // Places API 공통 fieldMask (editorialSummary, primaryType, types 포함)
+    const FIELD_MASK_DETAILS = [
+      'id','displayName','formattedAddress','shortFormattedAddress',
+      'addressComponents','regularOpeningHours','rating','userRatingCount',
+      'reviews','photos','websiteUri','internationalPhoneNumber',
+      'editorialSummary','primaryType','types'
+    ].join(',')
+    const FIELD_MASK_SEARCH = FIELD_MASK_DETAILS.split(',').map((f: string) => 'places.' + f).join(',')
+
     // 장소 단일 조회 (placeId로) — Place Details v1
     const fetchPlaceById = async (pid: string): Promise<any> => {
-      const fieldMask = [
-        'id','displayName','formattedAddress','shortFormattedAddress',
-        'addressComponents','regularOpeningHours','rating','userRatingCount',
-        'reviews','photos','websiteUri','internationalPhoneNumber'
-      ].join(',')
       const r = await fetch(`https://places.googleapis.com/v1/places/${pid}?languageCode=en`, {
-        headers: { 'X-Goog-Api-Key': GOOGLE_PLACES_KEY, 'X-Goog-FieldMask': fieldMask }
+        headers: { 'X-Goog-Api-Key': GOOGLE_PLACES_KEY, 'X-Goog-FieldMask': FIELD_MASK_DETAILS }
       })
       if (!r.ok) throw new Error('Place Details error: ' + r.status)
       return r.json()
+    }
+
+    // primaryType/types → 우리 카테고리로 매핑
+    const detectCategory = (primaryType: string, types: string[]): string => {
+      const all = [primaryType, ...(types || [])].map(t => t.toLowerCase())
+      if (all.some(t => ['beauty_salon','hair_care','hair_salon','barber_shop'].includes(t))) return 'hair'
+      if (all.some(t => ['nail_salon'].includes(t))) return 'nail'
+      if (all.some(t => ['spa','massage','sauna'].includes(t))) return 'spa'
+      if (all.some(t => ['doctor','hospital','medical_lab','physiotherapist','skin_care','plastic_surgeon','dermatologist'].includes(t))) return 'clinic'
+      if (all.some(t => ['makeup_artist'].includes(t))) return 'makeup'
+      return '' // 감지 불가 → 사용자가 직접 선택
     }
 
     let place: any
@@ -1024,7 +1057,7 @@ app.post('/api/places-fetch', async (c) => {
         headers: {
           'Content-Type': 'application/json',
           'X-Goog-Api-Key': GOOGLE_PLACES_KEY,
-          'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.shortFormattedAddress,places.addressComponents,places.regularOpeningHours,places.rating,places.userRatingCount,places.reviews,places.photos,places.websiteUri,places.internationalPhoneNumber'
+          'X-Goog-FieldMask': FIELD_MASK_SEARCH
         },
         body: JSON.stringify({ textQuery: query, languageCode: 'en' })
       })
@@ -1067,6 +1100,12 @@ app.post('/api/places-fetch', async (c) => {
     const weekdays: string[] = place.regularOpeningHours?.weekdayDescriptions || []
     const hoursStr = weekdays.join(' | ')
 
+    // ── 업체 소개 (editorialSummary) ──
+    const description: string = place.editorialSummary?.text || ''
+
+    // ── 카테고리 자동감지 ──
+    const suggestedCategory = detectCategory(place.primaryType || '', place.types || [])
+
     // ── 리뷰: 영어 우선 (최대 5개) ──
     const rawReviews: any[] = place.reviews || []
     const enReviews   = rawReviews.filter((r: any) => r.text?.languageCode === 'en' && (r.text?.text?.length || 0) > 20)
@@ -1094,6 +1133,9 @@ app.post('/api/places-fetch', async (c) => {
       website:             place.websiteUri || '',
       hours:               hoursStr,
       weekdayDescriptions: weekdays,
+      description,
+      suggestedCategory,
+      primaryType:         place.primaryType || '',
       rating:              place.rating || 0,
       reviewCount:         place.userRatingCount || 0,
       reviews,
@@ -2825,26 +2867,22 @@ function parentLoaded(el){ if(el.parentElement) el.parentElement.classList.add('
 function heroImgLoaded(el){ var w=el.closest('.m-hero'); if(w) w.classList.add('loaded'); }
 function thumbImgLoaded(el){ el.classList.add('img-loaded'); if(el.parentElement) el.parentElement.classList.add('img-loaded'); }
 
-/* ── 스플래시 중 shops 데이터 Prefetch ──
-   스플래시가 보이는 ~2.2초 동안 /api/shops 를 미리 가져와서
-   shopCache 에 채워둠 → 모달 열 때 fetch 없이 즉시 렌더 */
-var _prefetchDone = false;
-function prefetchShops(){
-  if(_prefetchDone) return;
-  _prefetchDone = true;
-  fetch('/api/shops')
-    .then(function(r){ return r.json(); })
-    .then(function(d){
-      var list = d.shops || [];
-      list.forEach(function(s){
-        // 기본 정보만 있는 상태로 캐시 (상세 API 전까지 레이어 1 캐시)
-        if(s && s.id && !shopCache[s.id]) shopCache[s.id] = s;
-      });
-    })
-    .catch(function(){}); // 실패해도 무시 — 기존 로직이 fallback
+/* ── 스플래시 로딩 조율 ──
+   shops fetch + videos 렌더 두 작업이 모두 끝나면 스플래시 해제.
+   최소 1200ms 는 표시, 최대 3500ms fallback. */
+var _ldStartTime = Date.now();
+var _MIN_SPLASH_MS = 1200; // 최소 표시 시간(ms)
+var _ldReadyFlags = { shops: false, videos: false };
+
+/* 프로그레스 바 단계 제어 */
+function setLdProgress(pct) {
+  var prog = document.querySelector('.ld-prog');
+  if(!prog) return;
+  // CSS 애니메이션 대신 JS 직접 제어
+  prog.style.animation = 'none';
+  prog.style.transition = 'width .4s ease';
+  prog.style.width = pct + '%';
 }
-// 페이지 로드 즉시 시작 (스플래시가 떠있는 동안 병렬로 실행)
-prefetchShops();
 
 /* loading hide */
 var _ldHidden = false;
@@ -2853,9 +2891,48 @@ function hideLd(){
   _ldHidden = true;
   var ld = document.getElementById('ld');
   if(!ld) return;
-  ld.style.opacity = '0';
-  setTimeout(function(){ ld.style.display = 'none'; }, 600);
+  setLdProgress(100);
+  setTimeout(function(){
+    ld.style.opacity = '0';
+    setTimeout(function(){ ld.style.display = 'none'; }, 600);
+  }, 180); // 100% 잠깐 보여준 뒤 페이드
 }
+
+/* 두 플래그가 모두 true 이면 최소시간 지킨 뒤 hideLd() */
+function _checkLdReady() {
+  if(!_ldReadyFlags.shops || !_ldReadyFlags.videos) return;
+  var elapsed = Date.now() - _ldStartTime;
+  var delay = Math.max(0, _MIN_SPLASH_MS - elapsed);
+  setTimeout(hideLd, delay);
+}
+
+/* ── 스플래시 중 shops 데이터 Prefetch ──
+   스플래시가 보이는 동안 /api/shops 를 미리 가져와서
+   shopCache 에 채워둠 → 모달 열 때 fetch 없이 즉시 렌더 */
+var _prefetchDone = false;
+function prefetchShops(){
+  if(_prefetchDone) return;
+  _prefetchDone = true;
+  setLdProgress(15); // 시작: 15%
+  fetch('/api/shops')
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var list = d.shops || [];
+      list.forEach(function(s){
+        if(s && s.id && !shopCache[s.id]) shopCache[s.id] = s;
+      });
+      setLdProgress(55); // shops 완료: 55%
+      _ldReadyFlags.shops = true;
+      _checkLdReady();
+    })
+    .catch(function(){
+      setLdProgress(55);
+      _ldReadyFlags.shops = true;
+      _checkLdReady();
+    });
+}
+// 페이지 로드 즉시 시작 (스플래시가 떠있는 동안 병렬로 실행)
+prefetchShops();
 
 /* 카테고리 전환 스피너 */
 function showCatLoading(){ var el=document.getElementById('cat-loading'); if(el) el.classList.add('on'); }
@@ -2872,7 +2949,10 @@ function loadVideos(cat) {
       var tmp=vids[i]; vids[i]=vids[j]; vids[j]=tmp;
     }
     renderFeed();
-    hideLd();
+    // SSR 데이터 사용: 렌더 즉시 videos 완료 플래그
+    setLdProgress(90);
+    _ldReadyFlags.videos = true;
+    _checkLdReady();
     return;
   }
   // 카테고리 전환: 스켈레톤 + 스피너 표시
@@ -2892,15 +2972,23 @@ function loadVideos(cat) {
       }
       hideCatLoading();
       renderFeed();
-      hideLd();
+      if(!_ldHidden){
+        setLdProgress(90);
+        _ldReadyFlags.videos = true;
+        _checkLdReady();
+      }
     })
     .catch(function(){
       vids = [];
       hideCatLoading();
       renderFeed();
-      hideLd();
+      if(!_ldHidden){
+        _ldReadyFlags.videos = true;
+        _checkLdReady();
+      }
     });
-  setTimeout(function(){ hideLd(); hideCatLoading(); }, 5000);
+  // 최대 3.5초 fallback (기존 5초에서 단축)
+  setTimeout(function(){ hideLd(); hideCatLoading(); }, 3500);
 }
 
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -3770,6 +3858,8 @@ window.addEventListener('load', function(){
     slides[next2].scrollIntoView({behavior:'smooth', block:'start'});
   });
 
+  // 스플래시 프로그레스 바 CSS 애니메이션 → JS 직접 제어로 전환
+  setLdProgress(0);
   loadVideos('all');
 
   // ── 카테고리 탭 마우스 드래그 스크롤 (PC) ──
@@ -3989,7 +4079,7 @@ textarea{height:80px;resize:none}
 
 <div class="tabs">
   <div class="tab on" data-tab="dashboard"><i class="fas fa-chart-bar"></i> 대시보드</div>
-  <div class="tab" data-tab="bookings"><i class="fas fa-calendar-check"></i> 예약관리</div>
+  <div class="tab" data-tab="bookings"><i class="fas fa-calendar-check"></i> 예약관리 <span style="font-size:9px;background:rgba(251,191,36,.2);color:#fbbf24;border-radius:10px;padding:1px 5px;vertical-align:middle">준비중</span></div>
   <div class="tab" data-tab="shops"><i class="fas fa-store"></i> 업체 · 영상</div>
   <div class="tab" data-tab="settings"><i class="fas fa-cog"></i> 설정</div>
 </div>
@@ -4072,15 +4162,12 @@ textarea{height:80px;resize:none}
 <div class="tab-content" id="tab-bookings">
   <div class="card">
     <div class="card-header">
-      <div class="card-title"><i class="fas fa-calendar-check" style="color:#FF4D8D"></i> 예약 요청 목록</div>
+      <div class="card-title"><i class="fas fa-calendar-check" style="color:#FF4D8D"></i> 예약 관리</div>
     </div>
-    <div id="bookingList" style="overflow-x:auto">
-      <table class="tbl">
-        <thead><tr>
-          <th>날짜</th><th>고객명</th><th>업체</th><th>서비스</th><th>인원</th><th>수수료</th><th>상태</th><th>처리</th>
-        </tr></thead>
-        <tbody id="bookingTbody"></tbody>
-      </table>
+    <div style="text-align:center;padding:40px 20px">
+      <i class="fas fa-calendar-clock" style="font-size:40px;color:rgba(251,191,36,.4);margin-bottom:16px;display:block"></i>
+      <div style="font-size:15px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:8px">예약 관리 기능 준비 중</div>
+      <div style="font-size:12px;color:rgba(255,255,255,.3);line-height:1.7">고객 예약 요청은 현재 WhatsApp을 통해 직접 접수됩니다.<br>예약 관리 시스템은 추후 업데이트 예정입니다.</div>
     </div>
   </div>
 </div>
@@ -4344,21 +4431,31 @@ textarea{height:80px;resize:none}
 
 <!-- 설정 -->
 <div class="tab-content" id="tab-settings">
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-title" style="margin-bottom:16px"><i class="fas fa-link" style="color:#60a5fa"></i> 사이트 링크 모음</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <a href="/" target="_blank" style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:#93c5fd;text-decoration:none;font-size:13px">
+        <i class="fas fa-home" style="color:#60a5fa;width:16px"></i> 메인 피드 (홈)
+        <span style="margin-left:auto;font-size:11px;color:rgba(255,255,255,.3)">/</span>
+      </a>
+      <a href="/shops" target="_blank" style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:#93c5fd;text-decoration:none;font-size:13px">
+        <i class="fas fa-store" style="color:#a78bfa;width:16px"></i> 업체 카탈로그
+        <span style="margin-left:auto;font-size:11px;color:rgba(255,255,255,.3)">/shops</span>
+      </a>
+      <a href="/sitemap.xml" target="_blank" style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:#93c5fd;text-decoration:none;font-size:13px">
+        <i class="fas fa-sitemap" style="color:#4ade80;width:16px"></i> Sitemap (SEO)
+        <span style="margin-left:auto;font-size:11px;color:rgba(255,255,255,.3)">/sitemap.xml</span>
+      </a>
+      <a href="/robots.txt" target="_blank" style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:#93c5fd;text-decoration:none;font-size:13px">
+        <i class="fas fa-robot" style="color:#fbbf24;width:16px"></i> robots.txt
+        <span style="margin-left:auto;font-size:11px;color:rgba(255,255,255,.3)">/robots.txt</span>
+      </a>
+    </div>
+  </div>
   <div class="card">
-    <div class="card-title" style="margin-bottom:16px"><i class="fas fa-cog" style="color:#FF4D8D"></i> 플랫폼 설정</div>
-    <div style="margin-bottom:12px">
-      <label>왓츠앱 번호 (국가코드 포함, + 없이)</label>
-      <input id="cfg-wa" placeholder="821012345678" value="821012345678">
-    </div>
-    <div style="margin-bottom:12px">
-      <label>수수료 범위</label>
-      <input id="cfg-comm" placeholder="10~20%" value="10~20%">
-    </div>
-    <button class="btn-pk" onclick="saveSettings()"><i class="fas fa-save"></i> 설정 저장</button>
-    <div style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,.08)">
-      <div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:8px">SEO 페이지 — 업체별 구글 검색 노출 URL</div>
-      <div id="seoLinks"></div>
-    </div>
+    <div class="card-title" style="margin-bottom:14px"><i class="fas fa-search" style="color:#6366f1"></i> SEO 페이지 링크</div>
+    <div style="font-size:11px;color:rgba(255,255,255,.35);margin-bottom:12px">업체별 Google 검색 노출 URL — 클릭해서 확인하세요</div>
+    <div id="seoLinks"></div>
   </div>
 </div>
 
@@ -5335,6 +5432,19 @@ function applyPlacesDataToForm(prefix, d) {
   } else if(d.hours){
     var he2=document.getElementById(prefix+'-hours'); if(he2) he2.value=d.hours;
   }
+
+  /* 업체 소개 (editorialSummary) — 비어있을 때만 채움 */
+  if(d.description){
+    var de=document.getElementById(prefix+'-desc');
+    if(de && !de.value.trim()) de.value=d.description;
+  }
+
+  /* 카테고리 자동선택 (suggestedCategory) */
+  if(d.suggestedCategory){
+    var ce=document.getElementById(prefix+'-cat');
+    if(ce) ce.value=d.suggestedCategory;
+  }
+
   if(d.rating){ var re=document.getElementById(prefix+'-rating'); if(re) re.value=d.rating; }
   if(d.reviewCount){ var rce=document.getElementById(prefix+'-review-count'); if(rce) rce.value=d.reviewCount; }
   if(d.reviews && d.reviews.length>0){ var rve=document.getElementById(prefix+'-reviews'); if(rve) rve.value=JSON.stringify(d.reviews); }
@@ -5352,25 +5462,40 @@ function applyPlacesDataToForm(prefix, d) {
   }
 }
 
+var _CAT_LABEL = {skincare:'스킨케어',makeup:'메이크업',hair:'헤어',headspa:'헤드스파',nail:'네일',clinic:'클리닉',spa:'스파·마사지'};
+
 function buildPlacesResultCard(d, extra) {
   /* 가져온 정보를 한눈에 볼 수 있는 상세 카드 HTML 반환 */
   var html = '<div style="background:rgba(66,133,244,.07);border:1px solid rgba(66,133,244,.3);border-radius:12px;padding:12px 14px;margin-top:8px;font-size:12px">';
   html += '<div style="font-weight:800;color:#60a5fa;margin-bottom:8px;font-size:12px"><i class="fab fa-google"></i> 구글 정보 가져오기 완료!</div>';
 
-  /* 업체명 */
-  if(d.name) html += '<div style="margin-bottom:5px"><span style="color:rgba(255,255,255,.4)">업체명 </span><b style="color:#fff">'+d.name+'</b></div>';
+  /* 업체명 + 카테고리 자동감지 배지 */
+  var nameRow = '';
+  if(d.name) nameRow += '<b style="color:#fff;font-size:13px">'+d.name+'</b>';
+  if(d.suggestedCategory){
+    nameRow += ' <span style="background:rgba(232,65,122,.18);border:1px solid rgba(232,65,122,.4);border-radius:20px;padding:1px 8px;font-size:10px;color:#f9a8d4;margin-left:4px">자동감지: '+(_CAT_LABEL[d.suggestedCategory]||d.suggestedCategory)+'</span>';
+  }
+  if(nameRow) html += '<div style="margin-bottom:6px">'+nameRow+'</div>';
 
   /* 평점 + 리뷰수 */
-  if(d.rating){ 
+  if(d.rating){
     var stars=''; for(var i=0;i<5;i++) stars+=(i<Math.round(d.rating)?'★':'☆');
     html += '<div style="margin-bottom:5px"><span style="color:#fbbf24;font-size:13px">'+stars+'</span> <b style="color:#fbbf24">'+d.rating+'</b> <span style="color:rgba(255,255,255,.4)">('+((d.reviewCount||0).toLocaleString())+'개 리뷰)</span></div>';
   }
 
   /* 주소 */
-  if(d.address) html += '<div style="margin-bottom:5px;line-height:1.5"><i class="fas fa-map-marker-alt" style="color:#f87171;margin-right:4px"></i><span style="color:rgba(255,255,255,.75)">'+d.address+'</span></div>';
+  if(d.address) html += '<div style="margin-bottom:4px;line-height:1.5"><i class="fas fa-map-marker-alt" style="color:#f87171;margin-right:4px"></i><span style="color:rgba(255,255,255,.75)">'+d.address+'</span></div>';
 
   /* 지역 */
   if(d.location) html += '<div style="margin-bottom:5px"><i class="fas fa-location-dot" style="color:#a78bfa;margin-right:4px"></i><span style="color:#c4b5fd">'+d.location+'</span></div>';
+
+  /* 업체 소개 */
+  if(d.description){
+    html += '<div style="margin-bottom:6px;background:rgba(255,255,255,.04);border-radius:8px;padding:7px 9px">';
+    html += '<div style="color:rgba(255,255,255,.4);margin-bottom:3px;font-size:10px"><i class="fas fa-info-circle" style="margin-right:3px"></i>업체 소개 (자동입력됨)</div>';
+    html += '<div style="color:rgba(255,255,255,.7);font-size:11px;line-height:1.6">'+d.description+'</div>';
+    html += '</div>';
+  }
 
   /* 영업시간 */
   if(d.weekdayDescriptions && d.weekdayDescriptions.length>0){
