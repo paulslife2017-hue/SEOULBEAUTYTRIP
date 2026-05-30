@@ -2755,6 +2755,10 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:500;display:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(16px)}
 .modal-bg.open{display:flex}
 .modal{background:linear-gradient(180deg,#111118 0%,#0d0d14 100%);border-radius:28px 28px 0 0;padding:0;width:100%;max-width:520px;border:1px solid rgba(255,255,255,.08);border-bottom:none;animation:msu .35s cubic-bezier(.22,1,.36,1);position:relative;height:88vh;display:flex;flex-direction:column;touch-action:pan-y}
+@media(min-width:768px){
+  .modal-bg{align-items:center}
+  .modal{border-radius:24px;border-bottom:1px solid rgba(255,255,255,.08);height:90vh;max-height:860px;max-width:440px}
+}
 @keyframes msu{from{transform:translateY(100%);opacity:.6}to{transform:translateY(0);opacity:1}}
 /* 핸들 */
 .modal-handle-area{flex-shrink:0;padding:10px 20px 0;cursor:grab;display:flex;flex-direction:column;align-items:center;gap:10px}
@@ -2844,8 +2848,12 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .m-photos-grid img{width:100%;aspect-ratio:1;object-fit:cover;cursor:pointer;transition:opacity .2s}
 .m-photos-grid img:hover{opacity:.85}
 /* 모달 영상 그리드 — full-bleed (패딩 돌파) */
-.m-vid-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 -20px}
+.m-vid-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 -20px;overflow:hidden}
 .m-vid-card{border-radius:0;overflow:hidden;position:relative;cursor:pointer;aspect-ratio:9/16;background:#0a0a14}
+@media(min-width:768px){
+  .m-vid-grid{border-radius:0 0 20px 20px;overflow:hidden}
+  .m-vid-card:nth-child(odd):last-child{grid-column:1/-1;aspect-ratio:16/9}
+}
 .m-vid-card:first-child{border-radius:0}
 .m-vid-card video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .3s}
 .m-vid-card.vid-on video{opacity:1}
@@ -3820,7 +3828,15 @@ function renderShopModal(shop) {
     var vidCards = shopVideos.map(function(v, vi) {
       var vThumb = v.thumbnail || shop.thumbnail || '';
       var vUrl   = v.videoUrl  || '';
-      var vTitle = v.title && v.title !== shop.name ? v.title : shop.name;
+      var vTitle = (function(){
+        var t = (v.title || '').trim();
+        if(!t) return shop.name;
+        // 파일명 패턴 감지: 영문+숫자+_.- 8글자 이상이고 공백 없음 → shop.name으로 대체
+        if(/^[a-zA-Z0-9_.~-]{8,}$/.test(t)) return shop.name;
+        // shop.name과 동일하거나 거의 같으면 그대로 shop.name
+        if(t === shop.name) return shop.name;
+        return t;
+      })();
       var vViews = v.views >= 1000 ? (v.views/1000).toFixed(1)+'K' : String(v.views||0);
       return '<div class="m-vid-card" id="mVidCard'+vi+'" onclick="mVidPlay('+vi+',this)">'
         +(vUrl?'<video data-src="'+esc(vUrl)+'" loop muted playsinline preload="none"></video>':'')
