@@ -1592,11 +1592,28 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 .sp-wa:hover{opacity:.9}
 .sp-gmap{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:15px;background:linear-gradient(135deg,#4285F4,#34A853);border:none;border-radius:14px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;text-decoration:none;transition:opacity .2s}
 .sp-gmap:hover{opacity:.9}
-/* CARDS */
+/* CARDS (legacy) */
 .sp-card{background:var(--cd);border:1px solid var(--border);border-radius:18px;padding:20px;margin-bottom:14px}
 .sp-card-title{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:800;color:var(--gold);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)}
-.sp-info-row{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;font-size:13px;color:rgba(255,255,255,.75);line-height:1.5}
-.sp-info-row i{color:var(--pk2);width:16px;flex-shrink:0;margin-top:2px}
+/* ── 통일 섹션 (모달 스타일과 동일) ── */
+.sp-addr-row{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:rgba(255,255,255,.42);margin-bottom:14px;line-height:1.5}
+.sp-addr-row i{color:var(--pk2);margin-top:2px;flex-shrink:0}
+.sp-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.sp-ig-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:10px 12px}
+.sp-ig-label{font-size:9px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:4px}
+.sp-ig-val{font-size:13px;font-weight:700;color:#fff;display:flex;align-items:center;gap:5px}
+.sp-ig-val i{color:var(--pk2);font-size:11px}
+.sp-ig-stars{color:#fbbf24;font-size:11px;letter-spacing:1px}
+.sp-sec{margin-bottom:14px}
+.sp-sec-title{font-size:11px;font-weight:800;color:var(--gold);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:4px}
+.sp-sec-body{font-size:13px;color:rgba(255,255,255,.62);line-height:1.8;letter-spacing:.1px}
+/* HOURS TABLE */
+.sp-hours-wrap{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:6px 14px}
+.sp-hours-table{width:100%;border-collapse:collapse}
+.sp-hours-day{font-size:11px;font-weight:700;color:rgba(255,255,255,.45);padding:7px 0;width:44px}
+.sp-hours-time{font-size:12px;color:rgba(255,255,255,.72);text-align:right;padding:7px 0}
+.sp-hours-time.closed{color:rgba(255,80,80,.6)}
+.sp-hours-today .sp-hours-day,.sp-hours-today .sp-hours-time{color:#fff;font-weight:800}
 /* SERVICES */
 .sp-svc-tags{display:flex;flex-wrap:wrap;gap:7px}
 .sp-svc-tag{padding:6px 13px;background:rgba(232,65,122,.08);border:1px solid rgba(232,65,122,.2);border-radius:20px;font-size:12px;color:var(--pk3);font-weight:600}
@@ -1626,6 +1643,15 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 /* FLOAT BTN */
 .sp-float{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:100;white-space:nowrap}
 .sp-float a{display:flex;align-items:center;gap:9px;padding:15px 36px;background:linear-gradient(135deg,#25D366,#0EA855);border-radius:30px;color:#fff;font-size:15px;font-weight:800;text-decoration:none;box-shadow:0 6px 28px rgba(37,211,102,.45)}
+/* REVIEWS */
+.sp-reviews-wrap{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:4px 14px}
+.sp-review-card{padding:12px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.sp-review-card:last-child{border-bottom:none}
+.sp-review-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
+.sp-review-author{font-size:12px;font-weight:700;color:rgba(255,255,255,.85)}
+.sp-review-stars{font-size:11px;color:#fbbf24;letter-spacing:1px}
+.sp-review-text{font-size:12px;color:rgba(255,255,255,.55);line-height:1.6}
+.sp-review-time{font-size:10px;color:rgba(255,255,255,.28);margin-top:4px}
 /* ── 비슷한 업체 추천 ── */
 .sp-related{padding:0 20px 0;margin-bottom:0}
 .sp-related-title{font-size:13px;font-weight:800;color:rgba(255,255,255,.45);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:7px}
@@ -1667,32 +1693,83 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 ${(()=>{const allP=[shop.thumbnail,...(shop.photos||[]).filter((p:string)=>p&&p!==shop.thumbnail)];if(allP.length<2)return '';const thumbs=allP.map((url:string,i:number)=>`<div class="sp-gthumb${i===0?' active':''}" onclick="setHero('${url}',this)"><img src="${url}" alt="${shop.name} photo ${i+1}" loading="lazy"></div>`).join('');return `<div class="sp-gallery">${thumbs}</div>`;})()}
 
 <div class="sp-wrap">
-  <div class="sp-actions">
-    <a href="${waUrl}" target="_blank" rel="noopener" class="sp-wa">
-      <i class="fab fa-whatsapp" style="font-size:19px"></i> Book via WhatsApp
-    </a>
-  </div>
-
-  <div class="sp-card">
-    <div class="sp-card-title"><i class="fas fa-info-circle"></i> Info</div>
-    ${shop.hours?`<div class="sp-info-row"><i class="fas fa-clock"></i><span itemprop="openingHours">${shop.hours}</span></div>`:''}
-    ${shop.priceRange?`<div class="sp-info-row"><i class="fas fa-tag"></i><span itemprop="priceRange">${shop.priceRange}</span></div>`:''}
-    ${shop.address?`<div class="sp-info-row"><i class="fas fa-map-marker-alt"></i><span itemprop="address">${shop.address}</span></div>`:''}
-    ${shop.description?`<div class="sp-info-row"><i class="fas fa-quote-left"></i><span itemprop="description">${shop.description}</span></div>`:''}
-  </div>
-
-  ${shop.servicePrices&&shop.servicePrices.length>0?`<div class="sp-card"><div class="sp-card-title"><i class="fas fa-list-ul"></i> Price List</div><div class="sp-price-list">${shop.servicePrices.map((p:any)=>`<div class="sp-price-item"><span class="sp-price-name">${p.name}</span><span class="sp-price-val">${p.price}</span></div>`).join('')}</div></div>`:''}
-
-  ${shop.services&&shop.services.length>0?`<div class="sp-card"><div class="sp-card-title"><i class="fas fa-spa"></i> Services</div><div class="sp-svc-tags">${shop.services.map((s:string)=>`<span class="sp-svc-tag">${s}</span>`).join('')}</div></div>`:''}
 
   ${(()=>{
-    const embedUrl = shop.googleMapEmbed
-      || (shop.lat && shop.lng
-        ? `https://maps.google.com/maps?q=${shop.lat},${shop.lng}&z=17&output=embed&hl=en`
-        : '');
-    return embedUrl
-      ? `<div class="sp-card"><div class="sp-card-title"><i class="fas fa-map"></i> Location</div><div class="sp-map"><iframe src="${embedUrl}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div></div>`
-      : shop.address ? `<div class="sp-card"><div class="sp-card-title"><i class="fas fa-map"></i> Location</div><div style="padding:12px;font-size:13px;color:rgba(0,0,0,.7)"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : '';
+    /* ── Address (모달과 동일) ── */
+    const addrHtml2 = shop.address
+      ? `<div class="sp-addr-row"><i class="fas fa-location-dot"></i><span itemprop="address">${shop.address}</span></div>`
+      : '';
+
+    /* ── Info Grid (Area + Rating) ── */
+    let infoCards2 = '';
+    const locArea2 = shop.location ? shop.location.split(',')[0].trim() : '';
+    if(locArea2) infoCards2 += `<div class="sp-ig-card"><div class="sp-ig-label">Area</div><div class="sp-ig-val"><i class="fas fa-map-marker-alt"></i>${locArea2}</div></div>`;
+    if(shop.reviewCount && shop.reviewCount > 0) {
+      const starsHtml2 = '★'.repeat(Math.min(5,Math.round(Number(shop.rating||5)))) + '☆'.repeat(Math.max(0,5-Math.round(Number(shop.rating||5))));
+      infoCards2 += `<div class="sp-ig-card"><div class="sp-ig-label">Rating</div><div class="sp-ig-val"><span class="sp-ig-stars">${starsHtml2}</span>&nbsp;${shop.rating}</div></div>`;
+    }
+    const infoGridHtml2 = infoCards2 ? `<div class="sp-info-grid">${infoCards2}</div>` : '';
+
+    /* ── Description ── */
+    const descHtml2 = shop.description
+      ? `<div class="sp-sec"><div class="sp-sec-title">About</div><div class="sp-sec-body" itemprop="description">${shop.description}</div></div>`
+      : '';
+
+    /* ── Hours (모달과 동일 방식) ── */
+    let hoursHtml2 = '';
+    if(shop.hours) {
+      const days2 = shop.hours.split(/\s*[\/|]\s*/).map((s:string)=>s.trim()).filter(Boolean);
+      const dayNames2 = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+      const today2 = new Date().getDay();
+      if(days2.length > 1) {
+        const rows2 = days2.map((line:string)=>{
+          const col2 = line.indexOf(':');
+          const dayP = col2>-1 ? line.slice(0,col2).trim() : line;
+          const timeP = col2>-1 ? line.slice(col2+1).trim() : '';
+          const isToday2 = dayNames2[today2] && dayP.toLowerCase().startsWith(dayNames2[today2].toLowerCase());
+          const isClosed2 = timeP.toLowerCase().includes('closed');
+          return `<tr class="${isToday2?'sp-hours-today':''}"><td class="sp-hours-day">${dayP.slice(0,3).toUpperCase()}</td><td class="sp-hours-time${isClosed2?' closed':''}">${timeP||'Closed'}</td></tr>`;
+        }).join('');
+        hoursHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-clock" style="color:var(--gold);margin-right:4px"></i>Hours</div><div class="sp-hours-wrap"><table class="sp-hours-table">${rows2}</table></div></div>`;
+      } else {
+        hoursHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-clock" style="color:var(--gold);margin-right:4px"></i>Hours</div><div class="sp-sec-body" itemprop="openingHours">${shop.hours}</div></div>`;
+      }
+    }
+
+    /* ── Price List ── */
+    let priceHtml2 = '';
+    if(shop.servicePrices && shop.servicePrices.length > 0) {
+      const rows3 = shop.servicePrices.map((p:any)=>`<div class="sp-price-item"><span class="sp-price-name">${p.name}</span><span class="sp-price-val" itemprop="priceRange">${p.price}</span></div>`).join('');
+      priceHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-won-sign" style="color:var(--gold);margin-right:4px"></i>Price List</div><div class="sp-price-list">${rows3}</div></div>`;
+    } else {
+      priceHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-won-sign" style="color:var(--gold);margin-right:4px"></i>Pricing</div><div class="sp-sec-body">Prices vary by treatment &amp; consultation. <span style="color:rgba(255,255,255,.35)">Contact us via WhatsApp below for a free quote.</span></div></div>`;
+    }
+
+    /* ── Services ── */
+    const svcHtml2 = shop.services && shop.services.length > 0
+      ? `<div class="sp-sec"><div class="sp-sec-title">Services</div><div class="sp-svc-tags">${shop.services.map((s:string)=>`<span class="sp-svc-tag">${s}</span>`).join('')}</div></div>`
+      : '';
+
+    /* ── Map ── */
+    const embedUrl2 = shop.googleMapEmbed
+      || (shop.lat && shop.lng ? `https://maps.google.com/maps?q=${shop.lat},${shop.lng}&z=17&output=embed&hl=en` : '');
+    const mapHtml2 = embedUrl2
+      ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map"><iframe src="${embedUrl2}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div></div>`
+      : (shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : '');
+
+    return addrHtml2 + infoGridHtml2 + descHtml2 + priceHtml2 + svcHtml2 + hoursHtml2 + mapHtml2;
+  })()}
+
+  ${(()=>{
+    /* ── Google Reviews (모달과 동일 구조) ── */
+    const shopReviews2: any[] = shop.reviews || [];
+    if(!shopReviews2.length) return '';
+    const reviewCards2 = shopReviews2.map((rv:any)=>{
+      const rvR = Number(rv.rating)||5;
+      const rvStars = '★'.repeat(Math.min(5,Math.max(0,rvR)))+'☆'.repeat(Math.max(0,5-rvR));
+      return `<div class="sp-review-card"><div class="sp-review-top"><span class="sp-review-author">${rv.author||'Guest'}</span><span class="sp-review-stars">${rvStars}</span></div><div class="sp-review-text">${rv.text||''}</div>${rv.time?`<div class="sp-review-time">${rv.time}</div>`:''}</div>`;
+    }).join('');
+    return `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-star" style="color:var(--gold);margin-right:4px"></i>Google Reviews${shop.reviewCount?` <span style="font-size:10px;color:rgba(255,255,255,.35);font-weight:400">(${shop.rating}★ · ${Number(shop.reviewCount).toLocaleString()} reviews)</span>`:''}</div><div class="sp-reviews-wrap">${reviewCards2}</div></div>`;
   })()}
 
   ${(()=>{
@@ -1700,15 +1777,16 @@ ${(()=>{const allP=[shop.thumbnail,...(shop.photos||[]).filter((p:string)=>p&&p!
     const cardsHtml = shopVideos.map((v:any,vi:number)=>{
       const thumb  = v.thumbnail || '';
       const vidUrl = v.videoUrl  || '';
-      const displayTitle = v.title && v.title !== shop.name ? v.title : shop.name;
+      let displayTitle = (v.title||'').trim();
+      if(!displayTitle || displayTitle===shop.name || /^[a-zA-Z0-9_.~-]{8,}$/.test(displayTitle)) displayTitle = shop.name;
       return '<div class="sp-vid-card" data-vid-url="'+vidUrl+'" data-vid-thumb="'+thumb+'" onclick="playSpVid('+vi+')">'
         +(vidUrl?'<video class="sp-vid-inline" data-src="'+vidUrl+'" poster="'+thumb+'" loop muted playsinline preload="metadata" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px;display:block"></video>':'')
         +(thumb?'<img class="sp-vid-poster" src="'+thumb+'" alt="'+displayTitle+'" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px;transition:opacity .4s">':'<div class="sp-vid-poster" style="position:absolute;inset:0;background:#111;border-radius:14px"></div>')
         +'<div class="sp-play-ic"><i class="fas fa-play" style="font-size:14px;color:#fff;margin-left:2px"></i></div>'
-        +'<div class="sp-vid-card-ov"><div class="sp-vid-card-title">'+displayTitle+'</div><div class="sp-vid-views"><i class="fas fa-eye"></i> '+(v.views>=1000?((v.views/1000).toFixed(1)+'K'):String(v.views||0))+'</div></div>'
+        +'<div class="sp-vid-card-ov"><div class="sp-vid-card-title">'+displayTitle+'</div></div>'
         +'</div>';
     }).join('');
-    return '<div class="sp-card"><div class="sp-card-title"><i class="fas fa-play-circle"></i> Videos ('+shopVideos.length+')</div><div class="sp-vid-grid">'+cardsHtml+'</div></div>';
+    return '<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-play-circle" style="color:var(--pk);margin-right:4px"></i>Videos <span style="font-size:10px;color:rgba(255,255,255,.3);font-weight:400;letter-spacing:0">('+shopVideos.length+')</span></div><div class="sp-vid-grid">'+cardsHtml+'</div></div>';
   })()}
 
   ${relatedShops.length > 0 ? `
@@ -1806,7 +1884,8 @@ function setHero(url, el) {
   }
 })();
 
-// 영상 카드 클릭 → 전체화면 팝업 (소리 있음)
+// 영상 카드 클릭 → 중앙 모달 (소리 토글 버튼 포함)
+var _spVidMuted = false;
 function playSpVid(idx){
   var cards = document.querySelectorAll('.sp-vid-card');
   var card  = cards[idx];
@@ -1815,29 +1894,48 @@ function playSpVid(idx){
   var thumb  = card.getAttribute('data-vid-thumb');
   if(!vidUrl) return;
 
-  // 기존 팝업 제거
   var old = document.getElementById('sp-vid-ov');
   if(old) old.remove();
 
   var ov = document.createElement('div');
   ov.id = 'sp-vid-ov';
-  ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.96);display:flex;align-items:center;justify-content:center';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
+
   ov.innerHTML =
-    '<div style="position:relative;width:min(92vw,420px);aspect-ratio:9/16">'
-    +'<video src="'+vidUrl+'"'+(thumb?' poster="'+thumb+'"':'')
-    +' autoplay loop playsinline controls'
-    +' style="width:100%;height:100%;border-radius:16px;object-fit:cover;background:#000"></video>'
-    +'<button id="sp-vid-ov-close"'
-    +' style="position:absolute;top:-44px;right:0;width:36px;height:36px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:50%;color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center">&#10005;</button>'
+    '<div style="position:relative;width:min(88vw,360px);max-height:calc(100dvh - 80px);aspect-ratio:9/16">'
+    // 닫기 버튼 (우상단)
+    +'<button id="sp-vid-ov-close" style="position:absolute;top:-42px;right:0;width:34px;height:34px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);border-radius:50%;color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2">&#10005;</button>'
+    // 소리 토글 버튼 (좌상단)
+    +'<button id="sp-vid-ov-mute" style="position:absolute;top:-42px;left:0;width:34px;height:34px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);border-radius:50%;color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2">'
+      +'<i class="fas '+(_spVidMuted?'fa-volume-mute':'fa-volume-up')+'"></i>'
+    +'</button>'
+    // 영상
+    +'<video id="sp-vid-ov-video" src="'+vidUrl+'"'+(thumb?' poster="'+thumb+'"':'')
+    +' autoplay loop playsinline'
+    +' style="width:100%;height:100%;border-radius:18px;object-fit:cover;background:#000;display:block"></video>'
     +'</div>';
+
   ov.addEventListener('click', function(e){ if(e.target===ov) ov.remove(); });
   document.body.appendChild(ov);
-  document.getElementById('sp-vid-ov-close').addEventListener('click', function(){ ov.remove(); });
-  var vid = ov.querySelector('video');
+
+  var vid = document.getElementById('sp-vid-ov-video');
   if(vid){
-    vid.muted = false; // 소리 켜기
-    vid.play().catch(function(){ vid.muted=true; vid.play().catch(function(){}); });
+    vid.muted = _spVidMuted;
+    vid.play().catch(function(){ vid.muted=true; _spVidMuted=true; _updateMuteBtn(); vid.play().catch(function(){}); });
   }
+
+  function _updateMuteBtn(){
+    var btn = document.getElementById('sp-vid-ov-mute');
+    if(btn) btn.innerHTML = '<i class="fas '+(_spVidMuted?'fa-volume-mute':'fa-volume-up')+'"></i>';
+  }
+
+  document.getElementById('sp-vid-ov-close').addEventListener('click', function(){ ov.remove(); });
+  document.getElementById('sp-vid-ov-mute').addEventListener('click', function(e){
+    e.stopPropagation();
+    _spVidMuted = !_spVidMuted;
+    if(vid) vid.muted = _spVidMuted;
+    _updateMuteBtn();
+  });
 }
 </script>
 </body>
