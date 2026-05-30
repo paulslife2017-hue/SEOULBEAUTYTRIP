@@ -2868,11 +2868,14 @@ function heroImgLoaded(el){ var w=el.closest('.m-hero'); if(w) w.classList.add('
 function thumbImgLoaded(el){ el.classList.add('img-loaded'); if(el.parentElement) el.parentElement.classList.add('img-loaded'); }
 
 /* ── 스플래시 로딩 조율 ──
-   흐름: shops fetch + videos 목록 fetch 완료 → 스플래시 해제
-         → 해제 시점에 첫 영상 src 세팅 → poster 이미지로 즐게 대기
+   흐름:
+   1) shops + videos 목록 완료 → _checkLdReady()
+   2) 즉시 첫 영상 src 세팅 (다운로드 시작)
+   3) 스플래시 페이드(400ms)하는 동안 동시에 다운로드
+   4) 페이드 끝 → setupObs() → play()
    최대 fallback: 5초 */
 var _ldStartTime = Date.now();
-var _MIN_SPLASH_MS = 800;
+var _MIN_SPLASH_MS = 600;
 var _ldReadyFlags = { shops: false, videos: false };
 var _ldFallbackTimer = null;
 
@@ -2881,7 +2884,7 @@ function setLdProgress(pct) {
   var prog = document.querySelector('.ld-prog');
   if(!prog) return;
   prog.style.animation = 'none';
-  prog.style.transition = 'width .5s ease';
+  prog.style.transition = 'width .4s ease';
   prog.style.width = pct + '%';
 }
 
@@ -2892,16 +2895,25 @@ function hideLd(){
   _ldHidden = true;
   if(_ldFallbackTimer){ clearTimeout(_ldFallbackTimer); _ldFallbackTimer = null; }
   var ld = document.getElementById('ld');
-  if(!ld) return;
+  if(!ld){ setupObs(); return; }
   setLdProgress(100);
+  // 페이드 시작과 동시에 첫 영상 src 세팅 → 다운로드 병행
+  _preloadFirstVideo();
+  ld.style.transition = 'opacity .4s';
+  ld.style.opacity = '0';
   setTimeout(function(){
-    ld.style.opacity = '0';
-    setTimeout(function(){
-      ld.style.display = 'none';
-      // 스플래시 완전히 사라진 뒤 IntersectionObserver + 재생 시작
-      setupObs();
-    }, 500);
-  }, 150);
+    ld.style.display = 'none';
+    setupObs(); // 이미 다운로드 시작된 상태 → play()만
+  }, 420);
+}
+
+/* 스플래시 페이드 중에 첫 영상 src 세팅 (다운로드 선행) */
+function _preloadFirstVideo(){
+  var v0 = document.getElementById('vid0');
+  if(!v0 || v0.src || !v0.dataset.src) return;
+  v0.preload = 'auto';
+  v0.src = v0.dataset.src;
+  v0.load();
 }
 
 /* shops + videos 둘 다 준비되면 최소시간 후 hideLd() */
@@ -3200,21 +3212,28 @@ function setupObs(){
 
   document.querySelectorAll('.slide').forEach(function(s){ obs.observe(s); });
 
-  // 첫 슬라이드 로드 + 재생
+  // 첫 슬라이드 재생
   var v0 = document.getElementById('vid0');
   if(v0){
     var buf0 = document.getElementById('bufic0');
+    // src 없으면 지금 세팅 (카테고리 전환 or fallback 경로)
     if(!v0.src && v0.dataset.src){
-      if(buf0) buf0.style.display = 'flex';
       v0.preload = 'auto';
       v0.src = v0.dataset.src;
+      v0.load();
     }
     v0.muted = true;
+    if(buf0) buf0.style.display = 'flex';
+    // readyState 4=HAVE_ENOUGH_DATA, 3=HAVE_FUTURE_DATA → 즉시 재생
     if(v0.readyState >= 3){
+      if(buf0) buf0.style.display = 'none';
       v0.play().catch(function(){});
     } else {
-      if(buf0) buf0.style.display = 'flex';
-      v0.addEventListener('canplay', function go(){ v0.removeEventListener('canplay', go); v0.play().catch(function(){}); });
+      v0.addEventListener('canplay', function go(){
+        v0.removeEventListener('canplay', go);
+        if(buf0) buf0.style.display = 'none';
+        v0.play().catch(function(){});
+      });
       v0.play().catch(function(){});
     }
     preloadNext(0);
