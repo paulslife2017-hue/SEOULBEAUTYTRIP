@@ -4178,7 +4178,9 @@ app.get("/best/:category/:area", async (c) => {
   ];
   const shopCards = shops2.length > 0 ? shops2.map((s, i) => {
     const stars = "\u2B50".repeat(Math.round(s.rating));
-    const desc = (s.metaDescription || s.description || "").slice(0, 120);
+    const desc = (s.metaDescription || s.description || "").slice(0, 200);
+    const firstReview = Array.isArray(s.googleReviews) && s.googleReviews.length > 0 ? s.googleReviews[0] : null;
+    const reviewQuote = firstReview && firstReview.text ? `<div class="card-review-quote">&ldquo;${firstReview.text.slice(0, 100)}${firstReview.text.length > 100 ? "\u2026" : ""}&rdquo;<span class="card-review-author"> \u2014 ${firstReview.author || "Guest"}</span></div>` : "";
     return `
 <article class="shop-card" itemscope itemtype="https://schema.org/LocalBusiness">
   <a href="/shop/${s.slug}" class="card-link">
@@ -4193,7 +4195,8 @@ app.get("/best/:category/:area", async (c) => {
         <span class="card-rating">${stars} ${s.rating} (${s.reviewCount} reviews)</span>
       </div>
       <p class="card-desc" itemprop="description">${desc}</p>
-      <div class="card-services">${s.services.slice(0, 3).map((sv) => `<span class="svc-tag">${sv}</span>`).join("")}</div>
+      ${reviewQuote}
+      <div class="card-services">${s.services.slice(0, 4).map((sv) => `<span class="svc-tag">${sv}</span>`).join("")}</div>
       <div class="card-price">${s.priceRange}</div>
       <div class="card-cta">
         <span class="btn-view">View Details \u2192</span>
@@ -4285,8 +4288,14 @@ details[open] .faq-q::after{transform:rotate(180deg)}
 .rel-link{background:#fff;border:1px solid #e5e7eb;border-radius:20px;padding:6px 16px;font-size:.82rem;font-weight:500;color:#374151;transition:all .2s}
 .rel-link:hover{background:#fdf2f8;border-color:#e91e8c;color:#e91e8c}
 /* INTRO TEXT */
-.intro-box{background:#fff;border-radius:16px;padding:24px;margin-bottom:8px;box-shadow:0 1px 8px rgba(0,0,0,.06);font-size:.9rem;line-height:1.8;color:#374151}
+.intro-box{background:#fff;border-radius:16px;padding:24px 28px;margin-bottom:16px;box-shadow:0 1px 8px rgba(0,0,0,.06);font-size:.92rem;line-height:1.9;color:#374151;border-left:4px solid #e91e8c}
+.intro-box p{margin:0 0 14px}
 .intro-box strong{color:#e91e8c}
+.intro-trust{display:flex;flex-wrap:wrap;gap:10px;margin-top:4px}
+.intro-trust span{background:#fdf2f8;color:#e91e8c;border-radius:20px;padding:4px 14px;font-size:.8rem;font-weight:600}
+/* CARD REVIEW QUOTE */
+.card-review-quote{font-size:.8rem;color:#555;font-style:italic;line-height:1.5;margin:6px 0 8px;padding:6px 10px;background:#f9fafb;border-radius:8px;border-left:3px solid #e91e8c}
+.card-review-author{font-style:normal;font-weight:600;color:#e91e8c}
 /* FOOTER */
 .lp-footer{text-align:center;padding:32px 16px;font-size:.82rem;color:#999;border-top:1px solid #eee;margin-top:40px}
 .lp-footer a{color:#e91e8c}
@@ -4315,9 +4324,12 @@ details[open] .faq-q::after{transform:rotate(180deg)}
 </header>
 <main class="main">
   <div class="intro-box">
-    ${introText}
-    <div style="margin-top:10px;font-size:13px;color:#666">
-      \u{1F4F1} All salons support <strong>English booking via WhatsApp</strong> \u2014 no Korean needed.
+    <p>${introText}</p>
+    <div class="intro-trust">
+      <span>\u2705 All salons verified</span>
+      <span>\u{1F30D} Foreigner-friendly</span>
+      <span>\u{1F4AC} English support</span>
+      <span>\u{1F4F1} WhatsApp booking</span>
     </div>
   </div>
   <div class="section-title">${emoji} Top ${catLabel} Salons in ${areaLabel} <span style="font-size:.85rem;font-weight:400;color:#888">(${shops2.length} listed)</span></div>
@@ -6755,6 +6767,89 @@ function renderShopPanel(cat) {
     </div>
   </div>
 </nav>
+
+<!-- \u2605 SEO \uCF58\uD150\uCE20 \uC139\uC158 \u2014 \uAD6C\uAE00 \uAC80\uC0C9 \uC0C1\uC704 \uB178\uCD9C\uC6A9 \uB871\uD3FC \uD14D\uC2A4\uD2B8 -->
+<section aria-label="About Seoul Beauty Trip" style="background:#fff;padding:40px 16px 48px;border-top:1px solid #f0f0f0">
+  <div style="max-width:700px;margin:0 auto">
+
+    <h2 style="font-size:1.25rem;font-weight:800;color:#1a1a2e;margin-bottom:12px;text-align:center">
+      Your Ultimate Guide to K-Beauty in Seoul
+    </h2>
+    <p style="font-size:.92rem;color:#374151;line-height:1.9;margin-bottom:20px;text-align:center;max-width:580px;margin-left:auto;margin-right:auto">
+      Seoul Beauty Trip is the #1 curated directory for foreigners seeking authentic Korean beauty experiences in Seoul.
+      Every salon is hand-verified for English support, transparent pricing, and quality service.
+    </p>
+
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:32px">
+      <div style="background:#fdf2f8;border-radius:16px;padding:20px">
+        <div style="font-size:1.5rem;margin-bottom:6px">\u{1F9D6}</div>
+        <div style="font-weight:700;color:#1a1a2e;font-size:.95rem;margin-bottom:6px">Head Spa</div>
+        <div style="font-size:.82rem;color:#555;line-height:1.6">Experience Seoul's viral 18-step scalp ritual. Deep cleanse, scalp analysis, and total relaxation \u2014 perfect for every hair type.</div>
+      </div>
+      <div style="background:#f0fdf4;border-radius:16px;padding:20px">
+        <div style="font-size:1.5rem;margin-bottom:6px">\u{1F33F}</div>
+        <div style="font-weight:700;color:#1a1a2e;font-size:.95rem;margin-bottom:6px">Skincare</div>
+        <div style="font-size:.82rem;color:#555;line-height:1.6">Korean glass-skin facials, LED therapy, and customized prescription care. World-renowned K-beauty results you won't find at home.</div>
+      </div>
+      <div style="background:#eff6ff;border-radius:16px;padding:20px">
+        <div style="font-size:1.5rem;margin-bottom:6px">\u{1F487}</div>
+        <div style="font-weight:700;color:#1a1a2e;font-size:.95rem;margin-bottom:6px">Hair Salon</div>
+        <div style="font-size:.82rem;color:#555;line-height:1.6">K-pop inspired cuts, balayage, and Korean perms from English-friendly stylists experienced with all hair textures.</div>
+      </div>
+      <div style="background:#fff7ed;border-radius:16px;padding:20px">
+        <div style="font-size:1.5rem;margin-bottom:6px">\u{1F3E5}</div>
+        <div style="font-weight:700;color:#1a1a2e;font-size:.95rem;margin-bottom:6px">Derma Clinic</div>
+        <div style="font-size:.82rem;color:#555;line-height:1.6">Laser toning, skin boosters, and RF lifting \u2014 30-50% less than Western prices with English-speaking consultants.</div>
+      </div>
+    </div>
+
+    <h2 style="font-size:1.1rem;font-weight:700;color:#1a1a2e;margin-bottom:10px">
+      Why Foreigners Choose Seoul Beauty Trip
+    </h2>
+    <ul style="list-style:none;padding:0;margin:0 0 28px;display:flex;flex-direction:column;gap:8px">
+      <li style="display:flex;align-items:flex-start;gap:10px;font-size:.88rem;color:#374151;line-height:1.7">
+        <span style="color:#e91e8c;font-size:1rem;flex-shrink:0;margin-top:2px">\u2713</span>
+        <span><strong>100% English booking via WhatsApp</strong> \u2014 No Korean needed. Our team and partner salons speak English fluently.</span>
+      </li>
+      <li style="display:flex;align-items:flex-start;gap:10px;font-size:.88rem;color:#374151;line-height:1.7">
+        <span style="color:#e91e8c;font-size:1rem;flex-shrink:0;margin-top:2px">\u2713</span>
+        <span><strong>Real customer reviews</strong> from international visitors \u2014 honest ratings from travelers like you.</span>
+      </li>
+      <li style="display:flex;align-items:flex-start;gap:10px;font-size:.88rem;color:#374151;line-height:1.7">
+        <span style="color:#e91e8c;font-size:1rem;flex-shrink:0;margin-top:2px">\u2713</span>
+        <span><strong>Transparent pricing</strong> \u2014 Know exactly what you'll pay before you arrive. No hidden fees.</span>
+      </li>
+      <li style="display:flex;align-items:flex-start;gap:10px;font-size:.88rem;color:#374151;line-height:1.7">
+        <span style="color:#e91e8c;font-size:1rem;flex-shrink:0;margin-top:2px">\u2713</span>
+        <span><strong>Hand-verified salons</strong> \u2014 Every listing is manually checked for foreigner-friendliness and service quality.</span>
+      </li>
+      <li style="display:flex;align-items:flex-start;gap:10px;font-size:.88rem;color:#374151;line-height:1.7">
+        <span style="color:#e91e8c;font-size:1rem;flex-shrink:0;margin-top:2px">\u2713</span>
+        <span><strong>Salons across all major areas</strong> \u2014 Gangnam, Hongdae, Itaewon, Myeongdong, Apgujeong &amp; more.</span>
+      </li>
+    </ul>
+
+    <h2 style="font-size:1.1rem;font-weight:700;color:#1a1a2e;margin-bottom:10px">
+      Popular Areas for K-Beauty
+    </h2>
+    <p style="font-size:.88rem;color:#374151;line-height:1.8;margin-bottom:16px">
+      <strong>Gangnam</strong> is Seoul's luxury beauty district, home to premium skincare clinics and dermatology centers.
+      <strong>Hongdae</strong> is the trendy hub for unique nail art, creative hair styling, and indie beauty salons.
+      <strong>Itaewon</strong> is the most foreigner-friendly neighborhood, with multilingual staff and international menus.
+      <strong>Myeongdong</strong> is perfect for tourists \u2014 centrally located with makeup studios, skincare shops, and spa experiences.
+      <strong>Apgujeong</strong> (Rodeo Street) is Seoul's fashion and beauty elite zone, known for cutting-edge aesthetic clinics and luxury head spas.
+    </p>
+
+    <div style="background:linear-gradient(135deg,#e91e8c15,#9c27b015);border-radius:16px;padding:20px;text-align:center">
+      <div style="font-size:.95rem;font-weight:700;color:#1a1a2e;margin-bottom:6px">Ready to book your K-beauty experience?</div>
+      <div style="font-size:.85rem;color:#555;margin-bottom:14px">Browse salons above and contact any shop directly via WhatsApp in English.</div>
+      <a href="/shops" style="display:inline-block;background:linear-gradient(135deg,#e91e8c,#9c27b0);color:#fff;padding:10px 28px;border-radius:24px;font-size:.88rem;font-weight:700;text-decoration:none">
+        View All Salons \u2192
+      </a>
+    </div>
+
+  </div>
+</section>
 
 </body>
 </html>`;

@@ -671,7 +671,7 @@ async function makeShopSlug(sql: any, name: string, location: string): Promise<s
 }
 
 // ── AI SEO 자동생성 헬퍼 (등록/수정 시 공통 사용) ──
-async function autoGenSeo(body: any, apiKey: string): Promise<{description:string, metaDescription:string, keywords:string[], titleSuffix:string} | null> {
+async function autoGenSeo(body: any, apiKey: string): Promise<{description:string, metaDescription:string, keywords:string[], titleSuffix:string, whyChoose:string[]} | null> {
   if (!apiKey || !body.name) return null
   try {
     const catKeywords: Record<string,string> = {
@@ -751,6 +751,7 @@ app.post('/api/shops', async (c) => {
   let description = body.description || ''
   let metaDescription = body.metaDescription || ''
   let seoKeywords = body.seoKeywords || ''
+  let whyChoose: string[] = body.whyChoose || []
   if (!description) {
     const apiKey = c.env?.GSK_TOKEN || c.env?.GENSPARK_TOKEN || ''
     const seo = await autoGenSeo(body, apiKey)
@@ -758,18 +759,19 @@ app.post('/api/shops', async (c) => {
       description = seo.description || ''
       metaDescription = seo.metaDescription || ''
       seoKeywords = Array.isArray(seo.keywords) ? seo.keywords.join(', ') : ''
+      whyChoose = Array.isArray(seo.whyChoose) ? seo.whyChoose : []
     }
   }
 
   // slug 자동 생성 (항상 새로 생성 — 품질 보장, 중복 방지)
   const slug = await makeShopSlug(sql, body.name||'', body.location||'')
 
-  await sql`INSERT INTO shops (id,name,slug,category,location,address,google_map_url,google_map_embed,lat,lng,price_range,hours,services,service_prices,description,meta_description,seo_keywords,rating,review_count,thumbnail,photos,commission,active,created_at) VALUES (
+  await sql`INSERT INTO shops (id,name,slug,category,location,address,google_map_url,google_map_embed,lat,lng,price_range,hours,services,service_prices,description,meta_description,seo_keywords,why_choose,rating,review_count,thumbnail,photos,commission,active,created_at) VALUES (
     ${newId},${body.name||''},${slug},${body.category||''},${body.location||''},${body.address||''},
     ${body.googleMapUrl||''},${body.googleMapEmbed||''},${body.lat||''},${body.lng||''},
     ${body.priceRange||''},${body.hours||''},
     ${JSON.stringify(body.services||[])},${JSON.stringify(body.servicePrices||[])},
-    ${description},${metaDescription},${seoKeywords},
+    ${description},${metaDescription},${seoKeywords},${JSON.stringify(whyChoose)},
     ${body.rating||5.0},${body.reviewCount||0},${body.thumbnail||''},
     ${JSON.stringify(body.photos||[])},${body.commission||15},true,${today}
   ) ON CONFLICT DO NOTHING`
@@ -784,6 +786,7 @@ app.put('/api/shops/:id', async (c) => {
   let description = body.description || ''
   let metaDescription = body.metaDescription || ''
   let seoKeywords = body.seoKeywords || ''
+  let whyChoose: string[] = Array.isArray(body.whyChoose) ? body.whyChoose : []
   if (!description || body.regenerateSeo) {
     const apiKey = c.env?.GSK_TOKEN || c.env?.GENSPARK_TOKEN || ''
     const seo = await autoGenSeo(body, apiKey)
@@ -791,6 +794,7 @@ app.put('/api/shops/:id', async (c) => {
       description = description || seo.description || ''
       metaDescription = metaDescription || seo.metaDescription || ''
       seoKeywords = seoKeywords || (Array.isArray(seo.keywords) ? seo.keywords.join(', ') : '')
+      if (!whyChoose.length) whyChoose = Array.isArray(seo.whyChoose) ? seo.whyChoose : []
     }
   }
 
@@ -814,6 +818,7 @@ app.put('/api/shops/:id', async (c) => {
     description=${description},
     meta_description=${metaDescription},
     seo_keywords=${seoKeywords},
+    why_choose=${JSON.stringify(whyChoose)},
     rating=${body.rating||5.0},
     review_count=${body.reviewCount||0},
     thumbnail=${body.thumbnail||''},
@@ -2210,7 +2215,14 @@ app.get('/best/:category/:area', async (c) => {
   const shopCards = shops.length > 0
     ? shops.map((s,i) => {
         const stars = '⭐'.repeat(Math.round(s.rating))
-        const desc = (s.metaDescription || s.description || '').slice(0,120)
+        // 200자로 확장 — metaDescription 우선, 없으면 description
+        const desc = (s.metaDescription || s.description || '').slice(0,200)
+        // 첫 번째 Google 리뷰 발췌 (있을 경우)
+        const firstReview = Array.isArray(s.googleReviews) && s.googleReviews.length > 0
+          ? s.googleReviews[0] : null
+        const reviewQuote = firstReview && firstReview.text
+          ? `<div class="card-review-quote">&ldquo;${firstReview.text.slice(0,100)}${firstReview.text.length>100?'…':''}&rdquo;<span class="card-review-author"> — ${firstReview.author||'Guest'}</span></div>`
+          : ''
         return `
 <article class="shop-card" itemscope itemtype="https://schema.org/LocalBusiness">
   <a href="/shop/${s.slug}" class="card-link">
@@ -2225,7 +2237,8 @@ app.get('/best/:category/:area', async (c) => {
         <span class="card-rating">${stars} ${s.rating} (${s.reviewCount} reviews)</span>
       </div>
       <p class="card-desc" itemprop="description">${desc}</p>
-      <div class="card-services">${s.services.slice(0,3).map(sv=>`<span class="svc-tag">${sv}</span>`).join('')}</div>
+      ${reviewQuote}
+      <div class="card-services">${s.services.slice(0,4).map(sv=>`<span class="svc-tag">${sv}</span>`).join('')}</div>
       <div class="card-price">${s.priceRange}</div>
       <div class="card-cta">
         <span class="btn-view">View Details →</span>
@@ -2329,8 +2342,14 @@ details[open] .faq-q::after{transform:rotate(180deg)}
 .rel-link{background:#fff;border:1px solid #e5e7eb;border-radius:20px;padding:6px 16px;font-size:.82rem;font-weight:500;color:#374151;transition:all .2s}
 .rel-link:hover{background:#fdf2f8;border-color:#e91e8c;color:#e91e8c}
 /* INTRO TEXT */
-.intro-box{background:#fff;border-radius:16px;padding:24px;margin-bottom:8px;box-shadow:0 1px 8px rgba(0,0,0,.06);font-size:.9rem;line-height:1.8;color:#374151}
+.intro-box{background:#fff;border-radius:16px;padding:24px 28px;margin-bottom:16px;box-shadow:0 1px 8px rgba(0,0,0,.06);font-size:.92rem;line-height:1.9;color:#374151;border-left:4px solid #e91e8c}
+.intro-box p{margin:0 0 14px}
 .intro-box strong{color:#e91e8c}
+.intro-trust{display:flex;flex-wrap:wrap;gap:10px;margin-top:4px}
+.intro-trust span{background:#fdf2f8;color:#e91e8c;border-radius:20px;padding:4px 14px;font-size:.8rem;font-weight:600}
+/* CARD REVIEW QUOTE */
+.card-review-quote{font-size:.8rem;color:#555;font-style:italic;line-height:1.5;margin:6px 0 8px;padding:6px 10px;background:#f9fafb;border-radius:8px;border-left:3px solid #e91e8c}
+.card-review-author{font-style:normal;font-weight:600;color:#e91e8c}
 /* FOOTER */
 .lp-footer{text-align:center;padding:32px 16px;font-size:.82rem;color:#999;border-top:1px solid #eee;margin-top:40px}
 .lp-footer a{color:#e91e8c}
@@ -2359,9 +2378,12 @@ details[open] .faq-q::after{transform:rotate(180deg)}
 </header>
 <main class="main">
   <div class="intro-box">
-    ${introText}
-    <div style="margin-top:10px;font-size:13px;color:#666">
-      📱 All salons support <strong>English booking via WhatsApp</strong> — no Korean needed.
+    <p>${introText}</p>
+    <div class="intro-trust">
+      <span>✅ All salons verified</span>
+      <span>🌍 Foreigner-friendly</span>
+      <span>💬 English support</span>
+      <span>📱 WhatsApp booking</span>
     </div>
   </div>
   <div class="section-title">${emoji} Top ${catLabel} Salons in ${areaLabel} <span style="font-size:.85rem;font-weight:400;color:#888">(${shops.length} listed)</span></div>
@@ -4806,6 +4828,89 @@ function renderShopPanel(cat) {
     </div>
   </div>
 </nav>
+
+<!-- ★ SEO 콘텐츠 섹션 — 구글 검색 상위 노출용 롱폼 텍스트 -->
+<section aria-label="About Seoul Beauty Trip" style="background:#fff;padding:40px 16px 48px;border-top:1px solid #f0f0f0">
+  <div style="max-width:700px;margin:0 auto">
+
+    <h2 style="font-size:1.25rem;font-weight:800;color:#1a1a2e;margin-bottom:12px;text-align:center">
+      Your Ultimate Guide to K-Beauty in Seoul
+    </h2>
+    <p style="font-size:.92rem;color:#374151;line-height:1.9;margin-bottom:20px;text-align:center;max-width:580px;margin-left:auto;margin-right:auto">
+      Seoul Beauty Trip is the #1 curated directory for foreigners seeking authentic Korean beauty experiences in Seoul.
+      Every salon is hand-verified for English support, transparent pricing, and quality service.
+    </p>
+
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:32px">
+      <div style="background:#fdf2f8;border-radius:16px;padding:20px">
+        <div style="font-size:1.5rem;margin-bottom:6px">🧖</div>
+        <div style="font-weight:700;color:#1a1a2e;font-size:.95rem;margin-bottom:6px">Head Spa</div>
+        <div style="font-size:.82rem;color:#555;line-height:1.6">Experience Seoul's viral 18-step scalp ritual. Deep cleanse, scalp analysis, and total relaxation — perfect for every hair type.</div>
+      </div>
+      <div style="background:#f0fdf4;border-radius:16px;padding:20px">
+        <div style="font-size:1.5rem;margin-bottom:6px">🌿</div>
+        <div style="font-weight:700;color:#1a1a2e;font-size:.95rem;margin-bottom:6px">Skincare</div>
+        <div style="font-size:.82rem;color:#555;line-height:1.6">Korean glass-skin facials, LED therapy, and customized prescription care. World-renowned K-beauty results you won't find at home.</div>
+      </div>
+      <div style="background:#eff6ff;border-radius:16px;padding:20px">
+        <div style="font-size:1.5rem;margin-bottom:6px">💇</div>
+        <div style="font-weight:700;color:#1a1a2e;font-size:.95rem;margin-bottom:6px">Hair Salon</div>
+        <div style="font-size:.82rem;color:#555;line-height:1.6">K-pop inspired cuts, balayage, and Korean perms from English-friendly stylists experienced with all hair textures.</div>
+      </div>
+      <div style="background:#fff7ed;border-radius:16px;padding:20px">
+        <div style="font-size:1.5rem;margin-bottom:6px">🏥</div>
+        <div style="font-weight:700;color:#1a1a2e;font-size:.95rem;margin-bottom:6px">Derma Clinic</div>
+        <div style="font-size:.82rem;color:#555;line-height:1.6">Laser toning, skin boosters, and RF lifting — 30-50% less than Western prices with English-speaking consultants.</div>
+      </div>
+    </div>
+
+    <h2 style="font-size:1.1rem;font-weight:700;color:#1a1a2e;margin-bottom:10px">
+      Why Foreigners Choose Seoul Beauty Trip
+    </h2>
+    <ul style="list-style:none;padding:0;margin:0 0 28px;display:flex;flex-direction:column;gap:8px">
+      <li style="display:flex;align-items:flex-start;gap:10px;font-size:.88rem;color:#374151;line-height:1.7">
+        <span style="color:#e91e8c;font-size:1rem;flex-shrink:0;margin-top:2px">✓</span>
+        <span><strong>100% English booking via WhatsApp</strong> — No Korean needed. Our team and partner salons speak English fluently.</span>
+      </li>
+      <li style="display:flex;align-items:flex-start;gap:10px;font-size:.88rem;color:#374151;line-height:1.7">
+        <span style="color:#e91e8c;font-size:1rem;flex-shrink:0;margin-top:2px">✓</span>
+        <span><strong>Real customer reviews</strong> from international visitors — honest ratings from travelers like you.</span>
+      </li>
+      <li style="display:flex;align-items:flex-start;gap:10px;font-size:.88rem;color:#374151;line-height:1.7">
+        <span style="color:#e91e8c;font-size:1rem;flex-shrink:0;margin-top:2px">✓</span>
+        <span><strong>Transparent pricing</strong> — Know exactly what you'll pay before you arrive. No hidden fees.</span>
+      </li>
+      <li style="display:flex;align-items:flex-start;gap:10px;font-size:.88rem;color:#374151;line-height:1.7">
+        <span style="color:#e91e8c;font-size:1rem;flex-shrink:0;margin-top:2px">✓</span>
+        <span><strong>Hand-verified salons</strong> — Every listing is manually checked for foreigner-friendliness and service quality.</span>
+      </li>
+      <li style="display:flex;align-items:flex-start;gap:10px;font-size:.88rem;color:#374151;line-height:1.7">
+        <span style="color:#e91e8c;font-size:1rem;flex-shrink:0;margin-top:2px">✓</span>
+        <span><strong>Salons across all major areas</strong> — Gangnam, Hongdae, Itaewon, Myeongdong, Apgujeong &amp; more.</span>
+      </li>
+    </ul>
+
+    <h2 style="font-size:1.1rem;font-weight:700;color:#1a1a2e;margin-bottom:10px">
+      Popular Areas for K-Beauty
+    </h2>
+    <p style="font-size:.88rem;color:#374151;line-height:1.8;margin-bottom:16px">
+      <strong>Gangnam</strong> is Seoul's luxury beauty district, home to premium skincare clinics and dermatology centers.
+      <strong>Hongdae</strong> is the trendy hub for unique nail art, creative hair styling, and indie beauty salons.
+      <strong>Itaewon</strong> is the most foreigner-friendly neighborhood, with multilingual staff and international menus.
+      <strong>Myeongdong</strong> is perfect for tourists — centrally located with makeup studios, skincare shops, and spa experiences.
+      <strong>Apgujeong</strong> (Rodeo Street) is Seoul's fashion and beauty elite zone, known for cutting-edge aesthetic clinics and luxury head spas.
+    </p>
+
+    <div style="background:linear-gradient(135deg,#e91e8c15,#9c27b015);border-radius:16px;padding:20px;text-align:center">
+      <div style="font-size:.95rem;font-weight:700;color:#1a1a2e;margin-bottom:6px">Ready to book your K-beauty experience?</div>
+      <div style="font-size:.85rem;color:#555;margin-bottom:14px">Browse salons above and contact any shop directly via WhatsApp in English.</div>
+      <a href="/shops" style="display:inline-block;background:linear-gradient(135deg,#e91e8c,#9c27b0);color:#fff;padding:10px 28px;border-radius:24px;font-size:.88rem;font-weight:700;text-decoration:none">
+        View All Salons →
+      </a>
+    </div>
+
+  </div>
+</section>
 
 </body>
 </html>`
