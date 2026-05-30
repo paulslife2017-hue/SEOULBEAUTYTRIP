@@ -2658,20 +2658,26 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 /* \uac80\uc0c9 \uacb0\uacfc \uc624\ubc84\ub808\uc774 */
 #search-overlay{display:none;position:fixed;inset:0;z-index:800;background:rgba(8,8,14,.97);backdrop-filter:blur(16px);flex-direction:column;overflow:hidden}
 #search-overlay.open{display:flex}
-.so-topbar{flex-shrink:0;display:flex;align-items:center;gap:10px;padding:52px 16px 10px;border-bottom:1px solid rgba(255,255,255,.06)}
-.so-back-btn{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.7);font-size:12px;font-weight:700;padding:7px 14px;cursor:pointer;white-space:nowrap;transition:all .2s;flex-shrink:0}
+.so-topbar{flex-shrink:0;display:flex;align-items:center;gap:10px;padding:52px 14px 10px}
+.so-back-btn{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.7);font-size:11px;font-weight:700;padding:7px 12px;cursor:pointer;white-space:nowrap;transition:all .2s;flex-shrink:0}
 .so-back-btn:hover,.so-back-btn:active{background:rgba(232,65,122,.15);border-color:rgba(232,65,122,.4);color:var(--pk2)}
-.so-filters{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;flex:1}
-.so-filters::-webkit-scrollbar{display:none}
-.so-chip{flex-shrink:0;padding:6px 12px;border-radius:16px;font-size:11px;font-weight:700;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.45);cursor:pointer;transition:all .18s;white-space:nowrap}
+.so-srch-wrap{flex:1;display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:22px;padding:9px 14px;transition:border-color .2s}
+.so-srch-wrap:focus-within{border-color:rgba(232,65,122,.4);background:rgba(232,65,122,.04)}
+#soInput{flex:1;background:none;border:none;outline:none;color:#fff;font-size:14px;font-family:var(--ff-sans)}
+#soInput::placeholder{color:rgba(255,255,255,.28)}
+.so-srch-x{background:none;border:none;color:rgba(255,255,255,.3);cursor:pointer;font-size:12px;padding:0;line-height:1;display:none}
+.so-srch-x.on{display:block}
+.so-chips-row{flex-shrink:0;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:6px 14px 10px;border-bottom:1px solid rgba(255,255,255,.06)}
+.so-chips-row::-webkit-scrollbar{display:none}
+.so-chip{flex-shrink:0;padding:5px 12px;border-radius:16px;font-size:11px;font-weight:700;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.45);cursor:pointer;transition:all .18s;white-space:nowrap}
 .so-chip.on{background:rgba(232,65,122,.18);border-color:rgba(232,65,122,.5);color:var(--pk2)}
-.so-body{flex:1;overflow-y:auto;padding-top:8px}
-.so-header{padding:8px 20px 12px;font-size:11px;font-weight:700;color:rgba(255,255,255,.3);letter-spacing:1.5px;text-transform:uppercase}
-.so-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;padding:0 16px 40px}
+.so-body{flex:1;overflow-y:auto;padding-top:6px}
+.so-header{padding:8px 16px 8px;font-size:11px;font-weight:700;color:rgba(255,255,255,.3);letter-spacing:1px;text-transform:uppercase}
+.so-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;padding:0 14px 40px}
 @media(min-width:480px){.so-grid{grid-template-columns:repeat(3,1fr)}}
-.so-card{background:#13132a;border:1px solid rgba(255,255,255,.07);border-radius:14px;overflow:hidden;cursor:pointer;transition:all .2s;text-decoration:none;display:block}
-.so-card:hover{border-color:rgba(232,65,122,.4);transform:translateY(-2px);box-shadow:0 8px 24px rgba(232,65,122,.12)}
-.so-card-img-wrap{width:100%;height:90px;position:relative;background:#12122a;overflow:hidden}
+.so-card{background:#13132a;border:1px solid rgba(255,255,255,.07);border-radius:14px;overflow:hidden;cursor:pointer;transition:all .2s;text-decoration:none;display:block;position:relative}
+.so-card:active{transform:scale(.97);border-color:rgba(232,65,122,.4)}
+.so-card-img-wrap{width:100%;aspect-ratio:9/13;position:relative;background:#12122a;overflow:hidden}
 .so-card-img-wrap::before{
   content:'';position:absolute;inset:0;z-index:1;
   background:linear-gradient(105deg,#12122a 40%,rgba(255,255,255,.04) 50%,#12122a 60%);
@@ -2679,16 +2685,25 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   animation:sc-shimmer 1.6s infinite linear;
 }
 .so-card-img-wrap.loaded::before{display:none}
-.so-card-img{width:100%;height:90px;object-fit:cover;display:block;
-  position:relative;z-index:2;
+.so-card-img{width:100%;height:100%;object-fit:cover;display:block;
+  position:absolute;inset:0;z-index:2;
   filter:blur(5px);transform:scale(1.04);
   transition:filter .4s ease,transform .4s ease;
 }
 .so-card-img-wrap.loaded .so-card-img{filter:blur(0);transform:scale(1)}
-.so-card-body{padding:9px 10px 11px}
+.so-card-play{position:absolute;inset:0;z-index:4;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.so-card-play i{width:32px;height:32px;background:rgba(0,0,0,.45);border:1.5px solid rgba(255,255,255,.55);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;padding-left:2px;backdrop-filter:blur(4px)}
+.so-card-ov{position:absolute;bottom:0;left:0;right:0;z-index:3;padding:18px 8px 6px;background:linear-gradient(to top,rgba(0,0,0,.72) 0%,transparent 100%);pointer-events:none}
+.so-card-cat-badge{font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#fff;opacity:.9}
+.so-card-body{padding:8px 10px 10px}
 .so-card-cat{font-size:9px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--pk);margin-bottom:3px}
 .so-card-name{font-size:12px;font-weight:800;color:#fff;line-height:1.3;margin-bottom:3px}
 .so-card-loc{font-size:10px;color:rgba(255,255,255,.38);display:flex;align-items:center;gap:3px}
+.so-card-play{position:absolute;inset:0;z-index:4;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.so-card-play i{font-size:22px;color:rgba(255,255,255,.85);filter:drop-shadow(0 2px 6px rgba(0,0,0,.6));transition:transform .2s}
+.so-card:active .so-card-play i{transform:scale(1.15)}
+.so-card-ov{position:absolute;bottom:0;left:0;right:0;z-index:3;background:linear-gradient(to top,rgba(0,0,0,.72) 0%,transparent 100%);padding:22px 8px 8px;pointer-events:none}
+.so-card-cat-badge{font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#fff;opacity:.9}
 .so-empty{padding:60px 20px;text-align:center;color:rgba(255,255,255,.25);font-size:14px}
 /* 토스트 */
 #toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%) translateY(12px);background:rgba(232,65,122,.92);color:#fff;padding:8px 18px;border-radius:18px;font-size:12px;font-weight:700;z-index:600;opacity:0;transition:all .28s;white-space:nowrap;pointer-events:none;backdrop-filter:blur(8px)}
@@ -2741,22 +2756,28 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 <!-- 검색 결과 오버레이 -->
 <div id="search-overlay" role="dialog" aria-label="Search results">
   <div class="so-topbar">
-    <button class="so-back-btn" onclick="closeSearch()"><i class="fas fa-arrow-left" style="font-size:11px"></i> Main</button>
-    <div class="so-filters" id="so-filters">
-      <button class="so-chip on" data-filter="all">All</button>
-      <button class="so-chip" data-filter="skincare">Skincare</button>
-      <button class="so-chip" data-filter="makeup">Makeup</button>
-      <button class="so-chip" data-filter="hair">Hair</button>
-      <button class="so-chip" data-filter="headspa">Head Spa</button>
-      <button class="so-chip" data-filter="nail">Nail</button>
-      <button class="so-chip" data-filter="clinic">Clinic</button>
-      <button class="so-chip" data-filter="spa">Spa</button>
-      <button class="so-chip" data-filter="Gangnam">Gangnam</button>
-      <button class="so-chip" data-filter="Hongdae">Hongdae</button>
-      <button class="so-chip" data-filter="Myeongdong">Myeongdong</button>
-      <button class="so-chip" data-filter="Sinsa">Sinsa</button>
-      <button class="so-chip" data-filter="Itaewon">Itaewon</button>
+    <button class="so-back-btn" id="soBackBtn" onclick="closeSearch()"><i class="fas fa-arrow-left" style="font-size:11px"></i> <span id="soBackLabel">Main</span></button>
+    <div class="so-srch-wrap">
+      <i class="fas fa-search" style="color:rgba(255,255,255,.3);font-size:12px;flex-shrink:0"></i>
+      <input id="soInput" type="search" placeholder="Shop, area, category..." autocomplete="off" oninput="onSearch(this.value)">
+      <button class="so-srch-x" id="soX" onclick="clearSoInput()"><i class="fas fa-times"></i></button>
     </div>
+  </div>
+  <div class="so-chips-row" id="so-filters">
+    <button class="so-chip on" data-filter="all">All</button>
+    <button class="so-chip" data-filter="skincare">Skincare</button>
+    <button class="so-chip" data-filter="makeup">Makeup</button>
+    <button class="so-chip" data-filter="hair">Hair</button>
+    <button class="so-chip" data-filter="headspa">Head Spa</button>
+    <button class="so-chip" data-filter="nail">Nail</button>
+    <button class="so-chip" data-filter="clinic">Clinic</button>
+    <button class="so-chip" data-filter="spa">Spa</button>
+    <button class="so-chip" data-filter="Gangnam">Gangnam</button>
+    <button class="so-chip" data-filter="Hongdae">Hongdae</button>
+    <button class="so-chip" data-filter="Myeongdong">Myeongdong</button>
+    <button class="so-chip" data-filter="Sinsa">Sinsa</button>
+    <button class="so-chip" data-filter="Itaewon">Itaewon</button>
+    <button class="so-chip" data-filter="Apgujeong">Apgujeong</button>
   </div>
   <div class="so-body">
     <div class="so-header" id="so-header"></div>
@@ -3665,6 +3686,11 @@ function closeModal(){
     bg.classList.remove('open');
     panel.style.transition='';
     panel.style.transform='';
+    // 검색 오버레이가 열려있었으면 다시 표시 (카탈로그 복귀)
+    if(_searchOpen){
+      var overlay = document.getElementById('search-overlay');
+      if(overlay) overlay.classList.add('open');
+    }
   }, 280);
 }
 
@@ -3754,10 +3780,14 @@ function toggleSearch(){
     _soFilter = 'all';
     _resetChips();
     _renderSearchResults('', 'all'); // 열자마자 전체 목록 표시
-    setTimeout(function(){ var inp = document.getElementById('srchInput'); if(inp) inp.focus(); }, 200);
+    var lbl = document.getElementById('soBackLabel');
+    if(lbl) lbl.textContent = 'Catalog';
+    setTimeout(function(){ var inp = document.getElementById('soInput'); if(inp) inp.focus(); }, 200);
   } else {
     clearSearch();
     overlay.classList.remove('open');
+    var lbl = document.getElementById('soBackLabel');
+    if(lbl) lbl.textContent = 'Main';
   }
 }
 
@@ -3805,10 +3835,14 @@ function _renderSearchResults(q, filter){
   grid.innerHTML = results.map(function(s){
     var col = catColors[s.category] || 'var(--pk)';
     var href = s.slug ? '/shop/'+s.slug : '#';
-    var clickAttr = s.slug ? '' : ' data-sid="'+s.id+'" onclick="event.preventDefault();closeSearch();openShopModal(this.dataset.sid)"';
+    var clickAttr = ' onclick="event.preventDefault();openShopFromSearch(\''+s.id+'\')"';
     return '<a class="so-card" href="'+href+'"'+clickAttr+'>'
-      +'<div class="so-card-img-wrap"><img class="so-card-img" src="'+(s.thumbnail||'')+'" alt="'+esc(s.name)+'" loading="lazy" decoding="async"'
-        +' onload="parentLoaded(this)" onerror="parentLoaded(this)"></div>'
+      +'<div class="so-card-img-wrap">'
+        +'<img class="so-card-img" src="'+(s.thumbnail||'')+'" alt="'+esc(s.name)+'" loading="lazy" decoding="async"'
+          +' onload="parentLoaded(this)" onerror="parentLoaded(this)">'
+        +'<div class="so-card-play"><i class="fas fa-play"></i></div>'
+        +'<div class="so-card-ov"><div class="so-card-cat-badge">'+esc(s.category)+'</div></div>'
+      +'</div>'
       +'<div class="so-card-body">'
         +'<div class="so-card-cat" style="color:'+col+'">'+esc(s.category)+'</div>'
         +'<div class="so-card-name">'+esc(s.name)+'</div>'
@@ -3819,18 +3853,25 @@ function _renderSearchResults(q, filter){
 }
 
 function onSearch(q){
-  var clear = document.getElementById('srchClear');
-  if(clear) clear.classList.toggle('on', q.length > 0);
+  var x = document.getElementById('soX');
+  if(x) x.classList.toggle('on', q.length > 0);
   _renderSearchResults(q, _soFilter);
-  document.getElementById('search-overlay').classList.add('open');
+}
+
+function clearSoInput(){
+  var inp = document.getElementById('soInput');
+  var x = document.getElementById('soX');
+  if(inp){ inp.value = ''; inp.focus(); }
+  if(x) x.classList.remove('on');
+  _renderSearchResults('', _soFilter);
 }
 
 function clearSearch(){
-  var inp = document.getElementById('srchInput');
-  var clear = document.getElementById('srchClear');
+  var inp = document.getElementById('soInput');
+  var x = document.getElementById('soX');
   var overlay = document.getElementById('search-overlay');
   if(inp) inp.value = '';
-  if(clear) clear.classList.remove('on');
+  if(x) x.classList.remove('on');
   if(overlay) overlay.classList.remove('open');
 }
 
@@ -3843,13 +3884,25 @@ function closeSearch(){
   clearSearch();
 }
 
+// 검색 오버레이에서 업체 클릭 → 오버레이는 뒤로 숨기고 모달만 열기
+// closeModal() 시 _searchOpen=true 이면 오버레이 다시 복원
+function openShopFromSearch(sid){
+  // 오버레이를 뒤로 숨기기만 (닫지 않음 - _searchOpen은 true 유지)
+  var overlay = document.getElementById('search-overlay');
+  if(overlay) overlay.classList.remove('open');
+  // 모달의 뒤로가기 레이블을 Catalog로 변경
+  var lbl = document.getElementById('soBackLabel');
+  if(lbl) lbl.textContent = 'Catalog';
+  openShopModal(sid);
+}
+
 // 필터 칩 클릭
 document.getElementById('so-filters').addEventListener('click', function(e){
   var chip = e.target.closest('.so-chip');
   if(!chip) return;
   _soFilter = chip.getAttribute('data-filter');
   _resetChips();
-  var q = (document.getElementById('srchInput')||{}).value || '';
+  var q = (document.getElementById('soInput')||{}).value || '';
   _renderSearchResults(q, _soFilter);
 });
 // ESC 키로 검색 닫기
