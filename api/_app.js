@@ -7462,7 +7462,12 @@ var ADMIN_HTML = `<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Seoul Beauty Trip - Admin</title>
-<script>var _GSK_TOKEN = '__GSK_TOKEN__';</script>
+<script>
+// \uC11C\uBC84\uC5D0\uC11C \uC8FC\uC785\uB41C \uD1A0\uD070 \uC6B0\uC120, \uC5C6\uC73C\uBA74 localStorage\uC5D0\uC11C \uBCF5\uC6D0
+var _GSK_TOKEN = '__GSK_TOKEN__' || localStorage.getItem('_gsk_token') || '';
+// localStorage\uC5D0 \uC800\uC7A5 (\uB2E4\uC74C \uBC29\uBB38 \uC2DC \uC7AC\uC0AC\uC6A9)
+if(_GSK_TOKEN) localStorage.setItem('_gsk_token', _GSK_TOKEN);
+</script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -7982,6 +7987,19 @@ textarea{height:80px;resize:none}
 </div>
 
 <div class="tab-content" id="tab-settings">
+  <!-- API \uD1A0\uD070 \uC124\uC815 \uCE74\uB4DC -->
+  <div class="card" style="margin-bottom:16px;border-color:rgba(251,191,36,.25);background:rgba(251,191,36,.05)">
+    <div class="card-title" style="margin-bottom:4px"><i class="fas fa-key" style="color:#fbbf24"></i> AI API \uD1A0\uD070 \uC124\uC815</div>
+    <div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:14px">\uBE14\uB85C\uADF8 AI \uC0DD\uC131 / SEO \uC790\uB3D9\uC0DD\uC131\uC5D0 \uD544\uC694. Vercel \uD658\uACBD\uBCC0\uC218\uC5D0 \uC5C6\uC744 \uB54C \uC5EC\uAE30\uC11C \uC785\uB825\uD558\uC138\uC694.</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <input id="token-input" type="password" placeholder="gsk-eyJ..." value=""
+        style="flex:1;padding:10px 13px;background:rgba(255,255,255,.05);border:1.5px solid rgba(251,191,36,.3);border-radius:10px;color:#fff;font-size:13px;outline:none">
+      <button onclick="saveToken()" style="padding:10px 18px;background:linear-gradient(135deg,#f59e0b,#d97706);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">
+        <i class="fas fa-save"></i> \uC800\uC7A5
+      </button>
+    </div>
+    <div id="token-status" style="font-size:11px;margin-top:8px;color:rgba(255,255,255,.4)"></div>
+  </div>
   <div class="card" style="margin-bottom:16px">
     <div class="card-title" style="margin-bottom:16px"><i class="fas fa-link" style="color:#60a5fa"></i> \uC0AC\uC774\uD2B8 \uB9C1\uD06C \uBAA8\uC74C</div>
     <div style="display:flex;flex-direction:column;gap:10px">
@@ -8026,6 +8044,31 @@ document.addEventListener('error', function(e){
 }, true);
 
 document.addEventListener('DOMContentLoaded', function(){
+
+// \u2500\u2500 \uD1A0\uD070 \uC800\uC7A5/\uBCF5\uC6D0 \u2500\u2500
+window.saveToken = function(){
+  var val = document.getElementById('token-input').value.trim();
+  if(!val){ alert('\uD1A0\uD070\uC744 \uC785\uB825\uD574\uC8FC\uC138\uC694'); return; }
+  _GSK_TOKEN = val;
+  localStorage.setItem('_gsk_token', val);
+  var st = document.getElementById('token-status');
+  st.style.color = '#34d399';
+  st.textContent = '\u2705 \uC800\uC7A5\uB428 \u2014 AI \uAE30\uB2A5\uC774 \uD65C\uC131\uD654\uB429\uB2C8\uB2E4';
+  document.getElementById('token-input').value = '';
+};
+// \uD1A0\uD070 \uC0C1\uD0DC \uD45C\uC2DC
+(function(){
+  var st = document.getElementById('token-status');
+  var inp = document.getElementById('token-input');
+  if(!st || !inp) return;
+  if(_GSK_TOKEN){
+    st.style.color = '#34d399';
+    st.textContent = '\u2705 \uD1A0\uD070 \uD65C\uC131\uD654\uB428 (' + _GSK_TOKEN.substring(0,16) + '...)';
+  } else {
+    st.style.color = '#fbbf24';
+    st.textContent = '\u26A0\uFE0F \uD1A0\uD070 \uC5C6\uC74C \u2014 \uBE14\uB85C\uADF8/SEO AI \uC0DD\uC131 \uBD88\uAC00. \uC704\uC5D0 \uD1A0\uD070\uC744 \uC785\uB825\uD558\uC138\uC694.';
+  }
+})();
 
 // \u2500\u2500 \uD0ED \uC804\uD658 \u2500\u2500
 document.querySelectorAll('.tab').forEach(function(t){

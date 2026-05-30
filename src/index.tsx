@@ -5572,7 +5572,12 @@ const ADMIN_HTML = `<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Seoul Beauty Trip - Admin</title>
-<script>var _GSK_TOKEN = '__GSK_TOKEN__';</script>
+<script>
+// 서버에서 주입된 토큰 우선, 없으면 localStorage에서 복원
+var _GSK_TOKEN = '__GSK_TOKEN__' || localStorage.getItem('_gsk_token') || '';
+// localStorage에 저장 (다음 방문 시 재사용)
+if(_GSK_TOKEN) localStorage.setItem('_gsk_token', _GSK_TOKEN);
+</script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -6092,6 +6097,19 @@ textarea{height:80px;resize:none}
 </div>
 
 <div class="tab-content" id="tab-settings">
+  <!-- API 토큰 설정 카드 -->
+  <div class="card" style="margin-bottom:16px;border-color:rgba(251,191,36,.25);background:rgba(251,191,36,.05)">
+    <div class="card-title" style="margin-bottom:4px"><i class="fas fa-key" style="color:#fbbf24"></i> AI API 토큰 설정</div>
+    <div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:14px">블로그 AI 생성 / SEO 자동생성에 필요. Vercel 환경변수에 없을 때 여기서 입력하세요.</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <input id="token-input" type="password" placeholder="gsk-eyJ..." value=""
+        style="flex:1;padding:10px 13px;background:rgba(255,255,255,.05);border:1.5px solid rgba(251,191,36,.3);border-radius:10px;color:#fff;font-size:13px;outline:none">
+      <button onclick="saveToken()" style="padding:10px 18px;background:linear-gradient(135deg,#f59e0b,#d97706);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">
+        <i class="fas fa-save"></i> 저장
+      </button>
+    </div>
+    <div id="token-status" style="font-size:11px;margin-top:8px;color:rgba(255,255,255,.4)"></div>
+  </div>
   <div class="card" style="margin-bottom:16px">
     <div class="card-title" style="margin-bottom:16px"><i class="fas fa-link" style="color:#60a5fa"></i> 사이트 링크 모음</div>
     <div style="display:flex;flex-direction:column;gap:10px">
@@ -6136,6 +6154,31 @@ document.addEventListener('error', function(e){
 }, true);
 
 document.addEventListener('DOMContentLoaded', function(){
+
+// ── 토큰 저장/복원 ──
+window.saveToken = function(){
+  var val = document.getElementById('token-input').value.trim();
+  if(!val){ alert('토큰을 입력해주세요'); return; }
+  _GSK_TOKEN = val;
+  localStorage.setItem('_gsk_token', val);
+  var st = document.getElementById('token-status');
+  st.style.color = '#34d399';
+  st.textContent = '✅ 저장됨 — AI 기능이 활성화됩니다';
+  document.getElementById('token-input').value = '';
+};
+// 토큰 상태 표시
+(function(){
+  var st = document.getElementById('token-status');
+  var inp = document.getElementById('token-input');
+  if(!st || !inp) return;
+  if(_GSK_TOKEN){
+    st.style.color = '#34d399';
+    st.textContent = '✅ 토큰 활성화됨 (' + _GSK_TOKEN.substring(0,16) + '...)';
+  } else {
+    st.style.color = '#fbbf24';
+    st.textContent = '⚠️ 토큰 없음 — 블로그/SEO AI 생성 불가. 위에 토큰을 입력하세요.';
+  }
+})();
 
 // ── 탭 전환 ──
 document.querySelectorAll('.tab').forEach(function(t){
