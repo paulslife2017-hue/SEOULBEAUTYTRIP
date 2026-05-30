@@ -2808,7 +2808,7 @@ Return ONLY valid JSON (no extra text):
     const res = await fetch("https://www.genspark.ai/api/llm_proxy/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: "gpt-4o-mini", messages: [{ role: "user", content: prompt }], max_tokens: 1800 })
+      body: JSON.stringify({ model: "claude-haiku-4-5", messages: [{ role: "user", content: prompt }], max_tokens: 1800 })
     });
     if (!res.ok) return null;
     const data = await res.json();
@@ -2829,6 +2829,7 @@ app.post("/api/shops", async (c) => {
   let description = body.description || "";
   let metaDescription = body.metaDescription || "";
   let seoKeywords = body.seoKeywords || "";
+  let whyChoose = body.whyChoose || [];
   if (!description) {
     const apiKey = c.env?.GSK_TOKEN || c.env?.GENSPARK_TOKEN || "";
     const seo = await autoGenSeo(body, apiKey);
@@ -2836,15 +2837,16 @@ app.post("/api/shops", async (c) => {
       description = seo.description || "";
       metaDescription = seo.metaDescription || "";
       seoKeywords = Array.isArray(seo.keywords) ? seo.keywords.join(", ") : "";
+      whyChoose = Array.isArray(seo.whyChoose) ? seo.whyChoose : [];
     }
   }
   const slug = await makeShopSlug(sql, body.name || "", body.location || "");
-  await sql`INSERT INTO shops (id,name,slug,category,location,address,google_map_url,google_map_embed,lat,lng,price_range,hours,services,service_prices,description,meta_description,seo_keywords,rating,review_count,thumbnail,photos,commission,active,created_at) VALUES (
+  await sql`INSERT INTO shops (id,name,slug,category,location,address,google_map_url,google_map_embed,lat,lng,price_range,hours,services,service_prices,description,meta_description,seo_keywords,why_choose,rating,review_count,thumbnail,photos,commission,active,created_at) VALUES (
     ${newId},${body.name || ""},${slug},${body.category || ""},${body.location || ""},${body.address || ""},
     ${body.googleMapUrl || ""},${body.googleMapEmbed || ""},${body.lat || ""},${body.lng || ""},
     ${body.priceRange || ""},${body.hours || ""},
     ${JSON.stringify(body.services || [])},${JSON.stringify(body.servicePrices || [])},
-    ${description},${metaDescription},${seoKeywords},
+    ${description},${metaDescription},${seoKeywords},${JSON.stringify(whyChoose)},
     ${body.rating || 5},${body.reviewCount || 0},${body.thumbnail || ""},
     ${JSON.stringify(body.photos || [])},${body.commission || 15},true,${today}
   ) ON CONFLICT DO NOTHING`;
@@ -2856,6 +2858,7 @@ app.put("/api/shops/:id", async (c) => {
   let description = body.description || "";
   let metaDescription = body.metaDescription || "";
   let seoKeywords = body.seoKeywords || "";
+  let whyChoose = Array.isArray(body.whyChoose) ? body.whyChoose : [];
   if (!description || body.regenerateSeo) {
     const apiKey = c.env?.GSK_TOKEN || c.env?.GENSPARK_TOKEN || "";
     const seo = await autoGenSeo(body, apiKey);
@@ -2863,6 +2866,7 @@ app.put("/api/shops/:id", async (c) => {
       description = description || seo.description || "";
       metaDescription = metaDescription || seo.metaDescription || "";
       seoKeywords = seoKeywords || (Array.isArray(seo.keywords) ? seo.keywords.join(", ") : "");
+      if (!whyChoose.length) whyChoose = Array.isArray(seo.whyChoose) ? seo.whyChoose : [];
     }
   }
   const slugVal = body.slug || await makeShopSlug(sql, body.name || "", body.location || "");
@@ -2883,6 +2887,7 @@ app.put("/api/shops/:id", async (c) => {
     description=${description},
     meta_description=${metaDescription},
     seo_keywords=${seoKeywords},
+    why_choose=${JSON.stringify(whyChoose)},
     rating=${body.rating || 5},
     review_count=${body.reviewCount || 0},
     thumbnail=${body.thumbnail || ""},
@@ -3049,7 +3054,7 @@ Return ONLY valid JSON:
         "Authorization": `Bearer ${OPENAI_KEY}`
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "claude-haiku-4-5",
         messages: [{ role: "user", content: prompt }],
         max_tokens: 3e3
       })
@@ -8802,7 +8807,7 @@ async function genAiSeo(prefix) {
     var aiRes = await fetch('https://www.genspark.ai/api/llm_proxy/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _GSK_TOKEN },
-      body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }], max_tokens: 1200 })
+      body: JSON.stringify({ model: 'claude-haiku-4-5', messages: [{ role: 'user', content: prompt }], max_tokens: 1200 })
     });
     if (!aiRes.ok) {
       var errBody = ''; try { errBody = await aiRes.text(); } catch(ex){}

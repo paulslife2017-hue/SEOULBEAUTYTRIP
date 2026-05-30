@@ -728,7 +728,7 @@ Return ONLY valid JSON (no extra text):
     const res = await fetch('https://www.genspark.ai/api/llm_proxy/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }], max_tokens: 1800 })
+      body: JSON.stringify({ model: 'claude-haiku-4-5', messages: [{ role: 'user', content: prompt }], max_tokens: 1800 })
     })
     if (!res.ok) return null
     const data: any = await res.json()
@@ -1000,7 +1000,7 @@ Return ONLY valid JSON:
         'Authorization': `Bearer ${OPENAI_KEY}`
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'claude-haiku-4-5',
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 3000
       })
@@ -6865,7 +6865,7 @@ async function genAiSeo(prefix) {
     var aiRes = await fetch('https://www.genspark.ai/api/llm_proxy/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _GSK_TOKEN },
-      body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }], max_tokens: 1200 })
+      body: JSON.stringify({ model: 'claude-haiku-4-5', messages: [{ role: 'user', content: prompt }], max_tokens: 1200 })
     });
     if (!aiRes.ok) {
       var errBody = ''; try { errBody = await aiRes.text(); } catch(ex){}
