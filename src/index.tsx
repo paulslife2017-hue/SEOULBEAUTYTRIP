@@ -1717,7 +1717,7 @@ app.get('/shops', async (c) => {
     const loc   = (shop.location||'').split(',')[0].trim()
     const nameL = shop.name.toLowerCase().replace(/"/g,'')
     return `<a class="sc-card" href="${href}" data-cat="${shop.category}" data-name="${nameL}" data-loc="${loc.toLowerCase()}">
-  <div class="sc-img"><img src="${shop.thumbnail||''}" alt="" loading="lazy" onerror="this.style.background='#1a1a2e'"></div>
+  <div class="sc-img" id="scimg-${shop.id}"><img src="${shop.thumbnail||''}" alt="" loading="lazy" decoding="async" onload="parentLoaded(this)" onerror="parentLoaded(this)"></div>
   <div class="sc-info">
     <div class="sc-cat" style="color:${col}"><i class="fas ${icon}"></i>${catLabels[shop.category]||shop.category}</div>
     <div class="sc-name">${shop.name}</div>
@@ -1846,9 +1846,26 @@ a{text-decoration:none;color:inherit}
   min-height:0;
 }
 .sc-card:hover{border-color:rgba(232,65,122,.35);box-shadow:0 4px 16px rgba(232,65,122,.12);transform:scale(1.02)}
-.sc-img{flex:1;overflow:hidden;min-height:0;position:relative}
-.sc-img img{width:100%;height:100%;object-fit:cover;display:block;background:#1a1a2e;transition:transform .3s}
-.sc-card:hover .sc-img img{transform:scale(1.06)}
+.sc-img{flex:1;overflow:hidden;min-height:0;position:relative;background:#12122a}
+/* shimmer skeleton — 이미지 로딩 전 반짝이는 플레이스홀더 */
+.sc-img::before{
+  content:'';position:absolute;inset:0;z-index:1;
+  background:linear-gradient(105deg,#12122a 40%,rgba(255,255,255,.04) 50%,#12122a 60%);
+  background-size:200% 100%;
+  animation:sc-shimmer 1.6s infinite linear;
+}
+@keyframes sc-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+/* 이미지 로드 완료 후 skeleton 숨김 */
+.sc-img.loaded::before{display:none}
+.sc-img img{
+  width:100%;height:100%;object-fit:cover;display:block;
+  /* blur-up: 처음엔 흐릿하게 → 로드 완료 후 선명하게 */
+  filter:blur(6px);transform:scale(1.04);
+  transition:filter .45s ease,transform .45s ease;
+  position:relative;z-index:2;
+}
+.sc-img.loaded img{filter:blur(0);transform:scale(1)}
+.sc-card:hover .sc-img.loaded img{transform:scale(1.06)}
 .sc-rating-wrap{
   position:absolute;top:5px;right:5px;
   background:rgba(0,0,0,.7);backdrop-filter:blur(4px);
@@ -1908,6 +1925,9 @@ a{text-decoration:none;color:inherit}
 </div>
 
 <script>
+/* 이미지 blur-up 헬퍼 */
+function parentLoaded(el){ if(el && el.parentElement) el.parentElement.classList.add('loaded'); }
+
 var _cat='all', _q='';
 
 /* 카테고리 필터 */
@@ -2129,6 +2149,35 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .ld-tips{font-size:10px;color:rgba(255,255,255,.18);margin-top:18px;letter-spacing:.3px;text-align:center;min-height:14px;transition:opacity .4s}
 @keyframes ldpg{from{width:0}to{width:100%}}
 @keyframes ldpulse{0%,100%{opacity:1}50%{opacity:.75}}
+/* ── 모달 hero 이미지 shimmer + blur-up ── */
+.m-hero{position:relative}
+.m-hero::before{
+  content:'';position:absolute;inset:0;z-index:1;
+  background:linear-gradient(105deg,#0c0c1e 40%,rgba(255,255,255,.045) 50%,#0c0c1e 60%);
+  background-size:200% 100%;
+  animation:mh-shimmer 1.6s infinite linear;
+  border-radius:0;
+}
+@keyframes mh-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.m-hero.loaded::before{display:none}
+.m-hero-img{
+  position:relative;z-index:2;
+  filter:blur(8px);transform:scale(1.05);
+  transition:filter .5s ease,transform .5s ease;
+}
+.m-hero.loaded .m-hero-img{filter:blur(0);transform:scale(1)}
+/* 썸네일 스트립 이미지도 blur-up */
+.m-ts-thumb img{
+  filter:blur(4px);transform:scale(1.04);
+  transition:filter .35s ease,transform .35s ease;
+}
+.m-ts-thumb.img-loaded img{filter:blur(0);transform:scale(1)}
+/* 사진 그리드 blur-up */
+.m-photos-grid img{
+  filter:blur(5px);transform:scale(1.04);
+  transition:filter .35s ease,transform .35s ease,opacity .2s;
+}
+.m-photos-grid img.img-loaded{filter:blur(0);transform:scale(1)}
 /* ── 스켈레톤 슬라이드 ── */
 .skeleton-feed{height:100vh;width:100%;max-width:100%;position:relative;scroll-snap-align:start;overflow:hidden;background:#0a0a14;flex-shrink:0;display:flex;flex-direction:column;justify-content:flex-end}
 .sk-bg{position:absolute;inset:0;background:linear-gradient(135deg,#0e0e20 0%,#12121e 50%,#0a0a16 100%)}
@@ -2181,7 +2230,12 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 #feed::-webkit-scrollbar{display:none}
 /* ── 슬라이드 ── */
 .slide{height:100vh;width:100%;max-width:100%;position:relative;scroll-snap-align:start;overflow:hidden;background:#000;flex-shrink:0}
-.bg-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
+.bg-img{
+  position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;
+  filter:blur(12px);transform:scale(1.06);
+  transition:filter .5s ease,transform .5s ease;
+}
+.bg-img.loaded{filter:blur(0);transform:scale(1)}
 .slide video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;background:#000}
 .ov{position:absolute;inset:0;z-index:2;background:linear-gradient(to bottom,rgba(0,0,0,.08) 0%,transparent 25%,transparent 40%,rgba(0,0,0,.2) 60%,rgba(0,0,0,.7) 80%,rgba(0,0,0,.92) 100%);cursor:pointer}
 /* ── 슬라이드 정보 영역 ── */
@@ -2386,7 +2440,20 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 @media(min-width:480px){.so-grid{grid-template-columns:repeat(3,1fr)}}
 .so-card{background:#13132a;border:1px solid rgba(255,255,255,.07);border-radius:14px;overflow:hidden;cursor:pointer;transition:all .2s;text-decoration:none;display:block}
 .so-card:hover{border-color:rgba(232,65,122,.4);transform:translateY(-2px);box-shadow:0 8px 24px rgba(232,65,122,.12)}
-.so-card-img{width:100%;height:90px;object-fit:cover;display:block;background:#1a1a2e}
+.so-card-img-wrap{width:100%;height:90px;position:relative;background:#12122a;overflow:hidden}
+.so-card-img-wrap::before{
+  content:'';position:absolute;inset:0;z-index:1;
+  background:linear-gradient(105deg,#12122a 40%,rgba(255,255,255,.04) 50%,#12122a 60%);
+  background-size:200% 100%;
+  animation:sc-shimmer 1.6s infinite linear;
+}
+.so-card-img-wrap.loaded::before{display:none}
+.so-card-img{width:100%;height:90px;object-fit:cover;display:block;
+  position:relative;z-index:2;
+  filter:blur(5px);transform:scale(1.04);
+  transition:filter .4s ease,transform .4s ease;
+}
+.so-card-img-wrap.loaded .so-card-img{filter:blur(0);transform:scale(1)}
 .so-card-body{padding:9px 10px 11px}
 .so-card-cat{font-size:9px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--pk);margin-bottom:3px}
 .so-card-name{font-size:12px;font-weight:800;color:#fff;line-height:1.3;margin-bottom:3px}
@@ -2570,6 +2637,13 @@ function showSkeletonFeed() {
   feed.innerHTML = buildSkeleton();
 }
 
+/* ── 이미지 blur-up 헬퍼 함수 ──
+   HTML onload/onerror 속성 내 따옴표 충돌을 피하기 위해 함수 분리 */
+function imgLoaded(el){ el.classList.add('loaded'); }
+function parentLoaded(el){ if(el.parentElement) el.parentElement.classList.add('loaded'); }
+function heroImgLoaded(el){ var w=el.closest('.m-hero'); if(w) w.classList.add('loaded'); }
+function thumbImgLoaded(el){ el.classList.add('img-loaded'); if(el.parentElement) el.parentElement.classList.add('img-loaded'); }
+
 /* ── 스플래시 중 shops 데이터 Prefetch ──
    스플래시가 보이는 ~2.2초 동안 /api/shops 를 미리 가져와서
    shopCache 에 채워둠 → 모달 열 때 fetch 없이 즉시 렌더 */
@@ -2713,7 +2787,7 @@ function buildSlide(v, idx) {
     '<meta itemprop="description" content="'+esc(v.description)+'">' +
     '<meta itemprop="thumbnailUrl" content="'+esc(thumb)+'">' +
     '<meta itemprop="uploadDate" content="'+esc(uploadDate)+'">' +
-    (thumb ? '<img class="bg-img" src="'+esc(thumb)+'" alt="'+esc(v.title)+'" loading="'+imgLoading+'" decoding="async"'+imgPriority+'>' : '<div class="bg-img" style="background:linear-gradient(135deg,#1a0a14 0%,#1c0e22 40%,#0f0816 100%)"></div>') +
+    (thumb ? '<img class="bg-img" src="'+esc(thumb)+'" alt="'+esc(v.title)+'" loading="'+imgLoading+'" decoding="async"'+imgPriority+' onload="imgLoaded(this)" onerror="imgLoaded(this)">' : '<div class="bg-img loaded" style="background:linear-gradient(135deg,#1a0a14 0%,#1c0e22 40%,#0f0816 100%)"></div>') +
     '<video id="vid'+idx+'" loop muted playsinline preload="none" poster="'+esc(thumb)+'" itemprop="contentUrl"></video>' +
     '<div id="playic'+idx+'" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:4;width:56px;height:56px;border-radius:50%;background:rgba(0,0,0,.55);align-items:center;justify-content:center;pointer-events:none;backdrop-filter:blur(4px)"><i class="fas fa-pause" style="font-size:20px;color:#fff"></i></div>' +
     '<div id="bufic'+idx+'" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:5;pointer-events:none"><div style="width:40px;height:40px;border:3px solid rgba(255,255,255,.15);border-top-color:rgba(255,255,255,.8);border-radius:50%;animation:spin .7s linear infinite"></div></div>' +
@@ -2958,8 +3032,9 @@ function renderShopModal(shop) {
   var heroHtml = '';
   if(allPhotos.length > 0) {
     heroHtml =
-      '<div class="m-hero">'
-        +'<img class="m-hero-img" id="mHeroImg" src="'+esc(cdnImg(allPhotos[0],800,600))+'" alt="'+esc(shop.name)+'" loading="eager" fetchpriority="high" decoding="async">'
+      '<div class="m-hero" id="mHeroWrap">'
+        +'<img class="m-hero-img" id="mHeroImg" src="'+esc(cdnImg(allPhotos[0],800,600))+'" alt="'+esc(shop.name)+'" loading="eager" fetchpriority="high" decoding="async"'
+          +' onload="heroImgLoaded(this)" onerror="heroImgLoaded(this)">'
         +'<div class="m-hero-ov"></div>'
         +'<div class="m-hero-badge">'+(catIcons[shop.category]||'')+'&nbsp;'+esc((shop.category||'').toUpperCase())+'</div>'
       +'</div>';
@@ -2969,7 +3044,7 @@ function renderShopModal(shop) {
       var stripPhotos = allPhotos.slice(0, 6);
       var strips = stripPhotos.map(function(url, i){
         return '<div class="m-ts-thumb'+(i===0?' on':'')+'" data-photo-url="'+esc(cdnImg(url,800,600))+'" onclick="setMHero(this.dataset.photoUrl,this)">'
-          +'<img src="'+esc(cdnImg(url,120,120))+'" alt="" loading="lazy" decoding="async" onerror="this.parentElement.remove()">'
+          +'<img src="'+esc(cdnImg(url,120,120))+'" alt="" loading="lazy" decoding="async" onload="thumbImgLoaded(this)" onerror="this.parentElement.remove()">'
           +'</div>';
       }).join('');
       heroHtml += '<div class="m-thumbstrip">'+strips+'</div>';
@@ -3226,8 +3301,15 @@ function mapZoom(frameId, dir) {
 }
 
 function setMHero(url, el) {
-  var img = document.getElementById('mHeroImg');
-  if(img) img.src = url;
+  var wrap = document.getElementById('mHeroWrap');
+  var img  = document.getElementById('mHeroImg');
+  if(img) {
+    // 새 이미지로 교체 시 blur-up 다시 실행
+    if(wrap) wrap.classList.remove('loaded');
+    img.onload  = function(){ if(wrap) wrap.classList.add('loaded'); };
+    img.onerror = function(){ if(wrap) wrap.classList.add('loaded'); };
+    img.src = url;
+  }
   document.querySelectorAll('.m-ts-thumb').forEach(function(t){ t.classList.remove('on'); });
   if(el) el.classList.add('on');
 }
@@ -3368,7 +3450,8 @@ function onSearch(q){
       var href = s.slug ? '/shop/'+s.slug : '#';
       var clickAttr = s.slug ? '' : ' data-sid="'+s.id+'" onclick="event.preventDefault();closeSearch();openShopModal(this.dataset.sid)"';
       return '<a class="so-card" href="'+href+'"'+clickAttr+'>'
-        +'<img class="so-card-img" src="'+(s.thumbnail||'')+'" alt="'+esc(s.name)+'" loading="lazy" onerror="this.style.background=&quot;#1a1a2e&quot;">'
+        +'<div class="so-card-img-wrap"><img class="so-card-img" src="'+(s.thumbnail||'')+'" alt="'+esc(s.name)+'" loading="lazy" decoding="async"'
+          +' onload="parentLoaded(this)" onerror="parentLoaded(this)"></div>'
         +'<div class="so-card-body">'
           +'<div class="so-card-cat" style="color:'+col+'">'+esc(s.category)+'</div>'
           +'<div class="so-card-name">'+esc(s.name)+'</div>'
