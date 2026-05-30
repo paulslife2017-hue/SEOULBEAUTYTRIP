@@ -8099,12 +8099,25 @@ async function genBlog(){
   var btn = document.getElementById('bl-gen-btn');
   var res = document.getElementById('bl-gen-result');
   btn.disabled = true;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> AI \uC0DD\uC131 \uC911... (20~40\uCD08)';
-  res.style.display = 'none';
+  res.style.display='block';
+  res.style.background='rgba(251,191,36,.08)'; res.style.borderColor='rgba(251,191,36,.2)'; res.style.color='#fde68a';
+
+  // \uC9C4\uD589 \uCE74\uC6B4\uD130
+  var secs = 0;
+  var timer = setInterval(function(){
+    secs++;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> AI \uC0DD\uC131 \uC911... ' + secs + '\uCD08';
+    res.innerHTML = '\u23F3 Claude AI\uAC00 \uBE14\uB85C\uADF8 \uAE00\uC744 \uC791\uC131\uD558\uACE0 \uC788\uC5B4\uC694... (' + secs + '\uCD08 \uACBD\uACFC)<br><span style="font-size:11px;opacity:.6">\uBCF4\uD1B5 20~40\uCD08 \uC18C\uC694\uB429\uB2C8\uB2E4. \uCC3D\uC744 \uB2EB\uC9C0 \uB9C8\uC138\uC694.</span>';
+  }, 1000);
+
   try {
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function(){ controller.abort(); }, 55000); // 55\uCD08 \uD0C0\uC784\uC544\uC6C3
+
     var r = await fetch('/api/blogs', {
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+_GSK_TOKEN},
+      signal: controller.signal,
       body: JSON.stringify({
         title: title,
         category: document.getElementById('bl-cat').value,
@@ -8113,18 +8126,27 @@ async function genBlog(){
         status: 'published'
       })
     });
+    clearTimeout(timeoutId);
     var d = await r.json();
     if(d.ok){
-      res.style.display='block';
-      res.innerHTML = '\u2705 \uC0DD\uC131 \uC644\uB8CC! <a href="/blog/'+d.slug+'" target="_blank" style="color:#34d399;font-weight:700">/blog/'+d.slug+'</a> \u2014 <a href="/blog/'+d.slug+'" target="_blank" style="color:#34d399">\uBBF8\uB9AC\uBCF4\uAE30 \u2192</a>';
+      res.style.background='rgba(16,185,129,.1)'; res.style.borderColor='rgba(16,185,129,.3)'; res.style.color='#6ee7b7';
+      res.innerHTML = '\u2705 \uC0DD\uC131 \uC644\uB8CC! (' + secs + '\uCD08)<br><a href="/blog/'+d.slug+'" target="_blank" style="color:#34d399;font-weight:700;font-size:13px">/blog/'+d.slug+' \uBBF8\uB9AC\uBCF4\uAE30 \u2192</a>';
       document.getElementById('bl-title').value = '';
       document.getElementById('bl-kw').value = '';
       loadBlogList();
     } else {
-      res.style.display='block'; res.style.background='rgba(239,68,68,.1)'; res.style.borderColor='rgba(239,68,68,.3)'; res.style.color='#fca5a5';
+      res.style.background='rgba(239,68,68,.1)'; res.style.borderColor='rgba(239,68,68,.3)'; res.style.color='#fca5a5';
       res.innerHTML = '\u274C \uC624\uB958: ' + JSON.stringify(d);
     }
-  } catch(e){ res.style.display='block'; res.innerHTML='\u274C \uB124\uD2B8\uC6CC\uD06C \uC624\uB958'; }
+  } catch(e){
+    res.style.background='rgba(239,68,68,.1)'; res.style.borderColor='rgba(239,68,68,.3)'; res.style.color='#fca5a5';
+    if(e.name === 'AbortError'){
+      res.innerHTML = '\u23F1\uFE0F \uD0C0\uC784\uC544\uC6C3 (55\uCD08 \uCD08\uACFC) \u2014 Vercel \uC11C\uBC84 \uC81C\uD55C\uC785\uB2C8\uB2E4. \uB2E4\uC2DC \uC2DC\uB3C4\uD574\uBCF4\uC138\uC694.';
+    } else {
+      res.innerHTML = '\u274C \uB124\uD2B8\uC6CC\uD06C \uC624\uB958: ' + e.message;
+    }
+  }
+  clearInterval(timer);
   btn.disabled=false; btn.innerHTML='<i class="fas fa-magic"></i> AI\uB85C \uC0DD\uC131\uD558\uAE30';
 }
 

@@ -6209,12 +6209,25 @@ async function genBlog(){
   var btn = document.getElementById('bl-gen-btn');
   var res = document.getElementById('bl-gen-result');
   btn.disabled = true;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> AI 생성 중... (20~40초)';
-  res.style.display = 'none';
+  res.style.display='block';
+  res.style.background='rgba(251,191,36,.08)'; res.style.borderColor='rgba(251,191,36,.2)'; res.style.color='#fde68a';
+
+  // 진행 카운터
+  var secs = 0;
+  var timer = setInterval(function(){
+    secs++;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> AI 생성 중... ' + secs + '초';
+    res.innerHTML = '⏳ Claude AI가 블로그 글을 작성하고 있어요... (' + secs + '초 경과)<br><span style="font-size:11px;opacity:.6">보통 20~40초 소요됩니다. 창을 닫지 마세요.</span>';
+  }, 1000);
+
   try {
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function(){ controller.abort(); }, 55000); // 55초 타임아웃
+
     var r = await fetch('/api/blogs', {
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+_GSK_TOKEN},
+      signal: controller.signal,
       body: JSON.stringify({
         title: title,
         category: document.getElementById('bl-cat').value,
@@ -6223,18 +6236,27 @@ async function genBlog(){
         status: 'published'
       })
     });
+    clearTimeout(timeoutId);
     var d = await r.json();
     if(d.ok){
-      res.style.display='block';
-      res.innerHTML = '✅ 생성 완료! <a href="/blog/'+d.slug+'" target="_blank" style="color:#34d399;font-weight:700">/blog/'+d.slug+'</a> — <a href="/blog/'+d.slug+'" target="_blank" style="color:#34d399">미리보기 →</a>';
+      res.style.background='rgba(16,185,129,.1)'; res.style.borderColor='rgba(16,185,129,.3)'; res.style.color='#6ee7b7';
+      res.innerHTML = '✅ 생성 완료! (' + secs + '초)<br><a href="/blog/'+d.slug+'" target="_blank" style="color:#34d399;font-weight:700;font-size:13px">/blog/'+d.slug+' 미리보기 →</a>';
       document.getElementById('bl-title').value = '';
       document.getElementById('bl-kw').value = '';
       loadBlogList();
     } else {
-      res.style.display='block'; res.style.background='rgba(239,68,68,.1)'; res.style.borderColor='rgba(239,68,68,.3)'; res.style.color='#fca5a5';
+      res.style.background='rgba(239,68,68,.1)'; res.style.borderColor='rgba(239,68,68,.3)'; res.style.color='#fca5a5';
       res.innerHTML = '❌ 오류: ' + JSON.stringify(d);
     }
-  } catch(e){ res.style.display='block'; res.innerHTML='❌ 네트워크 오류'; }
+  } catch(e){
+    res.style.background='rgba(239,68,68,.1)'; res.style.borderColor='rgba(239,68,68,.3)'; res.style.color='#fca5a5';
+    if(e.name === 'AbortError'){
+      res.innerHTML = '⏱️ 타임아웃 (55초 초과) — Vercel 서버 제한입니다. 다시 시도해보세요.';
+    } else {
+      res.innerHTML = '❌ 네트워크 오류: ' + e.message;
+    }
+  }
+  clearInterval(timer);
   btn.disabled=false; btn.innerHTML='<i class="fas fa-magic"></i> AI로 생성하기';
 }
 
