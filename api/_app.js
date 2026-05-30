@@ -2125,6 +2125,15 @@ function rowToShop(r) {
     googlePlaceId: r.google_place_id || "",
     metaDescription: r.meta_description || "",
     seoKeywords: r.seo_keywords || "",
+    whyChoose: (() => {
+      if (!r.why_choose) return [];
+      if (Array.isArray(r.why_choose)) return r.why_choose;
+      try {
+        return JSON.parse(r.why_choose);
+      } catch {
+        return [];
+      }
+    })(),
     menuItems: (() => {
       if (!r.menu_items) return [];
       if (Array.isArray(r.menu_items)) return r.menu_items;
@@ -2335,6 +2344,10 @@ async function initDb() {
     }
     try {
       await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS seo_keywords TEXT DEFAULT ''`;
+    } catch (e) {
+    }
+    try {
+      await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS why_choose JSONB DEFAULT '[]'`;
     } catch (e) {
     }
     await sql`CREATE TABLE IF NOT EXISTS videos (
@@ -2757,34 +2770,45 @@ async function autoGenSeo(body, apiKey) {
     const serviceList = Array.isArray(body.services) ? body.services.join(", ") : body.services || "beauty services";
     const brandVariants = `${body.name} Seoul, ${body.name} ${body.category}, ${body.name} booking, ${body.name} review, ${body.name} foreigner, ${body.name} English, ${body.name} price`;
     const ratingInfo = body.rating ? `- Google Rating: ${body.rating}/5 (${body.reviewCount || 0} reviews)` : "";
-    const prompt = `You are an SEO expert for a Korean beauty booking platform targeting foreign tourists in Seoul.
+    const prompt = `You are a senior SEO content writer for a Korean beauty booking platform targeting foreign tourists visiting Seoul.
 
-The shop "${body.name}" is a real ${body.category} salon in ${area}, Seoul.
-Create SEO content capturing BOTH brand searches (people who know "${body.name}") AND generic searches (foreigners looking for ${body.category} in Seoul).
+Write compelling, detailed, Google-optimized content for this real beauty salon that foreigners can book in English via WhatsApp.
 
 Shop details:
 - Name: ${body.name}
-- Area: ${area}, Seoul
+- Area: ${area}, Seoul, South Korea
 - Category: ${body.category}
-- Services: ${serviceList}
-- Price Range: ${body.priceRange || "contact for pricing"}
+- Services offered: ${serviceList}
+- Price range: ${body.priceRange || "contact for pricing"}
 ${ratingInfo}
-- Brand variants: ${brandVariants}
-- Category keywords: ${catKeyword}
+
+Your task: Create SEO content that ranks for BOTH brand searches ("${body.name} Seoul") AND generic searches ("best ${body.category} ${area} Seoul foreigners").
 
 Rules:
-1. titleSuffix: max 40 chars, format "${body.name} | ${area} ${body.category} Seoul"
-2. metaDescription: 140-155 chars, start with "${body.name}", include area + category + English-friendly + Book via WhatsApp
-3. description: 2-3 sentences (180-240 chars), mention shop name, area, what makes it special for foreigners
-4. keywords: exactly 8 strings \u2014 4 brand keywords (${body.name} Seoul, ${body.name} booking, ${body.name} review, ${body.name} foreigners) + 4 generic (best ${body.category} ${area} Seoul, ${body.category} Seoul English, ${body.category} Seoul foreigners, Korean ${body.category} Seoul)
-5. No quotes or markdown inside values
+1. titleSuffix: max 45 chars, format "${body.name} | ${area} ${body.category} Seoul"
 
-Return ONLY valid JSON:
-{"titleSuffix":"...","metaDescription":"...","description":"...","keywords":["k1","k2","k3","k4","k5","k6","k7","k8"]}`;
+2. metaDescription: 148-158 chars. Must include: shop name, ${area}, ${body.category}, "foreigners"/"English", "Book via WhatsApp". Make it click-worthy.
+
+3. description: Write a rich, detailed paragraph of 500-700 characters (NOT words). Structure:
+   - Sentence 1: What ${body.name} is and what makes it special (mention ${area}, ${body.category})
+   - Sentence 2: Describe the experience/treatments \u2014 what customers feel/get. Use vivid sensory language.
+   - Sentence 3: Why it's ideal for foreigners \u2014 English support, foreigner-friendly booking, WhatsApp booking
+   - Sentence 4 (if services available): Highlight 2-3 key services with brief description
+   - End with a call-to-action: "Book your session via WhatsApp with Seoul Beauty Trip."
+   This must be a flowing, natural paragraph \u2014 NOT a list. Total 500-700 characters.
+
+4. whyChoose: Write 3 bullet points (as a JSON array of strings, each 60-100 chars) explaining why foreigners should choose ${body.name}. Focus on: English support, quality/expertise, unique treatments, location convenience. Each bullet starts with an emoji.
+
+5. keywords: exactly 10 strings \u2014 4 brand keywords + 6 generic. Include long-tail keywords like "best ${body.category} ${area} Seoul 2025", "${body.category} Seoul English speaking", "${area} ${body.category} foreigner friendly"
+
+6. No markdown, no quotes inside string values.
+
+Return ONLY valid JSON (no extra text):
+{"titleSuffix":"...","metaDescription":"...","description":"...","whyChoose":["...","...","..."],"keywords":["k1","k2","k3","k4","k5","k6","k7","k8","k9","k10"]}`;
     const res = await fetch("https://www.genspark.ai/api/llm_proxy/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: "gpt-4o-mini", messages: [{ role: "user", content: prompt }], max_tokens: 1e3 })
+      body: JSON.stringify({ model: "gpt-4o-mini", messages: [{ role: "user", content: prompt }], max_tokens: 1800 })
     });
     if (!res.ok) return null;
     const data = await res.json();
@@ -3362,9 +3386,10 @@ app.post("/api/admin/regenerate-seo-all", async (c) => {
         continue;
       }
       await sql`UPDATE shops SET
-        description   = ${seo.description || shop.description},
+        description      = ${seo.description || shop.description},
         meta_description = ${seo.metaDescription || ""},
-        seo_keywords  = ${Array.isArray(seo.keywords) ? seo.keywords.join(", ") : ""}
+        seo_keywords     = ${Array.isArray(seo.keywords) ? seo.keywords.join(", ") : ""},
+        why_choose       = ${JSON.stringify(Array.isArray(seo.whyChoose) ? seo.whyChoose : [])}
         WHERE id = ${shop.id}`;
       results.push({ id: shop.id, name: shop.name, status: "updated" });
     } catch (e) {
@@ -3649,6 +3674,14 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 .sp-review-stars{font-size:11px;color:#fbbf24;letter-spacing:1px}
 .sp-review-text{font-size:12px;color:rgba(255,255,255,.55);line-height:1.6}
 .sp-review-time{font-size:10px;color:rgba(255,255,255,.28);margin-top:4px}
+/* WHY CHOOSE */
+.sp-why-list{display:flex;flex-direction:column;gap:8px}
+.sp-why-item{font-size:13px;color:rgba(255,255,255,.75);line-height:1.6;padding:10px 14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;border-left:3px solid var(--pk2)}
+/* SEO \uD14D\uC2A4\uD2B8 \uBE14\uB85D (\uAD6C\uAE00\uC6A9 \u2014 \uB208\uC5D0 \uB35C \uB744\uAC8C) */
+.sp-seo-block{margin-bottom:14px;padding:16px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);border-radius:14px}
+.sp-seo-h2{font-size:13px;font-weight:700;color:rgba(255,255,255,.5);margin:0 0 8px;line-height:1.4}
+.sp-seo-p{font-size:12px;color:rgba(255,255,255,.38);line-height:1.7;margin:0 0 12px}
+.sp-seo-p:last-child{margin-bottom:0}
 /* \u2500\u2500 \uBE44\uC2B7\uD55C \uC5C5\uCCB4 \uCD94\uCC9C \u2500\u2500 */
 .sp-related{padding:0 20px 0;margin-bottom:0}
 .sp-related-title{font-size:13px;font-weight:800;color:rgba(255,255,255,.45);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:7px}
@@ -3763,6 +3796,25 @@ ${(() => {
       return '<div class="sp-vid-card" data-vid-url="' + vidUrl + '" data-vid-thumb="' + thumb + '" onclick="playSpVid(' + vi + ')">' + (vidUrl ? '<video class="sp-vid-inline" data-src="' + vidUrl + '" poster="' + thumb + '" loop muted playsinline preload="metadata" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px;display:block"></video>' : "") + (thumb ? '<img class="sp-vid-poster" src="' + thumb + '" alt="' + displayTitle + '" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px;transition:opacity .4s">' : '<div class="sp-vid-poster" style="position:absolute;inset:0;background:#111;border-radius:14px"></div>') + '<div class="sp-play-ic"><i class="fas fa-play" style="font-size:14px;color:#fff;margin-left:2px"></i></div><div class="sp-vid-card-ov"><div class="sp-vid-card-title">' + displayTitle + "</div></div></div>";
     }).join("");
     return '<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-play-circle" style="color:var(--pk);margin-right:4px"></i>Videos <span style="font-size:10px;color:rgba(255,255,255,.3);font-weight:400;letter-spacing:0">(' + shopVideos.length + ')</span></div><div class="sp-vid-grid">' + cardsHtml + "</div></div>";
+  })()}
+
+  ${(() => {
+    const wc = shop.whyChoose || [];
+    if (!wc.length) return "";
+    const items = wc.map((b) => `<div class="sp-why-item">${b}</div>`).join("");
+    return `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-check-circle" style="color:var(--pk);margin-right:4px"></i>Why Choose ${shop.name}</div><div class="sp-why-list">${items}</div></div>`;
+  })()}
+
+  ${(() => {
+    const area3 = (shop.location || "Seoul").split(",")[0].trim();
+    const cat3 = shop.category.charAt(0).toUpperCase() + shop.category.slice(1);
+    const svcList = shop.services && shop.services.length > 0 ? shop.services.slice(0, 4).join(", ") : cat3 + " treatments";
+    return `<div class="sp-seo-block">
+      <h2 class="sp-seo-h2">${shop.name} \u2014 ${cat3} in ${area3}, Seoul</h2>
+      <p class="sp-seo-p">Looking for the best ${shop.category} experience in ${area3}, Seoul? ${shop.name} is a top-rated ${shop.category} destination welcoming foreign visitors with English-friendly service and easy WhatsApp booking. Whether you're visiting Seoul for the first time or a returning traveler, ${shop.name} offers an authentic Korean beauty experience tailored for international guests.</p>
+      <h2 class="sp-seo-h2">Foreigner-Friendly ${cat3} in ${area3}</h2>
+      <p class="sp-seo-p">Located in ${area3}, one of Seoul's most popular beauty districts, ${shop.name} specializes in ${svcList}. The team provides English support throughout your visit \u2014 from consultation to aftercare \u2014 so you can relax and enjoy your treatment without language barriers. Book easily via WhatsApp through Seoul Beauty Trip.</p>
+    </div>`;
   })()}
 
   ${relatedShops.length > 0 ? `
@@ -4043,10 +4095,21 @@ app.get("/best/:category/:area", async (c) => {
   } catch (e) {
   }
   const faqList = CAT_FAQ[catSlug] || DEFAULT_FAQ;
-  const titleMain = `Best ${catLabel} in ${areaLabel} Seoul for Foreigners`;
-  const metaDesc = `Top-rated ${catLabel.toLowerCase()} salons in ${areaLabel}, Seoul. English-friendly, foreigner-approved. Book via WhatsApp \u2014 no Korean needed. Updated ${(/* @__PURE__ */ new Date()).getFullYear()}.`;
-  const h1Text = `Best ${catLabel} in ${areaLabel}, Seoul`;
-  const subText = `Foreigner-Friendly | English Booking | Verified Reviews`;
+  const yr = (/* @__PURE__ */ new Date()).getFullYear();
+  const titleMain = `Best ${catLabel} in ${areaLabel} Seoul for Foreigners ${yr}`;
+  const metaDesc = `Best ${catLabel.toLowerCase()} in ${areaLabel}, Seoul ${yr}. Top-rated, foreigner-friendly salons with English support & WhatsApp booking. Real reviews, verified prices.`;
+  const h1Text = `Best ${catLabel} in ${areaLabel}, Seoul ${yr}`;
+  const subText = `Foreigner-Friendly \xB7 English Booking \xB7 Verified Reviews \xB7 Updated ${yr}`;
+  const catIntros = {
+    headspa: `Seoul's head spa scene has exploded in popularity among foreign travelers, and ${areaLabel} is home to some of the best. These foreigner-friendly head spas offer English booking, transparent pricing, and authentic Korean scalp treatments \u2014 from the viral 18-step scalp ritual to deep-cleansing scalp analysis and relaxing massage. Whether you have hair loss concerns, a dry scalp, or simply want the most relaxing experience of your Seoul trip, these ${areaLabel} head spas welcome international guests with open arms.`,
+    skincare: `Korean skincare treatments in ${areaLabel}, Seoul are world-renowned for their innovation and results. Foreign tourists visiting Seoul consistently rate skin clinics and beauty salons in ${areaLabel} as must-visit experiences. From hydrating glass-skin facials and LED therapy to customized prescription skincare, these foreigner-friendly salons offer English consultations and WhatsApp booking to make your experience seamless.`,
+    hair: `${areaLabel} is one of Seoul's top destinations for Korean hair transformations. From K-pop inspired cuts and colors to balayage, Korean perms, and treatment packages, these English-friendly hair salons cater specifically to international visitors. All salons listed are experienced with various hair textures and provide English support throughout.`,
+    nail: `Korean nail art in ${areaLabel} is a world-class experience. These foreigner-friendly nail salons offer intricate K-beauty nail designs, premium gel applications, and English-speaking nail artists. Whether you want minimalist Korean aesthetics or elaborate 3D nail art, ${areaLabel}'s nail scene has something for every visitor.`,
+    clinic: `${areaLabel} is Seoul's medical beauty hub, home to top-tier dermatology clinics and aesthetic centers welcoming foreign patients. From laser toning and skin boosters to RF lifting and acne treatments, these clinics offer cutting-edge technology at competitive prices \u2014 often 30-50% less than Western countries \u2014 with English-speaking consultants.`,
+    makeup: `Experience a Korean makeup transformation in ${areaLabel}. These English-friendly makeup studios specialize in K-beauty looks including glass skin, gradient lips, and K-pop inspired styles. Perfect for photoshoots, hanbok experiences, or just a memorable Seoul beauty experience. All studios offer English booking via WhatsApp.`,
+    spa: `Discover authentic Korean spa treatments in ${areaLabel}, Seoul. From traditional Korean body scrubs (\uB54C\uBC00\uC774) and aromatherapy massage to modern wellness packages, these foreigner-friendly spas deliver true Korean relaxation. All listed spas support English booking and welcome international guests.`
+  };
+  const introText = catIntros[catSlug] || `Discover the best ${catLabel.toLowerCase()} experiences in ${areaLabel}, Seoul. All salons are foreigner-friendly with English booking support via WhatsApp. Browse top-rated options below.`;
   const catEmoji = { skincare: "\u{1F33F}", makeup: "\u{1F48B}", hair: "\u{1F487}", headspa: "\u{1F9D6}", nail: "\u{1F485}", clinic: "\u{1F3E5}", spa: "\u{1F6C1}" };
   const emoji = catEmoji[catSlug] || "\u2728";
   const schemaGraph = [
@@ -4252,9 +4315,10 @@ details[open] .faq-q::after{transform:rotate(180deg)}
 </header>
 <main class="main">
   <div class="intro-box">
-    Looking for the <strong>best ${catLabel.toLowerCase()} in ${areaLabel}, Seoul</strong>? 
-    Seoul Beauty Trip has curated the top foreigner-friendly ${catLabel.toLowerCase()} salons in ${areaLabel} \u2014 all verified, English-booking supported, and loved by international tourists. 
-    Whether you're visiting Seoul for K-beauty experiences or living here, book your ${catLabel.toLowerCase()} appointment via WhatsApp in English with zero hassle.
+    ${introText}
+    <div style="margin-top:10px;font-size:13px;color:#666">
+      \u{1F4F1} All salons support <strong>English booking via WhatsApp</strong> \u2014 no Korean needed.
+    </div>
   </div>
   <div class="section-title">${emoji} Top ${catLabel} Salons in ${areaLabel} <span style="font-size:.85rem;font-weight:400;color:#888">(${shops2.length} listed)</span></div>
   ${shopCards}
