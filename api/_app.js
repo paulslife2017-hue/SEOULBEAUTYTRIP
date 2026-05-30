@@ -3736,7 +3736,7 @@ ${(() => {
     const svcHtml2 = shop.services && shop.services.length > 0 ? `<div class="sp-sec"><div class="sp-sec-title">Services</div><div class="sp-svc-tags">${shop.services.map((s) => `<span class="sp-svc-tag">${s}</span>`).join("")}</div></div>` : "";
     const embedUrl2 = shop.googleMapEmbed || (shop.lat && shop.lng ? `https://maps.google.com/maps?q=${shop.lat},${shop.lng}&z=17&output=embed&hl=en` : "");
     const mapHtml2 = embedUrl2 ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map"><iframe src="${embedUrl2}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div></div>` : shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : "";
-    return addrHtml2 + infoGridHtml2 + descHtml2 + priceHtml2 + svcHtml2 + hoursHtml2 + mapHtml2;
+    return addrHtml2 + infoGridHtml2 + descHtml2 + priceHtml2 + svcHtml2 + hoursHtml2;
   })()}
 
   ${(() => {
@@ -3747,7 +3747,10 @@ ${(() => {
       const rvStars = "\u2605".repeat(Math.min(5, Math.max(0, rvR))) + "\u2606".repeat(Math.max(0, 5 - rvR));
       return `<div class="sp-review-card"><div class="sp-review-top"><span class="sp-review-author">${rv.author || "Guest"}</span><span class="sp-review-stars">${rvStars}</span></div><div class="sp-review-text">${rv.text || ""}</div>${rv.time ? `<div class="sp-review-time">${rv.time}</div>` : ""}</div>`;
     }).join("");
-    return `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-star" style="color:var(--gold);margin-right:4px"></i>Google Reviews${shop.reviewCount ? ` <span style="font-size:10px;color:rgba(255,255,255,.35);font-weight:400">(${shop.rating}\u2605 \xB7 ${Number(shop.reviewCount).toLocaleString()} reviews)</span>` : ""}</div><div class="sp-reviews-wrap">${reviewCards2}</div></div>`;
+    const embedUrl3 = shop.googleMapEmbed || (shop.lat && shop.lng ? `https://maps.google.com/maps?q=${shop.lat},${shop.lng}&z=17&output=embed&hl=en` : "");
+    const mapHtml3 = embedUrl3 ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map"><iframe src="${embedUrl3}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div></div>` : shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : "";
+    const reviewsBlock = shopReviews2.length ? `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-star" style="color:var(--gold);margin-right:4px"></i>Google Reviews${shop.reviewCount ? ` <span style="font-size:10px;color:rgba(255,255,255,.35);font-weight:400">(${shop.rating}\u2605 \xB7 ${Number(shop.reviewCount).toLocaleString()} reviews)</span>` : ""}</div><div class="sp-reviews-wrap">${reviewCards2}</div></div>` : "";
+    return reviewsBlock + mapHtml3;
   })()}
 
   ${(() => {
@@ -3857,7 +3860,7 @@ function setHero(url, el) {
   }
 })();
 
-// \uC601\uC0C1 \uCE74\uB4DC \uD074\uB9AD \u2192 \uC911\uC559 \uBAA8\uB2EC (\uC18C\uB9AC \uD1A0\uAE00 \uBC84\uD2BC \uD3EC\uD568)
+// \uC601\uC0C1 \uCE74\uB4DC \uD074\uB9AD \u2192 \uC911\uC559 \uBAA8\uB2EC (\uB85C\uB529 \uC2A4\uD53C\uB108 + \uC18C\uB9AC \uD1A0\uAE00)
 var _spVidMuted = false;
 function playSpVid(idx){
   var cards = document.querySelectorAll('.sp-vid-card');
@@ -3874,32 +3877,60 @@ function playSpVid(idx){
   ov.id = 'sp-vid-ov';
   ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
 
+  var muteIcon = _spVidMuted ? 'fa-volume-mute' : 'fa-volume-up';
   ov.innerHTML =
     '<div style="position:relative;width:min(88vw,360px);max-height:calc(100dvh - 80px);aspect-ratio:9/16">'
-    // \uB2EB\uAE30 \uBC84\uD2BC (\uC6B0\uC0C1\uB2E8)
+    // \uB2EB\uAE30 \uBC84\uD2BC
     +'<button id="sp-vid-ov-close" style="position:absolute;top:-42px;right:0;width:34px;height:34px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);border-radius:50%;color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2">&#10005;</button>'
-    // \uC18C\uB9AC \uD1A0\uAE00 \uBC84\uD2BC (\uC88C\uC0C1\uB2E8)
+    // \uC18C\uB9AC \uBC84\uD2BC
     +'<button id="sp-vid-ov-mute" style="position:absolute;top:-42px;left:0;width:34px;height:34px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);border-radius:50%;color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2">'
-      +'<i class="fas '+(_spVidMuted?'fa-volume-mute':'fa-volume-up')+'"></i>'
+      +'<i class="fas '+muteIcon+'"></i>'
     +'</button>'
-    // \uC601\uC0C1
-    +'<video id="sp-vid-ov-video" src="'+vidUrl+'"'+(thumb?' poster="'+thumb+'"':'')
-    +' autoplay loop playsinline'
+    // \uB85C\uB529 \uC2A4\uD53C\uB108 (\uC601\uC0C1 \uB85C\uB4DC \uC804 \uD45C\uC2DC)
+    +'<div id="sp-vid-ov-spin" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:1;border-radius:18px;background:rgba(0,0,0,.6)">'
+      +'<div style="width:36px;height:36px;border:3px solid rgba(255,255,255,.15);border-top-color:#FF4D8D;border-radius:50%;animation:spSpinAnim .7s linear infinite"></div>'
+    +'</div>'
+    // \uC601\uC0C1 (poster\uB85C \uC989\uC2DC \uD45C\uC2DC, src\uB294 JS\uB85C \uC124\uC815)
+    +'<video id="sp-vid-ov-video"'+(thumb?' poster="'+thumb+'"':'')
+    +' loop playsinline'
     +' style="width:100%;height:100%;border-radius:18px;object-fit:cover;background:#000;display:block"></video>'
     +'</div>';
+
+  // \uC2A4\uD53C\uB108 \uC560\uB2C8\uBA54\uC774\uC158 CSS (\uD55C \uBC88\uB9CC \uCD94\uAC00)
+  if(!document.getElementById('sp-spin-style')){
+    var st = document.createElement('style');
+    st.id = 'sp-spin-style';
+    st.textContent = '@keyframes spSpinAnim{to{transform:rotate(360deg)}}';
+    document.head.appendChild(st);
+  }
 
   ov.addEventListener('click', function(e){ if(e.target===ov) ov.remove(); });
   document.body.appendChild(ov);
 
   var vid = document.getElementById('sp-vid-ov-video');
-  if(vid){
-    vid.muted = _spVidMuted;
-    vid.play().catch(function(){ vid.muted=true; _spVidMuted=true; _updateMuteBtn(); vid.play().catch(function(){}); });
-  }
+  var spin = document.getElementById('sp-vid-ov-spin');
 
   function _updateMuteBtn(){
     var btn = document.getElementById('sp-vid-ov-mute');
     if(btn) btn.innerHTML = '<i class="fas '+(_spVidMuted?'fa-volume-mute':'fa-volume-up')+'"></i>';
+  }
+
+  if(vid){
+    vid.muted = _spVidMuted;
+    // \uB85C\uB4DC\uAC00 \uCDA9\uBD84\uD788 \uB410\uC744 \uB54C \uC2A4\uD53C\uB108 \uC228\uAE40
+    vid.addEventListener('canplay', function(){
+      if(spin) spin.style.display = 'none';
+    }, {once:true});
+    // \uBC84\uD37C\uB9C1 \uC911 \uB2E4\uC2DC \uC2A4\uD53C\uB108 \uD45C\uC2DC
+    vid.addEventListener('waiting', function(){
+      if(spin) spin.style.display = 'flex';
+    });
+    vid.addEventListener('playing', function(){
+      if(spin) spin.style.display = 'none';
+    });
+    // src \uC124\uC815 \u2192 \uB85C\uB4DC \uC2DC\uC791
+    vid.src = vidUrl;
+    vid.play().catch(function(){ vid.muted=true; _spVidMuted=true; _updateMuteBtn(); vid.play().catch(function(){}); });
   }
 
   document.getElementById('sp-vid-ov-close').addEventListener('click', function(){ ov.remove(); });

@@ -1757,11 +1757,11 @@ ${(()=>{const allP=[shop.thumbnail,...(shop.photos||[]).filter((p:string)=>p&&p!
       ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map"><iframe src="${embedUrl2}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div></div>`
       : (shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : '');
 
-    return addrHtml2 + infoGridHtml2 + descHtml2 + priceHtml2 + svcHtml2 + hoursHtml2 + mapHtml2;
+    return addrHtml2 + infoGridHtml2 + descHtml2 + priceHtml2 + svcHtml2 + hoursHtml2;
   })()}
 
   ${(()=>{
-    /* ── Google Reviews (모달과 동일 구조) ── */
+    /* ── Google Reviews → Map 바로 위 ── */
     const shopReviews2: any[] = shop.reviews || [];
     if(!shopReviews2.length) return '';
     const reviewCards2 = shopReviews2.map((rv:any)=>{
@@ -1769,7 +1769,18 @@ ${(()=>{const allP=[shop.thumbnail,...(shop.photos||[]).filter((p:string)=>p&&p!
       const rvStars = '★'.repeat(Math.min(5,Math.max(0,rvR)))+'☆'.repeat(Math.max(0,5-rvR));
       return `<div class="sp-review-card"><div class="sp-review-top"><span class="sp-review-author">${rv.author||'Guest'}</span><span class="sp-review-stars">${rvStars}</span></div><div class="sp-review-text">${rv.text||''}</div>${rv.time?`<div class="sp-review-time">${rv.time}</div>`:''}</div>`;
     }).join('');
-    return `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-star" style="color:var(--gold);margin-right:4px"></i>Google Reviews${shop.reviewCount?` <span style="font-size:10px;color:rgba(255,255,255,.35);font-weight:400">(${shop.rating}★ · ${Number(shop.reviewCount).toLocaleString()} reviews)</span>`:''}</div><div class="sp-reviews-wrap">${reviewCards2}</div></div>`;
+    /* ── Map (리뷰 바로 뒤) ── */
+    const embedUrl3 = shop.googleMapEmbed
+      || (shop.lat && shop.lng ? `https://maps.google.com/maps?q=${shop.lat},${shop.lng}&z=17&output=embed&hl=en` : '');
+    const mapHtml3 = embedUrl3
+      ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map"><iframe src="${embedUrl3}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div></div>`
+      : (shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : '');
+
+    const reviewsBlock = shopReviews2.length
+      ? `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-star" style="color:var(--gold);margin-right:4px"></i>Google Reviews${shop.reviewCount?` <span style="font-size:10px;color:rgba(255,255,255,.35);font-weight:400">(${shop.rating}★ · ${Number(shop.reviewCount).toLocaleString()} reviews)</span>`:''}</div><div class="sp-reviews-wrap">${reviewCards2}</div></div>`
+      : '';
+
+    return reviewsBlock + mapHtml3;
   })()}
 
   ${(()=>{
@@ -1884,7 +1895,7 @@ function setHero(url, el) {
   }
 })();
 
-// 영상 카드 클릭 → 중앙 모달 (소리 토글 버튼 포함)
+// 영상 카드 클릭 → 중앙 모달 (로딩 스피너 + 소리 토글)
 var _spVidMuted = false;
 function playSpVid(idx){
   var cards = document.querySelectorAll('.sp-vid-card');
@@ -1901,32 +1912,60 @@ function playSpVid(idx){
   ov.id = 'sp-vid-ov';
   ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
 
+  var muteIcon = _spVidMuted ? 'fa-volume-mute' : 'fa-volume-up';
   ov.innerHTML =
     '<div style="position:relative;width:min(88vw,360px);max-height:calc(100dvh - 80px);aspect-ratio:9/16">'
-    // 닫기 버튼 (우상단)
+    // 닫기 버튼
     +'<button id="sp-vid-ov-close" style="position:absolute;top:-42px;right:0;width:34px;height:34px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);border-radius:50%;color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2">&#10005;</button>'
-    // 소리 토글 버튼 (좌상단)
+    // 소리 버튼
     +'<button id="sp-vid-ov-mute" style="position:absolute;top:-42px;left:0;width:34px;height:34px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);border-radius:50%;color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2">'
-      +'<i class="fas '+(_spVidMuted?'fa-volume-mute':'fa-volume-up')+'"></i>'
+      +'<i class="fas '+muteIcon+'"></i>'
     +'</button>'
-    // 영상
-    +'<video id="sp-vid-ov-video" src="'+vidUrl+'"'+(thumb?' poster="'+thumb+'"':'')
-    +' autoplay loop playsinline'
+    // 로딩 스피너 (영상 로드 전 표시)
+    +'<div id="sp-vid-ov-spin" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:1;border-radius:18px;background:rgba(0,0,0,.6)">'
+      +'<div style="width:36px;height:36px;border:3px solid rgba(255,255,255,.15);border-top-color:#FF4D8D;border-radius:50%;animation:spSpinAnim .7s linear infinite"></div>'
+    +'</div>'
+    // 영상 (poster로 즉시 표시, src는 JS로 설정)
+    +'<video id="sp-vid-ov-video"'+(thumb?' poster="'+thumb+'"':'')
+    +' loop playsinline'
     +' style="width:100%;height:100%;border-radius:18px;object-fit:cover;background:#000;display:block"></video>'
     +'</div>';
+
+  // 스피너 애니메이션 CSS (한 번만 추가)
+  if(!document.getElementById('sp-spin-style')){
+    var st = document.createElement('style');
+    st.id = 'sp-spin-style';
+    st.textContent = '@keyframes spSpinAnim{to{transform:rotate(360deg)}}';
+    document.head.appendChild(st);
+  }
 
   ov.addEventListener('click', function(e){ if(e.target===ov) ov.remove(); });
   document.body.appendChild(ov);
 
   var vid = document.getElementById('sp-vid-ov-video');
-  if(vid){
-    vid.muted = _spVidMuted;
-    vid.play().catch(function(){ vid.muted=true; _spVidMuted=true; _updateMuteBtn(); vid.play().catch(function(){}); });
-  }
+  var spin = document.getElementById('sp-vid-ov-spin');
 
   function _updateMuteBtn(){
     var btn = document.getElementById('sp-vid-ov-mute');
     if(btn) btn.innerHTML = '<i class="fas '+(_spVidMuted?'fa-volume-mute':'fa-volume-up')+'"></i>';
+  }
+
+  if(vid){
+    vid.muted = _spVidMuted;
+    // 로드가 충분히 됐을 때 스피너 숨김
+    vid.addEventListener('canplay', function(){
+      if(spin) spin.style.display = 'none';
+    }, {once:true});
+    // 버퍼링 중 다시 스피너 표시
+    vid.addEventListener('waiting', function(){
+      if(spin) spin.style.display = 'flex';
+    });
+    vid.addEventListener('playing', function(){
+      if(spin) spin.style.display = 'none';
+    });
+    // src 설정 → 로드 시작
+    vid.src = vidUrl;
+    vid.play().catch(function(){ vid.muted=true; _spVidMuted=true; _updateMuteBtn(); vid.play().catch(function(){}); });
   }
 
   document.getElementById('sp-vid-ov-close').addEventListener('click', function(){ ov.remove(); });
