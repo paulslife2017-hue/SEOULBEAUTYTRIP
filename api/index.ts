@@ -1,5 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import app from '../src/index'
+
+// Vercel 빌드 시 esbuild로 미리 번들된 app (api/_app.js)
+// src/index.tsx를 런타임에 직접 ts-node 컴파일하지 않기 위해 분리
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { default: app } = require('./_app.js')
 
 // multipart/form-data(파일 업로드)가 깨지지 않도록 Vercel 자동 파싱 비활성화
 export const config = { api: { bodyParser: false } }
@@ -33,7 +37,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const response = await app.fetch(request)
     res.status(response.status)
-    response.headers.forEach((v, k) => res.setHeader(k, v))
+    response.headers.forEach((v: string, k: string) => res.setHeader(k, v))
     const buf = await response.arrayBuffer()
     res.end(Buffer.from(buf))
   } catch (e: any) {

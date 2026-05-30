@@ -1,8 +1,9 @@
 {
+  "buildCommand": "npm run build",
   "outputDirectory": "public",
   "functions": {
     "api/index.ts": {
-      "memory": 256,
+      "memory": 512,
       "maxDuration": 30
     }
   },
