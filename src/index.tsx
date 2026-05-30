@@ -3005,6 +3005,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .m-vid-card-ov{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,rgba(0,0,0,.88) 100%);display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding:10px 8px;pointer-events:none}
 .m-vid-card-title{font-size:12px;font-weight:700;color:#fff;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-align:center}
 .m-vid-card-views{display:none}
+/* 모달 영상 소리 토글 버튼 */
+.m-vid-mute-btn{position:absolute;bottom:44px;right:8px;width:30px;height:30px;border-radius:50%;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.7);font-size:12px;cursor:pointer;display:none;align-items:center;justify-content:center;z-index:10;transition:all .2s;backdrop-filter:blur(4px)}
+.m-vid-card.vid-on .m-vid-mute-btn{display:flex}
 .m-vid-play-ic{position:absolute;top:50%;left:50%;transform:translate(-50%,-60%);width:38px;height:38px;background:rgba(0,0,0,.48);border:1.5px solid rgba(255,255,255,.65);border-radius:50%;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);transition:opacity .2s,transform .2s;pointer-events:none}
 .m-vid-play-ic i{font-size:12px;color:#fff;margin-left:2px}
 .m-vid-card.vid-on .m-vid-play-ic{opacity:0;transform:translate(-50%,-60%) scale(.8)}
@@ -4009,6 +4012,10 @@ function renderShopModal(shop) {
           +'<div class="m-vid-card-views"><i class="fas fa-eye"></i>'+vViews+'</div>'
         +'</div>'
         +'<div class="m-vid-play-ic"><i class="fas fa-play"></i></div>'
+        // 소리 토글 버튼 (재생 중에만 표시)
+        +'<button class="m-vid-mute-btn" onclick="mVidMute(event,this)" title="Toggle sound">'
+          +'<i class="fas fa-volume-mute"></i>'
+        +'</button>'
       +'</div>';
     }).join('');
     videosHtml = '<div class="m-sec" style="margin-bottom:0">'
@@ -4069,6 +4076,7 @@ function renderShopModal(shop) {
 }
 
 /* ── 모달 내 영상 재생/정지 ── */
+var _mVidMuted = true; // 모달 영상 소리 상태 (기본 음소거)
 function mVidPlay(idx, card) {
   var vid = card.querySelector('video');
   if(!vid) return;
@@ -4089,9 +4097,33 @@ function mVidPlay(idx, card) {
     // src 로드 후 재생
     if(vid.dataset.src && !vid.src) { vid.src = vid.dataset.src; }
     card.classList.add('vid-on');
-    vid.muted = true;
+    vid.muted = _mVidMuted;
     var p = vid.play();
     if(p && p.catch) p.catch(function(){});
+    // 소리 버튼 아이콘 업데이트
+    _mVidUpdateMuteBtn(card);
+  }
+}
+function mVidMute(e, btn) {
+  e.stopPropagation(); // 카드 클릭 이벤트 차단
+  _mVidMuted = !_mVidMuted;
+  // 현재 재생중인 모든 카드 영상에 적용
+  document.querySelectorAll('.m-vid-card.vid-on').forEach(function(c){
+    var v = c.querySelector('video');
+    if(v) v.muted = _mVidMuted;
+    _mVidUpdateMuteBtn(c);
+  });
+}
+function _mVidUpdateMuteBtn(card) {
+  var btn = card.querySelector('.m-vid-mute-btn i');
+  if(btn) {
+    btn.className = 'fas ' + (_mVidMuted ? 'fa-volume-mute' : 'fa-volume-up');
+  }
+  var muteBtn = card.querySelector('.m-vid-mute-btn');
+  if(muteBtn) {
+    muteBtn.style.opacity = _mVidMuted ? '0.6' : '1';
+    muteBtn.style.borderColor = _mVidMuted ? 'rgba(255,255,255,.2)' : 'rgba(232,65,122,.6)';
+    muteBtn.style.color = _mVidMuted ? 'rgba(255,255,255,.7)' : '#FF4D8D';
   }
 }
 
