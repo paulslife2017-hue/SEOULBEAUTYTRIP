@@ -1599,7 +1599,7 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 <body>
 <nav class="sp-nav" itemscope itemtype="https://schema.org/SiteNavigationElement">
   <a href="/" class="sp-nav-logo" itemprop="url"><span itemprop="name">Seoul Beauty Trip</span></a>
-  <a href="/" class="sp-nav-back"><i class="fas fa-arrow-left"></i> Back</a>
+  <a href="javascript:void(0)" onclick="goBack()" class="sp-nav-back"><i class="fas fa-arrow-left"></i> Back</a>
 </nav>
 
 <div class="sp-hero">
@@ -1649,7 +1649,7 @@ ${(()=>{const allP=[shop.thumbnail,...(shop.photos||[]).filter((p:string)=>p&&p!
       : shop.address ? `<div class="sp-card"><div class="sp-card-title"><i class="fas fa-map"></i> Location</div><div style="padding:12px;font-size:13px;color:rgba(0,0,0,.7)"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : '';
   })()}
 
-  ${shopVideos.length>0?`<div class="sp-card"><div class="sp-card-title"><i class="fas fa-play-circle"></i> Videos</div><div class="sp-vid-grid">${shopVideos.map((v:any)=>`<div class="sp-vid-card" onclick="window.location='/'"><img src="${v.thumbnail}" alt="${v.title}" loading="lazy"><div class="sp-play-ic"><i class="fas fa-play" style="font-size:14px;color:#fff;margin-left:2px"></i></div><div class="sp-vid-card-ov"><div class="sp-vid-card-title">${v.title}</div><div class="sp-vid-views"><i class="fas fa-eye"></i> ${v.views>=1000?(v.views/1000).toFixed(1)+'K':v.views}</div></div></div>`).join('')}</div></div>`:''}
+  ${shopVideos.length>0?`<div class="sp-card"><div class="sp-card-title"><i class="fas fa-play-circle"></i> Videos</div><div class="sp-vid-grid">${shopVideos.map((v:any,vi:number)=>`<div class="sp-vid-card" onclick="playSpVid(${vi})" data-vid-url="${v.videoUrl||''}" data-vid-thumb="${v.thumbnail||''}"><img src="${v.thumbnail||''}" alt="${v.title}" loading="lazy"><div class="sp-play-ic"><i class="fas fa-play" style="font-size:14px;color:#fff;margin-left:2px"></i></div><div class="sp-vid-card-ov"><div class="sp-vid-card-title">${v.title}</div><div class="sp-vid-views"><i class="fas fa-eye"></i> ${v.views>=1000?(v.views/1000).toFixed(1)+'K':v.views}</div></div></div>`).join('')}</div></div>`:''}
 
   <div style="height:60px"></div>
 </div>
@@ -1661,10 +1661,46 @@ ${(()=>{const allP=[shop.thumbnail,...(shop.photos||[]).filter((p:string)=>p&&p!
 </div>
 
 <script>
+// 뒤로가기: 이전 페이지가 같은 사이트면 history.back(), 아니면 메인으로
+function goBack(){
+  var ref = document.referrer;
+  if(ref && ref.indexOf(location.hostname) !== -1){
+    history.back();
+  } else {
+    location.href = '/';
+  }
+}
+
 function setHero(url, el) {
   document.querySelector('.sp-hero-img').src = url;
   document.querySelectorAll('.sp-gthumb').forEach(function(t){ t.classList.remove('active'); });
   el.classList.add('active');
+}
+
+// 영상 카드 클릭 → 전체화면 팝업 재생
+function playSpVid(idx){
+  var cards = document.querySelectorAll('.sp-vid-card');
+  var card = cards[idx];
+  if(!card) return;
+  var vidUrl = card.getAttribute('data-vid-url');
+  var thumb  = card.getAttribute('data-vid-thumb');
+  if(!vidUrl){ return; }
+
+  // 팝업 오버레이 생성
+  var ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.96);display:flex;align-items:center;justify-content:center';
+  ov.innerHTML = '<div style="position:relative;width:min(92vw,420px);aspect-ratio:9/16">'
+    +'<video src="'+vidUrl+'" poster="'+thumb+'" autoplay muted loop playsinline controls'
+    +' style="width:100%;height:100%;border-radius:16px;object-fit:cover;background:#000"></video>'
+    +'<button onclick="this.closest(\'div\').parentElement.remove()"'
+    +' style="position:absolute;top:-40px;right:0;background:none;border:none;color:#fff;font-size:24px;cursor:pointer;line-height:1">&#10005;</button>'
+    +'</div>';
+  // 배경 클릭 시 닫기
+  ov.addEventListener('click', function(e){ if(e.target===ov) ov.remove(); });
+  document.body.appendChild(ov);
+  // 비디오 자동재생 (모바일 정책)
+  var vid = ov.querySelector('video');
+  if(vid) vid.play().catch(function(){});
 }
 </script>
 </body>
