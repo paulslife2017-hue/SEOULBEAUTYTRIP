@@ -2691,8 +2691,13 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   transition:filter .4s ease,transform .4s ease;
 }
 .so-card-img-wrap.loaded .so-card-img{filter:blur(0);transform:scale(1)}
+/* 카드 미리보기 video */
+.so-card-vid{position:absolute;inset:0;z-index:3;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .35s}
+.so-card-img-wrap.vid-playing .so-card-vid{opacity:1}
+.so-card-img-wrap.vid-playing .so-card-img{opacity:0}
 .so-card-play{position:absolute;inset:0;z-index:4;display:flex;align-items:center;justify-content:center;pointer-events:none}
-.so-card-play i{width:34px;height:34px;background:rgba(0,0,0,.45);border:1.5px solid rgba(255,255,255,.55);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;padding-left:2px;backdrop-filter:blur(4px);transition:transform .2s}
+.so-card-play i{width:34px;height:34px;background:rgba(0,0,0,.45);border:1.5px solid rgba(255,255,255,.55);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;padding-left:2px;backdrop-filter:blur(4px);transition:transform .2s,opacity .2s}
+.so-card-img-wrap.vid-playing .so-card-play i{opacity:0}
 .so-card:active .so-card-play i{transform:scale(1.15)}
 .so-card-ov{position:absolute;bottom:0;left:0;right:0;z-index:3;padding:22px 8px 8px;background:linear-gradient(to top,rgba(0,0,0,.72) 0%,transparent 100%);pointer-events:none}
 .so-card-cat-badge{font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;opacity:.92}
@@ -2963,9 +2968,28 @@ function _preloadFirstVideo(){
 /* shops + videos 둘 다 준비되면 최소시간 후 hideLd() */
 function _checkLdReady() {
   if(!_ldReadyFlags.shops || !_ldReadyFlags.videos) return;
+  // vids의 shopId → videoUrl/thumbnail 을 allShopsData에 주입
+  _injectVideoIntoShops();
   var elapsed = Date.now() - _ldStartTime;
   var delay = Math.max(0, _MIN_SPLASH_MS - elapsed);
   setTimeout(hideLd, delay);
+}
+
+/* vids 배열에서 shopId 기준으로 영상 정보를 allShopsData에 주입 */
+function _injectVideoIntoShops() {
+  if(!vids || !vids.length || !allShopsData || !allShopsData.length) return;
+  // shopId → 첫 번째 video 매핑
+  var vidMap = {};
+  vids.forEach(function(v){
+    if(v && v.shopId && !vidMap[v.shopId]) vidMap[v.shopId] = v;
+  });
+  allShopsData.forEach(function(s){
+    var v = vidMap[s.id];
+    if(v){
+      if(!s.videoUrl && v.videoUrl) s.videoUrl = v.videoUrl;
+      if(!s.videoThumb && (v.thumbnail || s.thumbnail)) s.videoThumb = v.thumbnail || s.thumbnail;
+    }
+  });
 }
 
 /* ── 스플래시 중 shops 데이터 Prefetch ──
@@ -3830,10 +3854,16 @@ function _renderSearchResults(q, filter){
     var col = catColors[s.category] || 'var(--pk)';
     var href = s.slug ? '/shop/'+s.slug : '#';
     var clickAttr = ' onclick="event.preventDefault();openShopFromSearch(&quot;'+s.id+'&quot;)"';
+    var thumb = s.videoThumb || s.thumbnail || '';
+    var vidUrl = s.videoUrl || '';
+    var vidTag = vidUrl
+      ? '<video class="so-card-vid" data-src="'+vidUrl+'" loop muted playsinline preload="none"></video>'
+      : '';
     return '<a class="so-card" href="'+href+'"'+clickAttr+'>'
-      +'<div class="so-card-img-wrap">'
-        +'<img class="so-card-img" src="'+(s.thumbnail||'')+'" alt="'+esc(s.name)+'" loading="lazy" decoding="async"'
+      +'<div class="so-card-img-wrap" onmouseenter="soCardPreview(this)" onmouseleave="soCardStop(this)">'
+        +'<img class="so-card-img" src="'+thumb+'" alt="'+esc(s.name)+'" loading="lazy" decoding="async"'
           +' onload="parentLoaded(this)" onerror="parentLoaded(this)">'
+        +vidTag
         +'<div class="so-card-play"><i class="fas fa-play"></i></div>'
         +'<div class="so-card-ov"><div class="so-card-cat-badge" style="color:'+col+'">'+esc(s.category)+'</div></div>'
       +'</div>'
@@ -3880,11 +3910,26 @@ function closeSearch(){
 // 검색 오버레이에서 업체 클릭 → 오버레이는 뒤로 숨기고 모달만 열기
 // closeModal() 시 _searchOpen=true 이면 오버레이 다시 복원
 function openShopFromSearch(sid){
-  // 오버레이를 잠시 숨기기만 (_searchOpen=true 유지)
-  // closeModal() 호출 시 _searchOpen 체크 후 오버레이 재표시
   var overlay = document.getElementById('search-overlay');
   if(overlay) overlay.classList.remove('open');
   openShopModal(sid);
+}
+
+// 검색 카드 영상 미리보기 — 탭/호버 시 재생
+function soCardPreview(wrap){
+  var vid = wrap.querySelector('.so-card-vid');
+  if(!vid) return;
+  if(!vid.src && vid.dataset.src){ vid.src = vid.dataset.src; vid.load(); }
+  wrap.classList.add('vid-playing');
+  vid.currentTime = 0;
+  vid.play().catch(function(){});
+}
+
+// 검색 카드 영상 정지 (마우스 이탈 / 터치 후 자동정지)
+function soCardStop(wrap){
+  var vid = wrap.querySelector('.so-card-vid');
+  wrap.classList.remove('vid-playing');
+  if(vid){ vid.pause(); vid.currentTime = 0; }
 }
 
 // 필터 칩 클릭
@@ -4032,6 +4077,7 @@ window.addEventListener('load', function(){
   // ── PC 카탈로그 패널 (항상 로드, CSS로 표시/숨김 제어) ──
   fetch('/api/shops').then(function(r){ return r.json(); }).then(function(d){
     allShopsData = d.shops || [];
+    _injectVideoIntoShops(); // 검색 카드용 videoUrl/videoThumb 주입
     renderShopPanel('all');
   });
   document.querySelectorAll('#sp-filter .sp-flt').forEach(function(btn){
