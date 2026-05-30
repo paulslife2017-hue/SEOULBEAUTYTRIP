@@ -705,19 +705,6 @@ Return ONLY valid JSON:
   } catch { return null }
 }
 
-// slug 자동 생성: "name-location-category" 형태, 숫자 접미사 없음
-function makeShopSlug(name: string, location: string, category: string): string {
-  const area = (location || '').split(',')[0].trim().toLowerCase()
-  const base = [name, area, category]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')   // 특수문자 제거
-    .replace(/\s+/g, '-')            // 공백 → 하이픈
-    .replace(/-+/g, '-')             // 중복 하이픈 제거
-    .replace(/^-|-$/g, '')           // 앞뒤 하이픈 제거
-  return base || 'shop-' + Date.now()
-}
 
 app.post('/api/shops', async (c) => {
   const sql = getDb()
@@ -1274,6 +1261,51 @@ app.get('/api/photo', async (c) => {
 
 // ══════════════════════════════════════════
 // ── 일괄 SEO 재생성 API ──
+// POST /api/admin/fix-slugs
+// → 모든 업체 slug를 name+location 기반으로 재생성 (숫자 suffix → 지역명 suffix)
+// ══════════════════════════════════════════
+app.post('/api/admin/fix-slugs', async (c) => {
+  const sql = getDb()
+  const rows = await sql`SELECT id, name, location, slug FROM shops ORDER BY created_at ASC`
+  const results: {id:string, name:string, old:string, new:string}[] = []
+
+  for (const row of rows) {
+    // 자기 자신을 제외한 slug 중복 확인을 위해 임시로 다른 slug로 변경
+    // → 새 slug 계산 시 자기 자신은 무시
+    const base = (function() {
+      let b = ''
+      for (let i = 0; i < (row.name||'').length; i++) {
+        const ch = (row.name[i]||'').toLowerCase()
+        b += (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') ? ch : '-'
+      }
+      b = b.replace(/-+/g,'-').replace(/^-|-$/g,'') || 'shop'
+      const areaRaw = (row.location||'').split(',')[0].trim()
+      let area = ''
+      for (let i = 0; i < areaRaw.length; i++) {
+        const ch = areaRaw[i].toLowerCase()
+        area += (ch >= 'a' && ch <= 'z') ? ch : '-'
+      }
+      area = area.replace(/-+/g,'-').replace(/^-|-$/g,'')
+      return area ? `${b}-${area}` : b
+    })()
+    // 자기 자신 제외 중복 확인
+    const conflict = await sql`SELECT slug FROM shops WHERE slug=${base} AND id!=${row.id}`
+    let newSlug = base
+    if (conflict.length > 0) {
+      for (let n = 2; n <= 99; n++) {
+        const s = `${base}-${n}`
+        const c2 = await sql`SELECT slug FROM shops WHERE slug=${s} AND id!=${row.id}`
+        if (!c2.length) { newSlug = s; break }
+      }
+    }
+    if (newSlug !== row.slug) {
+      await sql`UPDATE shops SET slug=${newSlug} WHERE id=${row.id}`
+      results.push({ id: row.id, name: row.name, old: row.slug, new: newSlug })
+    }
+  }
+  return c.json({ ok: true, updated: results.length, results })
+})
+
 // POST /api/admin/regenerate-seo-all
 // → 모든 활성 업체 순회, description/metaDescription/seoKeywords 없는 것 자동 생성
 // ══════════════════════════════════════════
@@ -4389,6 +4421,9 @@ textarea{height:80px;resize:none}
       <button onclick="regenSeoAll(true)" id="regen-force-btn" class="btn-sm" style="font-size:12px;padding:8px 16px;background:rgba(139,92,246,.15);border:1px solid rgba(139,92,246,.3);color:#a78bfa">
         <i class="fas fa-sync"></i> 전체 업체 SEO 강제 재생성
       </button>
+      <button onclick="fixAllSlugs()" id="fix-slugs-btn" class="btn-sm" style="font-size:12px;padding:8px 16px;background:rgba(234,179,8,.12);border:1px solid rgba(234,179,8,.3);color:#fbbf24">
+        <i class="fas fa-link"></i> 전체 Slug 정리 (업체명-지역명)
+      </button>
       <a href="/sitemap.xml" target="_blank" class="btn-sm btn-green" style="font-size:12px;padding:8px 16px;display:inline-flex;align-items:center;gap:5px">
         <i class="fas fa-sitemap"></i> sitemap.xml 확인
       </a>
@@ -4464,7 +4499,10 @@ textarea{height:80px;resize:none}
     <div class="form-grid">
       <div class="full">
         <label>업체명 * <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,.35)">(자동가져오기 전에 한국어 업체명 입력)</span></label>
-        <input id="sh-name" placeholder="예: 압구정 헤어팩토리">
+        <input id="sh-name" placeholder="예: 압구정 헤어팩토리" oninput="updateSlugPreview()">
+        <div id="sh-slug-preview" style="margin-top:5px;font-size:11px;color:rgba(255,255,255,.35);display:none">
+          🔗 URL 미리보기: <span style="color:#fbbf24;font-family:monospace" id="sh-slug-preview-val"></span>
+        </div>
       </div>
       <div>
         <label>카테고리 *</label>
@@ -4480,7 +4518,7 @@ textarea{height:80px;resize:none}
       </div>
       <div>
         <label>지역 <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,.35)">(자동입력)</span></label>
-        <input id="sh-loc" placeholder="예: Gangnam, Seoul">
+        <input id="sh-loc" placeholder="예: Gangnam, Seoul" oninput="updateSlugPreview()">
       </div>
       <div class="full">
         <label>영문 주소 <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,.35)">(자동가져오기로 영문 자동입력)</span></label>
@@ -6223,6 +6261,62 @@ async function genAiSeo(prefix) {
 }
 
 loadAll();
+
+/* ── 등록 폼 slug 미리보기 ── */
+function updateSlugPreview() {
+  var name = (document.getElementById('sh-name')||{}).value || '';
+  var loc  = (document.getElementById('sh-loc')||{}).value  || '';
+  // 클라이언트 slug 미리계산 (서버와 동일 로직)
+  var base = '';
+  for (var i=0; i<name.length; i++) {
+    var ch = name[i].toLowerCase();
+    base += (ch>='a'&&ch<='z')||(ch>='0'&&ch<='9') ? ch : '-';
+  }
+  base = base.replace(/-+/g,'-').replace(/^-|-$/g,'') || 'shop';
+  var areaRaw = loc.split(',')[0].trim();
+  var area = '';
+  for (var j=0; j<areaRaw.length; j++) {
+    var ac = areaRaw[j].toLowerCase();
+    area += (ac>='a'&&ac<='z') ? ac : '-';
+  }
+  area = area.replace(/-+/g,'-').replace(/^-|-$/g,'');
+  var slug = area ? base+'-'+area : base;
+
+  var wrap = document.getElementById('sh-slug-preview');
+  var val  = document.getElementById('sh-slug-preview-val');
+  if (!name) { if(wrap) wrap.style.display='none'; return; }
+  if (wrap) wrap.style.display='block';
+  if (val)  val.textContent = '/shop/' + slug;
+}
+
+/* ── 전체 Slug 정리 ── */
+async function fixAllSlugs() {
+  var btn = document.getElementById('fix-slugs-btn');
+  var statusEl = document.getElementById('regen-status');
+  var resultsEl = document.getElementById('regen-results');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Slug 정리 중...'; }
+  if (statusEl) statusEl.textContent = '⏳ 업체명+지역명 기반으로 Slug 재생성 중...';
+  if (resultsEl) resultsEl.innerHTML = '';
+  try {
+    var res = await fetch('/api/admin/fix-slugs', { method: 'POST', headers: { 'Authorization': 'Bearer ' + _GSK_TOKEN } });
+    var data = await res.json();
+    if (statusEl) statusEl.innerHTML = '<span style="color:#fbbf24">✅ 완료! ' + data.updated + '개 Slug 업데이트</span>';
+    if (resultsEl && data.results) {
+      resultsEl.innerHTML = data.results.map(function(r) {
+        return '<div style="font-size:11px;padding:3px 0;color:#fbbf24">'
+          + '🔗 <b>' + r.name + '</b><br>'
+          + '&nbsp;&nbsp;이전: <span style="color:#6b7280">' + r.old + '</span><br>'
+          + '&nbsp;&nbsp;변경: <span style="color:#10b981">' + r.new + '</span>'
+          + '</div>';
+      }).join('<div style="border-top:1px solid rgba(255,255,255,.05);margin:4px 0"></div>');
+    }
+    if (data.updated > 0) loadShops();
+  } catch(e) {
+    if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ 오류: ' + e.message + '</span>';
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-link"></i> 전체 Slug 정리 (업체명-지역명)'; }
+  }
+}
 
 /* ── 일괄 SEO 재생성 ── */
 async function regenSeoAll(force) {
