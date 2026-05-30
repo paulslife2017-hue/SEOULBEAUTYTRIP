@@ -1673,7 +1673,21 @@ ${(()=>{const allP=[shop.thumbnail,...(shop.photos||[]).filter((p:string)=>p&&p!
       : shop.address ? `<div class="sp-card"><div class="sp-card-title"><i class="fas fa-map"></i> Location</div><div style="padding:12px;font-size:13px;color:rgba(0,0,0,.7)"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : '';
   })()}
 
-  ${shopVideos.length>0?`<div class="sp-card"><div class="sp-card-title"><i class="fas fa-play-circle"></i> Videos</div><div class="sp-vid-grid">${shopVideos.map((v:any,vi:number)=>{const thumb=v.thumbnail||'';const vidUrl=v.videoUrl||'';return `<div class="sp-vid-card" data-vid-url="${vidUrl}" data-vid-thumb="${thumb}" onclick="playSpVid(${vi})"><div class="sp-vid-inner"><video class="sp-vid-inline" data-src="${vidUrl}" poster="${thumb}" loop playsinline preload="none" style="width:100%;height:100%;object-fit:cover;border-radius:14px;display:block"></video>${thumb?`<img class="sp-vid-poster" src="${thumb}" alt="${v.title}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px;transition:opacity .3s">`:'<div class="sp-vid-poster" style="position:absolute;inset:0;background:#111;border-radius:14px"></div>'}</div><div class="sp-play-ic"><i class="fas fa-play" style="font-size:14px;color:#fff;margin-left:2px"></i></div><div class="sp-vid-card-ov"><div class="sp-vid-card-title">${v.title}</div><div class="sp-vid-views"><i class="fas fa-eye"></i> ${v.views>=1000?(v.views/1000).toFixed(1)+'K':v.views}</div></div></div>`}).join('')}</div></div>`:''}
+  ${(()=>{
+    if(!shopVideos.length) return '';
+    const cardsHtml = shopVideos.map((v:any,vi:number)=>{
+      const thumb  = v.thumbnail || '';
+      const vidUrl = v.videoUrl  || '';
+      const displayTitle = v.title && v.title !== shop.name ? v.title : shop.name;
+      return '<div class="sp-vid-card" data-vid-url="'+vidUrl+'" data-vid-thumb="'+thumb+'" onclick="playSpVid('+vi+')">'
+        +(vidUrl?'<video class="sp-vid-inline" data-src="'+vidUrl+'" poster="'+thumb+'" loop muted playsinline preload="metadata" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px;display:block"></video>':'')
+        +(thumb?'<img class="sp-vid-poster" src="'+thumb+'" alt="'+displayTitle+'" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px;transition:opacity .4s">':'<div class="sp-vid-poster" style="position:absolute;inset:0;background:#111;border-radius:14px"></div>')
+        +'<div class="sp-play-ic"><i class="fas fa-play" style="font-size:14px;color:#fff;margin-left:2px"></i></div>'
+        +'<div class="sp-vid-card-ov"><div class="sp-vid-card-title">'+displayTitle+'</div><div class="sp-vid-views"><i class="fas fa-eye"></i> '+(v.views>=1000?((v.views/1000).toFixed(1)+'K'):String(v.views||0))+'</div></div>'
+        +'</div>';
+    }).join('');
+    return '<div class="sp-card"><div class="sp-card-title"><i class="fas fa-play-circle"></i> Videos ('+shopVideos.length+')</div><div class="sp-vid-grid">'+cardsHtml+'</div></div>';
+  })()}
 
   <div style="height:60px"></div>
 </div>
@@ -1701,40 +1715,49 @@ function setHero(url, el) {
   el.classList.add('active');
 }
 
-/* ── sp-vid-card: 스크롤 진입 시 자동재생 (쇼츠 방식) ── */
+/* ── sp-vid-card: 페이지 로드 즉시 + 스크롤 진입시 자동재생 (쇼츠/릴스 방식) ── */
 (function(){
-  if(!window.IntersectionObserver) return;
-  var obs = new IntersectionObserver(function(entries){
-    entries.forEach(function(entry){
-      var card = entry.target;
-      var vid  = card.querySelector('.sp-vid-inline');
-      var poster = card.querySelector('.sp-vid-poster');
-      if(!vid) return;
-      if(entry.isIntersecting){
-        // src 지연로딩
-        if(!vid.src && vid.dataset.src){
-          vid.src = vid.dataset.src;
-          vid.load();
-        }
-        vid.muted = true; // autoplay 정책 충족
-        vid.play().then(function(){
-          card.classList.add('vid-on'); // poster 페이드아웃
-        }).catch(function(){});
-      } else {
-        vid.pause();
-        vid.currentTime = 0;
-        card.classList.remove('vid-on');
-      }
-    });
-  },{threshold: 0.6});
-  // DOM 완성 후 observe
-  function initSpObs(){
-    document.querySelectorAll('.sp-vid-card').forEach(function(c){ obs.observe(c); });
+  function startVid(card){
+    var vid = card.querySelector('.sp-vid-inline');
+    var poster = card.querySelector('.sp-vid-poster');
+    if(!vid) return;
+    if(vid.dataset.src && !vid.dataset.loaded){
+      vid.dataset.loaded = '1';
+      vid.src = vid.dataset.src;
+    }
+    vid.muted = true;
+    var p = vid.play();
+    if(p && p.then) p.then(function(){
+      card.classList.add('vid-on');
+      if(poster) poster.style.opacity = '0';
+    }).catch(function(){});
+  }
+  function stopVid(card){
+    var vid = card.querySelector('.sp-vid-inline');
+    var poster = card.querySelector('.sp-vid-poster');
+    if(vid){ vid.pause(); }
+    card.classList.remove('vid-on');
+    if(poster) poster.style.opacity = '1';
+  }
+  function initVidCards(){
+    var cards = document.querySelectorAll('.sp-vid-card');
+    if(!cards.length) return;
+    if(window.IntersectionObserver){
+      var obs = new IntersectionObserver(function(entries){
+        entries.forEach(function(entry){
+          if(entry.isIntersecting) startVid(entry.target);
+          else stopVid(entry.target);
+        });
+      },{threshold: 0.2, rootMargin:'0px'});
+      cards.forEach(function(c){ obs.observe(c); });
+    } else {
+      cards.forEach(function(c){ startVid(c); });
+    }
   }
   if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', initSpObs);
+    document.addEventListener('DOMContentLoaded', initVidCards);
   } else {
-    initSpObs();
+    initVidCards();
   }
 })();
 
@@ -4052,7 +4075,10 @@ function _renderSearchResults(q, filter){
   grid.innerHTML = results.map(function(s){
     var col = catColors[s.category] || 'var(--pk)';
     var href = s.slug ? '/shop/'+s.slug : ('#');
-    var clickAttr = s.slug ? '' : ' onclick="event.preventDefault();openShopFromSearch(&quot;'+s.id+'&quot;)"';
+    // slug 있으면 slug 페이지로 직접 이동, 없으면 모달 fallback
+    var clickAttr = s.slug
+      ? ' onclick="event.preventDefault();location.href=\''+href+'\'"'
+      : ' onclick="event.preventDefault();openShopFromSearch(&quot;'+s.id+'&quot;)"';
     var thumb = s.videoThumb || s.thumbnail || '';
     var vidUrl = s.videoUrl || '';
     var vidTag = vidUrl
