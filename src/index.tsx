@@ -2843,6 +2843,20 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .m-photos-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;border-radius:12px;overflow:hidden}
 .m-photos-grid img{width:100%;aspect-ratio:1;object-fit:cover;cursor:pointer;transition:opacity .2s}
 .m-photos-grid img:hover{opacity:.85}
+/* 모달 영상 그리드 */
+.m-vid-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.m-vid-card{border-radius:12px;overflow:hidden;position:relative;cursor:pointer;aspect-ratio:9/16;background:#0a0a14;flex-shrink:0}
+.m-vid-card video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .3s}
+.m-vid-card.vid-on video{opacity:1}
+.m-vid-card img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform .3s}
+.m-vid-card:hover img{transform:scale(1.04)}
+.m-vid-card.vid-on img{opacity:0}
+.m-vid-card-ov{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,rgba(0,0,0,.88) 100%);display:flex;flex-direction:column;justify-content:flex-end;padding:10px 9px;pointer-events:none}
+.m-vid-card-title{font-size:11px;font-weight:700;color:#fff;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.m-vid-card-views{font-size:10px;color:rgba(255,255,255,.5);margin-top:3px;display:flex;align-items:center;gap:4px}
+.m-vid-play-ic{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:34px;height:34px;background:rgba(0,0,0,.45);border:1.5px solid rgba(255,255,255,.6);border-radius:50%;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);transition:opacity .2s;pointer-events:none}
+.m-vid-play-ic i{font-size:11px;color:#fff;margin-left:2px}
+.m-vid-card.vid-on .m-vid-play-ic{opacity:0}
 /* 버튼 */
 .m-btns{flex-shrink:0;padding:10px 20px 28px;background:linear-gradient(0deg,#0d0d14 60%,transparent);display:flex;flex-direction:column;gap:8px}
 .m-wa{
@@ -3556,6 +3570,7 @@ function openShopModal(shopId) {
       .then(function(d){
         var shop = d.shop; if(!shop) return;
         shop._detail = true; // 상세 완료 마커
+        shop._videos = d.videos || [];
         shopCache[shopId] = shop;
         // 모달이 아직 열려있으면 자연스럽게 업데이트
         if(document.getElementById('shopModal').classList.contains('open')) {
@@ -3588,6 +3603,7 @@ function openShopModal(shopId) {
     var shop = d.shop;
     if(!shop){ document.getElementById('modalContent').innerHTML='<div style="padding:20px;color:#f87171">Shop information unavailable.</div>'; return; }
     shop._detail = true; // 상세 완료 마커
+    shop._videos = d.videos || [];
     shopCache[shopId] = shop;
     renderShopModal(shop);
   }).catch(function(){
@@ -3796,8 +3812,32 @@ function renderShopModal(shop) {
     +'</div>';
   }
 
-  /* ── 사진 그리드 제거 (상단 히어로+썸네일로 충분) ── */
-  var photosGridHtml = '';
+  /* ── 영상 섹션 ── */
+  var videosHtml = '';
+  var shopVideos = shop._videos || [];
+  if(shopVideos.length > 0) {
+    var vidCards = shopVideos.map(function(v, vi) {
+      var vThumb = v.thumbnail || shop.thumbnail || '';
+      var vUrl   = v.videoUrl  || '';
+      var vTitle = v.title && v.title !== shop.name ? v.title : shop.name;
+      var vViews = v.views >= 1000 ? (v.views/1000).toFixed(1)+'K' : String(v.views||0);
+      return '<div class="m-vid-card" id="mVidCard'+vi+'" onclick="mVidPlay('+vi+',this)">'
+        +(vUrl?'<video data-src="'+esc(vUrl)+'" loop muted playsinline preload="none"></video>':'')
+        +(vThumb?'<img src="'+esc(vThumb)+'" alt="'+esc(vTitle)+'" loading="lazy" decoding="async">':'<div style="position:absolute;inset:0;background:#111"></div>')
+        +'<div class="m-vid-card-ov">'
+          +'<div class="m-vid-card-title">'+esc(vTitle)+'</div>'
+          +'<div class="m-vid-card-views"><i class="fas fa-eye"></i>'+vViews+'</div>'
+        +'</div>'
+        +'<div class="m-vid-play-ic"><i class="fas fa-play"></i></div>'
+      +'</div>';
+    }).join('');
+    videosHtml = '<div class="m-sec">'
+      +'<div class="m-sec-title"><i class="fas fa-play-circle" style="color:var(--pk);margin-right:4px"></i>Videos'
+        +' <span style="font-size:10px;color:rgba(255,255,255,.3);font-weight:400;letter-spacing:0">('+shopVideos.length+')</span>'
+      +'</div>'
+      +'<div class="m-vid-grid">'+vidCards+'</div>'
+    +'</div>';
+  }
 
   /* ── 본문 조립 ── */
   document.getElementById('modalContent').innerHTML =
@@ -3815,7 +3855,8 @@ function renderShopModal(shop) {
     + svcHtml
     + reviewsHtml
     + hoursHtml
-    + mapHtml;
+    + mapHtml
+    + videosHtml;
 
   /* ── 버튼 영역 ── */
   var shopSlug = shop.slug || '';
@@ -3845,6 +3886,33 @@ function renderShopModal(shop) {
   }
 
   document.getElementById('modalBtns').innerHTML = waBtn + btn2Row;
+}
+
+/* ── 모달 내 영상 재생/정지 ── */
+function mVidPlay(idx, card) {
+  var vid = card.querySelector('video');
+  if(!vid) return;
+  // 다른 카드 정지
+  document.querySelectorAll('.m-vid-card').forEach(function(c){
+    if(c !== card) {
+      c.classList.remove('vid-on');
+      var v = c.querySelector('video');
+      if(v) { v.pause(); v.currentTime = 0; }
+    }
+  });
+  if(card.classList.contains('vid-on')) {
+    // 이미 재생중 → 정지
+    card.classList.remove('vid-on');
+    vid.pause();
+    vid.currentTime = 0;
+  } else {
+    // src 로드 후 재생
+    if(vid.dataset.src && !vid.src) { vid.src = vid.dataset.src; }
+    card.classList.add('vid-on');
+    vid.muted = true;
+    var p = vid.play();
+    if(p && p.catch) p.catch(function(){});
+  }
 }
 
 function shareShopBtn(btn) {
@@ -3914,6 +3982,12 @@ function openPhotoViewer(url) {
 }
 
 function closeModal(){
+  // 모달 내 재생 중인 영상 모두 정지
+  document.querySelectorAll('.m-vid-card').forEach(function(c){
+    c.classList.remove('vid-on');
+    var v = c.querySelector('video');
+    if(v) { v.pause(); v.currentTime = 0; }
+  });
   var bg = document.getElementById('shopModal');
   var panel = document.getElementById('modalPanel');
   panel.style.transition='transform .28s cubic-bezier(.32,1,.32,1)';
