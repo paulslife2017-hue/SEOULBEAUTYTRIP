@@ -611,6 +611,41 @@ app.get('/api/upload-sign-image', async (c) => {
   catch(e: any) { return c.json({ error: e.message || 'Sign failed' }, 500) }
 })
 
+// ── slug 자동 생성 헬퍼 ──
+// "Jiwoo Clinic" + "Gangnam, Seoul" → "jiwoo-clinic-gangnam"
+// 중복 방지: DB에서 같은 slug 있으면 숫자 suffix 붙임
+async function makeShopSlug(sql: any, name: string, location: string): Promise<string> {
+  // 업체명 → slug 베이스
+  let base = ''
+  for (let i = 0; i < name.length; i++) {
+    const ch = name[i].toLowerCase()
+    base += (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') ? ch : '-'
+  }
+  // 연속 하이픈 정리
+  base = base.replace(/-+/g, '-').replace(/^-|-$/g, '') || 'shop'
+
+  // 지역명 추출 (첫 단어, 영문만)
+  const areaRaw = (location || '').split(',')[0].trim()
+  let area = ''
+  for (let i = 0; i < areaRaw.length; i++) {
+    const ch = areaRaw[i].toLowerCase()
+    area += (ch >= 'a' && ch <= 'z') ? ch : '-'
+  }
+  area = area.replace(/-+/g, '-').replace(/^-|-$/g, '')
+
+  const candidate = area ? `${base}-${area}` : base
+
+  // DB 중복 확인 → 있으면 -2, -3, ...
+  const existing = await sql`SELECT slug FROM shops WHERE slug LIKE ${candidate + '%'}`
+  const existingSlugs = new Set(existing.map((r: any) => r.slug))
+  if (!existingSlugs.has(candidate)) return candidate
+  for (let n = 2; n <= 99; n++) {
+    const s = `${candidate}-${n}`
+    if (!existingSlugs.has(s)) return s
+  }
+  return `${candidate}-${Date.now().toString().slice(-4)}`
+}
+
 // ── AI SEO 자동생성 헬퍼 (등록/수정 시 공통 사용) ──
 async function autoGenSeo(body: any, apiKey: string): Promise<{description:string, metaDescription:string, keywords:string[], titleSuffix:string} | null> {
   if (!apiKey || !body.name) return null
@@ -670,6 +705,20 @@ Return ONLY valid JSON:
   } catch { return null }
 }
 
+// slug 자동 생성: "name-location-category" 형태, 숫자 접미사 없음
+function makeShopSlug(name: string, location: string, category: string): string {
+  const area = (location || '').split(',')[0].trim().toLowerCase()
+  const base = [name, area, category]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')   // 특수문자 제거
+    .replace(/\s+/g, '-')            // 공백 → 하이픈
+    .replace(/-+/g, '-')             // 중복 하이픈 제거
+    .replace(/^-|-$/g, '')           // 앞뒤 하이픈 제거
+  return base || 'shop-' + Date.now()
+}
+
 app.post('/api/shops', async (c) => {
   const sql = getDb()
   const body = await c.req.json()
@@ -690,8 +739,11 @@ app.post('/api/shops', async (c) => {
     }
   }
 
+  // slug 자동 생성 (항상 새로 생성 — 품질 보장, 중복 방지)
+  const slug = await makeShopSlug(sql, body.name||'', body.location||'')
+
   await sql`INSERT INTO shops (id,name,slug,category,location,address,google_map_url,google_map_embed,lat,lng,price_range,hours,services,service_prices,description,meta_description,seo_keywords,rating,review_count,thumbnail,photos,commission,active,created_at) VALUES (
-    ${newId},${body.name||''},${body.slug||''},${body.category||''},${body.location||''},${body.address||''},
+    ${newId},${body.name||''},${slug},${body.category||''},${body.location||''},${body.address||''},
     ${body.googleMapUrl||''},${body.googleMapEmbed||''},${body.lat||''},${body.lng||''},
     ${body.priceRange||''},${body.hours||''},
     ${JSON.stringify(body.services||[])},${JSON.stringify(body.servicePrices||[])},
@@ -720,9 +772,12 @@ app.put('/api/shops/:id', async (c) => {
     }
   }
 
+  // slug: 보내온 값 없으면 name+location으로 새로 생성 (수정 시에도 품질 보장)
+  const slugVal = body.slug || await makeShopSlug(sql, body.name||'', body.location||'')
+
   await sql`UPDATE shops SET
     name=${body.name||''},
-    slug=${body.slug||''},
+    slug=${slugVal},
     category=${body.category||''},
     location=${body.location||''},
     address=${body.address||''},
@@ -1284,6 +1339,10 @@ app.get('/shop/:slug', async (c) => {
   const waUrl = `https://wa.me/${PLATFORM.whatsapp}?text=${waMsg}`
   const base = 'https://seoulbeautytrip.com'
   const canonicalUrl = `${base}/shop/${shop.slug}`
+  // thumbnail이 상대경로(/api/photo...)면 절대 URL로 변환 — OG/Twitter 크롤러용
+  const ogImage = shop.thumbnail
+    ? (shop.thumbnail.startsWith('http') ? shop.thumbnail : `${base}${shop.thumbnail}`)
+    : `${base}/og-cover.jpg`
   const catEmoji: Record<string,string> = {skincare:'🌿',makeup:'💋',hair:'💇',headspa:'🧖',nail:'💅',clinic:'🏥'}
   const catIcon = catEmoji[shop.category] || '✨'
   return c.html(`<!DOCTYPE html>
@@ -1300,14 +1359,14 @@ app.get('/shop/:slug', async (c) => {
 <meta property="og:type" content="business.business">
 <meta property="og:title" content="${shop.name} | Seoul Beauty Trip">
 <meta property="og:description" content="${shop.description.slice(0,155)}">
-<meta property="og:image" content="${shop.thumbnail}">
+<meta property="og:image" content="${ogImage}">
 <meta property="og:url" content="${canonicalUrl}">
 <meta property="og:site_name" content="Seoul Beauty Trip">
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${shop.name} | Seoul Beauty Trip">
 <meta name="twitter:description" content="${shop.description.slice(0,155)}">
-<meta name="twitter:image" content="${shop.thumbnail}">
+<meta name="twitter:image" content="${ogImage}">
 <!-- Schema.org -->
 <script type="application/ld+json">
 {
@@ -1318,7 +1377,7 @@ app.get('/shop/:slug', async (c) => {
       "@id":"${canonicalUrl}",
       "name":"${shop.name}",
       "description":"${(shop.description||'').replace(/"/g,"'")}",
-      "image":["${shop.thumbnail}"${shop.photos&&shop.photos.length?','+shop.photos.map((p:string)=>'"'+p+'"').join(','):''}],
+      "image":["${ogImage}"${shop.photos&&shop.photos.length?','+shop.photos.map((p:string)=>`"${p.startsWith('http')?p:base+p}"`).join(','):''}],
       "url":"${canonicalUrl}",
       "address":{
         "@type":"PostalAddress",
@@ -1808,7 +1867,7 @@ app.get('/best/:category/:area', async (c) => {
 <meta property="og:type" content="website">
 <meta property="og:title" content="${titleMain} | Seoul Beauty Trip">
 <meta property="og:description" content="${metaDesc}">
-<meta property="og:image" content="${shops[0]?.thumbnail || base+'/og-cover.jpg'}">
+<meta property="og:image" content="${shops[0]?.thumbnail ? (shops[0].thumbnail.startsWith('http') ? shops[0].thumbnail : base+shops[0].thumbnail) : base+'/og-cover.jpg'}">
 <meta property="og:url" content="${pageUrl}">
 <meta property="og:site_name" content="Seoul Beauty Trip">
 <meta name="twitter:card" content="summary_large_image">
