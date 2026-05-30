@@ -2886,6 +2886,7 @@ function setLdProgress(pct) {
 
 /* loading hide */
 var _ldHidden = false;
+var _onLdHidden = null; // 스플래시 완전히 사라진 뒤 실행할 콜백
 function hideLd(){
   if(_ldHidden) return;
   _ldHidden = true;
@@ -2894,7 +2895,11 @@ function hideLd(){
   setLdProgress(100);
   setTimeout(function(){
     ld.style.opacity = '0';
-    setTimeout(function(){ ld.style.display = 'none'; }, 600);
+    setTimeout(function(){
+      ld.style.display = 'none';
+      // 스플래시 완전히 사라진 뒤 영상 로드 시작
+      if(_onLdHidden){ _onLdHidden(); _onLdHidden = null; }
+    }, 600);
   }, 180); // 100% 잠깐 보여준 뒤 페이드
 }
 
@@ -3011,7 +3016,13 @@ function renderFeed() {
     dots.appendChild(dot);
   }
   for(var i=0;i<vids.length;i++){ buildSlide(vids[i],i); }
-  setupObs();
+  // 스플래시가 아직 표시 중이면 → 완전히 사라진 뒤 영상 src 세팅 시작
+  // 이미 숨겨진 상태(카테고리 전환 등)면 → 즉시 실행
+  if(!_ldHidden){
+    _onLdHidden = setupObs;
+  } else {
+    setupObs();
+  }
 }
 
 function getAutoThumb(videoUrl) {
