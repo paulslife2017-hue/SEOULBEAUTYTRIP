@@ -6251,7 +6251,7 @@ async function loadBlogList(){
         '</div>'+
         '<div style="display:flex;gap:6px;flex-shrink:0">'+
           '<a href="/blog/'+p.slug+'" target="_blank" style="padding:5px 10px;background:rgba(96,165,250,.15);border:1px solid rgba(96,165,250,.2);border-radius:7px;color:#93c5fd;font-size:11px;text-decoration:none;cursor:pointer"><i class="fas fa-eye"></i></a>'+
-          '<button onclick="delBlog(\''+p.id+'\')" style="padding:5px 10px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.2);border-radius:7px;color:#fca5a5;font-size:11px;cursor:pointer"><i class="fas fa-trash"></i></button>'+
+          '<button data-del-blog="'+p.id+'" style="padding:5px 10px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.2);border-radius:7px;color:#fca5a5;font-size:11px;cursor:pointer"><i class="fas fa-trash"></i></button>'+
         '</div>'+
       '</div>';
     }).join('');
@@ -6283,6 +6283,8 @@ document.addEventListener('click', function(e){
   // ── 영상 수정 버튼 → 수정 패널 열기 ──
   var vidEditBtn = e.target.closest('.vid-edit-btn');
   if(vidEditBtn){ openVideoEditPanel(vidEditBtn.getAttribute('data-id')); return; }
+  var delBlogBtn = e.target.closest('[data-del-blog]');
+  if(delBlogBtn){ delBlog(delBlogBtn.getAttribute('data-del-blog')); return; }
 });
 document.addEventListener('change', function(e){
   var sel = e.target.closest('.status-select');
