@@ -1623,7 +1623,7 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 <body>
 <nav class="sp-nav" itemscope itemtype="https://schema.org/SiteNavigationElement">
   <a href="/" class="sp-nav-logo" itemprop="url"><span itemprop="name">Seoul Beauty Trip</span></a>
-  <a href="javascript:void(0)" onclick="goBack()" class="sp-nav-back"><i class="fas fa-arrow-left"></i> Back</a>
+  <a href="/" class="sp-nav-back"><i class="fas fa-arrow-left"></i> Catalog</a>
 </nav>
 
 <div class="sp-hero">
@@ -1647,12 +1647,12 @@ ${(()=>{const allP=[shop.thumbnail,...(shop.photos||[]).filter((p:string)=>p&&p!
 <div class="sp-wrap">
   <div class="sp-actions">
     <a href="${waUrl}" target="_blank" rel="noopener" class="sp-wa">
-      <i class="fab fa-whatsapp" style="font-size:19px"></i> WhatsApp Book
+      <i class="fab fa-whatsapp" style="font-size:19px"></i> Book via WhatsApp
     </a>
   </div>
 
   <div class="sp-card">
-    <div class="sp-card-title"><i class="fas fa-info-circle"></i> Shop Info</div>
+    <div class="sp-card-title"><i class="fas fa-info-circle"></i> Info</div>
     ${shop.hours?`<div class="sp-info-row"><i class="fas fa-clock"></i><span itemprop="openingHours">${shop.hours}</span></div>`:''}
     ${shop.priceRange?`<div class="sp-info-row"><i class="fas fa-tag"></i><span itemprop="priceRange">${shop.priceRange}</span></div>`:''}
     ${shop.address?`<div class="sp-info-row"><i class="fas fa-map-marker-alt"></i><span itemprop="address">${shop.address}</span></div>`:''}
@@ -2760,7 +2760,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .modal-handle-area{flex-shrink:0;padding:10px 20px 0;cursor:grab;display:flex;flex-direction:column;align-items:center;gap:10px}
 .mhdl{width:32px;height:3px;background:rgba(255,255,255,.12);border-radius:2px}
 .modal-top-row{display:flex;align-items:center;justify-content:space-between;width:100%}
-.modal-top-title{font-size:9px;color:rgba(255,255,255,.22);font-weight:700;letter-spacing:2.5px;text-transform:uppercase}
+.modal-back-btn{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.65);font-size:11px;font-weight:700;padding:6px 12px;cursor:pointer;white-space:nowrap;transition:all .2s}
+.modal-back-btn:hover,.modal-back-btn:active{background:rgba(232,65,122,.15);border-color:rgba(232,65,122,.4);color:var(--pk2)}
 .mcls{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.4);width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;transition:all .2s}
 .mcls:hover{background:rgba(232,65,122,.18);color:#fff;border-color:rgba(232,65,122,.3)}
 /* 스크롤 */
@@ -2892,37 +2893,31 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .so-chip.on{background:rgba(232,65,122,.18);border-color:rgba(232,65,122,.5);color:var(--pk2)}
 .so-body{flex:1;overflow-y:auto;padding-top:6px}
 .so-header{padding:8px 16px 8px;font-size:11px;font-weight:700;color:rgba(255,255,255,.3);letter-spacing:1px;text-transform:uppercase}
-.so-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;padding:0 14px 40px}
-@media(min-width:480px){.so-grid{grid-template-columns:repeat(3,1fr)}}
-.so-card{background:#13132a;border:1px solid rgba(255,255,255,.07);border-radius:14px;overflow:hidden;cursor:pointer;transition:all .2s;text-decoration:none;display:block;position:relative}
-.so-card:active{transform:scale(.97);border-color:rgba(232,65,122,.4)}
-.so-card-img-wrap{width:100%;aspect-ratio:9/13;position:relative;background:#12122a;overflow:hidden}
-.so-card-img-wrap::before{
-  content:'';position:absolute;inset:0;z-index:1;
-  background:linear-gradient(105deg,#12122a 40%,rgba(255,255,255,.04) 50%,#12122a 60%);
-  background-size:200% 100%;
-  animation:sc-shimmer 1.6s infinite linear;
-}
+.so-grid{display:flex;flex-direction:column;gap:8px;padding:0 14px 40px}
+/* ── 검색 카드 (가로형 리스트) ── */
+.so-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:16px;overflow:hidden;cursor:pointer;transition:background .18s,border-color .18s;text-decoration:none;display:flex;flex-direction:row;align-items:center;gap:0;position:relative}
+.so-card:active{background:rgba(232,65,122,.07);border-color:rgba(232,65,122,.4)}
+/* 이미지 영역 — 정사각형 썸네일 */
+.so-card-img-wrap{width:74px;height:74px;flex-shrink:0;position:relative;background:#0c0c1c;overflow:hidden}
+.so-card-img-wrap::before{content:'';position:absolute;inset:0;z-index:1;background:linear-gradient(105deg,#0c0c1e 40%,rgba(255,255,255,.04) 50%,#0c0c1e 60%);background-size:200% 100%;animation:sc-shimmer 1.6s infinite linear}
 .so-card-img-wrap.loaded::before{display:none}
-.so-card-img{width:100%;height:100%;object-fit:cover;display:block;
-  position:absolute;inset:0;z-index:2;
-  filter:blur(5px);transform:scale(1.04);
-  transition:filter .4s ease,transform .4s ease;
-}
-.so-card-img-wrap.loaded .so-card-img{filter:blur(0);transform:scale(1)}
-/* 카드 미리보기 video */
-.so-card-vid{position:absolute;inset:0;z-index:3;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .35s}
-.so-card-img-wrap.vid-playing .so-card-vid{opacity:1}
-.so-card-img-wrap.vid-playing .so-card-img{opacity:0}
-.so-card-play{position:absolute;inset:0;z-index:4;display:flex;align-items:center;justify-content:center;pointer-events:none}
-.so-card-play i{width:34px;height:34px;background:rgba(0,0,0,.45);border:1.5px solid rgba(255,255,255,.55);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;padding-left:2px;backdrop-filter:blur(4px);transition:transform .2s,opacity .2s}
-.so-card-img-wrap.vid-playing .so-card-play i{opacity:0}
-.so-card:active .so-card-play i{transform:scale(1.15)}
-.so-card-ov{position:absolute;bottom:0;left:0;right:0;z-index:3;padding:22px 8px 8px;background:linear-gradient(to top,rgba(0,0,0,.72) 0%,transparent 100%);pointer-events:none}
-.so-card-cat-badge{font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;opacity:.92}
-.so-card-body{padding:8px 10px 10px}
-.so-card-name{font-size:12px;font-weight:800;color:#fff;line-height:1.3;margin-bottom:2px}
-.so-card-loc{font-size:10px;color:rgba(255,255,255,.38);display:flex;align-items:center;gap:3px}
+.so-card-img{width:100%;height:100%;object-fit:cover;display:block;position:absolute;inset:0;z-index:2;transition:transform .45s}
+.so-card-img-wrap.loaded .so-card-img{transform:scale(1)}
+/* 영상 미리보기 (가로형에서는 비활성) */
+.so-card-vid{display:none}
+/* 플레이 아이콘 숨김 (가로형) */
+.so-card-play{display:none}
+/* 카드 오버레이 — 카테고리 컬러 바 */
+.so-card-ov{position:absolute;left:0;top:0;bottom:0;width:3px;z-index:5;border-radius:0;pointer-events:none}
+.so-card-cat-badge{display:none}
+/* 카드 정보 영역 */
+.so-card-body{flex:1;padding:12px 14px 12px 12px;display:flex;flex-direction:column;gap:5px;min-width:0}
+.so-card-name{font-size:14px;font-weight:800;color:#fff;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.so-card-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.so-card-loc{font-size:11px;color:rgba(255,255,255,.45);display:flex;align-items:center;gap:3px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.so-card-rating{display:flex;align-items:center;gap:3px;font-size:10px;color:var(--gold);font-weight:700;flex-shrink:0}
+.so-card-cat{font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;background:rgba(255,255,255,.07);color:rgba(255,255,255,.55);text-transform:capitalize;flex-shrink:0}
+.so-card-arrow{width:32px;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.18);font-size:11px}
 .so-empty{padding:60px 20px;text-align:center;color:rgba(255,255,255,.25);font-size:14px}
 /* 토스트 */
 #toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%) translateY(12px);background:rgba(232,65,122,.92);color:#fff;padding:8px 18px;border-radius:18px;font-size:12px;font-weight:700;z-index:600;opacity:0;transition:all .28s;white-space:nowrap;pointer-events:none;backdrop-filter:blur(8px)}
@@ -3056,7 +3051,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
     <div class="modal-handle-area" id="modalHandle">
       <div class="mhdl"></div>
       <div class="modal-top-row">
-        <span class="modal-top-title">Shop Info</span>
+        <button class="modal-back-btn" onclick="closeModal()" aria-label="Back"><i class="fas fa-arrow-left" style="font-size:11px"></i> <span>Back</span></button>
         <button class="mcls" onclick="closeModal()" aria-label="Close">&#10005;</button>
       </div>
     </div>
@@ -4074,28 +4069,26 @@ function _renderSearchResults(q, filter){
   }
   grid.innerHTML = results.map(function(s){
     var col = catColors[s.category] || 'var(--pk)';
-    var href = s.slug ? '/shop/'+s.slug : ('#');
-    // slug 있으면 slug 페이지로 직접 이동, 없으면 모달 fallback
-    var clickAttr = s.slug
-      ? ' onclick="event.preventDefault();location.href=\''+href+'\'"'
-      : ' onclick="event.preventDefault();openShopFromSearch(&quot;'+s.id+'&quot;)"';
-    var thumb = s.videoThumb || s.thumbnail || '';
-    var vidUrl = s.videoUrl || '';
-    var vidTag = vidUrl
-      ? '<video class="so-card-vid" data-src="'+vidUrl+'" loop muted playsinline preload="none"></video>'
-      : '';
-    return '<a class="so-card" href="'+href+'"'+clickAttr+'>'
-      +'<div class="so-card-img-wrap" onmouseenter="soCardPreview(this)" onmouseleave="soCardStop(this)">'
-        +'<img class="so-card-img" src="'+thumb+'" alt="'+esc(s.name)+'" loading="lazy" decoding="async"'
+    var thumb = s.thumbnail || s.videoThumb || '';
+    var area = (s.location||'').split(',')[0].trim();
+    var ratingStr = s.rating ? '<span class="so-card-rating"><i class="fas fa-star" style="font-size:8px"></i>'+Number(s.rating).toFixed(1)+'</span>' : '';
+    var catLabel = catIcons[s.category] ? catIcons[s.category]+' ' : '';
+    return '<a class="so-card" href="#" onclick="event.preventDefault();openShopFromSearch(&quot;'+s.id+'&quot;)">'
+      +'<div class="so-card-img-wrap" style="position:relative">'
+        +'<img class="so-card-img" src="'+esc(thumb)+'" alt="'+esc(s.name)+'" loading="lazy" decoding="async"'
           +' onload="parentLoaded(this)" onerror="parentLoaded(this)">'
-        +vidTag
-        +'<div class="so-card-play"><i class="fas fa-play"></i></div>'
-        +'<div class="so-card-ov"><div class="so-card-cat-badge" style="color:'+col+'">'+esc(s.category)+'</div></div>'
+        +'<div class="so-card-ov" style="background:'+col+'"></div>'
       +'</div>'
       +'<div class="so-card-body">'
         +'<div class="so-card-name">'+esc(s.name)+'</div>'
-        +'<div class="so-card-loc"><i class="fas fa-map-marker-alt" style="font-size:8px;color:var(--pk)"></i>'+esc((s.location||'').split(',')[0])+'</div>'
+        +'<div class="so-card-meta">'
+          +'<span class="so-card-loc"><i class="fas fa-map-marker-alt" style="font-size:8px;color:var(--pk)"></i>'+esc(area)+'</span>'
+          +(s.category?'<span class="so-card-cat">'+catLabel+esc(s.category)+'</span>':'')
+          +ratingStr
+        +'</div>'
+        +(s.description?'<div style="font-size:11px;color:rgba(255,255,255,.3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.4">'+esc((s.description||'').slice(0,60))+'</div>':'')
       +'</div>'
+      +'<div class="so-card-arrow"><i class="fas fa-chevron-right"></i></div>'
     +'</a>';
   }).join('');
 }
