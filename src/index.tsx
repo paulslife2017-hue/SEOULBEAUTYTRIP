@@ -3835,7 +3835,7 @@ function _renderSearchResults(q, filter){
   grid.innerHTML = results.map(function(s){
     var col = catColors[s.category] || 'var(--pk)';
     var href = s.slug ? '/shop/'+s.slug : '#';
-    var clickAttr = ' onclick="event.preventDefault();openShopFromSearch(\''+s.id+'\')"';
+    var clickAttr = ' onclick="event.preventDefault();openShopFromSearch(&quot;'+s.id+'&quot;)"';
     return '<a class="so-card" href="'+href+'"'+clickAttr+'>'
       +'<div class="so-card-img-wrap">'
         +'<img class="so-card-img" src="'+(s.thumbnail||'')+'" alt="'+esc(s.name)+'" loading="lazy" decoding="async"'
