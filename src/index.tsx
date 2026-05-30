@@ -2843,20 +2843,21 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .m-photos-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;border-radius:12px;overflow:hidden}
 .m-photos-grid img{width:100%;aspect-ratio:1;object-fit:cover;cursor:pointer;transition:opacity .2s}
 .m-photos-grid img:hover{opacity:.85}
-/* 모달 영상 그리드 */
-.m-vid-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.m-vid-card{border-radius:12px;overflow:hidden;position:relative;cursor:pointer;aspect-ratio:9/16;background:#0a0a14;flex-shrink:0}
+/* 모달 영상 그리드 — full-bleed (패딩 돌파) */
+.m-vid-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 -20px}
+.m-vid-card{border-radius:0;overflow:hidden;position:relative;cursor:pointer;aspect-ratio:9/16;background:#0a0a14}
+.m-vid-card:first-child{border-radius:0}
 .m-vid-card video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .3s}
 .m-vid-card.vid-on video{opacity:1}
-.m-vid-card img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform .3s}
-.m-vid-card:hover img{transform:scale(1.04)}
+.m-vid-card img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform .35s}
+.m-vid-card:active img{transform:scale(1.04)}
 .m-vid-card.vid-on img{opacity:0}
-.m-vid-card-ov{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,rgba(0,0,0,.88) 100%);display:flex;flex-direction:column;justify-content:flex-end;padding:10px 9px;pointer-events:none}
-.m-vid-card-title{font-size:11px;font-weight:700;color:#fff;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.m-vid-card-views{font-size:10px;color:rgba(255,255,255,.5);margin-top:3px;display:flex;align-items:center;gap:4px}
-.m-vid-play-ic{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:34px;height:34px;background:rgba(0,0,0,.45);border:1.5px solid rgba(255,255,255,.6);border-radius:50%;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);transition:opacity .2s;pointer-events:none}
-.m-vid-play-ic i{font-size:11px;color:#fff;margin-left:2px}
-.m-vid-card.vid-on .m-vid-play-ic{opacity:0}
+.m-vid-card-ov{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 35%,rgba(0,0,0,.92) 100%);display:flex;flex-direction:column;justify-content:flex-end;padding:12px 11px;pointer-events:none}
+.m-vid-card-title{font-size:12px;font-weight:700;color:#fff;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.m-vid-card-views{font-size:10px;color:rgba(255,255,255,.5);margin-top:4px;display:flex;align-items:center;gap:4px}
+.m-vid-play-ic{position:absolute;top:50%;left:50%;transform:translate(-50%,-60%);width:38px;height:38px;background:rgba(0,0,0,.48);border:1.5px solid rgba(255,255,255,.65);border-radius:50%;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);transition:opacity .2s,transform .2s;pointer-events:none}
+.m-vid-play-ic i{font-size:12px;color:#fff;margin-left:2px}
+.m-vid-card.vid-on .m-vid-play-ic{opacity:0;transform:translate(-50%,-60%) scale(.8)}
 /* 버튼 */
 .m-btns{flex-shrink:0;padding:10px 20px 28px;background:linear-gradient(0deg,#0d0d14 60%,transparent);display:flex;flex-direction:column;gap:8px}
 .m-wa{
@@ -3831,7 +3832,7 @@ function renderShopModal(shop) {
         +'<div class="m-vid-play-ic"><i class="fas fa-play"></i></div>'
       +'</div>';
     }).join('');
-    videosHtml = '<div class="m-sec">'
+    videosHtml = '<div class="m-sec" style="margin-bottom:0">'
       +'<div class="m-sec-title"><i class="fas fa-play-circle" style="color:var(--pk);margin-right:4px"></i>Videos'
         +' <span style="font-size:10px;color:rgba(255,255,255,.3);font-weight:400;letter-spacing:0">('+shopVideos.length+')</span>'
       +'</div>'
