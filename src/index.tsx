@@ -2656,9 +2656,17 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .srch-clear.on{display:block}
 .srch-clear:hover{color:rgba(255,255,255,.7)}
 /* \uac80\uc0c9 \uacb0\uacfc \uc624\ubc84\ub808\uc774 */
-#search-overlay{display:none;position:fixed;inset:0;z-index:800;background:rgba(8,8,14,.96);backdrop-filter:blur(16px);flex-direction:column;padding-top:130px;overflow-y:auto}
+#search-overlay{display:none;position:fixed;inset:0;z-index:800;background:rgba(8,8,14,.97);backdrop-filter:blur(16px);flex-direction:column;overflow:hidden}
 #search-overlay.open{display:flex}
-.so-header{padding:0 20px 16px;font-size:11px;font-weight:700;color:rgba(255,255,255,.3);letter-spacing:1.5px;text-transform:uppercase}
+.so-topbar{flex-shrink:0;display:flex;align-items:center;gap:10px;padding:52px 16px 10px;border-bottom:1px solid rgba(255,255,255,.06)}
+.so-back-btn{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.7);font-size:12px;font-weight:700;padding:7px 14px;cursor:pointer;white-space:nowrap;transition:all .2s;flex-shrink:0}
+.so-back-btn:hover,.so-back-btn:active{background:rgba(232,65,122,.15);border-color:rgba(232,65,122,.4);color:var(--pk2)}
+.so-filters{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;flex:1}
+.so-filters::-webkit-scrollbar{display:none}
+.so-chip{flex-shrink:0;padding:6px 12px;border-radius:16px;font-size:11px;font-weight:700;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.45);cursor:pointer;transition:all .18s;white-space:nowrap}
+.so-chip.on{background:rgba(232,65,122,.18);border-color:rgba(232,65,122,.5);color:var(--pk2)}
+.so-body{flex:1;overflow-y:auto;padding-top:8px}
+.so-header{padding:8px 20px 12px;font-size:11px;font-weight:700;color:rgba(255,255,255,.3);letter-spacing:1.5px;text-transform:uppercase}
 .so-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;padding:0 16px 40px}
 @media(min-width:480px){.so-grid{grid-template-columns:repeat(3,1fr)}}
 .so-card{background:#13132a;border:1px solid rgba(255,255,255,.07);border-radius:14px;overflow:hidden;cursor:pointer;transition:all .2s;text-decoration:none;display:block}
@@ -2732,8 +2740,28 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 
 <!-- 검색 결과 오버레이 -->
 <div id="search-overlay" role="dialog" aria-label="Search results">
-  <div class="so-header" id="so-header">Results</div>
-  <div class="so-grid" id="so-grid"></div>
+  <div class="so-topbar">
+    <button class="so-back-btn" onclick="closeSearch()"><i class="fas fa-arrow-left" style="font-size:11px"></i> Main</button>
+    <div class="so-filters" id="so-filters">
+      <button class="so-chip on" data-filter="all">All</button>
+      <button class="so-chip" data-filter="skincare">Skincare</button>
+      <button class="so-chip" data-filter="makeup">Makeup</button>
+      <button class="so-chip" data-filter="hair">Hair</button>
+      <button class="so-chip" data-filter="headspa">Head Spa</button>
+      <button class="so-chip" data-filter="nail">Nail</button>
+      <button class="so-chip" data-filter="clinic">Clinic</button>
+      <button class="so-chip" data-filter="spa">Spa</button>
+      <button class="so-chip" data-filter="Gangnam">Gangnam</button>
+      <button class="so-chip" data-filter="Hongdae">Hongdae</button>
+      <button class="so-chip" data-filter="Myeongdong">Myeongdong</button>
+      <button class="so-chip" data-filter="Sinsa">Sinsa</button>
+      <button class="so-chip" data-filter="Itaewon">Itaewon</button>
+    </div>
+  </div>
+  <div class="so-body">
+    <div class="so-header" id="so-header"></div>
+    <div class="so-grid" id="so-grid"></div>
+  </div>
 </div>
 
 <!-- PC 레이아웃 래퍼 -->
@@ -3165,16 +3193,55 @@ function buildSlide(v, idx) {
 
 function loadVidSrc(vid){
   if(vid && !vid.src && vid.dataset.src){
+    vid.preload = 'auto';
     vid.src = vid.dataset.src;
   }
 }
 function preloadNext(idx){
-  // 다음 1개 슬라이드 src 미리 세팅 (preload="none"이라 네트워크 요청은 최소)
-  var next = document.getElementById('vid'+(idx+1));
-  if(next && !next.src && next.dataset.src){ next.src = next.dataset.src; }
+  // 다음 2개 슬라이드 미리 다운로드 (쇼츠처럼 끊김 없이)
+  for(var n=1; n<=2; n++){
+    var next = document.getElementById('vid'+(idx+n));
+    if(next && !next.src && next.dataset.src){
+      next.preload = 'auto';
+      next.src = next.dataset.src;
+      next.load();
+    }
+  }
+}
+
+function _playVid(vid, bufIc){
+  if(!vid) return;
+  vid.muted = true; // 모바일 autoplay 필수
+  if(bufIc) bufIc.style.display = 'flex';
+  // src 없으면 세팅
+  if(!vid.src && vid.dataset.src){
+    vid.preload = 'auto';
+    vid.src = vid.dataset.src;
+    vid.load();
+  }
+  var doPlay = function(){
+    vid.play().then(function(){
+      if(bufIc) bufIc.style.display = 'none';
+    }).catch(function(){
+      // autoplay 정책 실패 → 1회 retry (사용자 탭 제스처 후 동작)
+      setTimeout(function(){ vid.play().catch(function(){}); }, 300);
+    });
+  };
+  if(vid.readyState >= 3){
+    if(bufIc) bufIc.style.display = 'none';
+    doPlay();
+  } else {
+    vid.addEventListener('canplay', function onCp(){
+      vid.removeEventListener('canplay', onCp);
+      if(bufIc) bufIc.style.display = 'none';
+      doPlay();
+    });
+    doPlay(); // 먼저 시도 (이미 로딩됐을 경우 대비)
+  }
 }
 
 function setupObs(){
+  var _obsActive = true; // observe 직후 첫 콜백 무시 플래그
   var obs = new IntersectionObserver(function(entries){
     entries.forEach(function(e){
       var idx = parseInt(e.target.id.replace('sl',''));
@@ -3184,60 +3251,27 @@ function setupObs(){
 
       if(e.isIntersecting){
         if(vid){
-          // src 없으면 세팅 + 스피너 즉시 표시
-          if(!vid.src && vid.dataset.src){
-            if(bufIc) bufIc.style.display = 'flex';
-            vid.src = vid.dataset.src;
+          if(!_obsActive){ // 첫 콜백(idx=0)은 아래에서 직접 처리
+            _playVid(vid, bufIc);
           }
-          vid.muted = isMuted;
-          // canplay 후 재생 시도 (이미 준비됐으면 즉시)
-          if(vid.readyState >= 3){
-            vid.play().catch(function(){});
-          } else {
-            if(bufIc) bufIc.style.display = 'flex';
-            vid.addEventListener('canplay', function onCp(){
-              vid.removeEventListener('canplay', onCp);
-              vid.play().catch(function(){});
-            });
-            vid.play().catch(function(){});
-          }
-          preloadNext(idx); // 다음 슬라이드 미리 로드
+          preloadNext(idx);
         }
       } else {
         if(vid){ vid.pause(); vid.currentTime = 0; }
         if(bufIc) bufIc.style.display = 'none';
       }
     });
+    _obsActive = false;
   },{threshold: 0.6});
 
   document.querySelectorAll('.slide').forEach(function(s){ obs.observe(s); });
 
-  // 첫 슬라이드 재생
+  // 첫 슬라이드 직접 재생 (observe 콜백과 충돌 방지)
   var v0 = document.getElementById('vid0');
-  if(v0){
-    var buf0 = document.getElementById('bufic0');
-    // src 없으면 지금 세팅 (카테고리 전환 or fallback 경로)
-    if(!v0.src && v0.dataset.src){
-      v0.preload = 'auto';
-      v0.src = v0.dataset.src;
-      v0.load();
-    }
-    v0.muted = true;
-    if(buf0) buf0.style.display = 'flex';
-    // readyState 4=HAVE_ENOUGH_DATA, 3=HAVE_FUTURE_DATA → 즉시 재생
-    if(v0.readyState >= 3){
-      if(buf0) buf0.style.display = 'none';
-      v0.play().catch(function(){});
-    } else {
-      v0.addEventListener('canplay', function go(){
-        v0.removeEventListener('canplay', go);
-        if(buf0) buf0.style.display = 'none';
-        v0.play().catch(function(){});
-      });
-      v0.play().catch(function(){});
-    }
-    preloadNext(0);
-  }
+  var buf0 = document.getElementById('bufic0');
+  _playVid(v0, buf0);
+  preloadNext(0);
+
   var dot0 = document.getElementById('dot0');
   if(dot0) dot0.classList.add('on');
 }
@@ -3706,6 +3740,8 @@ function showToast(msg){
 
 /* ── 검색 기능 ── */
 var _searchOpen = false;
+var _soFilter = 'all'; // 현재 선택된 필터 칩
+
 function toggleSearch(){
   _searchOpen = !_searchOpen;
   var bar = document.getElementById('search-bar');
@@ -3714,52 +3750,81 @@ function toggleSearch(){
   bar.classList.toggle('open', _searchOpen);
   btn.classList.toggle('on', _searchOpen);
   if(_searchOpen){
-    setTimeout(function(){ var inp = document.getElementById('srchInput'); if(inp) inp.focus(); }, 340);
+    overlay.classList.add('open');
+    _soFilter = 'all';
+    _resetChips();
+    _renderSearchResults('', 'all'); // 열자마자 전체 목록 표시
+    setTimeout(function(){ var inp = document.getElementById('srchInput'); if(inp) inp.focus(); }, 200);
   } else {
     clearSearch();
     overlay.classList.remove('open');
   }
 }
-function onSearch(q){
-  var clear = document.getElementById('srchClear');
-  var overlay = document.getElementById('search-overlay');
-  var grid = document.getElementById('so-grid');
+
+function _resetChips(){
+  document.querySelectorAll('.so-chip').forEach(function(c){
+    c.classList.toggle('on', c.getAttribute('data-filter') === _soFilter);
+  });
+}
+
+function _renderSearchResults(q, filter){
+  var grid   = document.getElementById('so-grid');
   var header = document.getElementById('so-header');
-  if(clear) clear.classList.toggle('on', q.length > 0);
-  if(!q.trim()){
-    overlay.classList.remove('open');
-    return;
-  }
-  var kw = q.toLowerCase().trim();
+  if(!grid) return;
+  var kw = (q||'').toLowerCase().trim();
+  var catColors = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',nail:'#34d399',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa'};
+  var CAT_LIST = ['skincare','makeup','hair','headspa','nail','clinic','spa'];
+  var AREA_LIST = ['gangnam','hongdae','myeongdong','sinsa','itaewon','insadong','jongno','mapo','yongsan','apgujeong','cheongdam','bukchon'];
+
   var results = allShopsData.filter(function(s){
+    // 카테고리/지역 칩 필터
+    if(filter && filter !== 'all'){
+      var fl = filter.toLowerCase();
+      var matchCat  = CAT_LIST.indexOf(fl) !== -1 && (s.category||'').toLowerCase() === fl;
+      var matchArea = AREA_LIST.indexOf(fl) !== -1 && (s.location||'').toLowerCase().indexOf(fl) !== -1;
+      // 지역도 카테고리도 아니면 location 포함 여부
+      var matchLoc  = !matchCat && !matchArea && (s.location||'').toLowerCase().indexOf(fl) !== -1;
+      if(!matchCat && !matchArea && !matchLoc) return false;
+    }
+    // 텍스트 검색
+    if(!kw) return true;
     return (s.name||'').toLowerCase().indexOf(kw) !== -1
       || (s.category||'').toLowerCase().indexOf(kw) !== -1
       || (s.location||'').toLowerCase().indexOf(kw) !== -1
       || (s.description||'').toLowerCase().indexOf(kw) !== -1
       || (s.services||[]).some(function(sv){ return sv.toLowerCase().indexOf(kw) !== -1; });
   });
-  var catColors = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',nail:'#34d399',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa'};
-  if(header) header.textContent = results.length + ' result' + (results.length!==1?'s':'') + ' for "' + q + '"';
+
+  var label = kw ? '"' + q + '"' : (filter && filter !== 'all' ? filter : 'All shops');
+  if(header) header.textContent = results.length + ' result' + (results.length!==1?'s':'') + ' — ' + label;
+
   if(!results.length){
-    grid.innerHTML = '<div class="so-empty" style="grid-column:1/-1"><i class="fas fa-search" style="font-size:32px;margin-bottom:12px;display:block;opacity:.3"></i>No shops found</div>';
-  } else {
-    grid.innerHTML = results.map(function(s){
-      var col = catColors[s.category] || 'var(--pk)';
-      var href = s.slug ? '/shop/'+s.slug : '#';
-      var clickAttr = s.slug ? '' : ' data-sid="'+s.id+'" onclick="event.preventDefault();closeSearch();openShopModal(this.dataset.sid)"';
-      return '<a class="so-card" href="'+href+'"'+clickAttr+'>'
-        +'<div class="so-card-img-wrap"><img class="so-card-img" src="'+(s.thumbnail||'')+'" alt="'+esc(s.name)+'" loading="lazy" decoding="async"'
-          +' onload="parentLoaded(this)" onerror="parentLoaded(this)"></div>'
-        +'<div class="so-card-body">'
-          +'<div class="so-card-cat" style="color:'+col+'">'+esc(s.category)+'</div>'
-          +'<div class="so-card-name">'+esc(s.name)+'</div>'
-          +'<div class="so-card-loc"><i class="fas fa-map-marker-alt" style="font-size:8px;color:var(--pk)"></i>'+esc((s.location||'').split(',')[0])+'</div>'
-        +'</div>'
-      +'</a>';
-    }).join('');
+    grid.innerHTML = '<div class="so-empty" style="grid-column:1/-1;padding:60px 20px;text-align:center"><i class="fas fa-search" style="font-size:32px;margin-bottom:12px;display:block;opacity:.3"></i>No shops found</div>';
+    return;
   }
-  overlay.classList.add('open');
+  grid.innerHTML = results.map(function(s){
+    var col = catColors[s.category] || 'var(--pk)';
+    var href = s.slug ? '/shop/'+s.slug : '#';
+    var clickAttr = s.slug ? '' : ' data-sid="'+s.id+'" onclick="event.preventDefault();closeSearch();openShopModal(this.dataset.sid)"';
+    return '<a class="so-card" href="'+href+'"'+clickAttr+'>'
+      +'<div class="so-card-img-wrap"><img class="so-card-img" src="'+(s.thumbnail||'')+'" alt="'+esc(s.name)+'" loading="lazy" decoding="async"'
+        +' onload="parentLoaded(this)" onerror="parentLoaded(this)"></div>'
+      +'<div class="so-card-body">'
+        +'<div class="so-card-cat" style="color:'+col+'">'+esc(s.category)+'</div>'
+        +'<div class="so-card-name">'+esc(s.name)+'</div>'
+        +'<div class="so-card-loc"><i class="fas fa-map-marker-alt" style="font-size:8px;color:var(--pk)"></i>'+esc((s.location||'').split(',')[0])+'</div>'
+      +'</div>'
+    +'</a>';
+  }).join('');
 }
+
+function onSearch(q){
+  var clear = document.getElementById('srchClear');
+  if(clear) clear.classList.toggle('on', q.length > 0);
+  _renderSearchResults(q, _soFilter);
+  document.getElementById('search-overlay').classList.add('open');
+}
+
 function clearSearch(){
   var inp = document.getElementById('srchInput');
   var clear = document.getElementById('srchClear');
@@ -3768,14 +3833,25 @@ function clearSearch(){
   if(clear) clear.classList.remove('on');
   if(overlay) overlay.classList.remove('open');
 }
+
 function closeSearch(){
   _searchOpen = false;
   var bar = document.getElementById('search-bar');
   var btn = document.getElementById('srchToggle');
-  bar.classList.remove('open');
-  btn.classList.remove('on');
+  if(bar) bar.classList.remove('open');
+  if(btn) btn.classList.remove('on');
   clearSearch();
 }
+
+// 필터 칩 클릭
+document.getElementById('so-filters').addEventListener('click', function(e){
+  var chip = e.target.closest('.so-chip');
+  if(!chip) return;
+  _soFilter = chip.getAttribute('data-filter');
+  _resetChips();
+  var q = (document.getElementById('srchInput')||{}).value || '';
+  _renderSearchResults(q, _soFilter);
+});
 // ESC 키로 검색 닫기
 document.addEventListener('keydown', function(e){
   if(e.key === 'Escape') closeSearch();
