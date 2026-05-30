@@ -418,43 +418,144 @@ app.post('/api/resolve-gmap', async (c) => {
       }
     }
 
-    // ── /place/ 파싱 ──
+    // ── Places API 호출 헬퍼 (쿼리 or placeId) ──
+    const callPlacesApi = async (textQuery: string): Promise<any> => {
+      const r = await fetch('https://places.googleapis.com/v1/places:searchText', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': GOOGLE_PLACES_KEY,
+          'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.addressComponents,places.regularOpeningHours,places.rating,places.userRatingCount,places.reviews,places.photos,places.internationalPhoneNumber,places.websiteUri,places.location'
+        },
+        body: JSON.stringify({ textQuery, languageCode: 'en' })
+      })
+      if (!r.ok) return null
+      const d: any = await r.json()
+      return d.places?.[0] || null
+    }
+
+    const placeDetailsById = async (pid: string): Promise<any> => {
+      const fieldMask = 'id,displayName,formattedAddress,addressComponents,regularOpeningHours,rating,userRatingCount,reviews,photos,internationalPhoneNumber,websiteUri,location'
+      const r = await fetch(`https://places.googleapis.com/v1/places/${pid}?languageCode=en`, {
+        headers: { 'X-Goog-Api-Key': GOOGLE_PLACES_KEY, 'X-Goog-FieldMask': fieldMask }
+      })
+      if (!r.ok) return null
+      return r.json()
+    }
+
+    const placeToJson = (place: any) => {
+      if (!place) return null
+      const comps: any[] = place.addressComponents || []
+      const isKor = (s: string) => /[\uAC00-\uD7A3]/.test(s)
+      const stripKor = (s: string) => s.replace(/[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]+/g,'').replace(/\s{2,}/g,' ').trim()
+      const get = (...types: string[]) => {
+        const c = comps.find((x: any) => types.some(t => x.types?.includes(t)))
+        if (!c) return ''
+        return !isKor(c.longText||'') ? c.longText||'' : !isKor(c.shortText||'') ? c.shortText||'' : ''
+      }
+      const street = [get('street_number'), get('route')].filter(Boolean).join(' ')
+        || [get('sublocality_level_4'), get('sublocality_level_3'), get('sublocality_level_2')].filter(Boolean).join(' ')
+      const sub1 = get('sublocality_level_1')
+      const district = get('administrative_area_level_2','locality')
+      const province = get('administrative_area_level_1')
+      let address = [street, sub1, district, province, 'South Korea'].filter(Boolean).join(', ')
+      if (isKor(address)) address = stripKor(place.formattedAddress||'') || 'Seoul, South Korea'
+
+      const rawName: string = place.displayName?.text || ''
+      const engName = rawName.split('|').map((s: string) => s.trim()).find((s: string) => !isKor(s) && s.length > 0)
+        || stripKor(rawName) || rawName
+
+      const sub1Text = comps.find((x: any) => x.types?.includes('sublocality_level_1'))?.longText || ''
+      const location = findArea(sub1Text) || findArea(place.formattedAddress || '') || 'Seoul'
+
+      const weekdays: string[] = place.regularOpeningHours?.weekdayDescriptions || []
+      const rawReviews: any[] = place.reviews || []
+      const enRevs   = rawReviews.filter((r: any) => r.text?.languageCode==='en' && (r.text?.text?.length||0)>20)
+      const otherRevs = rawReviews.filter((r: any) => r.text?.languageCode!=='en' && (r.text?.text?.length||0)>20)
+      const reviews = [...enRevs, ...otherRevs].slice(0,5).map((r: any) => ({
+        author: r.authorAttribution?.displayName||'Guest', rating: r.rating||5,
+        text: r.text?.text||'', time: r.relativePublishTimeDescription||''
+      }))
+      const photos = (place.photos||[]).slice(0,10).map((p: any) => `/api/photo?name=${encodeURIComponent(p.name||'')}`)
+      const lat = place.location?.latitude?.toString() || ''
+      const lng = place.location?.longitude?.toString() || ''
+
+      return {
+        placeId: place.id||'', name: engName, address, location,
+        phone: place.internationalPhoneNumber||'', website: place.websiteUri||'',
+        hours: weekdays.join(' | '), weekdayDescriptions: weekdays,
+        rating: place.rating||0, reviewCount: place.userRatingCount||0,
+        reviews, photos, lat, lng,
+        _fromPlaces: true  // Places API로 가져왔음을 admin에서 인식
+      }
+    }
+
+    // ── 1순위: URL에서 placeId(0x...) 추출 → Place Details ──
+    const placeIdMatch = resolved.match(/[?&;/]([0-9a-f]{16,}:[0-9a-f]{16,})/i)
+      || resolved.match(/place_id[:=]([A-Za-z0-9_-]+)/)
+    if (placeIdMatch) {
+      const pid = placeIdMatch[1]
+      // hex:hex 형태는 Google Maps 내부 ID — Text Search로 변환
+      const hexMatch = pid.match(/^([0-9a-f]+):([0-9a-f]+)$/i)
+      if (!hexMatch) {
+        const pd = await placeDetailsById(pid)
+        const result = placeToJson(pd)
+        if (result) return c.json(result)
+      }
+    }
+
+    // ── 2순위: /place/ URL에서 업체명 추출 → Places Text Search ──
     const placeIdx = resolved.indexOf('/place/')
     if (placeIdx !== -1) {
-      // 업체명 추출
       const afterPlace = resolved.slice(placeIdx + 7)
       const rawName = afterPlace.split('/')[0].split('?')[0].split('@')[0]
       let shopName = ''
       try { shopName = decodeURIComponent(rawName.split('+').join(' ')).trim() } catch { shopName = rawName.trim() }
 
-      // 좌표 추출 시도
+      // 한국어/일본어 제거 후 첫 영문 파트
+      const isKor = (s: string) => /[\uAC00-\uD7A3]/.test(s)
+      const engPart = shopName.split('|').map(s => s.trim()).find(s => !isKor(s) && s.length > 2) || shopName
+
+      // 좌표도 추출
       const coords = extractCoords(resolved)
-      if (coords) {
-        const geo = await reverseGeocode(coords.lat, coords.lon)
-        if (geo) {
-          return c.json({ name: shopName, address: geo.address, location: geo.location, lat: coords.lat, lng: coords.lon })
-        }
+      const latStr = coords?.lat || ''
+      const lngStr = coords?.lon || ''
+
+      // Places Text Search로 전체 정보 가져오기
+      const searchQ = engPart + ' Seoul Korea'
+      const place = await callPlacesApi(searchQ)
+      const result = placeToJson(place)
+      if (result) {
+        if (latStr && !result.lat) result.lat = latStr
+        if (lngStr && !result.lng) result.lng = lngStr
+        return c.json(result)
       }
 
-      // 좌표 없음 → 업체명만 반환 (주소는 비워둠)
-      return c.json({ name: shopName, address: '', location: findArea(shopName), lat: '', lng: '' })
+      // Places 실패 → 기본 정보만
+      const geo = coords ? await reverseGeocode(coords.lat, coords.lon) : null
+      return c.json({
+        name: engPart, address: geo?.address || '', location: geo?.location || findArea(shopName),
+        lat: latStr, lng: lngStr
+      })
     }
 
-    // ── ?q= 파싱 ──
+    // ── 3순위: ?q= ──
     const qMatch = resolved.match(/[?&]q=([^&]+)/)
     if (qMatch) {
       let qVal = ''
       try { qVal = decodeURIComponent(qMatch[1].split('+').join(' ')) } catch { qVal = qMatch[1] }
-      // 좌표값이면 역지오코딩
       const coordsFromQ = extractCoords(resolved)
       if (coordsFromQ) {
         const geo = await reverseGeocode(coordsFromQ.lat, coordsFromQ.lon)
         if (geo) return c.json({ name: '', address: geo.address, location: geo.location, lat: coordsFromQ.lat, lng: coordsFromQ.lon })
       }
+      const place = await callPlacesApi(qVal + ' Seoul Korea')
+      const result = placeToJson(place)
+      if (result) return c.json(result)
       return c.json({ name: '', address: qVal, location: findArea(qVal), lat: '', lng: '' })
     }
 
-    // ── 좌표만 있는 경우 ──
+    // ── 4순위: 좌표만 ──
     const coordsOnly = extractCoords(resolved)
     if (coordsOnly) {
       const geo = await reverseGeocode(coordsOnly.lat, coordsOnly.lon)
@@ -816,79 +917,144 @@ Return ONLY valid JSON:
   }
 })
 
-// ── Google Places API 자동가져오기 ──
+// ── Google Places API 자동가져오기 (query 또는 placeId 직접) ──
 app.post('/api/places-fetch', async (c) => {
   try {
-    const { query } = await c.req.json() as { query: string }
-    if (!query) return c.json({ error: 'query required' }, 400)
+    const body = await c.req.json() as { query?: string; placeId?: string }
+    const { query, placeId: directPlaceId } = body
 
-    // 1. Text Search — languageCode:'en' 으로 영문 정보 직접 취득
-    const searchRes = await fetch('https://places.googleapis.com/v1/places:searchText', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Goog-Api-Key': GOOGLE_PLACES_KEY,
-        'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.shortFormattedAddress,places.addressComponents,places.regularOpeningHours,places.rating,places.userRatingCount,places.reviews,places.priceLevel,places.photos,places.websiteUri,places.internationalPhoneNumber'
-      },
-      body: JSON.stringify({ textQuery: query, languageCode: 'en' })
-    })
-    if (!searchRes.ok) {
-      const err = await searchRes.text()
-      return c.json({ error: 'Places API error', detail: err }, 500)
-    }
-    const searchData: any = await searchRes.json()
-    const place = searchData.places?.[0]
-    if (!place) return c.json({ error: 'No place found' }, 404)
+    // ── 공통 헬퍼 ──
+    const isKorean = (s: string) => /[\uAC00-\uD7A3]/.test(s)
 
-    // 2. 영문 주소 정제
-    // formattedAddress가 영문이면 그대로, 한국어가 섞이면 addressComponents로 재조합
-    const rawAddr: string = place.formattedAddress || ''
-    const hasKorean = /[\uAC00-\uD7A3]/.test(rawAddr)
-    let engAddress = rawAddr
+    // 한국어 제거 — 영어/숫자/공백/쉼표/하이픈/마침표/슬래시만 남김
+    const stripKorean = (s: string) =>
+      s.replace(/[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]+/g, '').replace(/\s{2,}/g, ' ').trim()
 
-    if (hasKorean) {
-      // addressComponents에서 영문(long_name) 으로 재조합
-      const comps: any[] = place.addressComponents || []
-      // 필요한 타입만 추려서 영문으로 조합: subpremise > premise > sublocality_level_1 > locality > administrative_area_level_1
-      const pick = (types: string[]) => {
-        const c = comps.find((x: any) => types.some((t: string) => x.types?.includes(t)))
-        return c?.languageCode === 'ko' ? (c?.longText || '') : (c?.longText || '')
+    // 지역명 매핑 (한/영 → 표준 표기)
+    const areaMap: [string, string][] = [
+      ['apgujeong','Apgujeong'],['압구정','Apgujeong'],
+      ['cheongdam','Cheongdam'],['청담','Cheongdam'],
+      ['sinsa','Sinsa'],['신사','Sinsa'],['가로수길','Sinsa'],
+      ['gangnam','Gangnam'],['강남','Gangnam'],['역삼','Gangnam'],['선릉','Gangnam'],
+      ['seocho','Seocho'],['서초','Seocho'],
+      ['hongdae','Hongdae'],['홍대','Hongdae'],
+      ['hapjeong','Hapjeong'],['합정','Hapjeong'],['상수','Hapjeong'],
+      ['mapo','Mapo'],['마포','Mapo'],
+      ['itaewon','Itaewon'],['이태원','Itaewon'],['한남','Itaewon'],
+      ['yongsan','Yongsan'],['용산','Yongsan'],
+      ['myeongdong','Myeongdong'],['명동','Myeongdong'],
+      ['jongno','Jongno'],['종로','Jongno'],['인사동','Jongno'],
+      ['dongdaemun','Dongdaemun'],['동대문','Dongdaemun'],
+      ['seongsu','Seongsu'],['성수','Seongsu'],['성동','Seongsu'],
+      ['jamsil','Jamsil'],['잠실','Jamsil'],
+      ['songpa','Songpa'],['송파','Songpa'],
+      ['yeouido','Yeouido'],['여의도','Yeouido'],
+      ['sinchon','Sinchon'],['신촌','Sinchon'],
+    ]
+    const detectLocation = (text: string): string => {
+      const t = text.toLowerCase()
+      for (const [kw, val] of areaMap) {
+        if (t.includes(kw.toLowerCase())) return `${val}, Seoul`
       }
-      const parts = [
-        pick(['subpremise']),
-        pick(['premise', 'point_of_interest', 'establishment']),
-        pick(['sublocality_level_4', 'sublocality_level_3', 'sublocality_level_2', 'sublocality_level_1']),
-        pick(['locality', 'administrative_area_level_2']),
-        pick(['administrative_area_level_1']),
-        'South Korea'
-      ].filter(Boolean)
-      engAddress = parts.length > 1 ? parts.join(', ') : rawAddr
-      // 여전히 한국어 포함이면 place.shortFormattedAddress 시도
-      if (/[\uAC00-\uD7A3]/.test(engAddress)) {
-        engAddress = place.shortFormattedAddress || rawAddr
-      }
+      return 'Seoul'
     }
 
-    // 3. 지역명 추출 (location 필드용: "Gangnam, Seoul" 형태)
+    // addressComponents → 깨끗한 영문 주소 조합
+    const buildEngAddress = (comps: any[], fallbackAddr: string): string => {
+      const get = (...types: string[]) => {
+        const c = comps.find((x: any) => types.some(t => x.types?.includes(t)))
+        if (!c) return ''
+        // shortText, longText 중 한국어 없는 것 선택
+        const lt = c.longText || '', st = c.shortText || ''
+        return !isKorean(lt) ? lt : !isKorean(st) ? st : ''
+      }
+      const streetNum  = get('street_number')
+      const route      = get('route')
+      const sub4       = get('sublocality_level_4')
+      const sub3       = get('sublocality_level_3')
+      const sub2       = get('sublocality_level_2')
+      const sub1       = get('sublocality_level_1')
+      const district   = get('administrative_area_level_2','locality')
+      const province   = get('administrative_area_level_1')
+
+      const street = [streetNum, route].filter(Boolean).join(' ') || [sub4,sub3,sub2].filter(Boolean).join(' ')
+      const neighborhood = sub1
+      const parts = [street, neighborhood, district, province, 'South Korea'].filter(Boolean)
+      const candidate = parts.join(', ')
+
+      // 조합된 주소에도 한국어가 남아있으면 fallback
+      if (isKorean(candidate)) {
+        const stripped = stripKorean(fallbackAddr)
+        return stripped || 'Seoul, South Korea'
+      }
+      return candidate || stripKorean(fallbackAddr) || 'Seoul, South Korea'
+    }
+
+    // 장소 단일 조회 (placeId로) — Place Details v1
+    const fetchPlaceById = async (pid: string): Promise<any> => {
+      const fieldMask = [
+        'id','displayName','formattedAddress','shortFormattedAddress',
+        'addressComponents','regularOpeningHours','rating','userRatingCount',
+        'reviews','photos','websiteUri','internationalPhoneNumber'
+      ].join(',')
+      const r = await fetch(`https://places.googleapis.com/v1/places/${pid}?languageCode=en`, {
+        headers: { 'X-Goog-Api-Key': GOOGLE_PLACES_KEY, 'X-Goog-FieldMask': fieldMask }
+      })
+      if (!r.ok) throw new Error('Place Details error: ' + r.status)
+      return r.json()
+    }
+
+    let place: any
+
+    if (directPlaceId) {
+      // placeId 직접 전달 → Place Details 바로 조회
+      place = await fetchPlaceById(directPlaceId)
+    } else {
+      if (!query) return c.json({ error: 'query or placeId required' }, 400)
+      // Text Search
+      const searchRes = await fetch('https://places.googleapis.com/v1/places:searchText', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': GOOGLE_PLACES_KEY,
+          'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.shortFormattedAddress,places.addressComponents,places.regularOpeningHours,places.rating,places.userRatingCount,places.reviews,places.photos,places.websiteUri,places.internationalPhoneNumber'
+        },
+        body: JSON.stringify({ textQuery: query, languageCode: 'en' })
+      })
+      if (!searchRes.ok) {
+        const err = await searchRes.text()
+        return c.json({ error: 'Places API error', detail: err }, 500)
+      }
+      const sd: any = await searchRes.json()
+      place = sd.places?.[0]
+      if (!place) return c.json({ error: 'No place found' }, 404)
+    }
+
+    // ── 업체 영문명: 한국어/일본어/중국어 제거 ──
+    const rawDisplayName: string = place.displayName?.text || ''
+    // 다국어가 섞인 경우 '|' 구분자로 첫 번째 영문 파트만 추출
+    const engName = rawDisplayName.split('|').map((s: string) => s.trim()).find((s: string) => !isKorean(s) && s.length > 0)
+      || stripKorean(rawDisplayName)
+      || rawDisplayName
+
+    // ── 영문 주소 ──
     const comps: any[] = place.addressComponents || []
-    const locality = comps.find((x: any) => x.types?.includes('sublocality_level_1') || x.types?.includes('locality'))
-    const area = locality?.longText || ''
-    const location = area ? `${area}, Seoul` : 'Seoul'
+    const engAddress = buildEngAddress(comps, place.formattedAddress || '')
 
-    // 4. 업체 영문명
-    const engName: string = place.displayName?.text || ''
+    // ── 지역 (location) — addressComponents sublocality_level_1 우선 ──
+    const sub1Comp = comps.find((x: any) => x.types?.includes('sublocality_level_1'))
+    const sub1Text = sub1Comp?.longText || sub1Comp?.shortText || ''
+    const location = detectLocation(sub1Text) !== 'Seoul'
+      ? detectLocation(sub1Text)
+      : detectLocation(place.formattedAddress || '')
 
-    // 5. 전화번호, 웹사이트
-    const phone: string = place.internationalPhoneNumber || ''
-    const website: string = place.websiteUri || ''
-
-    // 6. 영업시간 (요일별 배열 — 영문)
+    // ── 영업시간 ──
     const weekdays: string[] = place.regularOpeningHours?.weekdayDescriptions || []
     const hoursStr = weekdays.join(' | ')
 
-    // 7. 리뷰: 영어 우선, 부족하면 전체에서 보충 (최대 5개)
+    // ── 리뷰: 영어 우선 (최대 5개) ──
     const rawReviews: any[] = place.reviews || []
-    const enReviews = rawReviews.filter((r: any) => r.text?.languageCode === 'en' && (r.text?.text?.length || 0) > 20)
+    const enReviews   = rawReviews.filter((r: any) => r.text?.languageCode === 'en' && (r.text?.text?.length || 0) > 20)
     const otherReviews = rawReviews.filter((r: any) => r.text?.languageCode !== 'en' && (r.text?.text?.length || 0) > 20)
     const reviews = [...enReviews, ...otherReviews].slice(0, 5).map((r: any) => ({
       author: r.authorAttribution?.displayName || 'Guest',
@@ -897,9 +1063,9 @@ app.post('/api/places-fetch', async (c) => {
       time: r.relativePublishTimeDescription || ''
     }))
 
-    // 8. 사진 URL (최대 6장) — 상대경로 프록시
+    // ── 사진 URL (최대 10장) ──
     const rawPhotos: any[] = place.photos || []
-    const photos = rawPhotos.slice(0, 6).map((p: any) => {
+    const photos = rawPhotos.slice(0, 10).map((p: any) => {
       const name = encodeURIComponent(p.name || '')
       return `/api/photo?name=${name}`
     })
@@ -908,9 +1074,9 @@ app.post('/api/places-fetch', async (c) => {
       placeId:             place.id || '',
       name:                engName,
       address:             engAddress,
-      location:            location,
-      phone:               phone,
-      website:             website,
+      location,
+      phone:               place.internationalPhoneNumber || '',
+      website:             place.websiteUri || '',
       hours:               hoursStr,
       weekdayDescriptions: weekdays,
       rating:              place.rating || 0,
@@ -5140,6 +5306,91 @@ function updateGmapEmbedPreview(previewId, inputId) {
 }
 
 // ── 구글맵 URL 파싱 → 자동입력 ──
+/* ── 구글맵 링크 → resolve-gmap → 폼 자동입력 ── */
+function applyPlacesDataToForm(prefix, d) {
+  /* resolve-gmap / places-fetch 응답을 폼 prefix의 모든 필드에 채워 넣는 공통 함수 */
+  if(d.name)    { var ne=document.getElementById(prefix+'-name');    if(ne && !ne.value.trim()) ne.value=d.name; }
+  if(d.address) { var ae=document.getElementById(prefix+'-addr');    if(ae) ae.value=d.address; }
+  if(d.location){ var le=document.getElementById(prefix+'-loc');     if(le && !le.value.trim()) le.value=d.location; }
+  if(d.lat)     { var late=document.getElementById(prefix+'-lat');   if(late) late.value=d.lat; }
+  if(d.lng)     { var lnge=document.getElementById(prefix+'-lng');   if(lnge) lnge.value=d.lng; }
+
+  if(d.weekdayDescriptions && d.weekdayDescriptions.length>0){
+    var he=document.getElementById(prefix+'-hours'); if(he) he.value=d.weekdayDescriptions.join(' | ');
+  } else if(d.hours){
+    var he2=document.getElementById(prefix+'-hours'); if(he2) he2.value=d.hours;
+  }
+  if(d.rating){ var re=document.getElementById(prefix+'-rating'); if(re) re.value=d.rating; }
+  if(d.reviewCount){ var rce=document.getElementById(prefix+'-review-count'); if(rce) rce.value=d.reviewCount; }
+  if(d.reviews && d.reviews.length>0){ var rve=document.getElementById(prefix+'-reviews'); if(rve) rve.value=JSON.stringify(d.reviews); }
+  if(d.placeId){ var pie=document.getElementById(prefix+'-place-id'); if(pie) pie.value=d.placeId; }
+  if(d.photos && d.photos.length>0){
+    var th=document.getElementById(prefix+'-thumb'); if(th && !th.value) th.value=d.photos[0];
+    var ph=document.getElementById(prefix+'-photos'); if(ph) ph.value=JSON.stringify(d.photos);
+    /* 사진 미리보기 */
+    var prevId=prefix==='sh'?'sh-photos-preview':'edit-sh-photos-preview';
+    var prevEl=document.getElementById(prevId);
+    if(prevEl){
+      prevEl.innerHTML=d.photos.map(function(u){ return '<img src="'+u+'" style="width:64px;height:64px;object-fit:cover;border-radius:7px;border:1px solid rgba(255,255,255,.12)" onerror="this.remove()">'; }).join('');
+      prevEl.style.display='flex'; prevEl.style.flexWrap='wrap'; prevEl.style.gap='4px'; prevEl.style.marginTop='8px';
+    }
+  }
+}
+
+function buildPlacesResultCard(d, extra) {
+  /* 가져온 정보를 한눈에 볼 수 있는 상세 카드 HTML 반환 */
+  var html = '<div style="background:rgba(66,133,244,.07);border:1px solid rgba(66,133,244,.3);border-radius:12px;padding:12px 14px;margin-top:8px;font-size:12px">';
+  html += '<div style="font-weight:800;color:#60a5fa;margin-bottom:8px;font-size:12px"><i class="fab fa-google"></i> 구글 정보 가져오기 완료!</div>';
+
+  /* 업체명 */
+  if(d.name) html += '<div style="margin-bottom:5px"><span style="color:rgba(255,255,255,.4)">업체명 </span><b style="color:#fff">'+d.name+'</b></div>';
+
+  /* 평점 + 리뷰수 */
+  if(d.rating){ 
+    var stars=''; for(var i=0;i<5;i++) stars+=(i<Math.round(d.rating)?'★':'☆');
+    html += '<div style="margin-bottom:5px"><span style="color:#fbbf24;font-size:13px">'+stars+'</span> <b style="color:#fbbf24">'+d.rating+'</b> <span style="color:rgba(255,255,255,.4)">('+((d.reviewCount||0).toLocaleString())+'개 리뷰)</span></div>';
+  }
+
+  /* 주소 */
+  if(d.address) html += '<div style="margin-bottom:5px;line-height:1.5"><i class="fas fa-map-marker-alt" style="color:#f87171;margin-right:4px"></i><span style="color:rgba(255,255,255,.75)">'+d.address+'</span></div>';
+
+  /* 지역 */
+  if(d.location) html += '<div style="margin-bottom:5px"><i class="fas fa-location-dot" style="color:#a78bfa;margin-right:4px"></i><span style="color:#c4b5fd">'+d.location+'</span></div>';
+
+  /* 영업시간 */
+  if(d.weekdayDescriptions && d.weekdayDescriptions.length>0){
+    html += '<div style="margin-bottom:6px"><div style="color:rgba(255,255,255,.4);margin-bottom:3px"><i class="fas fa-clock" style="margin-right:4px"></i>영업시간</div>';
+    html += '<div style="background:rgba(255,255,255,.04);border-radius:8px;padding:6px 8px;font-size:11px;color:rgba(255,255,255,.65);line-height:1.7">';
+    d.weekdayDescriptions.forEach(function(h){ html += h + '<br>'; });
+    html += '</div></div>';
+  }
+
+  /* 사진 */
+  if(d.photos && d.photos.length>0){
+    html += '<div style="margin-bottom:6px"><div style="color:rgba(255,255,255,.4);margin-bottom:4px"><i class="fas fa-images" style="margin-right:4px"></i>사진 '+d.photos.length+'장</div>';
+    html += '<div style="display:flex;flex-wrap:wrap;gap:4px">';
+    d.photos.slice(0,8).forEach(function(u){ html += '<img src="'+u+'" style="width:58px;height:58px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,.1)" onerror="this.remove()">'; });
+    html += '</div></div>';
+  }
+
+  /* 리뷰 미리보기 */
+  if(d.reviews && d.reviews.length>0){
+    html += '<div style="margin-bottom:4px"><div style="color:rgba(255,255,255,.4);margin-bottom:4px"><i class="fas fa-comment" style="margin-right:4px"></i>리뷰 미리보기</div>';
+    d.reviews.slice(0,2).forEach(function(rv){
+      var strs=''; for(var i=0;i<(rv.rating||5);i++) strs+='★';
+      html += '<div style="background:rgba(255,255,255,.04);border-radius:8px;padding:7px 9px;margin-bottom:4px;font-size:11px">';
+      html += '<div style="color:#fbbf24;font-size:10px;margin-bottom:2px">'+strs+' <span style="color:rgba(255,255,255,.4)">'+rv.author+'</span></div>';
+      html += '<div style="color:rgba(255,255,255,.7);line-height:1.5">'+rv.text.slice(0,120)+(rv.text.length>120?'…':'')+'</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+
+  if(extra) html += extra;
+  html += '</div>';
+  return html;
+}
+
 function parseGmapUrl(raw){
   var status = document.getElementById('sh-gmap-status');
   var url = raw.trim();
@@ -5147,19 +5398,19 @@ function parseGmapUrl(raw){
 
   document.getElementById('sh-gmap-raw').setAttribute('data-gmap-url', url);
 
-  // 구글맵 URL → 서버 경유 처리 (단축URL + /place/ 형태 모두)
+  /* 구글맵 URL → 서버 경유: resolve-gmap이 Places API까지 조회해서 전체정보 반환 */
   if(url.indexOf('google.com/maps')!==-1 || url.indexOf('goo.gl')!==-1 || url.indexOf('maps.app')!==-1){
     status.style.color='#fbbf24';
-    status.textContent='Analyzing link...';
+    status.innerHTML='<i class="fas fa-spinner fa-spin"></i> 구글에서 업체 정보 가져오는 중...';
     fetch('/api/resolve-gmap',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:url})})
       .then(function(r){return r.json();})
       .then(function(d){
-        if(d.name) document.getElementById('sh-name').value = d.name;
-        if(d.address) document.getElementById('sh-addr').value = d.address;
-        if(d.location) document.getElementById('sh-loc').value = d.location;
-        if(d.lat) document.getElementById('sh-lat').value = d.lat;
-        if(d.lng) document.getElementById('sh-lng').value = d.lng;
-        if(d.address||d.name){
+        if(d.error){ status.style.color='#f87171'; status.textContent='❌ '+d.error; return; }
+        /* 공통 헬퍼로 sh- 폼 전체 입력 */
+        applyPlacesDataToForm('sh', d);
+        if(d._fromPlaces){
+          status.innerHTML = buildPlacesResultCard(d, '<div style="margin-top:6px;font-size:10px;color:rgba(255,255,255,.3)">링크 자동가져오기 완료</div>');
+        } else if(d.address||d.name){
           status.style.color='#4ade80';
           status.textContent='✅ 자동입력 완료! 내용을 확인해주세요.';
         } else {
@@ -5167,50 +5418,15 @@ function parseGmapUrl(raw){
           status.textContent='⚠ 일부 정보를 가져오지 못했어요. 직접 입력해주세요.';
         }
       })
-      .catch(function(){
+      .catch(function(e){
         status.style.color='#f87171';
-        status.textContent='❌ 분석 실패. 아래 정보를 직접 입력해주세요.';
+        status.textContent='❌ 분석 실패: '+e.message;
       });
     return;
   }
 
-  // /place/ 형식: maps.google.com/maps/place/업체명+주소/
-  var placeIdx = url.indexOf('/place/');
-  if(placeIdx!==-1){
-    var placePart = url.slice(placeIdx+7).split('/')[0];
-    var decoded='';
-    try{ decoded=decodeURIComponent(placePart.split('+').join(' ')); }catch(e){ decoded=placePart; }
-    if(decoded){
-      var pname = extractPlaceName(decoded);
-      var area = detectArea(decoded);
-      if(pname && !document.getElementById('sh-name').value) document.getElementById('sh-name').value = pname;
-      document.getElementById('sh-addr').value = decoded;
-      if(area) document.getElementById('sh-loc').value = area;
-      status.style.color='#4ade80';
-      status.textContent='✅ 자동입력 완료! 내용을 확인해주세요.';
-      return;
-    }
-  }
-
-  // ?q= 형식
-  var qIdx = url.indexOf('?q=');
-  if(qIdx===-1) qIdx=url.indexOf('&q=');
-  if(qIdx!==-1){
-    var qVal=url.slice(qIdx+3).split('&')[0];
-    var dec2='';
-    try{ dec2=decodeURIComponent(qVal.split('+').join(' ')); }catch(e){ dec2=qVal; }
-    if(dec2){
-      var area2=detectArea(dec2);
-      document.getElementById('sh-addr').value=dec2;
-      if(area2) document.getElementById('sh-loc').value=area2;
-      status.style.color='#4ade80';
-      status.textContent='✅ 주소 자동입력 완료!';
-      return;
-    }
-  }
-
   status.style.color='rgba(255,255,255,.4)';
-  status.textContent='링크에서 정보를 찾지 못했어요. 아래에 직접 입력해주세요.';
+  status.textContent='구글맵 링크를 붙여넣어 주세요.';
 }
 
 // ── 업체 등록 ──
@@ -5457,113 +5673,50 @@ function saveSettings(){
 async function fetchPlacesInfo(prefix) {
   var nameEl   = document.getElementById(prefix + '-name');
   var locEl    = document.getElementById(prefix + '-loc');
-  var addrEl   = document.getElementById(prefix + '-addr');
-  var hoursEl  = document.getElementById(prefix + '-hours');
   var statusEl = document.getElementById(prefix + '-places-status');
   var btnEl    = document.getElementById(prefix + '-places-btn');
 
   var shopName = nameEl ? nameEl.value.trim() : '';
   var location = locEl  ? locEl.value.trim()  : '';
-  if (!shopName) {
+
+  /* placeId가 이미 있으면 ID로 직접 조회 (더 정확) */
+  var pidEl = document.getElementById(prefix + '-place-id');
+  var existingPid = pidEl ? pidEl.value.trim() : '';
+
+  if (!shopName && !existingPid) {
     if(statusEl) statusEl.innerHTML = '<span style="color:#f87171">⚠️ 업체명을 먼저 입력하세요</span>';
     return;
   }
 
-  var query = shopName + (location ? ' ' + location : '') + ' Seoul Korea';
-  if(statusEl) statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 구글에서 정보 가져오는 중...';
+  if(statusEl) statusEl.innerHTML = '<i class="fas fa-spinner fa-spin" style="color:#60a5fa"></i> <span style="color:#93c5fd"> 구글 Places에서 전체 정보 가져오는 중...</span>';
   if(btnEl) { btnEl.disabled = true; btnEl.style.opacity = '.6'; }
 
   try {
+    var body;
+    if(existingPid) {
+      body = JSON.stringify({ placeId: existingPid });
+    } else {
+      var query = shopName + (location ? ' ' + location : '') + ' Seoul Korea';
+      body = JSON.stringify({ query: query });
+    }
+
     var res = await fetch('/api/places-fetch', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: query })
+      body: body
     });
     var d = await res.json();
+
     if (d.error) {
-      if(statusEl) statusEl.innerHTML = '<span style="color:#f87171">❌ ' + (d.error === 'No place found' ? '구글에서 업체를 찾을 수 없습니다.' : d.error) + '</span>';
+      if(statusEl) statusEl.innerHTML = '<span style="color:#f87171">❌ ' + (d.error === 'No place found' ? '구글에서 업체를 찾을 수 없습니다. 업체명을 영문으로 바꿔 다시 시도해보세요.' : d.error) + '</span>';
       return;
     }
 
-    var updated = [];
+    /* 공통 헬퍼로 모든 필드 자동입력 */
+    applyPlacesDataToForm(prefix, d);
 
-    // 1. 업체 영문명 (비어있을 때만 덮어씀)
-    if (d.name && nameEl && !nameEl.value.trim()) {
-      nameEl.value = d.name;
-      updated.push('업체명');
-    }
-
-    // 2. 영문 주소
-    if (d.address && addrEl) {
-      addrEl.value = d.address;
-      updated.push('주소 ✅');
-    }
-
-    // 3. 지역 (location)
-    if (d.location && locEl && !locEl.value.trim()) {
-      locEl.value = d.location;
-      updated.push('지역');
-    }
-
-    // 4. 영업시간 (요일별)
-    if (d.weekdayDescriptions && d.weekdayDescriptions.length > 0 && hoursEl) {
-      hoursEl.value = d.weekdayDescriptions.join(' | ');
-      updated.push('영업시간 ✅');
-    } else if (d.hours && hoursEl) {
-      hoursEl.value = d.hours;
-      updated.push('영업시간 ✅');
-    }
-
-    // 5. 평점/리뷰수 hidden 저장
-    var ratingEl = document.getElementById(prefix + '-rating');
-    if (d.rating && ratingEl) { ratingEl.value = d.rating; updated.push('평점 ' + d.rating + '★'); }
-    var rcEl = document.getElementById(prefix + '-review-count');
-    if (d.reviewCount && rcEl) { rcEl.value = d.reviewCount; }
-
-    // 6. 리뷰 JSON hidden 저장
-    var rvEl = document.getElementById(prefix + '-reviews');
-    if (d.reviews && d.reviews.length > 0 && rvEl) {
-      rvEl.value = JSON.stringify(d.reviews);
-      updated.push('리뷰 ' + d.reviews.length + '개 ✅');
-    }
-
-    // 7. placeId hidden 저장
-    var pidEl = document.getElementById(prefix + '-place-id');
-    if (d.placeId && pidEl) { pidEl.value = d.placeId; }
-
-    // 8. 사진 (최대 6장) — 썸네일 + photos hidden + 미리보기
-    if (d.photos && d.photos.length > 0) {
-      var thumbEl = document.getElementById(prefix + '-thumb');
-      if (thumbEl && !thumbEl.value) { thumbEl.value = d.photos[0]; }
-      var photosHiddenEl = document.getElementById(prefix + '-photos');
-      if (photosHiddenEl) { photosHiddenEl.value = JSON.stringify(d.photos); }
-      updated.push('사진 ' + d.photos.length + '장 ✅');
-      var previewId = prefix === 'sh' ? 'sh-photos-preview' : 'edit-sh-photos-preview';
-      var previewEl = document.getElementById(previewId);
-      if (previewEl) {
-        previewEl.innerHTML = d.photos.map(function(url) {
-          return '<div style="position:relative;display:inline-block;margin:3px">'
-            + '<img src="' + url + '" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid rgba(255,255,255,.15)" onerror="this.remove()">'
-            + '</div>';
-        }).join('');
-        previewEl.style.display = 'flex';
-        previewEl.style.flexWrap = 'wrap';
-        previewEl.style.gap = '4px';
-        previewEl.style.marginTop = '8px';
-      }
-    }
-
-    // 9. 결과 요약 카드 렌더링
-    var resultCard = '<div style="background:rgba(74,222,128,.06);border:1px solid rgba(74,222,128,.2);border-radius:10px;padding:10px 12px;margin-top:6px">'
-      + '<div style="font-size:11px;font-weight:800;color:#4ade80;margin-bottom:6px"><i class="fab fa-google"></i> 구글 정보 가져오기 완료!</div>'
-      + '<div style="display:flex;flex-wrap:wrap;gap:5px">';
-    updated.forEach(function(item) {
-      resultCard += '<span style="background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.25);border-radius:20px;padding:2px 9px;font-size:10px;color:#86efac">' + item + '</span>';
-    });
-    resultCard += '</div>';
-    if (d.name) resultCard += '<div style="margin-top:6px;font-size:11px;color:rgba(255,255,255,.5)">영문명: <b style="color:rgba(255,255,255,.8)">' + d.name + '</b></div>';
-    resultCard += '</div>';
-    if(statusEl) statusEl.innerHTML = resultCard;
+    /* 상세 결과 카드 렌더 */
+    if(statusEl) statusEl.innerHTML = buildPlacesResultCard(d, '');
 
   } catch(e) {
     if(statusEl) statusEl.innerHTML = '<span style="color:#f87171">❌ 오류: ' + e.message + '</span>';
@@ -5634,16 +5787,26 @@ async function genAiSeo(prefix) {
     var aiRes = await fetch('https://www.genspark.ai/api/llm_proxy/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _GSK_TOKEN },
-      body: JSON.stringify({ model: 'gpt-5', messages: [{ role: 'user', content: prompt }], max_tokens: 3000 })
+      body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }], max_tokens: 1200 })
     });
+    if (!aiRes.ok) {
+      var errBody = ''; try { errBody = await aiRes.text(); } catch(ex){}
+      throw new Error('API 오류 (' + aiRes.status + ')' + (errBody ? ': ' + errBody.slice(0,120) : ''));
+    }
     var aiData = await aiRes.json();
+    if (aiData.error) throw new Error(aiData.error.message || JSON.stringify(aiData.error));
     var text = (aiData.choices && aiData.choices[0] && aiData.choices[0].message && aiData.choices[0].message.content) || '';
-    if (!text) throw new Error('AI 응답이 비어있습니다');
+    if (!text) throw new Error('AI 응답이 비어있습니다. 토큰을 확인해주세요.');
 
-    var cleaned = text.trim();
-    if (cleaned.indexOf('{') > 0) cleaned = cleaned.slice(cleaned.indexOf('{'));
+    /* JSON 추출 (마크다운 코드블록 포함 대응) */
+    /* backtick이 template literal로 해석되지 않도록 RegExp 생성자 사용 */
+    var reFenceStart = new RegExp('^' + String.fromCharCode(96) + String.fromCharCode(96) + String.fromCharCode(96) + 'json[\\s]*');
+    var reFenceEnd   = new RegExp(String.fromCharCode(96) + String.fromCharCode(96) + String.fromCharCode(96) + '[\\s]*$');
+    var cleaned = text.trim().replace(reFenceStart,'').replace(reFenceEnd,'');
+    var jsonStart = cleaned.indexOf('{');
+    if (jsonStart > 0) cleaned = cleaned.slice(jsonStart);
     var match = cleaned.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error('JSON 파싱 실패');
+    if (!match) throw new Error('JSON 파싱 실패 — AI 응답: ' + text.slice(0,100));
     var data = JSON.parse(match[0]);
 
     if (descEl && data.description) {
@@ -5652,7 +5815,11 @@ async function genAiSeo(prefix) {
     }
     if (statusEl) {
       var kw = (data.keywords || []).slice(0,4).join(', ');
-      statusEl.innerHTML = '<span style="color:#a78bfa">✅ SEO 설명 생성 완료!</span> <span style="color:rgba(255,255,255,.35);font-size:10px"> 키워드: ' + kw + '</span>';
+      statusEl.innerHTML = '<div style="background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.3);border-radius:9px;padding:8px 10px;margin-top:4px">'
+        + '<div style="color:#a78bfa;font-weight:800;margin-bottom:4px"><i class="fas fa-magic"></i> SEO 생성 완료!</div>'
+        + (data.titleSuffix ? '<div style="font-size:11px;color:rgba(255,255,255,.55);margin-bottom:3px">타이틀: <b style="color:rgba(255,255,255,.8)">'+data.titleSuffix+'</b></div>' : '')
+        + '<div style="font-size:10px;color:rgba(255,255,255,.4)">키워드: '+kw+'</div>'
+        + '</div>';
     }
   } catch(e) {
     if (statusEl) statusEl.innerHTML = '<span style="color:#f87171">❌ 실패: ' + e.message + '</span>';
