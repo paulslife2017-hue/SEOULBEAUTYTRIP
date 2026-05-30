@@ -8093,7 +8093,7 @@ document.querySelectorAll('.quick-topic-btn').forEach(function(btn){
 });
 
 // \u2500\u2500 \uBE14\uB85C\uADF8 \uC0DD\uC131 \u2500\u2500
-async function genBlog(){
+window.genBlog = async function genBlog(){
   var title = document.getElementById('bl-title').value.trim();
   if(!title){ alert('\uC81C\uBAA9\uC744 \uC785\uB825\uD574\uC8FC\uC138\uC694'); return; }
   var btn = document.getElementById('bl-gen-btn');
@@ -8151,7 +8151,7 @@ async function genBlog(){
 }
 
 // \u2500\u2500 \uC77C\uAD04 \uC0DD\uC131 (\uCD94\uCC9C \uC8FC\uC81C \uC804\uCCB4) \u2500\u2500
-async function genBlogBatch(){
+window.genBlogBatch = async function genBlogBatch(){
   if(!confirm('\uCD94\uCC9C \uC8FC\uC81C 8\uAC1C\uB97C \uBAA8\uB450 AI\uB85C \uC0DD\uC131\uD569\uB2C8\uB2E4. \uC57D 3~5\uBD84 \uC18C\uC694\uB429\uB2C8\uB2E4. \uACC4\uC18D\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?')) return;
   var topics = Array.from(document.querySelectorAll('.quick-topic-btn')).map(function(btn){
     return {
@@ -8179,7 +8179,7 @@ async function genBlogBatch(){
 }
 
 // \u2500\u2500 \uBE14\uB85C\uADF8 \uBAA9\uB85D \uB85C\uB4DC \u2500\u2500
-async function loadBlogList(){
+window.loadBlogList = async function loadBlogList(){
   var el = document.getElementById('blog-list');
   if(!el) return;
   el.innerHTML = '<div style="text-align:center;padding:20px;color:rgba(255,255,255,.3);font-size:13px"><i class="fas fa-spinner fa-spin"></i> \uB85C\uB529...</div>';
@@ -8213,7 +8213,7 @@ async function loadBlogList(){
   } catch(e){ el.innerHTML='<div style="color:#fca5a5;padding:12px">\uC624\uB958: '+e.message+'</div>'; }
 }
 
-async function delBlog(id){
+window.delBlog = async function delBlog(id){
   if(!confirm('\uC774 \uBE14\uB85C\uADF8 \uAE00\uC744 \uC0AD\uC81C\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?')) return;
   await fetch('/api/blogs/'+id, { method:'DELETE', headers:{'Authorization':'Bearer '+_GSK_TOKEN} });
   loadBlogList();
@@ -8466,7 +8466,7 @@ function renderSeoLinks(){
   }).join('');
 }
 
-function updateStatus(id, status){
+window.updateStatus = function updateStatus(id, status){
   fetch('/api/bookings/'+id+'/status',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:status})})
     .then(loadAll);
 }
@@ -9310,7 +9310,7 @@ function parseGmapUrl(raw){
 }
 
 // \u2500\u2500 \uC5C5\uCCB4 \uB4F1\uB85D \u2500\u2500
-function addShop(){
+window.addShop = function addShop(){
   var name = document.getElementById('sh-name').value.trim();
   if(!name){ alert('\uC5C5\uCCB4\uBA85\uC744 \uC785\uB825\uD574\uC8FC\uC138\uC694!'); return; }
 
@@ -9417,7 +9417,7 @@ function addShop(){
   });
 }
 
-function delShop(id){
+window.delShop = function delShop(id){
   if(!confirm('\uC5C5\uCCB4\uB97C \uC0AD\uC81C\uD558\uBA74 \uC5F0\uACB0\uB41C \uC601\uC0C1\uB3C4 \uBAA8\uB450 \uC0AC\uB77C\uC9D1\uB2C8\uB2E4. \uACC4\uC18D\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?'))return;
   fetch('/api/shops/'+id,{method:'DELETE'}).then(loadAll);
 }
@@ -9520,7 +9520,7 @@ function showVideoPreview(url, container){
 }
 
 // \u2500\u2500 \uC601\uC0C1 \uB4F1\uB85D \u2500\u2500
-function addVideo(){
+window.addVideo = function addVideo(){
   if(!currentShopId){ alert('\uC5C5\uCCB4\uB97C \uBA3C\uC800 \uC120\uD0DD\uD574\uC8FC\uC138\uC694!'); return; }
   var title = document.getElementById('vd-title').value.trim();
   var url   = document.getElementById('vd-url').value.trim();
@@ -9540,17 +9540,17 @@ function addVideo(){
   });
 }
 
-function delVideo(id){
+window.delVideo = function delVideo(id){
   if(!confirm('\uC774 \uC601\uC0C1\uC744 \uC0AD\uC81C\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?'))return;
   fetch('/api/videos/'+id,{method:'DELETE'}).then(loadAll);
 }
 
-function saveSettings(){
+window.saveSettings = function saveSettings(){
   alert('\uC800\uC7A5\uB418\uC5C8\uC2B5\uB2C8\uB2E4!');
 }
 
 /* \u2500\u2500 Google Places \uC790\uB3D9\uAC00\uC838\uC624\uAE30 (\uD1B5\uD569) \u2500\u2500 */
-async function fetchPlacesInfo(prefix) {
+window.fetchPlacesInfo = async function fetchPlacesInfo(prefix) {
   var nameEl   = document.getElementById(prefix + '-name');
   var locEl    = document.getElementById(prefix + '-loc');
   var statusEl = document.getElementById(prefix + '-places-status');
@@ -9606,7 +9606,7 @@ async function fetchPlacesInfo(prefix) {
 }
 
 /* \u2500\u2500 AI SEO \uC790\uB3D9\uC0DD\uC131 \u2500\u2500 */
-async function genAiSeo(prefix) {
+window.genAiSeo = async function genAiSeo(prefix) {
   var nameEl   = document.getElementById(prefix + '-name');
   var locEl    = document.getElementById(prefix + '-loc');
   var catEl    = document.getElementById(prefix + '-cat');
@@ -9738,7 +9738,7 @@ function updateSlugPreview() {
 }
 
 /* \u2500\u2500 \uC804\uCCB4 Slug \uC815\uB9AC \u2500\u2500 */
-async function fixAllSlugs() {
+window.fixAllSlugs = async function fixAllSlugs() {
   var btn = document.getElementById('fix-slugs-btn');
   var statusEl = document.getElementById('regen-status');
   var resultsEl = document.getElementById('regen-results');
@@ -9767,7 +9767,7 @@ async function fixAllSlugs() {
 }
 
 /* \u2500\u2500 \uC77C\uAD04 SEO \uC7AC\uC0DD\uC131 \u2500\u2500 */
-async function regenSeoAll(force) {
+window.regenSeoAll = async function regenSeoAll(force) {
   var btn = document.getElementById(force ? 'regen-force-btn' : 'regen-btn');
   var statusEl = document.getElementById('regen-status');
   var resultsEl = document.getElementById('regen-results');

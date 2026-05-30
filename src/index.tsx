@@ -6203,7 +6203,7 @@ document.querySelectorAll('.quick-topic-btn').forEach(function(btn){
 });
 
 // ── 블로그 생성 ──
-async function genBlog(){
+window.genBlog = async function genBlog(){
   var title = document.getElementById('bl-title').value.trim();
   if(!title){ alert('제목을 입력해주세요'); return; }
   var btn = document.getElementById('bl-gen-btn');
@@ -6261,7 +6261,7 @@ async function genBlog(){
 }
 
 // ── 일괄 생성 (추천 주제 전체) ──
-async function genBlogBatch(){
+window.genBlogBatch = async function genBlogBatch(){
   if(!confirm('추천 주제 8개를 모두 AI로 생성합니다. 약 3~5분 소요됩니다. 계속하시겠습니까?')) return;
   var topics = Array.from(document.querySelectorAll('.quick-topic-btn')).map(function(btn){
     return {
@@ -6289,7 +6289,7 @@ async function genBlogBatch(){
 }
 
 // ── 블로그 목록 로드 ──
-async function loadBlogList(){
+window.loadBlogList = async function loadBlogList(){
   var el = document.getElementById('blog-list');
   if(!el) return;
   el.innerHTML = '<div style="text-align:center;padding:20px;color:rgba(255,255,255,.3);font-size:13px"><i class="fas fa-spinner fa-spin"></i> 로딩...</div>';
@@ -6323,7 +6323,7 @@ async function loadBlogList(){
   } catch(e){ el.innerHTML='<div style="color:#fca5a5;padding:12px">오류: '+e.message+'</div>'; }
 }
 
-async function delBlog(id){
+window.delBlog = async function delBlog(id){
   if(!confirm('이 블로그 글을 삭제하시겠습니까?')) return;
   await fetch('/api/blogs/'+id, { method:'DELETE', headers:{'Authorization':'Bearer '+_GSK_TOKEN} });
   loadBlogList();
@@ -6576,7 +6576,7 @@ function renderSeoLinks(){
   }).join('');
 }
 
-function updateStatus(id, status){
+window.updateStatus = function updateStatus(id, status){
   fetch('/api/bookings/'+id+'/status',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:status})})
     .then(loadAll);
 }
@@ -7420,7 +7420,7 @@ function parseGmapUrl(raw){
 }
 
 // ── 업체 등록 ──
-function addShop(){
+window.addShop = function addShop(){
   var name = document.getElementById('sh-name').value.trim();
   if(!name){ alert('업체명을 입력해주세요!'); return; }
 
@@ -7527,7 +7527,7 @@ function addShop(){
   });
 }
 
-function delShop(id){
+window.delShop = function delShop(id){
   if(!confirm('업체를 삭제하면 연결된 영상도 모두 사라집니다. 계속하시겠습니까?'))return;
   fetch('/api/shops/'+id,{method:'DELETE'}).then(loadAll);
 }
@@ -7630,7 +7630,7 @@ function showVideoPreview(url, container){
 }
 
 // ── 영상 등록 ──
-function addVideo(){
+window.addVideo = function addVideo(){
   if(!currentShopId){ alert('업체를 먼저 선택해주세요!'); return; }
   var title = document.getElementById('vd-title').value.trim();
   var url   = document.getElementById('vd-url').value.trim();
@@ -7650,17 +7650,17 @@ function addVideo(){
   });
 }
 
-function delVideo(id){
+window.delVideo = function delVideo(id){
   if(!confirm('이 영상을 삭제하시겠습니까?'))return;
   fetch('/api/videos/'+id,{method:'DELETE'}).then(loadAll);
 }
 
-function saveSettings(){
+window.saveSettings = function saveSettings(){
   alert('저장되었습니다!');
 }
 
 /* ── Google Places 자동가져오기 (통합) ── */
-async function fetchPlacesInfo(prefix) {
+window.fetchPlacesInfo = async function fetchPlacesInfo(prefix) {
   var nameEl   = document.getElementById(prefix + '-name');
   var locEl    = document.getElementById(prefix + '-loc');
   var statusEl = document.getElementById(prefix + '-places-status');
@@ -7716,7 +7716,7 @@ async function fetchPlacesInfo(prefix) {
 }
 
 /* ── AI SEO 자동생성 ── */
-async function genAiSeo(prefix) {
+window.genAiSeo = async function genAiSeo(prefix) {
   var nameEl   = document.getElementById(prefix + '-name');
   var locEl    = document.getElementById(prefix + '-loc');
   var catEl    = document.getElementById(prefix + '-cat');
@@ -7848,7 +7848,7 @@ function updateSlugPreview() {
 }
 
 /* ── 전체 Slug 정리 ── */
-async function fixAllSlugs() {
+window.fixAllSlugs = async function fixAllSlugs() {
   var btn = document.getElementById('fix-slugs-btn');
   var statusEl = document.getElementById('regen-status');
   var resultsEl = document.getElementById('regen-results');
@@ -7877,7 +7877,7 @@ async function fixAllSlugs() {
 }
 
 /* ── 일괄 SEO 재생성 ── */
-async function regenSeoAll(force) {
+window.regenSeoAll = async function regenSeoAll(force) {
   var btn = document.getElementById(force ? 'regen-force-btn' : 'regen-btn');
   var statusEl = document.getElementById('regen-status');
   var resultsEl = document.getElementById('regen-results');
