@@ -103,11 +103,32 @@ function rowToShop(r: any): Shop {
     menuItems: (() => { if(!r.menu_items) return []; if(Array.isArray(r.menu_items)) return r.menu_items; try { return JSON.parse(r.menu_items) } catch { return [] } })()
   }
 }
+// Cloudinary video URL → 썸네일 자동 생성 (so_0 = 첫 프레임)
+function cloudinaryThumb(videoUrl: string): string {
+  if (!videoUrl || !videoUrl.includes('cloudinary.com')) return ''
+  // /video/upload/ → /video/upload/so_0,w_600,h_1066,c_fill,q_auto/
+  // .mp4 → .jpg
+  return videoUrl
+    .replace('/video/upload/', '/video/upload/so_0,w_600,h_1066,c_fill,q_auto/')
+    .replace(/\.mp4$/, '.jpg')
+}
+// title이 인스타 파일명 패턴이면 shopName으로 대체
+function cleanVideoTitle(title: string, shopName: string): string {
+  if (!title) return shopName || 'Video'
+  // 파일명 패턴: 영문+숫자+언더스코어로만 이루어지고 길이 10 이상
+  const isFilename = /^[a-zA-Z0-9_.-]{8,}$/.test(title.trim())
+  return isFilename ? (shopName || title) : title
+}
 function rowToVideo(r: any): Video {
+  const videoUrl = r.video_url || ''
+  const rawThumb = r.thumbnail || ''
+  const thumb = rawThumb || cloudinaryThumb(videoUrl)
+  const shopName = r.shop_name || ''
   return {
-    id: String(r.id), shopId: String(r.shop_id), title: r.title || '',
-    description: r.description || '', videoUrl: r.video_url || '',
-    thumbnail: r.thumbnail || '', tags: r.tags || [],
+    id: String(r.id), shopId: String(r.shop_id),
+    title: cleanVideoTitle(r.title || '', shopName),
+    description: r.description || '', videoUrl,
+    thumbnail: thumb, tags: r.tags || [],
     views: r.views || 0, likes: r.likes || 0, createdAt: r.created_at || ''
   }
 }
@@ -1365,7 +1386,7 @@ app.get('/shop/:slug', async (c) => {
   if (!shopRows.length) return c.notFound()
   const shop = rowToShop(shopRows[0])
   const vidRows = await sql`SELECT * FROM videos WHERE shop_id=${shop.id} ORDER BY views DESC`
-  const shopVideos = vidRows.map(rowToVideo)
+  const shopVideos = vidRows.map((r: any) => rowToVideo({ ...r, shop_name: shop.name }))
   const shopArea = shop.location ? ` (${shop.location.split(',')[0].trim()})` : ''
   const waMsg = encodeURIComponent(`[ Booking Request ]\nShop: ${shop.name}${shopArea}\n\nDate: \nTime: \nService: \nName: \nPeople: `)
   const waUrl = `https://wa.me/${PLATFORM.whatsapp}?text=${waMsg}`
@@ -1585,6 +1606,9 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 /* VIDEOS */
 .sp-vid-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .sp-vid-card{border-radius:14px;overflow:hidden;position:relative;cursor:pointer;aspect-ratio:9/16;background:#000}
+.sp-vid-inner{position:absolute;inset:0;border-radius:14px;overflow:hidden}
+.sp-vid-poster{transition:opacity .35s}
+.sp-vid-card.vid-on .sp-vid-poster{opacity:0}
 .sp-vid-card img{width:100%;height:100%;object-fit:cover;transition:transform .3s}
 .sp-vid-card:hover img{transform:scale(1.04)}
 .sp-vid-card-ov{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 45%,rgba(0,0,0,.85) 100%);display:flex;flex-direction:column;justify-content:flex-end;padding:12px 10px}
@@ -1649,7 +1673,7 @@ ${(()=>{const allP=[shop.thumbnail,...(shop.photos||[]).filter((p:string)=>p&&p!
       : shop.address ? `<div class="sp-card"><div class="sp-card-title"><i class="fas fa-map"></i> Location</div><div style="padding:12px;font-size:13px;color:rgba(0,0,0,.7)"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : '';
   })()}
 
-  ${shopVideos.length>0?`<div class="sp-card"><div class="sp-card-title"><i class="fas fa-play-circle"></i> Videos</div><div class="sp-vid-grid">${shopVideos.map((v:any,vi:number)=>`<div class="sp-vid-card" onclick="playSpVid(${vi})" data-vid-url="${v.videoUrl||''}" data-vid-thumb="${v.thumbnail||''}"><img src="${v.thumbnail||''}" alt="${v.title}" loading="lazy"><div class="sp-play-ic"><i class="fas fa-play" style="font-size:14px;color:#fff;margin-left:2px"></i></div><div class="sp-vid-card-ov"><div class="sp-vid-card-title">${v.title}</div><div class="sp-vid-views"><i class="fas fa-eye"></i> ${v.views>=1000?(v.views/1000).toFixed(1)+'K':v.views}</div></div></div>`).join('')}</div></div>`:''}
+  ${shopVideos.length>0?`<div class="sp-card"><div class="sp-card-title"><i class="fas fa-play-circle"></i> Videos</div><div class="sp-vid-grid">${shopVideos.map((v:any,vi:number)=>{const thumb=v.thumbnail||'';const vidUrl=v.videoUrl||'';return `<div class="sp-vid-card" data-vid-url="${vidUrl}" data-vid-thumb="${thumb}" onclick="playSpVid(${vi})"><div class="sp-vid-inner"><video class="sp-vid-inline" data-src="${vidUrl}" poster="${thumb}" loop playsinline preload="none" style="width:100%;height:100%;object-fit:cover;border-radius:14px;display:block"></video>${thumb?`<img class="sp-vid-poster" src="${thumb}" alt="${v.title}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px;transition:opacity .3s">`:'<div class="sp-vid-poster" style="position:absolute;inset:0;background:#111;border-radius:14px"></div>'}</div><div class="sp-play-ic"><i class="fas fa-play" style="font-size:14px;color:#fff;margin-left:2px"></i></div><div class="sp-vid-card-ov"><div class="sp-vid-card-title">${v.title}</div><div class="sp-vid-views"><i class="fas fa-eye"></i> ${v.views>=1000?(v.views/1000).toFixed(1)+'K':v.views}</div></div></div>`}).join('')}</div></div>`:''}
 
   <div style="height:60px"></div>
 </div>
@@ -1663,9 +1687,9 @@ ${(()=>{const allP=[shop.thumbnail,...(shop.photos||[]).filter((p:string)=>p&&p!
 <script>
 // 뒤로가기: 이전 페이지가 같은 사이트면 history.back(), 아니면 메인으로
 function goBack(){
-  var ref = document.referrer;
-  if(ref && ref.indexOf(location.hostname) !== -1){
-    history.back();
+  // history가 2개 이상이면 이전 페이지로, 아니면 메인으로
+  if(window.history.length > 1){
+    window.history.back();
   } else {
     location.href = '/';
   }
@@ -1677,30 +1701,75 @@ function setHero(url, el) {
   el.classList.add('active');
 }
 
-// 영상 카드 클릭 → 전체화면 팝업 재생
+/* ── sp-vid-card: 스크롤 진입 시 자동재생 (쇼츠 방식) ── */
+(function(){
+  if(!window.IntersectionObserver) return;
+  var obs = new IntersectionObserver(function(entries){
+    entries.forEach(function(entry){
+      var card = entry.target;
+      var vid  = card.querySelector('.sp-vid-inline');
+      var poster = card.querySelector('.sp-vid-poster');
+      if(!vid) return;
+      if(entry.isIntersecting){
+        // src 지연로딩
+        if(!vid.src && vid.dataset.src){
+          vid.src = vid.dataset.src;
+          vid.load();
+        }
+        vid.muted = true; // autoplay 정책 충족
+        vid.play().then(function(){
+          card.classList.add('vid-on'); // poster 페이드아웃
+        }).catch(function(){});
+      } else {
+        vid.pause();
+        vid.currentTime = 0;
+        card.classList.remove('vid-on');
+      }
+    });
+  },{threshold: 0.6});
+  // DOM 완성 후 observe
+  function initSpObs(){
+    document.querySelectorAll('.sp-vid-card').forEach(function(c){ obs.observe(c); });
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', initSpObs);
+  } else {
+    initSpObs();
+  }
+})();
+
+// 영상 카드 클릭 → 전체화면 팝업 (소리 있음)
 function playSpVid(idx){
   var cards = document.querySelectorAll('.sp-vid-card');
-  var card = cards[idx];
+  var card  = cards[idx];
   if(!card) return;
   var vidUrl = card.getAttribute('data-vid-url');
   var thumb  = card.getAttribute('data-vid-thumb');
-  if(!vidUrl){ return; }
+  if(!vidUrl) return;
 
-  // 팝업 오버레이 생성
+  // 기존 팝업 제거
+  var old = document.getElementById('sp-vid-ov');
+  if(old) old.remove();
+
   var ov = document.createElement('div');
+  ov.id = 'sp-vid-ov';
   ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.96);display:flex;align-items:center;justify-content:center';
-  ov.innerHTML = '<div style="position:relative;width:min(92vw,420px);aspect-ratio:9/16">'
-    +'<video src="'+vidUrl+'" poster="'+thumb+'" autoplay muted loop playsinline controls'
+  ov.innerHTML =
+    '<div style="position:relative;width:min(92vw,420px);aspect-ratio:9/16">'
+    +'<video src="'+vidUrl+'"'+(thumb?' poster="'+thumb+'"':'')
+    +' autoplay loop playsinline controls'
     +' style="width:100%;height:100%;border-radius:16px;object-fit:cover;background:#000"></video>'
-    +'<button onclick="this.closest(\'div\').parentElement.remove()"'
-    +' style="position:absolute;top:-40px;right:0;background:none;border:none;color:#fff;font-size:24px;cursor:pointer;line-height:1">&#10005;</button>'
+    +'<button id="sp-vid-ov-close"'
+    +' style="position:absolute;top:-44px;right:0;width:36px;height:36px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:50%;color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center">&#10005;</button>'
     +'</div>';
-  // 배경 클릭 시 닫기
   ov.addEventListener('click', function(e){ if(e.target===ov) ov.remove(); });
   document.body.appendChild(ov);
-  // 비디오 자동재생 (모바일 정책)
+  document.getElementById('sp-vid-ov-close').addEventListener('click', function(){ ov.remove(); });
   var vid = ov.querySelector('video');
-  if(vid) vid.play().catch(function(){});
+  if(vid){
+    vid.muted = false; // 소리 켜기
+    vid.play().catch(function(){ vid.muted=true; vid.play().catch(function(){}); });
+  }
 }
 </script>
 </body>
@@ -3348,7 +3417,10 @@ function buildSlide(v, idx) {
 
     document.getElementById('wabtn'+vidIdx).onclick = function(e){
       e.stopPropagation();
-      openShopModal(vid.shopId||shopData.id);
+      // slug 있으면 업체 상세 페이지로 이동, 없으면 모달
+      var slug = shopData.slug || (vid.shop && vid.shop.slug) || '';
+      if(slug){ location.href = '/shop/'+slug; }
+      else { openShopModal(vid.shopId||shopData.id); }
     };
 
     var infoEl = s.querySelector('.info');
@@ -3979,8 +4051,8 @@ function _renderSearchResults(q, filter){
   }
   grid.innerHTML = results.map(function(s){
     var col = catColors[s.category] || 'var(--pk)';
-    var href = s.slug ? '/shop/'+s.slug : '#';
-    var clickAttr = ' onclick="event.preventDefault();openShopFromSearch(&quot;'+s.id+'&quot;)"';
+    var href = s.slug ? '/shop/'+s.slug : ('#');
+    var clickAttr = s.slug ? '' : ' onclick="event.preventDefault();openShopFromSearch(&quot;'+s.id+'&quot;)"';
     var thumb = s.videoThumb || s.thumbnail || '';
     var vidUrl = s.videoUrl || '';
     var vidTag = vidUrl
