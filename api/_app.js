@@ -2350,6 +2350,26 @@ async function initDb() {
       await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS why_choose JSONB DEFAULT '[]'`;
     } catch (e) {
     }
+    try {
+      await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS menu_items JSONB DEFAULT '[]'`;
+    } catch (e) {
+    }
+    await sql`CREATE TABLE IF NOT EXISTS blog_posts (
+      id TEXT PRIMARY KEY,
+      slug TEXT UNIQUE NOT NULL,
+      title TEXT NOT NULL,
+      meta_description TEXT DEFAULT '',
+      content TEXT DEFAULT '',
+      excerpt TEXT DEFAULT '',
+      category TEXT DEFAULT '',
+      area TEXT DEFAULT '',
+      tags JSONB DEFAULT '[]',
+      cover_image TEXT DEFAULT '',
+      status TEXT DEFAULT 'draft',
+      views INTEGER DEFAULT 0,
+      created_at TEXT,
+      updated_at TEXT
+    )`;
     await sql`CREATE TABLE IF NOT EXISTS videos (
       id TEXT PRIMARY KEY, shop_id TEXT REFERENCES shops(id) ON DELETE CASCADE,
       title TEXT, description TEXT, video_url TEXT, thumbnail TEXT,
@@ -3403,6 +3423,198 @@ app.post("/api/admin/regenerate-seo-all", async (c) => {
     await new Promise((r) => setTimeout(r, 500));
   }
   return c.json({ total: rows.length, results });
+});
+function makeBlogSlug(title) {
+  return title.toLowerCase().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").slice(0, 80).replace(/^-|-$/g, "");
+}
+async function autoGenBlog(params, apiKey) {
+  if (!apiKey) return null;
+  const { title, category, area, keywords } = params;
+  const prompt = `You are an expert travel & beauty writer creating an SEO-optimized blog post for seoulbeautytrip.com \u2014 a K-beauty booking platform for foreign visitors in Seoul.
+
+Write a comprehensive blog post with this EXACT structure (use HTML tags):
+
+<h2>[Section 1 heading]</h2>
+<p>...</p>
+<h2>[Section 2 heading]</h2>
+<p>...</p>
+... (6~8 sections total)
+<h2>FAQ</h2>
+<h3>[Question 1]</h3>
+<p>[Answer]</p>
+<h3>[Question 2]</h3>
+<p>[Answer]</p>
+... (4~5 FAQ items)
+
+Requirements:
+- Title: "${title}"
+- Category: ${category}, Area: ${area}
+- Keywords to include naturally: ${keywords.join(", ")}
+- Length: 1000~1500 words
+- Tone: helpful travel guide, friendly, informative
+- Always mention: English booking, WhatsApp, foreigner-friendly
+- Include practical tips: what to expect, how to book, price ranges in KRW
+- NO markdown, use HTML only
+- NO intro like "In this article..." \u2014 dive straight into valuable content
+
+Also provide (after the HTML content, separated by ---JSON---):
+{"metaDescription":"[155 chars max]","excerpt":"[2 sentences summary]","tags":["tag1","tag2","tag3","tag4","tag5"]}`;
+  try {
+    const res = await fetch("https://api.genspark.ai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 3e3
+      })
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const raw2 = data.choices?.[0]?.message?.content || "";
+    if (!raw2) return null;
+    const parts = raw2.split("---JSON---");
+    const htmlContent = parts[0].trim();
+    let meta = { metaDescription: "", excerpt: "", tags: [] };
+    if (parts[1]) {
+      try {
+        const jsonStr = parts[1].trim().replace(/```json|```/g, "").trim();
+        meta = JSON.parse(jsonStr);
+      } catch (e) {
+      }
+    }
+    return {
+      content: htmlContent,
+      excerpt: meta.excerpt || htmlContent.replace(/<[^>]+>/g, "").slice(0, 200),
+      metaDescription: meta.metaDescription || "",
+      tags: Array.isArray(meta.tags) ? meta.tags : []
+    };
+  } catch (e) {
+    return null;
+  }
+}
+app.get("/api/blogs", async (c) => {
+  await ensureDb();
+  const sql = getDb();
+  const status = c.req.query("status") || "";
+  const rows = status ? await sql`SELECT id,slug,title,meta_description,excerpt,category,area,tags,cover_image,status,views,created_at,updated_at FROM blog_posts WHERE status=${status} ORDER BY created_at DESC` : await sql`SELECT id,slug,title,meta_description,excerpt,category,area,tags,cover_image,status,views,created_at,updated_at FROM blog_posts ORDER BY created_at DESC`;
+  return c.json(rows);
+});
+app.get("/api/blogs/:slug", async (c) => {
+  await ensureDb();
+  const sql = getDb();
+  const rows = await sql`SELECT * FROM blog_posts WHERE slug=${c.req.param("slug")}`;
+  if (!rows.length) return c.json({ error: "not found" }, 404);
+  return c.json(rows[0]);
+});
+app.post("/api/blogs", async (c) => {
+  await ensureDb();
+  const sql = getDb();
+  const body = await c.req.json();
+  const id = "b" + Date.now();
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  const apiKey = c.env?.GSK_TOKEN || c.env?.GENSPARK_TOKEN || "";
+  let title = body.title || "";
+  let content = body.content || "";
+  let excerpt = body.excerpt || "";
+  let metaDescription = body.metaDescription || "";
+  let tags = body.tags || [];
+  const category = body.category || "";
+  const area = body.area || "";
+  const keywords = body.keywords || [];
+  const coverImage = body.coverImage || "";
+  const status = body.status || "published";
+  if (!content && title && apiKey) {
+    const gen = await autoGenBlog({ title, category, area, keywords }, apiKey);
+    if (gen) {
+      content = gen.content;
+      excerpt = excerpt || gen.excerpt;
+      metaDescription = metaDescription || gen.metaDescription;
+      tags = tags.length ? tags : gen.tags;
+    }
+  }
+  const slug = body.slug || makeBlogSlug(title);
+  await sql`INSERT INTO blog_posts
+    (id,slug,title,meta_description,content,excerpt,category,area,tags,cover_image,status,views,created_at,updated_at)
+    VALUES (${id},${slug},${title},${metaDescription},${content},${excerpt},${category},${area},${JSON.stringify(tags)},${coverImage},${status},0,${now},${now})
+    ON CONFLICT (slug) DO NOTHING`;
+  return c.json({ ok: true, id, slug, aiGenerated: !body.content });
+});
+app.put("/api/blogs/:id", async (c) => {
+  await ensureDb();
+  const sql = getDb();
+  const body = await c.req.json();
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  const apiKey = c.env?.GSK_TOKEN || c.env?.GENSPARK_TOKEN || "";
+  let content = body.content || "";
+  let excerpt = body.excerpt || "";
+  let metaDescription = body.metaDescription || "";
+  let tags = body.tags || [];
+  if (body.regenerate && apiKey) {
+    const gen = await autoGenBlog({
+      title: body.title,
+      category: body.category,
+      area: body.area,
+      keywords: body.keywords || []
+    }, apiKey);
+    if (gen) {
+      content = gen.content;
+      excerpt = gen.excerpt;
+      metaDescription = gen.metaDescription;
+      tags = gen.tags;
+    }
+  }
+  await sql`UPDATE blog_posts SET
+    title=${body.title || ""},
+    slug=${body.slug || makeBlogSlug(body.title || "")},
+    meta_description=${metaDescription},
+    content=${content},
+    excerpt=${excerpt},
+    category=${body.category || ""},
+    area=${body.area || ""},
+    tags=${JSON.stringify(tags)},
+    cover_image=${body.coverImage || ""},
+    status=${body.status || "published"},
+    updated_at=${now}
+    WHERE id=${c.req.param("id")}`;
+  return c.json({ ok: true });
+});
+app.delete("/api/blogs/:id", async (c) => {
+  await ensureDb();
+  const sql = getDb();
+  await sql`DELETE FROM blog_posts WHERE id=${c.req.param("id")}`;
+  return c.json({ ok: true });
+});
+app.post("/api/admin/generate-blog", async (c) => {
+  await ensureDb();
+  const sql = getDb();
+  const apiKey = c.env?.GSK_TOKEN || c.env?.GENSPARK_TOKEN || "";
+  if (!apiKey) return c.json({ error: "API key not configured" }, 500);
+  const body = await c.req.json();
+  const topics = body.topics || [];
+  if (!topics.length) return c.json({ error: "topics required" }, 400);
+  const results = [];
+  for (const topic of topics) {
+    try {
+      const gen = await autoGenBlog(topic, apiKey);
+      if (!gen) {
+        results.push({ title: topic.title, slug: "", status: "ai_fail" });
+        continue;
+      }
+      const id = "b" + Date.now() + Math.random().toString(36).slice(2, 6);
+      const slug = makeBlogSlug(topic.title);
+      const now = (/* @__PURE__ */ new Date()).toISOString();
+      await sql`INSERT INTO blog_posts
+        (id,slug,title,meta_description,content,excerpt,category,area,tags,cover_image,status,views,created_at,updated_at)
+        VALUES (${id},${slug},${topic.title},${gen.metaDescription},${gen.content},${gen.excerpt},${topic.category},${topic.area},${JSON.stringify(gen.tags)},'','published',0,${now},${now})
+        ON CONFLICT (slug) DO NOTHING`;
+      results.push({ title: topic.title, slug, status: "created" });
+    } catch (e) {
+      results.push({ title: topic.title, slug: "", status: "error: " + e.message });
+    }
+    await new Promise((r) => setTimeout(r, 800));
+  }
+  return c.json({ total: topics.length, results });
 });
 app.get("/shop/:slug", async (c) => {
   const sql = getDb();
@@ -4644,12 +4856,249 @@ render();
 </body>
 </html>`);
 });
+app.get("/blog", async (c) => {
+  await ensureDb();
+  const sql = getDb();
+  const posts = await sql`SELECT id,slug,title,meta_description,excerpt,category,area,tags,cover_image,views,created_at FROM blog_posts WHERE status='published' ORDER BY created_at DESC`;
+  const base = "https://seoulbeautytrip.com";
+  const postCards = posts.map((p) => {
+    const tags = Array.isArray(p.tags) ? p.tags : typeof p.tags === "string" ? JSON.parse(p.tags || "[]") : [];
+    const catLabel = { headspa: "Head Spa", skincare: "Skincare", hair: "Hair Salon", nail: "Nail Art", clinic: "Skin Clinic", makeup: "Makeup", spa: "Spa" };
+    const cat = catLabel[p.category] || p.category || "Beauty";
+    const dateStr = p.created_at ? new Date(p.created_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "";
+    return `
+    <article class="blog-card" onclick="location.href='/blog/${p.slug}'">
+      <div class="blog-card-img" style="${p.cover_image ? `background-image:url('${p.cover_image}')` : "background:linear-gradient(135deg,#ff4d8d22,#9b59b622)"}">
+        <span class="blog-cat-badge">${cat}</span>
+      </div>
+      <div class="blog-card-body">
+        <div class="blog-meta"><span class="blog-area">${p.area || "Seoul"}</span><span class="blog-date">${dateStr}</span></div>
+        <h2 class="blog-title">${p.title}</h2>
+        <p class="blog-excerpt">${p.excerpt || p.meta_description || ""}</p>
+        <div class="blog-footer">
+          <div class="blog-tags">${tags.slice(0, 3).map((t) => `<span class="blog-tag">#${t}</span>`).join("")}</div>
+          <span class="blog-read">Read more \u2192</span>
+        </div>
+      </div>
+    </article>`;
+  }).join("");
+  const emptyState = !posts.length ? `
+    <div style="text-align:center;padding:60px 20px;color:rgba(255,255,255,.4)">
+      <div style="font-size:48px;margin-bottom:16px">\u270D\uFE0F</div>
+      <p style="font-size:16px">No blog posts yet.<br>Add some from the admin panel!</p>
+    </div>` : "";
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Seoul Beauty Blog \u2014 K-Beauty Guides & Tips | Seoul Beauty Trip</title>
+<meta name="description" content="Expert guides on the best head spas, hair salons, skincare clinics and nail art in Seoul. K-beauty tips for foreign visitors with English booking.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="${base}/blog">
+<meta property="og:title" content="Seoul Beauty Blog \u2014 K-Beauty Guides & Tips">
+<meta property="og:description" content="Expert guides on the best head spas, hair salons, skincare clinics and nail art in Seoul for foreign visitors.">
+<meta property="og:url" content="${base}/blog">
+<meta property="og:type" content="website">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Blog","url":"${base}/blog","name":"Seoul Beauty Blog","description":"K-Beauty guides and tips for foreign visitors in Seoul","publisher":{"@type":"Organization","name":"Seoul Beauty Trip","url":"${base}"}}</script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;min-height:100vh}
+.nav{background:#13132a;border-bottom:1px solid rgba(255,77,141,.15);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.nav-logo{font-size:16px;font-weight:900;background:linear-gradient(135deg,#FF4D8D,#FF85B3);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-decoration:none}
+.nav-back{color:rgba(255,255,255,.5);text-decoration:none;font-size:13px;display:flex;align-items:center;gap:5px;padding:6px 13px;border:1px solid rgba(255,255,255,.12);border-radius:16px;transition:all .2s}
+.nav-back:hover{color:#fff;border-color:rgba(255,77,141,.4)}
+.blog-hero{padding:40px 20px 24px;text-align:center;background:linear-gradient(180deg,rgba(255,77,141,.08) 0%,transparent 100%)}
+.blog-hero h1{font-size:clamp(1.6rem,5vw,2.4rem);font-weight:900;background:linear-gradient(135deg,#fff,rgba(255,255,255,.7));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:10px}
+.blog-hero p{color:rgba(255,255,255,.5);font-size:.95rem;max-width:500px;margin:0 auto}
+.blog-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px;padding:20px;max-width:1100px;margin:0 auto}
+.blog-card{background:#13132a;border:1px solid rgba(255,255,255,.07);border-radius:16px;overflow:hidden;cursor:pointer;transition:transform .2s,border-color .2s}
+.blog-card:hover{transform:translateY(-3px);border-color:rgba(255,77,141,.3)}
+.blog-card-img{height:180px;background:#1c1c30;background-size:cover;background-position:center;position:relative}
+.blog-cat-badge{position:absolute;top:12px;left:12px;background:rgba(255,77,141,.9);color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;backdrop-filter:blur(4px)}
+.blog-card-body{padding:16px}
+.blog-meta{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.blog-area{font-size:11px;color:#FF4D8D;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.blog-date{font-size:11px;color:rgba(255,255,255,.35)}
+.blog-title{font-size:15px;font-weight:800;line-height:1.4;margin-bottom:8px;color:#fff}
+.blog-excerpt{font-size:12.5px;color:rgba(255,255,255,.45);line-height:1.6;margin-bottom:12px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.blog-footer{display:flex;justify-content:space-between;align-items:center}
+.blog-tags{display:flex;gap:4px;flex-wrap:wrap}
+.blog-tag{font-size:10px;color:rgba(255,255,255,.3);background:rgba(255,255,255,.06);padding:3px 7px;border-radius:8px}
+.blog-read{font-size:12px;color:#FF4D8D;font-weight:700;white-space:nowrap}
+@media(max-width:480px){.blog-grid{grid-template-columns:1fr;padding:14px}}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a href="/" class="nav-logo">\u2728 Seoul Beauty Trip</a>
+  <a href="/" class="nav-back"><i class="fas fa-arrow-left"></i> Back</a>
+</nav>
+<section class="blog-hero">
+  <h1>\u270D\uFE0F Seoul Beauty Blog</h1>
+  <p>Expert guides & tips for K-beauty lovers visiting Seoul</p>
+</section>
+<div class="blog-grid">${postCards}${emptyState}</div>
+</body>
+</html>`;
+  return c.html(html);
+});
+app.get("/blog/:slug", async (c) => {
+  await ensureDb();
+  const sql = getDb();
+  const slug = c.req.param("slug");
+  const rows = await sql`SELECT * FROM blog_posts WHERE slug=${slug} AND status='published'`;
+  if (!rows.length) return c.notFound();
+  const post = rows[0];
+  const tags = Array.isArray(post.tags) ? post.tags : typeof post.tags === "string" ? JSON.parse(post.tags || "[]") : [];
+  sql`UPDATE blog_posts SET views=views+1 WHERE slug=${slug}`.catch(() => {
+  });
+  const related = await sql`SELECT slug,title,excerpt,category,area,created_at FROM blog_posts WHERE status='published' AND slug!=${slug} AND category=${post.category || ""} ORDER BY created_at DESC LIMIT 3`;
+  const base = "https://seoulbeautytrip.com";
+  const catLabel = { headspa: "Head Spa", skincare: "Skincare", hair: "Hair Salon", nail: "Nail Art", clinic: "Skin Clinic", makeup: "Makeup", spa: "Spa" };
+  const cat = catLabel[post.category] || post.category || "Beauty";
+  const dateStr = post.created_at ? new Date(post.created_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "";
+  const canonicalUrl = `${base}/blog/${slug}`;
+  const relatedHtml = related.length ? `
+  <aside class="related-posts">
+    <h3>\u{1F4DA} Related Articles</h3>
+    <div class="related-grid">
+      ${related.map((r) => `
+      <a href="/blog/${r.slug}" class="related-card">
+        <div class="related-cat">${catLabel[r.category] || r.category}</div>
+        <div class="related-title">${r.title}</div>
+        <div class="related-area">${r.area || "Seoul"}</div>
+      </a>`).join("")}
+    </div>
+  </aside>` : "";
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${post.title} | Seoul Beauty Trip Blog</title>
+<meta name="description" content="${post.meta_description || post.excerpt || ""}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="${canonicalUrl}">
+<meta property="og:title" content="${post.title}">
+<meta property="og:description" content="${post.meta_description || post.excerpt || ""}">
+<meta property="og:url" content="${canonicalUrl}">
+<meta property="og:type" content="article">
+${post.cover_image ? `<meta property="og:image" content="${post.cover_image}">` : ""}
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${post.title}">
+<meta name="twitter:description" content="${post.meta_description || ""}">
+<script type="application/ld+json">${JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": post.title,
+    "description": post.meta_description || post.excerpt || "",
+    "url": canonicalUrl,
+    "datePublished": post.created_at,
+    "dateModified": post.updated_at || post.created_at,
+    "author": { "@type": "Organization", "name": "Seoul Beauty Trip", "url": base },
+    "publisher": { "@type": "Organization", "name": "Seoul Beauty Trip", "url": base },
+    "keywords": tags.join(", "),
+    "articleSection": cat,
+    ...post.cover_image ? { "image": post.cover_image } : {}
+  })}</script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;line-height:1.7}
+.nav{background:#13132a;border-bottom:1px solid rgba(255,77,141,.15);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.nav-logo{font-size:16px;font-weight:900;background:linear-gradient(135deg,#FF4D8D,#FF85B3);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-decoration:none}
+.nav-back{color:rgba(255,255,255,.5);text-decoration:none;font-size:13px;display:flex;align-items:center;gap:5px;padding:6px 13px;border:1px solid rgba(255,255,255,.12);border-radius:16px;transition:.2s}
+.nav-back:hover{color:#fff;border-color:rgba(255,77,141,.4)}
+.post-container{max-width:760px;margin:0 auto;padding:30px 20px 60px}
+.post-breadcrumb{font-size:12px;color:rgba(255,255,255,.35);margin-bottom:20px;display:flex;align-items:center;gap:6px}
+.post-breadcrumb a{color:rgba(255,255,255,.4);text-decoration:none}
+.post-breadcrumb a:hover{color:#FF4D8D}
+.post-header{margin-bottom:28px}
+.post-cats{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.post-cat-badge{background:rgba(255,77,141,.15);color:#FF4D8D;font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;border:1px solid rgba(255,77,141,.3)}
+.post-area-badge{background:rgba(155,89,182,.15);color:#c39bd3;font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;border:1px solid rgba(155,89,182,.3)}
+.post-title{font-size:clamp(1.5rem,4vw,2rem);font-weight:900;line-height:1.25;margin-bottom:14px;color:#fff}
+.post-meta{display:flex;align-items:center;gap:14px;font-size:12px;color:rgba(255,255,255,.35);margin-bottom:20px;flex-wrap:wrap}
+.post-meta i{color:rgba(255,77,141,.6)}
+.post-cover{width:100%;height:300px;object-fit:cover;border-radius:16px;margin-bottom:28px;background:linear-gradient(135deg,#ff4d8d22,#9b59b622)}
+.post-body{font-size:15px;line-height:1.85;color:rgba(255,255,255,.85)}
+.post-body h2{font-size:1.2rem;font-weight:800;color:#fff;margin:28px 0 12px;padding-bottom:8px;border-bottom:1px solid rgba(255,77,141,.2)}
+.post-body h3{font-size:1rem;font-weight:700;color:rgba(255,255,255,.9);margin:20px 0 8px}
+.post-body p{margin-bottom:16px;color:rgba(255,255,255,.75)}
+.post-body strong{color:#fff;font-weight:700}
+.post-body ul,.post-body ol{margin:12px 0 16px 20px;color:rgba(255,255,255,.75)}
+.post-body li{margin-bottom:6px}
+.post-body a{color:#FF4D8D;text-decoration:none}
+.post-body a:hover{text-decoration:underline}
+.post-tags{display:flex;flex-wrap:wrap;gap:8px;margin:28px 0}
+.post-tag{font-size:12px;color:rgba(255,255,255,.4);background:rgba(255,255,255,.06);padding:5px 12px;border-radius:20px;border:1px solid rgba(255,255,255,.08)}
+.cta-box{background:linear-gradient(135deg,rgba(255,77,141,.12),rgba(155,89,182,.12));border:1px solid rgba(255,77,141,.25);border-radius:16px;padding:24px;text-align:center;margin:32px 0}
+.cta-box h3{font-size:16px;font-weight:800;margin-bottom:8px}
+.cta-box p{font-size:13px;color:rgba(255,255,255,.55);margin-bottom:16px}
+.cta-btn{display:inline-block;background:linear-gradient(135deg,#FF4D8D,#9B59B6);color:#fff;font-size:14px;font-weight:700;padding:12px 28px;border-radius:30px;text-decoration:none}
+.related-posts{margin-top:40px;padding-top:28px;border-top:1px solid rgba(255,255,255,.08)}
+.related-posts h3{font-size:15px;font-weight:800;margin-bottom:16px;color:rgba(255,255,255,.8)}
+.related-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.related-card{background:#13132a;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:14px;text-decoration:none;transition:.2s}
+.related-card:hover{border-color:rgba(255,77,141,.3)}
+.related-cat{font-size:10px;color:#FF4D8D;font-weight:700;margin-bottom:6px;text-transform:uppercase}
+.related-title{font-size:12.5px;color:rgba(255,255,255,.8);font-weight:700;line-height:1.4;margin-bottom:6px}
+.related-area{font-size:11px;color:rgba(255,255,255,.3)}
+@media(max-width:600px){.related-grid{grid-template-columns:1fr}.post-cover{height:200px}}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a href="/" class="nav-logo">\u2728 Seoul Beauty Trip</a>
+  <a href="/blog" class="nav-back"><i class="fas fa-arrow-left"></i> Blog</a>
+</nav>
+<main class="post-container">
+  <div class="post-breadcrumb">
+    <a href="/">Home</a> <span>\u203A</span>
+    <a href="/blog">Blog</a> <span>\u203A</span>
+    <span>${post.title}</span>
+  </div>
+  <header class="post-header">
+    <div class="post-cats">
+      <span class="post-cat-badge"><i class="fas fa-tag"></i> ${cat}</span>
+      ${post.area ? `<span class="post-area-badge"><i class="fas fa-map-marker-alt"></i> ${post.area}</span>` : ""}
+    </div>
+    <h1 class="post-title">${post.title}</h1>
+    <div class="post-meta">
+      <span><i class="fas fa-calendar"></i> ${dateStr}</span>
+      <span><i class="fas fa-eye"></i> ${(post.views || 0) + 1} views</span>
+      <span><i class="fas fa-clock"></i> ${Math.ceil((post.content || "").replace(/<[^>]+>/g, "").split(" ").length / 200)} min read</span>
+    </div>
+  </header>
+  ${post.cover_image ? `<img src="${post.cover_image}" alt="${post.title}" class="post-cover" loading="lazy">` : ""}
+  <article class="post-body">${post.content || ""}</article>
+  <div class="post-tags">${tags.map((t) => `<span class="post-tag">#${t}</span>`).join("")}</div>
+  <div class="cta-box">
+    <h3>\u{1F485} Ready to Book Your K-Beauty Experience?</h3>
+    <p>Browse the best salons in Seoul \u2014 English booking via WhatsApp, no Korean needed.</p>
+    <a href="/" class="cta-btn">\u{1F338} Find Salons Now</a>
+  </div>
+  ${relatedHtml}
+</main>
+</body>
+</html>`;
+  return c.html(html);
+});
 app.get("/sitemap.xml", async (c) => {
+  await ensureDb();
   const sql = getDb();
   let shopSlugs = [];
+  let blogSlugs = [];
   try {
     const rows = await sql`SELECT slug FROM shops WHERE active=true AND slug IS NOT NULL AND slug!=''`;
     shopSlugs = rows.map((r) => r.slug).filter(Boolean);
+  } catch (e) {
+  }
+  try {
+    const brows = await sql`SELECT slug,updated_at FROM blog_posts WHERE status='published' AND slug IS NOT NULL`;
+    blogSlugs = brows.map((r) => r.slug).filter(Boolean);
   } catch (e) {
   }
   const base = "https://seoulbeautytrip.com";
@@ -4662,9 +5111,13 @@ app.get("/sitemap.xml", async (c) => {
   }
   const urls = [
     `<url><loc>${base}/</loc><changefreq>daily</changefreq><priority>1.0</priority><lastmod>${today}</lastmod></url>`,
+    `<url><loc>${base}/blog</loc><changefreq>daily</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`,
     ...bestPages,
     ...shopSlugs.map(
       (slug) => `<url><loc>${base}/shop/${slug}</loc><changefreq>weekly</changefreq><priority>0.8</priority><lastmod>${today}</lastmod></url>`
+    ),
+    ...blogSlugs.map(
+      (slug) => `<url><loc>${base}/blog/${slug}</loc><changefreq>weekly</changefreq><priority>0.85</priority><lastmod>${today}</lastmod></url>`
     )
   ].join("\n  ");
   return c.body(`<?xml version="1.0" encoding="UTF-8"?>
@@ -6856,6 +7309,151 @@ function renderShopPanel(cat) {
   </div>
 </section>
 
+<!-- \u2500\u2500 \uBE60\uB978 \uC5C5\uCCB4 \uB4F1\uB85D \uD50C\uB85C\uD305 \uBC84\uD2BC \u2500\u2500 -->
+<button id="quick-add-fab" onclick="openQuickAdd()" style="position:fixed;bottom:80px;right:18px;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#e91e8c,#9c27b0);border:none;color:#fff;font-size:22px;cursor:pointer;box-shadow:0 4px 20px rgba(233,30,140,.4);z-index:200;display:flex;align-items:center;justify-content:center;transition:transform .2s" title="\uC5C5\uCCB4 \uBE60\uB978 \uB4F1\uB85D">\u2795</button>
+
+<!-- \uBE60\uB978 \uB4F1\uB85D \uBAA8\uB2EC -->
+<div id="quick-add-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:300;align-items:flex-end;justify-content:center">
+  <div style="background:#13132a;border-radius:20px 20px 0 0;padding:24px 20px 36px;width:100%;max-width:500px;max-height:80vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+      <div style="font-size:16px;font-weight:800;color:#fff">\u{1F3EA} \uC5C5\uCCB4 \uBE60\uB978 \uB4F1\uB85D</div>
+      <button onclick="closeQuickAdd()" style="background:rgba(255,255,255,.1);border:none;color:#fff;width:30px;height:30px;border-radius:50%;font-size:16px;cursor:pointer">\xD7</button>
+    </div>
+    <p style="font-size:12.5px;color:rgba(255,255,255,.45);margin-bottom:16px;line-height:1.6">\uAD6C\uAE00\uB9F5 URL\uB9CC \uBD99\uC5EC\uB123\uC73C\uBA74 \uC5C5\uCCB4 \uC815\uBCF4\uAC00 <strong style="color:#e91e8c">\uC790\uB3D9\uC73C\uB85C \uCC44\uC6CC\uC9D1\uB2C8\uB2E4</strong>.<br>SEO \uC124\uBA85\uB3C4 AI\uAC00 \uC790\uB3D9 \uC0DD\uC131\uD569\uB2C8\uB2E4.</p>
+    <div style="margin-bottom:12px">
+      <label style="font-size:11px;color:rgba(255,255,255,.4);display:block;margin-bottom:4px">\uAD6C\uAE00\uB9F5 URL \uB610\uB294 \uC5C5\uCCB4\uBA85 *</label>
+      <div style="display:flex;gap:8px">
+        <input id="qa-url" placeholder="https://maps.google.com/... \uB610\uB294 \uC5C5\uCCB4\uBA85" style="flex:1;padding:10px 13px;background:rgba(255,255,255,.06);border:1.5px solid rgba(233,30,140,.25);border-radius:10px;color:#fff;font-size:13px;outline:none">
+        <button onclick="qaFetch()" id="qa-fetch-btn" style="padding:10px 14px;background:rgba(233,30,140,.2);border:1px solid rgba(233,30,140,.3);border-radius:10px;color:#e91e8c;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">\uC790\uB3D9\uC644\uC131</button>
+      </div>
+    </div>
+    <div id="qa-preview" style="display:none;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:10px;padding:12px;margin-bottom:12px;font-size:12.5px">
+      <div id="qa-preview-content"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <div>
+        <label style="font-size:11px;color:rgba(255,255,255,.4);display:block;margin-bottom:3px">\uCE74\uD14C\uACE0\uB9AC *</label>
+        <select id="qa-cat" style="width:100%;padding:9px 12px;background:rgba(255,255,255,.05);border:1.5px solid rgba(233,30,140,.18);border-radius:10px;color:#fff;font-size:13px;outline:none">
+          <option value="headspa">Head Spa</option>
+          <option value="hair">Hair Salon</option>
+          <option value="skincare">Skincare</option>
+          <option value="nail">Nail Art</option>
+          <option value="clinic">Skin Clinic</option>
+          <option value="makeup">Makeup</option>
+          <option value="spa">Spa</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:11px;color:rgba(255,255,255,.4);display:block;margin-bottom:3px">\uC9C0\uC5ED</label>
+        <input id="qa-loc" placeholder="Gangnam" style="width:100%;padding:9px 12px;background:rgba(255,255,255,.05);border:1.5px solid rgba(233,30,140,.18);border-radius:10px;color:#fff;font-size:13px;outline:none">
+      </div>
+    </div>
+    <div style="margin-bottom:16px">
+      <label style="font-size:11px;color:rgba(255,255,255,.4);display:block;margin-bottom:3px">WhatsApp \uBC88\uD638 (\uC120\uD0DD)</label>
+      <input id="qa-wa" placeholder="+82-10-xxxx-xxxx" style="width:100%;padding:9px 12px;background:rgba(255,255,255,.05);border:1.5px solid rgba(233,30,140,.18);border-radius:10px;color:#fff;font-size:13px;outline:none">
+    </div>
+    <button onclick="qaSubmit()" id="qa-submit-btn" style="width:100%;padding:13px;background:linear-gradient(135deg,#e91e8c,#9c27b0);border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:800;cursor:pointer">
+      \u2728 \uB4F1\uB85D\uD558\uAE30 (AI SEO \uC790\uB3D9\uC0DD\uC131)
+    </button>
+    <div id="qa-msg" style="display:none;margin-top:10px;padding:10px;border-radius:8px;font-size:13px;text-align:center"></div>
+  </div>
+</div>
+
+<script>
+function openQuickAdd(){ document.getElementById('quick-add-modal').style.display='flex'; }
+function closeQuickAdd(){ document.getElementById('quick-add-modal').style.display='none'; }
+
+async function qaFetch(){
+  var url = document.getElementById('qa-url').value.trim();
+  if(!url){ alert('\uAD6C\uAE00\uB9F5 URL \uB610\uB294 \uC5C5\uCCB4\uBA85\uC744 \uC785\uB825\uD574\uC8FC\uC138\uC694'); return; }
+  var btn = document.getElementById('qa-fetch-btn');
+  btn.textContent='\uAC80\uC0C9 \uC911...'; btn.disabled=true;
+  try {
+    var r = await fetch('/api/places-fetch', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(url.startsWith('http') ? { placeId: url } : { query: url + ' Seoul' })
+    });
+    var d = await r.json();
+    if(d && d.name){
+      document.getElementById('qa-loc').value = (d.location||'').replace(', Seoul','').trim();
+      var prev = document.getElementById('qa-preview');
+      var prevContent = document.getElementById('qa-preview-content');
+      prevContent.innerHTML = '<strong style="color:#34d399">\u2705 '+d.name+'</strong><br>'
+        +'<span style="color:rgba(255,255,255,.5)">'+d.address+'</span>'
+        +(d.rating ? '<br><span style="color:#fbbf24">\u2605 '+d.rating+' ('+d.reviewCount+' reviews)</span>' : '');
+      prev.style.display='block';
+      // \uC784\uC2DC\uB85C \uB370\uC774\uD130 \uC800\uC7A5
+      window._qaData = d;
+    } else {
+      alert('\uC5C5\uCCB4\uB97C \uCC3E\uC9C0 \uBABB\uD588\uC5B4\uC694. \uB2E4\uB978 \uD0A4\uC6CC\uB4DC\uB85C \uC2DC\uB3C4\uD574\uBCF4\uC138\uC694.');
+    }
+  } catch(e){ alert('\uC624\uB958: '+e.message); }
+  btn.textContent='\uC790\uB3D9\uC644\uC131'; btn.disabled=false;
+}
+
+async function qaSubmit(){
+  var btn = document.getElementById('qa-submit-btn');
+  var msg = document.getElementById('qa-msg');
+  var d = window._qaData || {};
+  var url = document.getElementById('qa-url').value.trim();
+  if(!d.name && !url){ alert('\uBA3C\uC800 \uC790\uB3D9\uC644\uC131 \uBC84\uD2BC\uC744 \uB20C\uB7EC\uC8FC\uC138\uC694'); return; }
+
+  btn.disabled=true; btn.textContent='\u23F3 \uB4F1\uB85D \uC911... (AI SEO \uC0DD\uC131 10~20\uCD08)';
+  msg.style.display='none';
+
+  var body = {
+    name: d.name || url,
+    category: document.getElementById('qa-cat').value,
+    location: (document.getElementById('qa-loc').value || d.location || 'Seoul').replace(', Seoul','').trim() + ', Seoul',
+    address: d.address || '',
+    googleMapUrl: d.googleMapUrl || '',
+    googleMapEmbed: d.googleMapEmbed || '',
+    lat: d.lat || '', lng: d.lng || '',
+    rating: d.rating || 5.0,
+    reviewCount: d.reviewCount || 0,
+    thumbnail: (d.photos && d.photos[0]) || '',
+    photos: d.photos || [],
+    googlePlaceId: d.googlePlaceId || '',
+    hours: d.hours || '',
+    services: d.services || [],
+    priceRange: d.priceRange || '',
+    whatsapp: document.getElementById('qa-wa').value.trim(),
+    active: true
+  };
+
+  try {
+    var r = await fetch('/api/shops', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    });
+    var res = await r.json();
+    if(res.ok){
+      msg.style.display='block';
+      msg.style.background='rgba(16,185,129,.15)'; msg.style.color='#34d399'; msg.style.border='1px solid rgba(16,185,129,.3)';
+      msg.innerHTML='\u2705 \uB4F1\uB85D \uC644\uB8CC! SEO \uC790\uB3D9\uC0DD\uC131\uB428<br><a href="/shop/'+(res.slug||'')+'" target="_blank" style="color:#34d399;font-weight:700">\uC5C5\uCCB4 \uD398\uC774\uC9C0 \uBCF4\uAE30 \u2192</a>';
+      window._qaData = null;
+      document.getElementById('qa-url').value='';
+      document.getElementById('qa-wa').value='';
+      document.getElementById('qa-preview').style.display='none';
+    } else {
+      throw new Error(JSON.stringify(res));
+    }
+  } catch(e){
+    msg.style.display='block';
+    msg.style.background='rgba(239,68,68,.1)'; msg.style.color='#fca5a5'; msg.style.border='1px solid rgba(239,68,68,.2)';
+    msg.textContent='\u274C \uC624\uB958: '+e.message;
+  }
+  btn.disabled=false; btn.textContent='\u2728 \uB4F1\uB85D\uD558\uAE30 (AI SEO \uC790\uB3D9\uC0DD\uC131)';
+}
+
+// \uBAA8\uB2EC \uC678\uBD80 \uD074\uB9AD \uC2DC \uB2EB\uAE30
+document.getElementById('quick-add-modal').addEventListener('click', function(e){
+  if(e.target === this) closeQuickAdd();
+});
+</script>
+
 </body>
 </html>`;
 var ADMIN_HTML = `<!DOCTYPE html>
@@ -6955,6 +7553,7 @@ textarea{height:80px;resize:none}
   <div class="tab on" data-tab="dashboard"><i class="fas fa-chart-bar"></i> \uB300\uC2DC\uBCF4\uB4DC</div>
   <div class="tab" data-tab="bookings"><i class="fas fa-calendar-check"></i> \uC608\uC57D\uAD00\uB9AC <span style="font-size:9px;background:rgba(251,191,36,.2);color:#fbbf24;border-radius:10px;padding:1px 5px;vertical-align:middle">\uC900\uBE44\uC911</span></div>
   <div class="tab" data-tab="shops"><i class="fas fa-store"></i> \uC5C5\uCCB4 \xB7 \uC601\uC0C1</div>
+  <div class="tab" data-tab="blog"><i class="fas fa-blog"></i> \uBE14\uB85C\uADF8</div>
   <div class="tab" data-tab="settings"><i class="fas fa-cog"></i> \uC124\uC815</div>
 </div>
 
@@ -7310,6 +7909,78 @@ textarea{height:80px;resize:none}
 </div>
 
 <!-- \uC124\uC815 -->
+<!-- \u2550\u2550\u2550\u2550 \uBE14\uB85C\uADF8 \uD0ED \u2550\u2550\u2550\u2550 -->
+<div class="tab-content" id="tab-blog">
+  <!-- \uBE14\uB85C\uADF8 \uBE60\uB978 \uC0DD\uC131 -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-header">
+      <div class="card-title"><i class="fas fa-magic" style="color:#FF4D8D"></i> AI \uBE14\uB85C\uADF8 \uAE00 \uC0DD\uC131</div>
+      <a href="/blog" target="_blank" style="font-size:12px;color:#93c5fd;text-decoration:none"><i class="fas fa-external-link-alt"></i> \uBE14\uB85C\uADF8 \uBCF4\uAE30</a>
+    </div>
+    <p style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:14px">\uC81C\uBAA9\uB9CC \uC785\uB825\uD558\uBA74 Claude AI\uAC00 SEO \uCD5C\uC801\uD654 \uBE14\uB85C\uADF8 \uAE00\uC744 \uC790\uB3D9 \uC0DD\uC131\uD569\uB2C8\uB2E4.</p>
+
+    <!-- \uBE60\uB978 \uC8FC\uC81C \uBC84\uD2BC -->
+    <div style="margin-bottom:14px">
+      <div style="font-size:11px;color:rgba(255,255,255,.35);margin-bottom:8px">\u{1F4A1} \uCD94\uCC9C \uC8FC\uC81C (\uD074\uB9AD\uD558\uBA74 \uC790\uB3D9 \uC785\uB825)</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        <button class="quick-topic-btn" data-title="Best Head Spa in Gangnam Seoul 2026" data-cat="headspa" data-area="Gangnam" data-kw="head spa gangnam,korean head spa,scalp treatment seoul">Head Spa Gangnam</button>
+        <button class="quick-topic-btn" data-title="Best Korean Hair Salon in Hongdae for Foreigners 2026" data-cat="hair" data-area="Hongdae" data-kw="hair salon hongdae,korean hair,foreigner friendly">Hair Hongdae</button>
+        <button class="quick-topic-btn" data-title="Top Skincare Clinics in Gangnam Seoul: A Foreigner's Guide" data-cat="skincare" data-area="Gangnam" data-kw="skincare gangnam,korean skincare,skin clinic seoul">Skincare Gangnam</button>
+        <button class="quick-topic-btn" data-title="Korean Nail Art in Myeongdong: Best Salons for Tourists" data-cat="nail" data-area="Myeongdong" data-kw="nail art myeongdong,korean nail,nail salon seoul">Nail Myeongdong</button>
+        <button class="quick-topic-btn" data-title="How to Book a Korean Beauty Salon as a Foreigner in Seoul" data-cat="headspa" data-area="Seoul" data-kw="book korean beauty,foreigner seoul beauty,english booking korea">Booking Guide</button>
+        <button class="quick-topic-btn" data-title="Best Head Spa in Hongdae Seoul for English Speakers 2026" data-cat="headspa" data-area="Hongdae" data-kw="head spa hongdae,english head spa seoul">Head Spa Hongdae</button>
+        <button class="quick-topic-btn" data-title="K-Beauty Treatments Worth Trying in Seoul: Complete Guide 2026" data-cat="skincare" data-area="Seoul" data-kw="kbeauty treatments,korean beauty seoul,what to try korea">K-Beauty Guide</button>
+        <button class="quick-topic-btn" data-title="Best Makeup Studios in Seoul for Foreigners 2026" data-cat="makeup" data-area="Seoul" data-kw="makeup studio seoul,korean makeup,beauty transformation seoul">Makeup Seoul</button>
+      </div>
+    </div>
+
+    <div class="form-grid">
+      <div class="full">
+        <label>\uBE14\uB85C\uADF8 \uC81C\uBAA9 (\uC601\uC5B4) *</label>
+        <input id="bl-title" placeholder="e.g. Best Head Spa in Gangnam Seoul 2026" style="font-size:14px">
+      </div>
+      <div>
+        <label>\uCE74\uD14C\uACE0\uB9AC</label>
+        <select id="bl-cat">
+          <option value="headspa">Head Spa</option>
+          <option value="hair">Hair Salon</option>
+          <option value="skincare">Skincare</option>
+          <option value="nail">Nail Art</option>
+          <option value="clinic">Skin Clinic</option>
+          <option value="makeup">Makeup</option>
+          <option value="spa">Spa</option>
+        </select>
+      </div>
+      <div>
+        <label>\uC9C0\uC5ED (Area)</label>
+        <input id="bl-area" placeholder="e.g. Gangnam">
+      </div>
+      <div class="full">
+        <label>\uD0C0\uAC9F \uD0A4\uC6CC\uB4DC (\uC27C\uD45C\uB85C \uAD6C\uBD84)</label>
+        <input id="bl-kw" placeholder="head spa gangnam, korean head spa, scalp treatment seoul">
+      </div>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <button id="bl-gen-btn" onclick="genBlog()" style="flex:1;padding:12px;background:linear-gradient(135deg,#FF4D8D,#9B59B6);border:none;border-radius:10px;color:#fff;font-weight:700;font-size:14px;cursor:pointer">
+        <i class="fas fa-magic"></i> AI\uB85C \uC0DD\uC131\uD558\uAE30
+      </button>
+      <button onclick="genBlogBatch()" style="padding:12px 16px;background:rgba(255,77,141,.15);border:1px solid rgba(255,77,141,.3);border-radius:10px;color:#FF4D8D;font-weight:700;font-size:13px;cursor:pointer" title="\uCD94\uCC9C \uC8FC\uC81C \uC804\uCCB4 \uC77C\uAD04 \uC0DD\uC131">
+        <i class="fas fa-layer-group"></i> \uC77C\uAD04\uC0DD\uC131
+      </button>
+    </div>
+    <div id="bl-gen-result" style="display:none;margin-top:12px;padding:12px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);border-radius:10px;font-size:13px;color:#6ee7b7"></div>
+  </div>
+
+  <!-- \uBE14\uB85C\uADF8 \uBAA9\uB85D -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><i class="fas fa-list" style="color:#60a5fa"></i> \uBE14\uB85C\uADF8 \uAE00 \uBAA9\uB85D</div>
+      <button onclick="loadBlogList()" style="padding:6px 12px;background:rgba(96,165,250,.15);border:1px solid rgba(96,165,250,.3);border-radius:8px;color:#93c5fd;font-size:12px;cursor:pointer"><i class="fas fa-sync"></i> \uC0C8\uB85C\uACE0\uCE68</button>
+    </div>
+    <div id="blog-list"><div style="text-align:center;padding:20px;color:rgba(255,255,255,.3);font-size:13px">\uB85C\uB529 \uC911...</div></div>
+  </div>
+</div>
+
 <div class="tab-content" id="tab-settings">
   <div class="card" style="margin-bottom:16px">
     <div class="card-title" style="margin-bottom:16px"><i class="fas fa-link" style="color:#60a5fa"></i> \uC0AC\uC774\uD2B8 \uB9C1\uD06C \uBAA8\uC74C</div>
@@ -7362,9 +8033,131 @@ document.querySelectorAll('.tab').forEach(function(t){
     document.querySelectorAll('.tab').forEach(function(x){ x.classList.remove('on'); });
     document.querySelectorAll('.tab-content').forEach(function(x){ x.classList.remove('on'); });
     t.classList.add('on');
-    document.getElementById('tab-' + t.getAttribute('data-tab')).classList.add('on');
+    var tabId = t.getAttribute('data-tab');
+    document.getElementById('tab-' + tabId).classList.add('on');
+    if(tabId === 'blog') loadBlogList();
   });
 });
+
+// \u2500\u2500 \uBE60\uB978 \uC8FC\uC81C \uBC84\uD2BC \u2500\u2500
+document.querySelectorAll('.quick-topic-btn').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    document.getElementById('bl-title').value = btn.getAttribute('data-title') || '';
+    document.getElementById('bl-cat').value = btn.getAttribute('data-cat') || 'headspa';
+    document.getElementById('bl-area').value = btn.getAttribute('data-area') || '';
+    document.getElementById('bl-kw').value = btn.getAttribute('data-kw') || '';
+  });
+});
+
+// \u2500\u2500 \uBE14\uB85C\uADF8 \uC0DD\uC131 \u2500\u2500
+async function genBlog(){
+  var title = document.getElementById('bl-title').value.trim();
+  if(!title){ alert('\uC81C\uBAA9\uC744 \uC785\uB825\uD574\uC8FC\uC138\uC694'); return; }
+  var btn = document.getElementById('bl-gen-btn');
+  var res = document.getElementById('bl-gen-result');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> AI \uC0DD\uC131 \uC911... (20~40\uCD08)';
+  res.style.display = 'none';
+  try {
+    var r = await fetch('/api/blogs', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+_GSK_TOKEN},
+      body: JSON.stringify({
+        title: title,
+        category: document.getElementById('bl-cat').value,
+        area: document.getElementById('bl-area').value.trim() || 'Seoul',
+        keywords: document.getElementById('bl-kw').value.split(',').map(function(k){ return k.trim(); }).filter(Boolean),
+        status: 'published'
+      })
+    });
+    var d = await r.json();
+    if(d.ok){
+      res.style.display='block';
+      res.innerHTML = '\u2705 \uC0DD\uC131 \uC644\uB8CC! <a href="/blog/'+d.slug+'" target="_blank" style="color:#34d399;font-weight:700">/blog/'+d.slug+'</a> \u2014 <a href="/blog/'+d.slug+'" target="_blank" style="color:#34d399">\uBBF8\uB9AC\uBCF4\uAE30 \u2192</a>';
+      document.getElementById('bl-title').value = '';
+      document.getElementById('bl-kw').value = '';
+      loadBlogList();
+    } else {
+      res.style.display='block'; res.style.background='rgba(239,68,68,.1)'; res.style.borderColor='rgba(239,68,68,.3)'; res.style.color='#fca5a5';
+      res.innerHTML = '\u274C \uC624\uB958: ' + JSON.stringify(d);
+    }
+  } catch(e){ res.style.display='block'; res.innerHTML='\u274C \uB124\uD2B8\uC6CC\uD06C \uC624\uB958'; }
+  btn.disabled=false; btn.innerHTML='<i class="fas fa-magic"></i> AI\uB85C \uC0DD\uC131\uD558\uAE30';
+}
+
+// \u2500\u2500 \uC77C\uAD04 \uC0DD\uC131 (\uCD94\uCC9C \uC8FC\uC81C \uC804\uCCB4) \u2500\u2500
+async function genBlogBatch(){
+  if(!confirm('\uCD94\uCC9C \uC8FC\uC81C 8\uAC1C\uB97C \uBAA8\uB450 AI\uB85C \uC0DD\uC131\uD569\uB2C8\uB2E4. \uC57D 3~5\uBD84 \uC18C\uC694\uB429\uB2C8\uB2E4. \uACC4\uC18D\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?')) return;
+  var topics = Array.from(document.querySelectorAll('.quick-topic-btn')).map(function(btn){
+    return {
+      title: btn.getAttribute('data-title'),
+      category: btn.getAttribute('data-cat'),
+      area: btn.getAttribute('data-area'),
+      keywords: (btn.getAttribute('data-kw')||'').split(',').map(function(k){ return k.trim(); })
+    };
+  });
+  var res = document.getElementById('bl-gen-result');
+  res.style.display='block'; res.style.background='rgba(251,191,36,.08)'; res.style.borderColor='rgba(251,191,36,.2)'; res.style.color='#fde68a';
+  res.innerHTML = '\u23F3 \uC77C\uAD04 \uC0DD\uC131 \uC911... \uD0ED\uC744 \uB2EB\uC9C0 \uB9C8\uC138\uC694.';
+  try {
+    var r = await fetch('/api/admin/generate-blog', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+_GSK_TOKEN},
+      body: JSON.stringify({ topics })
+    });
+    var d = await r.json();
+    var ok = d.results.filter(function(x){ return x.status==='created'; }).length;
+    res.style.background='rgba(16,185,129,.1)'; res.style.borderColor='rgba(16,185,129,.3)'; res.style.color='#6ee7b7';
+    res.innerHTML = '\u2705 \uC644\uB8CC! ' + ok + '/' + d.total + '\uAC1C \uC0DD\uC131\uB428';
+    loadBlogList();
+  } catch(e){ res.innerHTML='\u274C \uC624\uB958: '+e.message; }
+}
+
+// \u2500\u2500 \uBE14\uB85C\uADF8 \uBAA9\uB85D \uB85C\uB4DC \u2500\u2500
+async function loadBlogList(){
+  var el = document.getElementById('blog-list');
+  if(!el) return;
+  el.innerHTML = '<div style="text-align:center;padding:20px;color:rgba(255,255,255,.3);font-size:13px"><i class="fas fa-spinner fa-spin"></i> \uB85C\uB529...</div>';
+  try {
+    var r = await fetch('/api/blogs');
+    var posts = await r.json();
+    if(!posts.length){
+      el.innerHTML = '<div style="text-align:center;padding:24px;color:rgba(255,255,255,.3);font-size:13px">\uC544\uC9C1 \uBE14\uB85C\uADF8 \uAE00\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.<br>\uC704\uC5D0\uC11C AI\uB85C \uC0DD\uC131\uD574\uBCF4\uC138\uC694!</div>';
+      return;
+    }
+    el.innerHTML = posts.map(function(p){
+      var tags = Array.isArray(p.tags) ? p.tags : (p.tags ? JSON.parse(p.tags||'[]') : []);
+      var date = p.created_at ? new Date(p.created_at).toLocaleDateString('ko-KR') : '';
+      var statusColor = p.status==='published' ? '#10b981' : '#f59e0b';
+      return '<div style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:flex-start;gap:10px">'+
+        '<div style="flex:1;min-width:0">'+
+          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">'+
+            '<span style="font-size:10px;background:rgba(255,77,141,.15);color:#FF4D8D;padding:2px 8px;border-radius:8px;font-weight:700">'+(p.category||'')+'</span>'+
+            '<span style="font-size:10px;color:rgba(255,255,255,.3)">'+(p.area||'Seoul')+'</span>'+
+            '<span style="font-size:10px;color:'+statusColor+';font-weight:700">\u25CF  '+(p.status==='published'?'\uACF5\uAC1C':'\uC784\uC2DC\uC800\uC7A5')+'</span>'+
+          '</div>'+
+          '<div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+p.title+'</div>'+
+          '<div style="font-size:11px;color:rgba(255,255,255,.3)">'+(p.views||0)+' views \xB7 '+date+'</div>'+
+        '</div>'+
+        '<div style="display:flex;gap:6px;flex-shrink:0">'+
+          '<a href="/blog/'+p.slug+'" target="_blank" style="padding:5px 10px;background:rgba(96,165,250,.15);border:1px solid rgba(96,165,250,.2);border-radius:7px;color:#93c5fd;font-size:11px;text-decoration:none;cursor:pointer"><i class="fas fa-eye"></i></a>'+
+          '<button onclick="delBlog(''+p.id+'')" style="padding:5px 10px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.2);border-radius:7px;color:#fca5a5;font-size:11px;cursor:pointer"><i class="fas fa-trash"></i></button>'+
+        '</div>'+
+      '</div>';
+    }).join('');
+  } catch(e){ el.innerHTML='<div style="color:#fca5a5;padding:12px">\uC624\uB958: '+e.message+'</div>'; }
+}
+
+async function delBlog(id){
+  if(!confirm('\uC774 \uBE14\uB85C\uADF8 \uAE00\uC744 \uC0AD\uC81C\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?')) return;
+  await fetch('/api/blogs/'+id, { method:'DELETE', headers:{'Authorization':'Bearer '+_GSK_TOKEN} });
+  loadBlogList();
+}
+
+// quick-topic \uBC84\uD2BC \uC2A4\uD0C0\uC77C
+var styleEl = document.createElement('style');
+styleEl.textContent = '.quick-topic-btn{padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:16px;color:rgba(255,255,255,.6);font-size:11px;cursor:pointer;transition:.15s}.quick-topic-btn:hover{background:rgba(255,77,141,.15);border-color:rgba(255,77,141,.3);color:#FF4D8D}';
+document.head.appendChild(styleEl);
 
 // \u2500\u2500 \uC774\uBCA4\uD2B8 \uC704\uC784 \u2500\u2500
 document.addEventListener('click', function(e){
