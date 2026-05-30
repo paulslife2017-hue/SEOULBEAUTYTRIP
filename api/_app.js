@@ -2851,7 +2851,7 @@ app.post("/api/shops", async (c) => {
   let seoKeywords = body.seoKeywords || "";
   let whyChoose = body.whyChoose || [];
   if (!description) {
-    const apiKey = c.env?.GSK_TOKEN || c.env?.GENSPARK_TOKEN || "";
+    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
     const seo = await autoGenSeo(body, apiKey);
     if (seo) {
       description = seo.description || "";
@@ -2880,7 +2880,7 @@ app.put("/api/shops/:id", async (c) => {
   let seoKeywords = body.seoKeywords || "";
   let whyChoose = Array.isArray(body.whyChoose) ? body.whyChoose : [];
   if (!description || body.regenerateSeo) {
-    const apiKey = c.env?.GSK_TOKEN || c.env?.GENSPARK_TOKEN || "";
+    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
     const seo = await autoGenSeo(body, apiKey);
     if (seo) {
       description = description || seo.description || "";
@@ -3065,7 +3065,7 @@ Rules:
 
 Return ONLY valid JSON:
 {"titleSuffix":"...","metaDescription":"...","description":"...","keywords":["k1","k2","k3","k4","k5","k6","k7","k8"]}`;
-    const OPENAI_KEY = c.env?.GSK_TOKEN || c.env?.GENSPARK_TOKEN || "";
+    const OPENAI_KEY = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
     if (!OPENAI_KEY) return c.json({ error: "API key not configured" }, 500);
     const res = await fetch("https://www.genspark.ai/api/llm_proxy/v1/chat/completions", {
       method: "POST",
@@ -3384,7 +3384,7 @@ app.post("/api/admin/fix-slugs", async (c) => {
 });
 app.post("/api/admin/regenerate-seo-all", async (c) => {
   const sql = getDb();
-  const apiKey = c.env?.GSK_TOKEN || c.env?.GENSPARK_TOKEN || "";
+  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
   if (!apiKey) return c.json({ error: "API key not configured" }, 500);
   const force = c.req.query("force") === "true";
   let rows = [];
@@ -3513,7 +3513,7 @@ app.post("/api/blogs", async (c) => {
   const body = await c.req.json();
   const id = "b" + Date.now();
   const now = (/* @__PURE__ */ new Date()).toISOString();
-  const apiKey = c.env?.GSK_TOKEN || c.env?.GENSPARK_TOKEN || "";
+  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
   let title = body.title || "";
   let content = body.content || "";
   let excerpt = body.excerpt || "";
@@ -3545,7 +3545,7 @@ app.put("/api/blogs/:id", async (c) => {
   const sql = getDb();
   const body = await c.req.json();
   const now = (/* @__PURE__ */ new Date()).toISOString();
-  const apiKey = c.env?.GSK_TOKEN || c.env?.GENSPARK_TOKEN || "";
+  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
   let content = body.content || "";
   let excerpt = body.excerpt || "";
   let metaDescription = body.metaDescription || "";
@@ -3588,7 +3588,7 @@ app.delete("/api/blogs/:id", async (c) => {
 app.post("/api/admin/generate-blog", async (c) => {
   await ensureDb();
   const sql = getDb();
-  const apiKey = c.env?.GSK_TOKEN || c.env?.GENSPARK_TOKEN || "";
+  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
   if (!apiKey) return c.json({ error: "API key not configured" }, 500);
   const body = await c.req.json();
   const topics = body.topics || [];
@@ -5162,7 +5162,7 @@ app.get("/", async (c) => {
   }
 });
 app.get("/admin", (c) => {
-  const token = c.env?.GSK_TOKEN || "";
+  const token = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
   const html = ADMIN_HTML.replace("__GSK_TOKEN__", token);
   return c.html(html);
 });
