@@ -1387,6 +1387,14 @@ app.get('/shop/:slug', async (c) => {
   const shop = rowToShop(shopRows[0])
   const vidRows = await sql`SELECT * FROM videos WHERE shop_id=${shop.id} ORDER BY views DESC`
   const shopVideos = vidRows.map((r: any) => rowToVideo({ ...r, shop_name: shop.name }))
+  // 같은 카테고리 업체 (본인 제외, 최대 6개, rating 높은 순)
+  const relatedRows = await sql`
+    SELECT id, name, slug, category, location, thumbnail, rating, review_count, description
+    FROM shops
+    WHERE category=${shop.category} AND id != ${shop.id} AND slug IS NOT NULL
+    ORDER BY rating DESC NULLS LAST, review_count DESC NULLS LAST
+    LIMIT 6`
+  const relatedShops = relatedRows.map((r: any) => rowToShop(r))
   const shopArea = shop.location ? ` (${shop.location.split(',')[0].trim()})` : ''
   const waMsg = encodeURIComponent(`[ Booking Request ]\nShop: ${shop.name}${shopArea}\n\nDate: \nTime: \nService: \nName: \nPeople: `)
   const waUrl = `https://wa.me/${PLATFORM.whatsapp}?text=${waMsg}`
@@ -1618,6 +1626,20 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 /* FLOAT BTN */
 .sp-float{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:100;white-space:nowrap}
 .sp-float a{display:flex;align-items:center;gap:9px;padding:15px 36px;background:linear-gradient(135deg,#25D366,#0EA855);border-radius:30px;color:#fff;font-size:15px;font-weight:800;text-decoration:none;box-shadow:0 6px 28px rgba(37,211,102,.45)}
+/* ── 비슷한 업체 추천 ── */
+.sp-related{padding:0 20px 0;margin-bottom:0}
+.sp-related-title{font-size:13px;font-weight:800;color:rgba(255,255,255,.45);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:7px}
+.sp-related-title i{color:var(--pk2)}
+.sp-rel-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sp-rel-card{display:block;text-decoration:none;border-radius:16px;overflow:hidden;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);transition:border-color .18s,transform .18s;position:relative}
+.sp-rel-card:active{transform:scale(.97);border-color:rgba(232,65,122,.4)}
+.sp-rel-thumb{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+.sp-rel-ov{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,rgba(8,8,14,.92) 100%)}
+.sp-rel-info{position:absolute;bottom:0;left:0;right:0;padding:10px 10px 9px}
+.sp-rel-name{font-size:12px;font-weight:800;color:#fff;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:4px}
+.sp-rel-meta{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.sp-rel-loc{font-size:10px;color:rgba(255,255,255,.5);display:flex;align-items:center;gap:2px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sp-rel-rating{font-size:10px;color:#F59E0B;font-weight:700;display:flex;align-items:center;gap:2px;flex-shrink:0}
 </style>
 </head>
 <body>
@@ -1689,7 +1711,30 @@ ${(()=>{const allP=[shop.thumbnail,...(shop.photos||[]).filter((p:string)=>p&&p!
     return '<div class="sp-card"><div class="sp-card-title"><i class="fas fa-play-circle"></i> Videos ('+shopVideos.length+')</div><div class="sp-vid-grid">'+cardsHtml+'</div></div>';
   })()}
 
-  <div style="height:60px"></div>
+  ${relatedShops.length > 0 ? `
+  <div class="sp-related">
+    <div class="sp-related-title"><i class="fas fa-th-large"></i> More ${shop.category.charAt(0).toUpperCase()+shop.category.slice(1)} in Seoul</div>
+    <div class="sp-rel-grid">
+      ${relatedShops.map((r: any) => {
+        const rArea = (r.location||'').split(',')[0].trim()
+        const rRating = r.rating ? `<span class="sp-rel-rating"><i class="fas fa-star" style="font-size:8px"></i>${Number(r.rating).toFixed(1)}</span>` : ''
+        const rThumb = r.thumbnail || ''
+        return `<a class="sp-rel-card" href="/shop/${r.slug}">
+          ${rThumb ? `<img class="sp-rel-thumb" src="${rThumb}" alt="${r.name}" loading="lazy">` : `<div class="sp-rel-thumb" style="background:#111"></div>`}
+          <div class="sp-rel-ov"></div>
+          <div class="sp-rel-info">
+            <div class="sp-rel-name">${r.name}</div>
+            <div class="sp-rel-meta">
+              <span class="sp-rel-loc"><i class="fas fa-map-marker-alt" style="font-size:7px;color:#FF4D8D"></i>${rArea}</span>
+              ${rRating}
+            </div>
+          </div>
+        </a>`
+      }).join('')}
+    </div>
+  </div>` : ''}
+
+  <div style="height:100px"></div>
 </div>
 
 <div class="sp-float">
