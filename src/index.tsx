@@ -3539,7 +3539,9 @@ function _playVid(vid, bufIc){
 }
 
 function setupObs(){
-  var _obsActive = true; // observe 직후 첫 콜백 무시 플래그
+  // _obsReady: true가 되기 전까지 IntersectionObserver 콜백에서 play 금지
+  // (첫 진입 시 observe() 즉시 콜백 fire → 아래 직접 _playVid(v0)와 충돌 방지)
+  var _obsReady = false;
   var obs = new IntersectionObserver(function(entries){
     entries.forEach(function(e){
       var idx = parseInt(e.target.id.replace('sl',''));
@@ -3548,30 +3550,30 @@ function setupObs(){
       document.querySelectorAll('.dot').forEach(function(d,i){ d.classList.toggle('on',i===idx); });
 
       if(e.isIntersecting){
-        if(vid){
-          if(!_obsActive){ // 첫 콜백(idx=0)은 아래에서 직접 처리
-            _playVid(vid, bufIc);
-          }
+        if(vid && _obsReady){ // _obsReady 후에만 obs가 play 담당
+          _playVid(vid, bufIc);
           preloadNext(idx);
+        } else if(vid){
+          preloadNext(idx); // 아직 _obsReady 전 → preload만
         }
       } else {
         if(vid){ vid.pause(); vid.currentTime = 0; }
         if(bufIc) bufIc.style.display = 'none';
       }
     });
-    _obsActive = false;
   },{threshold: 0.6});
 
   document.querySelectorAll('.slide').forEach(function(s){ obs.observe(s); });
 
-  // 첫 슬라이드 직접 재생 (observe 콜백과 충돌 방지)
+  // 첫 슬라이드 직접 재생 후 obs에 제어권 넘김
   var v0 = document.getElementById('vid0');
   var buf0 = document.getElementById('bufic0');
-  _playVid(v0, buf0);
-  preloadNext(0);
-
   var dot0 = document.getElementById('dot0');
   if(dot0) dot0.classList.add('on');
+  _playVid(v0, buf0);
+  preloadNext(0);
+  // 약간의 딜레이 후 obs 활성화 (첫 콜백 무시 완료 후)
+  setTimeout(function(){ _obsReady = true; }, 800);
 }
 
 function openShopModal(shopId) {
@@ -4036,17 +4038,21 @@ function closeModal(){
       var overlay = document.getElementById('search-overlay');
       if(overlay) overlay.classList.add('open');
     }
-    // 모달 닫힌 뒤 현재 보이는 피드 영상 재개
-    var feedVids = document.querySelectorAll('.slide');
-    feedVids.forEach(function(sl){
-      var rect = sl.getBoundingClientRect();
-      if(rect.top >= -50 && rect.bottom <= window.innerHeight + 50){
-        var idx = parseInt(sl.id.replace('sl',''));
-        var fv = document.getElementById('vid'+idx);
-        var fb = document.getElementById('bufic'+idx);
-        if(fv && fv.paused) _playVid(fv, fb);
-      }
-    });
+    // 검색 오버레이가 닫힌 경우가 아닐 때만 피드 영상 재개
+    if(!_searchOpen){
+      document.querySelectorAll('.slide').forEach(function(sl){
+        var rect = sl.getBoundingClientRect();
+        if(rect.top >= -50 && rect.bottom <= window.innerHeight + 50){
+          var idx = parseInt(sl.id.replace('sl',''));
+          var fv = document.getElementById('vid'+idx);
+          var fb = document.getElementById('bufic'+idx);
+          if(fv && fv.paused){
+            fv.muted = isMuted; // 현재 소리 상태 반영
+            _playVid(fv, fb);
+          }
+        }
+      });
+    }
   }, 280);
 }
 
@@ -4140,9 +4146,24 @@ function toggleSearch(){
     var lbl = document.getElementById('soBackLabel');
     if(lbl) lbl.textContent = 'Main';
     setTimeout(function(){ var inp = document.getElementById('soInput'); if(inp) inp.focus(); }, 200);
+    // 피드 영상 일시정지 (오버레이 위에 가려져서)
+    document.querySelectorAll('#feed video').forEach(function(v){ v.pause(); });
   } else {
     clearSearch();
     overlay.classList.remove('open');
+    // 오버레이 닫힐 때 피드 영상 재개 (소리 상태 반영)
+    document.querySelectorAll('.slide').forEach(function(sl){
+      var rect = sl.getBoundingClientRect();
+      if(rect.top >= -50 && rect.bottom <= window.innerHeight + 50){
+        var idx = parseInt(sl.id.replace('sl',''));
+        var fv = document.getElementById('vid'+idx);
+        var fb = document.getElementById('bufic'+idx);
+        if(fv && fv.paused){
+          fv.muted = isMuted;
+          _playVid(fv, fb);
+        }
+      }
+    });
   }
 }
 
@@ -4206,7 +4227,7 @@ function _renderSearchResults(q, filter){
           +(s.category?'<span class="so-card-cat">'+catLabel+esc(s.category)+'</span>':'')
           +ratingStr
         +'</div>'
-        +(s.description?'<div style="font-size:11px;color:rgba(255,255,255,.35);line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+esc((s.description||'').slice(0,90))+'</div>':'')
+        +(s.description?'<div style="font-size:11px;color:rgba(255,255,255,.38);line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;width:100%">'+esc((s.description||'').slice(0,150))+'</div>':'')
       +'</div>'
       +'<div class="so-card-arrow"><i class="fas fa-chevron-right"></i></div>'
     +'</a>';
