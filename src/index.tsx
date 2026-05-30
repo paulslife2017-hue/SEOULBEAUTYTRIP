@@ -2692,18 +2692,13 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 }
 .so-card-img-wrap.loaded .so-card-img{filter:blur(0);transform:scale(1)}
 .so-card-play{position:absolute;inset:0;z-index:4;display:flex;align-items:center;justify-content:center;pointer-events:none}
-.so-card-play i{width:32px;height:32px;background:rgba(0,0,0,.45);border:1.5px solid rgba(255,255,255,.55);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;padding-left:2px;backdrop-filter:blur(4px)}
-.so-card-ov{position:absolute;bottom:0;left:0;right:0;z-index:3;padding:18px 8px 6px;background:linear-gradient(to top,rgba(0,0,0,.72) 0%,transparent 100%);pointer-events:none}
-.so-card-cat-badge{font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#fff;opacity:.9}
-.so-card-body{padding:8px 10px 10px}
-.so-card-cat{font-size:9px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--pk);margin-bottom:3px}
-.so-card-name{font-size:12px;font-weight:800;color:#fff;line-height:1.3;margin-bottom:3px}
-.so-card-loc{font-size:10px;color:rgba(255,255,255,.38);display:flex;align-items:center;gap:3px}
-.so-card-play{position:absolute;inset:0;z-index:4;display:flex;align-items:center;justify-content:center;pointer-events:none}
-.so-card-play i{font-size:22px;color:rgba(255,255,255,.85);filter:drop-shadow(0 2px 6px rgba(0,0,0,.6));transition:transform .2s}
+.so-card-play i{width:34px;height:34px;background:rgba(0,0,0,.45);border:1.5px solid rgba(255,255,255,.55);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;padding-left:2px;backdrop-filter:blur(4px);transition:transform .2s}
 .so-card:active .so-card-play i{transform:scale(1.15)}
-.so-card-ov{position:absolute;bottom:0;left:0;right:0;z-index:3;background:linear-gradient(to top,rgba(0,0,0,.72) 0%,transparent 100%);padding:22px 8px 8px;pointer-events:none}
-.so-card-cat-badge{font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#fff;opacity:.9}
+.so-card-ov{position:absolute;bottom:0;left:0;right:0;z-index:3;padding:22px 8px 8px;background:linear-gradient(to top,rgba(0,0,0,.72) 0%,transparent 100%);pointer-events:none}
+.so-card-cat-badge{font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;opacity:.92}
+.so-card-body{padding:8px 10px 10px}
+.so-card-name{font-size:12px;font-weight:800;color:#fff;line-height:1.3;margin-bottom:2px}
+.so-card-loc{font-size:10px;color:rgba(255,255,255,.38);display:flex;align-items:center;gap:3px}
 .so-empty{padding:60px 20px;text-align:center;color:rgba(255,255,255,.25);font-size:14px}
 /* 토스트 */
 #toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%) translateY(12px);background:rgba(232,65,122,.92);color:#fff;padding:8px 18px;border-radius:18px;font-size:12px;font-weight:700;z-index:600;opacity:0;transition:all .28s;white-space:nowrap;pointer-events:none;backdrop-filter:blur(8px)}
@@ -3779,15 +3774,14 @@ function toggleSearch(){
     overlay.classList.add('open');
     _soFilter = 'all';
     _resetChips();
-    _renderSearchResults('', 'all'); // 열자마자 전체 목록 표시
+    _renderSearchResults('', 'all');
+    // 오버레이 열릴 때: 뒤로가기 = Main
     var lbl = document.getElementById('soBackLabel');
-    if(lbl) lbl.textContent = 'Catalog';
+    if(lbl) lbl.textContent = 'Main';
     setTimeout(function(){ var inp = document.getElementById('soInput'); if(inp) inp.focus(); }, 200);
   } else {
     clearSearch();
     overlay.classList.remove('open');
-    var lbl = document.getElementById('soBackLabel');
-    if(lbl) lbl.textContent = 'Main';
   }
 }
 
@@ -3841,10 +3835,9 @@ function _renderSearchResults(q, filter){
         +'<img class="so-card-img" src="'+(s.thumbnail||'')+'" alt="'+esc(s.name)+'" loading="lazy" decoding="async"'
           +' onload="parentLoaded(this)" onerror="parentLoaded(this)">'
         +'<div class="so-card-play"><i class="fas fa-play"></i></div>'
-        +'<div class="so-card-ov"><div class="so-card-cat-badge">'+esc(s.category)+'</div></div>'
+        +'<div class="so-card-ov"><div class="so-card-cat-badge" style="color:'+col+'">'+esc(s.category)+'</div></div>'
       +'</div>'
       +'<div class="so-card-body">'
-        +'<div class="so-card-cat" style="color:'+col+'">'+esc(s.category)+'</div>'
         +'<div class="so-card-name">'+esc(s.name)+'</div>'
         +'<div class="so-card-loc"><i class="fas fa-map-marker-alt" style="font-size:8px;color:var(--pk)"></i>'+esc((s.location||'').split(',')[0])+'</div>'
       +'</div>'
@@ -3887,12 +3880,10 @@ function closeSearch(){
 // 검색 오버레이에서 업체 클릭 → 오버레이는 뒤로 숨기고 모달만 열기
 // closeModal() 시 _searchOpen=true 이면 오버레이 다시 복원
 function openShopFromSearch(sid){
-  // 오버레이를 뒤로 숨기기만 (닫지 않음 - _searchOpen은 true 유지)
+  // 오버레이를 잠시 숨기기만 (_searchOpen=true 유지)
+  // closeModal() 호출 시 _searchOpen 체크 후 오버레이 재표시
   var overlay = document.getElementById('search-overlay');
   if(overlay) overlay.classList.remove('open');
-  // 모달의 뒤로가기 레이블을 Catalog로 변경
-  var lbl = document.getElementById('soBackLabel');
-  if(lbl) lbl.textContent = 'Catalog';
   openShopModal(sid);
 }
 
