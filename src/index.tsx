@@ -1899,7 +1899,8 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 .sp-map-link{display:flex;align-items:center;gap:6px;margin-top:10px;font-size:12px;color:#60a5fa;text-decoration:none}
 .sp-map-link:hover{color:#93c5fd}
 /* VIDEOS */
-.sp-vid-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sp-vid-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;justify-items:center}
+.sp-vid-grid.single-vid{grid-template-columns:minmax(0,180px);justify-content:center}
 .sp-vid-card{border-radius:14px;overflow:hidden;position:relative;cursor:pointer;aspect-ratio:9/16;background:#000}
 .sp-vid-inner{position:absolute;inset:0;border-radius:14px;overflow:hidden}
 .sp-vid-poster{transition:opacity .35s}
@@ -2075,7 +2076,8 @@ ${(()=>{const allP=[shop.thumbnail,...(shop.photos||[]).filter((p:string)=>p&&p!
         +'<div class="sp-vid-card-ov"><div class="sp-vid-card-title">'+displayTitle+'</div></div>'
         +'</div>';
     }).join('');
-    return '<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-play-circle" style="color:var(--pk);margin-right:4px"></i>Videos <span style="font-size:10px;color:rgba(255,255,255,.3);font-weight:400;letter-spacing:0">('+shopVideos.length+')</span></div><div class="sp-vid-grid">'+cardsHtml+'</div></div>';
+    const gridClass = shopVideos.length===1 ? 'sp-vid-grid single-vid' : 'sp-vid-grid';
+    return '<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-play-circle" style="color:var(--pk);margin-right:4px"></i>Videos <span style="font-size:10px;color:rgba(255,255,255,.3);font-weight:400;letter-spacing:0">('+shopVideos.length+')</span></div><div class="'+gridClass+'">'+cardsHtml+'</div></div>';
   })()}
 
   ${(()=>{
@@ -2522,10 +2524,10 @@ app.get('/best/:category/:area', async (c) => {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${titleMain} ${new Date().getFullYear()} | Seoul Beauty Trip</title>
+<title>${titleMain} | Seoul Beauty Trip</title>
 <meta name="description" content="${metaDesc}">
 <meta name="keywords" content="best ${catLabel.toLowerCase()} ${areaLabel} Seoul, ${catLabel.toLowerCase()} Seoul foreigners, ${catLabel.toLowerCase()} Seoul English, ${catLabel.toLowerCase()} ${areaLabel} tourists, foreigner friendly ${catLabel.toLowerCase()} Seoul, ${catLabel.toLowerCase()} Seoul booking, Korean ${catLabel.toLowerCase()} ${areaLabel}, ${catLabel.toLowerCase()} Seoul recommendation">
-<meta name="robots" content="index, follow">
+<meta name="robots" content="${shops.length > 0 ? 'index, follow' : 'noindex, follow'}">
 <link rel="canonical" href="${pageUrl}">
 <meta property="og:type" content="website">
 <meta property="og:title" content="${titleMain} | Seoul Beauty Trip">
@@ -3209,11 +3211,28 @@ app.get('/sitemap.xml', async (c) => {
   const base = 'https://seoulbeautytrip.com'
   const today = new Date().toISOString().split('T')[0]
 
-  // 카테고리×지역 조합 — 모든 Best 랜딩 페이지
+  // 카테고리×지역 조합 — 업체가 1개 이상 있는 Best 페이지만 사이트맵에 포함
+  let shopRows2: any[] = []
+  try {
+    shopRows2 = await sql`SELECT category, location FROM shops WHERE active=true`
+  } catch(e) {}
+
+  // 각 (cat, area) 쌍에 업체가 있는지 확인
+  function hasShopsInArea(cat: string, areaSlug: string): boolean {
+    const areaLabel2 = (AREA_LABELS as any)[areaSlug] || areaSlug
+    return shopRows2.some((r: any) => {
+      if (r.category !== cat) return false
+      if (areaSlug === 'seoul') return true
+      return (r.location || '').toLowerCase().includes(areaLabel2.toLowerCase())
+    })
+  }
+
   const bestPages: string[] = []
   for (const cat of Object.keys(CATEGORY_LABELS)) {
     for (const area of Object.keys(AREA_LABELS)) {
-      bestPages.push(`<url><loc>${base}/best/${cat}/${area}</loc><changefreq>weekly</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`)
+      if (hasShopsInArea(cat, area)) {
+        bestPages.push(`<url><loc>${base}/best/${cat}/${area}</loc><changefreq>weekly</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`)
+      }
     }
   }
 
@@ -5417,150 +5436,6 @@ function renderShopPanel(cat) {
   </div>
 </section>
 
-<!-- ── 빠른 업체 등록 플로팅 버튼 ── -->
-<button id="quick-add-fab" onclick="openQuickAdd()" style="position:fixed;bottom:80px;right:18px;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#e91e8c,#9c27b0);border:none;color:#fff;font-size:22px;cursor:pointer;box-shadow:0 4px 20px rgba(233,30,140,.4);z-index:200;display:flex;align-items:center;justify-content:center;transition:transform .2s" title="업체 빠른 등록">➕</button>
-
-<!-- 빠른 등록 모달 -->
-<div id="quick-add-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:300;align-items:flex-end;justify-content:center">
-  <div style="background:#13132a;border-radius:20px 20px 0 0;padding:24px 20px 36px;width:100%;max-width:500px;max-height:80vh;overflow-y:auto">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
-      <div style="font-size:16px;font-weight:800;color:#fff">🏪 업체 빠른 등록</div>
-      <button onclick="closeQuickAdd()" style="background:rgba(255,255,255,.1);border:none;color:#fff;width:30px;height:30px;border-radius:50%;font-size:16px;cursor:pointer">×</button>
-    </div>
-    <p style="font-size:12.5px;color:rgba(255,255,255,.45);margin-bottom:16px;line-height:1.6">구글맵 URL만 붙여넣으면 업체 정보가 <strong style="color:#e91e8c">자동으로 채워집니다</strong>.<br>SEO 설명도 AI가 자동 생성합니다.</p>
-    <div style="margin-bottom:12px">
-      <label style="font-size:11px;color:rgba(255,255,255,.4);display:block;margin-bottom:4px">구글맵 URL 또는 업체명 *</label>
-      <div style="display:flex;gap:8px">
-        <input id="qa-url" placeholder="https://maps.google.com/... 또는 업체명" style="flex:1;padding:10px 13px;background:rgba(255,255,255,.06);border:1.5px solid rgba(233,30,140,.25);border-radius:10px;color:#fff;font-size:13px;outline:none">
-        <button onclick="qaFetch()" id="qa-fetch-btn" style="padding:10px 14px;background:rgba(233,30,140,.2);border:1px solid rgba(233,30,140,.3);border-radius:10px;color:#e91e8c;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">자동완성</button>
-      </div>
-    </div>
-    <div id="qa-preview" style="display:none;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:10px;padding:12px;margin-bottom:12px;font-size:12.5px">
-      <div id="qa-preview-content"></div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-      <div>
-        <label style="font-size:11px;color:rgba(255,255,255,.4);display:block;margin-bottom:3px">카테고리 *</label>
-        <select id="qa-cat" style="width:100%;padding:9px 12px;background:rgba(255,255,255,.05);border:1.5px solid rgba(233,30,140,.18);border-radius:10px;color:#fff;font-size:13px;outline:none">
-          <option value="headspa">Head Spa</option>
-          <option value="hair">Hair Salon</option>
-          <option value="skincare">Skincare</option>
-          <option value="nail">Nail Art</option>
-          <option value="clinic">Skin Clinic</option>
-          <option value="makeup">Makeup</option>
-          <option value="spa">Spa</option>
-        </select>
-      </div>
-      <div>
-        <label style="font-size:11px;color:rgba(255,255,255,.4);display:block;margin-bottom:3px">지역</label>
-        <input id="qa-loc" placeholder="Gangnam" style="width:100%;padding:9px 12px;background:rgba(255,255,255,.05);border:1.5px solid rgba(233,30,140,.18);border-radius:10px;color:#fff;font-size:13px;outline:none">
-      </div>
-    </div>
-    <div style="margin-bottom:16px">
-      <label style="font-size:11px;color:rgba(255,255,255,.4);display:block;margin-bottom:3px">WhatsApp 번호 (선택)</label>
-      <input id="qa-wa" placeholder="+82-10-xxxx-xxxx" style="width:100%;padding:9px 12px;background:rgba(255,255,255,.05);border:1.5px solid rgba(233,30,140,.18);border-radius:10px;color:#fff;font-size:13px;outline:none">
-    </div>
-    <button onclick="qaSubmit()" id="qa-submit-btn" style="width:100%;padding:13px;background:linear-gradient(135deg,#e91e8c,#9c27b0);border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:800;cursor:pointer">
-      ✨ 등록하기 (AI SEO 자동생성)
-    </button>
-    <div id="qa-msg" style="display:none;margin-top:10px;padding:10px;border-radius:8px;font-size:13px;text-align:center"></div>
-  </div>
-</div>
-
-<script>
-function openQuickAdd(){ document.getElementById('quick-add-modal').style.display='flex'; }
-function closeQuickAdd(){ document.getElementById('quick-add-modal').style.display='none'; }
-
-async function qaFetch(){
-  var url = document.getElementById('qa-url').value.trim();
-  if(!url){ alert('구글맵 URL 또는 업체명을 입력해주세요'); return; }
-  var btn = document.getElementById('qa-fetch-btn');
-  btn.textContent='검색 중...'; btn.disabled=true;
-  try {
-    var r = await fetch('/api/places-fetch', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(url.startsWith('http') ? { placeId: url } : { query: url + ' Seoul' })
-    });
-    var d = await r.json();
-    if(d && d.name){
-      document.getElementById('qa-loc').value = (d.location||'').replace(', Seoul','').trim();
-      var prev = document.getElementById('qa-preview');
-      var prevContent = document.getElementById('qa-preview-content');
-      prevContent.innerHTML = '<strong style="color:#34d399">✅ '+d.name+'</strong><br>'
-        +'<span style="color:rgba(255,255,255,.5)">'+d.address+'</span>'
-        +(d.rating ? '<br><span style="color:#fbbf24">★ '+d.rating+' ('+d.reviewCount+' reviews)</span>' : '');
-      prev.style.display='block';
-      // 임시로 데이터 저장
-      window._qaData = d;
-    } else {
-      alert('업체를 찾지 못했어요. 다른 키워드로 시도해보세요.');
-    }
-  } catch(e){ alert('오류: '+e.message); }
-  btn.textContent='자동완성'; btn.disabled=false;
-}
-
-async function qaSubmit(){
-  var btn = document.getElementById('qa-submit-btn');
-  var msg = document.getElementById('qa-msg');
-  var d = window._qaData || {};
-  var url = document.getElementById('qa-url').value.trim();
-  if(!d.name && !url){ alert('먼저 자동완성 버튼을 눌러주세요'); return; }
-
-  btn.disabled=true; btn.textContent='⏳ 등록 중... (AI SEO 생성 10~20초)';
-  msg.style.display='none';
-
-  var body = {
-    name: d.name || url,
-    category: document.getElementById('qa-cat').value,
-    location: (document.getElementById('qa-loc').value || d.location || 'Seoul').replace(', Seoul','').trim() + ', Seoul',
-    address: d.address || '',
-    googleMapUrl: d.googleMapUrl || '',
-    googleMapEmbed: d.googleMapEmbed || '',
-    lat: d.lat || '', lng: d.lng || '',
-    rating: d.rating || 5.0,
-    reviewCount: d.reviewCount || 0,
-    thumbnail: (d.photos && d.photos[0]) || '',
-    photos: d.photos || [],
-    googlePlaceId: d.googlePlaceId || '',
-    hours: d.hours || '',
-    services: d.services || [],
-    priceRange: d.priceRange || '',
-    whatsapp: document.getElementById('qa-wa').value.trim(),
-    active: true
-  };
-
-  try {
-    var r = await fetch('/api/shops', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(body)
-    });
-    var res = await r.json();
-    if(res.ok){
-      msg.style.display='block';
-      msg.style.background='rgba(16,185,129,.15)'; msg.style.color='#34d399'; msg.style.border='1px solid rgba(16,185,129,.3)';
-      msg.innerHTML='✅ 등록 완료! SEO 자동생성됨<br><a href="/shop/'+(res.slug||'')+'" target="_blank" style="color:#34d399;font-weight:700">업체 페이지 보기 →</a>';
-      window._qaData = null;
-      document.getElementById('qa-url').value='';
-      document.getElementById('qa-wa').value='';
-      document.getElementById('qa-preview').style.display='none';
-    } else {
-      throw new Error(JSON.stringify(res));
-    }
-  } catch(e){
-    msg.style.display='block';
-    msg.style.background='rgba(239,68,68,.1)'; msg.style.color='#fca5a5'; msg.style.border='1px solid rgba(239,68,68,.2)';
-    msg.textContent='❌ 오류: '+e.message;
-  }
-  btn.disabled=false; btn.textContent='✨ 등록하기 (AI SEO 자동생성)';
-}
-
-// 모달 외부 클릭 시 닫기
-document.getElementById('quick-add-modal').addEventListener('click', function(e){
-  if(e.target === this) closeQuickAdd();
-});
-</script>
 
 </body>
 </html>`

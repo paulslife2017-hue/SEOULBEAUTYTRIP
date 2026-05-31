@@ -3868,7 +3868,8 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 .sp-map-link{display:flex;align-items:center;gap:6px;margin-top:10px;font-size:12px;color:#60a5fa;text-decoration:none}
 .sp-map-link:hover{color:#93c5fd}
 /* VIDEOS */
-.sp-vid-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sp-vid-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;justify-items:center}
+.sp-vid-grid.single-vid{grid-template-columns:minmax(0,180px);justify-content:center}
 .sp-vid-card{border-radius:14px;overflow:hidden;position:relative;cursor:pointer;aspect-ratio:9/16;background:#000}
 .sp-vid-inner{position:absolute;inset:0;border-radius:14px;overflow:hidden}
 .sp-vid-poster{transition:opacity .35s}
@@ -4012,7 +4013,8 @@ ${(() => {
       if (!displayTitle || displayTitle === shop.name || /^[a-zA-Z0-9_.~-]{8,}$/.test(displayTitle)) displayTitle = shop.name;
       return '<div class="sp-vid-card" data-vid-url="' + vidUrl + '" data-vid-thumb="' + thumb + '" onclick="playSpVid(' + vi + ')">' + (vidUrl ? '<video class="sp-vid-inline" data-src="' + vidUrl + '" poster="' + thumb + '" loop muted playsinline preload="metadata" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px;display:block"></video>' : "") + (thumb ? '<img class="sp-vid-poster" src="' + thumb + '" alt="' + displayTitle + '" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px;transition:opacity .4s">' : '<div class="sp-vid-poster" style="position:absolute;inset:0;background:#111;border-radius:14px"></div>') + '<div class="sp-play-ic"><i class="fas fa-play" style="font-size:14px;color:#fff;margin-left:2px"></i></div><div class="sp-vid-card-ov"><div class="sp-vid-card-title">' + displayTitle + "</div></div></div>";
     }).join("");
-    return '<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-play-circle" style="color:var(--pk);margin-right:4px"></i>Videos <span style="font-size:10px;color:rgba(255,255,255,.3);font-weight:400;letter-spacing:0">(' + shopVideos.length + ')</span></div><div class="sp-vid-grid">' + cardsHtml + "</div></div>";
+    const gridClass = shopVideos.length === 1 ? "sp-vid-grid single-vid" : "sp-vid-grid";
+    return '<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-play-circle" style="color:var(--pk);margin-right:4px"></i>Videos <span style="font-size:10px;color:rgba(255,255,255,.3);font-weight:400;letter-spacing:0">(' + shopVideos.length + ')</span></div><div class="' + gridClass + '">' + cardsHtml + "</div></div>";
   })()}
 
   ${(() => {
@@ -4435,10 +4437,10 @@ app.get("/best/:category/:area", async (c) => {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${titleMain} ${(/* @__PURE__ */ new Date()).getFullYear()} | Seoul Beauty Trip</title>
+<title>${titleMain} | Seoul Beauty Trip</title>
 <meta name="description" content="${metaDesc}">
 <meta name="keywords" content="best ${catLabel.toLowerCase()} ${areaLabel} Seoul, ${catLabel.toLowerCase()} Seoul foreigners, ${catLabel.toLowerCase()} Seoul English, ${catLabel.toLowerCase()} ${areaLabel} tourists, foreigner friendly ${catLabel.toLowerCase()} Seoul, ${catLabel.toLowerCase()} Seoul booking, Korean ${catLabel.toLowerCase()} ${areaLabel}, ${catLabel.toLowerCase()} Seoul recommendation">
-<meta name="robots" content="index, follow">
+<meta name="robots" content="${shops2.length > 0 ? "index, follow" : "noindex, follow"}">
 <link rel="canonical" href="${pageUrl}">
 <meta property="og:type" content="website">
 <meta property="og:title" content="${titleMain} | Seoul Beauty Trip">
@@ -5103,10 +5105,25 @@ app.get("/sitemap.xml", async (c) => {
   }
   const base = "https://seoulbeautytrip.com";
   const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+  let shopRows2 = [];
+  try {
+    shopRows2 = await sql`SELECT category, location FROM shops WHERE active=true`;
+  } catch (e) {
+  }
+  function hasShopsInArea(cat, areaSlug) {
+    const areaLabel2 = AREA_LABELS[areaSlug] || areaSlug;
+    return shopRows2.some((r) => {
+      if (r.category !== cat) return false;
+      if (areaSlug === "seoul") return true;
+      return (r.location || "").toLowerCase().includes(areaLabel2.toLowerCase());
+    });
+  }
   const bestPages = [];
   for (const cat of Object.keys(CATEGORY_LABELS)) {
     for (const area of Object.keys(AREA_LABELS)) {
-      bestPages.push(`<url><loc>${base}/best/${cat}/${area}</loc><changefreq>weekly</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`);
+      if (hasShopsInArea(cat, area)) {
+        bestPages.push(`<url><loc>${base}/best/${cat}/${area}</loc><changefreq>weekly</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`);
+      }
     }
   }
   const urls = [
@@ -7309,150 +7326,6 @@ function renderShopPanel(cat) {
   </div>
 </section>
 
-<!-- \u2500\u2500 \uBE60\uB978 \uC5C5\uCCB4 \uB4F1\uB85D \uD50C\uB85C\uD305 \uBC84\uD2BC \u2500\u2500 -->
-<button id="quick-add-fab" onclick="openQuickAdd()" style="position:fixed;bottom:80px;right:18px;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#e91e8c,#9c27b0);border:none;color:#fff;font-size:22px;cursor:pointer;box-shadow:0 4px 20px rgba(233,30,140,.4);z-index:200;display:flex;align-items:center;justify-content:center;transition:transform .2s" title="\uC5C5\uCCB4 \uBE60\uB978 \uB4F1\uB85D">\u2795</button>
-
-<!-- \uBE60\uB978 \uB4F1\uB85D \uBAA8\uB2EC -->
-<div id="quick-add-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:300;align-items:flex-end;justify-content:center">
-  <div style="background:#13132a;border-radius:20px 20px 0 0;padding:24px 20px 36px;width:100%;max-width:500px;max-height:80vh;overflow-y:auto">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
-      <div style="font-size:16px;font-weight:800;color:#fff">\u{1F3EA} \uC5C5\uCCB4 \uBE60\uB978 \uB4F1\uB85D</div>
-      <button onclick="closeQuickAdd()" style="background:rgba(255,255,255,.1);border:none;color:#fff;width:30px;height:30px;border-radius:50%;font-size:16px;cursor:pointer">\xD7</button>
-    </div>
-    <p style="font-size:12.5px;color:rgba(255,255,255,.45);margin-bottom:16px;line-height:1.6">\uAD6C\uAE00\uB9F5 URL\uB9CC \uBD99\uC5EC\uB123\uC73C\uBA74 \uC5C5\uCCB4 \uC815\uBCF4\uAC00 <strong style="color:#e91e8c">\uC790\uB3D9\uC73C\uB85C \uCC44\uC6CC\uC9D1\uB2C8\uB2E4</strong>.<br>SEO \uC124\uBA85\uB3C4 AI\uAC00 \uC790\uB3D9 \uC0DD\uC131\uD569\uB2C8\uB2E4.</p>
-    <div style="margin-bottom:12px">
-      <label style="font-size:11px;color:rgba(255,255,255,.4);display:block;margin-bottom:4px">\uAD6C\uAE00\uB9F5 URL \uB610\uB294 \uC5C5\uCCB4\uBA85 *</label>
-      <div style="display:flex;gap:8px">
-        <input id="qa-url" placeholder="https://maps.google.com/... \uB610\uB294 \uC5C5\uCCB4\uBA85" style="flex:1;padding:10px 13px;background:rgba(255,255,255,.06);border:1.5px solid rgba(233,30,140,.25);border-radius:10px;color:#fff;font-size:13px;outline:none">
-        <button onclick="qaFetch()" id="qa-fetch-btn" style="padding:10px 14px;background:rgba(233,30,140,.2);border:1px solid rgba(233,30,140,.3);border-radius:10px;color:#e91e8c;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">\uC790\uB3D9\uC644\uC131</button>
-      </div>
-    </div>
-    <div id="qa-preview" style="display:none;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:10px;padding:12px;margin-bottom:12px;font-size:12.5px">
-      <div id="qa-preview-content"></div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-      <div>
-        <label style="font-size:11px;color:rgba(255,255,255,.4);display:block;margin-bottom:3px">\uCE74\uD14C\uACE0\uB9AC *</label>
-        <select id="qa-cat" style="width:100%;padding:9px 12px;background:rgba(255,255,255,.05);border:1.5px solid rgba(233,30,140,.18);border-radius:10px;color:#fff;font-size:13px;outline:none">
-          <option value="headspa">Head Spa</option>
-          <option value="hair">Hair Salon</option>
-          <option value="skincare">Skincare</option>
-          <option value="nail">Nail Art</option>
-          <option value="clinic">Skin Clinic</option>
-          <option value="makeup">Makeup</option>
-          <option value="spa">Spa</option>
-        </select>
-      </div>
-      <div>
-        <label style="font-size:11px;color:rgba(255,255,255,.4);display:block;margin-bottom:3px">\uC9C0\uC5ED</label>
-        <input id="qa-loc" placeholder="Gangnam" style="width:100%;padding:9px 12px;background:rgba(255,255,255,.05);border:1.5px solid rgba(233,30,140,.18);border-radius:10px;color:#fff;font-size:13px;outline:none">
-      </div>
-    </div>
-    <div style="margin-bottom:16px">
-      <label style="font-size:11px;color:rgba(255,255,255,.4);display:block;margin-bottom:3px">WhatsApp \uBC88\uD638 (\uC120\uD0DD)</label>
-      <input id="qa-wa" placeholder="+82-10-xxxx-xxxx" style="width:100%;padding:9px 12px;background:rgba(255,255,255,.05);border:1.5px solid rgba(233,30,140,.18);border-radius:10px;color:#fff;font-size:13px;outline:none">
-    </div>
-    <button onclick="qaSubmit()" id="qa-submit-btn" style="width:100%;padding:13px;background:linear-gradient(135deg,#e91e8c,#9c27b0);border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:800;cursor:pointer">
-      \u2728 \uB4F1\uB85D\uD558\uAE30 (AI SEO \uC790\uB3D9\uC0DD\uC131)
-    </button>
-    <div id="qa-msg" style="display:none;margin-top:10px;padding:10px;border-radius:8px;font-size:13px;text-align:center"></div>
-  </div>
-</div>
-
-<script>
-function openQuickAdd(){ document.getElementById('quick-add-modal').style.display='flex'; }
-function closeQuickAdd(){ document.getElementById('quick-add-modal').style.display='none'; }
-
-async function qaFetch(){
-  var url = document.getElementById('qa-url').value.trim();
-  if(!url){ alert('\uAD6C\uAE00\uB9F5 URL \uB610\uB294 \uC5C5\uCCB4\uBA85\uC744 \uC785\uB825\uD574\uC8FC\uC138\uC694'); return; }
-  var btn = document.getElementById('qa-fetch-btn');
-  btn.textContent='\uAC80\uC0C9 \uC911...'; btn.disabled=true;
-  try {
-    var r = await fetch('/api/places-fetch', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(url.startsWith('http') ? { placeId: url } : { query: url + ' Seoul' })
-    });
-    var d = await r.json();
-    if(d && d.name){
-      document.getElementById('qa-loc').value = (d.location||'').replace(', Seoul','').trim();
-      var prev = document.getElementById('qa-preview');
-      var prevContent = document.getElementById('qa-preview-content');
-      prevContent.innerHTML = '<strong style="color:#34d399">\u2705 '+d.name+'</strong><br>'
-        +'<span style="color:rgba(255,255,255,.5)">'+d.address+'</span>'
-        +(d.rating ? '<br><span style="color:#fbbf24">\u2605 '+d.rating+' ('+d.reviewCount+' reviews)</span>' : '');
-      prev.style.display='block';
-      // \uC784\uC2DC\uB85C \uB370\uC774\uD130 \uC800\uC7A5
-      window._qaData = d;
-    } else {
-      alert('\uC5C5\uCCB4\uB97C \uCC3E\uC9C0 \uBABB\uD588\uC5B4\uC694. \uB2E4\uB978 \uD0A4\uC6CC\uB4DC\uB85C \uC2DC\uB3C4\uD574\uBCF4\uC138\uC694.');
-    }
-  } catch(e){ alert('\uC624\uB958: '+e.message); }
-  btn.textContent='\uC790\uB3D9\uC644\uC131'; btn.disabled=false;
-}
-
-async function qaSubmit(){
-  var btn = document.getElementById('qa-submit-btn');
-  var msg = document.getElementById('qa-msg');
-  var d = window._qaData || {};
-  var url = document.getElementById('qa-url').value.trim();
-  if(!d.name && !url){ alert('\uBA3C\uC800 \uC790\uB3D9\uC644\uC131 \uBC84\uD2BC\uC744 \uB20C\uB7EC\uC8FC\uC138\uC694'); return; }
-
-  btn.disabled=true; btn.textContent='\u23F3 \uB4F1\uB85D \uC911... (AI SEO \uC0DD\uC131 10~20\uCD08)';
-  msg.style.display='none';
-
-  var body = {
-    name: d.name || url,
-    category: document.getElementById('qa-cat').value,
-    location: (document.getElementById('qa-loc').value || d.location || 'Seoul').replace(', Seoul','').trim() + ', Seoul',
-    address: d.address || '',
-    googleMapUrl: d.googleMapUrl || '',
-    googleMapEmbed: d.googleMapEmbed || '',
-    lat: d.lat || '', lng: d.lng || '',
-    rating: d.rating || 5.0,
-    reviewCount: d.reviewCount || 0,
-    thumbnail: (d.photos && d.photos[0]) || '',
-    photos: d.photos || [],
-    googlePlaceId: d.googlePlaceId || '',
-    hours: d.hours || '',
-    services: d.services || [],
-    priceRange: d.priceRange || '',
-    whatsapp: document.getElementById('qa-wa').value.trim(),
-    active: true
-  };
-
-  try {
-    var r = await fetch('/api/shops', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(body)
-    });
-    var res = await r.json();
-    if(res.ok){
-      msg.style.display='block';
-      msg.style.background='rgba(16,185,129,.15)'; msg.style.color='#34d399'; msg.style.border='1px solid rgba(16,185,129,.3)';
-      msg.innerHTML='\u2705 \uB4F1\uB85D \uC644\uB8CC! SEO \uC790\uB3D9\uC0DD\uC131\uB428<br><a href="/shop/'+(res.slug||'')+'" target="_blank" style="color:#34d399;font-weight:700">\uC5C5\uCCB4 \uD398\uC774\uC9C0 \uBCF4\uAE30 \u2192</a>';
-      window._qaData = null;
-      document.getElementById('qa-url').value='';
-      document.getElementById('qa-wa').value='';
-      document.getElementById('qa-preview').style.display='none';
-    } else {
-      throw new Error(JSON.stringify(res));
-    }
-  } catch(e){
-    msg.style.display='block';
-    msg.style.background='rgba(239,68,68,.1)'; msg.style.color='#fca5a5'; msg.style.border='1px solid rgba(239,68,68,.2)';
-    msg.textContent='\u274C \uC624\uB958: '+e.message;
-  }
-  btn.disabled=false; btn.textContent='\u2728 \uB4F1\uB85D\uD558\uAE30 (AI SEO \uC790\uB3D9\uC0DD\uC131)';
-}
-
-// \uBAA8\uB2EC \uC678\uBD80 \uD074\uB9AD \uC2DC \uB2EB\uAE30
-document.getElementById('quick-add-modal').addEventListener('click', function(e){
-  if(e.target === this) closeQuickAdd();
-});
-</script>
 
 </body>
 </html>`;
