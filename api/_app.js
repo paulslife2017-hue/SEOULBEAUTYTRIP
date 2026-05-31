@@ -644,7 +644,7 @@ var resolveCallback = async (str, phase, preserveCallbacks, context, buffer) => 
   } else {
     buffer = [str];
   }
-  const resStr = Promise.all(callbacks.map((c) => c({ phase, buffer, context }))).then(
+  const resStr = Promise.all(callbacks.map((c2) => c2({ phase, buffer, context }))).then(
     (res) => Promise.all(
       res.filter(Boolean).map((str2) => resolveCallback(str2, phase, false, context, buffer))
     ).then(() => buffer[0])
@@ -1075,16 +1075,16 @@ var UnsupportedPathError = class extends Error {
 var COMPOSED_HANDLER = "__COMPOSED_HANDLER";
 
 // node_modules/hono/dist/hono-base.js
-var notFoundHandler = (c) => {
-  return c.text("404 Not Found", 404);
+var notFoundHandler = (c2) => {
+  return c2.text("404 Not Found", 404);
 };
-var errorHandler = (err, c) => {
+var errorHandler = (err, c2) => {
   if ("getResponse" in err) {
     const res = err.getResponse();
-    return c.newResponse(res.body, res);
+    return c2.newResponse(res.body, res);
   }
   console.error(err);
-  return c.text("Internal Server Error", 500);
+  return c2.text("Internal Server Error", 500);
 };
 var Hono = class _Hono {
   get;
@@ -1186,7 +1186,7 @@ var Hono = class _Hono {
       if (app2.errorHandler === errorHandler) {
         handler = r.handler;
       } else {
-        handler = async (c, next) => (await compose([], app2.errorHandler)(c, () => r.handler(c, next))).res;
+        handler = async (c2, next) => (await compose([], app2.errorHandler)(c2, () => r.handler(c2, next))).res;
         handler[COMPOSED_HANDLER] = r.handler;
       }
       subApp.#addRoute(r.method, r.path, handler);
@@ -1297,16 +1297,16 @@ var Hono = class _Hono {
         }
       }
     }
-    const getOptions = optionHandler ? (c) => {
-      const options2 = optionHandler(c);
+    const getOptions = optionHandler ? (c2) => {
+      const options2 = optionHandler(c2);
       return Array.isArray(options2) ? options2 : [options2];
-    } : (c) => {
+    } : (c2) => {
       let executionContext = void 0;
       try {
-        executionContext = c.executionCtx;
+        executionContext = c2.executionCtx;
       } catch {
       }
-      return [c.env, executionContext];
+      return [c2.env, executionContext];
     };
     replaceRequest ||= (() => {
       const mergedPath = mergePath(this._basePath, path);
@@ -1317,8 +1317,8 @@ var Hono = class _Hono {
         return new Request(url, request);
       };
     })();
-    const handler = async (c, next) => {
-      const res = await applicationHandler(replaceRequest(c.req.raw), ...getOptions(c));
+    const handler = async (c2, next) => {
+      const res = await applicationHandler(replaceRequest(c2.req.raw), ...getOptions(c2));
       if (res) {
         return res;
       }
@@ -1334,9 +1334,9 @@ var Hono = class _Hono {
     this.router.add(method, path, [handler, r]);
     this.routes.push(r);
   }
-  #handleError(err, c) {
+  #handleError(err, c2) {
     if (err instanceof Error) {
-      return this.errorHandler(err, c);
+      return this.errorHandler(err, c2);
     }
     throw err;
   }
@@ -1346,7 +1346,7 @@ var Hono = class _Hono {
     }
     const path = this.getPath(request, { env });
     const matchResult = this.router.match(method, path);
-    const c = new Context(request, {
+    const c2 = new Context(request, {
       path,
       matchResult,
       env,
@@ -1356,20 +1356,20 @@ var Hono = class _Hono {
     if (matchResult[0].length === 1) {
       let res;
       try {
-        res = matchResult[0][0][0][0](c, async () => {
-          c.res = await this.#notFoundHandler(c);
+        res = matchResult[0][0][0][0](c2, async () => {
+          c2.res = await this.#notFoundHandler(c2);
         });
       } catch (err) {
-        return this.#handleError(err, c);
+        return this.#handleError(err, c2);
       }
       return res instanceof Promise ? res.then(
-        (resolved) => resolved || (c.finalized ? c.res : this.#notFoundHandler(c))
-      ).catch((err) => this.#handleError(err, c)) : res ?? this.#notFoundHandler(c);
+        (resolved) => resolved || (c2.finalized ? c2.res : this.#notFoundHandler(c2))
+      ).catch((err) => this.#handleError(err, c2)) : res ?? this.#notFoundHandler(c2);
     }
     const composed = compose(matchResult[0], this.errorHandler, this.#notFoundHandler);
     return (async () => {
       try {
-        const context = await composed(c);
+        const context = await composed(c2);
         if (!context.finalized) {
           throw new Error(
             "Context is not finalized. Did you forget to return a Response object or `await next()`?"
@@ -1377,7 +1377,7 @@ var Hono = class _Hono {
         }
         return context.res;
       } catch (err) {
-        return this.#handleError(err, c);
+        return this.#handleError(err, c2);
       }
     })();
   }
@@ -1558,8 +1558,8 @@ var Node = class _Node {
   buildRegExpStr() {
     const childKeys = Object.keys(this.#children).sort(compareKey);
     const strList = childKeys.map((k) => {
-      const c = this.#children[k];
-      return (typeof c.#varIndex === "number" ? `(${k})@${c.#varIndex}` : regExpMetaChars.has(k) ? `\\${k}` : k) + c.buildRegExpStr();
+      const c2 = this.#children[k];
+      return (typeof c2.#varIndex === "number" ? `(${k})@${c2.#varIndex}` : regExpMetaChars.has(k) ? `\\${k}` : k) + c2.buildRegExpStr();
     });
     if (typeof this.#index === "number") {
       strList.unshift(`#${this.#index}`);
@@ -2078,10 +2078,149 @@ var Hono2 = class extends Hono {
 
 // src/index.tsx
 var import_serverless = require("@neondatabase/serverless");
-var GOOGLE_PLACES_KEY = "AIzaSyCcM03wGoZrSkmCMOS-Vib-JR1oKNPsSkY";
-var DB_URL = "postgresql://neondb_owner:npg_EH0lzSpsK4Ah@ep-floral-forest-aqvv2mhn-pooler.c-8.us-east-1.aws.neon.tech/neondb?sslmode=require";
-var getDb = () => (0, import_serverless.neon)(DB_URL);
+var getDb = (env) => {
+  const url = env.DATABASE_URL;
+  if (!url) throw new Error("DATABASE_URL environment variable is not set");
+  return (0, import_serverless.neon)(url);
+};
 var app = new Hono2();
+var AI_BOT_PATTERNS = [
+  // OpenAI
+  "GPTBot",
+  "ChatGPT-User",
+  "OAI-SearchBot",
+  // Google AI
+  "Google-Extended",
+  "Googlebot-Image",
+  // Meta AI
+  "FacebookBot",
+  "meta-externalagent",
+  // Anthropic
+  "anthropic-ai",
+  "ClaudeBot",
+  "Claude-Web",
+  // Common AI scrapers
+  "CCBot",
+  "Bytespider",
+  "SemrushBot",
+  "AhrefsBot",
+  "MJ12bot",
+  "DotBot",
+  "DataForSeoBot",
+  "PetalBot",
+  // Amazon / Apple AI
+  "Amazonbot",
+  "Applebot-Extended",
+  // AI training crawlers
+  "omgili",
+  "Diffbot",
+  "Kangaroo Bot",
+  "ImagesiftBot",
+  "cohere-ai",
+  "PerplexityBot",
+  "YouBot"
+];
+app.use("*", async (c2, next) => {
+  const ua = c2.req.header("User-Agent") || "";
+  const isAiBot = AI_BOT_PATTERNS.some(
+    (pattern) => ua.toLowerCase().includes(pattern.toLowerCase())
+  );
+  if (isAiBot) {
+    return c2.text("Access Denied: AI crawlers are not permitted.", 403);
+  }
+  await next();
+});
+app.get("/robots.txt", (c2) => {
+  const robotsTxt = `# robots.txt for SEOUL BEAUTY TRIP
+# AI crawlers and data scrapers are NOT permitted
+
+# Block all AI training crawlers
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ChatGPT-User
+Disallow: /
+
+User-agent: OAI-SearchBot
+Disallow: /
+
+User-agent: Google-Extended
+Disallow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: Claude-Web
+Disallow: /
+
+User-agent: FacebookBot
+Disallow: /
+
+User-agent: meta-externalagent
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: Bytespider
+Disallow: /
+
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: SemrushBot
+Disallow: /
+
+User-agent: MJ12bot
+Disallow: /
+
+User-agent: DotBot
+Disallow: /
+
+User-agent: DataForSeoBot
+Disallow: /
+
+User-agent: PetalBot
+Disallow: /
+
+User-agent: Amazonbot
+Disallow: /
+
+User-agent: Applebot-Extended
+Disallow: /
+
+User-agent: Diffbot
+Disallow: /
+
+User-agent: PerplexityBot
+Disallow: /
+
+User-agent: YouBot
+Disallow: /
+
+User-agent: cohere-ai
+Disallow: /
+
+# Allow normal search engines (Google, Bing, Naver)
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Yeti
+Allow: /
+
+# Default: allow regular users
+User-agent: *
+Disallow: /api/
+Disallow: /admin/
+`;
+  return c2.text(robotsTxt, 200, { "Content-Type": "text/plain; charset=utf-8" });
+});
 var PLATFORM = {
   whatsapp: "8201058947690",
   // 운영자 왓츠앱 번호 (국가코드 포함, +없이)
@@ -2307,7 +2446,7 @@ var videos = [
   { id: "v6", shopId: "s1", title: "Myeongdong Spa Body Treatment", description: "Relax with a full body spa in the heart of Myeongdong. Korean herbal therapy included!", videoUrl: "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4", thumbnail: "https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=400&h=700&fit=crop", tags: ["#KoreanSpa", "#Myeongdong", "#BodyTreatment"], views: 7300, likes: 589, createdAt: "2024-01-20" }
 ];
 async function initDb() {
-  const sql = getDb();
+  const sql = getDb(c.env);
   try {
     await sql`CREATE TABLE IF NOT EXISTS shops (
       id TEXT PRIMARY KEY, name TEXT NOT NULL, slug TEXT, category TEXT,
@@ -2410,34 +2549,34 @@ async function ensureDb() {
   _dbInited = true;
   await initDb();
 }
-app.get("/favicon.ico", (c) => c.body(null, 204));
-app.get("/api/videos", async (c) => {
+app.get("/favicon.ico", (c2) => c2.body(null, 204));
+app.get("/api/videos", async (c2) => {
   await ensureDb();
-  const sql = getDb();
-  const cat = c.req.query("category");
+  const sql = getDb(c2.env);
+  const cat = c2.req.query("category");
   const rows = cat && cat !== "all" ? await sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.category=${cat} ORDER BY RANDOM()` : await sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id ORDER BY RANDOM()`;
   const result = rows.map((r) => ({
     ...rowToVideo(r),
     shop: { id: r.shop_id, name: r.shop_name, category: r.shop_cat, location: r.shop_location, thumbnail: r.shop_thumb }
   }));
-  return c.json({ videos: result });
+  return c2.json({ videos: result });
 });
-app.get("/api/shops", async (c) => {
-  const sql = getDb();
+app.get("/api/shops", async (c2) => {
+  const sql = getDb(c2.env);
   const rows = await sql`SELECT * FROM shops ORDER BY created_at DESC`;
-  return c.json({ shops: rows.map(rowToShop) });
+  return c2.json({ shops: rows.map(rowToShop) });
 });
-app.get("/api/shops/:id", async (c) => {
-  const sql = getDb();
-  const rows = await sql`SELECT * FROM shops WHERE id=${c.req.param("id")}`;
-  if (!rows.length) return c.json({ error: "Not found" }, 404);
-  const vidRows = await sql`SELECT * FROM videos WHERE shop_id=${c.req.param("id")} ORDER BY created_at DESC`;
-  return c.json({ shop: rowToShop(rows[0]), videos: vidRows.map(rowToVideo) });
+app.get("/api/shops/:id", async (c2) => {
+  const sql = getDb(c2.env);
+  const rows = await sql`SELECT * FROM shops WHERE id=${c2.req.param("id")}`;
+  if (!rows.length) return c2.json({ error: "Not found" }, 404);
+  const vidRows = await sql`SELECT * FROM videos WHERE shop_id=${c2.req.param("id")} ORDER BY created_at DESC`;
+  return c2.json({ shop: rowToShop(rows[0]), videos: vidRows.map(rowToVideo) });
 });
-app.post("/api/resolve-gmap", async (c) => {
+app.post("/api/resolve-gmap", async (c2) => {
   try {
-    const { url } = await c.req.json();
-    if (!url) return c.json({ error: "no url" }, 400);
+    const { url } = await c2.req.json();
+    if (!url) return c2.json({ error: "no url" }, 400);
     const areaMap = [
       // 한국어 키워드
       ["\uC555\uAD6C\uC815", "Apgujeong, Seoul"],
@@ -2568,7 +2707,7 @@ app.post("/api/resolve-gmap", async (c) => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Goog-Api-Key": GOOGLE_PLACES_KEY,
+          "X-Goog-Api-Key": c2.env.GOOGLE_PLACES_KEY,
           "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.addressComponents,places.regularOpeningHours,places.rating,places.userRatingCount,places.reviews,places.photos,places.internationalPhoneNumber,places.websiteUri,places.location,places.editorialSummary,places.primaryType,places.types"
         },
         body: JSON.stringify({ textQuery, languageCode: "en" })
@@ -2580,7 +2719,7 @@ app.post("/api/resolve-gmap", async (c) => {
     const placeDetailsById = async (pid) => {
       const fieldMask = "id,displayName,formattedAddress,addressComponents,regularOpeningHours,rating,userRatingCount,reviews,photos,internationalPhoneNumber,websiteUri,location,editorialSummary,primaryType,types";
       const r = await fetch(`https://places.googleapis.com/v1/places/${pid}?languageCode=en`, {
-        headers: { "X-Goog-Api-Key": GOOGLE_PLACES_KEY, "X-Goog-FieldMask": fieldMask }
+        headers: { "X-Goog-Api-Key": c2.env.GOOGLE_PLACES_KEY, "X-Goog-FieldMask": fieldMask }
       });
       if (!r.ok) return null;
       return r.json();
@@ -2591,9 +2730,9 @@ app.post("/api/resolve-gmap", async (c) => {
       const isKor = (s) => /[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]/.test(s);
       const stripKor = (s) => s.replace(/[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]+/g, "").replace(/\s{2,}/g, " ").trim();
       const get = (...types) => {
-        const c2 = comps.find((x) => types.some((t) => x.types?.includes(t)));
-        if (!c2) return "";
-        return !isKor(c2.longText || "") ? c2.longText || "" : !isKor(c2.shortText || "") ? c2.shortText || "" : "";
+        const c3 = comps.find((x) => types.some((t) => x.types?.includes(t)));
+        if (!c3) return "";
+        return !isKor(c3.longText || "") ? c3.longText || "" : !isKor(c3.shortText || "") ? c3.shortText || "" : "";
       };
       const street = [get("street_number"), get("route")].filter(Boolean).join(" ") || [get("sublocality_level_4"), get("sublocality_level_3"), get("sublocality_level_2")].filter(Boolean).join(" ");
       const sub1 = get("sublocality_level_1");
@@ -2659,7 +2798,7 @@ app.post("/api/resolve-gmap", async (c) => {
       if (!hexMatch) {
         const pd = await placeDetailsById(pid);
         const result = placeToJson(pd);
-        if (result) return c.json(result);
+        if (result) return c2.json(result);
       }
     }
     const placeIdx = resolved.indexOf("/place/");
@@ -2687,10 +2826,10 @@ app.post("/api/resolve-gmap", async (c) => {
           const locFromName = findArea(shopName);
           if (locFromName) result.location = locFromName;
         }
-        return c.json(result);
+        return c2.json(result);
       }
       const geo = coords ? await reverseGeocode(coords.lat, coords.lon) : null;
-      return c.json({
+      return c2.json({
         name: engPart,
         address: geo?.address || "",
         location: geo?.location || findArea(shopName),
@@ -2709,21 +2848,21 @@ app.post("/api/resolve-gmap", async (c) => {
       const coordsFromQ = extractCoords(resolved);
       if (coordsFromQ) {
         const geo = await reverseGeocode(coordsFromQ.lat, coordsFromQ.lon);
-        if (geo) return c.json({ name: "", address: geo.address, location: geo.location, lat: coordsFromQ.lat, lng: coordsFromQ.lon });
+        if (geo) return c2.json({ name: "", address: geo.address, location: geo.location, lat: coordsFromQ.lat, lng: coordsFromQ.lon });
       }
       const place = await callPlacesApi(qVal + " Seoul Korea");
       const result = placeToJson(place);
-      if (result) return c.json(result);
-      return c.json({ name: "", address: qVal, location: findArea(qVal), lat: "", lng: "" });
+      if (result) return c2.json(result);
+      return c2.json({ name: "", address: qVal, location: findArea(qVal), lat: "", lng: "" });
     }
     const coordsOnly = extractCoords(resolved);
     if (coordsOnly) {
       const geo = await reverseGeocode(coordsOnly.lat, coordsOnly.lon);
-      if (geo) return c.json({ name: "", address: geo.address, location: geo.location, lat: coordsOnly.lat, lng: coordsOnly.lon });
+      if (geo) return c2.json({ name: "", address: geo.address, location: geo.location, lat: coordsOnly.lat, lng: coordsOnly.lon });
     }
-    return c.json({ address: "", location: "", name: "", lat: "", lng: "" });
+    return c2.json({ address: "", location: "", name: "", lat: "", lng: "" });
   } catch (e) {
-    return c.json({ error: e.message || "failed" }, 500);
+    return c2.json({ error: e.message || "failed" }, 500);
   }
 });
 var CLD = { KEY: "221647295675392", SECRET: "g10Q4wv2UzDEAGV35QluPCYz4Ms", NAME: "dc0ouozcd" };
@@ -2735,18 +2874,18 @@ async function makeSign(folder) {
   const signature = Array.from(new Uint8Array(hashBuf)).map((b) => b.toString(16).padStart(2, "0")).join("");
   return { cloudName: CLD.NAME, apiKey: CLD.KEY, timestamp, signature, folder };
 }
-app.get("/api/upload-sign", async (c) => {
+app.get("/api/upload-sign", async (c2) => {
   try {
-    return c.json(await makeSign("seoul-beauty"));
+    return c2.json(await makeSign("seoul-beauty"));
   } catch (e) {
-    return c.json({ error: e.message || "Sign failed" }, 500);
+    return c2.json({ error: e.message || "Sign failed" }, 500);
   }
 });
-app.get("/api/upload-sign-image", async (c) => {
+app.get("/api/upload-sign-image", async (c2) => {
   try {
-    return c.json(await makeSign("seoul-beauty-photos"));
+    return c2.json(await makeSign("seoul-beauty-photos"));
   } catch (e) {
-    return c.json({ error: e.message || "Sign failed" }, 500);
+    return c2.json({ error: e.message || "Sign failed" }, 500);
   }
 });
 async function makeShopSlug(sql, name, location) {
@@ -2841,9 +2980,9 @@ Return ONLY valid JSON (no extra text):
     return null;
   }
 }
-app.post("/api/shops", async (c) => {
-  const sql = getDb();
-  const body = await c.req.json();
+app.post("/api/shops", async (c2) => {
+  const sql = getDb(c2.env);
+  const body = await c2.req.json();
   const newId = "s" + Date.now();
   const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
   let description = body.description || "";
@@ -2851,7 +2990,7 @@ app.post("/api/shops", async (c) => {
   let seoKeywords = body.seoKeywords || "";
   let whyChoose = body.whyChoose || [];
   if (!description) {
-    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
+    const apiKey = c2.env?.GSK_TOKEN || c2.env?.gsk_token || c2.env?.GENSPARK_TOKEN || c2.env?.genspark_token || "";
     const seo = await autoGenSeo(body, apiKey);
     if (seo) {
       description = seo.description || "";
@@ -2870,17 +3009,17 @@ app.post("/api/shops", async (c) => {
     ${body.rating || 5},${body.reviewCount || 0},${body.thumbnail || ""},
     ${JSON.stringify(body.photos || [])},${body.commission || 15},true,${today}
   ) ON CONFLICT DO NOTHING`;
-  return c.json({ ok: true, id: newId, seoGenerated: !body.description });
+  return c2.json({ ok: true, id: newId, seoGenerated: !body.description });
 });
-app.put("/api/shops/:id", async (c) => {
-  const sql = getDb();
-  const body = await c.req.json();
+app.put("/api/shops/:id", async (c2) => {
+  const sql = getDb(c2.env);
+  const body = await c2.req.json();
   let description = body.description || "";
   let metaDescription = body.metaDescription || "";
   let seoKeywords = body.seoKeywords || "";
   let whyChoose = Array.isArray(body.whyChoose) ? body.whyChoose : [];
   if (!description || body.regenerateSeo) {
-    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
+    const apiKey = c2.env?.GSK_TOKEN || c2.env?.gsk_token || c2.env?.GENSPARK_TOKEN || c2.env?.genspark_token || "";
     const seo = await autoGenSeo(body, apiKey);
     if (seo) {
       description = description || seo.description || "";
@@ -2917,58 +3056,143 @@ app.put("/api/shops/:id", async (c) => {
     reviews=${JSON.stringify(body.reviews || [])},
     google_place_id=${body.googlePlaceId || ""},
     menu_items=${JSON.stringify(body.menuItems || [])}
-    WHERE id=${c.req.param("id")}`;
-  return c.json({ ok: true, seoGenerated: !body.description || !!body.regenerateSeo });
+    WHERE id=${c2.req.param("id")}`;
+  return c2.json({ ok: true, seoGenerated: !body.description || !!body.regenerateSeo });
 });
-app.delete("/api/shops/:id", async (c) => {
-  const sql = getDb();
-  await sql`DELETE FROM shops WHERE id=${c.req.param("id")}`;
-  return c.json({ ok: true });
+app.delete("/api/shops/:id", async (c2) => {
+  const sql = getDb(c2.env);
+  await sql`DELETE FROM shops WHERE id=${c2.req.param("id")}`;
+  return c2.json({ ok: true });
 });
-app.post("/api/videos", async (c) => {
-  const sql = getDb();
-  const body = await c.req.json();
+app.post("/api/videos", async (c2) => {
+  const sql = getDb(c2.env);
+  const body = await c2.req.json();
   const newId = "v" + Date.now();
   const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+  let description = body.description || "";
+  if (!description) {
+    const apiKey = c2.env?.GSK_TOKEN || c2.env?.gsk_token || c2.env?.GENSPARK_TOKEN || c2.env?.genspark_token || "";
+    if (apiKey && body.shopId) {
+      const shopRows = await sql`SELECT name, category, location, services FROM shops WHERE id=${body.shopId}`;
+      if (shopRows.length) {
+        const shop = { name: shopRows[0].name, category: shopRows[0].category, location: shopRows[0].location, services: JSON.parse(shopRows[0].services || "[]") };
+        const video = { title: body.title || "", tags: body.tags || [] };
+        description = await genVideoDescription(video, shop, apiKey);
+      }
+    }
+  }
   await sql`INSERT INTO videos (id,shop_id,title,description,video_url,thumbnail,tags,views,likes,created_at) VALUES (
-    ${newId},${body.shopId || ""},${body.title || ""},${body.description || ""},${body.videoUrl || ""},
+    ${newId},${body.shopId || ""},${body.title || ""},${description},${body.videoUrl || ""},
     ${body.thumbnail || ""},${JSON.stringify(body.tags || [])},0,0,${today}
   )`;
-  return c.json({ ok: true, id: newId });
+  return c2.json({ ok: true, id: newId, descriptionGenerated: !body.description && !!description });
 });
-app.delete("/api/videos/:id", async (c) => {
-  const sql = getDb();
-  await sql`DELETE FROM videos WHERE id=${c.req.param("id")}`;
-  return c.json({ ok: true });
+app.delete("/api/videos/:id", async (c2) => {
+  const sql = getDb(c2.env);
+  await sql`DELETE FROM videos WHERE id=${c2.req.param("id")}`;
+  return c2.json({ ok: true });
 });
-app.put("/api/videos/:id", async (c) => {
-  const sql = getDb();
-  const body = await c.req.json();
+async function genVideoDescription(video, shop, apiKey) {
+  if (!apiKey) return "";
+  const shopName = shop?.name || video.title || "Seoul Beauty";
+  const category = shop?.category || "";
+  const location = shop?.location || "Seoul";
+  const services = Array.isArray(shop?.services) ? shop.services.slice(0, 5).join(", ") : "";
+  const tags = Array.isArray(video.tags) ? video.tags.join(", ") : "";
+  const title = video.title || shopName;
+  const prompt = `Write a compelling 1-2 sentence SEO video description for a Korean beauty salon video.
+
+Shop: ${shopName}
+Category: ${category}
+Location: ${location}${services ? "\nServices: " + services : ""}${tags ? "\nTags: " + tags : ""}
+Video title: ${title}
+
+Requirements:
+- 80-160 characters
+- Include shop name, location (Seoul/area), and 1-2 key services
+- End with "Book via WhatsApp." 
+- Natural English, no markdown, no quotes
+- Include 2-3 relevant hashtags at the end
+
+Return ONLY the description text, nothing else.`;
+  try {
+    const res = await fetch("https://www.genspark.ai/api/llm_proxy/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+      body: JSON.stringify({ model: "claude-haiku-4-5", messages: [{ role: "user", content: prompt }], max_tokens: 200 })
+    });
+    if (!res.ok) return "";
+    const data = await res.json();
+    return (data.choices?.[0]?.message?.content || "").trim();
+  } catch {
+    return "";
+  }
+}
+app.post("/api/videos/:id/gen-description", async (c2) => {
+  const sql = getDb(c2.env);
+  const apiKey = c2.env?.GSK_TOKEN || c2.env?.gsk_token || c2.env?.GENSPARK_TOKEN || c2.env?.genspark_token || "";
+  if (!apiKey) return c2.json({ ok: false, error: "No API key" }, 400);
+  const vid = await sql`SELECT v.*, s.name as shop_name, s.category as shop_cat, s.location as shop_loc, s.services as shop_svcs FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE v.id=${c2.req.param("id")}`;
+  if (!vid.length) return c2.json({ ok: false, error: "Not found" }, 404);
+  const v = vid[0];
+  const shop = { name: v.shop_name, category: v.shop_cat, location: v.shop_loc, services: JSON.parse(v.shop_svcs || "[]") };
+  const video = { id: v.id, title: v.title, tags: JSON.parse(v.tags || "[]") };
+  const desc = await genVideoDescription(video, shop, apiKey);
+  if (!desc) return c2.json({ ok: false, error: "AI generation failed" }, 500);
+  await sql`UPDATE videos SET description=${desc} WHERE id=${c2.req.param("id")}`;
+  return c2.json({ ok: true, description: desc });
+});
+app.post("/api/videos/gen-description-bulk", async (c2) => {
+  const sql = getDb(c2.env);
+  const apiKey = c2.env?.GSK_TOKEN || c2.env?.gsk_token || c2.env?.GENSPARK_TOKEN || c2.env?.genspark_token || "";
+  if (!apiKey) return c2.json({ ok: false, error: "No API key" }, 400);
+  const body = await c2.req.json().catch(() => ({}));
+  const forceAll = body?.force === true;
+  const rows = forceAll ? await sql`SELECT v.*, s.name as shop_name, s.category as shop_cat, s.location as shop_loc, s.services as shop_svcs FROM videos v LEFT JOIN shops s ON v.shop_id=s.id` : await sql`SELECT v.*, s.name as shop_name, s.category as shop_cat, s.location as shop_loc, s.services as shop_svcs FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE v.description IS NULL OR v.description=''`;
+  if (!rows.length) return c2.json({ ok: true, updated: 0, message: "No videos to update" });
+  let updated = 0, failed = 0;
+  for (const v of rows) {
+    const shop = { name: v.shop_name, category: v.shop_cat, location: v.shop_loc, services: JSON.parse(v.shop_svcs || "[]") };
+    const video = { id: v.id, title: v.title, tags: JSON.parse(v.tags || "[]") };
+    const desc = await genVideoDescription(video, shop, apiKey);
+    if (desc) {
+      await sql`UPDATE videos SET description=${desc} WHERE id=${v.id}`;
+      updated++;
+    } else {
+      failed++;
+    }
+    await new Promise((r) => setTimeout(r, 300));
+  }
+  return c2.json({ ok: true, updated, failed, total: rows.length });
+});
+app.put("/api/videos/:id", async (c2) => {
+  const sql = getDb(c2.env);
+  const body = await c2.req.json();
   if (body.titleOnly) {
-    await sql`UPDATE videos SET title=${body.title || ""} WHERE id=${c.req.param("id")}`;
+    await sql`UPDATE videos SET title=${body.title || ""} WHERE id=${c2.req.param("id")}`;
   } else {
     await sql`UPDATE videos SET
       title=${body.title || ""},
       description=${body.description || ""},
       thumbnail=${body.thumbnail || ""},
       tags=${JSON.stringify(body.tags || [])}
-      WHERE id=${c.req.param("id")}`;
+      WHERE id=${c2.req.param("id")}`;
   }
-  return c.json({ ok: true });
+  return c2.json({ ok: true });
 });
-app.post("/api/videos/:id/view", async (c) => {
-  const sql = getDb();
-  await sql`UPDATE videos SET views=views+1 WHERE id=${c.req.param("id")}`;
-  return c.json({ ok: true });
+app.post("/api/videos/:id/view", async (c2) => {
+  const sql = getDb(c2.env);
+  await sql`UPDATE videos SET views=views+1 WHERE id=${c2.req.param("id")}`;
+  return c2.json({ ok: true });
 });
-app.get("/api/bookings", async (c) => {
-  const sql = getDb();
+app.get("/api/bookings", async (c2) => {
+  const sql = getDb(c2.env);
   const rows = await sql`SELECT * FROM bookings ORDER BY created_at DESC`;
-  return c.json({ bookings: rows.map(rowToBooking) });
+  return c2.json({ bookings: rows.map(rowToBooking) });
 });
-app.post("/api/bookings", async (c) => {
-  const sql = getDb();
-  const body = await c.req.json();
+app.post("/api/bookings", async (c2) => {
+  const sql = getDb(c2.env);
+  const body = await c2.req.json();
   const shopRows = await sql`SELECT name, commission FROM shops WHERE id=${body.shopId || ""}`;
   const shop = shopRows[0];
   const newId = "b" + Date.now();
@@ -2978,16 +3202,16 @@ app.post("/api/bookings", async (c) => {
     ${body.phone || ""},${body.service || ""},${body.people || "1"},${body.date || ""},${body.message || ""},
     'new',${shop?.commission || 10},${body.estimatedAmount || ""},${today}
   )`;
-  return c.json({ ok: true });
+  return c2.json({ ok: true });
 });
-app.put("/api/bookings/:id/status", async (c) => {
-  const sql = getDb();
-  const { status } = await c.req.json();
-  await sql`UPDATE bookings SET status=${status} WHERE id=${c.req.param("id")}`;
-  return c.json({ ok: true });
+app.put("/api/bookings/:id/status", async (c2) => {
+  const sql = getDb(c2.env);
+  const { status } = await c2.req.json();
+  await sql`UPDATE bookings SET status=${status} WHERE id=${c2.req.param("id")}`;
+  return c2.json({ ok: true });
 });
-app.get("/api/stats", async (c) => {
-  const sql = getDb();
+app.get("/api/stats", async (c2) => {
+  const sql = getDb(c2.env);
   const [vStats] = await sql`SELECT COALESCE(SUM(views),0) as total_views, COUNT(*) as total FROM videos`;
   const [bStats] = await sql`SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE status='new') as new_cnt, COUNT(*) FILTER (WHERE status='confirmed') as confirmed_cnt, COUNT(*) FILTER (WHERE status='contacted') as contacted_cnt FROM bookings`;
   const [sStats] = await sql`SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE active=true) as active_cnt FROM shops`;
@@ -2995,7 +3219,7 @@ app.get("/api/stats", async (c) => {
   const catRows = await sql`SELECT category, COUNT(*) as cnt FROM shops WHERE active=true GROUP BY category ORDER BY cnt DESC`;
   const shopViewRows = await sql`SELECT s.name, s.category, COALESCE(SUM(v.views),0) as total_views FROM shops s LEFT JOIN videos v ON v.shop_id=s.id GROUP BY s.id, s.name, s.category ORDER BY total_views DESC LIMIT 5`;
   const recentBookings = await sql`SELECT DATE(created_at) as day, COUNT(*) as cnt FROM bookings WHERE created_at >= NOW() - INTERVAL '7 days' GROUP BY day ORDER BY day`;
-  return c.json({
+  return c2.json({
     totalViews: Number(vStats.total_views),
     totalBookings: Number(bStats.total),
     newBookings: Number(bStats.new_cnt),
@@ -3009,12 +3233,12 @@ app.get("/api/stats", async (c) => {
     recentBookings: recentBookings.map((r) => ({ day: r.day, count: Number(r.cnt) }))
   });
 });
-app.get("/api/platform", (c) => c.json(PLATFORM));
-app.post("/api/ai-seo", async (c) => {
+app.get("/api/platform", (c2) => c2.json(PLATFORM));
+app.post("/api/ai-seo", async (c2) => {
   try {
-    const body = await c.req.json();
+    const body = await c2.req.json();
     const { name, location, category, services, priceRange, hours, placeId, rating, reviewCount } = body;
-    if (!name) return c.json({ error: "name required" }, 400);
+    if (!name) return c2.json({ error: "name required" }, 400);
     const catKeywords = {
       skincare: "Korean skincare Seoul, facial treatment Seoul, glass skin Seoul, K-beauty facial, skin clinic Seoul foreigners",
       makeup: "Korean makeup Seoul, K-beauty makeup artist, Korean beauty look, makeup studio Seoul foreigners",
@@ -3065,8 +3289,8 @@ Rules:
 
 Return ONLY valid JSON:
 {"titleSuffix":"...","metaDescription":"...","description":"...","keywords":["k1","k2","k3","k4","k5","k6","k7","k8"]}`;
-    const OPENAI_KEY = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
-    if (!OPENAI_KEY) return c.json({ error: "API key not configured" }, 500);
+    const OPENAI_KEY = c2.env?.GSK_TOKEN || c2.env?.gsk_token || c2.env?.GENSPARK_TOKEN || c2.env?.genspark_token || "";
+    if (!OPENAI_KEY) return c2.json({ error: "API key not configured" }, 500);
     const res = await fetch("https://www.genspark.ai/api/llm_proxy/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -3081,23 +3305,23 @@ Return ONLY valid JSON:
     });
     if (!res.ok) {
       const err = await res.text();
-      return c.json({ error: "AI API error", detail: err }, 500);
+      return c2.json({ error: "AI API error", detail: err }, 500);
     }
     const data = await res.json();
     const text = data.choices?.[0]?.message?.content || "";
-    if (!text) return c.json({ error: "empty response from AI" }, 500);
+    if (!text) return c2.json({ error: "empty response from AI" }, 500);
     const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
     const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return c.json({ error: "parse error", raw: text }, 500);
+    if (!jsonMatch) return c2.json({ error: "parse error", raw: text }, 500);
     const result = JSON.parse(jsonMatch[0]);
-    return c.json(result);
+    return c2.json(result);
   } catch (e) {
-    return c.json({ error: e.message }, 500);
+    return c2.json({ error: e.message }, 500);
   }
 });
-app.post("/api/places-fetch", async (c) => {
+app.post("/api/places-fetch", async (c2) => {
   try {
-    const body = await c.req.json();
+    const body = await c2.req.json();
     const { query, placeId: directPlaceId } = body;
     const isKorean = (s) => /[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]/.test(s);
     const stripKorean = (s) => s.replace(/[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]+/g, "").replace(/\s{2,}/g, " ").trim();
@@ -3155,9 +3379,9 @@ app.post("/api/places-fetch", async (c) => {
     };
     const buildEngAddress = (comps2, fallbackAddr) => {
       const get = (...types) => {
-        const c2 = comps2.find((x) => types.some((t) => x.types?.includes(t)));
-        if (!c2) return "";
-        const lt = c2.longText || "", st = c2.shortText || "";
+        const c3 = comps2.find((x) => types.some((t) => x.types?.includes(t)));
+        if (!c3) return "";
+        const lt = c3.longText || "", st = c3.shortText || "";
         return !isKorean(lt) ? lt : !isKorean(st) ? st : "";
       };
       const streetNum = get("street_number");
@@ -3198,7 +3422,7 @@ app.post("/api/places-fetch", async (c) => {
     const FIELD_MASK_SEARCH = FIELD_MASK_DETAILS.split(",").map((f) => "places." + f).join(",");
     const fetchPlaceById = async (pid) => {
       const r = await fetch(`https://places.googleapis.com/v1/places/${pid}?languageCode=en`, {
-        headers: { "X-Goog-Api-Key": GOOGLE_PLACES_KEY, "X-Goog-FieldMask": FIELD_MASK_DETAILS }
+        headers: { "X-Goog-Api-Key": c2.env.GOOGLE_PLACES_KEY, "X-Goog-FieldMask": FIELD_MASK_DETAILS }
       });
       if (!r.ok) throw new Error("Place Details error: " + r.status);
       return r.json();
@@ -3216,23 +3440,23 @@ app.post("/api/places-fetch", async (c) => {
     if (directPlaceId) {
       place = await fetchPlaceById(directPlaceId);
     } else {
-      if (!query) return c.json({ error: "query or placeId required" }, 400);
+      if (!query) return c2.json({ error: "query or placeId required" }, 400);
       const searchRes = await fetch("https://places.googleapis.com/v1/places:searchText", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Goog-Api-Key": GOOGLE_PLACES_KEY,
+          "X-Goog-Api-Key": c2.env.GOOGLE_PLACES_KEY,
           "X-Goog-FieldMask": FIELD_MASK_SEARCH
         },
         body: JSON.stringify({ textQuery: query, languageCode: "en" })
       });
       if (!searchRes.ok) {
         const err = await searchRes.text();
-        return c.json({ error: "Places API error", detail: err }, 500);
+        return c2.json({ error: "Places API error", detail: err }, 500);
       }
       const sd = await searchRes.json();
       place = sd.places?.[0];
-      if (!place) return c.json({ error: "No place found" }, 404);
+      if (!place) return c2.json({ error: "No place found" }, 404);
     }
     const rawDisplayName = place.displayName?.text || "";
     const nameParts = rawDisplayName.split(/[|｜]/).map((s) => s.trim()).filter(Boolean);
@@ -3265,7 +3489,7 @@ app.post("/api/places-fetch", async (c) => {
       const name = encodeURIComponent(p.name || "");
       return `/api/photo?name=${name}`;
     });
-    return c.json({
+    return c2.json({
       placeId: place.id || "",
       name: engName,
       address: engAddress,
@@ -3283,36 +3507,36 @@ app.post("/api/places-fetch", async (c) => {
       photos
     });
   } catch (e) {
-    return c.json({ error: e.message }, 500);
+    return c2.json({ error: e.message }, 500);
   }
 });
-app.post("/api/places-photos", async (c) => {
+app.post("/api/places-photos", async (c2) => {
   try {
-    const { placeId } = await c.req.json();
-    if (!placeId) return c.json({ error: "placeId required" }, 400);
+    const { placeId } = await c2.req.json();
+    if (!placeId) return c2.json({ error: "placeId required" }, 400);
     const res = await fetch(`https://places.googleapis.com/v1/places/${placeId}`, {
       headers: {
-        "X-Goog-Api-Key": GOOGLE_PLACES_KEY,
+        "X-Goog-Api-Key": c2.env.GOOGLE_PLACES_KEY,
         "X-Goog-FieldMask": "photos"
       }
     });
-    if (!res.ok) return c.json({ error: "Places API error" }, 500);
+    if (!res.ok) return c2.json({ error: "Places API error" }, 500);
     const data = await res.json();
     const rawPhotos = data.photos || [];
     const photos = rawPhotos.slice(0, 6).map((p) => {
       const name = encodeURIComponent(p.name || "");
       return `/api/photo?name=${name}`;
     });
-    return c.json({ photos });
+    return c2.json({ photos });
   } catch (e) {
-    return c.json({ error: e.message }, 500);
+    return c2.json({ error: e.message }, 500);
   }
 });
-app.get("/api/photo", async (c) => {
-  const name = c.req.query("name") || "";
-  if (!name) return c.text("name required", 400);
+app.get("/api/photo", async (c2) => {
+  const name = c2.req.query("name") || "";
+  if (!name) return c2.text("name required", 400);
   const cleanName = name.replace(/\/media$/, "");
-  const apiUrl = `https://places.googleapis.com/v1/${cleanName}/media?key=${GOOGLE_PLACES_KEY}&maxHeightPx=800&maxWidthPx=800&skipHttpRedirect=true`;
+  const apiUrl = `https://places.googleapis.com/v1/${cleanName}/media?key=${c2.env.GOOGLE_PLACES_KEY}&maxHeightPx=800&maxWidthPx=800&skipHttpRedirect=true`;
   try {
     const res = await fetch(apiUrl);
     const ct = res.headers.get("content-type") || "";
@@ -3326,9 +3550,9 @@ app.get("/api/photo", async (c) => {
         headers: { "Content-Type": ct || "image/jpeg", "Cache-Control": "public, max-age=86400", "Access-Control-Allow-Origin": "*" }
       });
     }
-    if (!imgUrl) return c.text("no photo uri", 502);
+    if (!imgUrl) return c2.text("no photo uri", 502);
     const imgRes = await fetch(imgUrl);
-    if (!imgRes.ok) return c.text("img fetch failed: " + imgRes.status, 502);
+    if (!imgRes.ok) return c2.text("img fetch failed: " + imgRes.status, 502);
     const buf = await imgRes.arrayBuffer();
     const imgCt = imgRes.headers.get("content-type") || "image/jpeg";
     return new Response(buf, {
@@ -3339,11 +3563,11 @@ app.get("/api/photo", async (c) => {
       }
     });
   } catch (e) {
-    return c.text("proxy error: " + e.message, 500);
+    return c2.text("proxy error: " + e.message, 500);
   }
 });
-app.post("/api/admin/fix-slugs", async (c) => {
-  const sql = getDb();
+app.post("/api/admin/fix-slugs", async (c2) => {
+  const sql = getDb(c2.env);
   const rows = await sql`SELECT id, name, location, slug FROM shops ORDER BY created_at ASC`;
   const results = [];
   for (const row of rows) {
@@ -3368,8 +3592,8 @@ app.post("/api/admin/fix-slugs", async (c) => {
     if (conflict.length > 0) {
       for (let n = 2; n <= 99; n++) {
         const s = `${base}-${n}`;
-        const c2 = await sql`SELECT slug FROM shops WHERE slug=${s} AND id!=${row.id}`;
-        if (!c2.length) {
+        const c22 = await sql`SELECT slug FROM shops WHERE slug=${s} AND id!=${row.id}`;
+        if (!c22.length) {
           newSlug = s;
           break;
         }
@@ -3380,18 +3604,18 @@ app.post("/api/admin/fix-slugs", async (c) => {
       results.push({ id: row.id, name: row.name, old: row.slug, new: newSlug });
     }
   }
-  return c.json({ ok: true, updated: results.length, results });
+  return c2.json({ ok: true, updated: results.length, results });
 });
-app.post("/api/admin/regenerate-seo-all", async (c) => {
-  const sql = getDb();
-  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
-  if (!apiKey) return c.json({ error: "API key not configured" }, 500);
-  const force = c.req.query("force") === "true";
+app.post("/api/admin/regenerate-seo-all", async (c2) => {
+  const sql = getDb(c2.env);
+  const apiKey = c2.env?.GSK_TOKEN || c2.env?.gsk_token || c2.env?.GENSPARK_TOKEN || c2.env?.genspark_token || "";
+  if (!apiKey) return c2.json({ error: "API key not configured" }, 500);
+  const force = c2.req.query("force") === "true";
   let rows = [];
   try {
     rows = force ? await sql`SELECT * FROM shops WHERE active=true ORDER BY created_at ASC` : await sql`SELECT * FROM shops WHERE active=true AND (description IS NULL OR description='' OR meta_description IS NULL OR meta_description='') ORDER BY created_at ASC`;
   } catch (e) {
-    return c.json({ error: e.message }, 500);
+    return c2.json({ error: e.message }, 500);
   }
   const results = [];
   for (const row of rows) {
@@ -3422,7 +3646,7 @@ app.post("/api/admin/regenerate-seo-all", async (c) => {
     }
     await new Promise((r) => setTimeout(r, 500));
   }
-  return c.json({ total: rows.length, results });
+  return c2.json({ total: rows.length, results });
 });
 function makeBlogSlug(title) {
   return title.toLowerCase().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").slice(0, 80).replace(/^-|-$/g, "");
@@ -3493,27 +3717,27 @@ Also provide (after the HTML content, separated by ---JSON---):
     return null;
   }
 }
-app.get("/api/blogs", async (c) => {
+app.get("/api/blogs", async (c2) => {
   await ensureDb();
-  const sql = getDb();
-  const status = c.req.query("status") || "";
+  const sql = getDb(c2.env);
+  const status = c2.req.query("status") || "";
   const rows = status ? await sql`SELECT id,slug,title,meta_description,excerpt,category,area,tags,cover_image,status,views,created_at,updated_at FROM blog_posts WHERE status=${status} ORDER BY created_at DESC` : await sql`SELECT id,slug,title,meta_description,excerpt,category,area,tags,cover_image,status,views,created_at,updated_at FROM blog_posts ORDER BY created_at DESC`;
-  return c.json(rows);
+  return c2.json(rows);
 });
-app.get("/api/blogs/:slug", async (c) => {
+app.get("/api/blogs/:slug", async (c2) => {
   await ensureDb();
-  const sql = getDb();
-  const rows = await sql`SELECT * FROM blog_posts WHERE slug=${c.req.param("slug")}`;
-  if (!rows.length) return c.json({ error: "not found" }, 404);
-  return c.json(rows[0]);
+  const sql = getDb(c2.env);
+  const rows = await sql`SELECT * FROM blog_posts WHERE slug=${c2.req.param("slug")}`;
+  if (!rows.length) return c2.json({ error: "not found" }, 404);
+  return c2.json(rows[0]);
 });
-app.post("/api/blogs", async (c) => {
+app.post("/api/blogs", async (c2) => {
   await ensureDb();
-  const sql = getDb();
-  const body = await c.req.json();
+  const sql = getDb(c2.env);
+  const body = await c2.req.json();
   const id = "b" + Date.now();
   const now = (/* @__PURE__ */ new Date()).toISOString();
-  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
+  const apiKey = c2.env?.GSK_TOKEN || c2.env?.gsk_token || c2.env?.GENSPARK_TOKEN || c2.env?.genspark_token || "";
   let title = body.title || "";
   let content = body.content || "";
   let excerpt = body.excerpt || "";
@@ -3538,14 +3762,14 @@ app.post("/api/blogs", async (c) => {
     (id,slug,title,meta_description,content,excerpt,category,area,tags,cover_image,status,views,created_at,updated_at)
     VALUES (${id},${slug},${title},${metaDescription},${content},${excerpt},${category},${area},${JSON.stringify(tags)},${coverImage},${status},0,${now},${now})
     ON CONFLICT (slug) DO NOTHING`;
-  return c.json({ ok: true, id, slug, aiGenerated: !body.content });
+  return c2.json({ ok: true, id, slug, aiGenerated: !body.content });
 });
-app.put("/api/blogs/:id", async (c) => {
+app.put("/api/blogs/:id", async (c2) => {
   await ensureDb();
-  const sql = getDb();
-  const body = await c.req.json();
+  const sql = getDb(c2.env);
+  const body = await c2.req.json();
   const now = (/* @__PURE__ */ new Date()).toISOString();
-  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
+  const apiKey = c2.env?.GSK_TOKEN || c2.env?.gsk_token || c2.env?.GENSPARK_TOKEN || c2.env?.genspark_token || "";
   let content = body.content || "";
   let excerpt = body.excerpt || "";
   let metaDescription = body.metaDescription || "";
@@ -3576,23 +3800,23 @@ app.put("/api/blogs/:id", async (c) => {
     cover_image=${body.coverImage || ""},
     status=${body.status || "published"},
     updated_at=${now}
-    WHERE id=${c.req.param("id")}`;
-  return c.json({ ok: true });
+    WHERE id=${c2.req.param("id")}`;
+  return c2.json({ ok: true });
 });
-app.delete("/api/blogs/:id", async (c) => {
+app.delete("/api/blogs/:id", async (c2) => {
   await ensureDb();
-  const sql = getDb();
-  await sql`DELETE FROM blog_posts WHERE id=${c.req.param("id")}`;
-  return c.json({ ok: true });
+  const sql = getDb(c2.env);
+  await sql`DELETE FROM blog_posts WHERE id=${c2.req.param("id")}`;
+  return c2.json({ ok: true });
 });
-app.post("/api/admin/generate-blog", async (c) => {
+app.post("/api/admin/generate-blog", async (c2) => {
   await ensureDb();
-  const sql = getDb();
-  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
-  if (!apiKey) return c.json({ error: "API key not configured" }, 500);
-  const body = await c.req.json();
+  const sql = getDb(c2.env);
+  const apiKey = c2.env?.GSK_TOKEN || c2.env?.gsk_token || c2.env?.GENSPARK_TOKEN || c2.env?.genspark_token || "";
+  if (!apiKey) return c2.json({ error: "API key not configured" }, 500);
+  const body = await c2.req.json();
   const topics = body.topics || [];
-  if (!topics.length) return c.json({ error: "topics required" }, 400);
+  if (!topics.length) return c2.json({ error: "topics required" }, 400);
   const results = [];
   for (const topic of topics) {
     try {
@@ -3614,12 +3838,12 @@ app.post("/api/admin/generate-blog", async (c) => {
     }
     await new Promise((r) => setTimeout(r, 800));
   }
-  return c.json({ total: topics.length, results });
+  return c2.json({ total: topics.length, results });
 });
-app.get("/shop/:slug", async (c) => {
-  const sql = getDb();
-  const shopRows = await sql`SELECT * FROM shops WHERE slug=${c.req.param("slug")}`;
-  if (!shopRows.length) return c.notFound();
+app.get("/shop/:slug", async (c2) => {
+  const sql = getDb(c2.env);
+  const shopRows = await sql`SELECT * FROM shops WHERE slug=${c2.req.param("slug")}`;
+  if (!shopRows.length) return c2.notFound();
   const shop = rowToShop(shopRows[0]);
   const vidRows = await sql`SELECT * FROM videos WHERE shop_id=${shop.id} ORDER BY views DESC`;
   const shopVideos = vidRows.map((r) => rowToVideo({ ...r, shop_name: shop.name }));
@@ -3645,10 +3869,18 @@ People: `);
   const ogImage = shop.thumbnail ? shop.thumbnail.startsWith("http") ? shop.thumbnail : `${base}${shop.thumbnail}` : `${base}/og-cover.jpg`;
   const catEmoji = { skincare: "\u{1F33F}", makeup: "\u{1F48B}", hair: "\u{1F487}", headspa: "\u{1F9D6}", nail: "\u{1F485}", clinic: "\u{1F3E5}" };
   const catIcon = catEmoji[shop.category] || "\u2728";
-  return c.html(`<!DOCTYPE html>
+  return c2.html(`<!DOCTYPE html>
 <html lang="en" itemscope itemtype="https://schema.org/LocalBusiness">
 <head>
 <meta charset="UTF-8">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1N9ZQRHLJ0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-1N9ZQRHLJ0');
+</script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${shop.name} | ${shop.location.split(",")[0].trim()} ${shop.category.charAt(0).toUpperCase() + shop.category.slice(1)} Seoul | Seoul Beauty Trip</title>
 <meta name="description" content="${(shop.metaDescription || shop.description || `${shop.name} is a top-rated ${shop.category} salon in ${shop.location.split(",")[0].trim()}, Seoul. English-friendly service. Book via WhatsApp.`).slice(0, 155)}">
@@ -4298,13 +4530,13 @@ var DEFAULT_FAQ = [
   { q: "What payment methods are accepted?", a: "Most salons accept credit cards and cash (Korean Won). Some also accept international cards like Visa and Mastercard." },
   { q: "Can I cancel or reschedule my booking?", a: "Yes. Contact us via WhatsApp and we will help reschedule or cancel depending on the salon's policy." }
 ];
-app.get("/best/:category/:area", async (c) => {
-  const catSlug = c.req.param("category").toLowerCase();
-  const areaSlug = c.req.param("area").toLowerCase();
+app.get("/best/:category/:area", async (c2) => {
+  const catSlug = c2.req.param("category").toLowerCase();
+  const areaSlug = c2.req.param("area").toLowerCase();
   const catLabel = CATEGORY_LABELS[catSlug];
   const areaLabel = AREA_LABELS[areaSlug];
-  if (!catLabel || !areaLabel) return c.notFound();
-  const sql = getDb();
+  if (!catLabel || !areaLabel) return c2.notFound();
+  const sql = getDb(c2.env);
   const base = "https://seoulbeautytrip.com";
   const pageUrl = `${base}/best/${catSlug}/${areaSlug}`;
   const areaForQuery = areaLabel;
@@ -4433,10 +4665,18 @@ app.get("/best/:category/:area", async (c) => {
 </details>`).join("");
   const relatedCats = Object.entries(CATEGORY_LABELS).filter(([k]) => k !== catSlug).map(([k, v]) => `<a href="/best/${k}/${areaSlug}" class="rel-link">${catEmoji[k] || "\u2728"} ${v} in ${areaLabel}</a>`).join("");
   const relatedAreas = Object.entries(AREA_LABELS).filter(([k]) => k !== areaSlug && k !== "seoul").slice(0, 6).map(([k, v]) => `<a href="/best/${catSlug}/${k}" class="rel-link">${emoji} ${catLabel} in ${v}</a>`).join("");
-  return c.html(`<!DOCTYPE html>
+  return c2.html(`<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1N9ZQRHLJ0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-1N9ZQRHLJ0');
+</script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${titleMain} | Seoul Beauty Trip</title>
 <meta name="description" content="${metaDesc}">
@@ -4567,8 +4807,8 @@ details[open] .faq-q::after{transform:rotate(180deg)}
 </body>
 </html>`);
 });
-app.get("/shops", async (c) => {
-  const sql = getDb();
+app.get("/shops", async (c2) => {
+  const sql = getDb(c2.env);
   const rows = await sql`SELECT * FROM shops WHERE active=true ORDER BY rating DESC, created_at DESC`;
   const shops2 = rows.map(rowToShop);
   const catColors = { skincare: "#f472b6", headspa: "#67e8f9", hair: "#60a5fa", nail: "#34d399", clinic: "#fb923c", makeup: "#c084fc", spa: "#a78bfa" };
@@ -4600,10 +4840,18 @@ app.get("/shops", async (c) => {
     if (cnt === 0) return "";
     return `<button class="sc-flt${cat === "all" ? " on" : ""}" data-cat="${cat}">${catLabels[cat]} <span class="sc-flt-n">${cnt}</span></button>`;
   }).join("");
-  return c.html(`<!DOCTYPE html>
+  return c2.html(`<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1N9ZQRHLJ0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-1N9ZQRHLJ0');
+</script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Seoul Beauty Catalog \u2014 All K-Beauty Shops | Seoul Beauty Trip</title>
 <meta name="description" content="Browse all Korean beauty salons in Seoul \u2014 foreigner-friendly with English support.">
@@ -4859,9 +5107,9 @@ render();
 </body>
 </html>`);
 });
-app.get("/blog", async (c) => {
+app.get("/blog", async (c2) => {
   await ensureDb();
-  const sql = getDb();
+  const sql = getDb(c2.env);
   const posts = await sql`SELECT id,slug,title,meta_description,excerpt,category,area,tags,cover_image,views,created_at FROM blog_posts WHERE status='published' ORDER BY created_at DESC`;
   const base = "https://seoulbeautytrip.com";
   const postCards = posts.map((p) => {
@@ -4894,6 +5142,14 @@ app.get("/blog", async (c) => {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1N9ZQRHLJ0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-1N9ZQRHLJ0');
+</script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Seoul Beauty Blog \u2014 K-Beauty Guides & Tips | Seoul Beauty Trip</title>
 <meta name="description" content="Expert guides on the best head spas, hair salons, skincare clinics and nail art in Seoul. K-beauty tips for foreign visitors with English booking.">
@@ -4945,14 +5201,14 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;min-height:
 <div class="blog-grid">${postCards}${emptyState}</div>
 </body>
 </html>`;
-  return c.html(html);
+  return c2.html(html);
 });
-app.get("/blog/:slug", async (c) => {
+app.get("/blog/:slug", async (c2) => {
   await ensureDb();
-  const sql = getDb();
-  const slug = c.req.param("slug");
+  const sql = getDb(c2.env);
+  const slug = c2.req.param("slug");
   const rows = await sql`SELECT * FROM blog_posts WHERE slug=${slug} AND status='published'`;
-  if (!rows.length) return c.notFound();
+  if (!rows.length) return c2.notFound();
   const post = rows[0];
   const tags = Array.isArray(post.tags) ? post.tags : typeof post.tags === "string" ? JSON.parse(post.tags || "[]") : [];
   sql`UPDATE blog_posts SET views=views+1 WHERE slug=${slug}`.catch(() => {
@@ -4979,6 +5235,14 @@ app.get("/blog/:slug", async (c) => {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1N9ZQRHLJ0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-1N9ZQRHLJ0');
+</script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${post.title} | Seoul Beauty Trip Blog</title>
 <meta name="description" content="${post.meta_description || post.excerpt || ""}">
@@ -5087,11 +5351,11 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;line-height
 </main>
 </body>
 </html>`;
-  return c.html(html);
+  return c2.html(html);
 });
-app.get("/sitemap.xml", async (c) => {
+app.get("/sitemap.xml", async (c2) => {
   await ensureDb();
-  const sql = getDb();
+  const sql = getDb(c2.env);
   let shopSlugs = [];
   let blogSlugs = [];
   try {
@@ -5113,25 +5377,10 @@ app.get("/sitemap.xml", async (c) => {
   }
   const base = "https://seoulbeautytrip.com";
   const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
-  let shopRows2 = [];
-  try {
-    shopRows2 = await sql`SELECT category, location FROM shops WHERE active=true`;
-  } catch (e) {
-  }
-  function hasShopsInArea(cat, areaSlug) {
-    const areaLabel2 = AREA_LABELS[areaSlug] || areaSlug;
-    return shopRows2.some((r) => {
-      if (r.category !== cat) return false;
-      if (areaSlug === "seoul") return true;
-      return (r.location || "").toLowerCase().includes(areaLabel2.toLowerCase());
-    });
-  }
   const bestPages = [];
   for (const cat of Object.keys(CATEGORY_LABELS)) {
     for (const area of Object.keys(AREA_LABELS)) {
-      if (hasShopsInArea(cat, area)) {
-        bestPages.push(`<url><loc>${base}/best/${cat}/${area}</loc><changefreq>weekly</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`);
-      }
+      bestPages.push(`<url><loc>${base}/best/${cat}/${area}</loc><changefreq>weekly</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`);
     }
   }
   const urls = [
@@ -5145,7 +5394,7 @@ app.get("/sitemap.xml", async (c) => {
       (slug) => `<url><loc>${base}/blog/${slug}</loc><changefreq>weekly</changefreq><priority>0.85</priority><lastmod>${today}</lastmod></url>`
     )
   ].join("\n  ");
-  return c.body(`<?xml version="1.0" encoding="UTF-8"?>
+  return c2.body(`<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
@@ -5153,15 +5402,15 @@ app.get("/sitemap.xml", async (c) => {
   ${urls}
 </urlset>`, 200, { "Content-Type": "application/xml; charset=utf-8" });
 });
-app.get("/robots.txt", (c) => c.text(
+app.get("/robots.txt", (c2) => c2.text(
   `User-agent: *
 Allow: /
 Disallow: /admin
 Sitemap: https://seoulbeautytrip.com/sitemap.xml
 `
 ));
-app.get("/", async (c) => {
-  const sql = getDb();
+app.get("/", async (c2) => {
+  const sql = getDb(c2.env);
   try {
     const vidRows = await sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.active=true ORDER BY RANDOM()`;
     const initVideos = vidRows.map((r) => ({
@@ -5179,23 +5428,50 @@ app.get("/", async (c) => {
     }));
     const initPlatform = { whatsapp: PLATFORM.whatsapp, name: PLATFORM.name, instagram: PLATFORM.instagram };
     const safeJson = (obj) => JSON.stringify(obj).replace(/<\/script>/gi, "<\\/script>").replace(/<!--/g, "<\\!--");
-    const inlineScript = `<script>window.__INIT_VIDEOS__=${safeJson(initVideos)};window.__INIT_PLATFORM__=${safeJson(initPlatform)};</script>`;
-    return c.html(MAIN_HTML.replace("__INLINE_DATA_PLACEHOLDER__", inlineScript));
+    const videoJsonLd = initVideos.slice(0, 5).map((v) => ({
+      "@context": "https://schema.org",
+      "@type": "VideoObject",
+      "name": v.title || (v.shop?.name ? `${v.shop.name} Seoul Beauty Video` : "Seoul Beauty Video"),
+      "description": v.description || `Watch ${v.shop?.name || "Seoul Beauty"} treatments and services in Seoul. Book via WhatsApp.`,
+      "thumbnailUrl": v.thumbnail || "",
+      "uploadDate": v.createdAt ? new Date(v.createdAt).toISOString() : (/* @__PURE__ */ new Date()).toISOString(),
+      "contentUrl": v.videoUrl || "",
+      "embedUrl": `https://seoulbeautytrip.com/?vid=${v.id}`,
+      "duration": "PT30S",
+      "publisher": {
+        "@type": "Organization",
+        "name": "Seoul Beauty Trip",
+        "url": "https://seoulbeautytrip.com",
+        "logo": { "@type": "ImageObject", "url": "https://seoulbeautytrip.com/og-cover.jpg" }
+      },
+      "isPartOf": { "@type": "WebPage", "url": "https://seoulbeautytrip.com/" }
+    }));
+    const videoLdScript = videoJsonLd.length ? `<script type="application/ld+json">${safeJson(videoJsonLd)}</script>` : "";
+    const inlineScript = `${videoLdScript}<script>window.__INIT_VIDEOS__=${safeJson(initVideos)};window.__INIT_PLATFORM__=${safeJson(initPlatform)};</script>`;
+    return c2.html(MAIN_HTML.replace("__INLINE_DATA_PLACEHOLDER__", inlineScript));
   } catch (e) {
     console.error("[/ route error]", e?.message || e);
-    return c.html(MAIN_HTML.replace("__INLINE_DATA_PLACEHOLDER__", ""));
+    return c2.html(MAIN_HTML.replace("__INLINE_DATA_PLACEHOLDER__", ""));
   }
 });
-app.get("/admin", (c) => {
-  const token = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
+app.get("/admin", (c2) => {
+  const token = c2.env?.GSK_TOKEN || c2.env?.gsk_token || c2.env?.GENSPARK_TOKEN || c2.env?.genspark_token || "";
   const html = ADMIN_HTML.replace("__GSK_TOKEN__", token);
-  return c.html(html);
+  return c2.html(html);
 });
 var index_default = app;
 var MAIN_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1N9ZQRHLJ0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-1N9ZQRHLJ0');
+</script>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Seoul Beauty Trip \u2014 Book Korean Beauty in Seoul | Skincare, Hair, Nail, Clinic</title>
 <meta name="description" content="Discover and book the best Korean beauty salons in Seoul. Skincare, makeup, hair, nail art and derma clinics \u2014 foreign-friendly with WhatsApp booking. K-beauty at its finest.">
@@ -6053,20 +6329,29 @@ function buildSlide(v, idx) {
   s.setAttribute('itemscope','');
   s.setAttribute('itemtype','https://schema.org/VideoObject');
   var tags = (v.tags||[]).map(function(t){return '<span class="vtag">'+esc(t)+'</span>';}).join('');
-  var uploadDate = v.createdAt || new Date().toISOString().split('T')[0];
+  // uploadDate: ISO 8601 + \uC2DC\uAC04\uB300 \uD544\uC218 (\uAD6C\uAE00 \uC694\uAD6C\uC0AC\uD56D)
+  var uploadDate = v.createdAt
+    ? (v.createdAt.includes('T') ? v.createdAt.replace('Z','+00:00') : v.createdAt + 'T00:00:00+09:00')
+    : new Date().toISOString().replace('Z','+00:00');
+  // description fallback
+  var videoDesc = v.description || (shop.name ? 'Watch ' + shop.name + ' beauty treatments in Seoul. Book via WhatsApp.' : 'Seoul beauty salon treatment video. Book via WhatsApp.');
   // \uC378\uB124\uC77C: Cloudinary \uC800\uD654\uC9C8 WebP \uC790\uB3D9 \uC0DD\uC131 (poster \uBE60\uB978 \uD45C\uC2DC\uC6A9)
   var thumb = v.thumbnail || getAutoThumb(v.videoUrl) || '';
+  // embedUrl: \uAD6C\uAE00\uC774 \uB3D9\uC601\uC0C1 \uC704\uCE58\uB97C \uD30C\uC545\uD558\uAE30 \uC704\uD55C \uD398\uC774\uC9C0 URL
+  var embedUrl = 'https://seoulbeautytrip.com/';
   // \uCCAB\uBC88\uC9F8 \uC2AC\uB77C\uC774\uB4DC\uB294 eager load, \uB098\uBA38\uC9C0\uB294 lazy
   var imgLoading = idx === 0 ? 'eager' : 'lazy';
   var imgPriority = idx === 0 ? ' fetchpriority="high"' : '';
 
   s.innerHTML =
-    '<meta itemprop="name" content="'+esc(v.title)+'">' +
-    '<meta itemprop="description" content="'+esc(v.description)+'">' +
+    '<meta itemprop="name" content="'+esc(v.title||shop.name||'Seoul Beauty Video')+'">' +
+    '<meta itemprop="description" content="'+esc(videoDesc)+'">' +
     '<meta itemprop="thumbnailUrl" content="'+esc(thumb)+'">' +
     '<meta itemprop="uploadDate" content="'+esc(uploadDate)+'">' +
+    (v.videoUrl ? '<meta itemprop="contentUrl" content="'+esc(v.videoUrl)+'">' : '') +
+    '<meta itemprop="embedUrl" content="'+esc(embedUrl)+'">' +
     (thumb ? '<img class="bg-img" src="'+esc(thumb)+'" alt="'+esc(v.title)+'" loading="'+imgLoading+'" decoding="async"'+imgPriority+' onload="imgLoaded(this)" onerror="imgLoaded(this)">' : '<div class="bg-img loaded" style="background:linear-gradient(135deg,#1a0a14 0%,#1c0e22 40%,#0f0816 100%)"></div>') +
-    '<video id="vid'+idx+'" loop muted playsinline preload="'+(idx===0?'auto':'none')+'" poster="'+esc(thumb)+'" itemprop="contentUrl"></video>' +
+    '<video id="vid'+idx+'" loop muted playsinline preload="'+(idx===0?'auto':'none')+'" poster="'+esc(thumb)+'"></video>' +
     '<div id="playic'+idx+'" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:4;width:56px;height:56px;border-radius:50%;background:rgba(0,0,0,.55);align-items:center;justify-content:center;pointer-events:none;backdrop-filter:blur(4px)"><i class="fas fa-pause" style="font-size:20px;color:#fff"></i></div>' +
     '<div id="bufic'+idx+'" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:5;pointer-events:none"><div style="width:40px;height:40px;border:3px solid rgba(255,255,255,.15);border-top-color:rgba(255,255,255,.8);border-radius:50%;animation:spin .7s linear infinite"></div></div>' +
     '<div class="ov"></div>' +
@@ -7341,6 +7626,14 @@ var ADMIN_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1N9ZQRHLJ0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-1N9ZQRHLJ0');
+</script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Seoul Beauty Trip - Admin</title>
 <script>
@@ -7648,7 +7941,28 @@ textarea{height:80px;resize:none}
     <button class="btn-pk" style="margin-top:16px;width:100%;padding:14px;font-size:15px" id="sh-submit-btn"><i class="fas fa-check"></i> \uC5C5\uCCB4 \uB4F1\uB85D \uC644\uB8CC</button>
   </div>
 
-  <!-- \u2461 \uB4F1\uB85D\uB41C \uC5C5\uCCB4 \uBAA9\uB85D (\uD074\uB9AD\uD558\uBA74 \uC601\uC0C1 \uCD94\uAC00) -->
+  <!-- \u2461 \uC601\uC0C1 AI description \uC77C\uAD04 \uC0DD\uC131 -->
+  <div class="card" style="margin-bottom:16px;border:1px solid rgba(99,102,241,.3)">
+    <div class="card-header" style="margin-bottom:10px">
+      <div class="card-title"><i class="fas fa-magic" style="color:#a5b4fc"></i> \uC601\uC0C1 SEO Description AI \uC790\uB3D9\uC0DD\uC131</div>
+    </div>
+    <div style="font-size:12px;color:rgba(255,255,255,.5);margin-bottom:12px">
+      description\uC774 \uC5C6\uB294 \uC601\uC0C1\uC5D0 AI\uAC00 SEO \uCD5C\uC801\uD654\uB41C \uC124\uBA85\uC744 \uC790\uB3D9\uC73C\uB85C \uC791\uC131\uD569\uB2C8\uB2E4. \uAD6C\uAE00 \uB3D9\uC601\uC0C1 \uAC80\uC0C9 \uB178\uCD9C\uC5D0 \uD544\uC218\uC785\uB2C8\uB2E4.
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button type="button" onclick="bulkGenVideoDesc(false)" id="bulk-desc-btn"
+        style="padding:10px 18px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:7px">
+        <i class="fas fa-magic"></i> \uBE48 description \uC77C\uAD04 \uC0DD\uC131
+      </button>
+      <button type="button" onclick="bulkGenVideoDesc(true)" id="bulk-desc-force-btn"
+        style="padding:10px 18px;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.4);border-radius:10px;color:#a5b4fc;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:7px">
+        <i class="fas fa-sync"></i> \uC804\uCCB4 \uC7AC\uC0DD\uC131
+      </button>
+    </div>
+    <div id="bulk-desc-status" style="margin-top:10px;font-size:12px;color:#a5b4fc;display:none"></div>
+  </div>
+
+  <!-- \u2462 \uB4F1\uB85D\uB41C \uC5C5\uCCB4 \uBAA9\uB85D (\uD074\uB9AD\uD558\uBA74 \uC601\uC0C1 \uCD94\uAC00) -->
   <div class="card" style="margin-bottom:16px">
     <div class="card-title" style="margin-bottom:14px"><i class="fas fa-list" style="color:#FF4D8D"></i> \uB4F1\uB85D\uB41C \uC5C5\uCCB4 <span style="font-size:12px;color:rgba(255,255,255,.4);font-weight:400">\u2014 \uC5C5\uCCB4 \uD074\uB9AD \uC2DC \uC601\uC0C1 \uCD94\uAC00</span></div>
     <div id="shopList"></div>
@@ -7756,7 +8070,16 @@ textarea{height:80px;resize:none}
     </div>
     <div class="form-grid">
       <div class="full"><label>\uC601\uC0C1 \uC81C\uBAA9 *</label><input id="ve-title" placeholder="\uC601\uC0C1 \uC81C\uBAA9\uC744 \uC785\uB825\uD558\uC138\uC694"></div>
-      <div class="full"><label>\uC601\uC0C1 \uC124\uBA85 <span style="font-size:11px;color:rgba(255,255,255,.4)">(\uC120\uD0DD)</span></label><input id="ve-desc" placeholder="\uC9E7\uC740 \uC124\uBA85..."></div>
+      <div class="full">
+        <label style="display:flex;align-items:center;justify-content:space-between">
+          <span>\uC601\uC0C1 \uC124\uBA85 <span style="font-size:11px;color:rgba(255,255,255,.4)">(\uC120\uD0DD)</span></span>
+          <button type="button" id="ve-ai-desc-btn" onclick="genVideoDescSingle()" style="padding:4px 10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;border-radius:7px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px">
+            <i class="fas fa-magic"></i> AI \uC790\uB3D9\uC0DD\uC131
+          </button>
+        </label>
+        <input id="ve-desc" placeholder="\uC9E7\uC740 \uC124\uBA85... (\uBE44\uC6CC\uB450\uBA74 \uC800\uC7A5 \uC2DC AI \uC790\uB3D9\uC0DD\uC131)">
+        <div id="ve-ai-status" style="display:none;margin-top:5px;font-size:11px;color:#a5b4fc"></div>
+      </div>
       <div class="full"><label>\uD0DC\uADF8 <span style="font-size:11px;color:rgba(255,255,255,.4)">(\uC27C\uD45C \uAD6C\uBD84)</span></label><input id="ve-tags" placeholder="#KBeauty, #\uAC15\uB0A8, #\uC2A4\uD0A8\uCF00\uC5B4"></div>
     </div>
     <div style="display:flex;gap:10px;margin-top:12px">
@@ -9297,6 +9620,67 @@ window.addShop = function addShop(){
     alert('\uB4F1\uB85D \uC911 \uC624\uB958\uAC00 \uBC1C\uC0DD\uD588\uC2B5\uB2C8\uB2E4.');
   });
 }
+
+// \u2500\u2500 \uC601\uC0C1 description AI \uC77C\uAD04 \uC0DD\uC131 \u2500\u2500
+window.bulkGenVideoDesc = function bulkGenVideoDesc(force){
+  var btn = document.getElementById(force ? 'bulk-desc-force-btn' : 'bulk-desc-btn');
+  var status = document.getElementById('bulk-desc-status');
+  if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + (force ? '\uC804\uCCB4 \uC7AC\uC0DD\uC131 \uC911...' : '\uC0DD\uC131 \uC911...'); }
+  status.style.display = 'block';
+  status.innerHTML = '<i class="fas fa-spinner fa-spin"></i> AI\uAC00 description\uC744 \uC791\uC131 \uC911\uC785\uB2C8\uB2E4. \uC7A0\uC2DC\uB9CC \uAE30\uB2E4\uB824\uC8FC\uC138\uC694...';
+
+  fetch('/api/videos/gen-description-bulk', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ force: !!force })
+  }).then(function(r){ return r.json(); }).then(function(res){
+    if(btn){ btn.disabled = false; btn.innerHTML = force ? '<i class="fas fa-sync"></i> \uC804\uCCB4 \uC7AC\uC0DD\uC131' : '<i class="fas fa-magic"></i> \uBE48 description \uC77C\uAD04 \uC0DD\uC131'; }
+    if(res.ok){
+      if(res.updated === 0){
+        status.innerHTML = '\u2705 \uBAA8\uB4E0 \uC601\uC0C1\uC5D0 \uC774\uBBF8 description\uC774 \uC788\uC2B5\uB2C8\uB2E4!';
+      } else {
+        status.innerHTML = '\u2705 ' + res.updated + '\uAC1C \uC601\uC0C1 description \uC0DD\uC131 \uC644\uB8CC!' + (res.failed ? ' (' + res.failed + '\uAC1C \uC2E4\uD328)' : '');
+        loadAll();
+      }
+    } else {
+      status.innerHTML = '\u274C \uC624\uB958: ' + (res.error || '\uC54C \uC218 \uC5C6\uB294 \uC624\uB958');
+    }
+  }).catch(function(){
+    if(btn){ btn.disabled = false; btn.innerHTML = force ? '<i class="fas fa-sync"></i> \uC804\uCCB4 \uC7AC\uC0DD\uC131' : '<i class="fas fa-magic"></i> \uBE48 description \uC77C\uAD04 \uC0DD\uC131'; }
+    status.innerHTML = '\u274C \uB124\uD2B8\uC6CC\uD06C \uC624\uB958\uAC00 \uBC1C\uC0DD\uD588\uC2B5\uB2C8\uB2E4.';
+  });
+};
+
+// \u2500\u2500 \uC601\uC0C1 \uD3B8\uC9D1 \uD328\uB110\uC5D0\uC11C \uAC1C\uBCC4 AI description \uC0DD\uC131 \u2500\u2500
+window.genVideoDescSingle = function genVideoDescSingle(){
+  if(!editingVideoId){ alert('\uC218\uC815\uD560 \uC601\uC0C1\uC744 \uBA3C\uC800 \uC120\uD0DD\uD574\uC8FC\uC138\uC694!'); return; }
+  var btn = document.getElementById('ve-ai-desc-btn');
+  var statusEl = document.getElementById('ve-ai-status');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> \uC0DD\uC131 \uC911...';
+  statusEl.style.display = 'block';
+  statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> AI\uAC00 description\uC744 \uC791\uC131 \uC911...';
+
+  fetch('/api/videos/' + editingVideoId + '/gen-description', { method: 'POST' })
+    .then(function(r){ return r.json(); })
+    .then(function(res){
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-magic"></i> AI \uC790\uB3D9\uC0DD\uC131';
+      if(res.ok && res.description){
+        document.getElementById('ve-desc').value = res.description;
+        statusEl.innerHTML = '\u2705 \uC0DD\uC131 \uC644\uB8CC! \uB0B4\uC6A9\uC744 \uD655\uC778 \uD6C4 \uC800\uC7A5\uD558\uC138\uC694.';
+        statusEl.style.color = '#4ade80';
+      } else {
+        statusEl.innerHTML = '\u274C \uC0DD\uC131 \uC2E4\uD328. \uC9C1\uC811 \uC785\uB825\uD574\uC8FC\uC138\uC694.';
+        statusEl.style.color = '#f87171';
+      }
+    }).catch(function(){
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-magic"></i> AI \uC790\uB3D9\uC0DD\uC131';
+      statusEl.innerHTML = '\u274C \uB124\uD2B8\uC6CC\uD06C \uC624\uB958.';
+      statusEl.style.color = '#f87171';
+    });
+};
 
 window.delShop = function delShop(id){
   if(!confirm('\uC5C5\uCCB4\uB97C \uC0AD\uC81C\uD558\uBA74 \uC5F0\uACB0\uB41C \uC601\uC0C1\uB3C4 \uBAA8\uB450 \uC0AC\uB77C\uC9D1\uB2C8\uB2E4. \uACC4\uC18D\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?'))return;
