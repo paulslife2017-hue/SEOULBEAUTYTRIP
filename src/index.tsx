@@ -2362,6 +2362,7 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 .sp-map-link:hover{color:#93c5fd}
 /* VIDEOS */
 .sp-vid-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;justify-items:center}
+.sp-vid-grid .sp-vid-card:nth-child(odd):last-child{grid-column:1/-1;width:180px;aspect-ratio:9/16}
 .sp-vid-grid.single-vid{display:flex;justify-content:center;align-items:flex-start}
 .sp-vid-grid.single-vid .sp-vid-card{width:180px;flex-shrink:0}
 .sp-vid-card{border-radius:14px;overflow:hidden;position:relative;cursor:pointer;aspect-ratio:9/16;background:#000}
@@ -4276,9 +4277,10 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 /* 모달 영상 그리드 — full-bleed (패딩 돌파) */
 .m-vid-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 -20px;overflow:hidden}
 .m-vid-card{border-radius:0;overflow:hidden;position:relative;cursor:pointer;aspect-ratio:9/16;background:#0a0a14}
+/* 홀수 마지막 카드 → 항상 가운데 full-width */
+.m-vid-card:nth-child(odd):last-child{grid-column:1/-1;aspect-ratio:16/9}
 @media(min-width:768px){
   .m-vid-grid{border-radius:0 0 20px 20px;overflow:hidden}
-  .m-vid-card:nth-child(odd):last-child{grid-column:1/-1;aspect-ratio:16/9}
 }
 .m-vid-card:first-child{border-radius:0}
 .m-vid-card video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .3s}
