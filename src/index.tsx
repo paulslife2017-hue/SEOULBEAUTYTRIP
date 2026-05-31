@@ -1180,27 +1180,28 @@ app.put('/api/bookings/:id/status', async (c) => {
 })
 
 app.get('/api/stats', async (c) => {
-  const sql = getDb(c.env)
-  const [vStats] = await sql`SELECT COALESCE(SUM(views),0) as total_views, COUNT(*) as total FROM videos`
-  const [bStats] = await sql`SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE status='new') as new_cnt, COUNT(*) FILTER (WHERE status='confirmed') as confirmed_cnt, COUNT(*) FILTER (WHERE status='contacted') as contacted_cnt FROM bookings`
-  const [sStats] = await sql`SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE active=true) as active_cnt FROM shops`
-  const topRows = await sql`SELECT v.*, s.name as shop_name FROM videos v LEFT JOIN shops s ON v.shop_id=s.id ORDER BY v.views DESC LIMIT 5`
-  // 카테고리별 업체 수
-  const catRows = await sql`SELECT category, COUNT(*) as cnt FROM shops WHERE active=true GROUP BY category ORDER BY cnt DESC`
-  // 업체별 총 조회수 TOP5
-  const shopViewRows = await sql`SELECT s.name, s.category, COALESCE(SUM(v.views),0) as total_views FROM shops s LEFT JOIN videos v ON v.shop_id=s.id GROUP BY s.id, s.name, s.category ORDER BY total_views DESC LIMIT 5`
-  // 최근 7일 예약 (날짜별)
-  const recentBookings = await sql`SELECT DATE(created_at) as day, COUNT(*) as cnt FROM bookings WHERE created_at >= NOW() - INTERVAL '7 days' GROUP BY day ORDER BY day`
-  return c.json({
-    totalViews: Number(vStats.total_views), totalBookings: Number(bStats.total),
-    newBookings: Number(bStats.new_cnt), confirmedBookings: Number(bStats.confirmed_cnt),
-    contactedBookings: Number(bStats.contacted_cnt),
-    totalShops: Number(sStats.total), activeShops: Number(sStats.active_cnt),
-    topVideos: topRows.map((r: any) => ({ ...rowToVideo(r), shop: { name: r.shop_name } })),
-    categoryStats: catRows.map((r: any) => ({ category: r.category, count: Number(r.cnt) })),
-    shopViewStats: shopViewRows.map((r: any) => ({ name: r.name, category: r.category, views: Number(r.total_views) })),
-    recentBookings: recentBookings.map((r: any) => ({ day: r.day, count: Number(r.cnt) }))
-  })
+  try {
+    const sql = getDb(c.env)
+    const [vStats] = await sql`SELECT COALESCE(SUM(views),0) as total_views, COUNT(*) as total FROM videos`
+    const [bStats] = await sql`SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE status='new') as new_cnt, COUNT(*) FILTER (WHERE status='confirmed') as confirmed_cnt, COUNT(*) FILTER (WHERE status='contacted') as contacted_cnt FROM bookings`
+    const [sStats] = await sql`SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE active=true) as active_cnt FROM shops`
+    const topRows = await sql`SELECT v.*, s.name as shop_name FROM videos v LEFT JOIN shops s ON v.shop_id=s.id ORDER BY v.views DESC LIMIT 5`
+    const catRows = await sql`SELECT category, COUNT(*) as cnt FROM shops WHERE active=true GROUP BY category ORDER BY cnt DESC`
+    const shopViewRows = await sql`SELECT s.name, s.category, COALESCE(SUM(v.views),0) as total_views FROM shops s LEFT JOIN videos v ON v.shop_id=s.id GROUP BY s.id, s.name, s.category ORDER BY total_views DESC LIMIT 5`
+    const recentBookings = await sql`SELECT DATE(created_at) as day, COUNT(*) as cnt FROM bookings WHERE created_at >= NOW() - INTERVAL '7 days' GROUP BY day ORDER BY day`
+    return c.json({
+      totalViews: Number(vStats.total_views), totalBookings: Number(bStats.total),
+      newBookings: Number(bStats.new_cnt), confirmedBookings: Number(bStats.confirmed_cnt),
+      contactedBookings: Number(bStats.contacted_cnt),
+      totalShops: Number(sStats.total), activeShops: Number(sStats.active_cnt),
+      topVideos: topRows.map((r: any) => ({ ...rowToVideo(r), shop: { name: r.shop_name } })),
+      categoryStats: catRows.map((r: any) => ({ category: r.category, count: Number(r.cnt) })),
+      shopViewStats: shopViewRows.map((r: any) => ({ name: r.name, category: r.category, views: Number(r.total_views) })),
+      recentBookings: recentBookings.map((r: any) => ({ day: r.day, count: Number(r.cnt) }))
+    })
+  } catch(e: any) {
+    return c.json({ error: e.message, totalViews:0, totalBookings:0, newBookings:0, confirmedBookings:0, contactedBookings:0, totalShops:0, activeShops:0, topVideos:[], categoryStats:[], shopViewStats:[], recentBookings:[] }, 200)
+  }
 })
 
 app.get('/api/platform', (c) => c.json(PLATFORM))
@@ -7453,7 +7454,7 @@ var currentShopId = null;
 
 // ── 데이터 로드 ──
 function loadAll(){
-  fetch('/api/stats').then(function(r){return r.json();}).then(function(d){
+  fetch('/api/stats').then(function(r){return r.json();}).catch(function(){ return {}; }).then(function(d){
     // ── 핵심 지표 카드 ──
     var fmtNum = function(n){ return n>=1000?(n/1000).toFixed(1)+'K':n; };
     document.getElementById('st-views').textContent = fmtNum(d.totalViews);
