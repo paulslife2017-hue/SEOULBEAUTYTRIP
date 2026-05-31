@@ -4323,7 +4323,7 @@ ${(() => {
     const svcHtml2 = shop.services && shop.services.length > 0 ? `<div class="sp-sec"><div class="sp-sec-title">Services</div><div class="sp-svc-tags">${shop.services.map((s) => `<span class="sp-svc-tag">${s}</span>`).join("")}</div></div>` : "";
     const mapsLink2 = shop.lat && shop.lng ? `https://maps.google.com/?q=${shop.lat},${shop.lng}` : shop.googleMapUrl || "";
     const embedUrl2 = shop.lat && shop.lng ? `https://maps.google.com/maps?q=${shop.lat},${shop.lng}&z=17&output=embed&hl=en` : shop.googleMapEmbed || "";
-    const mapHtml2 = embedUrl2 ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map" style="cursor:pointer" onclick="window.open('${mapsLink2}','_blank')"><iframe src="${embedUrl2}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" style="pointer-events:none"></iframe></div></div>` : shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : "";
+    const mapHtml2 = embedUrl2 ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map" style="cursor:pointer" data-map-url="${mapsLink2}" onclick="openMapUrl(this)"><iframe src="${embedUrl2}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" style="pointer-events:none"></iframe></div></div>` : shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : "";
     return addrHtml2 + infoGridHtml2 + descHtml2 + priceHtml2 + svcHtml2 + hoursHtml2;
   })()}
 
@@ -4337,7 +4337,7 @@ ${(() => {
     }).join("");
     const mapsLink3 = shop.lat && shop.lng ? `https://maps.google.com/?q=${shop.lat},${shop.lng}` : shop.googleMapUrl || "";
     const embedUrl3 = shop.lat && shop.lng ? `https://maps.google.com/maps?q=${shop.lat},${shop.lng}&z=17&output=embed&hl=en` : shop.googleMapEmbed || "";
-    const mapHtml3 = embedUrl3 ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map" style="cursor:pointer" onclick="window.open('${mapsLink3}','_blank')"><iframe src="${embedUrl3}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" style="pointer-events:none"></iframe></div></div>` : shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : "";
+    const mapHtml3 = embedUrl3 ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map" style="cursor:pointer" data-map-url="${mapsLink3}" onclick="openMapUrl(this)"><iframe src="${embedUrl3}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" style="pointer-events:none"></iframe></div></div>` : shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : "";
     const reviewsBlock = shopReviews2.length ? `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-star" style="color:var(--gold);margin-right:4px"></i>Google Reviews${shop.reviewCount ? ` <span style="font-size:10px;color:rgba(255,255,255,.35);font-weight:400">(${shop.rating}\u2605 \xB7 ${Number(shop.reviewCount).toLocaleString()} reviews)</span>` : ""}</div><div class="sp-reviews-wrap">${reviewCards2}</div></div>` : "";
     return reviewsBlock + mapHtml3;
   })()}
@@ -6484,6 +6484,7 @@ function loadVideos(cat) {
 }
 
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function openMapUrl(el){ var u=el.getAttribute('data-map-url'); if(u) window.open(u,'_blank'); }
 function areaOnly(loc) {
   if(!loc) return '';
   return String(loc).split(',')[0].trim();
@@ -6988,8 +6989,9 @@ function renderShopModal(shop) {
   /* Location: embed iframe (\uD074\uB9AD\uD558\uBA74 \uAD6C\uAE00\uB9F5 \uC571\uC73C\uB85C \uC774\uB3D9) */
   var mapHtml = '';
   if(embedSrc) {
+    var mapOpenUrl = mapsLink || embedSrc;
     mapHtml = '<div class="m-sec"><div class="m-sec-title">Location</div>'
-      +'<div class="m-map" style="cursor:pointer" onclick="window.open('' + (mapsLink||embedSrc.replace('&output=embed','')) + '','_blank')">' 
+      +'<div class="m-map" style="cursor:pointer" data-map-url="'+esc(mapOpenUrl)+'" onclick="openMapUrl(this)">'
         +'<iframe src="'+embedSrc+'" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" style="width:100%;height:100%;border:0;pointer-events:none"></iframe>'
       +'</div>'
     +'</div>';

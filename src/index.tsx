@@ -2435,7 +2435,7 @@ ${(()=>{const allP=[shop.thumbnail,...(shop.photos||[]).filter((p:string)=>p&&p!
       ? `https://maps.google.com/maps?q=${shop.lat},${shop.lng}&z=17&output=embed&hl=en`
       : (shop.googleMapEmbed || '');
     const mapHtml2 = embedUrl2
-      ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map" style="cursor:pointer" onclick="window.open('${mapsLink2}','_blank')"><iframe src="${embedUrl2}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" style="pointer-events:none"></iframe></div></div>`
+      ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map" style="cursor:pointer" data-map-url="${mapsLink2}" onclick="openMapUrl(this)"><iframe src="${embedUrl2}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" style="pointer-events:none"></iframe></div></div>`
       : (shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : '');
 
     return addrHtml2 + infoGridHtml2 + descHtml2 + priceHtml2 + svcHtml2 + hoursHtml2;
@@ -2456,7 +2456,7 @@ ${(()=>{const allP=[shop.thumbnail,...(shop.photos||[]).filter((p:string)=>p&&p!
       ? `https://maps.google.com/maps?q=${shop.lat},${shop.lng}&z=17&output=embed&hl=en`
       : (shop.googleMapEmbed || '');
     const mapHtml3 = embedUrl3
-      ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map" style="cursor:pointer" onclick="window.open('${mapsLink3}','_blank')"><iframe src="${embedUrl3}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" style="pointer-events:none"></iframe></div></div>`
+      ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map" style="cursor:pointer" data-map-url="${mapsLink3}" onclick="openMapUrl(this)"><iframe src="${embedUrl3}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" style="pointer-events:none"></iframe></div></div>`
       : (shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : '');
 
     const reviewsBlock = shopReviews2.length
@@ -4675,6 +4675,7 @@ function loadVideos(cat) {
 }
 
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function openMapUrl(el){ var u=el.getAttribute('data-map-url'); if(u) window.open(u,'_blank'); }
 function areaOnly(loc) {
   if(!loc) return '';
   return String(loc).split(',')[0].trim();
@@ -5179,8 +5180,9 @@ function renderShopModal(shop) {
   /* Location: embed iframe (클릭하면 구글맵 앱으로 이동) */
   var mapHtml = '';
   if(embedSrc) {
+    var mapOpenUrl = mapsLink || embedSrc;
     mapHtml = '<div class="m-sec"><div class="m-sec-title">Location</div>'
-      +'<div class="m-map" style="cursor:pointer" onclick="window.open(\'' + (mapsLink||embedSrc.replace('&output=embed','')) + '\',\'_blank\')">' 
+      +'<div class="m-map" style="cursor:pointer" data-map-url="'+esc(mapOpenUrl)+'" onclick="openMapUrl(this)">'
         +'<iframe src="'+embedSrc+'" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" style="width:100%;height:100%;border:0;pointer-events:none"></iframe>'
       +'</div>'
     +'</div>';
