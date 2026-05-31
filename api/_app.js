@@ -4340,6 +4340,13 @@ ${(() => {
   })()}
 
   ${(() => {
+    const wc = shop.whyChoose || [];
+    if (!wc.length) return "";
+    const items = wc.map((b) => `<div class="sp-why-item">${b}</div>`).join("");
+    return `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-check-circle" style="color:var(--pk);margin-right:4px"></i>Why Choose ${shop.name}</div><div class="sp-why-list">${items}</div></div>`;
+  })()}
+
+  ${(() => {
     if (!shopVideos.length) return "";
     const cardsHtml = shopVideos.map((v, vi) => {
       const thumb = v.thumbnail || "";
@@ -4350,13 +4357,6 @@ ${(() => {
     }).join("");
     const gridClass = shopVideos.length === 1 ? "sp-vid-grid single-vid" : "sp-vid-grid";
     return '<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-play-circle" style="color:var(--pk);margin-right:4px"></i>Videos <span style="font-size:10px;color:rgba(255,255,255,.3);font-weight:400;letter-spacing:0">(' + shopVideos.length + ')</span></div><div class="' + gridClass + '">' + cardsHtml + "</div></div>";
-  })()}
-
-  ${(() => {
-    const wc = shop.whyChoose || [];
-    if (!wc.length) return "";
-    const items = wc.map((b) => `<div class="sp-why-item">${b}</div>`).join("");
-    return `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-check-circle" style="color:var(--pk);margin-right:4px"></i>Why Choose ${shop.name}</div><div class="sp-why-list">${items}</div></div>`;
   })()}
 
   ${(() => {
