@@ -2159,7 +2159,8 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 .sp-map-link:hover{color:#93c5fd}
 /* VIDEOS */
 .sp-vid-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;justify-items:center}
-.sp-vid-grid.single-vid{grid-template-columns:minmax(0,180px);justify-content:center}
+.sp-vid-grid.single-vid{display:flex;justify-content:center;align-items:flex-start}
+.sp-vid-grid.single-vid .sp-vid-card{width:180px;flex-shrink:0}
 .sp-vid-card{border-radius:14px;overflow:hidden;position:relative;cursor:pointer;aspect-ratio:9/16;background:#000}
 .sp-vid-inner{position:absolute;inset:0;border-radius:14px;overflow:hidden}
 .sp-vid-poster{transition:opacity .35s}
