@@ -9326,14 +9326,16 @@ function loadAll(){
         '</div>';
     }).join('');
   });
-  fetch('/api/shops').then(function(r){return r.json();}).then(function(d){
-    shops = d.shops||[];
+  // shops + videos \uAC19\uC774 \uAE30\uB2E4\uB838\uB2E4\uAC00 \uB80C\uB354 (\uD0C0\uC774\uBC0D \uBB38\uC81C \uBC29\uC9C0)
+  Promise.all([
+    fetch('/api/shops').then(function(r){return r.json();}),
+    fetch('/api/videos').then(function(r){return r.json();})
+  ]).then(function(results){
+    shops  = results[0].shops  || [];
+    videos = results[1].videos || [];
     renderShops();
-    renderSeoLinks();
-  });
-  fetch('/api/videos').then(function(r){return r.json();}).then(function(d){
-    videos = d.videos||[];
     renderVideos();
+    renderSeoLinks();
   });
   fetch('/api/bookings').then(function(r){return r.json();}).then(function(d){
     bookings = d.bookings||[];

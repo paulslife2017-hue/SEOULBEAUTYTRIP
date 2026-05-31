@@ -7516,14 +7516,16 @@ function loadAll(){
         '</div>';
     }).join('');
   });
-  fetch('/api/shops').then(function(r){return r.json();}).then(function(d){
-    shops = d.shops||[];
+  // shops + videos 같이 기다렸다가 렌더 (타이밍 문제 방지)
+  Promise.all([
+    fetch('/api/shops').then(function(r){return r.json();}),
+    fetch('/api/videos').then(function(r){return r.json();})
+  ]).then(function(results){
+    shops  = results[0].shops  || [];
+    videos = results[1].videos || [];
     renderShops();
-    renderSeoLinks();
-  });
-  fetch('/api/videos').then(function(r){return r.json();}).then(function(d){
-    videos = d.videos||[];
     renderVideos();
+    renderSeoLinks();
   });
   fetch('/api/bookings').then(function(r){return r.json();}).then(function(d){
     bookings = d.bookings||[];
