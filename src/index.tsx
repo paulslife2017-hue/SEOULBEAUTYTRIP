@@ -1030,9 +1030,16 @@ app.post('/api/videos', async (c) => {
     }
   }
 
+  // thumbnail: 클라이언트가 보낸 값 우선, 없으면 Cloudinary so_0 첫프레임 자동 생성
+  const vUrl = body.videoUrl || ''
+  const autoThumb = (!body.thumbnail && vUrl && vUrl.includes('cloudinary.com'))
+    ? vUrl.replace('/video/upload/', '/video/upload/so_0,w_600,h_1066,c_fill,q_auto/').replace(/\.mp4$/, '.jpg')
+    : ''
+  const finalThumb = body.thumbnail || autoThumb
+
   await sql`INSERT INTO videos (id,shop_id,title,description,video_url,thumbnail,tags,views,likes,created_at) VALUES (
-    ${newId},${body.shopId||''},${body.title||''},${description},${body.videoUrl||''},
-    ${body.thumbnail||''},${JSON.stringify(body.tags||[])},0,0,${today}
+    ${newId},${body.shopId||''},${body.title||''},${description},${vUrl},
+    ${finalThumb},${JSON.stringify(body.tags||[])},0,0,${today}
   )`
   return c.json({ ok: true, id: newId, descriptionGenerated: !body.description && !!description })
 })
@@ -1773,6 +1780,24 @@ app.post('/api/quick-register', async (c) => {
 
 // ══════════════════════════════════════════
 // ── 일괄 SEO 재생성 API ──
+// ── POST /api/admin/fix-video-thumbnails ──
+// thumbnail이 비어있는 영상들에 Cloudinary so_0 자동 썸네일을 DB에 일괄 저장
+app.post('/api/admin/fix-video-thumbnails', async (c) => {
+  const sql = getDb(c.env)
+  const rows = await sql`SELECT id, video_url FROM videos WHERE (thumbnail IS NULL OR thumbnail='') AND video_url IS NOT NULL AND video_url != ''` as any[]
+  let fixed = 0
+  for (const r of rows) {
+    const vUrl = r.video_url || ''
+    if (!vUrl.includes('cloudinary.com')) continue
+    const thumb = vUrl
+      .replace('/video/upload/', '/video/upload/so_0,w_600,h_1066,c_fill,q_auto/')
+      .replace(/\.mp4$/, '.jpg')
+    await sql`UPDATE videos SET thumbnail=${thumb} WHERE id=${r.id}`
+    fixed++
+  }
+  return c.json({ ok: true, fixed, total: rows.length })
+})
+
 // POST /api/admin/fix-slugs
 // → 모든 업체 slug를 name+location 기반으로 재생성 (숫자 suffix → 지역명 suffix)
 // ══════════════════════════════════════════
@@ -2877,9 +2902,15 @@ app.get('/video/:id', async (c) => {
   const video = rowToVideo({ ...r, shop_name: r.shop_name })
   const base = 'https://seoulbeautytrip.com'
   const pageUrl = `${base}/video/${vid}`
-  // 썸네일: video.thumbnail → Cloudinary 자동 → shop 썸네일 → OG cover 순서
-  const thumb = video.thumbnail || r.shop_thumb || `${base}/og-cover.jpg`
-  // 썸네일을 OG용 절대 URL로
+  // 썸네일: DB thumb → Cloudinary 자동(so_0 JPG) → shop thumb(https만) → OG cover
+  const autoThumb = video.videoUrl && video.videoUrl.includes('cloudinary.com')
+    ? video.videoUrl.replace('/video/upload/', '/video/upload/so_0,w_600,h_1066,c_fill,q_auto/').replace(/\.mp4$/, '.jpg')
+    : ''
+  const shopThumbAbs = r.shop_thumb && String(r.shop_thumb).startsWith('http') ? r.shop_thumb : ''
+  const thumb = (video.thumbnail && video.thumbnail.startsWith('http') ? video.thumbnail : '')
+    || autoThumb
+    || shopThumbAbs
+    || `${base}/og-cover.jpg`
   const ogThumb = thumb.startsWith('http') ? thumb : `${base}${thumb}`
   const shopName = r.shop_name || 'Seoul Beauty'
   const title = video.title || `${shopName} Beauty Video`
@@ -3977,12 +4008,27 @@ app.get('/', async (c) => {
   const sql = getDb(c.env)
   try {
     const vidRows = await sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.active=true ORDER BY RANDOM()`
-    const initVideos = vidRows.map((r: any) => ({
-      id: r.id, shopId: r.shop_id, title: r.title, description: r.description,
-      videoUrl: r.video_url, thumbnail: r.thumbnail, tags: r.tags || [],
-      views: r.views, likes: r.likes, createdAt: r.created_at,
-      shop: { id: r.shop_id, name: r.shop_name, category: r.shop_cat, location: r.shop_location, thumbnail: r.shop_thumb }
-    }))
+    const initVideos = vidRows.map((r: any) => {
+      // thumbnail: DB 저장값 → Cloudinary 자동 생성 (so_0 첫프레임 JPG) 순서로 fallback
+      const vUrl = r.video_url || ''
+      const dbThumb = r.thumbnail || ''
+      const autoThumb = (!dbThumb && vUrl && vUrl.includes('cloudinary.com'))
+        ? vUrl.replace('/video/upload/', '/video/upload/so_0,w_600,h_1066,c_fill,q_auto/').replace(/\.mp4$/, '.jpg')
+        : ''
+      const finalThumb = dbThumb || autoThumb
+      // shop thumbnail: /api/photo 상대경로는 VideoObject JSON-LD에 사용 불가 → Cloudinary thumb fallback만 사용
+      const shopThumbRaw = r.shop_thumb || ''
+      const shopThumb = shopThumbRaw.startsWith('http') ? shopThumbRaw : ''
+      return {
+        id: r.id, shopId: r.shop_id,
+        // cleanVideoTitle: 인스타 파일명 패턴 → shop_name으로 대체
+        title: cleanVideoTitle(r.title || '', r.shop_name || ''),
+        description: r.description || '',
+        videoUrl: vUrl, thumbnail: finalThumb, tags: r.tags || [],
+        views: r.views || 0, likes: r.likes || 0, createdAt: r.created_at || '',
+        shop: { id: r.shop_id, name: r.shop_name || '', category: r.shop_cat || '', location: r.shop_location || '', thumbnail: shopThumb }
+      }
+    })
     // platform 테이블 대신 PLATFORM 상수 사용
     const initPlatform = { whatsapp: PLATFORM.whatsapp, name: PLATFORM.name, instagram: PLATFORM.instagram }
     // </script> 문자열이 JSON 안에 있으면 HTML 파서가 스크립트를 조기 종료 → 이스케이프 처리
@@ -3991,7 +4037,12 @@ app.get('/', async (c) => {
     // VideoObject JSON-LD — 구글 동영상 검색 색인용 (상위 5개만)
     // embedUrl: /video/:id 전용 보기 페이지 (Google 요구사항 — 영상이 주요 콘텐츠인 전용 URL)
     const videoJsonLd = initVideos.slice(0, 5).map((v: any) => {
-      const vThumb = v.thumbnail || (v.videoUrl ? v.videoUrl.replace('/video/upload/', '/video/upload/so_0,w_420,h_748,c_fill,q_auto:low,f_webp/').replace(/\.mp4$/, '.webp') : '') || (v.shop?.thumbnail) || 'https://seoulbeautytrip.com/og-cover.jpg'
+      // thumbnailUrl: 반드시 https:// 절대 URL이어야 함 (Google 필수)
+      // 우선순위: DB thumbnail → Cloudinary 자동(so_0 JPG) → shop thumbnail(https만) → og-cover
+      const vThumb = (v.thumbnail && v.thumbnail.startsWith('http') ? v.thumbnail : '')
+        || (v.videoUrl && v.videoUrl.includes('cloudinary.com') ? v.videoUrl.replace('/video/upload/', '/video/upload/so_0,w_600,h_1066,c_fill,q_auto/').replace(/\.mp4$/, '.jpg') : '')
+        || (v.shop?.thumbnail && v.shop.thumbnail.startsWith('http') ? v.shop.thumbnail : '')
+        || 'https://seoulbeautytrip.com/og-cover.jpg'
       const vUploadDate = v.createdAt
         ? (v.createdAt.includes('T') ? v.createdAt : v.createdAt + 'T00:00:00+09:00')
         : new Date().toISOString()
@@ -5182,7 +5233,9 @@ function preloadNext(idx){
 
 function _playVid(vid, bufIc){
   if(!vid) return;
-  vid.muted = true; // 모바일 autoplay 필수 (소리 OFF 상태로 시작)
+  // 첫 재생은 반드시 muted로 시작 (브라우저 자동재생 정책)
+  // 단, 사용자가 이미 소리를 켠 상태(isMuted===false)라면 소리 유지
+  vid.muted = isMuted;
   if(bufIc) bufIc.style.display = 'flex';
   // src 없으면 세팅
   if(!vid.src && vid.dataset.src){
@@ -5196,17 +5249,19 @@ function _playVid(vid, bufIc){
     if(!p) return;
     p.then(function(){
       if(bufIc) bufIc.style.display = 'none';
+      // 재생 성공 후 현재 isMuted 상태 다시 반영 (타이밍 보정)
+      vid.muted = isMuted;
     }).catch(function(err){
-      // NotAllowedError = 자동재생 정책 차단
-      // 모바일: muted 상태인데도 막히면 잠시 후 재시도
+      // NotAllowedError: 소리 있는 autoplay 차단 → muted로 강제 재시도
       if(!_retried){
         _retried = true;
-        vid.muted = true;
+        vid.muted = true; // 강제 음소거로 재시도
+        if(isMuted === false) isMuted = true; // 소리 켜진 상태였다면 muted로 동기화
+        _syncMuteUI(); // 버튼 UI 동기화
         setTimeout(function(){
           vid.play().then(function(){
             if(bufIc) bufIc.style.display = 'none';
           }).catch(function(){
-            // 두 번 실패 → 사용자가 탭할 때까지 대기
             if(bufIc) bufIc.style.display = 'none';
           });
         }, 500);
@@ -5224,7 +5279,7 @@ function _playVid(vid, bufIc){
       if(bufIc) bufIc.style.display = 'none';
       doPlay();
     }, {once: true});
-    doPlay(); // 먼저 시도 (이미 로딩됐을 경우 대비)
+    doPlay();
   }
 }
 
@@ -5831,9 +5886,17 @@ document.getElementById('shopModal').addEventListener('click', function(e){
   });
 })();
 
+function _syncMuteUI(){
+  var btn = document.getElementById('muteBtn');
+  if(btn){
+    btn.innerHTML = isMuted ? '<i class="fas fa-volume-mute"></i>' : '<i class="fas fa-volume-up"></i>';
+    btn.classList.toggle('on', !isMuted);
+  }
+}
 window.toggleMute=function(){
   isMuted=!isMuted;
-  document.getElementById('muteBtn').innerHTML=isMuted?'<i class="fas fa-volume-mute"></i>':'<i class="fas fa-volume-up"></i>';
+  _syncMuteUI();
+  // 현재 재생 중인 모든 video에 즉시 반영
   document.querySelectorAll('video').forEach(function(v){v.muted=isMuted;});
 };
 function showToast(msg){

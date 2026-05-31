@@ -3093,9 +3093,12 @@ app.post("/api/videos", async (c2) => {
       }
     }
   }
+  const vUrl = body.videoUrl || "";
+  const autoThumb = !body.thumbnail && vUrl && vUrl.includes("cloudinary.com") ? vUrl.replace("/video/upload/", "/video/upload/so_0,w_600,h_1066,c_fill,q_auto/").replace(/\.mp4$/, ".jpg") : "";
+  const finalThumb = body.thumbnail || autoThumb;
   await sql`INSERT INTO videos (id,shop_id,title,description,video_url,thumbnail,tags,views,likes,created_at) VALUES (
-    ${newId},${body.shopId || ""},${body.title || ""},${description},${body.videoUrl || ""},
-    ${body.thumbnail || ""},${JSON.stringify(body.tags || [])},0,0,${today}
+    ${newId},${body.shopId || ""},${body.title || ""},${description},${vUrl},
+    ${finalThumb},${JSON.stringify(body.tags || [])},0,0,${today}
   )`;
   return c2.json({ ok: true, id: newId, descriptionGenerated: !body.description && !!description });
 });
@@ -3729,6 +3732,19 @@ app.post("/api/quick-register", async (c2) => {
   } catch (e) {
     return c2.json({ error: e.message || "\uB4F1\uB85D \uC911 \uC624\uB958\uAC00 \uBC1C\uC0DD\uD588\uC2B5\uB2C8\uB2E4" }, 500);
   }
+});
+app.post("/api/admin/fix-video-thumbnails", async (c2) => {
+  const sql = getDb(c2.env);
+  const rows = await sql`SELECT id, video_url FROM videos WHERE (thumbnail IS NULL OR thumbnail='') AND video_url IS NOT NULL AND video_url != ''`;
+  let fixed = 0;
+  for (const r of rows) {
+    const vUrl = r.video_url || "";
+    if (!vUrl.includes("cloudinary.com")) continue;
+    const thumb = vUrl.replace("/video/upload/", "/video/upload/so_0,w_600,h_1066,c_fill,q_auto/").replace(/\.mp4$/, ".jpg");
+    await sql`UPDATE videos SET thumbnail=${thumb} WHERE id=${r.id}`;
+    fixed++;
+  }
+  return c2.json({ ok: true, fixed, total: rows.length });
 });
 app.post("/api/admin/fix-slugs", async (c2) => {
   const sql = getDb(c2.env);
@@ -4758,7 +4774,9 @@ app.get("/video/:id", async (c2) => {
   const video = rowToVideo({ ...r, shop_name: r.shop_name });
   const base = "https://seoulbeautytrip.com";
   const pageUrl = `${base}/video/${vid}`;
-  const thumb = video.thumbnail || r.shop_thumb || `${base}/og-cover.jpg`;
+  const autoThumb = video.videoUrl && video.videoUrl.includes("cloudinary.com") ? video.videoUrl.replace("/video/upload/", "/video/upload/so_0,w_600,h_1066,c_fill,q_auto/").replace(/\.mp4$/, ".jpg") : "";
+  const shopThumbAbs = r.shop_thumb && String(r.shop_thumb).startsWith("http") ? r.shop_thumb : "";
+  const thumb = (video.thumbnail && video.thumbnail.startsWith("http") ? video.thumbnail : "") || autoThumb || shopThumbAbs || `${base}/og-cover.jpg`;
   const ogThumb = thumb.startsWith("http") ? thumb : `${base}${thumb}`;
   const shopName = r.shop_name || "Seoul Beauty";
   const title = video.title || `${shopName} Beauty Video`;
@@ -5801,23 +5819,32 @@ app.get("/", async (c2) => {
   const sql = getDb(c2.env);
   try {
     const vidRows = await sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.active=true ORDER BY RANDOM()`;
-    const initVideos = vidRows.map((r) => ({
-      id: r.id,
-      shopId: r.shop_id,
-      title: r.title,
-      description: r.description,
-      videoUrl: r.video_url,
-      thumbnail: r.thumbnail,
-      tags: r.tags || [],
-      views: r.views,
-      likes: r.likes,
-      createdAt: r.created_at,
-      shop: { id: r.shop_id, name: r.shop_name, category: r.shop_cat, location: r.shop_location, thumbnail: r.shop_thumb }
-    }));
+    const initVideos = vidRows.map((r) => {
+      const vUrl = r.video_url || "";
+      const dbThumb = r.thumbnail || "";
+      const autoThumb = !dbThumb && vUrl && vUrl.includes("cloudinary.com") ? vUrl.replace("/video/upload/", "/video/upload/so_0,w_600,h_1066,c_fill,q_auto/").replace(/\.mp4$/, ".jpg") : "";
+      const finalThumb = dbThumb || autoThumb;
+      const shopThumbRaw = r.shop_thumb || "";
+      const shopThumb = shopThumbRaw.startsWith("http") ? shopThumbRaw : "";
+      return {
+        id: r.id,
+        shopId: r.shop_id,
+        // cleanVideoTitle: 인스타 파일명 패턴 → shop_name으로 대체
+        title: cleanVideoTitle(r.title || "", r.shop_name || ""),
+        description: r.description || "",
+        videoUrl: vUrl,
+        thumbnail: finalThumb,
+        tags: r.tags || [],
+        views: r.views || 0,
+        likes: r.likes || 0,
+        createdAt: r.created_at || "",
+        shop: { id: r.shop_id, name: r.shop_name || "", category: r.shop_cat || "", location: r.shop_location || "", thumbnail: shopThumb }
+      };
+    });
     const initPlatform = { whatsapp: PLATFORM.whatsapp, name: PLATFORM.name, instagram: PLATFORM.instagram };
     const safeJson = (obj) => JSON.stringify(obj).replace(/<\/script>/gi, "<\\/script>").replace(/<!--/g, "<\\!--");
     const videoJsonLd = initVideos.slice(0, 5).map((v) => {
-      const vThumb = v.thumbnail || (v.videoUrl ? v.videoUrl.replace("/video/upload/", "/video/upload/so_0,w_420,h_748,c_fill,q_auto:low,f_webp/").replace(/\.mp4$/, ".webp") : "") || v.shop?.thumbnail || "https://seoulbeautytrip.com/og-cover.jpg";
+      const vThumb = (v.thumbnail && v.thumbnail.startsWith("http") ? v.thumbnail : "") || (v.videoUrl && v.videoUrl.includes("cloudinary.com") ? v.videoUrl.replace("/video/upload/", "/video/upload/so_0,w_600,h_1066,c_fill,q_auto/").replace(/\.mp4$/, ".jpg") : "") || (v.shop?.thumbnail && v.shop.thumbnail.startsWith("http") ? v.shop.thumbnail : "") || "https://seoulbeautytrip.com/og-cover.jpg";
       const vUploadDate = v.createdAt ? v.createdAt.includes("T") ? v.createdAt : v.createdAt + "T00:00:00+09:00" : (/* @__PURE__ */ new Date()).toISOString();
       const vEmbedUrl = `https://seoulbeautytrip.com/video/${v.id}`;
       return {
@@ -6991,7 +7018,9 @@ function preloadNext(idx){
 
 function _playVid(vid, bufIc){
   if(!vid) return;
-  vid.muted = true; // \uBAA8\uBC14\uC77C autoplay \uD544\uC218 (\uC18C\uB9AC OFF \uC0C1\uD0DC\uB85C \uC2DC\uC791)
+  // \uCCAB \uC7AC\uC0DD\uC740 \uBC18\uB4DC\uC2DC muted\uB85C \uC2DC\uC791 (\uBE0C\uB77C\uC6B0\uC800 \uC790\uB3D9\uC7AC\uC0DD \uC815\uCC45)
+  // \uB2E8, \uC0AC\uC6A9\uC790\uAC00 \uC774\uBBF8 \uC18C\uB9AC\uB97C \uCF20 \uC0C1\uD0DC(isMuted===false)\uB77C\uBA74 \uC18C\uB9AC \uC720\uC9C0
+  vid.muted = isMuted;
   if(bufIc) bufIc.style.display = 'flex';
   // src \uC5C6\uC73C\uBA74 \uC138\uD305
   if(!vid.src && vid.dataset.src){
@@ -7005,17 +7034,19 @@ function _playVid(vid, bufIc){
     if(!p) return;
     p.then(function(){
       if(bufIc) bufIc.style.display = 'none';
+      // \uC7AC\uC0DD \uC131\uACF5 \uD6C4 \uD604\uC7AC isMuted \uC0C1\uD0DC \uB2E4\uC2DC \uBC18\uC601 (\uD0C0\uC774\uBC0D \uBCF4\uC815)
+      vid.muted = isMuted;
     }).catch(function(err){
-      // NotAllowedError = \uC790\uB3D9\uC7AC\uC0DD \uC815\uCC45 \uCC28\uB2E8
-      // \uBAA8\uBC14\uC77C: muted \uC0C1\uD0DC\uC778\uB370\uB3C4 \uB9C9\uD788\uBA74 \uC7A0\uC2DC \uD6C4 \uC7AC\uC2DC\uB3C4
+      // NotAllowedError: \uC18C\uB9AC \uC788\uB294 autoplay \uCC28\uB2E8 \u2192 muted\uB85C \uAC15\uC81C \uC7AC\uC2DC\uB3C4
       if(!_retried){
         _retried = true;
-        vid.muted = true;
+        vid.muted = true; // \uAC15\uC81C \uC74C\uC18C\uAC70\uB85C \uC7AC\uC2DC\uB3C4
+        if(isMuted === false) isMuted = true; // \uC18C\uB9AC \uCF1C\uC9C4 \uC0C1\uD0DC\uC600\uB2E4\uBA74 muted\uB85C \uB3D9\uAE30\uD654
+        _syncMuteUI(); // \uBC84\uD2BC UI \uB3D9\uAE30\uD654
         setTimeout(function(){
           vid.play().then(function(){
             if(bufIc) bufIc.style.display = 'none';
           }).catch(function(){
-            // \uB450 \uBC88 \uC2E4\uD328 \u2192 \uC0AC\uC6A9\uC790\uAC00 \uD0ED\uD560 \uB54C\uAE4C\uC9C0 \uB300\uAE30
             if(bufIc) bufIc.style.display = 'none';
           });
         }, 500);
@@ -7033,7 +7064,7 @@ function _playVid(vid, bufIc){
       if(bufIc) bufIc.style.display = 'none';
       doPlay();
     }, {once: true});
-    doPlay(); // \uBA3C\uC800 \uC2DC\uB3C4 (\uC774\uBBF8 \uB85C\uB529\uB410\uC744 \uACBD\uC6B0 \uB300\uBE44)
+    doPlay();
   }
 }
 
@@ -7640,9 +7671,17 @@ document.getElementById('shopModal').addEventListener('click', function(e){
   });
 })();
 
+function _syncMuteUI(){
+  var btn = document.getElementById('muteBtn');
+  if(btn){
+    btn.innerHTML = isMuted ? '<i class="fas fa-volume-mute"></i>' : '<i class="fas fa-volume-up"></i>';
+    btn.classList.toggle('on', !isMuted);
+  }
+}
 window.toggleMute=function(){
   isMuted=!isMuted;
-  document.getElementById('muteBtn').innerHTML=isMuted?'<i class="fas fa-volume-mute"></i>':'<i class="fas fa-volume-up"></i>';
+  _syncMuteUI();
+  // \uD604\uC7AC \uC7AC\uC0DD \uC911\uC778 \uBAA8\uB4E0 video\uC5D0 \uC989\uC2DC \uBC18\uC601
   document.querySelectorAll('video').forEach(function(v){v.muted=isMuted;});
 };
 function showToast(msg){
