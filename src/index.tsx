@@ -6318,10 +6318,30 @@ textarea{height:80px;resize:none}
       <input id="qr-gmap" placeholder="https://maps.app.goo.gl/..." style="width:100%;font-size:13px;border-color:rgba(66,133,244,.4)">
     </div>
 
-    <!-- 영상 URL -->
+    <!-- 영상 파일 업로드 -->
     <div style="margin-bottom:14px">
-      <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:5px"><i class="fas fa-video" style="color:#FF4D8D"></i> 영상 URL <span style="color:rgba(255,255,255,.3)">(Cloudinary URL · 선택)</span></label>
-      <input id="qr-video" placeholder="https://res.cloudinary.com/.../video/upload/..." style="width:100%;font-size:13px;border-color:rgba(255,77,141,.25)">
+      <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:5px"><i class="fas fa-video" style="color:#FF4D8D"></i> 영상 파일 <span style="color:rgba(255,255,255,.3)">(선택 · 업로드 후 자동 등록)</span></label>
+      <!-- 숨겨진 파일 input -->
+      <input type="file" id="qr-video-file" accept="video/*" style="display:none">
+      <!-- hidden: 업로드 완료 후 URL 저장 -->
+      <input type="hidden" id="qr-video">
+      <!-- 업로드 버튼 영역 -->
+      <div style="display:flex;align-items:center;gap:8px">
+        <button type="button" id="qr-video-btn"
+          onclick="document.getElementById('qr-video-file').click()"
+          style="flex:1;padding:10px 14px;background:rgba(255,77,141,.1);border:1.5px dashed rgba(255,77,141,.4);border-radius:10px;color:rgba(255,77,141,.8);font-size:12px;font-weight:700;cursor:pointer;text-align:center;transition:all .2s">
+          <i class="fas fa-cloud-upload-alt"></i> 영상 파일 선택
+        </button>
+        <!-- 선택된 파일명 / 완료 표시 -->
+        <span id="qr-video-name" style="font-size:11px;color:rgba(255,255,255,.4);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">파일 미선택</span>
+      </div>
+      <!-- 업로드 진행률 바 -->
+      <div id="qr-video-progress-wrap" style="display:none;margin-top:8px">
+        <div style="background:rgba(255,255,255,.1);border-radius:4px;overflow:hidden;height:5px">
+          <div id="qr-video-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#FF4D8D,#9B59B6);transition:width .3s"></div>
+        </div>
+        <div id="qr-video-progress-text" style="font-size:11px;color:#fbbf24;margin-top:4px;text-align:center"></div>
+      </div>
     </div>
 
     <!-- 등록 버튼 -->
@@ -7111,16 +7131,124 @@ window.qrSetCat = function(cat) {
   });
 };
 
+// ── 빠른 등록: 영상 파일 선택 핸들러 ──
+(function(){
+  var fileInput = document.getElementById('qr-video-file');
+  if(!fileInput) return;
+  fileInput.addEventListener('change', function(){
+    var file = this.files && this.files[0];
+    if(!file) return;
+    var nameEl    = document.getElementById('qr-video-name');
+    var btn       = document.getElementById('qr-video-btn');
+    var progWrap  = document.getElementById('qr-video-progress-wrap');
+    var progBar   = document.getElementById('qr-video-progress-bar');
+    var progText  = document.getElementById('qr-video-progress-text');
+    var hiddenUrl = document.getElementById('qr-video');
+
+    // 파일명 표시
+    nameEl.textContent = file.name;
+    nameEl.style.color = '#fbbf24';
+
+    // 진행 UI 표시
+    progWrap.style.display = 'block';
+    progBar.style.width = '0%';
+    progText.textContent = '서명 발급 중...';
+    btn.disabled = true;
+    btn.style.opacity = '0.6';
+
+    // ① 서버에서 서명 받기
+    fetch('/api/upload-sign')
+      .then(function(r){ return r.json(); })
+      .then(function(sign){
+        if(sign.error) throw new Error(sign.error);
+        var mb = (file.size/1024/1024).toFixed(1);
+        progText.textContent = '업로드 중... (' + mb + 'MB)';
+        progBar.style.width = '20%';
+
+        // ② Cloudinary에 직접 업로드 (XMLHttpRequest → 진행률)
+        return new Promise(function(resolve, reject){
+          var fd = new FormData();
+          fd.append('file', file);
+          fd.append('api_key', sign.apiKey);
+          fd.append('timestamp', sign.timestamp);
+          fd.append('signature', sign.signature);
+          fd.append('folder', sign.folder);
+
+          var xhr = new XMLHttpRequest();
+          xhr.open('POST', 'https://api.cloudinary.com/v1_1/' + sign.cloudName + '/video/upload');
+
+          xhr.upload.addEventListener('progress', function(e){
+            if(e.lengthComputable){
+              var pct = Math.round((e.loaded / e.total) * 75) + 20; // 20~95%
+              progBar.style.width = pct + '%';
+              progText.textContent = '업로드 중... ' + pct + '%';
+            }
+          });
+          xhr.addEventListener('load', function(){
+            if(xhr.status >= 200 && xhr.status < 300){
+              resolve(JSON.parse(xhr.responseText));
+            } else {
+              reject(new Error('HTTP ' + xhr.status));
+            }
+          });
+          xhr.addEventListener('error', function(){ reject(new Error('네트워크 오류')); });
+          xhr.send(fd);
+        });
+      })
+      .then(function(data){
+        if(data.secure_url){
+          hiddenUrl.value = data.secure_url;
+          progBar.style.width = '100%';
+          progText.style.color = '#4ade80';
+          progText.textContent = '✅ 업로드 완료!';
+          btn.textContent = '✓ 완료 (재선택)';
+          btn.style.background = 'rgba(16,185,129,.15)';
+          btn.style.borderColor = 'rgba(16,185,129,.5)';
+          btn.style.color = '#4ade80';
+          btn.style.opacity = '1';
+          btn.disabled = false;
+          nameEl.style.color = '#4ade80';
+        } else {
+          var errMsg = (data.error && data.error.message) ? data.error.message : JSON.stringify(data);
+          throw new Error(errMsg);
+        }
+      })
+      .catch(function(err){
+        progText.style.color = '#f87171';
+        progText.textContent = '❌ ' + (err.message || '오류');
+        btn.style.opacity = '1';
+        btn.disabled = false;
+        nameEl.style.color = '#f87171';
+        nameEl.textContent = '다시 선택해주세요';
+        hiddenUrl.value = '';
+      });
+
+    this.value = ''; // 같은 파일 재선택 허용
+  });
+})();
+
 window.quickRegister = async function quickRegister() {
-  var gmapUrl = (document.getElementById('qr-gmap').value || '').trim();
-  var videoUrl = (document.getElementById('qr-video').value || '').trim();
-  var category = document.getElementById('qr-category').value || 'headspa';
-  var btn = document.getElementById('qr-btn');
-  var status = document.getElementById('qr-status');
-  var result = document.getElementById('qr-result');
+  var gmapUrl   = (document.getElementById('qr-gmap').value || '').trim();
+  var videoUrl  = (document.getElementById('qr-video').value || '').trim(); // 업로드 완료 후 자동 세팅
+  var category  = document.getElementById('qr-category').value || 'headspa';
+  var btn       = document.getElementById('qr-btn');
+  var status    = document.getElementById('qr-status');
+  var result    = document.getElementById('qr-result');
 
   if (!gmapUrl) {
     status.innerHTML = '<span style="color:#f87171"><i class="fas fa-exclamation-circle"></i> 구글맵 URL을 입력해주세요</span>';
+    return;
+  }
+
+  // 영상 파일이 선택됐는데 아직 업로드 중인 경우 체크
+  var nameEl = document.getElementById('qr-video-name');
+  if(nameEl && nameEl.textContent !== '파일 미선택' &&
+     nameEl.style.color !== 'rgb(74, 222, 128)' && // #4ade80
+     nameEl.style.color !== '#4ade80' &&
+     document.getElementById('qr-video-file').files && document.getElementById('qr-video-file').files.length === 0 &&
+     !videoUrl){
+    // 파일 선택됐으나 업로드 미완료 → 대기 안내
+    status.innerHTML = '<span style="color:#fbbf24"><i class="fas fa-spinner fa-spin"></i> 영상 업로드 완료 후 등록 버튼을 눌러주세요</span>';
     return;
   }
 
@@ -7157,6 +7285,21 @@ window.quickRegister = async function quickRegister() {
     // 입력 초기화
     document.getElementById('qr-gmap').value = '';
     document.getElementById('qr-video').value = '';
+
+    // 영상 업로드 UI 초기화
+    var resetName = document.getElementById('qr-video-name');
+    if(resetName){ resetName.textContent = '파일 미선택'; resetName.style.color = 'rgba(255,255,255,.4)'; }
+    var resetProg = document.getElementById('qr-video-progress-wrap');
+    if(resetProg){ resetProg.style.display = 'none'; }
+    var resetBtn2 = document.getElementById('qr-video-btn');
+    if(resetBtn2){
+      resetBtn2.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> 영상 파일 선택';
+      resetBtn2.style.background = 'rgba(255,77,141,.1)';
+      resetBtn2.style.borderColor = 'rgba(255,77,141,.4)';
+      resetBtn2.style.color = 'rgba(255,77,141,.8)';
+      resetBtn2.style.opacity = '1';
+      resetBtn2.disabled = false;
+    }
 
     // 업체 목록 새로고침
     if (typeof loadShopList === 'function') loadShopList();
