@@ -1926,6 +1926,14 @@ app.get('/shop/:slug', async (c) => {
 <html lang="en" itemscope itemtype="https://schema.org/LocalBusiness">
 <head>
 <meta charset="UTF-8">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1N9ZQRHLJ0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-1N9ZQRHLJ0');
+</script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${shop.name} | ${shop.location.split(',')[0].trim()} ${shop.category.charAt(0).toUpperCase()+shop.category.slice(1)} Seoul | Seoul Beauty Trip</title>
 <meta name="description" content="${(shop.metaDescription || shop.description || `${shop.name} is a top-rated ${shop.category} salon in ${shop.location.split(',')[0].trim()}, Seoul. English-friendly service. Book via WhatsApp.`).slice(0,155)}">
@@ -2769,6 +2777,14 @@ app.get('/best/:category/:area', async (c) => {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1N9ZQRHLJ0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-1N9ZQRHLJ0');
+</script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${titleMain} | Seoul Beauty Trip</title>
 <meta name="description" content="${metaDesc}">
@@ -2940,6 +2956,14 @@ app.get('/shops', async (c) => {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1N9ZQRHLJ0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-1N9ZQRHLJ0');
+</script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Seoul Beauty Catalog \u2014 All K-Beauty Shops | Seoul Beauty Trip</title>
 <meta name="description" content="Browse all Korean beauty salons in Seoul \u2014 foreigner-friendly with English support.">
@@ -3238,6 +3262,14 @@ app.get('/blog', async (c) => {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1N9ZQRHLJ0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-1N9ZQRHLJ0');
+</script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Seoul Beauty Blog — K-Beauty Guides & Tips | Seoul Beauty Trip</title>
 <meta name="description" content="Expert guides on the best head spas, hair salons, skincare clinics and nail art in Seoul. K-beauty tips for foreign visitors with English booking.">
@@ -3330,6 +3362,14 @@ app.get('/blog/:slug', async (c) => {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1N9ZQRHLJ0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-1N9ZQRHLJ0');
+</script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${post.title} | Seoul Beauty Trip Blog</title>
 <meta name="description" content="${post.meta_description||post.excerpt||''}">
@@ -3561,6 +3601,14 @@ const MAIN_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1N9ZQRHLJ0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-1N9ZQRHLJ0');
+</script>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Seoul Beauty Trip — Book Korean Beauty in Seoul | Skincare, Hair, Nail, Clinic</title>
 <meta name="description" content="Discover and book the best Korean beauty salons in Seoul. Skincare, makeup, hair, nail art and derma clinics — foreign-friendly with WhatsApp booking. K-beauty at its finest.">
@@ -5717,6 +5765,14 @@ const ADMIN_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1N9ZQRHLJ0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-1N9ZQRHLJ0');
+</script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Seoul Beauty Trip - Admin</title>
 <script>
