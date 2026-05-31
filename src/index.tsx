@@ -7424,7 +7424,9 @@ window.delBlog = async function delBlog(id){
 
 // quick-topic 버튼 스타일
 var styleEl = document.createElement('style');
-styleEl.textContent = '.quick-topic-btn{padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:16px;color:rgba(255,255,255,.6);font-size:11px;cursor:pointer;transition:.15s}.quick-topic-btn:hover{background:rgba(255,77,141,.15);border-color:rgba(255,77,141,.3);color:#FF4D8D}';
+styleEl.textContent = '.quick-topic-btn{padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:16px;color:rgba(255,255,255,.6);font-size:11px;cursor:pointer;transition:.15s}.quick-topic-btn:hover{background:rgba(255,77,141,.15);border-color:rgba(255,77,141,.3);color:#FF4D8D}'
++'.shop-add-vid-btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:10px;padding:10px;background:rgba(255,77,141,.07);border:1.5px dashed rgba(255,77,141,.35);border-radius:10px;color:rgba(255,77,141,.85);font-size:12px;font-weight:700;cursor:pointer;transition:.15s}.shop-add-vid-btn:hover{background:rgba(255,77,141,.16);border-color:rgba(255,77,141,.6)}'
++'.shop-accordion-hd:hover{background:rgba(255,255,255,.03)}';
 document.head.appendChild(styleEl);
 
 // ── 이벤트 위임 ──
@@ -7602,11 +7604,7 @@ function renderShops(){
     }
 
     // ── 영상 추가 인라인 버튼 ──
-    var addVidBtn = '<button data-add-video="'+s.id+'"'
-      +' style="display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:8px;padding:9px;'
-      +'background:rgba(255,77,141,.07);border:1.5px dashed rgba(255,77,141,.35);border-radius:10px;'
-      +'color:rgba(255,77,141,.8);font-size:12px;font-weight:700;cursor:pointer;transition:.15s"'
-      +' onmouseover="this.style.background=\'rgba(255,77,141,.14)\'" onmouseout="this.style.background=\'rgba(255,77,141,.07)\'">'
+    var addVidBtn = '<button data-add-video="'+s.id+'" class="shop-add-vid-btn">'
       +'<i class="fas fa-plus-circle"></i> 영상 추가하기</button>';
 
     // ── 카드 전체 ──

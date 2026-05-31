@@ -9237,7 +9237,9 @@ window.delBlog = async function delBlog(id){
 
 // quick-topic \uBC84\uD2BC \uC2A4\uD0C0\uC77C
 var styleEl = document.createElement('style');
-styleEl.textContent = '.quick-topic-btn{padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:16px;color:rgba(255,255,255,.6);font-size:11px;cursor:pointer;transition:.15s}.quick-topic-btn:hover{background:rgba(255,77,141,.15);border-color:rgba(255,77,141,.3);color:#FF4D8D}';
+styleEl.textContent = '.quick-topic-btn{padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:16px;color:rgba(255,255,255,.6);font-size:11px;cursor:pointer;transition:.15s}.quick-topic-btn:hover{background:rgba(255,77,141,.15);border-color:rgba(255,77,141,.3);color:#FF4D8D}'
++'.shop-add-vid-btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:10px;padding:10px;background:rgba(255,77,141,.07);border:1.5px dashed rgba(255,77,141,.35);border-radius:10px;color:rgba(255,77,141,.85);font-size:12px;font-weight:700;cursor:pointer;transition:.15s}.shop-add-vid-btn:hover{background:rgba(255,77,141,.16);border-color:rgba(255,77,141,.6)}'
++'.shop-accordion-hd:hover{background:rgba(255,255,255,.03)}';
 document.head.appendChild(styleEl);
 
 // \u2500\u2500 \uC774\uBCA4\uD2B8 \uC704\uC784 \u2500\u2500
@@ -9415,11 +9417,7 @@ function renderShops(){
     }
 
     // \u2500\u2500 \uC601\uC0C1 \uCD94\uAC00 \uC778\uB77C\uC778 \uBC84\uD2BC \u2500\u2500
-    var addVidBtn = '<button data-add-video="'+s.id+'"'
-      +' style="display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:8px;padding:9px;'
-      +'background:rgba(255,77,141,.07);border:1.5px dashed rgba(255,77,141,.35);border-radius:10px;'
-      +'color:rgba(255,77,141,.8);font-size:12px;font-weight:700;cursor:pointer;transition:.15s"'
-      +' onmouseover="this.style.background='rgba(255,77,141,.14)'" onmouseout="this.style.background='rgba(255,77,141,.07)'">'
+    var addVidBtn = '<button data-add-video="'+s.id+'" class="shop-add-vid-btn">'
       +'<i class="fas fa-plus-circle"></i> \uC601\uC0C1 \uCD94\uAC00\uD558\uAE30</button>';
 
     // \u2500\u2500 \uCE74\uB4DC \uC804\uCCB4 \u2500\u2500
