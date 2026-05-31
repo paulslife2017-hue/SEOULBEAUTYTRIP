@@ -1687,9 +1687,10 @@ app.post('/api/quick-register', async (c) => {
       const thumb = videoUrl.includes('cloudinary.com')
         ? videoUrl.replace('/video/upload/', '/video/upload/so_0,w_600,h_1066,c_fill,q_auto/').replace(/\.mp4$/, '.jpg')
         : ''
+      const today = new Date().toISOString().slice(0, 10)
       await sql`
-        INSERT INTO videos (id, shop_id, title, video_url, thumbnail, views, created_at)
-        VALUES (${videoId}, ${shopId}, ${engName}, ${videoUrl.trim()}, ${thumb}, 0, NOW())
+        INSERT INTO videos (id, shop_id, title, description, video_url, thumbnail, tags, views, likes, created_at)
+        VALUES (${videoId}, ${shopId}, ${engName}, ${''}, ${videoUrl.trim()}, ${thumb}, ${'[]'}, 0, 0, ${today})
       `
     }
 
