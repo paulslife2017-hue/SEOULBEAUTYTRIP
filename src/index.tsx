@@ -3221,30 +3221,11 @@ app.get('/sitemap.xml', async (c) => {
   const base = 'https://seoulbeautytrip.com'
   const today = new Date().toISOString().split('T')[0]
 
-  // 카테고리×지역 조합 — 업체가 1개 이상 있는 Best 페이지만 사이트맵에 포함
-  let shopRows2: any[] = []
-  try {
-    shopRows2 = await sql`SELECT category, location FROM shops WHERE active=true`
-  } catch(e) {}
-
-  // 각 (cat, area) 쌍에 업체가 있는지 확인
-  // seoul = 해당 카테고리 업체가 1개라도 있으면 true (지역 불문)
-  // 그 외 = location 문자열에 지역명이 포함되면 true
-  function hasShopsInArea(cat: string, areaSlug: string): boolean {
-    const areaLabel2 = (AREA_LABELS as any)[areaSlug] || areaSlug
-    return shopRows2.some((r: any) => {
-      if (r.category !== cat) return false
-      if (areaSlug === 'seoul') return true  // seoul은 해당 카테고리 업체 존재하면 무조건 포함
-      return (r.location || '').toLowerCase().includes(areaLabel2.toLowerCase())
-    })
-  }
-
+  // 카테고리×지역 조합 — 모든 Best 페이지 사이트맵에 포함 (업체 없어도 FAQ 등 콘텐츠 있음)
   const bestPages: string[] = []
   for (const cat of Object.keys(CATEGORY_LABELS)) {
     for (const area of Object.keys(AREA_LABELS)) {
-      if (hasShopsInArea(cat, area)) {
-        bestPages.push(`<url><loc>${base}/best/${cat}/${area}</loc><changefreq>weekly</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`)
-      }
+      bestPages.push(`<url><loc>${base}/best/${cat}/${area}</loc><changefreq>weekly</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`)
     }
   }
 
@@ -3291,7 +3272,31 @@ app.get('/', async (c) => {
     const initPlatform = { whatsapp: PLATFORM.whatsapp, name: PLATFORM.name, instagram: PLATFORM.instagram }
     // </script> 문자열이 JSON 안에 있으면 HTML 파서가 스크립트를 조기 종료 → 이스케이프 처리
     const safeJson = (obj: any) => JSON.stringify(obj).replace(/<\/script>/gi, '<\\/script>').replace(/<!--/g, '<\\!--')
-    const inlineScript = `<script>window.__INIT_VIDEOS__=${safeJson(initVideos)};window.__INIT_PLATFORM__=${safeJson(initPlatform)};<\/script>`
+
+    // VideoObject JSON-LD — 구글 동영상 검색 색인용 (상위 5개만)
+    const videoJsonLd = initVideos.slice(0, 5).map((v: any) => ({
+      '@context': 'https://schema.org',
+      '@type': 'VideoObject',
+      'name': v.title || (v.shop?.name ? `${v.shop.name} Seoul Beauty Video` : 'Seoul Beauty Video'),
+      'description': v.description || `Watch ${v.shop?.name || 'Seoul Beauty'} treatments and services in Seoul. Book via WhatsApp.`,
+      'thumbnailUrl': v.thumbnail || '',
+      'uploadDate': v.createdAt ? new Date(v.createdAt).toISOString() : new Date().toISOString(),
+      'contentUrl': v.videoUrl || '',
+      'embedUrl': `https://seoulbeautytrip.com/?vid=${v.id}`,
+      'duration': 'PT30S',
+      'publisher': {
+        '@type': 'Organization',
+        'name': 'Seoul Beauty Trip',
+        'url': 'https://seoulbeautytrip.com',
+        'logo': { '@type': 'ImageObject', 'url': 'https://seoulbeautytrip.com/og-cover.jpg' }
+      },
+      'isPartOf': { '@type': 'WebPage', 'url': 'https://seoulbeautytrip.com/' }
+    }))
+    const videoLdScript = videoJsonLd.length
+      ? `<script type="application/ld+json">${safeJson(videoJsonLd)}<\/script>`
+      : ''
+
+    const inlineScript = `${videoLdScript}<script>window.__INIT_VIDEOS__=${safeJson(initVideos)};window.__INIT_PLATFORM__=${safeJson(initPlatform)};<\/script>`
     return c.html(MAIN_HTML.replace('__INLINE_DATA_PLACEHOLDER__', inlineScript))
   } catch(e: any) {
     console.error('[/ route error]', e?.message || e)
@@ -4167,20 +4172,29 @@ function buildSlide(v, idx) {
   s.setAttribute('itemscope','');
   s.setAttribute('itemtype','https://schema.org/VideoObject');
   var tags = (v.tags||[]).map(function(t){return '<span class="vtag">'+esc(t)+'</span>';}).join('');
-  var uploadDate = v.createdAt || new Date().toISOString().split('T')[0];
+  // uploadDate: ISO 8601 + 시간대 필수 (구글 요구사항)
+  var uploadDate = v.createdAt
+    ? (v.createdAt.includes('T') ? v.createdAt.replace('Z','+00:00') : v.createdAt + 'T00:00:00+09:00')
+    : new Date().toISOString().replace('Z','+00:00');
+  // description fallback
+  var videoDesc = v.description || (shop.name ? 'Watch ' + shop.name + ' beauty treatments in Seoul. Book via WhatsApp.' : 'Seoul beauty salon treatment video. Book via WhatsApp.');
   // 썸네일: Cloudinary 저화질 WebP 자동 생성 (poster 빠른 표시용)
   var thumb = v.thumbnail || getAutoThumb(v.videoUrl) || '';
+  // embedUrl: 구글이 동영상 위치를 파악하기 위한 페이지 URL
+  var embedUrl = 'https://seoulbeautytrip.com/';
   // 첫번째 슬라이드는 eager load, 나머지는 lazy
   var imgLoading = idx === 0 ? 'eager' : 'lazy';
   var imgPriority = idx === 0 ? ' fetchpriority="high"' : '';
 
   s.innerHTML =
-    '<meta itemprop="name" content="'+esc(v.title)+'">' +
-    '<meta itemprop="description" content="'+esc(v.description)+'">' +
+    '<meta itemprop="name" content="'+esc(v.title||shop.name||'Seoul Beauty Video')+'">' +
+    '<meta itemprop="description" content="'+esc(videoDesc)+'">' +
     '<meta itemprop="thumbnailUrl" content="'+esc(thumb)+'">' +
     '<meta itemprop="uploadDate" content="'+esc(uploadDate)+'">' +
+    (v.videoUrl ? '<meta itemprop="contentUrl" content="'+esc(v.videoUrl)+'">' : '') +
+    '<meta itemprop="embedUrl" content="'+esc(embedUrl)+'">' +
     (thumb ? '<img class="bg-img" src="'+esc(thumb)+'" alt="'+esc(v.title)+'" loading="'+imgLoading+'" decoding="async"'+imgPriority+' onload="imgLoaded(this)" onerror="imgLoaded(this)">' : '<div class="bg-img loaded" style="background:linear-gradient(135deg,#1a0a14 0%,#1c0e22 40%,#0f0816 100%)"></div>') +
-    '<video id="vid'+idx+'" loop muted playsinline preload="'+(idx===0?'auto':'none')+'" poster="'+esc(thumb)+'" itemprop="contentUrl"></video>' +
+    '<video id="vid'+idx+'" loop muted playsinline preload="'+(idx===0?'auto':'none')+'" poster="'+esc(thumb)+'"></video>' +
     '<div id="playic'+idx+'" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:4;width:56px;height:56px;border-radius:50%;background:rgba(0,0,0,.55);align-items:center;justify-content:center;pointer-events:none;backdrop-filter:blur(4px)"><i class="fas fa-pause" style="font-size:20px;color:#fff"></i></div>' +
     '<div id="bufic'+idx+'" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:5;pointer-events:none"><div style="width:40px;height:40px;border:3px solid rgba(255,255,255,.15);border-top-color:rgba(255,255,255,.8);border-radius:50%;animation:spin .7s linear infinite"></div></div>' +
     '<div class="ov"></div>' +
