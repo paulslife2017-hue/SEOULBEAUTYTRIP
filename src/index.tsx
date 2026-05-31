@@ -4740,7 +4740,34 @@ function loadVideos(cat) {
 }
 
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-function openMapUrl(el){ var u=el.getAttribute('data-map-url'); if(u) window.open(u,'_blank'); }
+function openMapUrl(el){
+  var u=el.getAttribute('data-map-url');
+  if(!u) return;
+  // 구글맵을 iframe embed URL로 변환
+  // maps.google.com/?q=lat,lng&hl=en → embed 형식
+  var embedUrl = u;
+  var qMatch = u.match(/[?&]q=([^&]+)/);
+  if(qMatch) {
+    embedUrl = 'https://www.google.com/maps?q='+qMatch[1]+'&hl=en&output=embed';
+  }
+  // 제목: 주소 뱃지 텍스트 사용
+  var badge = el.querySelector('[style*="bottom:8px"]');
+  var title = badge ? badge.textContent.trim() : 'Google Maps';
+  var ov = document.getElementById('mapOverlay');
+  var frame = document.getElementById('mapOverlayFrame');
+  var titleEl = document.getElementById('mapOverlayTitle');
+  if(!ov || !frame) return;
+  titleEl.textContent = title;
+  frame.src = embedUrl;
+  ov.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+function closeMapOverlay(){
+  var ov = document.getElementById('mapOverlay');
+  var frame = document.getElementById('mapOverlayFrame');
+  if(ov){ ov.style.display='none'; document.body.style.overflow=''; }
+  if(frame){ frame.src=''; }
+}
 function areaOnly(loc) {
   if(!loc) return '';
   return String(loc).split(',')[0].trim();
@@ -6083,6 +6110,17 @@ function renderShopPanel(cat) {
   </div>
 </section>
 
+
+<!-- ── 구글맵 오버레이 ── -->
+<div id="mapOverlay" style="display:none;position:fixed;inset:0;z-index:2000;flex-direction:column;background:#000">
+  <!-- 상단 바 -->
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#111;flex-shrink:0">
+    <span id="mapOverlayTitle" style="color:#fff;font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;margin-right:10px"></span>
+    <button onclick="closeMapOverlay()" style="flex-shrink:0;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.12);border:none;color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">&times;</button>
+  </div>
+  <!-- iframe -->
+  <iframe id="mapOverlayFrame" src="" style="flex:1;border:0;width:100%;display:block" allowfullscreen loading="lazy"></iframe>
+</div>
 
 </body>
 </html>`
