@@ -3231,7 +3231,7 @@ app.get("/api/stats", async (c2) => {
     const topRows = await sql`SELECT v.*, s.name as shop_name FROM videos v LEFT JOIN shops s ON v.shop_id=s.id ORDER BY v.views DESC LIMIT 5`;
     const catRows = await sql`SELECT category, COUNT(*) as cnt FROM shops WHERE active=true GROUP BY category ORDER BY cnt DESC`;
     const shopViewRows = await sql`SELECT s.name, s.category, COALESCE(SUM(v.views),0) as total_views FROM shops s LEFT JOIN videos v ON v.shop_id=s.id GROUP BY s.id, s.name, s.category ORDER BY total_views DESC LIMIT 5`;
-    const recentBookings = await sql`SELECT DATE(created_at) as day, COUNT(*) as cnt FROM bookings WHERE created_at >= NOW() - INTERVAL '7 days' GROUP BY day ORDER BY day`;
+    const recentBookings = await sql`SELECT DATE(CAST(created_at AS timestamptz)) as day, COUNT(*) as cnt FROM bookings WHERE CAST(created_at AS timestamptz) >= NOW() - INTERVAL '7 days' GROUP BY day ORDER BY day`;
     return c2.json({
       totalViews: Number(vStats.total_views),
       totalBookings: Number(bStats.total),
@@ -9523,8 +9523,8 @@ function closeVideoPanel(){
 }
 
 document.getElementById('vd-panel-close').addEventListener('click', closeVideoPanel);
-document.getElementById('vd-submit-btn').addEventListener('click', addVideo);
-document.getElementById('sh-submit-btn').addEventListener('click', addShop);
+document.getElementById('vd-submit-btn').addEventListener('click', function(){ window.addVideo && window.addVideo(); });
+document.getElementById('sh-submit-btn').addEventListener('click', function(){ window.addShop && window.addShop(); });
 document.getElementById('svc-add-btn').addEventListener('click', addSvcRow);
 document.getElementById('vid-add-btn').addEventListener('click', addVidRow);
 
