@@ -860,16 +860,121 @@ app.post('/api/videos', async (c) => {
   const body = await c.req.json()
   const newId = 'v' + Date.now()
   const today = new Date().toISOString().split('T')[0]
+
+  // description 없으면 AI 자동 생성
+  let description = body.description || ''
+  if (!description) {
+    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
+    if (apiKey && body.shopId) {
+      const shopRows = await sql`SELECT name, category, location, services FROM shops WHERE id=${body.shopId}` as any[]
+      if (shopRows.length) {
+        const shop = { name: shopRows[0].name, category: shopRows[0].category, location: shopRows[0].location, services: JSON.parse(shopRows[0].services||'[]') }
+        const video = { title: body.title||'', tags: body.tags||[] }
+        description = await genVideoDescription(video, shop, apiKey)
+      }
+    }
+  }
+
   await sql`INSERT INTO videos (id,shop_id,title,description,video_url,thumbnail,tags,views,likes,created_at) VALUES (
-    ${newId},${body.shopId||''},${body.title||''},${body.description||''},${body.videoUrl||''},
+    ${newId},${body.shopId||''},${body.title||''},${description},${body.videoUrl||''},
     ${body.thumbnail||''},${JSON.stringify(body.tags||[])},0,0,${today}
   )`
-  return c.json({ ok: true, id: newId })
+  return c.json({ ok: true, id: newId, descriptionGenerated: !body.description && !!description })
 })
 app.delete('/api/videos/:id', async (c) => {
   const sql = getDb()
   await sql`DELETE FROM videos WHERE id=${c.req.param('id')}`
   return c.json({ ok: true })
+})
+
+// ── AI description 생성 헬퍼 ──
+async function genVideoDescription(video: any, shop: any, apiKey: string): Promise<string> {
+  if (!apiKey) return ''
+  const shopName = shop?.name || video.title || 'Seoul Beauty'
+  const category = shop?.category || ''
+  const location = shop?.location || 'Seoul'
+  const services = Array.isArray(shop?.services) ? shop.services.slice(0,5).join(', ') : ''
+  const tags = Array.isArray(video.tags) ? video.tags.join(', ') : ''
+  const title = video.title || shopName
+
+  const prompt = `Write a compelling 1-2 sentence SEO video description for a Korean beauty salon video.
+
+Shop: ${shopName}
+Category: ${category}
+Location: ${location}${services ? '\nServices: ' + services : ''}${tags ? '\nTags: ' + tags : ''}
+Video title: ${title}
+
+Requirements:
+- 80-160 characters
+- Include shop name, location (Seoul/area), and 1-2 key services
+- End with "Book via WhatsApp." 
+- Natural English, no markdown, no quotes
+- Include 2-3 relevant hashtags at the end
+
+Return ONLY the description text, nothing else.`
+
+  try {
+    const res = await fetch('https://www.genspark.ai/api/llm_proxy/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({ model: 'claude-haiku-4-5', messages: [{ role: 'user', content: prompt }], max_tokens: 200 })
+    })
+    if (!res.ok) return ''
+    const data: any = await res.json()
+    return (data.choices?.[0]?.message?.content || '').trim()
+  } catch { return '' }
+}
+
+// POST /api/videos/:id/gen-description — 개별 영상 AI description 생성
+app.post('/api/videos/:id/gen-description', async (c) => {
+  const sql = getDb()
+  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
+  if (!apiKey) return c.json({ ok: false, error: 'No API key' }, 400)
+
+  const vid = await sql`SELECT v.*, s.name as shop_name, s.category as shop_cat, s.location as shop_loc, s.services as shop_svcs FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE v.id=${c.req.param('id')}` as any[]
+  if (!vid.length) return c.json({ ok: false, error: 'Not found' }, 404)
+
+  const v = vid[0]
+  const shop = { name: v.shop_name, category: v.shop_cat, location: v.shop_loc, services: JSON.parse(v.shop_svcs||'[]') }
+  const video = { id: v.id, title: v.title, tags: JSON.parse(v.tags||'[]') }
+
+  const desc = await genVideoDescription(video, shop, apiKey)
+  if (!desc) return c.json({ ok: false, error: 'AI generation failed' }, 500)
+
+  await sql`UPDATE videos SET description=${desc} WHERE id=${c.req.param('id')}`
+  return c.json({ ok: true, description: desc })
+})
+
+// POST /api/videos/gen-description-bulk — 빈 description 영상 일괄 AI 생성
+app.post('/api/videos/gen-description-bulk', async (c) => {
+  const sql = getDb()
+  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
+  if (!apiKey) return c.json({ ok: false, error: 'No API key' }, 400)
+
+  const body = await c.req.json().catch(() => ({})) as any
+  const forceAll = body?.force === true  // force=true면 기존 description도 재생성
+
+  const rows = forceAll
+    ? await sql`SELECT v.*, s.name as shop_name, s.category as shop_cat, s.location as shop_loc, s.services as shop_svcs FROM videos v LEFT JOIN shops s ON v.shop_id=s.id`
+    : await sql`SELECT v.*, s.name as shop_name, s.category as shop_cat, s.location as shop_loc, s.services as shop_svcs FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE v.description IS NULL OR v.description=''`
+
+  if (!(rows as any[]).length) return c.json({ ok: true, updated: 0, message: 'No videos to update' })
+
+  let updated = 0, failed = 0
+  for (const v of rows as any[]) {
+    const shop = { name: v.shop_name, category: v.shop_cat, location: v.shop_loc, services: JSON.parse(v.shop_svcs||'[]') }
+    const video = { id: v.id, title: v.title, tags: JSON.parse(v.tags||'[]') }
+    const desc = await genVideoDescription(video, shop, apiKey)
+    if (desc) {
+      await sql`UPDATE videos SET description=${desc} WHERE id=${v.id}`
+      updated++
+    } else {
+      failed++
+    }
+    // rate limit 방지
+    await new Promise(r => setTimeout(r, 300))
+  }
+  return c.json({ ok: true, updated, failed, total: (rows as any[]).length })
 })
 app.put('/api/videos/:id', async (c) => {
   const sql = getDb()
@@ -5778,7 +5883,28 @@ textarea{height:80px;resize:none}
     <button class="btn-pk" style="margin-top:16px;width:100%;padding:14px;font-size:15px" id="sh-submit-btn"><i class="fas fa-check"></i> 업체 등록 완료</button>
   </div>
 
-  <!-- ② 등록된 업체 목록 (클릭하면 영상 추가) -->
+  <!-- ② 영상 AI description 일괄 생성 -->
+  <div class="card" style="margin-bottom:16px;border:1px solid rgba(99,102,241,.3)">
+    <div class="card-header" style="margin-bottom:10px">
+      <div class="card-title"><i class="fas fa-magic" style="color:#a5b4fc"></i> 영상 SEO Description AI 자동생성</div>
+    </div>
+    <div style="font-size:12px;color:rgba(255,255,255,.5);margin-bottom:12px">
+      description이 없는 영상에 AI가 SEO 최적화된 설명을 자동으로 작성합니다. 구글 동영상 검색 노출에 필수입니다.
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button type="button" onclick="bulkGenVideoDesc(false)" id="bulk-desc-btn"
+        style="padding:10px 18px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:7px">
+        <i class="fas fa-magic"></i> 빈 description 일괄 생성
+      </button>
+      <button type="button" onclick="bulkGenVideoDesc(true)" id="bulk-desc-force-btn"
+        style="padding:10px 18px;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.4);border-radius:10px;color:#a5b4fc;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:7px">
+        <i class="fas fa-sync"></i> 전체 재생성
+      </button>
+    </div>
+    <div id="bulk-desc-status" style="margin-top:10px;font-size:12px;color:#a5b4fc;display:none"></div>
+  </div>
+
+  <!-- ③ 등록된 업체 목록 (클릭하면 영상 추가) -->
   <div class="card" style="margin-bottom:16px">
     <div class="card-title" style="margin-bottom:14px"><i class="fas fa-list" style="color:#FF4D8D"></i> 등록된 업체 <span style="font-size:12px;color:rgba(255,255,255,.4);font-weight:400">— 업체 클릭 시 영상 추가</span></div>
     <div id="shopList"></div>
@@ -5886,7 +6012,16 @@ textarea{height:80px;resize:none}
     </div>
     <div class="form-grid">
       <div class="full"><label>영상 제목 *</label><input id="ve-title" placeholder="영상 제목을 입력하세요"></div>
-      <div class="full"><label>영상 설명 <span style="font-size:11px;color:rgba(255,255,255,.4)">(선택)</span></label><input id="ve-desc" placeholder="짧은 설명..."></div>
+      <div class="full">
+        <label style="display:flex;align-items:center;justify-content:space-between">
+          <span>영상 설명 <span style="font-size:11px;color:rgba(255,255,255,.4)">(선택)</span></span>
+          <button type="button" id="ve-ai-desc-btn" onclick="genVideoDescSingle()" style="padding:4px 10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;border-radius:7px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px">
+            <i class="fas fa-magic"></i> AI 자동생성
+          </button>
+        </label>
+        <input id="ve-desc" placeholder="짧은 설명... (비워두면 저장 시 AI 자동생성)">
+        <div id="ve-ai-status" style="display:none;margin-top:5px;font-size:11px;color:#a5b4fc"></div>
+      </div>
       <div class="full"><label>태그 <span style="font-size:11px;color:rgba(255,255,255,.4)">(쉼표 구분)</span></label><input id="ve-tags" placeholder="#KBeauty, #강남, #스킨케어"></div>
     </div>
     <div style="display:flex;gap:10px;margin-top:12px">
@@ -7427,6 +7562,67 @@ window.addShop = function addShop(){
     alert('등록 중 오류가 발생했습니다.');
   });
 }
+
+// ── 영상 description AI 일괄 생성 ──
+window.bulkGenVideoDesc = function bulkGenVideoDesc(force){
+  var btn = document.getElementById(force ? 'bulk-desc-force-btn' : 'bulk-desc-btn');
+  var status = document.getElementById('bulk-desc-status');
+  if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + (force ? '전체 재생성 중...' : '생성 중...'); }
+  status.style.display = 'block';
+  status.innerHTML = '<i class="fas fa-spinner fa-spin"></i> AI가 description을 작성 중입니다. 잠시만 기다려주세요...';
+
+  fetch('/api/videos/gen-description-bulk', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ force: !!force })
+  }).then(function(r){ return r.json(); }).then(function(res){
+    if(btn){ btn.disabled = false; btn.innerHTML = force ? '<i class="fas fa-sync"></i> 전체 재생성' : '<i class="fas fa-magic"></i> 빈 description 일괄 생성'; }
+    if(res.ok){
+      if(res.updated === 0){
+        status.innerHTML = '✅ 모든 영상에 이미 description이 있습니다!';
+      } else {
+        status.innerHTML = '✅ ' + res.updated + '개 영상 description 생성 완료!' + (res.failed ? ' (' + res.failed + '개 실패)' : '');
+        loadAll();
+      }
+    } else {
+      status.innerHTML = '❌ 오류: ' + (res.error || '알 수 없는 오류');
+    }
+  }).catch(function(){
+    if(btn){ btn.disabled = false; btn.innerHTML = force ? '<i class="fas fa-sync"></i> 전체 재생성' : '<i class="fas fa-magic"></i> 빈 description 일괄 생성'; }
+    status.innerHTML = '❌ 네트워크 오류가 발생했습니다.';
+  });
+};
+
+// ── 영상 편집 패널에서 개별 AI description 생성 ──
+window.genVideoDescSingle = function genVideoDescSingle(){
+  if(!editingVideoId){ alert('수정할 영상을 먼저 선택해주세요!'); return; }
+  var btn = document.getElementById('ve-ai-desc-btn');
+  var statusEl = document.getElementById('ve-ai-status');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 생성 중...';
+  statusEl.style.display = 'block';
+  statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> AI가 description을 작성 중...';
+
+  fetch('/api/videos/' + editingVideoId + '/gen-description', { method: 'POST' })
+    .then(function(r){ return r.json(); })
+    .then(function(res){
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-magic"></i> AI 자동생성';
+      if(res.ok && res.description){
+        document.getElementById('ve-desc').value = res.description;
+        statusEl.innerHTML = '✅ 생성 완료! 내용을 확인 후 저장하세요.';
+        statusEl.style.color = '#4ade80';
+      } else {
+        statusEl.innerHTML = '❌ 생성 실패. 직접 입력해주세요.';
+        statusEl.style.color = '#f87171';
+      }
+    }).catch(function(){
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-magic"></i> AI 자동생성';
+      statusEl.innerHTML = '❌ 네트워크 오류.';
+      statusEl.style.color = '#f87171';
+    });
+};
 
 window.delShop = function delShop(id){
   if(!confirm('업체를 삭제하면 연결된 영상도 모두 사라집니다. 계속하시겠습니까?'))return;
