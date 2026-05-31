@@ -3586,18 +3586,23 @@ app.post("/api/quick-register", async (c2) => {
     let resolvedData = null;
     try {
       let fullUrl = gmapUrl;
-      if (gmapUrl.includes("maps.app.goo.gl") || gmapUrl.includes("goo.gl/maps")) {
+      if (gmapUrl.includes("goo.gl") || gmapUrl.includes("maps.app")) {
         try {
-          const r = await fetch(gmapUrl, { redirect: "follow" });
-          fullUrl = r.url;
+          let cur = gmapUrl;
+          for (let i = 0; i < 5; i++) {
+            const r = await fetch(cur, { method: "GET", redirect: "manual" });
+            const loc = r.headers.get("location");
+            if (!loc) break;
+            cur = loc.startsWith("http") ? loc : cur;
+            if (cur.includes("/maps/place/") || cur.includes("maps.google.com")) break;
+          }
+          fullUrl = cur;
         } catch {
           fullUrl = gmapUrl;
         }
       }
       const urlNoCoord = fullUrl.split("/@")[0];
       const chijMatch = urlNoCoord.match(/place\/[^/]+\/(ChIJ[^/?]+)/);
-      const cid16Match = fullUrl.match(/!16s([^?!&]+)/);
-      const cid16 = cid16Match ? decodeURIComponent(cid16Match[1]) : "";
       const coordMatch = fullUrl.match(/@([-\d.]+),([-\d.]+)/);
       const nameRaw = urlNoCoord.match(/place\/([^/]+)/);
       let placeData = null;
@@ -3691,8 +3696,9 @@ app.post("/api/quick-register", async (c2) => {
         };
       }
     } catch (e) {
+      console.error("[quick-register] places error:", e?.message);
     }
-    if (!resolvedData) return c2.json({ error: "\uAD6C\uAE00\uB9F5\uC5D0\uC11C \uC5C5\uCCB4 \uC815\uBCF4\uB97C \uAC00\uC838\uC624\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. URL\uC744 \uD655\uC778\uD574\uC8FC\uC138\uC694." }, 400);
+    if (!resolvedData) return c2.json({ error: "\uAD6C\uAE00\uB9F5\uC5D0\uC11C \uC5C5\uCCB4 \uC815\uBCF4\uB97C \uAC00\uC838\uC624\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. (URL \uD655\uC778 \uB610\uB294 \uC7A0\uC2DC \uD6C4 \uC7AC\uC2DC\uB3C4)" }, 400);
     const makeSlug = (name, loc) => {
       const clean = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
       const area = (loc.split(",")[0] || "").trim();

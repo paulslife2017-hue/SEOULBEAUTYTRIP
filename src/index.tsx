@@ -1594,12 +1594,20 @@ app.post('/api/quick-register', async (c) => {
     // resolve-gmap 로직 재사용: URL 언팩 → Places API 조회
     let resolvedData: any = null
     try {
-      // 단축 URL 풀기
+      // ── 단축 URL 언팩 (redirect:manual → Location 헤더 직접 읽기) ──
       let fullUrl = gmapUrl
-      if (gmapUrl.includes('maps.app.goo.gl') || gmapUrl.includes('goo.gl/maps')) {
+      if (gmapUrl.includes('goo.gl') || gmapUrl.includes('maps.app')) {
         try {
-          const r = await fetch(gmapUrl, { redirect: 'follow' })
-          fullUrl = r.url
+          // 최대 5번 리다이렉트 따라가기
+          let cur = gmapUrl
+          for (let i = 0; i < 5; i++) {
+            const r = await fetch(cur, { method: 'GET', redirect: 'manual' })
+            const loc = r.headers.get('location')
+            if (!loc) break
+            cur = loc.startsWith('http') ? loc : cur
+            if (cur.includes('/maps/place/') || cur.includes('maps.google.com')) break
+          }
+          fullUrl = cur
         } catch { fullUrl = gmapUrl }
       }
 
@@ -1609,11 +1617,7 @@ app.post('/api/quick-register', async (c) => {
       const urlNoCoord = fullUrl.split('/@')[0]
       const chijMatch = urlNoCoord.match(/place\/[^/]+\/(ChIJ[^/?]+)/)
 
-      // 2) !16s%2Fg%2F... → /g/xxxxx 형식 CID (decode 후 사용)
-      const cid16Match = fullUrl.match(/!16s([^?!&]+)/)
-      const cid16 = cid16Match ? decodeURIComponent(cid16Match[1]) : '' // e.g. /g/11tfwl3ppd
-
-      // 3) 좌표 + 업체명 (fallback)
+      // 2) 좌표 + 업체명 (fallback)
       const coordMatch = fullUrl.match(/@([-\d.]+),([-\d.]+)/)
       const nameRaw = urlNoCoord.match(/place\/([^/]+)/)
 
@@ -1693,9 +1697,9 @@ app.post('/api/quick-register', async (c) => {
           lng: String(placeData.location?.longitude || ''),
         }
       }
-    } catch(e) { /* 구글 API 실패해도 계속 진행 */ }
+    } catch(e: any) { /* 구글 API 실패해도 계속 진행 */ console.error('[quick-register] places error:', e?.message) }
 
-    if (!resolvedData) return c.json({ error: '구글맵에서 업체 정보를 가져오지 못했습니다. URL을 확인해주세요.' }, 400)
+    if (!resolvedData) return c.json({ error: '구글맵에서 업체 정보를 가져오지 못했습니다. (URL 확인 또는 잠시 후 재시도)' }, 400)
 
     // ── STEP 2: slug 생성 ──
     const makeSlug = (name: string, loc: string) => {
