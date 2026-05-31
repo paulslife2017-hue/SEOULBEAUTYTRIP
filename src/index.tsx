@@ -2430,10 +2430,12 @@ ${(()=>{const allP=[shop.thumbnail,...(shop.photos||[]).filter((p:string)=>p&&p!
       : '';
 
     /* ── Map ── */
-    const embedUrl2 = shop.googleMapEmbed
-      || (shop.lat && shop.lng ? `https://maps.google.com/maps?ll=${shop.lat},${shop.lng}&q=+&z=17&output=embed&hl=en` : '');
+    const mapsLink2 = (shop.lat && shop.lng) ? `https://maps.google.com/?q=${shop.lat},${shop.lng}` : (shop.googleMapUrl || '');
+    const embedUrl2 = (shop.lat && shop.lng)
+      ? `https://maps.google.com/maps?q=${shop.lat},${shop.lng}&z=17&output=embed&hl=en`
+      : (shop.googleMapEmbed || '');
     const mapHtml2 = embedUrl2
-      ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map"><iframe src="${embedUrl2}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div></div>`
+      ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map" style="cursor:pointer" onclick="window.open('${mapsLink2}','_blank')"><iframe src="${embedUrl2}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" style="pointer-events:none"></iframe></div></div>`
       : (shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : '');
 
     return addrHtml2 + infoGridHtml2 + descHtml2 + priceHtml2 + svcHtml2 + hoursHtml2;
@@ -2449,10 +2451,12 @@ ${(()=>{const allP=[shop.thumbnail,...(shop.photos||[]).filter((p:string)=>p&&p!
       return `<div class="sp-review-card"><div class="sp-review-top"><span class="sp-review-author">${rv.author||'Guest'}</span><span class="sp-review-stars">${rvStars}</span></div><div class="sp-review-text">${rv.text||''}</div>${rv.time?`<div class="sp-review-time">${rv.time}</div>`:''}</div>`;
     }).join('');
     /* ── Map (리뷰 바로 뒤) ── */
-    const embedUrl3 = shop.googleMapEmbed
-      || (shop.lat && shop.lng ? `https://maps.google.com/maps?ll=${shop.lat},${shop.lng}&q=+&z=17&output=embed&hl=en` : '');
+    const mapsLink3 = (shop.lat && shop.lng) ? `https://maps.google.com/?q=${shop.lat},${shop.lng}` : (shop.googleMapUrl || '');
+    const embedUrl3 = (shop.lat && shop.lng)
+      ? `https://maps.google.com/maps?q=${shop.lat},${shop.lng}&z=17&output=embed&hl=en`
+      : (shop.googleMapEmbed || '');
     const mapHtml3 = embedUrl3
-      ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map"><iframe src="${embedUrl3}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div></div>`
+      ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map" style="cursor:pointer" onclick="window.open('${mapsLink3}','_blank')"><iframe src="${embedUrl3}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" style="pointer-events:none"></iframe></div></div>`
       : (shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : '');
 
     const reviewsBlock = shopReviews2.length
@@ -5149,33 +5153,35 @@ function renderShopModal(shop) {
     svcHtml = '<div class="m-sec"><div class="m-sec-title">Services</div><div class="m-svc-tags">'+svcs+'</div></div>';
   }
 
-  /* ── 구글맵 embed: lat/lng+place_id > embed > address 순으로 시도 ── */
-  var embedSrc = shop.googleMapEmbed || '';
-  // 1순위: ll 파라미터로 순수 좌표 표시 (업체 Place 매칭 없이 좌표 핀만)
-  if(!embedSrc && shop.lat && shop.lng) {
+  /* ── 구글맵 embed: lat/lng > googleMapEmbed > address 순으로 시도 ── */
+  var embedSrc = '';
+  var mapsLink = ''; // 클릭 시 구글맵 앱/웹으로 열기
+  if(shop.lat && shop.lng) {
     var mlat = parseFloat(shop.lat), mlng = parseFloat(shop.lng);
-    embedSrc = 'https://maps.google.com/maps?ll='+mlat+','+mlng+'&q=+&z=17&output=embed&hl=en';
-  }
-  // 2순위: URL에서 파싱
-  if(!embedSrc && shop.googleMapUrl) {
-    var q = '';
+    // q=lat,lng 형식: 업체 매칭 없이 정확한 좌표 핀 표시 (37°31'N 127°01'E)
+    embedSrc = 'https://maps.google.com/maps?q='+mlat+','+mlng+'&z=17&output=embed&hl=en';
+    mapsLink = 'https://maps.google.com/?q='+mlat+','+mlng;
+  } else if(shop.googleMapEmbed) {
+    embedSrc = shop.googleMapEmbed;
+    mapsLink = shop.googleMapUrl || '';
+  } else if(shop.googleMapUrl) {
+    var q2 = '';
     var qm = shop.googleMapUrl.match(/[?&]q=([^&]+)/);
-    if(qm) { try { q = decodeURIComponent(qm[1]); } catch(e3){ q = qm[1]; } }
+    if(qm) { try { q2 = decodeURIComponent(qm[1]); } catch(e3){ q2 = qm[1]; } }
     else {
       var latm = shop.googleMapUrl.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
-      if(latm) q = latm[1]+','+latm[2];
+      if(latm) q2 = latm[1]+','+latm[2];
     }
-    if(!q && shop.address) q = shop.address;
-    if(!q && shop.name)    q = shop.name + ' Seoul';
-    if(q) embedSrc = 'https://www.google.com/maps?q='+encodeURIComponent(q)+'&output=embed&hl=en';
+    if(!q2 && shop.address) q2 = shop.address;
+    if(!q2 && shop.name)    q2 = shop.name + ' Seoul';
+    if(q2) { embedSrc = 'https://www.google.com/maps?q='+encodeURIComponent(q2)+'&output=embed&hl=en'; mapsLink = shop.googleMapUrl; }
   }
-  /* Location: embed URL 직접 표시 또는 주소 텍스트 */
+  /* Location: embed iframe (클릭하면 구글맵 앱으로 이동) */
   var mapHtml = '';
   if(embedSrc) {
     mapHtml = '<div class="m-sec"><div class="m-sec-title">Location</div>'
-      +'<div class="m-map">'
-        +'<iframe src="'+embedSrc+'" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" style="width:100%;height:100%;border:0"></iframe>'
-        +'<div class="m-map-cover"><i class="fas fa-map-marker-alt m-map-cover-icon"></i><span class="m-map-cover-txt">SeoulBeautyTrip</span></div>'
+      +'<div class="m-map" style="cursor:pointer" onclick="window.open(\'' + (mapsLink||embedSrc.replace('&output=embed','')) + '\',\'_blank\')">' 
+        +'<iframe src="'+embedSrc+'" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" style="width:100%;height:100%;border:0;pointer-events:none"></iframe>'
       +'</div>'
     +'</div>';
   } else if(shop.address || shop.location) {

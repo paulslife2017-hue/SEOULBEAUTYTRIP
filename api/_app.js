@@ -4321,8 +4321,9 @@ ${(() => {
       priceHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-won-sign" style="color:var(--gold);margin-right:4px"></i>Pricing</div><div class="sp-sec-body">Prices vary by treatment &amp; consultation. <span style="color:rgba(255,255,255,.35)">Contact us via WhatsApp below for a free quote.</span></div></div>`;
     }
     const svcHtml2 = shop.services && shop.services.length > 0 ? `<div class="sp-sec"><div class="sp-sec-title">Services</div><div class="sp-svc-tags">${shop.services.map((s) => `<span class="sp-svc-tag">${s}</span>`).join("")}</div></div>` : "";
-    const embedUrl2 = shop.googleMapEmbed || (shop.lat && shop.lng ? `https://maps.google.com/maps?ll=${shop.lat},${shop.lng}&q=+&z=17&output=embed&hl=en` : "");
-    const mapHtml2 = embedUrl2 ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map"><iframe src="${embedUrl2}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div></div>` : shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : "";
+    const mapsLink2 = shop.lat && shop.lng ? `https://maps.google.com/?q=${shop.lat},${shop.lng}` : shop.googleMapUrl || "";
+    const embedUrl2 = shop.lat && shop.lng ? `https://maps.google.com/maps?q=${shop.lat},${shop.lng}&z=17&output=embed&hl=en` : shop.googleMapEmbed || "";
+    const mapHtml2 = embedUrl2 ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map" style="cursor:pointer" onclick="window.open('${mapsLink2}','_blank')"><iframe src="${embedUrl2}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" style="pointer-events:none"></iframe></div></div>` : shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : "";
     return addrHtml2 + infoGridHtml2 + descHtml2 + priceHtml2 + svcHtml2 + hoursHtml2;
   })()}
 
@@ -4334,8 +4335,9 @@ ${(() => {
       const rvStars = "\u2605".repeat(Math.min(5, Math.max(0, rvR))) + "\u2606".repeat(Math.max(0, 5 - rvR));
       return `<div class="sp-review-card"><div class="sp-review-top"><span class="sp-review-author">${rv.author || "Guest"}</span><span class="sp-review-stars">${rvStars}</span></div><div class="sp-review-text">${rv.text || ""}</div>${rv.time ? `<div class="sp-review-time">${rv.time}</div>` : ""}</div>`;
     }).join("");
-    const embedUrl3 = shop.googleMapEmbed || (shop.lat && shop.lng ? `https://maps.google.com/maps?ll=${shop.lat},${shop.lng}&q=+&z=17&output=embed&hl=en` : "");
-    const mapHtml3 = embedUrl3 ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map"><iframe src="${embedUrl3}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div></div>` : shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : "";
+    const mapsLink3 = shop.lat && shop.lng ? `https://maps.google.com/?q=${shop.lat},${shop.lng}` : shop.googleMapUrl || "";
+    const embedUrl3 = shop.lat && shop.lng ? `https://maps.google.com/maps?q=${shop.lat},${shop.lng}&z=17&output=embed&hl=en` : shop.googleMapEmbed || "";
+    const mapHtml3 = embedUrl3 ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map" style="cursor:pointer" onclick="window.open('${mapsLink3}','_blank')"><iframe src="${embedUrl3}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" style="pointer-events:none"></iframe></div></div>` : shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : "";
     const reviewsBlock = shopReviews2.length ? `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-star" style="color:var(--gold);margin-right:4px"></i>Google Reviews${shop.reviewCount ? ` <span style="font-size:10px;color:rgba(255,255,255,.35);font-weight:400">(${shop.rating}\u2605 \xB7 ${Number(shop.reviewCount).toLocaleString()} reviews)</span>` : ""}</div><div class="sp-reviews-wrap">${reviewCards2}</div></div>` : "";
     return reviewsBlock + mapHtml3;
   })()}
@@ -6960,33 +6962,35 @@ function renderShopModal(shop) {
     svcHtml = '<div class="m-sec"><div class="m-sec-title">Services</div><div class="m-svc-tags">'+svcs+'</div></div>';
   }
 
-  /* \u2500\u2500 \uAD6C\uAE00\uB9F5 embed: lat/lng+place_id > embed > address \uC21C\uC73C\uB85C \uC2DC\uB3C4 \u2500\u2500 */
-  var embedSrc = shop.googleMapEmbed || '';
-  // 1\uC21C\uC704: ll \uD30C\uB77C\uBBF8\uD130\uB85C \uC21C\uC218 \uC88C\uD45C \uD45C\uC2DC (\uC5C5\uCCB4 Place \uB9E4\uCE6D \uC5C6\uC774 \uC88C\uD45C \uD540\uB9CC)
-  if(!embedSrc && shop.lat && shop.lng) {
+  /* \u2500\u2500 \uAD6C\uAE00\uB9F5 embed: lat/lng > googleMapEmbed > address \uC21C\uC73C\uB85C \uC2DC\uB3C4 \u2500\u2500 */
+  var embedSrc = '';
+  var mapsLink = ''; // \uD074\uB9AD \uC2DC \uAD6C\uAE00\uB9F5 \uC571/\uC6F9\uC73C\uB85C \uC5F4\uAE30
+  if(shop.lat && shop.lng) {
     var mlat = parseFloat(shop.lat), mlng = parseFloat(shop.lng);
-    embedSrc = 'https://maps.google.com/maps?ll='+mlat+','+mlng+'&q=+&z=17&output=embed&hl=en';
-  }
-  // 2\uC21C\uC704: URL\uC5D0\uC11C \uD30C\uC2F1
-  if(!embedSrc && shop.googleMapUrl) {
-    var q = '';
+    // q=lat,lng \uD615\uC2DD: \uC5C5\uCCB4 \uB9E4\uCE6D \uC5C6\uC774 \uC815\uD655\uD55C \uC88C\uD45C \uD540 \uD45C\uC2DC (37\xB031'N 127\xB001'E)
+    embedSrc = 'https://maps.google.com/maps?q='+mlat+','+mlng+'&z=17&output=embed&hl=en';
+    mapsLink = 'https://maps.google.com/?q='+mlat+','+mlng;
+  } else if(shop.googleMapEmbed) {
+    embedSrc = shop.googleMapEmbed;
+    mapsLink = shop.googleMapUrl || '';
+  } else if(shop.googleMapUrl) {
+    var q2 = '';
     var qm = shop.googleMapUrl.match(/[?&]q=([^&]+)/);
-    if(qm) { try { q = decodeURIComponent(qm[1]); } catch(e3){ q = qm[1]; } }
+    if(qm) { try { q2 = decodeURIComponent(qm[1]); } catch(e3){ q2 = qm[1]; } }
     else {
       var latm = shop.googleMapUrl.match(/@(-?d+.d+),(-?d+.d+)/);
-      if(latm) q = latm[1]+','+latm[2];
+      if(latm) q2 = latm[1]+','+latm[2];
     }
-    if(!q && shop.address) q = shop.address;
-    if(!q && shop.name)    q = shop.name + ' Seoul';
-    if(q) embedSrc = 'https://www.google.com/maps?q='+encodeURIComponent(q)+'&output=embed&hl=en';
+    if(!q2 && shop.address) q2 = shop.address;
+    if(!q2 && shop.name)    q2 = shop.name + ' Seoul';
+    if(q2) { embedSrc = 'https://www.google.com/maps?q='+encodeURIComponent(q2)+'&output=embed&hl=en'; mapsLink = shop.googleMapUrl; }
   }
-  /* Location: embed URL \uC9C1\uC811 \uD45C\uC2DC \uB610\uB294 \uC8FC\uC18C \uD14D\uC2A4\uD2B8 */
+  /* Location: embed iframe (\uD074\uB9AD\uD558\uBA74 \uAD6C\uAE00\uB9F5 \uC571\uC73C\uB85C \uC774\uB3D9) */
   var mapHtml = '';
   if(embedSrc) {
     mapHtml = '<div class="m-sec"><div class="m-sec-title">Location</div>'
-      +'<div class="m-map">'
-        +'<iframe src="'+embedSrc+'" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" style="width:100%;height:100%;border:0"></iframe>'
-        +'<div class="m-map-cover"><i class="fas fa-map-marker-alt m-map-cover-icon"></i><span class="m-map-cover-txt">SeoulBeautyTrip</span></div>'
+      +'<div class="m-map" style="cursor:pointer" onclick="window.open('' + (mapsLink||embedSrc.replace('&output=embed','')) + '','_blank')">' 
+        +'<iframe src="'+embedSrc+'" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" style="width:100%;height:100%;border:0;pointer-events:none"></iframe>'
       +'</div>'
     +'</div>';
   } else if(shop.address || shop.location) {
