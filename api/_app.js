@@ -3653,7 +3653,11 @@ People: `);
 <title>${shop.name} | ${shop.location.split(",")[0].trim()} ${shop.category.charAt(0).toUpperCase() + shop.category.slice(1)} Seoul | Seoul Beauty Trip</title>
 <meta name="description" content="${(shop.metaDescription || shop.description || `${shop.name} is a top-rated ${shop.category} salon in ${shop.location.split(",")[0].trim()}, Seoul. English-friendly service. Book via WhatsApp.`).slice(0, 155)}">
 <meta name="keywords" content="${shop.seoKeywords || [shop.name, shop.name + " Seoul", shop.name + " " + shop.category, shop.name + " booking", shop.name + " review", shop.name + " foreigner", "best " + shop.category + " " + shop.location.split(",")[0].trim() + " Seoul", shop.category + " Seoul foreigners", "English speaking " + shop.category + " Seoul", "Korean " + shop.category + " Seoul", ...shop.services.slice(0, 3)].join(", ")}">
-<meta name="robots" content="index, follow">
+<meta name="robots" content="${(() => {
+    const loc = (shop.location || "").toLowerCase();
+    const nonSeoul = ["incheon", "busan", "daegu", "daejeon", "gwangju", "ulsan", "suwon"];
+    return nonSeoul.some((c2) => loc.includes(c2)) ? "noindex, follow" : "index, follow";
+  })()}">
 <link rel="canonical" href="${canonicalUrl}">
 <!-- Open Graph -->
 <meta property="og:type" content="business.business">
@@ -4982,7 +4986,7 @@ app.get("/blog/:slug", async (c) => {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${post.title} | Seoul Beauty Trip Blog</title>
 <meta name="description" content="${post.meta_description || post.excerpt || ""}">
-<meta name="robots" content="index, follow">
+<meta name="robots" content="${!post.title || !post.meta_description || post.slug.startsWith("test-") ? "noindex, follow" : "index, follow"}">
 <link rel="canonical" href="${canonicalUrl}">
 <meta property="og:title" content="${post.title}">
 <meta property="og:description" content="${post.meta_description || post.excerpt || ""}">
@@ -5095,13 +5099,24 @@ app.get("/sitemap.xml", async (c) => {
   let shopSlugs = [];
   let blogSlugs = [];
   try {
-    const rows = await sql`SELECT slug FROM shops WHERE active=true AND slug IS NOT NULL AND slug!=''`;
-    shopSlugs = rows.map((r) => r.slug).filter(Boolean);
+    const rows = await sql`SELECT slug, location FROM shops WHERE active=true AND slug IS NOT NULL AND slug!=''`;
+    shopSlugs = rows.filter((r) => {
+      const loc = (r.location || "").toLowerCase();
+      const nonSeoul = ["incheon", "busan", "daegu", "daejeon", "gwangju", "ulsan", "suwon"];
+      return !nonSeoul.some((city) => loc.includes(city));
+    }).map((r) => r.slug).filter(Boolean);
   } catch (e) {
   }
   try {
-    const brows = await sql`SELECT slug,updated_at FROM blog_posts WHERE status='published' AND slug IS NOT NULL`;
-    blogSlugs = brows.map((r) => r.slug).filter(Boolean);
+    const brows = await sql`SELECT slug, title, meta_description, content FROM blog_posts WHERE status='published' AND slug IS NOT NULL AND slug != '' AND title IS NOT NULL AND title != ''`;
+    blogSlugs = brows.filter((r) => {
+      const s = r.slug || "";
+      const t = (r.title || "").toLowerCase();
+      const d = r.meta_description || r.content || "";
+      if (s.startsWith("test-") || t.startsWith("test ")) return false;
+      if (!d || d.trim().length < 20) return false;
+      return true;
+    }).map((r) => r.slug);
   } catch (e) {
   }
   const base = "https://seoulbeautytrip.com";

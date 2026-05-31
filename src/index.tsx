@@ -1684,7 +1684,7 @@ app.get('/shop/:slug', async (c) => {
 <title>${shop.name} | ${shop.location.split(',')[0].trim()} ${shop.category.charAt(0).toUpperCase()+shop.category.slice(1)} Seoul | Seoul Beauty Trip</title>
 <meta name="description" content="${(shop.metaDescription || shop.description || `${shop.name} is a top-rated ${shop.category} salon in ${shop.location.split(',')[0].trim()}, Seoul. English-friendly service. Book via WhatsApp.`).slice(0,155)}">
 <meta name="keywords" content="${shop.seoKeywords || [shop.name, shop.name+' Seoul', shop.name+' '+shop.category, shop.name+' booking', shop.name+' review', shop.name+' foreigner', 'best '+shop.category+' '+shop.location.split(',')[0].trim()+' Seoul', shop.category+' Seoul foreigners', 'English speaking '+shop.category+' Seoul', 'Korean '+shop.category+' Seoul', ...shop.services.slice(0,3)].join(', ')}">
-<meta name="robots" content="index, follow">
+<meta name="robots" content="${(()=>{ const loc=(shop.location||'').toLowerCase(); const nonSeoul=['incheon','busan','daegu','daejeon','gwangju','ulsan','suwon']; return nonSeoul.some(c=>loc.includes(c)) ? 'noindex, follow' : 'index, follow'; })()}">
 <link rel="canonical" href="${canonicalUrl}">
 <!-- Open Graph -->
 <meta property="og:type" content="business.business">
@@ -3087,7 +3087,7 @@ app.get('/blog/:slug', async (c) => {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${post.title} | Seoul Beauty Trip Blog</title>
 <meta name="description" content="${post.meta_description||post.excerpt||''}">
-<meta name="robots" content="index, follow">
+<meta name="robots" content="${(!post.title || !post.meta_description || post.slug.startsWith('test-')) ? 'noindex, follow' : 'index, follow'}">
 <link rel="canonical" href="${canonicalUrl}">
 <meta property="og:title" content="${post.title}">
 <meta property="og:description" content="${post.meta_description||post.excerpt||''}">
@@ -3201,12 +3201,30 @@ app.get('/sitemap.xml', async (c) => {
   let shopSlugs: string[] = []
   let blogSlugs: string[] = []
   try {
-    const rows = await sql`SELECT slug FROM shops WHERE active=true AND slug IS NOT NULL AND slug!=''`
-    shopSlugs = rows.map((r: any) => r.slug).filter(Boolean)
+    const rows = await sql`SELECT slug, location FROM shops WHERE active=true AND slug IS NOT NULL AND slug!=''`
+    // 서울 외 지역(Incheon 등) 업체는 서울 뷰티 사이트 맥락에 맞지 않아 사이트맵 제외
+    shopSlugs = rows
+      .filter((r: any) => {
+        const loc = (r.location || '').toLowerCase()
+        // incheon, busan, daegu 등 명백히 서울 아닌 지역 제외
+        const nonSeoul = ['incheon', 'busan', 'daegu', 'daejeon', 'gwangju', 'ulsan', 'suwon']
+        return !nonSeoul.some(city => loc.includes(city))
+      })
+      .map((r: any) => r.slug).filter(Boolean)
   } catch(e) {}
   try {
-    const brows = await sql`SELECT slug,updated_at FROM blog_posts WHERE status='published' AND slug IS NOT NULL`
-    blogSlugs = brows.map((r: any) => r.slug).filter(Boolean)
+    const brows = await sql`SELECT slug, title, meta_description, content FROM blog_posts WHERE status='published' AND slug IS NOT NULL AND slug != '' AND title IS NOT NULL AND title != ''`
+    // test 페이지, 빈 콘텐츠/description 페이지 제외
+    blogSlugs = brows
+      .filter((r: any) => {
+        const s = (r.slug || '')
+        const t = (r.title || '').toLowerCase()
+        const d = (r.meta_description || r.content || '')
+        if (s.startsWith('test-') || t.startsWith('test ')) return false  // test 페이지 제외
+        if (!d || d.trim().length < 20) return false  // 내용 없는 페이지 제외
+        return true
+      })
+      .map((r: any) => r.slug)
   } catch(e) {}
   const base = 'https://seoulbeautytrip.com'
   const today = new Date().toISOString().split('T')[0]
