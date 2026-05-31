@@ -2705,7 +2705,16 @@ app.post("/api/resolve-gmap", async (c2) => {
         }
       }
     }
-    const callPlacesApi = async (textQuery) => {
+    const callPlacesApi = async (textQuery, coords) => {
+      const body = { textQuery, languageCode: "en" };
+      if (coords) {
+        body.locationBias = {
+          circle: {
+            center: { latitude: parseFloat(coords.lat), longitude: parseFloat(coords.lon) },
+            radius: 200
+          }
+        };
+      }
       const r = await fetch("https://places.googleapis.com/v1/places:searchText", {
         method: "POST",
         headers: {
@@ -2713,7 +2722,7 @@ app.post("/api/resolve-gmap", async (c2) => {
           "X-Goog-Api-Key": getGoogleKey(c2.env),
           "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.addressComponents,places.regularOpeningHours,places.rating,places.userRatingCount,places.reviews,places.photos,places.internationalPhoneNumber,places.websiteUri,places.location,places.editorialSummary,places.primaryType,places.types"
         },
-        body: JSON.stringify({ textQuery, languageCode: "en" })
+        body: JSON.stringify(body)
       });
       if (!r.ok) return null;
       const d = await r.json();
@@ -2820,7 +2829,7 @@ app.post("/api/resolve-gmap", async (c2) => {
       const latStr = coords?.lat || "";
       const lngStr = coords?.lon || "";
       const searchQ = engPart + " Seoul Korea";
-      const place = await callPlacesApi(searchQ);
+      const place = await callPlacesApi(searchQ, coords || void 0);
       const result = placeToJson(place);
       if (result) {
         if (latStr && !result.lat) result.lat = latStr;
@@ -3585,26 +3594,38 @@ app.post("/api/quick-register", async (c2) => {
           fullUrl = gmapUrl;
         }
       }
-      const pidMatch = fullUrl.match(/place\/[^/]+\/([^/?]+)/) || fullUrl.match(/!1s([^!]+)!/);
+      const urlNoCoord = fullUrl.split("/@")[0];
+      const chijMatch = urlNoCoord.match(/place\/[^/]+\/(ChIJ[^/?]+)/);
+      const cid16Match = fullUrl.match(/!16s([^?!&]+)/);
+      const cid16 = cid16Match ? decodeURIComponent(cid16Match[1]) : "";
       const coordMatch = fullUrl.match(/@([-\d.]+),([-\d.]+)/);
+      const nameRaw = urlNoCoord.match(/place\/([^/]+)/);
       let placeData = null;
       const googleKey = getGoogleKey(c2.env);
-      if (pidMatch && googleKey) {
-        const pid = pidMatch[1].startsWith("0x") ? pidMatch[1] : pidMatch[1];
-        const fm = "id,displayName,formattedAddress,regularOpeningHours,rating,userRatingCount,reviews,photos,location,editorialSummary,primaryType";
+      const fm = "id,displayName,formattedAddress,regularOpeningHours,rating,userRatingCount,reviews,photos,location,editorialSummary,primaryType";
+      const fmList = "places.id,places.displayName,places.formattedAddress,places.regularOpeningHours,places.rating,places.userRatingCount,places.reviews,places.photos,places.location,places.editorialSummary";
+      if (!placeData && chijMatch && googleKey) {
+        const pid = chijMatch[1];
         const r2 = await fetch(`https://places.googleapis.com/v1/places/${pid}?languageCode=en`, {
           headers: { "X-Goog-Api-Key": googleKey, "X-Goog-FieldMask": fm }
         });
-        if (r2.ok) placeData = await r2.json();
+        if (r2.ok) {
+          const d = await r2.json();
+          if (d.id) placeData = d;
+        }
       }
       if (!placeData && coordMatch && googleKey) {
         const [, lat, lng] = coordMatch;
-        const nameMatch = fullUrl.match(/place\/([^/@]+)/);
-        const textQuery = nameMatch ? decodeURIComponent(nameMatch[1].replace(/\+/g, " ")) : `beauty salon near ${lat},${lng}`;
+        const textQuery = nameRaw ? decodeURIComponent(nameRaw[1].replace(/\+/g, " ")).split("|")[0].trim() : `beauty salon`;
+        const body = {
+          textQuery,
+          languageCode: "en",
+          locationBias: { circle: { center: { latitude: parseFloat(lat), longitude: parseFloat(lng) }, radius: 150 } }
+        };
         const r3 = await fetch("https://places.googleapis.com/v1/places:searchText", {
           method: "POST",
-          headers: { "Content-Type": "application/json", "X-Goog-Api-Key": googleKey, "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.regularOpeningHours,places.rating,places.userRatingCount,places.reviews,places.photos,places.location,places.editorialSummary" },
-          body: JSON.stringify({ textQuery, languageCode: "en" })
+          headers: { "Content-Type": "application/json", "X-Goog-Api-Key": googleKey, "X-Goog-FieldMask": fmList },
+          body: JSON.stringify(body)
         });
         if (r3.ok) {
           const d3 = await r3.json();

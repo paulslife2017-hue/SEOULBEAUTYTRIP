@@ -607,7 +607,16 @@ app.post('/api/resolve-gmap', async (c) => {
     }
 
     // ── Places API 호출 헬퍼 (쿼리 or placeId) ──
-    const callPlacesApi = async (textQuery: string): Promise<any> => {
+    const callPlacesApi = async (textQuery: string, coords?: { lat: string; lon: string }): Promise<any> => {
+      const body: any = { textQuery, languageCode: 'en' }
+      if (coords) {
+        body.locationBias = {
+          circle: {
+            center: { latitude: parseFloat(coords.lat), longitude: parseFloat(coords.lon) },
+            radius: 200
+          }
+        }
+      }
       const r = await fetch('https://places.googleapis.com/v1/places:searchText', {
         method: 'POST',
         headers: {
@@ -615,7 +624,7 @@ app.post('/api/resolve-gmap', async (c) => {
           'X-Goog-Api-Key': getGoogleKey(c.env),
           'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.addressComponents,places.regularOpeningHours,places.rating,places.userRatingCount,places.reviews,places.photos,places.internationalPhoneNumber,places.websiteUri,places.location,places.editorialSummary,places.primaryType,places.types'
         },
-        body: JSON.stringify({ textQuery, languageCode: 'en' })
+        body: JSON.stringify(body)
       })
       if (!r.ok) return null
       const d: any = await r.json()
@@ -728,9 +737,9 @@ app.post('/api/resolve-gmap', async (c) => {
       const latStr = coords?.lat || ''
       const lngStr = coords?.lon || ''
 
-      // Places Text Search로 전체 정보 가져오기
+      // Places Text Search로 전체 정보 가져오기 (좌표 있으면 locationBias 적용)
       const searchQ = engPart + ' Seoul Korea'
-      const place = await callPlacesApi(searchQ)
+      const place = await callPlacesApi(searchQ, coords || undefined)
       const result = placeToJson(place)
       if (result) {
         if (latStr && !result.lat) result.lat = latStr
@@ -1594,30 +1603,49 @@ app.post('/api/quick-register', async (c) => {
         } catch { fullUrl = gmapUrl }
       }
 
-      // Place ID 또는 좌표 추출
-      const pidMatch = fullUrl.match(/place\/[^/]+\/([^/?]+)/) || fullUrl.match(/!1s([^!]+)!/)
+      // ── Place ID / 좌표 추출 ──
+      // 1) ChIJ... 형식 정식 Place ID (/place/Name/ChIJ...)
+      //    주의: place/업체명/@좌표 형태를 잘못 잡지 않도록 @(좌표) 앞까지만 봄
+      const urlNoCoord = fullUrl.split('/@')[0]
+      const chijMatch = urlNoCoord.match(/place\/[^/]+\/(ChIJ[^/?]+)/)
+
+      // 2) !16s%2Fg%2F... → /g/xxxxx 형식 CID (decode 후 사용)
+      const cid16Match = fullUrl.match(/!16s([^?!&]+)/)
+      const cid16 = cid16Match ? decodeURIComponent(cid16Match[1]) : '' // e.g. /g/11tfwl3ppd
+
+      // 3) 좌표 + 업체명 (fallback)
       const coordMatch = fullUrl.match(/@([-\d.]+),([-\d.]+)/)
+      const nameRaw = urlNoCoord.match(/place\/([^/]+)/)
 
       let placeData: any = null
       const googleKey = getGoogleKey(c.env)
+      const fm = 'id,displayName,formattedAddress,regularOpeningHours,rating,userRatingCount,reviews,photos,location,editorialSummary,primaryType'
+      const fmList = 'places.id,places.displayName,places.formattedAddress,places.regularOpeningHours,places.rating,places.userRatingCount,places.reviews,places.photos,places.location,places.editorialSummary'
 
-      if (pidMatch && googleKey) {
-        const pid = pidMatch[1].startsWith('0x') ? pidMatch[1] : pidMatch[1]
-        const fm = 'id,displayName,formattedAddress,regularOpeningHours,rating,userRatingCount,reviews,photos,location,editorialSummary,primaryType'
+      // 시도 1: ChIJ Place ID 직접 조회
+      if (!placeData && chijMatch && googleKey) {
+        const pid = chijMatch[1]
         const r2 = await fetch(`https://places.googleapis.com/v1/places/${pid}?languageCode=en`, {
           headers: { 'X-Goog-Api-Key': googleKey, 'X-Goog-FieldMask': fm }
         })
-        if (r2.ok) placeData = await r2.json()
+        if (r2.ok) { const d: any = await r2.json(); if (d.id) placeData = d }
       }
 
+      // 시도 2: 좌표 + 업체명으로 텍스트 검색 (locationBias 반경 100m)
       if (!placeData && coordMatch && googleKey) {
         const [, lat, lng] = coordMatch
-        const nameMatch = fullUrl.match(/place\/([^/@]+)/)
-        const textQuery = nameMatch ? decodeURIComponent(nameMatch[1].replace(/\+/g,' ')) : `beauty salon near ${lat},${lng}`
+        const textQuery = nameRaw
+          ? decodeURIComponent(nameRaw[1].replace(/\+/g,' ')).split('|')[0].trim()
+          : `beauty salon`
+        const body: any = {
+          textQuery,
+          languageCode: 'en',
+          locationBias: { circle: { center: { latitude: parseFloat(lat), longitude: parseFloat(lng) }, radius: 150 } }
+        }
         const r3 = await fetch('https://places.googleapis.com/v1/places:searchText', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': googleKey, 'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.regularOpeningHours,places.rating,places.userRatingCount,places.reviews,places.photos,places.location,places.editorialSummary' },
-          body: JSON.stringify({ textQuery, languageCode: 'en' })
+          headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': googleKey, 'X-Goog-FieldMask': fmList },
+          body: JSON.stringify(body)
         })
         if (r3.ok) { const d3: any = await r3.json(); placeData = d3.places?.[0] }
       }
