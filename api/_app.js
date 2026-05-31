@@ -4327,6 +4327,11 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
     <div class="sp-cat-badge">${catIcon} ${shop.category.charAt(0).toUpperCase() + shop.category.slice(1)} \xB7 ${shop.location.split(",")[0].trim()} Seoul</div>
     <h1 class="sp-title" itemprop="name">${shop.name}</h1>
     <div class="sp-loc"><i class="fas fa-map-marker-alt" style="color:var(--pk)"></i><span itemprop="addressLocality">${shop.location}, Seoul</span></div>
+    <div style="margin-top:7px;display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.45);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.15);border-radius:20px;padding:5px 12px;width:fit-content;cursor:pointer;max-width:90vw;overflow:hidden" onclick="navigator.clipboard&&navigator.clipboard.writeText('${canonicalUrl}').then(function(){var el=document.getElementById('sp-url-copied');if(el){el.style.opacity='1';setTimeout(function(){el.style.opacity='0'},1500)}})">
+      <i class="fas fa-link" style="color:rgba(255,255,255,.5);font-size:10px;flex-shrink:0"></i>
+      <span style="font-size:11px;color:rgba(255,255,255,.7);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${canonicalUrl}</span>
+      <span id="sp-url-copied" style="font-size:10px;color:#34d399;flex-shrink:0;opacity:0;transition:opacity .3s;margin-left:2px">Copied!</span>
+    </div>
     <div class="sp-rating">
       <span class="sp-stars">\u2605\u2605\u2605\u2605\u2605</span>
       <span class="sp-rating-num" itemprop="aggregateRating" itemscope itemtype="https://schema.org/AggregateRating">
@@ -4622,7 +4627,38 @@ function playSpVid(idx){
     _updateMuteBtn();
   });
 }
+function openMapUrl(el){
+  var u=el.getAttribute('data-map-url');
+  if(!u) return;
+  var embedUrl=u;
+  var qMatch=u.match(/[?&]q=([^&]+)/);
+  if(qMatch) embedUrl='https://www.google.com/maps?q='+qMatch[1]+'&hl=en&output=embed';
+  var badge=el.querySelector('[style*="bottom:8px"]');
+  var title=badge?badge.textContent.trim():'Google Maps';
+  var ov=document.getElementById('mapOverlay');
+  var frame=document.getElementById('mapOverlayFrame');
+  var titleEl=document.getElementById('mapOverlayTitle');
+  if(!ov||!frame) return;
+  if(titleEl) titleEl.textContent=title;
+  frame.src=embedUrl;
+  ov.style.display='flex';
+  document.body.style.overflow='hidden';
+}
+function closeMapOverlay(){
+  var ov=document.getElementById('mapOverlay');
+  var frame=document.getElementById('mapOverlayFrame');
+  if(ov){ov.style.display='none';document.body.style.overflow='';}
+  if(frame){frame.src='';}
+}
 </script>
+<!-- \uAD6C\uAE00\uB9F5 \uC778\uC571 \uC624\uBC84\uB808\uC774 -->
+<div id="mapOverlay" style="display:none;position:fixed;inset:0;z-index:2000;flex-direction:column;background:#000">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#111;border-bottom:1px solid #222;flex-shrink:0">
+    <span id="mapOverlayTitle" style="color:#fff;font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;margin-right:10px"></span>
+    <button onclick="closeMapOverlay()" style="flex-shrink:0;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.12);border:none;color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">&times;</button>
+  </div>
+  <iframe id="mapOverlayFrame" src="" style="flex:1;border:0;width:100%;display:block" allowfullscreen loading="lazy"></iframe>
+</div>
 </body>
 </html>`);
 });
@@ -4708,6 +4744,171 @@ var DEFAULT_FAQ = [
   { q: "What payment methods are accepted?", a: "Most salons accept credit cards and cash (Korean Won). Some also accept international cards like Visa and Mastercard." },
   { q: "Can I cancel or reschedule my booking?", a: "Yes. Contact us via WhatsApp and we will help reschedule or cancel depending on the salon's policy." }
 ];
+app.get("/video/:id", async (c2) => {
+  const sql = getDb(c2.env);
+  const vid = c2.req.param("id");
+  const rows = await sql`
+    SELECT v.*, s.name as shop_name, s.slug as shop_slug,
+           s.category as shop_cat, s.location as shop_loc,
+           s.thumbnail as shop_thumb, s.google_map_url as shop_map
+    FROM videos v LEFT JOIN shops s ON v.shop_id=s.id
+    WHERE v.id=${vid}`;
+  if (!rows.length) return c2.notFound();
+  const r = rows[0];
+  const video = rowToVideo({ ...r, shop_name: r.shop_name });
+  const base = "https://seoulbeautytrip.com";
+  const pageUrl = `${base}/video/${vid}`;
+  const thumb = video.thumbnail || r.shop_thumb || `${base}/og-cover.jpg`;
+  const ogThumb = thumb.startsWith("http") ? thumb : `${base}${thumb}`;
+  const shopName = r.shop_name || "Seoul Beauty";
+  const title = video.title || `${shopName} Beauty Video`;
+  const desc = video.description || `Watch ${shopName} beauty treatments and services in Seoul. Book via WhatsApp.`;
+  const uploadDate = video.createdAt ? video.createdAt.includes("T") ? video.createdAt : video.createdAt + "T00:00:00+09:00" : (/* @__PURE__ */ new Date()).toISOString();
+  const streamUrl = video.videoUrl ? video.videoUrl.replace("/video/upload/", "/video/upload/q_auto:low,vc_auto,br_800k/") : "";
+  const shopUrl = r.shop_slug ? `${base}/shop/${r.shop_slug}` : `${base}/`;
+  const videoLd = {
+    "@context": "https://schema.org",
+    "@type": "VideoObject",
+    "name": title,
+    "description": desc,
+    "thumbnailUrl": ogThumb,
+    "uploadDate": uploadDate,
+    "contentUrl": video.videoUrl || "",
+    "embedUrl": pageUrl,
+    "duration": "PT30S",
+    "publisher": {
+      "@type": "Organization",
+      "name": "Seoul Beauty Trip",
+      "url": base,
+      "logo": { "@type": "ImageObject", "url": `${base}/og-cover.jpg` }
+    },
+    "isPartOf": { "@type": "WebPage", "url": pageUrl }
+  };
+  const ldJson = JSON.stringify(videoLd).replace(/<\/script>/gi, "<\\/script>").replace(/<!--/g, "<\\!--");
+  const waMsg = encodeURIComponent(`[ Booking Request ]
+Shop: ${shopName}${r.shop_loc ? " (" + r.shop_loc.split(",")[0].trim() + ")" : ""}
+
+Date: 
+Time: 
+Service: 
+Name: 
+People: `);
+  const waUrl = `https://wa.me/${PLATFORM.whatsapp}?text=${waMsg}`;
+  return c2.html(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1N9ZQRHLJ0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-1N9ZQRHLJ0');
+</script>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${title} | Seoul Beauty Trip</title>
+<meta name="description" content="${desc.slice(0, 155)}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="${pageUrl}">
+<meta property="og:type" content="video.other">
+<meta property="og:title" content="${title} | Seoul Beauty Trip">
+<meta property="og:description" content="${desc.slice(0, 155)}">
+<meta property="og:image" content="${ogThumb}">
+<meta property="og:url" content="${pageUrl}">
+<meta property="og:video" content="${video.videoUrl || ""}">
+<meta property="og:site_name" content="Seoul Beauty Trip">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${title} | Seoul Beauty Trip">
+<meta name="twitter:description" content="${desc.slice(0, 155)}">
+<meta name="twitter:image" content="${ogThumb}">
+<script type="application/ld+json">${ldJson}</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:#0d0d0d;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh}
+.wrap{max-width:480px;margin:0 auto;padding:0 0 80px}
+.top-bar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#111;border-bottom:1px solid #222}
+.top-bar a{color:#FF4D8D;text-decoration:none;font-size:14px;font-weight:600}
+.top-bar span{font-size:13px;color:#888}
+.vid-wrap{position:relative;width:100%;background:#000;aspect-ratio:9/16;overflow:hidden}
+.vid-wrap video{width:100%;height:100%;object-fit:cover;display:block}
+.vid-poster{position:absolute;inset:0;background-size:cover;background-position:center}
+.play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:64px;height:64px;border-radius:50%;background:rgba(0,0,0,.6);border:2px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;cursor:pointer;backdrop-filter:blur(4px)}
+.play-btn svg{fill:#fff;margin-left:4px}
+.info-box{padding:16px}
+.shop-name{font-size:15px;font-weight:700;color:#fff;margin-bottom:4px}
+.shop-loc{font-size:13px;color:#aaa;margin-bottom:12px}
+.vid-title{font-size:14px;color:#ddd;line-height:1.5;margin-bottom:14px}
+.action-btns{display:flex;gap:10px;margin-bottom:16px}
+.btn-wa{flex:1;background:#25D366;color:#fff;border:none;border-radius:12px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn-shop{flex:1;background:#1a1a2e;color:#FF4D8D;border:1px solid #FF4D8D44;border-radius:12px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:6px}
+.tag-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.tag{background:#1a1a2e;color:#FF4D8D;border-radius:20px;padding:4px 10px;font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top-bar">
+    <a href="/">\u2190 Seoul Beauty Trip</a>
+    <span>Beauty Video</span>
+  </div>
+  <div class="vid-wrap">
+    ${thumb ? `<div class="vid-poster" id="poster" style="background-image:url('${ogThumb}')"></div>` : ""}
+    <video id="mainVid" loop muted playsinline preload="none"
+      poster="${ogThumb}"
+      src="${streamUrl}"
+    ></video>
+    <div class="play-btn" id="playBtn" onclick="togglePlay()">
+      <svg width="24" height="24" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+    </div>
+  </div>
+  <div class="info-box">
+    ${r.shop_name ? `<div class="shop-name">${r.shop_name}</div>` : ""}
+    ${r.shop_loc ? `<div class="shop-loc">\u{1F4CD} ${r.shop_loc.split(",")[0].trim()}, Seoul</div>` : ""}
+    ${video.title ? `<div class="vid-title">${video.title}</div>` : ""}
+    <div class="action-btns">
+      <a class="btn-wa" href="${waUrl}" target="_blank" rel="noopener">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        Book via WhatsApp
+      </a>
+      ${r.shop_slug ? `<a class="btn-shop" href="${shopUrl}">\u{1F3EA} View Shop</a>` : ""}
+    </div>
+    ${(video.tags || []).length ? `<div class="tag-list">${(video.tags || []).map((t) => `<span class="tag">#${t}</span>`).join("")}</div>` : ""}
+  </div>
+</div>
+<script>
+var vid = document.getElementById('mainVid');
+var btn = document.getElementById('playBtn');
+var poster = document.getElementById('poster');
+var playing = false;
+function togglePlay(){
+  if(!playing){
+    vid.play().then(function(){
+      playing=true;
+      if(poster) poster.style.display='none';
+      btn.style.display='none';
+    }).catch(function(){
+      // autoplay \uCC28\uB2E8\uB41C \uACBD\uC6B0 muted \uC7AC\uC0DD \uC2DC\uB3C4
+      vid.muted=true;
+      vid.play();
+      playing=true;
+      if(poster) poster.style.display='none';
+      btn.style.display='none';
+    });
+  } else {
+    vid.pause();
+    playing=false;
+    btn.style.display='flex';
+  }
+}
+vid.addEventListener('ended',function(){ playing=false; btn.style.display='flex'; if(poster){ poster.style.display='block'; } });
+vid.addEventListener('click',togglePlay);
+// \uC870\uD68C\uC218 \uCE74\uC6B4\uD2B8
+fetch('/api/videos/${vid}/view',{method:'POST'}).catch(function(){});
+</script>
+</body>
+</html>`);
+});
 app.get("/best/:category/:area", async (c2) => {
   const catSlug = c2.req.param("category").toLowerCase();
   const areaSlug = c2.req.param("area").toLowerCase();
@@ -5536,6 +5737,7 @@ app.get("/sitemap.xml", async (c2) => {
   const sql = getDb(c2.env);
   let shopSlugs = [];
   let blogSlugs = [];
+  let videoIds = [];
   try {
     const rows = await sql`SELECT slug FROM shops WHERE active=true AND slug IS NOT NULL AND slug!=''`;
     shopSlugs = rows.map((r) => r.slug).filter(Boolean);
@@ -5551,6 +5753,11 @@ app.get("/sitemap.xml", async (c2) => {
       if (!d || d.trim().length < 20) return false;
       return true;
     }).map((r) => r.slug);
+  } catch (e) {
+  }
+  try {
+    const vrows = await sql`SELECT id FROM videos ORDER BY created_at DESC`;
+    videoIds = vrows.map((r) => String(r.id)).filter(Boolean);
   } catch (e) {
   }
   const base = "https://seoulbeautytrip.com";
@@ -5570,6 +5777,9 @@ app.get("/sitemap.xml", async (c2) => {
     ),
     ...blogSlugs.map(
       (slug) => `<url><loc>${base}/blog/${slug}</loc><changefreq>weekly</changefreq><priority>0.85</priority><lastmod>${today}</lastmod></url>`
+    ),
+    ...videoIds.map(
+      (id) => `<url><loc>${base}/video/${id}</loc><changefreq>monthly</changefreq><priority>0.7</priority><lastmod>${today}</lastmod></url>`
     )
   ].join("\n  ");
   return c2.body(`<?xml version="1.0" encoding="UTF-8"?>
@@ -5606,24 +5816,29 @@ app.get("/", async (c2) => {
     }));
     const initPlatform = { whatsapp: PLATFORM.whatsapp, name: PLATFORM.name, instagram: PLATFORM.instagram };
     const safeJson = (obj) => JSON.stringify(obj).replace(/<\/script>/gi, "<\\/script>").replace(/<!--/g, "<\\!--");
-    const videoJsonLd = initVideos.slice(0, 5).map((v) => ({
-      "@context": "https://schema.org",
-      "@type": "VideoObject",
-      "name": v.title || (v.shop?.name ? `${v.shop.name} Seoul Beauty Video` : "Seoul Beauty Video"),
-      "description": v.description || `Watch ${v.shop?.name || "Seoul Beauty"} treatments and services in Seoul. Book via WhatsApp.`,
-      "thumbnailUrl": v.thumbnail || "",
-      "uploadDate": v.createdAt ? new Date(v.createdAt).toISOString() : (/* @__PURE__ */ new Date()).toISOString(),
-      "contentUrl": v.videoUrl || "",
-      "embedUrl": `https://seoulbeautytrip.com/?vid=${v.id}`,
-      "duration": "PT30S",
-      "publisher": {
-        "@type": "Organization",
-        "name": "Seoul Beauty Trip",
-        "url": "https://seoulbeautytrip.com",
-        "logo": { "@type": "ImageObject", "url": "https://seoulbeautytrip.com/og-cover.jpg" }
-      },
-      "isPartOf": { "@type": "WebPage", "url": "https://seoulbeautytrip.com/" }
-    }));
+    const videoJsonLd = initVideos.slice(0, 5).map((v) => {
+      const vThumb = v.thumbnail || (v.videoUrl ? v.videoUrl.replace("/video/upload/", "/video/upload/so_0,w_420,h_748,c_fill,q_auto:low,f_webp/").replace(/\.mp4$/, ".webp") : "") || v.shop?.thumbnail || "https://seoulbeautytrip.com/og-cover.jpg";
+      const vUploadDate = v.createdAt ? v.createdAt.includes("T") ? v.createdAt : v.createdAt + "T00:00:00+09:00" : (/* @__PURE__ */ new Date()).toISOString();
+      const vEmbedUrl = `https://seoulbeautytrip.com/video/${v.id}`;
+      return {
+        "@context": "https://schema.org",
+        "@type": "VideoObject",
+        "name": v.title || (v.shop?.name ? `${v.shop.name} Seoul Beauty Video` : "Seoul Beauty Video"),
+        "description": v.description || `Watch ${v.shop?.name || "Seoul Beauty"} treatments and services in Seoul. Book via WhatsApp.`,
+        "thumbnailUrl": vThumb,
+        "uploadDate": vUploadDate,
+        "contentUrl": v.videoUrl || "",
+        "embedUrl": vEmbedUrl,
+        "duration": "PT30S",
+        "publisher": {
+          "@type": "Organization",
+          "name": "Seoul Beauty Trip",
+          "url": "https://seoulbeautytrip.com",
+          "logo": { "@type": "ImageObject", "url": "https://seoulbeautytrip.com/og-cover.jpg" }
+        },
+        "isPartOf": { "@type": "WebPage", "url": vEmbedUrl }
+      };
+    });
     const videoLdScript = videoJsonLd.length ? `<script type="application/ld+json">${safeJson(videoJsonLd)}</script>` : "";
     const inlineScript = `${videoLdScript}<script>window.__INIT_VIDEOS__=${safeJson(initVideos)};window.__INIT_PLATFORM__=${safeJson(initPlatform)};</script>`;
     return c2.html(MAIN_HTML.replace("__INLINE_DATA_PLACEHOLDER__", inlineScript));
@@ -6648,8 +6863,8 @@ function buildSlide(v, idx) {
   var videoDesc = v.description || (shop.name ? 'Watch ' + shop.name + ' beauty treatments in Seoul. Book via WhatsApp.' : 'Seoul beauty salon treatment video. Book via WhatsApp.');
   // \uC378\uB124\uC77C: Cloudinary \uC800\uD654\uC9C8 WebP \uC790\uB3D9 \uC0DD\uC131 (poster \uBE60\uB978 \uD45C\uC2DC\uC6A9)
   var thumb = v.thumbnail || getAutoThumb(v.videoUrl) || '';
-  // embedUrl: \uAD6C\uAE00\uC774 \uB3D9\uC601\uC0C1 \uC704\uCE58\uB97C \uD30C\uC545\uD558\uAE30 \uC704\uD55C \uD398\uC774\uC9C0 URL
-  var embedUrl = 'https://seoulbeautytrip.com/';
+  // embedUrl: /video/:id \uC804\uC6A9 \uBCF4\uAE30 \uD398\uC774\uC9C0 (Google VideoObject \uC694\uAD6C\uC0AC\uD56D)
+  var embedUrl = 'https://seoulbeautytrip.com/video/' + v.id;
   // \uCCAB\uBC88\uC9F8 \uC2AC\uB77C\uC774\uB4DC\uB294 eager load, \uB098\uBA38\uC9C0\uB294 lazy
   var imgLoading = idx === 0 ? 'eager' : 'lazy';
   var imgPriority = idx === 0 ? ' fetchpriority="high"' : '';
@@ -9486,7 +9701,8 @@ function renderShops(){
             +'<span style="font-size:14px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px">'+s.name+'</span>'
             +'<span style="flex-shrink:0;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;background:rgba(255,255,255,.07);color:'+catColor+'">'+catLabel+'</span>'
           +'</div>'
-          +(s.location ? '<div style="font-size:11px;color:rgba(255,255,255,.4)"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:3px"></i>'+s.location+'</div>' : '')
+          +(s.location ? '<div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:3px"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:3px"></i>'+s.location+'</div>' : '')
+          +(s.slug ? '<div style="font-size:10px;color:rgba(99,179,237,.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px"><i class="fas fa-link" style="margin-right:3px;opacity:.6"></i>/shop/'+s.slug+'</div>' : '')
         +'</div>'
 
         // \uC624\uB978\uCABD \u2014 \uC601\uC0C1\uC218 + \uC218\uC815/\uC0AD\uC81C \uBC84\uD2BC + \uD654\uC0B4\uD45C
