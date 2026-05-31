@@ -5462,6 +5462,110 @@ app.get("/admin", (c2) => {
   const html = ADMIN_HTML.replace("__GSK_TOKEN__", token);
   return c2.html(html);
 });
+async function makeGa4Jwt(serviceAccountJson) {
+  const sa = JSON.parse(serviceAccountJson);
+  const now = Math.floor(Date.now() / 1e3);
+  const header = { alg: "RS256", typ: "JWT" };
+  const payload = {
+    iss: sa.client_email,
+    scope: "https://www.googleapis.com/auth/analytics.readonly",
+    aud: "https://oauth2.googleapis.com/token",
+    iat: now,
+    exp: now + 3600
+  };
+  const b64 = (obj) => btoa(JSON.stringify(obj)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  const unsigned = `${b64(header)}.${b64(payload)}`;
+  const pem = sa.private_key.replace(/-----[^-]+-----/g, "").replace(/\s/g, "");
+  const der = Uint8Array.from(atob(pem), (c2) => c2.charCodeAt(0));
+  const key = await crypto.subtle.importKey(
+    "pkcs8",
+    der.buffer,
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const sig = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(unsigned));
+  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  return `${unsigned}.${sigB64}`;
+}
+async function getGa4Token(serviceAccountJson) {
+  const jwt = await makeGa4Jwt(serviceAccountJson);
+  const r = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`
+  });
+  const d = await r.json();
+  return d.access_token;
+}
+app.get("/api/analytics", async (c2) => {
+  try {
+    const saKey = typeof process !== "undefined" ? process.env.GA4_SERVICE_ACCOUNT_KEY : void 0;
+    const propId = typeof process !== "undefined" ? process.env.GA4_PROPERTY_ID : void 0;
+    if (!saKey || !propId) {
+      return c2.json({ error: "GA4_NOT_CONFIGURED" }, 503);
+    }
+    const days = parseInt(c2.req.query("days") || "7");
+    const startDate = `${days}daysAgo`;
+    const token = await getGa4Token(saKey);
+    const ga4Fetch = (body) => fetch(
+      `https://analyticsdata.googleapis.com/v1beta/properties/${propId}:runReport`,
+      { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(body) }
+    ).then((r) => r.json());
+    const [overview, daily, countries, pages, sources, devices] = await Promise.all([
+      // 1. 핵심 지표 (전체 기간)
+      ga4Fetch({
+        dateRanges: [{ startDate, endDate: "today" }],
+        metrics: [
+          { name: "totalUsers" },
+          { name: "screenPageViews" },
+          { name: "newUsers" },
+          { name: "averageSessionDuration" }
+        ]
+      }),
+      // 2. 일별 방문자
+      ga4Fetch({
+        dateRanges: [{ startDate, endDate: "today" }],
+        dimensions: [{ name: "date" }],
+        metrics: [{ name: "totalUsers" }, { name: "screenPageViews" }],
+        orderBys: [{ dimension: { dimensionName: "date" } }]
+      }),
+      // 3. 국가별
+      ga4Fetch({
+        dateRanges: [{ startDate, endDate: "today" }],
+        dimensions: [{ name: "country" }],
+        metrics: [{ name: "totalUsers" }],
+        orderBys: [{ metric: { metricName: "totalUsers" }, desc: true }],
+        limit: 8
+      }),
+      // 4. 인기 페이지
+      ga4Fetch({
+        dateRanges: [{ startDate, endDate: "today" }],
+        dimensions: [{ name: "pagePath" }, { name: "pageTitle" }],
+        metrics: [{ name: "screenPageViews" }, { name: "totalUsers" }],
+        orderBys: [{ metric: { metricName: "screenPageViews" }, desc: true }],
+        limit: 10
+      }),
+      // 5. 유입 경로
+      ga4Fetch({
+        dateRanges: [{ startDate, endDate: "today" }],
+        dimensions: [{ name: "sessionDefaultChannelGroup" }],
+        metrics: [{ name: "sessions" }],
+        orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
+        limit: 6
+      }),
+      // 6. 디바이스
+      ga4Fetch({
+        dateRanges: [{ startDate, endDate: "today" }],
+        dimensions: [{ name: "deviceCategory" }],
+        metrics: [{ name: "totalUsers" }]
+      })
+    ]);
+    return c2.json({ overview, daily, countries, pages, sources, devices });
+  } catch (e) {
+    return c2.json({ error: e.message }, 500);
+  }
+});
 var index_default = app;
 var MAIN_HTML = `<!DOCTYPE html>
 <html lang="en">
@@ -7733,6 +7837,7 @@ textarea{height:80px;resize:none}
 
 <div class="tabs">
   <div class="tab on" data-tab="dashboard"><i class="fas fa-chart-bar"></i> \uB300\uC2DC\uBCF4\uB4DC</div>
+  <div class="tab" data-tab="analytics"><i class="fas fa-chart-line"></i> \uBC29\uBB38\uC790 \uBD84\uC11D</div>
   <div class="tab" data-tab="bookings"><i class="fas fa-calendar-check"></i> \uC608\uC57D\uAD00\uB9AC <span style="font-size:9px;background:rgba(251,191,36,.2);color:#fbbf24;border-radius:10px;padding:1px 5px;vertical-align:middle">\uC900\uBE44\uC911</span></div>
   <div class="tab" data-tab="shops"><i class="fas fa-store"></i> \uC5C5\uCCB4 \xB7 \uC601\uC0C1</div>
   <div class="tab" data-tab="blog"><i class="fas fa-blog"></i> \uBE14\uB85C\uADF8</div>
@@ -7811,6 +7916,98 @@ textarea{height:80px;resize:none}
         <a href="/best/clinic/gangnam" target="_blank" class="btn-sm btn-blue" style="font-size:10px">\u{1F3E5} Clinic Gangnam</a>
         <a href="/best/spa/itaewon" target="_blank" class="btn-sm btn-blue" style="font-size:10px">\u{1F6C1} Spa Itaewon</a>
         <a href="/best/makeup/myeongdong" target="_blank" class="btn-sm btn-blue" style="font-size:10px">\u{1F48B} Makeup Myeongdong</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- \uBC29\uBB38\uC790 \uBD84\uC11D (GA4) -->
+<div class="tab-content" id="tab-analytics">
+  <!-- \uAE30\uAC04 \uC120\uD0DD -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+    <div style="font-size:15px;font-weight:900;color:#fff"><i class="fas fa-chart-line" style="color:#FF4D8D;margin-right:6px"></i> \uBC29\uBB38\uC790 \uBD84\uC11D</div>
+    <div style="display:flex;gap:6px">
+      <button onclick="loadAnalytics(7)" id="an-btn-7" class="btn-sm btn-pk" style="font-size:11px;padding:6px 12px">7\uC77C</button>
+      <button onclick="loadAnalytics(28)" id="an-btn-28" class="btn-sm" style="font-size:11px;padding:6px 12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.6)">28\uC77C</button>
+      <button onclick="loadAnalytics(90)" id="an-btn-90" class="btn-sm" style="font-size:11px;padding:6px 12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.6)">90\uC77C</button>
+    </div>
+  </div>
+
+  <!-- \uD575\uC2EC \uC9C0\uD45C 4\uAC1C -->
+  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px" id="an-kpi-grid">
+    <div class="stat-card" style="background:linear-gradient(135deg,rgba(255,77,141,.12),rgba(155,89,182,.12));border-color:rgba(255,77,141,.25)">
+      <div style="font-size:11px;color:rgba(255,255,255,.45);font-weight:700;margin-bottom:4px"><i class="fas fa-users" style="color:#FF4D8D;margin-right:4px"></i> \uCD1D \uBC29\uBB38\uC790</div>
+      <div style="font-size:32px;font-weight:900;color:#fff" id="an-users">-</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.35)" id="an-users-sub"></div>
+    </div>
+    <div class="stat-card" style="background:linear-gradient(135deg,rgba(59,130,246,.12),rgba(99,102,241,.12));border-color:rgba(59,130,246,.25)">
+      <div style="font-size:11px;color:rgba(255,255,255,.45);font-weight:700;margin-bottom:4px"><i class="fas fa-eye" style="color:#60a5fa;margin-right:4px"></i> \uD398\uC774\uC9C0\uBDF0</div>
+      <div style="font-size:32px;font-weight:900;color:#60a5fa" id="an-pageviews">-</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.35)" id="an-pv-sub"></div>
+    </div>
+    <div class="stat-card" style="background:linear-gradient(135deg,rgba(16,185,129,.12),rgba(5,150,105,.12));border-color:rgba(16,185,129,.25)">
+      <div style="font-size:11px;color:rgba(255,255,255,.45);font-weight:700;margin-bottom:4px"><i class="fas fa-user-check" style="color:#34d399;margin-right:4px"></i> \uC2E0\uADDC \uBC29\uBB38\uC790</div>
+      <div style="font-size:32px;font-weight:900;color:#34d399" id="an-new-users">-</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.35)" id="an-new-sub"></div>
+    </div>
+    <div class="stat-card" style="background:linear-gradient(135deg,rgba(245,158,11,.12),rgba(234,88,12,.12));border-color:rgba(245,158,11,.25)">
+      <div style="font-size:11px;color:rgba(255,255,255,.45);font-weight:700;margin-bottom:4px"><i class="fas fa-clock" style="color:#fbbf24;margin-right:4px"></i> \uD3C9\uADE0 \uCCB4\uB958\uC2DC\uAC04</div>
+      <div style="font-size:32px;font-weight:900;color:#fbbf24" id="an-duration">-</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.35)" id="an-dur-sub"></div>
+    </div>
+  </div>
+
+  <!-- \uC77C\uBCC4 \uBC29\uBB38\uC790 \uCC28\uD2B8 -->
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-header" style="margin-bottom:12px">
+      <div class="card-title"><i class="fas fa-chart-area" style="color:#a78bfa"></i> \uC77C\uBCC4 \uBC29\uBB38\uC790 \uCD94\uC774</div>
+    </div>
+    <canvas id="an-daily-chart" height="140"></canvas>
+  </div>
+
+  <!-- \uAD6D\uAC00 + \uC720\uC785\uACBD\uB85C -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+    <!-- \uAD6D\uAC00\uBCC4 -->
+    <div class="card" style="margin-bottom:0">
+      <div class="card-header" style="margin-bottom:10px">
+        <div class="card-title" style="font-size:12px"><i class="fas fa-globe" style="color:#38bdf8"></i> \uAD6D\uAC00\uBCC4 \uBC29\uBB38\uC790</div>
+      </div>
+      <div id="an-countries" style="display:flex;flex-direction:column;gap:6px"></div>
+    </div>
+    <!-- \uC720\uC785 \uACBD\uB85C -->
+    <div class="card" style="margin-bottom:0">
+      <div class="card-header" style="margin-bottom:10px">
+        <div class="card-title" style="font-size:12px"><i class="fas fa-share-alt" style="color:#f472b6"></i> \uC720\uC785 \uACBD\uB85C</div>
+      </div>
+      <canvas id="an-source-chart" height="160"></canvas>
+    </div>
+  </div>
+
+  <!-- \uC778\uAE30 \uD398\uC774\uC9C0 -->
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-header" style="margin-bottom:10px">
+      <div class="card-title"><i class="fas fa-fire" style="color:#fb923c"></i> \uC778\uAE30 \uD398\uC774\uC9C0 TOP 10</div>
+    </div>
+    <div id="an-pages" style="display:flex;flex-direction:column;gap:4px"></div>
+  </div>
+
+  <!-- \uB514\uBC14\uC774\uC2A4 -->
+  <div class="card">
+    <div class="card-header" style="margin-bottom:10px">
+      <div class="card-title"><i class="fas fa-mobile-alt" style="color:#34d399"></i> \uB514\uBC14\uC774\uC2A4 \uC720\uD615</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px" id="an-devices"></div>
+  </div>
+
+  <!-- GA \uC124\uC815 \uBBF8\uC644\uB8CC \uC548\uB0B4 -->
+  <div id="an-setup-notice" style="display:none;margin-top:16px">
+    <div class="card" style="border:1px solid rgba(251,191,36,.3);background:rgba(251,191,36,.05);text-align:center;padding:30px">
+      <i class="fas fa-exclamation-triangle" style="font-size:32px;color:#fbbf24;margin-bottom:12px;display:block"></i>
+      <div style="font-size:14px;font-weight:700;color:#fbbf24;margin-bottom:8px">GA4 API \uC124\uC815\uC774 \uD544\uC694\uD569\uB2C8\uB2E4</div>
+      <div style="font-size:12px;color:rgba(255,255,255,.5);line-height:1.8">
+        Vercel \uD658\uACBD\uBCC0\uC218\uC5D0 \uC544\uB798 \uD56D\uBAA9\uC744 \uCD94\uAC00\uD574\uC8FC\uC138\uC694:<br>
+        <code style="background:rgba(255,255,255,.08);padding:2px 8px;border-radius:4px;color:#a78bfa">GA4_PROPERTY_ID</code> \u2014 GA4 \uC18D\uC131 ID (\uC608: 123456789)<br>
+        <code style="background:rgba(255,255,255,.08);padding:2px 8px;border-radius:4px;color:#a78bfa">GA4_SERVICE_ACCOUNT_KEY</code> \u2014 \uC11C\uBE44\uC2A4 \uACC4\uC815 JSON
       </div>
     </div>
   </div>
@@ -8286,6 +8483,7 @@ document.querySelectorAll('.tab').forEach(function(t){
     var tabId = t.getAttribute('data-tab');
     document.getElementById('tab-' + tabId).classList.add('on');
     if(tabId === 'blog') loadBlogList();
+    if(tabId === 'analytics') loadAnalytics(7);
   });
 });
 
@@ -8384,6 +8582,193 @@ window.genBlogBatch = async function genBlogBatch(){
     loadBlogList();
   } catch(e){ res.innerHTML='\u274C \uC624\uB958: '+e.message; }
 }
+
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+// \u{1F4CA} GA4 Analytics \uB300\uC2DC\uBCF4\uB4DC
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+var _anDailyChart = null;
+var _anSourceChart = null;
+
+window.loadAnalytics = async function loadAnalytics(days) {
+  days = days || 7;
+  // \uBC84\uD2BC \uD65C\uC131\uD654 \uC0C1\uD0DC \uBCC0\uACBD
+  [7,28,90].forEach(function(d){
+    var btn = document.getElementById('an-btn-'+d);
+    if(!btn) return;
+    if(d === days){
+      btn.style.background = 'linear-gradient(135deg,#FF4D8D,#9B59B6)';
+      btn.style.border = 'none'; btn.style.color = '#fff';
+    } else {
+      btn.style.background = 'rgba(255,255,255,.07)';
+      btn.style.border = '1px solid rgba(255,255,255,.12)';
+      btn.style.color = 'rgba(255,255,255,.6)';
+    }
+  });
+
+  // \uB85C\uB529 \uD45C\uC2DC
+  ['an-users','an-pageviews','an-new-users','an-duration'].forEach(function(id){
+    var el = document.getElementById(id);
+    if(el) el.textContent = '...';
+  });
+
+  try {
+    var res = await fetch('/api/analytics?days=' + days);
+    var data = await res.json();
+
+    if(data.error === 'GA4_NOT_CONFIGURED') {
+      var notice = document.getElementById('an-setup-notice');
+      if(notice) notice.style.display = 'block';
+      return;
+    }
+    if(data.error) throw new Error(data.error);
+
+    var notice2 = document.getElementById('an-setup-notice');
+    if(notice2) notice2.style.display = 'none';
+
+    // \u2500\u2500 \uD575\uC2EC \uC9C0\uD45C \u2500\u2500
+    var ov = data.overview && data.overview.rows && data.overview.rows[0];
+    if(ov) {
+      var vals = ov.metricValues;
+      var users = parseInt(vals[0].value || 0);
+      var pvs   = parseInt(vals[1].value || 0);
+      var newU  = parseInt(vals[2].value || 0);
+      var dur   = parseFloat(vals[3].value || 0);
+      var durMin = Math.floor(dur/60) + 'm ' + Math.floor(dur%60) + 's';
+
+      document.getElementById('an-users').textContent = users.toLocaleString();
+      document.getElementById('an-users-sub').textContent = '\uC120\uD0DD \uAE30\uAC04 \uD569\uACC4';
+      document.getElementById('an-pageviews').textContent = pvs.toLocaleString();
+      document.getElementById('an-pv-sub').textContent = '\uD3C9\uADE0 ' + (users > 0 ? (pvs/users).toFixed(1) : 0) + ' \uD398\uC774\uC9C0/\uC778';
+      document.getElementById('an-new-users').textContent = newU.toLocaleString();
+      document.getElementById('an-new-sub').textContent = users > 0 ? '\uC804\uCCB4\uC758 ' + Math.round(newU/users*100) + '%' : '';
+      document.getElementById('an-duration').textContent = durMin;
+      document.getElementById('an-dur-sub').textContent = '\uD3C9\uADE0 \uC138\uC158 \uC2DC\uAC04';
+    }
+
+    // \u2500\u2500 \uC77C\uBCC4 \uCC28\uD2B8 \u2500\u2500
+    if(data.daily && data.daily.rows) {
+      var labels = data.daily.rows.map(function(r){ 
+        var d2 = r.dimensionValues[0].value;
+        return d2.slice(4,6)+'/'+d2.slice(6,8);
+      });
+      var uData = data.daily.rows.map(function(r){ return parseInt(r.metricValues[0].value||0); });
+      var pvData = data.daily.rows.map(function(r){ return parseInt(r.metricValues[1].value||0); });
+
+      var ctx = document.getElementById('an-daily-chart');
+      if(_anDailyChart) _anDailyChart.destroy();
+      _anDailyChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            { label: '\uBC29\uBB38\uC790', data: uData, backgroundColor: 'rgba(255,77,141,.7)', borderRadius: 4, order: 2 },
+            { label: '\uD398\uC774\uC9C0\uBDF0', data: pvData, type: 'line', borderColor: '#60a5fa', backgroundColor: 'rgba(96,165,250,.1)', tension: 0.4, fill: true, pointRadius: 3, order: 1 }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: true,
+          plugins: { legend: { labels: { color: 'rgba(255,255,255,.6)', font: { size: 11 } } } },
+          scales: {
+            x: { ticks: { color: 'rgba(255,255,255,.4)', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,.05)' } },
+            y: { ticks: { color: 'rgba(255,255,255,.4)', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,.05)' } }
+          }
+        }
+      });
+    }
+
+    // \u2500\u2500 \uAD6D\uAC00\uBCC4 \u2500\u2500
+    var cntEl = document.getElementById('an-countries');
+    if(cntEl && data.countries && data.countries.rows) {
+      var maxC = parseInt(data.countries.rows[0].metricValues[0].value||1);
+      var flags = {'South Korea':'\u{1F1F0}\u{1F1F7}','United States':'\u{1F1FA}\u{1F1F8}','Japan':'\u{1F1EF}\u{1F1F5}','China':'\u{1F1E8}\u{1F1F3}','United Kingdom':'\u{1F1EC}\u{1F1E7}','Australia':'\u{1F1E6}\u{1F1FA}','Canada':'\u{1F1E8}\u{1F1E6}','Singapore':'\u{1F1F8}\u{1F1EC}','Taiwan':'\u{1F1F9}\u{1F1FC}','Hong Kong':'\u{1F1ED}\u{1F1F0}','France':'\u{1F1EB}\u{1F1F7}','Germany':'\u{1F1E9}\u{1F1EA}','Thailand':'\u{1F1F9}\u{1F1ED}','Vietnam':'\u{1F1FB}\u{1F1F3}','Philippines':'\u{1F1F5}\u{1F1ED}','Indonesia':'\u{1F1EE}\u{1F1E9}','Malaysia':'\u{1F1F2}\u{1F1FE}'};
+      cntEl.innerHTML = data.countries.rows.map(function(r){
+        var cn = r.dimensionValues[0].value;
+        var uv = parseInt(r.metricValues[0].value||0);
+        var pct = Math.round(uv/maxC*100);
+        var flag = flags[cn] || '\u{1F30D}';
+        return '<div style="display:flex;align-items:center;gap:6px;font-size:12px">'
+          + '<span style="min-width:22px">' + flag + '</span>'
+          + '<span style="flex:1;color:rgba(255,255,255,.8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + cn + '</span>'
+          + '<div style="width:80px;height:6px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,#FF4D8D,#9B59B6);border-radius:3px"></div></div>'
+          + '<span style="min-width:28px;text-align:right;color:rgba(255,255,255,.5)">' + uv.toLocaleString() + '</span>'
+          + '</div>';
+      }).join('');
+    }
+
+    // \u2500\u2500 \uC720\uC785 \uACBD\uB85C \uB3C4\uB11B \u2500\u2500
+    if(data.sources && data.sources.rows) {
+      var srcLabels = data.sources.rows.map(function(r){ return r.dimensionValues[0].value; });
+      var srcData = data.sources.rows.map(function(r){ return parseInt(r.metricValues[0].value||0); });
+      var ctx2 = document.getElementById('an-source-chart');
+      if(_anSourceChart) _anSourceChart.destroy();
+      _anSourceChart = new Chart(ctx2, {
+        type: 'doughnut',
+        data: {
+          labels: srcLabels,
+          datasets: [{ data: srcData, backgroundColor: ['#FF4D8D','#60a5fa','#34d399','#fbbf24','#a78bfa','#fb923c'], borderWidth: 0 }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: true,
+          plugins: {
+            legend: { position: 'bottom', labels: { color: 'rgba(255,255,255,.6)', font: { size: 10 }, padding: 8 } }
+          }
+        }
+      });
+    }
+
+    // \u2500\u2500 \uC778\uAE30 \uD398\uC774\uC9C0 \u2500\u2500
+    var pgEl = document.getElementById('an-pages');
+    if(pgEl && data.pages && data.pages.rows) {
+      var maxP = parseInt(data.pages.rows[0].metricValues[0].value||1);
+      pgEl.innerHTML = data.pages.rows.map(function(r, i){
+        var path = r.dimensionValues[0].value;
+        var title = r.dimensionValues[1].value || path;
+        var pvs2 = parseInt(r.metricValues[0].value||0);
+        var uvs2 = parseInt(r.metricValues[1].value||0);
+        var pct2 = Math.round(pvs2/maxP*100);
+        var rankColors = ['#fbbf24','#94a3b8','#b45309','#6366f1','#6366f1'];
+        return '<div style="padding:8px 4px;border-bottom:1px solid rgba(255,255,255,.05)">'
+          + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">'
+          + '<span style="font-size:11px;font-weight:900;color:'+(rankColors[i]||'rgba(255,255,255,.3)')+';min-width:16px">'+(i+1)+'</span>'
+          + '<span style="font-size:12px;color:rgba(255,255,255,.85);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (title.length > 40 ? path : title) + '</span>'
+          + '<span style="font-size:11px;color:rgba(255,255,255,.4)">' + pvs2.toLocaleString() + ' \uBDF0</span>'
+          + '</div>'
+          + '<div style="display:flex;align-items:center;gap:6px">'
+          + '<span style="font-size:10px;color:rgba(255,255,255,.3);min-width:16px"></span>'
+          + '<div style="flex:1;height:4px;background:rgba(255,255,255,.06);border-radius:2px"><div style="height:100%;width:'+pct2+'%;background:linear-gradient(90deg,rgba(255,77,141,.6),rgba(155,89,182,.6));border-radius:2px"></div></div>'
+          + '<span style="font-size:10px;color:rgba(255,255,255,.3)">' + uvs2.toLocaleString() + '\uBA85</span>'
+          + '</div>'
+          + '</div>';
+      }).join('');
+    }
+
+    // \u2500\u2500 \uB514\uBC14\uC774\uC2A4 \u2500\u2500
+    var devEl = document.getElementById('an-devices');
+    if(devEl && data.devices && data.devices.rows) {
+      var totalDev = data.devices.rows.reduce(function(s,r){ return s + parseInt(r.metricValues[0].value||0); }, 0);
+      var devIcons = { mobile:'\u{1F4F1}', desktop:'\u{1F4BB}', tablet:'\u{1F4DF}' };
+      var devColors = { mobile:'#FF4D8D', desktop:'#60a5fa', tablet:'#34d399' };
+      devEl.innerHTML = data.devices.rows.map(function(r){
+        var cat = r.dimensionValues[0].value.toLowerCase();
+        var uv = parseInt(r.metricValues[0].value||0);
+        var pct = totalDev > 0 ? Math.round(uv/totalDev*100) : 0;
+        return '<div style="text-align:center;padding:12px;background:rgba(255,255,255,.04);border-radius:10px;border:1px solid rgba(255,255,255,.07)">'
+          + '<div style="font-size:24px;margin-bottom:4px">' + (devIcons[cat]||'\u{1F5A5}') + '</div>'
+          + '<div style="font-size:20px;font-weight:900;color:' + (devColors[cat]||'#fff') + '">' + pct + '%</div>'
+          + '<div style="font-size:10px;color:rgba(255,255,255,.4);text-transform:capitalize">' + cat + '</div>'
+          + '<div style="font-size:11px;color:rgba(255,255,255,.3);margin-top:2px">' + uv.toLocaleString() + '\uBA85</div>'
+          + '</div>';
+      }).join('');
+    }
+
+  } catch(e) {
+    console.error('Analytics load error:', e);
+    ['an-users','an-pageviews','an-new-users','an-duration'].forEach(function(id){
+      var el = document.getElementById(id);
+      if(el) el.textContent = 'ERR';
+    });
+  }
+};
 
 // \u2500\u2500 \uBE14\uB85C\uADF8 \uBAA9\uB85D \uB85C\uB4DC \u2500\u2500
 window.loadBlogList = async function loadBlogList(){
