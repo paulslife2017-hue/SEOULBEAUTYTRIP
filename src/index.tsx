@@ -1569,6 +1569,159 @@ app.get('/api/photo', async (c) => {
 })
 
 // ══════════════════════════════════════════
+// ── 원클릭 업체+영상 동시 등록 API ──
+// POST /api/quick-register
+// body: { gmapUrl, videoUrl, category }
+// → 구글맵 → 업체정보 자동가져오기 + 영상 동시 등록
+// ══════════════════════════════════════════
+app.post('/api/quick-register', async (c) => {
+  try {
+    const sql = getDb(c.env)
+    const { gmapUrl, videoUrl, category } = await c.req.json() as { gmapUrl: string; videoUrl: string; category: string }
+
+    if (!gmapUrl) return c.json({ error: '구글맵 URL을 입력해주세요' }, 400)
+
+    // ── STEP 1: 구글맵 URL → 업체 정보 가져오기 ──
+    // resolve-gmap 로직 재사용: URL 언팩 → Places API 조회
+    let resolvedData: any = null
+    try {
+      // 단축 URL 풀기
+      let fullUrl = gmapUrl
+      if (gmapUrl.includes('maps.app.goo.gl') || gmapUrl.includes('goo.gl/maps')) {
+        try {
+          const r = await fetch(gmapUrl, { redirect: 'follow' })
+          fullUrl = r.url
+        } catch { fullUrl = gmapUrl }
+      }
+
+      // Place ID 또는 좌표 추출
+      const pidMatch = fullUrl.match(/place\/[^/]+\/([^/?]+)/) || fullUrl.match(/!1s([^!]+)!/)
+      const coordMatch = fullUrl.match(/@([-\d.]+),([-\d.]+)/)
+
+      let placeData: any = null
+      const googleKey = getGoogleKey(c.env)
+
+      if (pidMatch && googleKey) {
+        const pid = pidMatch[1].startsWith('0x') ? pidMatch[1] : pidMatch[1]
+        const fm = 'id,displayName,formattedAddress,regularOpeningHours,rating,userRatingCount,reviews,photos,location,editorialSummary,primaryType'
+        const r2 = await fetch(`https://places.googleapis.com/v1/places/${pid}?languageCode=en`, {
+          headers: { 'X-Goog-Api-Key': googleKey, 'X-Goog-FieldMask': fm }
+        })
+        if (r2.ok) placeData = await r2.json()
+      }
+
+      if (!placeData && coordMatch && googleKey) {
+        const [, lat, lng] = coordMatch
+        const nameMatch = fullUrl.match(/place\/([^/@]+)/)
+        const textQuery = nameMatch ? decodeURIComponent(nameMatch[1].replace(/\+/g,' ')) : `beauty salon near ${lat},${lng}`
+        const r3 = await fetch('https://places.googleapis.com/v1/places:searchText', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': googleKey, 'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.regularOpeningHours,places.rating,places.userRatingCount,places.reviews,places.photos,places.location,places.editorialSummary' },
+          body: JSON.stringify({ textQuery, languageCode: 'en' })
+        })
+        if (r3.ok) { const d3: any = await r3.json(); placeData = d3.places?.[0] }
+      }
+
+      if (placeData) {
+        const addr = placeData.formattedAddress || ''
+        // 지역 추출
+        const areaMap: [string,string][] = [
+          ['gangnam','Gangnam, Seoul'],['apgujeong','Apgujeong, Seoul'],['cheongdam','Cheongdam, Seoul'],
+          ['sinsa','Sinsa, Seoul'],['seocho','Seocho, Seoul'],['hongdae','Hongdae, Seoul'],
+          ['itaewon','Itaewon, Seoul'],['myeongdong','Myeongdong, Seoul'],['jongno','Jongno, Seoul'],
+          ['sinchon','Sinchon, Seoul'],['hapjeong','Hapjeong, Seoul'],['mapo','Mapo, Seoul'],
+          ['yongsan','Yongsan, Seoul'],['hannam','Itaewon, Seoul'],['insadong','Insadong, Seoul'],
+          ['dongdaemun','Dongdaemun, Seoul'],['seongsu','Seongsu, Seoul'],['jamsil','Jamsil, Seoul'],
+          ['강남','Gangnam, Seoul'],['홍대','Hongdae, Seoul'],['이태원','Itaewon, Seoul'],
+          ['명동','Myeongdong, Seoul'],['신촌','Sinchon, Seoul'],['종로','Jongno, Seoul'],
+        ]
+        const addrLow = addr.toLowerCase()
+        let location = ''
+        for (const [kw, val] of areaMap) { if (addrLow.includes(kw.toLowerCase())) { location = val; break } }
+        if (!location) location = 'Seoul'
+
+        // 영업시간
+        let hours = ''
+        if (placeData.regularOpeningHours?.weekdayDescriptions) {
+          hours = placeData.regularOpeningHours.weekdayDescriptions.join(' | ')
+        }
+
+        // 사진 첫번째
+        let thumbnail = ''
+        if (placeData.photos?.length && googleKey) {
+          thumbnail = `/api/photo?name=${encodeURIComponent(placeData.photos[0].name + '/media')}`
+        }
+
+        resolvedData = {
+          name: placeData.displayName?.text || '',
+          address: addr,
+          location,
+          hours,
+          rating: placeData.rating || 5.0,
+          reviewCount: placeData.userRatingCount || 0,
+          thumbnail,
+          placeId: placeData.id || '',
+          lat: String(placeData.location?.latitude || ''),
+          lng: String(placeData.location?.longitude || ''),
+        }
+      }
+    } catch(e) { /* 구글 API 실패해도 계속 진행 */ }
+
+    if (!resolvedData) return c.json({ error: '구글맵에서 업체 정보를 가져오지 못했습니다. URL을 확인해주세요.' }, 400)
+
+    // ── STEP 2: slug 생성 ──
+    const makeSlug = (name: string, loc: string) => {
+      const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+      const area = (loc.split(',')[0] || '').trim()
+      let base = `${clean(name)}-${clean(area)}`
+      return base.slice(0, 60)
+    }
+    let slug = makeSlug(resolvedData.name, resolvedData.location)
+    // 중복 체크
+    const existing = await sql`SELECT id FROM shops WHERE slug = ${slug}`
+    if (existing.length > 0) slug = slug + '-' + Date.now().toString().slice(-4)
+
+    // ── STEP 3: DB에 업체 저장 ──
+    const shopId = 's' + Date.now()
+    await sql`
+      INSERT INTO shops (id, name, slug, category, location, address, hours, rating, review_count, thumbnail, google_place_id, lat, lng, active, created_at)
+      VALUES (
+        ${shopId}, ${resolvedData.name}, ${slug}, ${category || 'skincare'},
+        ${resolvedData.location}, ${resolvedData.address}, ${resolvedData.hours},
+        ${resolvedData.rating}, ${resolvedData.reviewCount}, ${resolvedData.thumbnail},
+        ${resolvedData.placeId}, ${resolvedData.lat}, ${resolvedData.lng},
+        true, NOW()
+      )
+    `
+
+    // ── STEP 4: 영상 URL이 있으면 같이 등록 ──
+    let videoId = null
+    if (videoUrl && videoUrl.trim()) {
+      videoId = 'v' + Date.now()
+      const thumb = videoUrl.includes('cloudinary.com')
+        ? videoUrl.replace('/video/upload/', '/video/upload/so_0,w_600,h_1066,c_fill,q_auto/').replace(/\.mp4$/, '.jpg')
+        : ''
+      await sql`
+        INSERT INTO videos (id, shop_id, title, video_url, thumbnail, views, created_at)
+        VALUES (${videoId}, ${shopId}, ${resolvedData.name}, ${videoUrl.trim()}, ${thumb}, 0, NOW())
+      `
+    }
+
+    return c.json({
+      success: true,
+      shopId,
+      shopName: resolvedData.name,
+      slug,
+      location: resolvedData.location,
+      videoId,
+      url: `/shop/${slug}`
+    })
+  } catch(e: any) {
+    return c.json({ error: e.message || '등록 중 오류가 발생했습니다' }, 500)
+  }
+})
+
+// ══════════════════════════════════════════
 // ── 일괄 SEO 재생성 API ──
 // POST /api/admin/fix-slugs
 // → 모든 업체 slug를 name+location 기반으로 재생성 (숫자 suffix → 지역명 suffix)
@@ -6138,10 +6291,67 @@ textarea{height:80px;resize:none}
 <!-- 업체·영상 통합관리 -->
 <div class="tab-content" id="tab-shops">
 
-  <!-- ① 업체 등록 폼 -->
-  <div class="card" style="margin-bottom:16px">
+  <!-- ⚡ 원클릭 빠른 등록 -->
+  <div class="card" style="margin-bottom:16px;border:2px solid rgba(255,77,141,.4);background:linear-gradient(135deg,rgba(255,77,141,.08),rgba(155,89,182,.06))">
+    <div class="card-header" style="margin-bottom:14px">
+      <div class="card-title" style="font-size:15px"><i class="fas fa-bolt" style="color:#fbbf24"></i> 빠른 등록 <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,.4)">— 구글맵 URL + 영상 URL만 넣으면 끝!</span></div>
+    </div>
+
+    <!-- 카테고리 -->
+    <div style="margin-bottom:10px">
+      <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:5px">카테고리 *</label>
+      <div style="display:flex;flex-wrap:wrap;gap:6px" id="qr-cat-btns">
+        <button onclick="qrSetCat('headspa')" class="qr-cat-btn" data-cat="headspa" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,77,141,.4);background:rgba(255,77,141,.15);color:#FF4D8D;font-size:12px;font-weight:700;cursor:pointer">🧖 헤드스파</button>
+        <button onclick="qrSetCat('skincare')" class="qr-cat-btn" data-cat="skincare" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">✨ 스킨케어</button>
+        <button onclick="qrSetCat('hair')" class="qr-cat-btn" data-cat="hair" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">💇 헤어</button>
+        <button onclick="qrSetCat('nail')" class="qr-cat-btn" data-cat="nail" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">💅 네일</button>
+        <button onclick="qrSetCat('clinic')" class="qr-cat-btn" data-cat="clinic" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">🏥 클리닉</button>
+        <button onclick="qrSetCat('makeup')" class="qr-cat-btn" data-cat="makeup" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">💄 메이크업</button>
+        <button onclick="qrSetCat('spa')" class="qr-cat-btn" data-cat="spa" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">🛁 스파</button>
+      </div>
+      <input type="hidden" id="qr-category" value="headspa">
+    </div>
+
+    <!-- 구글맵 URL -->
+    <div style="margin-bottom:10px">
+      <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:5px"><i class="fab fa-google" style="color:#4285F4"></i> 구글맵 URL * <span style="color:rgba(255,255,255,.3)">(maps.app.goo.gl 또는 google.com/maps)</span></label>
+      <input id="qr-gmap" placeholder="https://maps.app.goo.gl/..." style="width:100%;font-size:13px;border-color:rgba(66,133,244,.4)">
+    </div>
+
+    <!-- 영상 URL -->
+    <div style="margin-bottom:14px">
+      <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:5px"><i class="fas fa-video" style="color:#FF4D8D"></i> 영상 URL <span style="color:rgba(255,255,255,.3)">(Cloudinary URL · 선택)</span></label>
+      <input id="qr-video" placeholder="https://res.cloudinary.com/.../video/upload/..." style="width:100%;font-size:13px;border-color:rgba(255,77,141,.25)">
+    </div>
+
+    <!-- 등록 버튼 -->
+    <button onclick="quickRegister()" id="qr-btn" style="width:100%;padding:15px;background:linear-gradient(135deg,#FF4D8D,#9B59B6);border:none;border-radius:14px;color:#fff;font-size:15px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity .2s">
+      <i class="fas fa-bolt"></i> 업체 + 영상 자동 등록
+    </button>
+
+    <!-- 상태 표시 -->
+    <div id="qr-status" style="margin-top:10px;min-height:20px;font-size:13px;text-align:center"></div>
+
+    <!-- 등록 성공 결과 -->
+    <div id="qr-result" style="display:none;margin-top:12px;padding:14px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);border-radius:12px">
+      <div style="font-size:13px;font-weight:800;color:#34d399;margin-bottom:6px"><i class="fas fa-check-circle"></i> 등록 완료!</div>
+      <div id="qr-result-detail" style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.8"></div>
+      <a id="qr-result-link" href="#" target="_blank" style="display:inline-flex;align-items:center;gap:5px;margin-top:8px;padding:7px 14px;background:rgba(52,211,153,.15);border:1px solid rgba(52,211,153,.3);border-radius:8px;color:#34d399;font-size:12px;font-weight:700;text-decoration:none">
+        <i class="fas fa-external-link-alt"></i> 등록된 페이지 보기
+      </a>
+    </div>
+  </div>
+
+  <!-- ① 업체 등록 폼 (상세) -->
+  <details style="margin-bottom:16px">
+    <summary style="cursor:pointer;padding:14px 16px;background:var(--cd);border-radius:14px;border:1px solid rgba(255,255,255,.07);font-size:13px;font-weight:700;color:rgba(255,255,255,.6);list-style:none;display:flex;align-items:center;gap:8px">
+      <i class="fas fa-sliders-h" style="color:rgba(255,255,255,.4)"></i> 상세 등록 폼 (선택사항 직접 입력)
+      <i class="fas fa-chevron-down" style="margin-left:auto;font-size:10px;color:rgba(255,255,255,.3)"></i>
+    </summary>
+  <div style="padding-top:12px">
+  <div class="card" style="margin-bottom:0">
     <div class="card-header">
-      <div class="card-title"><i class="fas fa-store" style="color:#FF4D8D"></i> 업체 등록</div>
+      <div class="card-title"><i class="fas fa-store" style="color:#FF4D8D"></i> 업체 등록 (상세)</div>
     </div>
 
     <!-- STEP 1: 구글 자동가져오기 (최우선) -->
@@ -6248,6 +6458,8 @@ textarea{height:80px;resize:none}
 
     <button class="btn-pk" style="margin-top:16px;width:100%;padding:14px;font-size:15px" id="sh-submit-btn"><i class="fas fa-check"></i> 업체 등록 완료</button>
   </div>
+  </div>
+  </details>
 
   <!-- ② 영상 AI description 일괄 생성 -->
   <div class="card" style="margin-bottom:16px;border:1px solid rgba(99,102,241,.3)">
@@ -6875,6 +7087,84 @@ window.loadAnalytics = async function loadAnalytics(days) {
       var el = document.getElementById(id);
       if(el) el.textContent = 'ERR';
     });
+  }
+};
+
+// ══════════════════════════════════════════════
+// ⚡ 원클릭 빠른 등록
+// ══════════════════════════════════════════════
+var _qrCat = 'headspa';
+window.qrSetCat = function(cat) {
+  _qrCat = cat;
+  document.getElementById('qr-category').value = cat;
+  document.querySelectorAll('.qr-cat-btn').forEach(function(btn) {
+    var bc = btn.getAttribute('data-cat');
+    if (bc === cat) {
+      btn.style.borderColor = 'rgba(255,77,141,.6)';
+      btn.style.background = 'rgba(255,77,141,.25)';
+      btn.style.color = '#FF4D8D';
+    } else {
+      btn.style.borderColor = 'rgba(255,255,255,.15)';
+      btn.style.background = 'rgba(255,255,255,.05)';
+      btn.style.color = 'rgba(255,255,255,.6)';
+    }
+  });
+};
+
+window.quickRegister = async function quickRegister() {
+  var gmapUrl = (document.getElementById('qr-gmap').value || '').trim();
+  var videoUrl = (document.getElementById('qr-video').value || '').trim();
+  var category = document.getElementById('qr-category').value || 'headspa';
+  var btn = document.getElementById('qr-btn');
+  var status = document.getElementById('qr-status');
+  var result = document.getElementById('qr-result');
+
+  if (!gmapUrl) {
+    status.innerHTML = '<span style="color:#f87171"><i class="fas fa-exclamation-circle"></i> 구글맵 URL을 입력해주세요</span>';
+    return;
+  }
+
+  // 버튼 로딩
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 구글에서 정보 가져오는 중...';
+  status.innerHTML = '<span style="color:#fbbf24"><i class="fas fa-circle-notch fa-spin"></i> 업체 정보 자동 수집 중... (10~20초 소요)</span>';
+  result.style.display = 'none';
+
+  try {
+    var res = await fetch('/api/quick-register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gmapUrl, videoUrl, category })
+    });
+    var data = await res.json();
+
+    if (!res.ok || data.error) {
+      throw new Error(data.error || '등록 실패');
+    }
+
+    // 성공!
+    btn.innerHTML = '<i class="fas fa-bolt"></i> 업체 + 영상 자동 등록';
+    btn.disabled = false;
+    status.innerHTML = '';
+
+    document.getElementById('qr-result-detail').innerHTML =
+      '<b style="color:#fff">' + data.shopName + '</b> 등록 완료<br>' +
+      '📍 ' + data.location + ' · ' + category + '<br>' +
+      (data.videoId ? '🎬 영상도 함께 등록됨' : '📝 영상 없이 등록됨');
+    document.getElementById('qr-result-link').href = data.url;
+    result.style.display = 'block';
+
+    // 입력 초기화
+    document.getElementById('qr-gmap').value = '';
+    document.getElementById('qr-video').value = '';
+
+    // 업체 목록 새로고침
+    if (typeof loadShopList === 'function') loadShopList();
+
+  } catch(e) {
+    btn.innerHTML = '<i class="fas fa-bolt"></i> 업체 + 영상 자동 등록';
+    btn.disabled = false;
+    status.innerHTML = '<span style="color:#f87171"><i class="fas fa-exclamation-circle"></i> ' + (e.message || '오류 발생') + '</span>';
   }
 };
 

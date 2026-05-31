@@ -3569,6 +3569,151 @@ app.get("/api/photo", async (c2) => {
     return c2.text("proxy error: " + e.message, 500);
   }
 });
+app.post("/api/quick-register", async (c2) => {
+  try {
+    const sql = getDb(c2.env);
+    const { gmapUrl, videoUrl, category } = await c2.req.json();
+    if (!gmapUrl) return c2.json({ error: "\uAD6C\uAE00\uB9F5 URL\uC744 \uC785\uB825\uD574\uC8FC\uC138\uC694" }, 400);
+    let resolvedData = null;
+    try {
+      let fullUrl = gmapUrl;
+      if (gmapUrl.includes("maps.app.goo.gl") || gmapUrl.includes("goo.gl/maps")) {
+        try {
+          const r = await fetch(gmapUrl, { redirect: "follow" });
+          fullUrl = r.url;
+        } catch {
+          fullUrl = gmapUrl;
+        }
+      }
+      const pidMatch = fullUrl.match(/place\/[^/]+\/([^/?]+)/) || fullUrl.match(/!1s([^!]+)!/);
+      const coordMatch = fullUrl.match(/@([-\d.]+),([-\d.]+)/);
+      let placeData = null;
+      const googleKey = getGoogleKey(c2.env);
+      if (pidMatch && googleKey) {
+        const pid = pidMatch[1].startsWith("0x") ? pidMatch[1] : pidMatch[1];
+        const fm = "id,displayName,formattedAddress,regularOpeningHours,rating,userRatingCount,reviews,photos,location,editorialSummary,primaryType";
+        const r2 = await fetch(`https://places.googleapis.com/v1/places/${pid}?languageCode=en`, {
+          headers: { "X-Goog-Api-Key": googleKey, "X-Goog-FieldMask": fm }
+        });
+        if (r2.ok) placeData = await r2.json();
+      }
+      if (!placeData && coordMatch && googleKey) {
+        const [, lat, lng] = coordMatch;
+        const nameMatch = fullUrl.match(/place\/([^/@]+)/);
+        const textQuery = nameMatch ? decodeURIComponent(nameMatch[1].replace(/\+/g, " ")) : `beauty salon near ${lat},${lng}`;
+        const r3 = await fetch("https://places.googleapis.com/v1/places:searchText", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Goog-Api-Key": googleKey, "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.regularOpeningHours,places.rating,places.userRatingCount,places.reviews,places.photos,places.location,places.editorialSummary" },
+          body: JSON.stringify({ textQuery, languageCode: "en" })
+        });
+        if (r3.ok) {
+          const d3 = await r3.json();
+          placeData = d3.places?.[0];
+        }
+      }
+      if (placeData) {
+        const addr = placeData.formattedAddress || "";
+        const areaMap = [
+          ["gangnam", "Gangnam, Seoul"],
+          ["apgujeong", "Apgujeong, Seoul"],
+          ["cheongdam", "Cheongdam, Seoul"],
+          ["sinsa", "Sinsa, Seoul"],
+          ["seocho", "Seocho, Seoul"],
+          ["hongdae", "Hongdae, Seoul"],
+          ["itaewon", "Itaewon, Seoul"],
+          ["myeongdong", "Myeongdong, Seoul"],
+          ["jongno", "Jongno, Seoul"],
+          ["sinchon", "Sinchon, Seoul"],
+          ["hapjeong", "Hapjeong, Seoul"],
+          ["mapo", "Mapo, Seoul"],
+          ["yongsan", "Yongsan, Seoul"],
+          ["hannam", "Itaewon, Seoul"],
+          ["insadong", "Insadong, Seoul"],
+          ["dongdaemun", "Dongdaemun, Seoul"],
+          ["seongsu", "Seongsu, Seoul"],
+          ["jamsil", "Jamsil, Seoul"],
+          ["\uAC15\uB0A8", "Gangnam, Seoul"],
+          ["\uD64D\uB300", "Hongdae, Seoul"],
+          ["\uC774\uD0DC\uC6D0", "Itaewon, Seoul"],
+          ["\uBA85\uB3D9", "Myeongdong, Seoul"],
+          ["\uC2E0\uCD0C", "Sinchon, Seoul"],
+          ["\uC885\uB85C", "Jongno, Seoul"]
+        ];
+        const addrLow = addr.toLowerCase();
+        let location = "";
+        for (const [kw, val] of areaMap) {
+          if (addrLow.includes(kw.toLowerCase())) {
+            location = val;
+            break;
+          }
+        }
+        if (!location) location = "Seoul";
+        let hours = "";
+        if (placeData.regularOpeningHours?.weekdayDescriptions) {
+          hours = placeData.regularOpeningHours.weekdayDescriptions.join(" | ");
+        }
+        let thumbnail = "";
+        if (placeData.photos?.length && googleKey) {
+          thumbnail = `/api/photo?name=${encodeURIComponent(placeData.photos[0].name + "/media")}`;
+        }
+        resolvedData = {
+          name: placeData.displayName?.text || "",
+          address: addr,
+          location,
+          hours,
+          rating: placeData.rating || 5,
+          reviewCount: placeData.userRatingCount || 0,
+          thumbnail,
+          placeId: placeData.id || "",
+          lat: String(placeData.location?.latitude || ""),
+          lng: String(placeData.location?.longitude || "")
+        };
+      }
+    } catch (e) {
+    }
+    if (!resolvedData) return c2.json({ error: "\uAD6C\uAE00\uB9F5\uC5D0\uC11C \uC5C5\uCCB4 \uC815\uBCF4\uB97C \uAC00\uC838\uC624\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. URL\uC744 \uD655\uC778\uD574\uC8FC\uC138\uC694." }, 400);
+    const makeSlug = (name, loc) => {
+      const clean = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      const area = (loc.split(",")[0] || "").trim();
+      let base = `${clean(name)}-${clean(area)}`;
+      return base.slice(0, 60);
+    };
+    let slug = makeSlug(resolvedData.name, resolvedData.location);
+    const existing = await sql`SELECT id FROM shops WHERE slug = ${slug}`;
+    if (existing.length > 0) slug = slug + "-" + Date.now().toString().slice(-4);
+    const shopId = "s" + Date.now();
+    await sql`
+      INSERT INTO shops (id, name, slug, category, location, address, hours, rating, review_count, thumbnail, google_place_id, lat, lng, active, created_at)
+      VALUES (
+        ${shopId}, ${resolvedData.name}, ${slug}, ${category || "skincare"},
+        ${resolvedData.location}, ${resolvedData.address}, ${resolvedData.hours},
+        ${resolvedData.rating}, ${resolvedData.reviewCount}, ${resolvedData.thumbnail},
+        ${resolvedData.placeId}, ${resolvedData.lat}, ${resolvedData.lng},
+        true, NOW()
+      )
+    `;
+    let videoId = null;
+    if (videoUrl && videoUrl.trim()) {
+      videoId = "v" + Date.now();
+      const thumb = videoUrl.includes("cloudinary.com") ? videoUrl.replace("/video/upload/", "/video/upload/so_0,w_600,h_1066,c_fill,q_auto/").replace(/\.mp4$/, ".jpg") : "";
+      await sql`
+        INSERT INTO videos (id, shop_id, title, video_url, thumbnail, views, created_at)
+        VALUES (${videoId}, ${shopId}, ${resolvedData.name}, ${videoUrl.trim()}, ${thumb}, 0, NOW())
+      `;
+    }
+    return c2.json({
+      success: true,
+      shopId,
+      shopName: resolvedData.name,
+      slug,
+      location: resolvedData.location,
+      videoId,
+      url: `/shop/${slug}`
+    });
+  } catch (e) {
+    return c2.json({ error: e.message || "\uB4F1\uB85D \uC911 \uC624\uB958\uAC00 \uBC1C\uC0DD\uD588\uC2B5\uB2C8\uB2E4" }, 500);
+  }
+});
 app.post("/api/admin/fix-slugs", async (c2) => {
   const sql = getDb(c2.env);
   const rows = await sql`SELECT id, name, location, slug FROM shops ORDER BY created_at ASC`;
@@ -7987,10 +8132,67 @@ textarea{height:80px;resize:none}
 <!-- \uC5C5\uCCB4\xB7\uC601\uC0C1 \uD1B5\uD569\uAD00\uB9AC -->
 <div class="tab-content" id="tab-shops">
 
-  <!-- \u2460 \uC5C5\uCCB4 \uB4F1\uB85D \uD3FC -->
-  <div class="card" style="margin-bottom:16px">
+  <!-- \u26A1 \uC6D0\uD074\uB9AD \uBE60\uB978 \uB4F1\uB85D -->
+  <div class="card" style="margin-bottom:16px;border:2px solid rgba(255,77,141,.4);background:linear-gradient(135deg,rgba(255,77,141,.08),rgba(155,89,182,.06))">
+    <div class="card-header" style="margin-bottom:14px">
+      <div class="card-title" style="font-size:15px"><i class="fas fa-bolt" style="color:#fbbf24"></i> \uBE60\uB978 \uB4F1\uB85D <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,.4)">\u2014 \uAD6C\uAE00\uB9F5 URL + \uC601\uC0C1 URL\uB9CC \uB123\uC73C\uBA74 \uB05D!</span></div>
+    </div>
+
+    <!-- \uCE74\uD14C\uACE0\uB9AC -->
+    <div style="margin-bottom:10px">
+      <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:5px">\uCE74\uD14C\uACE0\uB9AC *</label>
+      <div style="display:flex;flex-wrap:wrap;gap:6px" id="qr-cat-btns">
+        <button onclick="qrSetCat('headspa')" class="qr-cat-btn" data-cat="headspa" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,77,141,.4);background:rgba(255,77,141,.15);color:#FF4D8D;font-size:12px;font-weight:700;cursor:pointer">\u{1F9D6} \uD5E4\uB4DC\uC2A4\uD30C</button>
+        <button onclick="qrSetCat('skincare')" class="qr-cat-btn" data-cat="skincare" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">\u2728 \uC2A4\uD0A8\uCF00\uC5B4</button>
+        <button onclick="qrSetCat('hair')" class="qr-cat-btn" data-cat="hair" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">\u{1F487} \uD5E4\uC5B4</button>
+        <button onclick="qrSetCat('nail')" class="qr-cat-btn" data-cat="nail" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">\u{1F485} \uB124\uC77C</button>
+        <button onclick="qrSetCat('clinic')" class="qr-cat-btn" data-cat="clinic" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">\u{1F3E5} \uD074\uB9AC\uB2C9</button>
+        <button onclick="qrSetCat('makeup')" class="qr-cat-btn" data-cat="makeup" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">\u{1F484} \uBA54\uC774\uD06C\uC5C5</button>
+        <button onclick="qrSetCat('spa')" class="qr-cat-btn" data-cat="spa" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">\u{1F6C1} \uC2A4\uD30C</button>
+      </div>
+      <input type="hidden" id="qr-category" value="headspa">
+    </div>
+
+    <!-- \uAD6C\uAE00\uB9F5 URL -->
+    <div style="margin-bottom:10px">
+      <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:5px"><i class="fab fa-google" style="color:#4285F4"></i> \uAD6C\uAE00\uB9F5 URL * <span style="color:rgba(255,255,255,.3)">(maps.app.goo.gl \uB610\uB294 google.com/maps)</span></label>
+      <input id="qr-gmap" placeholder="https://maps.app.goo.gl/..." style="width:100%;font-size:13px;border-color:rgba(66,133,244,.4)">
+    </div>
+
+    <!-- \uC601\uC0C1 URL -->
+    <div style="margin-bottom:14px">
+      <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:5px"><i class="fas fa-video" style="color:#FF4D8D"></i> \uC601\uC0C1 URL <span style="color:rgba(255,255,255,.3)">(Cloudinary URL \xB7 \uC120\uD0DD)</span></label>
+      <input id="qr-video" placeholder="https://res.cloudinary.com/.../video/upload/..." style="width:100%;font-size:13px;border-color:rgba(255,77,141,.25)">
+    </div>
+
+    <!-- \uB4F1\uB85D \uBC84\uD2BC -->
+    <button onclick="quickRegister()" id="qr-btn" style="width:100%;padding:15px;background:linear-gradient(135deg,#FF4D8D,#9B59B6);border:none;border-radius:14px;color:#fff;font-size:15px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity .2s">
+      <i class="fas fa-bolt"></i> \uC5C5\uCCB4 + \uC601\uC0C1 \uC790\uB3D9 \uB4F1\uB85D
+    </button>
+
+    <!-- \uC0C1\uD0DC \uD45C\uC2DC -->
+    <div id="qr-status" style="margin-top:10px;min-height:20px;font-size:13px;text-align:center"></div>
+
+    <!-- \uB4F1\uB85D \uC131\uACF5 \uACB0\uACFC -->
+    <div id="qr-result" style="display:none;margin-top:12px;padding:14px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);border-radius:12px">
+      <div style="font-size:13px;font-weight:800;color:#34d399;margin-bottom:6px"><i class="fas fa-check-circle"></i> \uB4F1\uB85D \uC644\uB8CC!</div>
+      <div id="qr-result-detail" style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.8"></div>
+      <a id="qr-result-link" href="#" target="_blank" style="display:inline-flex;align-items:center;gap:5px;margin-top:8px;padding:7px 14px;background:rgba(52,211,153,.15);border:1px solid rgba(52,211,153,.3);border-radius:8px;color:#34d399;font-size:12px;font-weight:700;text-decoration:none">
+        <i class="fas fa-external-link-alt"></i> \uB4F1\uB85D\uB41C \uD398\uC774\uC9C0 \uBCF4\uAE30
+      </a>
+    </div>
+  </div>
+
+  <!-- \u2460 \uC5C5\uCCB4 \uB4F1\uB85D \uD3FC (\uC0C1\uC138) -->
+  <details style="margin-bottom:16px">
+    <summary style="cursor:pointer;padding:14px 16px;background:var(--cd);border-radius:14px;border:1px solid rgba(255,255,255,.07);font-size:13px;font-weight:700;color:rgba(255,255,255,.6);list-style:none;display:flex;align-items:center;gap:8px">
+      <i class="fas fa-sliders-h" style="color:rgba(255,255,255,.4)"></i> \uC0C1\uC138 \uB4F1\uB85D \uD3FC (\uC120\uD0DD\uC0AC\uD56D \uC9C1\uC811 \uC785\uB825)
+      <i class="fas fa-chevron-down" style="margin-left:auto;font-size:10px;color:rgba(255,255,255,.3)"></i>
+    </summary>
+  <div style="padding-top:12px">
+  <div class="card" style="margin-bottom:0">
     <div class="card-header">
-      <div class="card-title"><i class="fas fa-store" style="color:#FF4D8D"></i> \uC5C5\uCCB4 \uB4F1\uB85D</div>
+      <div class="card-title"><i class="fas fa-store" style="color:#FF4D8D"></i> \uC5C5\uCCB4 \uB4F1\uB85D (\uC0C1\uC138)</div>
     </div>
 
     <!-- STEP 1: \uAD6C\uAE00 \uC790\uB3D9\uAC00\uC838\uC624\uAE30 (\uCD5C\uC6B0\uC120) -->
@@ -8097,6 +8299,8 @@ textarea{height:80px;resize:none}
 
     <button class="btn-pk" style="margin-top:16px;width:100%;padding:14px;font-size:15px" id="sh-submit-btn"><i class="fas fa-check"></i> \uC5C5\uCCB4 \uB4F1\uB85D \uC644\uB8CC</button>
   </div>
+  </div>
+  </details>
 
   <!-- \u2461 \uC601\uC0C1 AI description \uC77C\uAD04 \uC0DD\uC131 -->
   <div class="card" style="margin-bottom:16px;border:1px solid rgba(99,102,241,.3)">
@@ -8724,6 +8928,84 @@ window.loadAnalytics = async function loadAnalytics(days) {
       var el = document.getElementById(id);
       if(el) el.textContent = 'ERR';
     });
+  }
+};
+
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+// \u26A1 \uC6D0\uD074\uB9AD \uBE60\uB978 \uB4F1\uB85D
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+var _qrCat = 'headspa';
+window.qrSetCat = function(cat) {
+  _qrCat = cat;
+  document.getElementById('qr-category').value = cat;
+  document.querySelectorAll('.qr-cat-btn').forEach(function(btn) {
+    var bc = btn.getAttribute('data-cat');
+    if (bc === cat) {
+      btn.style.borderColor = 'rgba(255,77,141,.6)';
+      btn.style.background = 'rgba(255,77,141,.25)';
+      btn.style.color = '#FF4D8D';
+    } else {
+      btn.style.borderColor = 'rgba(255,255,255,.15)';
+      btn.style.background = 'rgba(255,255,255,.05)';
+      btn.style.color = 'rgba(255,255,255,.6)';
+    }
+  });
+};
+
+window.quickRegister = async function quickRegister() {
+  var gmapUrl = (document.getElementById('qr-gmap').value || '').trim();
+  var videoUrl = (document.getElementById('qr-video').value || '').trim();
+  var category = document.getElementById('qr-category').value || 'headspa';
+  var btn = document.getElementById('qr-btn');
+  var status = document.getElementById('qr-status');
+  var result = document.getElementById('qr-result');
+
+  if (!gmapUrl) {
+    status.innerHTML = '<span style="color:#f87171"><i class="fas fa-exclamation-circle"></i> \uAD6C\uAE00\uB9F5 URL\uC744 \uC785\uB825\uD574\uC8FC\uC138\uC694</span>';
+    return;
+  }
+
+  // \uBC84\uD2BC \uB85C\uB529
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> \uAD6C\uAE00\uC5D0\uC11C \uC815\uBCF4 \uAC00\uC838\uC624\uB294 \uC911...';
+  status.innerHTML = '<span style="color:#fbbf24"><i class="fas fa-circle-notch fa-spin"></i> \uC5C5\uCCB4 \uC815\uBCF4 \uC790\uB3D9 \uC218\uC9D1 \uC911... (10~20\uCD08 \uC18C\uC694)</span>';
+  result.style.display = 'none';
+
+  try {
+    var res = await fetch('/api/quick-register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gmapUrl, videoUrl, category })
+    });
+    var data = await res.json();
+
+    if (!res.ok || data.error) {
+      throw new Error(data.error || '\uB4F1\uB85D \uC2E4\uD328');
+    }
+
+    // \uC131\uACF5!
+    btn.innerHTML = '<i class="fas fa-bolt"></i> \uC5C5\uCCB4 + \uC601\uC0C1 \uC790\uB3D9 \uB4F1\uB85D';
+    btn.disabled = false;
+    status.innerHTML = '';
+
+    document.getElementById('qr-result-detail').innerHTML =
+      '<b style="color:#fff">' + data.shopName + '</b> \uB4F1\uB85D \uC644\uB8CC<br>' +
+      '\u{1F4CD} ' + data.location + ' \xB7 ' + category + '<br>' +
+      (data.videoId ? '\u{1F3AC} \uC601\uC0C1\uB3C4 \uD568\uAED8 \uB4F1\uB85D\uB428' : '\u{1F4DD} \uC601\uC0C1 \uC5C6\uC774 \uB4F1\uB85D\uB428');
+    document.getElementById('qr-result-link').href = data.url;
+    result.style.display = 'block';
+
+    // \uC785\uB825 \uCD08\uAE30\uD654
+    document.getElementById('qr-gmap').value = '';
+    document.getElementById('qr-video').value = '';
+
+    // \uC5C5\uCCB4 \uBAA9\uB85D \uC0C8\uB85C\uACE0\uCE68
+    if (typeof loadShopList === 'function') loadShopList();
+
+  } catch(e) {
+    btn.innerHTML = '<i class="fas fa-bolt"></i> \uC5C5\uCCB4 + \uC601\uC0C1 \uC790\uB3D9 \uB4F1\uB85D';
+    btn.disabled = false;
+    status.innerHTML = '<span style="color:#f87171"><i class="fas fa-exclamation-circle"></i> ' + (e.message || '\uC624\uB958 \uBC1C\uC0DD') + '</span>';
   }
 };
 
