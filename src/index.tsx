@@ -1301,6 +1301,68 @@ Return ONLY valid JSON:
   }
 })
 
+// ── AI 요금표 사진 분석 → servicePrices 추출 ──
+app.post('/api/parse-price-image', async (c) => {
+  try {
+    const body = await c.req.json() as { imageUrl: string }
+    const { imageUrl } = body
+    if (!imageUrl) return c.json({ error: 'imageUrl required' }, 400)
+
+    const OPENAI_KEY = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
+    if (!OPENAI_KEY) return c.json({ error: 'API key not configured' }, 500)
+
+    const prompt = `You are a price menu OCR assistant for Korean beauty salons.
+Look at this price menu image and extract all service names and prices.
+
+Rules:
+- Extract EVERY service item you can see
+- Convert Korean service names to English (e.g. 보톡스→Botox, 필러→Filler, 리프팅→Lifting, 레이저→Laser, 스킨케어→Skincare, 헤어→Hair, 네일→Nail, 페이셜→Facial)
+- For prices: remove commas, keep numbers only (e.g. 80,000원 → 80000)
+- If price shows a range like 80,000~150,000, use the lower value
+- If price is unclear or not visible, use 0
+- Return ONLY valid JSON array, no explanation
+
+Format:
+[{"name":"Service Name","price":80000},{"name":"Service Name 2","price":120000}]`
+
+    const res = await fetch('https://www.genspark.ai/api/llm_proxy/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            { type: 'image_url', image_url: { url: imageUrl, detail: 'high' } }
+          ]
+        }],
+        max_tokens: 2000
+      })
+    })
+
+    if (!res.ok) {
+      const err = await res.text()
+      return c.json({ error: 'AI API error', detail: err }, 500)
+    }
+    const data: any = await res.json()
+    const text = (data.choices?.[0]?.message?.content || '').replace(/```json\n?/g,'').replace(/```\n?/g,'').trim()
+    let items: any[] = []
+    try { items = JSON.parse(text) } catch(e) {
+      // JSON 배열 부분만 추출 시도
+      const match = text.match(/\[[\s\S]*\]/)
+      if (match) items = JSON.parse(match[0])
+    }
+    if (!Array.isArray(items)) return c.json({ error: 'Failed to parse items', raw: text }, 500)
+    return c.json({ items })
+  } catch(e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+})
+
 // ── Google Places API 자동가져오기 (query 또는 placeId 직접) ──
 app.post('/api/places-fetch', async (c) => {
   try {
@@ -6585,9 +6647,23 @@ textarea{height:80px;resize:none}
     </div>
     <!-- 서비스 목록 수정 -->
     <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.07)">
-      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:8px">서비스 목록 (이름 + 가격)</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.5)"><i class="fas fa-list-ul" style="margin-right:5px"></i>서비스 목록 (이름 + 가격)</div>
+        <button type="button" id="edit-price-img-btn"
+          style="display:flex;align-items:center;gap:6px;padding:7px 14px;background:linear-gradient(135deg,#7C3AED,#E8417A);border:none;border-radius:10px;color:#fff;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap">
+          <i class="fas fa-camera"></i> AI 요금표 사진 분석
+        </button>
+        <input type="file" id="edit-price-img-file" accept="image/*" style="display:none">
+      </div>
+      <!-- AI 분석 상태 -->
+      <div id="edit-price-img-status" style="display:none;margin-bottom:10px;padding:10px 14px;background:rgba(124,58,237,.12);border:1px solid rgba(124,58,237,.3);border-radius:10px;font-size:12px;color:#c4b5fd"></div>
+      <!-- 미리보기 + 결과 -->
+      <div id="edit-price-img-preview" style="display:none;margin-bottom:10px;border-radius:12px;overflow:hidden;max-height:200px;border:1px solid rgba(255,255,255,.1);position:relative">
+        <img id="edit-price-img-thumb" style="width:100%;object-fit:contain;max-height:200px;display:block">
+        <div style="position:absolute;inset:0;background:linear-gradient(to bottom,transparent 60%,rgba(0,0,0,.7));pointer-events:none"></div>
+      </div>
       <div id="edit-svc-list"></div>
-      <button type="button" id="edit-svc-add-btn" style="margin-top:6px;background:rgba(255,255,255,.06);border:1px dashed rgba(255,255,255,.2);border-radius:10px;color:rgba(255,255,255,.5);padding:7px 14px;font-size:12px;cursor:pointer;width:100%">+ 서비스 추가</button>
+      <button type="button" id="edit-svc-add-btn" style="margin-top:6px;background:rgba(255,255,255,.06);border:1px dashed rgba(255,255,255,.2);border-radius:10px;color:rgba(255,255,255,.5);padding:7px 14px;font-size:12px;cursor:pointer;width:100%"><i class="fas fa-plus" style="margin-right:4px"></i>서비스 직접 추가</button>
     </div>
     <div style="display:flex;gap:10px;margin-top:16px">
       <button class="btn-pk" style="flex:1;padding:13px;font-size:14px" id="edit-sh-submit-btn"><i class="fas fa-save"></i> 수정 저장</button>
@@ -7791,6 +7867,76 @@ function closeEditShopPanel(){
   document.getElementById('editShopPanel').style.display = 'none';
   editingShopId = null;
 }
+
+/* ── AI 요금표 사진 분석 핸들러 ── */
+(function(){
+  var btn = document.getElementById('edit-price-img-btn');
+  var fileInput = document.getElementById('edit-price-img-file');
+  var statusEl = document.getElementById('edit-price-img-status');
+  var previewWrap = document.getElementById('edit-price-img-preview');
+  var previewImg = document.getElementById('edit-price-img-thumb');
+
+  btn.addEventListener('click', function(){ fileInput.click(); });
+
+  fileInput.addEventListener('change', async function(){
+    var file = fileInput.files[0];
+    if(!file) return;
+    fileInput.value = '';
+
+    // 미리보기
+    var reader = new FileReader();
+    reader.onload = function(e){ previewImg.src = e.target.result; previewWrap.style.display='block'; };
+    reader.readAsDataURL(file);
+
+    // 상태 표시
+    statusEl.style.display = 'block';
+    statusEl.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:6px"></i>이미지 업로드 중...';
+    btn.disabled = true;
+
+    try {
+      // 1) Cloudinary에 이미지 업로드
+      var signRes = await fetch('/api/upload-sign-image');
+      var signData = await signRes.json();
+      var fd = new FormData();
+      fd.append('file', file);
+      fd.append('api_key', signData.apiKey);
+      fd.append('timestamp', signData.timestamp);
+      fd.append('signature', signData.signature);
+      fd.append('folder', signData.folder);
+      var upRes = await fetch('https://api.cloudinary.com/v1_1/dc0ouozcd/image/upload', { method:'POST', body:fd });
+      var upData = await upRes.json();
+      if(!upData.secure_url) throw new Error('업로드 실패: ' + (upData.error?.message||'unknown'));
+
+      statusEl.innerHTML = '<i class="fas fa-brain fa-spin" style="margin-right:6px;color:#a78bfa"></i>AI가 요금표를 분석 중입니다...';
+
+      // 2) AI 분석
+      var parseRes = await fetch('/api/parse-price-image', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ imageUrl: upData.secure_url })
+      });
+      var parseData = await parseRes.json();
+      if(parseData.error) throw new Error(parseData.error);
+
+      var items = parseData.items || [];
+      if(items.length === 0) throw new Error('가격 항목을 찾지 못했습니다. 다른 사진을 시도해보세요.');
+
+      // 3) 기존 목록 초기화 후 결과 삽입
+      document.getElementById('edit-svc-list').innerHTML = '';
+      items.forEach(function(item){
+        addEditSvcRow(item.name, item.price > 0 ? item.price : '');
+      });
+
+      statusEl.innerHTML = '<i class="fas fa-check-circle" style="margin-right:6px;color:#4ade80"></i>'
+        + items.length + '개 항목 인식 완료! 아래에서 확인 후 수정하세요.';
+      setTimeout(function(){ statusEl.style.display='none'; }, 4000);
+
+    } catch(err) {
+      statusEl.innerHTML = '<i class="fas fa-exclamation-triangle" style="margin-right:6px;color:#f87171"></i>' + err.message;
+    }
+    btn.disabled = false;
+  });
+})();
 
 function addEditSvcRow(name, price){
   var list = document.getElementById('edit-svc-list');

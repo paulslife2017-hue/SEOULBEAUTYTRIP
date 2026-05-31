@@ -3331,6 +3331,63 @@ Return ONLY valid JSON:
     return c2.json({ error: e.message }, 500);
   }
 });
+app.post("/api/parse-price-image", async (c2) => {
+  try {
+    const body = await c2.req.json();
+    const { imageUrl } = body;
+    if (!imageUrl) return c2.json({ error: "imageUrl required" }, 400);
+    const OPENAI_KEY = c2.env?.GSK_TOKEN || c2.env?.gsk_token || c2.env?.GENSPARK_TOKEN || c2.env?.genspark_token || "";
+    if (!OPENAI_KEY) return c2.json({ error: "API key not configured" }, 500);
+    const prompt = `You are a price menu OCR assistant for Korean beauty salons.
+Look at this price menu image and extract all service names and prices.
+
+Rules:
+- Extract EVERY service item you can see
+- Convert Korean service names to English (e.g. \uBCF4\uD1A1\uC2A4\u2192Botox, \uD544\uB7EC\u2192Filler, \uB9AC\uD504\uD305\u2192Lifting, \uB808\uC774\uC800\u2192Laser, \uC2A4\uD0A8\uCF00\uC5B4\u2192Skincare, \uD5E4\uC5B4\u2192Hair, \uB124\uC77C\u2192Nail, \uD398\uC774\uC15C\u2192Facial)
+- For prices: remove commas, keep numbers only (e.g. 80,000\uC6D0 \u2192 80000)
+- If price shows a range like 80,000~150,000, use the lower value
+- If price is unclear or not visible, use 0
+- Return ONLY valid JSON array, no explanation
+
+Format:
+[{"name":"Service Name","price":80000},{"name":"Service Name 2","price":120000}]`;
+    const res = await fetch("https://www.genspark.ai/api/llm_proxy/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${OPENAI_KEY}`
+      },
+      body: JSON.stringify({
+        model: "gpt-4o",
+        messages: [{
+          role: "user",
+          content: [
+            { type: "text", text: prompt },
+            { type: "image_url", image_url: { url: imageUrl, detail: "high" } }
+          ]
+        }],
+        max_tokens: 2e3
+      })
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      return c2.json({ error: "AI API error", detail: err }, 500);
+    }
+    const data = await res.json();
+    const text = (data.choices?.[0]?.message?.content || "").replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    let items = [];
+    try {
+      items = JSON.parse(text);
+    } catch (e) {
+      const match2 = text.match(/\[[\s\S]*\]/);
+      if (match2) items = JSON.parse(match2[0]);
+    }
+    if (!Array.isArray(items)) return c2.json({ error: "Failed to parse items", raw: text }, 500);
+    return c2.json({ items });
+  } catch (e) {
+    return c2.json({ error: e.message }, 500);
+  }
+});
 app.post("/api/places-fetch", async (c2) => {
   try {
     const body = await c2.req.json();
@@ -8400,9 +8457,23 @@ textarea{height:80px;resize:none}
     </div>
     <!-- \uC11C\uBE44\uC2A4 \uBAA9\uB85D \uC218\uC815 -->
     <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.07)">
-      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:8px">\uC11C\uBE44\uC2A4 \uBAA9\uB85D (\uC774\uB984 + \uAC00\uACA9)</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.5)"><i class="fas fa-list-ul" style="margin-right:5px"></i>\uC11C\uBE44\uC2A4 \uBAA9\uB85D (\uC774\uB984 + \uAC00\uACA9)</div>
+        <button type="button" id="edit-price-img-btn"
+          style="display:flex;align-items:center;gap:6px;padding:7px 14px;background:linear-gradient(135deg,#7C3AED,#E8417A);border:none;border-radius:10px;color:#fff;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap">
+          <i class="fas fa-camera"></i> AI \uC694\uAE08\uD45C \uC0AC\uC9C4 \uBD84\uC11D
+        </button>
+        <input type="file" id="edit-price-img-file" accept="image/*" style="display:none">
+      </div>
+      <!-- AI \uBD84\uC11D \uC0C1\uD0DC -->
+      <div id="edit-price-img-status" style="display:none;margin-bottom:10px;padding:10px 14px;background:rgba(124,58,237,.12);border:1px solid rgba(124,58,237,.3);border-radius:10px;font-size:12px;color:#c4b5fd"></div>
+      <!-- \uBBF8\uB9AC\uBCF4\uAE30 + \uACB0\uACFC -->
+      <div id="edit-price-img-preview" style="display:none;margin-bottom:10px;border-radius:12px;overflow:hidden;max-height:200px;border:1px solid rgba(255,255,255,.1);position:relative">
+        <img id="edit-price-img-thumb" style="width:100%;object-fit:contain;max-height:200px;display:block">
+        <div style="position:absolute;inset:0;background:linear-gradient(to bottom,transparent 60%,rgba(0,0,0,.7));pointer-events:none"></div>
+      </div>
       <div id="edit-svc-list"></div>
-      <button type="button" id="edit-svc-add-btn" style="margin-top:6px;background:rgba(255,255,255,.06);border:1px dashed rgba(255,255,255,.2);border-radius:10px;color:rgba(255,255,255,.5);padding:7px 14px;font-size:12px;cursor:pointer;width:100%">+ \uC11C\uBE44\uC2A4 \uCD94\uAC00</button>
+      <button type="button" id="edit-svc-add-btn" style="margin-top:6px;background:rgba(255,255,255,.06);border:1px dashed rgba(255,255,255,.2);border-radius:10px;color:rgba(255,255,255,.5);padding:7px 14px;font-size:12px;cursor:pointer;width:100%"><i class="fas fa-plus" style="margin-right:4px"></i>\uC11C\uBE44\uC2A4 \uC9C1\uC811 \uCD94\uAC00</button>
     </div>
     <div style="display:flex;gap:10px;margin-top:16px">
       <button class="btn-pk" style="flex:1;padding:13px;font-size:14px" id="edit-sh-submit-btn"><i class="fas fa-save"></i> \uC218\uC815 \uC800\uC7A5</button>
@@ -9606,6 +9677,76 @@ function closeEditShopPanel(){
   document.getElementById('editShopPanel').style.display = 'none';
   editingShopId = null;
 }
+
+/* \u2500\u2500 AI \uC694\uAE08\uD45C \uC0AC\uC9C4 \uBD84\uC11D \uD578\uB4E4\uB7EC \u2500\u2500 */
+(function(){
+  var btn = document.getElementById('edit-price-img-btn');
+  var fileInput = document.getElementById('edit-price-img-file');
+  var statusEl = document.getElementById('edit-price-img-status');
+  var previewWrap = document.getElementById('edit-price-img-preview');
+  var previewImg = document.getElementById('edit-price-img-thumb');
+
+  btn.addEventListener('click', function(){ fileInput.click(); });
+
+  fileInput.addEventListener('change', async function(){
+    var file = fileInput.files[0];
+    if(!file) return;
+    fileInput.value = '';
+
+    // \uBBF8\uB9AC\uBCF4\uAE30
+    var reader = new FileReader();
+    reader.onload = function(e){ previewImg.src = e.target.result; previewWrap.style.display='block'; };
+    reader.readAsDataURL(file);
+
+    // \uC0C1\uD0DC \uD45C\uC2DC
+    statusEl.style.display = 'block';
+    statusEl.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:6px"></i>\uC774\uBBF8\uC9C0 \uC5C5\uB85C\uB4DC \uC911...';
+    btn.disabled = true;
+
+    try {
+      // 1) Cloudinary\uC5D0 \uC774\uBBF8\uC9C0 \uC5C5\uB85C\uB4DC
+      var signRes = await fetch('/api/upload-sign-image');
+      var signData = await signRes.json();
+      var fd = new FormData();
+      fd.append('file', file);
+      fd.append('api_key', signData.apiKey);
+      fd.append('timestamp', signData.timestamp);
+      fd.append('signature', signData.signature);
+      fd.append('folder', signData.folder);
+      var upRes = await fetch('https://api.cloudinary.com/v1_1/dc0ouozcd/image/upload', { method:'POST', body:fd });
+      var upData = await upRes.json();
+      if(!upData.secure_url) throw new Error('\uC5C5\uB85C\uB4DC \uC2E4\uD328: ' + (upData.error?.message||'unknown'));
+
+      statusEl.innerHTML = '<i class="fas fa-brain fa-spin" style="margin-right:6px;color:#a78bfa"></i>AI\uAC00 \uC694\uAE08\uD45C\uB97C \uBD84\uC11D \uC911\uC785\uB2C8\uB2E4...';
+
+      // 2) AI \uBD84\uC11D
+      var parseRes = await fetch('/api/parse-price-image', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ imageUrl: upData.secure_url })
+      });
+      var parseData = await parseRes.json();
+      if(parseData.error) throw new Error(parseData.error);
+
+      var items = parseData.items || [];
+      if(items.length === 0) throw new Error('\uAC00\uACA9 \uD56D\uBAA9\uC744 \uCC3E\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. \uB2E4\uB978 \uC0AC\uC9C4\uC744 \uC2DC\uB3C4\uD574\uBCF4\uC138\uC694.');
+
+      // 3) \uAE30\uC874 \uBAA9\uB85D \uCD08\uAE30\uD654 \uD6C4 \uACB0\uACFC \uC0BD\uC785
+      document.getElementById('edit-svc-list').innerHTML = '';
+      items.forEach(function(item){
+        addEditSvcRow(item.name, item.price > 0 ? item.price : '');
+      });
+
+      statusEl.innerHTML = '<i class="fas fa-check-circle" style="margin-right:6px;color:#4ade80"></i>'
+        + items.length + '\uAC1C \uD56D\uBAA9 \uC778\uC2DD \uC644\uB8CC! \uC544\uB798\uC5D0\uC11C \uD655\uC778 \uD6C4 \uC218\uC815\uD558\uC138\uC694.';
+      setTimeout(function(){ statusEl.style.display='none'; }, 4000);
+
+    } catch(err) {
+      statusEl.innerHTML = '<i class="fas fa-exclamation-triangle" style="margin-right:6px;color:#f87171"></i>' + err.message;
+    }
+    btn.disabled = false;
+  });
+})();
 
 function addEditSvcRow(name, price){
   var list = document.getElementById('edit-svc-list');
