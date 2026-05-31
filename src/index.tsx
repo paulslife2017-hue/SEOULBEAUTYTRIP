@@ -477,6 +477,22 @@ async function ensureDb() {
 // ── favicon.ico 404 방지 ──
 app.get('/favicon.ico', (c) => c.body(null, 204))
 
+// ── 임시 디버그: 환경변수 확인용 (배포 후 삭제 예정) ──
+app.get('/api/debug-env', (c) => {
+  const googleKey = getGoogleKey(c.env)
+  let dbUrl = ''
+  try { dbUrl = getDb(c.env) ? 'OK' : 'FAIL' } catch(e: any) { dbUrl = 'ERROR: ' + e.message }
+  return c.json({
+    GOOGLE_KEY_SET: !!googleKey,
+    GOOGLE_KEY_PREFIX: googleKey ? googleKey.slice(0, 8) + '...' : 'EMPTY',
+    DB_URL: dbUrl,
+    env_keys: Object.keys(c.env || {}),
+    process_env_keys: typeof process !== 'undefined'
+      ? Object.keys(process.env).filter(k => k.includes('GOOGLE') || k.includes('DATABASE') || k.includes('URL'))
+      : []
+  })
+})
+
 // ── API ──
 app.get('/api/videos', async (c) => {
   await ensureDb()
