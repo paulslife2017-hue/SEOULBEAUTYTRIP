@@ -3653,11 +3653,7 @@ People: `);
 <title>${shop.name} | ${shop.location.split(",")[0].trim()} ${shop.category.charAt(0).toUpperCase() + shop.category.slice(1)} Seoul | Seoul Beauty Trip</title>
 <meta name="description" content="${(shop.metaDescription || shop.description || `${shop.name} is a top-rated ${shop.category} salon in ${shop.location.split(",")[0].trim()}, Seoul. English-friendly service. Book via WhatsApp.`).slice(0, 155)}">
 <meta name="keywords" content="${shop.seoKeywords || [shop.name, shop.name + " Seoul", shop.name + " " + shop.category, shop.name + " booking", shop.name + " review", shop.name + " foreigner", "best " + shop.category + " " + shop.location.split(",")[0].trim() + " Seoul", shop.category + " Seoul foreigners", "English speaking " + shop.category + " Seoul", "Korean " + shop.category + " Seoul", ...shop.services.slice(0, 3)].join(", ")}">
-<meta name="robots" content="${(() => {
-    const loc = (shop.location || "").toLowerCase();
-    const nonSeoul = ["incheon", "busan", "daegu", "daejeon", "gwangju", "ulsan", "suwon"];
-    return nonSeoul.some((c2) => loc.includes(c2)) ? "noindex, follow" : "index, follow";
-  })()}">
+<meta name="robots" content="index, follow">
 <link rel="canonical" href="${canonicalUrl}">
 <!-- Open Graph -->
 <meta property="og:type" content="business.business">
@@ -5099,12 +5095,8 @@ app.get("/sitemap.xml", async (c) => {
   let shopSlugs = [];
   let blogSlugs = [];
   try {
-    const rows = await sql`SELECT slug, location FROM shops WHERE active=true AND slug IS NOT NULL AND slug!=''`;
-    shopSlugs = rows.filter((r) => {
-      const loc = (r.location || "").toLowerCase();
-      const nonSeoul = ["incheon", "busan", "daegu", "daejeon", "gwangju", "ulsan", "suwon"];
-      return !nonSeoul.some((city) => loc.includes(city));
-    }).map((r) => r.slug).filter(Boolean);
+    const rows = await sql`SELECT slug FROM shops WHERE active=true AND slug IS NOT NULL AND slug!=''`;
+    shopSlugs = rows.map((r) => r.slug).filter(Boolean);
   } catch (e) {
   }
   try {
