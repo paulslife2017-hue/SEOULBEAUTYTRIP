@@ -2430,13 +2430,14 @@ ${(()=>{const allP=[shop.thumbnail,...(shop.photos||[]).filter((p:string)=>p&&p!
       : '';
 
     /* ── Map ── */
-    const mapsLink2 = (shop.lat && shop.lng) ? `https://maps.google.com/?q=${shop.lat},${shop.lng}` : (shop.googleMapUrl || '');
-    const embedUrl2 = (shop.lat && shop.lng)
-      ? `https://maps.google.com/maps?q=${shop.lat},${shop.lng}&z=17&output=embed&hl=en`
-      : (shop.googleMapEmbed || '');
-    const mapHtml2 = embedUrl2
-      ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map" style="cursor:pointer" data-map-url="${mapsLink2}" onclick="openMapUrl(this)"><iframe src="${embedUrl2}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" style="pointer-events:none"></iframe></div></div>`
-      : (shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : '');
+    const mapHtml2 = (()=>{
+      if(!shop.lat || !shop.lng) return shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : '';
+      const mlat2=parseFloat(shop.lat), mlng2=parseFloat(shop.lng), z=16;
+      const tx=Math.floor((mlng2+180)/360*Math.pow(2,z)), ty=Math.floor((1-Math.log(Math.tan(mlat2*Math.PI/180)+1/Math.cos(mlat2*Math.PI/180))/Math.PI)/2*Math.pow(2,z));
+      const t1=`https://tile.openstreetmap.org/${z}/${tx}/${ty}.png`, t2=`https://tile.openstreetmap.org/${z}/${tx+1}/${ty}.png`;
+      const gLink=`https://maps.google.com/?q=${mlat2},${mlng2}`;
+      return `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map" style="cursor:pointer;overflow:hidden;position:relative" data-map-url="${gLink}" onclick="openMapUrl(this)"><div style="display:flex;height:100%;filter:saturate(0.8) brightness(0.75)"><img src="${t1}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"><img src="${t2}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"></div><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none"><i class="fas fa-map-marker-alt" style="font-size:32px;color:#e8414a;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6))"></i></div><div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);backdrop-filter:blur(4px);color:#fff;font-size:11px;padding:4px 10px;border-radius:20px;white-space:nowrap;pointer-events:none">${mlat2.toFixed(4)}°N ${mlng2.toFixed(4)}°E</div></div></div>`;
+    })();
 
     return addrHtml2 + infoGridHtml2 + descHtml2 + priceHtml2 + svcHtml2 + hoursHtml2;
   })()}
@@ -2451,13 +2452,14 @@ ${(()=>{const allP=[shop.thumbnail,...(shop.photos||[]).filter((p:string)=>p&&p!
       return `<div class="sp-review-card"><div class="sp-review-top"><span class="sp-review-author">${rv.author||'Guest'}</span><span class="sp-review-stars">${rvStars}</span></div><div class="sp-review-text">${rv.text||''}</div>${rv.time?`<div class="sp-review-time">${rv.time}</div>`:''}</div>`;
     }).join('');
     /* ── Map (리뷰 바로 뒤) ── */
-    const mapsLink3 = (shop.lat && shop.lng) ? `https://maps.google.com/?q=${shop.lat},${shop.lng}` : (shop.googleMapUrl || '');
-    const embedUrl3 = (shop.lat && shop.lng)
-      ? `https://maps.google.com/maps?q=${shop.lat},${shop.lng}&z=17&output=embed&hl=en`
-      : (shop.googleMapEmbed || '');
-    const mapHtml3 = embedUrl3
-      ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map" style="cursor:pointer" data-map-url="${mapsLink3}" onclick="openMapUrl(this)"><iframe src="${embedUrl3}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" style="pointer-events:none"></iframe></div></div>`
-      : (shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : '');
+    const mapHtml3 = (()=>{
+      if(!shop.lat || !shop.lng) return shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : '';
+      const mlat3=parseFloat(shop.lat), mlng3=parseFloat(shop.lng), z=16;
+      const tx=Math.floor((mlng3+180)/360*Math.pow(2,z)), ty=Math.floor((1-Math.log(Math.tan(mlat3*Math.PI/180)+1/Math.cos(mlat3*Math.PI/180))/Math.PI)/2*Math.pow(2,z));
+      const t1=`https://tile.openstreetmap.org/${z}/${tx}/${ty}.png`, t2=`https://tile.openstreetmap.org/${z}/${tx+1}/${ty}.png`;
+      const gLink=`https://maps.google.com/?q=${mlat3},${mlng3}`;
+      return `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map" style="cursor:pointer;overflow:hidden;position:relative" data-map-url="${gLink}" onclick="openMapUrl(this)"><div style="display:flex;height:100%;filter:saturate(0.8) brightness(0.75)"><img src="${t1}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"><img src="${t2}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"></div><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none"><i class="fas fa-map-marker-alt" style="font-size:32px;color:#e8414a;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6))"></i></div><div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);backdrop-filter:blur(4px);color:#fff;font-size:11px;padding:4px 10px;border-radius:20px;white-space:nowrap;pointer-events:none">${mlat3.toFixed(4)}°N ${mlng3.toFixed(4)}°E</div></div></div>`;
+    })();
 
     const reviewsBlock = shopReviews2.length
       ? `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-star" style="color:var(--gold);margin-right:4px"></i>Google Reviews${shop.reviewCount?` <span style="font-size:10px;color:rgba(255,255,255,.35);font-weight:400">(${shop.rating}★ · ${Number(shop.reviewCount).toLocaleString()} reviews)</span>`:''}</div><div class="sp-reviews-wrap">${reviewCards2}</div></div>`
@@ -5154,36 +5156,32 @@ function renderShopModal(shop) {
     svcHtml = '<div class="m-sec"><div class="m-sec-title">Services</div><div class="m-svc-tags">'+svcs+'</div></div>';
   }
 
-  /* ── 구글맵 embed: lat/lng > googleMapEmbed > address 순으로 시도 ── */
-  var embedSrc = '';
-  var mapsLink = ''; // 클릭 시 구글맵 앱/웹으로 열기
+  /* ── 지도: lat/lng 있으면 OSM 타일 이미지, 클릭 시 구글맵 이동 ── */
+  var mapHtml = '';
   if(shop.lat && shop.lng) {
     var mlat = parseFloat(shop.lat), mlng = parseFloat(shop.lng);
-    // q=lat,lng 형식: 업체 매칭 없이 정확한 좌표 핀 표시 (37°31'N 127°01'E)
-    embedSrc = 'https://maps.google.com/maps?q='+mlat+','+mlng+'&z=17&output=embed&hl=en';
-    mapsLink = 'https://maps.google.com/?q='+mlat+','+mlng;
-  } else if(shop.googleMapEmbed) {
-    embedSrc = shop.googleMapEmbed;
-    mapsLink = shop.googleMapUrl || '';
-  } else if(shop.googleMapUrl) {
-    var q2 = '';
-    var qm = shop.googleMapUrl.match(/[?&]q=([^&]+)/);
-    if(qm) { try { q2 = decodeURIComponent(qm[1]); } catch(e3){ q2 = qm[1]; } }
-    else {
-      var latm = shop.googleMapUrl.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
-      if(latm) q2 = latm[1]+','+latm[2];
-    }
-    if(!q2 && shop.address) q2 = shop.address;
-    if(!q2 && shop.name)    q2 = shop.name + ' Seoul';
-    if(q2) { embedSrc = 'https://www.google.com/maps?q='+encodeURIComponent(q2)+'&output=embed&hl=en'; mapsLink = shop.googleMapUrl; }
-  }
-  /* Location: embed iframe (클릭하면 구글맵 앱으로 이동) */
-  var mapHtml = '';
-  if(embedSrc) {
-    var mapOpenUrl = mapsLink || embedSrc;
+    // OSM 타일 지도 이미지 (zoom=17 기준 타일 좌표 계산)
+    var zoom = 16;
+    var tileX = Math.floor((mlng+180)/360*Math.pow(2,zoom));
+    var tileY = Math.floor((1-Math.log(Math.tan(mlat*Math.PI/180)+1/Math.cos(mlat*Math.PI/180))/Math.PI)/2*Math.pow(2,zoom));
+    var osmUrl = 'https://tile.openstreetmap.org/'+zoom+'/'+tileX+'/'+tileY+'.png';
+    var osmUrl2 = 'https://tile.openstreetmap.org/'+zoom+'/'+(tileX+1)+'/'+tileY+'.png'; // 우스 타일
+    var mapsLink = 'https://maps.google.com/?q='+mlat+','+mlng;
     mapHtml = '<div class="m-sec"><div class="m-sec-title">Location</div>'
-      +'<div class="m-map" style="cursor:pointer" data-map-url="'+esc(mapOpenUrl)+'" onclick="openMapUrl(this)">'
-        +'<iframe src="'+embedSrc+'" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" style="width:100%;height:100%;border:0;pointer-events:none"></iframe>'
+      +'<div class="m-map" style="cursor:pointer;overflow:hidden;position:relative" data-map-url="'+esc(mapsLink)+'" onclick="openMapUrl(this)">'
+        // 2열 OSM 타일 나란히 배치 (전체 화면 커버)
+        +'<div style="display:flex;height:100%;filter:saturate(0.8) brightness(0.75)">'
+          +'<img src="'+osmUrl+'" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy">'
+          +'<img src="'+osmUrl2+'" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy">'
+        +'</div>'
+        // 핀 아이콘 중앙
+        +'<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">'
+          +'<i class="fas fa-map-marker-alt" style="font-size:32px;color:#e8414a;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6))"></i>'
+        +'</div>'
+        // 좌표 텍스트 하단
+        +'<div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);backdrop-filter:blur(4px);color:#fff;font-size:11px;padding:4px 10px;border-radius:20px;white-space:nowrap;pointer-events:none">'
+          +mlat.toFixed(4)+'°N  '+mlng.toFixed(4)+'°E'
+        +'</div>'
       +'</div>'
     +'</div>';
   } else if(shop.address || shop.location) {
