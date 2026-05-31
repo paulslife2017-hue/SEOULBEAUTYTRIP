@@ -2079,9 +2079,12 @@ var Hono2 = class extends Hono {
 // src/index.tsx
 var import_serverless = require("@neondatabase/serverless");
 var getDb = (env) => {
-  const url = env.DATABASE_URL;
+  const url = env?.DATABASE_URL || (typeof process !== "undefined" ? process.env.DATABASE_URL : void 0);
   if (!url) throw new Error("DATABASE_URL environment variable is not set");
   return (0, import_serverless.neon)(url);
+};
+var getGoogleKey = (env) => {
+  return env?.GOOGLE_PLACES_KEY || (typeof process !== "undefined" ? process.env.GOOGLE_PLACES_KEY : void 0) || "";
 };
 var app = new Hono2();
 var AI_BOT_PATTERNS = [
@@ -2707,7 +2710,7 @@ app.post("/api/resolve-gmap", async (c2) => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Goog-Api-Key": c2.env.GOOGLE_PLACES_KEY,
+          "X-Goog-Api-Key": getGoogleKey(c2.env),
           "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.addressComponents,places.regularOpeningHours,places.rating,places.userRatingCount,places.reviews,places.photos,places.internationalPhoneNumber,places.websiteUri,places.location,places.editorialSummary,places.primaryType,places.types"
         },
         body: JSON.stringify({ textQuery, languageCode: "en" })
@@ -2719,7 +2722,7 @@ app.post("/api/resolve-gmap", async (c2) => {
     const placeDetailsById = async (pid) => {
       const fieldMask = "id,displayName,formattedAddress,addressComponents,regularOpeningHours,rating,userRatingCount,reviews,photos,internationalPhoneNumber,websiteUri,location,editorialSummary,primaryType,types";
       const r = await fetch(`https://places.googleapis.com/v1/places/${pid}?languageCode=en`, {
-        headers: { "X-Goog-Api-Key": c2.env.GOOGLE_PLACES_KEY, "X-Goog-FieldMask": fieldMask }
+        headers: { "X-Goog-Api-Key": getGoogleKey(c2.env), "X-Goog-FieldMask": fieldMask }
       });
       if (!r.ok) return null;
       return r.json();
@@ -3422,7 +3425,7 @@ app.post("/api/places-fetch", async (c2) => {
     const FIELD_MASK_SEARCH = FIELD_MASK_DETAILS.split(",").map((f) => "places." + f).join(",");
     const fetchPlaceById = async (pid) => {
       const r = await fetch(`https://places.googleapis.com/v1/places/${pid}?languageCode=en`, {
-        headers: { "X-Goog-Api-Key": c2.env.GOOGLE_PLACES_KEY, "X-Goog-FieldMask": FIELD_MASK_DETAILS }
+        headers: { "X-Goog-Api-Key": getGoogleKey(c2.env), "X-Goog-FieldMask": FIELD_MASK_DETAILS }
       });
       if (!r.ok) throw new Error("Place Details error: " + r.status);
       return r.json();
@@ -3445,7 +3448,7 @@ app.post("/api/places-fetch", async (c2) => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Goog-Api-Key": c2.env.GOOGLE_PLACES_KEY,
+          "X-Goog-Api-Key": getGoogleKey(c2.env),
           "X-Goog-FieldMask": FIELD_MASK_SEARCH
         },
         body: JSON.stringify({ textQuery: query, languageCode: "en" })
@@ -3516,7 +3519,7 @@ app.post("/api/places-photos", async (c2) => {
     if (!placeId) return c2.json({ error: "placeId required" }, 400);
     const res = await fetch(`https://places.googleapis.com/v1/places/${placeId}`, {
       headers: {
-        "X-Goog-Api-Key": c2.env.GOOGLE_PLACES_KEY,
+        "X-Goog-Api-Key": getGoogleKey(c2.env),
         "X-Goog-FieldMask": "photos"
       }
     });
@@ -3536,7 +3539,7 @@ app.get("/api/photo", async (c2) => {
   const name = c2.req.query("name") || "";
   if (!name) return c2.text("name required", 400);
   const cleanName = name.replace(/\/media$/, "");
-  const apiUrl = `https://places.googleapis.com/v1/${cleanName}/media?key=${c2.env.GOOGLE_PLACES_KEY}&maxHeightPx=800&maxWidthPx=800&skipHttpRedirect=true`;
+  const apiUrl = `https://places.googleapis.com/v1/${cleanName}/media?key=${getGoogleKey(c2.env)}&maxHeightPx=800&maxWidthPx=800&skipHttpRedirect=true`;
   try {
     const res = await fetch(apiUrl);
     const ct = res.headers.get("content-type") || "";

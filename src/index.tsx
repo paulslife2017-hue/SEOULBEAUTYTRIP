@@ -12,11 +12,16 @@ type Env = {
 
 // API 키/DB URL은 환경변수에서만 읽음 (하드코딩 금지)
 // 로컬: .dev.vars 파일에 설정
-// 프로덕션: wrangler pages secret put DATABASE_URL
-const getDb = (env: Env) => {
-  const url = env.DATABASE_URL
+// Vercel 프로덕션: Vercel 대시보드 Environment Variables에 설정
+// Cloudflare 프로덕션: wrangler pages secret put DATABASE_URL
+const getDb = (env?: Env) => {
+  // Vercel(Node.js) 환경은 process.env, Cloudflare는 c.env 사용
+  const url = env?.DATABASE_URL || (typeof process !== 'undefined' ? process.env.DATABASE_URL : undefined)
   if (!url) throw new Error('DATABASE_URL environment variable is not set')
   return neon(url)
+}
+const getGoogleKey = (env?: Env) => {
+  return env?.GOOGLE_PLACES_KEY || (typeof process !== 'undefined' ? process.env.GOOGLE_PLACES_KEY : undefined) || ''
 }
 
 const app = new Hono<{ Bindings: Env }>()
@@ -607,7 +612,7 @@ app.post('/api/resolve-gmap', async (c) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Goog-Api-Key': c.env.GOOGLE_PLACES_KEY,
+          'X-Goog-Api-Key': getGoogleKey(c.env),
           'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.addressComponents,places.regularOpeningHours,places.rating,places.userRatingCount,places.reviews,places.photos,places.internationalPhoneNumber,places.websiteUri,places.location,places.editorialSummary,places.primaryType,places.types'
         },
         body: JSON.stringify({ textQuery, languageCode: 'en' })
@@ -620,7 +625,7 @@ app.post('/api/resolve-gmap', async (c) => {
     const placeDetailsById = async (pid: string): Promise<any> => {
       const fieldMask = 'id,displayName,formattedAddress,addressComponents,regularOpeningHours,rating,userRatingCount,reviews,photos,internationalPhoneNumber,websiteUri,location,editorialSummary,primaryType,types'
       const r = await fetch(`https://places.googleapis.com/v1/places/${pid}?languageCode=en`, {
-        headers: { 'X-Goog-Api-Key': c.env.GOOGLE_PLACES_KEY, 'X-Goog-FieldMask': fieldMask }
+        headers: { 'X-Goog-Api-Key': getGoogleKey(c.env), 'X-Goog-FieldMask': fieldMask }
       })
       if (!r.ok) return null
       return r.json()
@@ -1373,7 +1378,7 @@ app.post('/api/places-fetch', async (c) => {
     // 장소 단일 조회 (placeId로) — Place Details v1
     const fetchPlaceById = async (pid: string): Promise<any> => {
       const r = await fetch(`https://places.googleapis.com/v1/places/${pid}?languageCode=en`, {
-        headers: { 'X-Goog-Api-Key': c.env.GOOGLE_PLACES_KEY, 'X-Goog-FieldMask': FIELD_MASK_DETAILS }
+        headers: { 'X-Goog-Api-Key': getGoogleKey(c.env), 'X-Goog-FieldMask': FIELD_MASK_DETAILS }
       })
       if (!r.ok) throw new Error('Place Details error: ' + r.status)
       return r.json()
@@ -1402,7 +1407,7 @@ app.post('/api/places-fetch', async (c) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Goog-Api-Key': c.env.GOOGLE_PLACES_KEY,
+          'X-Goog-Api-Key': getGoogleKey(c.env),
           'X-Goog-FieldMask': FIELD_MASK_SEARCH
         },
         body: JSON.stringify({ textQuery: query, languageCode: 'en' })
@@ -1500,7 +1505,7 @@ app.post('/api/places-photos', async (c) => {
 
     const res = await fetch(`https://places.googleapis.com/v1/places/${placeId}`, {
       headers: {
-        'X-Goog-Api-Key': c.env.GOOGLE_PLACES_KEY,
+        'X-Goog-Api-Key': getGoogleKey(c.env),
         'X-Goog-FieldMask': 'photos'
       }
     })
@@ -1526,7 +1531,7 @@ app.get('/api/photo', async (c) => {
   // name에 /media suffix가 포함된 경우 제거 (중복 방지)
   const cleanName = name.replace(/\/media$/, '')
   // 1단계: skipHttpRedirect=true로 photoUri JSON 받기
-  const apiUrl = `https://places.googleapis.com/v1/${cleanName}/media?key=${c.env.GOOGLE_PLACES_KEY}&maxHeightPx=800&maxWidthPx=800&skipHttpRedirect=true`
+  const apiUrl = `https://places.googleapis.com/v1/${cleanName}/media?key=${getGoogleKey(c.env)}&maxHeightPx=800&maxWidthPx=800&skipHttpRedirect=true`
   try {
     const res = await fetch(apiUrl)
     const ct = res.headers.get('content-type') || ''
