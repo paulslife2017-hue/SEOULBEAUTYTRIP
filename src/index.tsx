@@ -1,14 +1,155 @@
 import { Hono } from 'hono'
 import { neon } from '@neondatabase/serverless'
 
-type Env = { GENSPARK_TOKEN: string; GSK_TOKEN: string; gsk_token: string; genspark_token: string }
+type Env = {
+  GENSPARK_TOKEN: string
+  GSK_TOKEN: string
+  gsk_token: string
+  genspark_token: string
+  GOOGLE_PLACES_KEY: string
+  DATABASE_URL: string
+}
 
-const GOOGLE_PLACES_KEY = 'AIzaSyCcM03wGoZrSkmCMOS-Vib-JR1oKNPsSkY'
-
-const DB_URL = 'postgresql://neondb_owner:npg_EH0lzSpsK4Ah@ep-floral-forest-aqvv2mhn-pooler.c-8.us-east-1.aws.neon.tech/neondb?sslmode=require'
-const getDb = () => neon(DB_URL)
+// API 키/DB URL은 환경변수에서만 읽음 (하드코딩 금지)
+// 로컬: .dev.vars 파일에 설정
+// 프로덕션: wrangler pages secret put DATABASE_URL
+const getDb = (env: Env) => {
+  const url = env.DATABASE_URL
+  if (!url) throw new Error('DATABASE_URL environment variable is not set')
+  return neon(url)
+}
 
 const app = new Hono<{ Bindings: Env }>()
+
+// ══════════════════════════════════════════════
+// 🛡️ AI 크롤러 / 스크래퍼 차단 미들웨어
+// ══════════════════════════════════════════════
+
+// 차단할 AI 봇 User-Agent 목록
+const AI_BOT_PATTERNS = [
+  // OpenAI
+  'GPTBot', 'ChatGPT-User', 'OAI-SearchBot',
+  // Google AI
+  'Google-Extended', 'Googlebot-Image',
+  // Meta AI
+  'FacebookBot', 'meta-externalagent',
+  // Anthropic
+  'anthropic-ai', 'ClaudeBot', 'Claude-Web',
+  // Common AI scrapers
+  'CCBot', 'Bytespider', 'SemrushBot',
+  'AhrefsBot', 'MJ12bot', 'DotBot',
+  'DataForSeoBot', 'PetalBot',
+  // Amazon / Apple AI
+  'Amazonbot', 'Applebot-Extended',
+  // AI training crawlers
+  'omgili', 'Diffbot', 'Kangaroo Bot',
+  'ImagesiftBot', 'cohere-ai',
+  'PerplexityBot', 'YouBot',
+]
+
+app.use('*', async (c, next) => {
+  const ua = c.req.header('User-Agent') || ''
+  const isAiBot = AI_BOT_PATTERNS.some(pattern =>
+    ua.toLowerCase().includes(pattern.toLowerCase())
+  )
+  if (isAiBot) {
+    return c.text('Access Denied: AI crawlers are not permitted.', 403)
+  }
+  await next()
+})
+
+// ── robots.txt: AI 봇 모두 차단 ──
+app.get('/robots.txt', (c) => {
+  const robotsTxt = `# robots.txt for SEOUL BEAUTY TRIP
+# AI crawlers and data scrapers are NOT permitted
+
+# Block all AI training crawlers
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ChatGPT-User
+Disallow: /
+
+User-agent: OAI-SearchBot
+Disallow: /
+
+User-agent: Google-Extended
+Disallow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: Claude-Web
+Disallow: /
+
+User-agent: FacebookBot
+Disallow: /
+
+User-agent: meta-externalagent
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: Bytespider
+Disallow: /
+
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: SemrushBot
+Disallow: /
+
+User-agent: MJ12bot
+Disallow: /
+
+User-agent: DotBot
+Disallow: /
+
+User-agent: DataForSeoBot
+Disallow: /
+
+User-agent: PetalBot
+Disallow: /
+
+User-agent: Amazonbot
+Disallow: /
+
+User-agent: Applebot-Extended
+Disallow: /
+
+User-agent: Diffbot
+Disallow: /
+
+User-agent: PerplexityBot
+Disallow: /
+
+User-agent: YouBot
+Disallow: /
+
+User-agent: cohere-ai
+Disallow: /
+
+# Allow normal search engines (Google, Bing, Naver)
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Yeti
+Allow: /
+
+# Default: allow regular users
+User-agent: *
+Disallow: /api/
+Disallow: /admin/
+`
+  return c.text(robotsTxt, 200, { 'Content-Type': 'text/plain; charset=utf-8' })
+})
 
 
 
@@ -247,7 +388,7 @@ const bookings: Booking[] = [
 
 // ── DB 초기화: 샘플 데이터 없으면 삽입 ──
 async function initDb() {
-  const sql = getDb()
+  const sql = getDb(c.env)
   try {
     // 테이블 생성
     await sql`CREATE TABLE IF NOT EXISTS shops (
@@ -334,7 +475,7 @@ app.get('/favicon.ico', (c) => c.body(null, 204))
 // ── API ──
 app.get('/api/videos', async (c) => {
   await ensureDb()
-  const sql = getDb()
+  const sql = getDb(c.env)
   const cat = c.req.query('category')
   const rows = cat && cat !== 'all'
     ? await sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.category=${cat} ORDER BY RANDOM()`
@@ -347,12 +488,12 @@ app.get('/api/videos', async (c) => {
 })
 
 app.get('/api/shops', async (c) => {
-  const sql = getDb()
+  const sql = getDb(c.env)
   const rows = await sql`SELECT * FROM shops ORDER BY created_at DESC`
   return c.json({ shops: rows.map(rowToShop) })
 })
 app.get('/api/shops/:id', async (c) => {
-  const sql = getDb()
+  const sql = getDb(c.env)
   const rows = await sql`SELECT * FROM shops WHERE id=${c.req.param('id')}`
   if (!rows.length) return c.json({ error: 'Not found' }, 404)
   const vidRows = await sql`SELECT * FROM videos WHERE shop_id=${c.req.param('id')} ORDER BY created_at DESC`
@@ -466,7 +607,7 @@ app.post('/api/resolve-gmap', async (c) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Goog-Api-Key': GOOGLE_PLACES_KEY,
+          'X-Goog-Api-Key': c.env.GOOGLE_PLACES_KEY,
           'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.addressComponents,places.regularOpeningHours,places.rating,places.userRatingCount,places.reviews,places.photos,places.internationalPhoneNumber,places.websiteUri,places.location,places.editorialSummary,places.primaryType,places.types'
         },
         body: JSON.stringify({ textQuery, languageCode: 'en' })
@@ -479,7 +620,7 @@ app.post('/api/resolve-gmap', async (c) => {
     const placeDetailsById = async (pid: string): Promise<any> => {
       const fieldMask = 'id,displayName,formattedAddress,addressComponents,regularOpeningHours,rating,userRatingCount,reviews,photos,internationalPhoneNumber,websiteUri,location,editorialSummary,primaryType,types'
       const r = await fetch(`https://places.googleapis.com/v1/places/${pid}?languageCode=en`, {
-        headers: { 'X-Goog-Api-Key': GOOGLE_PLACES_KEY, 'X-Goog-FieldMask': fieldMask }
+        headers: { 'X-Goog-Api-Key': c.env.GOOGLE_PLACES_KEY, 'X-Goog-FieldMask': fieldMask }
       })
       if (!r.ok) return null
       return r.json()
@@ -760,7 +901,7 @@ Return ONLY valid JSON (no extra text):
 
 
 app.post('/api/shops', async (c) => {
-  const sql = getDb()
+  const sql = getDb(c.env)
   const body = await c.req.json()
   const newId = 's' + Date.now()
   const today = new Date().toISOString().split('T')[0]
@@ -797,7 +938,7 @@ app.post('/api/shops', async (c) => {
 })
 
 app.put('/api/shops/:id', async (c) => {
-  const sql = getDb()
+  const sql = getDb(c.env)
   const body = await c.req.json()
 
   // description이 변경됐거나 없으면 AI SEO 재생성
@@ -850,13 +991,13 @@ app.put('/api/shops/:id', async (c) => {
   return c.json({ ok: true, seoGenerated: !body.description || !!body.regenerateSeo })
 })
 app.delete('/api/shops/:id', async (c) => {
-  const sql = getDb()
+  const sql = getDb(c.env)
   await sql`DELETE FROM shops WHERE id=${c.req.param('id')}`
   return c.json({ ok: true })
 })
 
 app.post('/api/videos', async (c) => {
-  const sql = getDb()
+  const sql = getDb(c.env)
   const body = await c.req.json()
   const newId = 'v' + Date.now()
   const today = new Date().toISOString().split('T')[0]
@@ -882,7 +1023,7 @@ app.post('/api/videos', async (c) => {
   return c.json({ ok: true, id: newId, descriptionGenerated: !body.description && !!description })
 })
 app.delete('/api/videos/:id', async (c) => {
-  const sql = getDb()
+  const sql = getDb(c.env)
   await sql`DELETE FROM videos WHERE id=${c.req.param('id')}`
   return c.json({ ok: true })
 })
@@ -927,7 +1068,7 @@ Return ONLY the description text, nothing else.`
 
 // POST /api/videos/:id/gen-description — 개별 영상 AI description 생성
 app.post('/api/videos/:id/gen-description', async (c) => {
-  const sql = getDb()
+  const sql = getDb(c.env)
   const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
   if (!apiKey) return c.json({ ok: false, error: 'No API key' }, 400)
 
@@ -947,7 +1088,7 @@ app.post('/api/videos/:id/gen-description', async (c) => {
 
 // POST /api/videos/gen-description-bulk — 빈 description 영상 일괄 AI 생성
 app.post('/api/videos/gen-description-bulk', async (c) => {
-  const sql = getDb()
+  const sql = getDb(c.env)
   const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
   if (!apiKey) return c.json({ ok: false, error: 'No API key' }, 400)
 
@@ -977,7 +1118,7 @@ app.post('/api/videos/gen-description-bulk', async (c) => {
   return c.json({ ok: true, updated, failed, total: (rows as any[]).length })
 })
 app.put('/api/videos/:id', async (c) => {
-  const sql = getDb()
+  const sql = getDb(c.env)
   const body = await c.req.json()
   // title만 넘어온 경우 title만 업데이트, 나머지 필드는 기존값 유지
   if(body.titleOnly) {
@@ -993,18 +1134,18 @@ app.put('/api/videos/:id', async (c) => {
   return c.json({ ok: true })
 })
 app.post('/api/videos/:id/view', async (c) => {
-  const sql = getDb()
+  const sql = getDb(c.env)
   await sql`UPDATE videos SET views=views+1 WHERE id=${c.req.param('id')}`
   return c.json({ ok: true })
 })
 
 app.get('/api/bookings', async (c) => {
-  const sql = getDb()
+  const sql = getDb(c.env)
   const rows = await sql`SELECT * FROM bookings ORDER BY created_at DESC`
   return c.json({ bookings: rows.map(rowToBooking) })
 })
 app.post('/api/bookings', async (c) => {
-  const sql = getDb()
+  const sql = getDb(c.env)
   const body = await c.req.json()
   const shopRows = await sql`SELECT name, commission FROM shops WHERE id=${body.shopId||''}`
   const shop = shopRows[0]
@@ -1018,14 +1159,14 @@ app.post('/api/bookings', async (c) => {
   return c.json({ ok: true })
 })
 app.put('/api/bookings/:id/status', async (c) => {
-  const sql = getDb()
+  const sql = getDb(c.env)
   const { status } = await c.req.json()
   await sql`UPDATE bookings SET status=${status} WHERE id=${c.req.param('id')}`
   return c.json({ ok: true })
 })
 
 app.get('/api/stats', async (c) => {
-  const sql = getDb()
+  const sql = getDb(c.env)
   const [vStats] = await sql`SELECT COALESCE(SUM(views),0) as total_views, COUNT(*) as total FROM videos`
   const [bStats] = await sql`SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE status='new') as new_cnt, COUNT(*) FILTER (WHERE status='confirmed') as confirmed_cnt, COUNT(*) FILTER (WHERE status='contacted') as contacted_cnt FROM bookings`
   const [sStats] = await sql`SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE active=true) as active_cnt FROM shops`
@@ -1232,7 +1373,7 @@ app.post('/api/places-fetch', async (c) => {
     // 장소 단일 조회 (placeId로) — Place Details v1
     const fetchPlaceById = async (pid: string): Promise<any> => {
       const r = await fetch(`https://places.googleapis.com/v1/places/${pid}?languageCode=en`, {
-        headers: { 'X-Goog-Api-Key': GOOGLE_PLACES_KEY, 'X-Goog-FieldMask': FIELD_MASK_DETAILS }
+        headers: { 'X-Goog-Api-Key': c.env.GOOGLE_PLACES_KEY, 'X-Goog-FieldMask': FIELD_MASK_DETAILS }
       })
       if (!r.ok) throw new Error('Place Details error: ' + r.status)
       return r.json()
@@ -1261,7 +1402,7 @@ app.post('/api/places-fetch', async (c) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Goog-Api-Key': GOOGLE_PLACES_KEY,
+          'X-Goog-Api-Key': c.env.GOOGLE_PLACES_KEY,
           'X-Goog-FieldMask': FIELD_MASK_SEARCH
         },
         body: JSON.stringify({ textQuery: query, languageCode: 'en' })
@@ -1359,7 +1500,7 @@ app.post('/api/places-photos', async (c) => {
 
     const res = await fetch(`https://places.googleapis.com/v1/places/${placeId}`, {
       headers: {
-        'X-Goog-Api-Key': GOOGLE_PLACES_KEY,
+        'X-Goog-Api-Key': c.env.GOOGLE_PLACES_KEY,
         'X-Goog-FieldMask': 'photos'
       }
     })
@@ -1385,7 +1526,7 @@ app.get('/api/photo', async (c) => {
   // name에 /media suffix가 포함된 경우 제거 (중복 방지)
   const cleanName = name.replace(/\/media$/, '')
   // 1단계: skipHttpRedirect=true로 photoUri JSON 받기
-  const apiUrl = `https://places.googleapis.com/v1/${cleanName}/media?key=${GOOGLE_PLACES_KEY}&maxHeightPx=800&maxWidthPx=800&skipHttpRedirect=true`
+  const apiUrl = `https://places.googleapis.com/v1/${cleanName}/media?key=${c.env.GOOGLE_PLACES_KEY}&maxHeightPx=800&maxWidthPx=800&skipHttpRedirect=true`
   try {
     const res = await fetch(apiUrl)
     const ct = res.headers.get('content-type') || ''
@@ -1428,7 +1569,7 @@ app.get('/api/photo', async (c) => {
 // → 모든 업체 slug를 name+location 기반으로 재생성 (숫자 suffix → 지역명 suffix)
 // ══════════════════════════════════════════
 app.post('/api/admin/fix-slugs', async (c) => {
-  const sql = getDb()
+  const sql = getDb(c.env)
   const rows = await sql`SELECT id, name, location, slug FROM shops ORDER BY created_at ASC`
   const results: {id:string, name:string, old:string, new:string}[] = []
 
@@ -1473,7 +1614,7 @@ app.post('/api/admin/fix-slugs', async (c) => {
 // → 모든 활성 업체 순회, description/metaDescription/seoKeywords 없는 것 자동 생성
 // ══════════════════════════════════════════
 app.post('/api/admin/regenerate-seo-all', async (c) => {
-  const sql = getDb()
+  const sql = getDb(c.env)
   const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
   if (!apiKey) return c.json({ error: 'API key not configured' }, 500)
 
@@ -1608,7 +1749,7 @@ Also provide (after the HTML content, separated by ---JSON---):
 // GET /api/blogs — 목록
 app.get('/api/blogs', async (c) => {
   await ensureDb()
-  const sql = getDb()
+  const sql = getDb(c.env)
   const status = c.req.query('status') || ''
   const rows = status
     ? await sql`SELECT id,slug,title,meta_description,excerpt,category,area,tags,cover_image,status,views,created_at,updated_at FROM blog_posts WHERE status=${status} ORDER BY created_at DESC`
@@ -1619,7 +1760,7 @@ app.get('/api/blogs', async (c) => {
 // GET /api/blogs/:slug — 단건
 app.get('/api/blogs/:slug', async (c) => {
   await ensureDb()
-  const sql = getDb()
+  const sql = getDb(c.env)
   const rows = await sql`SELECT * FROM blog_posts WHERE slug=${c.req.param('slug')}`
   if (!rows.length) return c.json({ error: 'not found' }, 404)
   return c.json(rows[0])
@@ -1628,7 +1769,7 @@ app.get('/api/blogs/:slug', async (c) => {
 // POST /api/blogs — 생성 (AI 자동생성 or 직접입력)
 app.post('/api/blogs', async (c) => {
   await ensureDb()
-  const sql = getDb()
+  const sql = getDb(c.env)
   const body = await c.req.json()
   const id = 'b' + Date.now()
   const now = new Date().toISOString()
@@ -1669,7 +1810,7 @@ app.post('/api/blogs', async (c) => {
 // PUT /api/blogs/:id — 수정
 app.put('/api/blogs/:id', async (c) => {
   await ensureDb()
-  const sql = getDb()
+  const sql = getDb(c.env)
   const body = await c.req.json()
   const now = new Date().toISOString()
   const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
@@ -1712,7 +1853,7 @@ app.put('/api/blogs/:id', async (c) => {
 // DELETE /api/blogs/:id
 app.delete('/api/blogs/:id', async (c) => {
   await ensureDb()
-  const sql = getDb()
+  const sql = getDb(c.env)
   await sql`DELETE FROM blog_posts WHERE id=${c.req.param('id')}`
   return c.json({ ok: true })
 })
@@ -1720,7 +1861,7 @@ app.delete('/api/blogs/:id', async (c) => {
 // POST /api/admin/generate-blog — AI 블로그 일괄 생성
 app.post('/api/admin/generate-blog', async (c) => {
   await ensureDb()
-  const sql = getDb()
+  const sql = getDb(c.env)
   const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
   if (!apiKey) return c.json({ error: 'API key not configured' }, 500)
 
@@ -1756,7 +1897,7 @@ app.post('/api/admin/generate-blog', async (c) => {
 
 // ── SEO 업체 상세 페이지 ──
 app.get('/shop/:slug', async (c) => {
-  const sql = getDb()
+  const sql = getDb(c.env)
   const shopRows = await sql`SELECT * FROM shops WHERE slug=${c.req.param('slug')}`
   if (!shopRows.length) return c.notFound()
   const shop = rowToShop(shopRows[0])
@@ -2469,7 +2610,7 @@ app.get('/best/:category/:area', async (c) => {
   // 유효하지 않은 카테고리/지역이면 404
   if (!catLabel || !areaLabel) return c.notFound()
 
-  const sql = getDb()
+  const sql = getDb(c.env)
   const base = 'https://seoulbeautytrip.com'
   const pageUrl = `${base}/best/${catSlug}/${areaSlug}`
   const areaForQuery = areaLabel  // DB location 컬럼 매칭용
@@ -2761,7 +2902,7 @@ details[open] .faq-q::after{transform:rotate(180deg)}
 
 // ── /shops 카탈로그 전용 페이지 ──
 app.get('/shops', async (c) => {
-  const sql = getDb()
+  const sql = getDb(c.env)
   const rows = await sql`SELECT * FROM shops WHERE active=true ORDER BY rating DESC, created_at DESC`
   const shops = rows.map(rowToShop)
   const catColors: Record<string,string> = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',nail:'#34d399',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa'}
@@ -3061,7 +3202,7 @@ render();
 
 app.get('/blog', async (c) => {
   await ensureDb()
-  const sql = getDb()
+  const sql = getDb(c.env)
   const posts = await sql`SELECT id,slug,title,meta_description,excerpt,category,area,tags,cover_image,views,created_at FROM blog_posts WHERE status='published' ORDER BY created_at DESC`
   const base = 'https://seoulbeautytrip.com'
 
@@ -3153,7 +3294,7 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;min-height:
 
 app.get('/blog/:slug', async (c) => {
   await ensureDb()
-  const sql = getDb()
+  const sql = getDb(c.env)
   const slug = c.req.param('slug')
   const rows = await sql`SELECT * FROM blog_posts WHERE slug=${slug} AND status='published'`
   if (!rows.length) return c.notFound()
@@ -3302,7 +3443,7 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;line-height
 
 app.get('/sitemap.xml', async (c) => {
   await ensureDb()
-  const sql = getDb()
+  const sql = getDb(c.env)
   let shopSlugs: string[] = []
   let blogSlugs: string[] = []
   try {
@@ -3364,7 +3505,7 @@ Sitemap: https://seoulbeautytrip.com/sitemap.xml
 
 // ── MAIN PAGE ── (초기 데이터 인라인으로 삽입해 첫 fetch 제거)
 app.get('/', async (c) => {
-  const sql = getDb()
+  const sql = getDb(c.env)
   try {
     const vidRows = await sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.active=true ORDER BY RANDOM()`
     const initVideos = vidRows.map((r: any) => ({
