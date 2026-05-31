@@ -2553,22 +2553,6 @@ async function ensureDb() {
   await initDb();
 }
 app.get("/favicon.ico", (c2) => c2.body(null, 204));
-app.get("/api/debug-env", (c2) => {
-  const googleKey = getGoogleKey(c2.env);
-  let dbUrl = "";
-  try {
-    dbUrl = getDb(c2.env) ? "OK" : "FAIL";
-  } catch (e) {
-    dbUrl = "ERROR: " + e.message;
-  }
-  return c2.json({
-    GOOGLE_KEY_SET: !!googleKey,
-    GOOGLE_KEY_PREFIX: googleKey ? googleKey.slice(0, 8) + "..." : "EMPTY",
-    DB_URL: dbUrl,
-    env_keys: Object.keys(c2.env || {}),
-    process_env_keys: typeof process !== "undefined" ? Object.keys(process.env).filter((k) => k.includes("GOOGLE") || k.includes("DATABASE") || k.includes("URL")) : []
-  });
-});
 app.get("/api/videos", async (c2) => {
   await ensureDb();
   const sql = getDb(c2.env);
