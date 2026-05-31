@@ -5905,6 +5905,7 @@ if(_GSK_TOKEN) localStorage.setItem('_gsk_token', _GSK_TOKEN);
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--pk:#FF4D8D;--pl:#FF85B3;--pu:#9B59B6;--bg:#0d0d18;--bg2:#13132a;--cd:#1c1c30;--green:#10b981;--yellow:#f59e0b;--red:#ef4444;--blue:#3b82f6}
+@keyframes pulse{0%,100%{opacity:.4;transform:scale(1)}50%{opacity:1;transform:scale(1.1)}}
 body{background:var(--bg);color:#fff;font-family:"Segoe UI",sans-serif;min-height:100vh}
 /* NAV */
 .nav{background:var(--bg2);border-bottom:1px solid rgba(255,77,141,.18);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
@@ -6074,94 +6075,31 @@ textarea{height:80px;resize:none}
 
 <!-- 방문자 분석 (GA4) -->
 <div class="tab-content" id="tab-analytics">
-  <!-- 기간 선택 -->
+  <!-- 헤더 -->
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
     <div style="font-size:15px;font-weight:900;color:#fff"><i class="fas fa-chart-line" style="color:#FF4D8D;margin-right:6px"></i> 방문자 분석</div>
-    <div style="display:flex;gap:6px">
-      <button onclick="loadAnalytics(7)" id="an-btn-7" class="btn-sm btn-pk" style="font-size:11px;padding:6px 12px">7일</button>
-      <button onclick="loadAnalytics(28)" id="an-btn-28" class="btn-sm" style="font-size:11px;padding:6px 12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.6)">28일</button>
-      <button onclick="loadAnalytics(90)" id="an-btn-90" class="btn-sm" style="font-size:11px;padding:6px 12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.6)">90일</button>
+    <a href="https://lookerstudio.google.com/reporting/66f7ff82-9ee4-46aa-b1cf-1931cc015798" target="_blank" class="btn-sm btn-blue" style="font-size:11px;padding:6px 12px;display:inline-flex;align-items:center;gap:5px">
+      <i class="fas fa-external-link-alt"></i> 전체화면으로 보기
+    </a>
+  </div>
+  <!-- Looker Studio 임베드 -->
+  <div style="background:var(--cd);border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,.08);position:relative">
+    <div id="an-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--cd);z-index:2;flex-direction:column;gap:10px">
+      <i class="fas fa-chart-line" style="font-size:32px;color:rgba(255,77,141,.4);animation:pulse 1.5s infinite"></i>
+      <div style="font-size:13px;color:rgba(255,255,255,.4)">대시보드 불러오는 중...</div>
     </div>
+    <iframe
+      src="https://datastudio.google.com/embed/reporting/66f7ff82-9ee4-46aa-b1cf-1931cc015798/page/WLqzF"
+      style="width:100%;height:700px;border:0;display:block"
+      allowfullscreen
+      sandbox="allow-storage-access-by-user-activation allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+      onload="document.getElementById('an-loading').style.display='none'"
+    ></iframe>
+  </div>
+  <div style="margin-top:10px;font-size:11px;color:rgba(255,255,255,.25);text-align:center">
+    <i class="fas fa-info-circle"></i> Looker Studio (Google) 데이터 — 실시간 GA4 연동
   </div>
 
-  <!-- 핵심 지표 4개 -->
-  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px" id="an-kpi-grid">
-    <div class="stat-card" style="background:linear-gradient(135deg,rgba(255,77,141,.12),rgba(155,89,182,.12));border-color:rgba(255,77,141,.25)">
-      <div style="font-size:11px;color:rgba(255,255,255,.45);font-weight:700;margin-bottom:4px"><i class="fas fa-users" style="color:#FF4D8D;margin-right:4px"></i> 총 방문자</div>
-      <div style="font-size:32px;font-weight:900;color:#fff" id="an-users">-</div>
-      <div style="font-size:11px;color:rgba(255,255,255,.35)" id="an-users-sub"></div>
-    </div>
-    <div class="stat-card" style="background:linear-gradient(135deg,rgba(59,130,246,.12),rgba(99,102,241,.12));border-color:rgba(59,130,246,.25)">
-      <div style="font-size:11px;color:rgba(255,255,255,.45);font-weight:700;margin-bottom:4px"><i class="fas fa-eye" style="color:#60a5fa;margin-right:4px"></i> 페이지뷰</div>
-      <div style="font-size:32px;font-weight:900;color:#60a5fa" id="an-pageviews">-</div>
-      <div style="font-size:11px;color:rgba(255,255,255,.35)" id="an-pv-sub"></div>
-    </div>
-    <div class="stat-card" style="background:linear-gradient(135deg,rgba(16,185,129,.12),rgba(5,150,105,.12));border-color:rgba(16,185,129,.25)">
-      <div style="font-size:11px;color:rgba(255,255,255,.45);font-weight:700;margin-bottom:4px"><i class="fas fa-user-check" style="color:#34d399;margin-right:4px"></i> 신규 방문자</div>
-      <div style="font-size:32px;font-weight:900;color:#34d399" id="an-new-users">-</div>
-      <div style="font-size:11px;color:rgba(255,255,255,.35)" id="an-new-sub"></div>
-    </div>
-    <div class="stat-card" style="background:linear-gradient(135deg,rgba(245,158,11,.12),rgba(234,88,12,.12));border-color:rgba(245,158,11,.25)">
-      <div style="font-size:11px;color:rgba(255,255,255,.45);font-weight:700;margin-bottom:4px"><i class="fas fa-clock" style="color:#fbbf24;margin-right:4px"></i> 평균 체류시간</div>
-      <div style="font-size:32px;font-weight:900;color:#fbbf24" id="an-duration">-</div>
-      <div style="font-size:11px;color:rgba(255,255,255,.35)" id="an-dur-sub"></div>
-    </div>
-  </div>
-
-  <!-- 일별 방문자 차트 -->
-  <div class="card" style="margin-bottom:12px">
-    <div class="card-header" style="margin-bottom:12px">
-      <div class="card-title"><i class="fas fa-chart-area" style="color:#a78bfa"></i> 일별 방문자 추이</div>
-    </div>
-    <canvas id="an-daily-chart" height="140"></canvas>
-  </div>
-
-  <!-- 국가 + 유입경로 -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-    <!-- 국가별 -->
-    <div class="card" style="margin-bottom:0">
-      <div class="card-header" style="margin-bottom:10px">
-        <div class="card-title" style="font-size:12px"><i class="fas fa-globe" style="color:#38bdf8"></i> 국가별 방문자</div>
-      </div>
-      <div id="an-countries" style="display:flex;flex-direction:column;gap:6px"></div>
-    </div>
-    <!-- 유입 경로 -->
-    <div class="card" style="margin-bottom:0">
-      <div class="card-header" style="margin-bottom:10px">
-        <div class="card-title" style="font-size:12px"><i class="fas fa-share-alt" style="color:#f472b6"></i> 유입 경로</div>
-      </div>
-      <canvas id="an-source-chart" height="160"></canvas>
-    </div>
-  </div>
-
-  <!-- 인기 페이지 -->
-  <div class="card" style="margin-bottom:12px">
-    <div class="card-header" style="margin-bottom:10px">
-      <div class="card-title"><i class="fas fa-fire" style="color:#fb923c"></i> 인기 페이지 TOP 10</div>
-    </div>
-    <div id="an-pages" style="display:flex;flex-direction:column;gap:4px"></div>
-  </div>
-
-  <!-- 디바이스 -->
-  <div class="card">
-    <div class="card-header" style="margin-bottom:10px">
-      <div class="card-title"><i class="fas fa-mobile-alt" style="color:#34d399"></i> 디바이스 유형</div>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px" id="an-devices"></div>
-  </div>
-
-  <!-- GA 설정 미완료 안내 -->
-  <div id="an-setup-notice" style="display:none;margin-top:16px">
-    <div class="card" style="border:1px solid rgba(251,191,36,.3);background:rgba(251,191,36,.05);text-align:center;padding:30px">
-      <i class="fas fa-exclamation-triangle" style="font-size:32px;color:#fbbf24;margin-bottom:12px;display:block"></i>
-      <div style="font-size:14px;font-weight:700;color:#fbbf24;margin-bottom:8px">GA4 API 설정이 필요합니다</div>
-      <div style="font-size:12px;color:rgba(255,255,255,.5);line-height:1.8">
-        Vercel 환경변수에 아래 항목을 추가해주세요:<br>
-        <code style="background:rgba(255,255,255,.08);padding:2px 8px;border-radius:4px;color:#a78bfa">GA4_PROPERTY_ID</code> — GA4 속성 ID (예: 123456789)<br>
-        <code style="background:rgba(255,255,255,.08);padding:2px 8px;border-radius:4px;color:#a78bfa">GA4_SERVICE_ACCOUNT_KEY</code> — 서비스 계정 JSON
-      </div>
-    </div>
-  </div>
 </div>
 
 <!-- 예약관리 -->

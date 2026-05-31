@@ -7754,6 +7754,7 @@ if(_GSK_TOKEN) localStorage.setItem('_gsk_token', _GSK_TOKEN);
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--pk:#FF4D8D;--pl:#FF85B3;--pu:#9B59B6;--bg:#0d0d18;--bg2:#13132a;--cd:#1c1c30;--green:#10b981;--yellow:#f59e0b;--red:#ef4444;--blue:#3b82f6}
+@keyframes pulse{0%,100%{opacity:.4;transform:scale(1)}50%{opacity:1;transform:scale(1.1)}}
 body{background:var(--bg);color:#fff;font-family:"Segoe UI",sans-serif;min-height:100vh}
 /* NAV */
 .nav{background:var(--bg2);border-bottom:1px solid rgba(255,77,141,.18);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
@@ -7923,94 +7924,31 @@ textarea{height:80px;resize:none}
 
 <!-- \uBC29\uBB38\uC790 \uBD84\uC11D (GA4) -->
 <div class="tab-content" id="tab-analytics">
-  <!-- \uAE30\uAC04 \uC120\uD0DD -->
+  <!-- \uD5E4\uB354 -->
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
     <div style="font-size:15px;font-weight:900;color:#fff"><i class="fas fa-chart-line" style="color:#FF4D8D;margin-right:6px"></i> \uBC29\uBB38\uC790 \uBD84\uC11D</div>
-    <div style="display:flex;gap:6px">
-      <button onclick="loadAnalytics(7)" id="an-btn-7" class="btn-sm btn-pk" style="font-size:11px;padding:6px 12px">7\uC77C</button>
-      <button onclick="loadAnalytics(28)" id="an-btn-28" class="btn-sm" style="font-size:11px;padding:6px 12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.6)">28\uC77C</button>
-      <button onclick="loadAnalytics(90)" id="an-btn-90" class="btn-sm" style="font-size:11px;padding:6px 12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.6)">90\uC77C</button>
+    <a href="https://lookerstudio.google.com/reporting/66f7ff82-9ee4-46aa-b1cf-1931cc015798" target="_blank" class="btn-sm btn-blue" style="font-size:11px;padding:6px 12px;display:inline-flex;align-items:center;gap:5px">
+      <i class="fas fa-external-link-alt"></i> \uC804\uCCB4\uD654\uBA74\uC73C\uB85C \uBCF4\uAE30
+    </a>
+  </div>
+  <!-- Looker Studio \uC784\uBCA0\uB4DC -->
+  <div style="background:var(--cd);border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,.08);position:relative">
+    <div id="an-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--cd);z-index:2;flex-direction:column;gap:10px">
+      <i class="fas fa-chart-line" style="font-size:32px;color:rgba(255,77,141,.4);animation:pulse 1.5s infinite"></i>
+      <div style="font-size:13px;color:rgba(255,255,255,.4)">\uB300\uC2DC\uBCF4\uB4DC \uBD88\uB7EC\uC624\uB294 \uC911...</div>
     </div>
+    <iframe
+      src="https://datastudio.google.com/embed/reporting/66f7ff82-9ee4-46aa-b1cf-1931cc015798/page/WLqzF"
+      style="width:100%;height:700px;border:0;display:block"
+      allowfullscreen
+      sandbox="allow-storage-access-by-user-activation allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+      onload="document.getElementById('an-loading').style.display='none'"
+    ></iframe>
+  </div>
+  <div style="margin-top:10px;font-size:11px;color:rgba(255,255,255,.25);text-align:center">
+    <i class="fas fa-info-circle"></i> Looker Studio (Google) \uB370\uC774\uD130 \u2014 \uC2E4\uC2DC\uAC04 GA4 \uC5F0\uB3D9
   </div>
 
-  <!-- \uD575\uC2EC \uC9C0\uD45C 4\uAC1C -->
-  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px" id="an-kpi-grid">
-    <div class="stat-card" style="background:linear-gradient(135deg,rgba(255,77,141,.12),rgba(155,89,182,.12));border-color:rgba(255,77,141,.25)">
-      <div style="font-size:11px;color:rgba(255,255,255,.45);font-weight:700;margin-bottom:4px"><i class="fas fa-users" style="color:#FF4D8D;margin-right:4px"></i> \uCD1D \uBC29\uBB38\uC790</div>
-      <div style="font-size:32px;font-weight:900;color:#fff" id="an-users">-</div>
-      <div style="font-size:11px;color:rgba(255,255,255,.35)" id="an-users-sub"></div>
-    </div>
-    <div class="stat-card" style="background:linear-gradient(135deg,rgba(59,130,246,.12),rgba(99,102,241,.12));border-color:rgba(59,130,246,.25)">
-      <div style="font-size:11px;color:rgba(255,255,255,.45);font-weight:700;margin-bottom:4px"><i class="fas fa-eye" style="color:#60a5fa;margin-right:4px"></i> \uD398\uC774\uC9C0\uBDF0</div>
-      <div style="font-size:32px;font-weight:900;color:#60a5fa" id="an-pageviews">-</div>
-      <div style="font-size:11px;color:rgba(255,255,255,.35)" id="an-pv-sub"></div>
-    </div>
-    <div class="stat-card" style="background:linear-gradient(135deg,rgba(16,185,129,.12),rgba(5,150,105,.12));border-color:rgba(16,185,129,.25)">
-      <div style="font-size:11px;color:rgba(255,255,255,.45);font-weight:700;margin-bottom:4px"><i class="fas fa-user-check" style="color:#34d399;margin-right:4px"></i> \uC2E0\uADDC \uBC29\uBB38\uC790</div>
-      <div style="font-size:32px;font-weight:900;color:#34d399" id="an-new-users">-</div>
-      <div style="font-size:11px;color:rgba(255,255,255,.35)" id="an-new-sub"></div>
-    </div>
-    <div class="stat-card" style="background:linear-gradient(135deg,rgba(245,158,11,.12),rgba(234,88,12,.12));border-color:rgba(245,158,11,.25)">
-      <div style="font-size:11px;color:rgba(255,255,255,.45);font-weight:700;margin-bottom:4px"><i class="fas fa-clock" style="color:#fbbf24;margin-right:4px"></i> \uD3C9\uADE0 \uCCB4\uB958\uC2DC\uAC04</div>
-      <div style="font-size:32px;font-weight:900;color:#fbbf24" id="an-duration">-</div>
-      <div style="font-size:11px;color:rgba(255,255,255,.35)" id="an-dur-sub"></div>
-    </div>
-  </div>
-
-  <!-- \uC77C\uBCC4 \uBC29\uBB38\uC790 \uCC28\uD2B8 -->
-  <div class="card" style="margin-bottom:12px">
-    <div class="card-header" style="margin-bottom:12px">
-      <div class="card-title"><i class="fas fa-chart-area" style="color:#a78bfa"></i> \uC77C\uBCC4 \uBC29\uBB38\uC790 \uCD94\uC774</div>
-    </div>
-    <canvas id="an-daily-chart" height="140"></canvas>
-  </div>
-
-  <!-- \uAD6D\uAC00 + \uC720\uC785\uACBD\uB85C -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-    <!-- \uAD6D\uAC00\uBCC4 -->
-    <div class="card" style="margin-bottom:0">
-      <div class="card-header" style="margin-bottom:10px">
-        <div class="card-title" style="font-size:12px"><i class="fas fa-globe" style="color:#38bdf8"></i> \uAD6D\uAC00\uBCC4 \uBC29\uBB38\uC790</div>
-      </div>
-      <div id="an-countries" style="display:flex;flex-direction:column;gap:6px"></div>
-    </div>
-    <!-- \uC720\uC785 \uACBD\uB85C -->
-    <div class="card" style="margin-bottom:0">
-      <div class="card-header" style="margin-bottom:10px">
-        <div class="card-title" style="font-size:12px"><i class="fas fa-share-alt" style="color:#f472b6"></i> \uC720\uC785 \uACBD\uB85C</div>
-      </div>
-      <canvas id="an-source-chart" height="160"></canvas>
-    </div>
-  </div>
-
-  <!-- \uC778\uAE30 \uD398\uC774\uC9C0 -->
-  <div class="card" style="margin-bottom:12px">
-    <div class="card-header" style="margin-bottom:10px">
-      <div class="card-title"><i class="fas fa-fire" style="color:#fb923c"></i> \uC778\uAE30 \uD398\uC774\uC9C0 TOP 10</div>
-    </div>
-    <div id="an-pages" style="display:flex;flex-direction:column;gap:4px"></div>
-  </div>
-
-  <!-- \uB514\uBC14\uC774\uC2A4 -->
-  <div class="card">
-    <div class="card-header" style="margin-bottom:10px">
-      <div class="card-title"><i class="fas fa-mobile-alt" style="color:#34d399"></i> \uB514\uBC14\uC774\uC2A4 \uC720\uD615</div>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px" id="an-devices"></div>
-  </div>
-
-  <!-- GA \uC124\uC815 \uBBF8\uC644\uB8CC \uC548\uB0B4 -->
-  <div id="an-setup-notice" style="display:none;margin-top:16px">
-    <div class="card" style="border:1px solid rgba(251,191,36,.3);background:rgba(251,191,36,.05);text-align:center;padding:30px">
-      <i class="fas fa-exclamation-triangle" style="font-size:32px;color:#fbbf24;margin-bottom:12px;display:block"></i>
-      <div style="font-size:14px;font-weight:700;color:#fbbf24;margin-bottom:8px">GA4 API \uC124\uC815\uC774 \uD544\uC694\uD569\uB2C8\uB2E4</div>
-      <div style="font-size:12px;color:rgba(255,255,255,.5);line-height:1.8">
-        Vercel \uD658\uACBD\uBCC0\uC218\uC5D0 \uC544\uB798 \uD56D\uBAA9\uC744 \uCD94\uAC00\uD574\uC8FC\uC138\uC694:<br>
-        <code style="background:rgba(255,255,255,.08);padding:2px 8px;border-radius:4px;color:#a78bfa">GA4_PROPERTY_ID</code> \u2014 GA4 \uC18D\uC131 ID (\uC608: 123456789)<br>
-        <code style="background:rgba(255,255,255,.08);padding:2px 8px;border-radius:4px;color:#a78bfa">GA4_SERVICE_ACCOUNT_KEY</code> \u2014 \uC11C\uBE44\uC2A4 \uACC4\uC815 JSON
-      </div>
-    </div>
-  </div>
 </div>
 
 <!-- \uC608\uC57D\uAD00\uB9AC -->
