@@ -9454,7 +9454,9 @@ var statusLabels={new:'\uC2E0\uADDC',contacted:'\uC5F0\uB77D\uC911',confirmed:'\
 var statusColors={new:'#60a5fa',contacted:'#fbbf24',confirmed:'#34d399',completed:'#a78bfa',cancelled:'#f87171'};
 
 function renderBookings(){
-  document.getElementById('bookingTbody').innerHTML = bookings.map(function(b){
+  var bEl = document.getElementById('bookingTbody');
+  if(!bEl) return;
+  bEl.innerHTML = bookings.map(function(b){
     var sc = statusColors[b.status]||'#aaa';
     return '<tr>'+
       '<td style="white-space:nowrap;font-size:11px">'+b.createdAt+'</td>'+
@@ -9475,7 +9477,9 @@ function renderBookings(){
 }
 
 function renderSeoLinks(){
-  document.getElementById('seoLinks').innerHTML = shops.map(function(s){
+  var seoEl = document.getElementById('seoLinks');
+  if(!seoEl) return;
+  seoEl.innerHTML = shops.map(function(s){
     var url = '/shop/'+s.slug;
     return '<div style="font-size:12px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05)">'+
       '<a href="'+url+'" target="_blank" style="color:#60a5fa;text-decoration:none">'+url+'</a>'+
