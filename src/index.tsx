@@ -1592,141 +1592,95 @@ app.post('/api/quick-register', async (c) => {
 
     // ── STEP 1: 구글맵 URL → 업체 정보 가져오기 ──
     // resolve-gmap 로직 재사용: URL 언팩 → Places API 조회
+    // ── STEP 1: resolve-gmap 엔드포인트를 내부 호출하여 완전한 업체 정보 획득 ──
+    // (placeToJson 로직 동일하게 재사용 → photos, reviews, description, whyChoose 등 모두 포함)
     let resolvedData: any = null
     try {
-      // ── 단축 URL 언팩 (redirect:manual → Location 헤더 직접 읽기) ──
-      let fullUrl = gmapUrl
-      if (gmapUrl.includes('goo.gl') || gmapUrl.includes('maps.app')) {
-        try {
-          // 최대 5번 리다이렉트 따라가기
-          let cur = gmapUrl
-          for (let i = 0; i < 5; i++) {
-            const r = await fetch(cur, { method: 'GET', redirect: 'manual' })
-            const loc = r.headers.get('location')
-            if (!loc) break
-            cur = loc.startsWith('http') ? loc : cur
-            if (cur.includes('/maps/place/') || cur.includes('maps.google.com')) break
-          }
-          fullUrl = cur
-        } catch { fullUrl = gmapUrl }
-      }
-
-      // ── Place ID / 좌표 추출 ──
-      // 1) ChIJ... 형식 정식 Place ID (/place/Name/ChIJ...)
-      //    주의: place/업체명/@좌표 형태를 잘못 잡지 않도록 @(좌표) 앞까지만 봄
-      const urlNoCoord = fullUrl.split('/@')[0]
-      const chijMatch = urlNoCoord.match(/place\/[^/]+\/(ChIJ[^/?]+)/)
-
-      // 2) 좌표 + 업체명 (fallback)
-      const coordMatch = fullUrl.match(/@([-\d.]+),([-\d.]+)/)
-      const nameRaw = urlNoCoord.match(/place\/([^/]+)/)
-
-      let placeData: any = null
-      const googleKey = getGoogleKey(c.env)
-      const fm = 'id,displayName,formattedAddress,regularOpeningHours,rating,userRatingCount,reviews,photos,location,editorialSummary,primaryType'
-      const fmList = 'places.id,places.displayName,places.formattedAddress,places.regularOpeningHours,places.rating,places.userRatingCount,places.reviews,places.photos,places.location,places.editorialSummary'
-
-      // 시도 1: ChIJ Place ID 직접 조회
-      if (!placeData && chijMatch && googleKey) {
-        const pid = chijMatch[1]
-        const r2 = await fetch(`https://places.googleapis.com/v1/places/${pid}?languageCode=en`, {
-          headers: { 'X-Goog-Api-Key': googleKey, 'X-Goog-FieldMask': fm }
-        })
-        if (r2.ok) { const d: any = await r2.json(); if (d.id) placeData = d }
-      }
-
-      // 시도 2: 좌표 + 업체명으로 텍스트 검색 (locationBias 반경 100m)
-      if (!placeData && coordMatch && googleKey) {
-        const [, lat, lng] = coordMatch
-        const textQuery = nameRaw
-          ? decodeURIComponent(nameRaw[1].replace(/\+/g,' ')).split('|')[0].trim()
-          : `beauty salon`
-        const body: any = {
-          textQuery,
-          languageCode: 'en',
-          locationBias: { circle: { center: { latitude: parseFloat(lat), longitude: parseFloat(lng) }, radius: 150 } }
-        }
-        const r3 = await fetch('https://places.googleapis.com/v1/places:searchText', {
+      const resolveRes = await fetch(
+        new URL('/api/resolve-gmap', new URL(c.req.url).origin).toString(),
+        {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': googleKey, 'X-Goog-FieldMask': fmList },
-          body: JSON.stringify(body)
-        })
-        if (r3.ok) { const d3: any = await r3.json(); placeData = d3.places?.[0] }
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: gmapUrl })
+        }
+      )
+      if (resolveRes.ok) {
+        const d: any = await resolveRes.json()
+        if (d && (d.name || d.address)) resolvedData = d
       }
+    } catch(e: any) { console.error('[quick-register] resolve-gmap error:', e?.message) }
 
-      if (placeData) {
-        const addr = placeData.formattedAddress || ''
-        // 지역 추출
-        const areaMap: [string,string][] = [
-          ['gangnam','Gangnam, Seoul'],['apgujeong','Apgujeong, Seoul'],['cheongdam','Cheongdam, Seoul'],
-          ['sinsa','Sinsa, Seoul'],['seocho','Seocho, Seoul'],['hongdae','Hongdae, Seoul'],
-          ['itaewon','Itaewon, Seoul'],['myeongdong','Myeongdong, Seoul'],['jongno','Jongno, Seoul'],
-          ['sinchon','Sinchon, Seoul'],['hapjeong','Hapjeong, Seoul'],['mapo','Mapo, Seoul'],
-          ['yongsan','Yongsan, Seoul'],['hannam','Itaewon, Seoul'],['insadong','Insadong, Seoul'],
-          ['dongdaemun','Dongdaemun, Seoul'],['seongsu','Seongsu, Seoul'],['jamsil','Jamsil, Seoul'],
-          ['강남','Gangnam, Seoul'],['홍대','Hongdae, Seoul'],['이태원','Itaewon, Seoul'],
-          ['명동','Myeongdong, Seoul'],['신촌','Sinchon, Seoul'],['종로','Jongno, Seoul'],
-        ]
-        const addrLow = addr.toLowerCase()
-        let location = ''
-        for (const [kw, val] of areaMap) { if (addrLow.includes(kw.toLowerCase())) { location = val; break } }
-        if (!location) location = 'Seoul'
+    if (!resolvedData || (!resolvedData.name && !resolvedData.address)) {
+      return c.json({ error: '구글맵에서 업체 정보를 가져오지 못했습니다. (URL 확인 또는 잠시 후 재시도)' }, 400)
+    }
 
-        // 영업시간
-        let hours = ''
-        if (placeData.regularOpeningHours?.weekdayDescriptions) {
-          hours = placeData.regularOpeningHours.weekdayDescriptions.join(' | ')
-        }
+    // ── STEP 2: 업체명 정리 (한국어/일본어 제거) ──
+    const isKor = (s: string) => /[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]/.test(s)
+    const rawName: string = resolvedData.name || ''
+    const nameParts = rawName.split(/[|\uff5c]/).map((s: string) => s.trim()).filter(Boolean)
+    const engName = nameParts.find((s: string) => !isKor(s) && s.length > 0)
+      || rawName.replace(/[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]+/g,'').replace(/\s{2,}/g,' ').trim()
+      || rawName
 
-        // 사진 첫번째
-        let thumbnail = ''
-        if (placeData.photos?.length && googleKey) {
-          thumbnail = `/api/photo?name=${encodeURIComponent(placeData.photos[0].name + '/media')}`
-        }
-
-        resolvedData = {
-          name: placeData.displayName?.text || '',
-          address: addr,
-          location,
-          hours,
-          rating: placeData.rating || 5.0,
-          reviewCount: placeData.userRatingCount || 0,
-          thumbnail,
-          placeId: placeData.id || '',
-          lat: String(placeData.location?.latitude || ''),
-          lng: String(placeData.location?.longitude || ''),
-        }
-      }
-    } catch(e: any) { /* 구글 API 실패해도 계속 진행 */ console.error('[quick-register] places error:', e?.message) }
-
-    if (!resolvedData) return c.json({ error: '구글맵에서 업체 정보를 가져오지 못했습니다. (URL 확인 또는 잠시 후 재시도)' }, 400)
-
-    // ── STEP 2: slug 생성 ──
+    // ── STEP 3: slug 생성 ──
     const makeSlug = (name: string, loc: string) => {
       const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
       const area = (loc.split(',')[0] || '').trim()
-      let base = `${clean(name)}-${clean(area)}`
-      return base.slice(0, 60)
+      return `${clean(name)}-${clean(area)}`.slice(0, 60)
     }
-    let slug = makeSlug(resolvedData.name, resolvedData.location)
-    // 중복 체크
+    let slug = makeSlug(engName, resolvedData.location || 'seoul')
     const existing = await sql`SELECT id FROM shops WHERE slug = ${slug}`
     if (existing.length > 0) slug = slug + '-' + Date.now().toString().slice(-4)
 
-    // ── STEP 3: DB에 업체 저장 ──
+    // ── STEP 4: 자동 description 생성 (없으면) ──
+    const loc = resolvedData.location || 'Seoul'
+    const cat = category || 'skincare'
+    const description = resolvedData.description ||
+      `${engName} is a premier ${cat} destination located in ${loc}, Seoul. ` +
+      `With a ${resolvedData.rating || 5}/5 rating and ${resolvedData.reviewCount || 0}+ reviews, ` +
+      `we offer expert treatments in a foreigner-friendly environment. Book via WhatsApp with Seoul Beauty Trip.`
+
+    // ── STEP 5: whyChoose 자동 생성 (없으면) ──
+    const whyChoose: string[] = resolvedData.whyChoose?.length ? resolvedData.whyChoose : [
+      `🌐 English-friendly service and easy WhatsApp booking for international visitors`,
+      `⭐ Rated ${resolvedData.rating || 5}/5 with ${resolvedData.reviewCount || 0}+ verified reviews`,
+      `📍 Conveniently located in ${loc}, perfect for tourists exploring Seoul`
+    ]
+
+    // ── STEP 6: SEO 자동 생성 ──
+    const metaDescription = resolvedData.metaDescription ||
+      `${engName} ${loc} Seoul - Premium ${cat} for foreigners. English-speaking staff. Book via WhatsApp instantly with Seoul Beauty Trip.`
+    const seoKeywords = resolvedData.seoKeywords ||
+      `${engName} Seoul, ${engName} ${loc}, ${engName} reviews, ${engName} booking, best ${cat} ${loc} Seoul, ${cat} Seoul English speaking, ${loc} ${cat} foreigner friendly`
+
+    // ── STEP 7: photos 처리 ──
+    const photos: string[] = resolvedData.photos || []
+    const thumbnail = resolvedData.thumbnail || (photos[0] || '')
+
+    // ── STEP 8: reviews 처리 ──
+    const reviews = resolvedData.reviews || []
+
+    // ── STEP 9: DB에 업체 저장 (전체 필드) ──
     const shopId = 's' + Date.now()
     await sql`
-      INSERT INTO shops (id, name, slug, category, location, address, hours, rating, review_count, thumbnail, google_place_id, lat, lng, active, created_at)
-      VALUES (
-        ${shopId}, ${resolvedData.name}, ${slug}, ${category || 'skincare'},
-        ${resolvedData.location}, ${resolvedData.address}, ${resolvedData.hours},
-        ${resolvedData.rating}, ${resolvedData.reviewCount}, ${resolvedData.thumbnail},
-        ${resolvedData.placeId}, ${resolvedData.lat}, ${resolvedData.lng},
-        true, NOW()
+      INSERT INTO shops (
+        id, name, slug, category, location, address, hours,
+        rating, review_count, thumbnail, photos,
+        google_place_id, google_map_url, lat, lng,
+        description, why_choose, meta_description, seo_keywords,
+        reviews, active, created_at
+      ) VALUES (
+        ${shopId}, ${rawName}, ${slug}, ${cat},
+        ${loc}, ${resolvedData.address || ''}, ${resolvedData.hours || ''},
+        ${resolvedData.rating || 5.0}, ${resolvedData.reviewCount || 0},
+        ${thumbnail}, ${JSON.stringify(photos)},
+        ${resolvedData.placeId || ''}, ${gmapUrl}, ${resolvedData.lat || ''}, ${resolvedData.lng || ''},
+        ${description}, ${JSON.stringify(whyChoose)}, ${metaDescription}, ${seoKeywords},
+        ${JSON.stringify(reviews)}, true, NOW()
       )
     `
 
-    // ── STEP 4: 영상 URL이 있으면 같이 등록 ──
+    // ── STEP 10: 영상 URL이 있으면 같이 등록 ──
     let videoId = null
     if (videoUrl && videoUrl.trim()) {
       videoId = 'v' + Date.now()
@@ -1735,16 +1689,16 @@ app.post('/api/quick-register', async (c) => {
         : ''
       await sql`
         INSERT INTO videos (id, shop_id, title, video_url, thumbnail, views, created_at)
-        VALUES (${videoId}, ${shopId}, ${resolvedData.name}, ${videoUrl.trim()}, ${thumb}, 0, NOW())
+        VALUES (${videoId}, ${shopId}, ${engName}, ${videoUrl.trim()}, ${thumb}, 0, NOW())
       `
     }
 
     return c.json({
       success: true,
       shopId,
-      shopName: resolvedData.name,
+      shopName: rawName,
       slug,
-      location: resolvedData.location,
+      location: loc,
       videoId,
       url: `/shop/${slug}`
     })

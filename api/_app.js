@@ -3585,138 +3585,65 @@ app.post("/api/quick-register", async (c2) => {
     if (!gmapUrl) return c2.json({ error: "\uAD6C\uAE00\uB9F5 URL\uC744 \uC785\uB825\uD574\uC8FC\uC138\uC694" }, 400);
     let resolvedData = null;
     try {
-      let fullUrl = gmapUrl;
-      if (gmapUrl.includes("goo.gl") || gmapUrl.includes("maps.app")) {
-        try {
-          let cur = gmapUrl;
-          for (let i = 0; i < 5; i++) {
-            const r = await fetch(cur, { method: "GET", redirect: "manual" });
-            const loc = r.headers.get("location");
-            if (!loc) break;
-            cur = loc.startsWith("http") ? loc : cur;
-            if (cur.includes("/maps/place/") || cur.includes("maps.google.com")) break;
-          }
-          fullUrl = cur;
-        } catch {
-          fullUrl = gmapUrl;
-        }
-      }
-      const urlNoCoord = fullUrl.split("/@")[0];
-      const chijMatch = urlNoCoord.match(/place\/[^/]+\/(ChIJ[^/?]+)/);
-      const coordMatch = fullUrl.match(/@([-\d.]+),([-\d.]+)/);
-      const nameRaw = urlNoCoord.match(/place\/([^/]+)/);
-      let placeData = null;
-      const googleKey = getGoogleKey(c2.env);
-      const fm = "id,displayName,formattedAddress,regularOpeningHours,rating,userRatingCount,reviews,photos,location,editorialSummary,primaryType";
-      const fmList = "places.id,places.displayName,places.formattedAddress,places.regularOpeningHours,places.rating,places.userRatingCount,places.reviews,places.photos,places.location,places.editorialSummary";
-      if (!placeData && chijMatch && googleKey) {
-        const pid = chijMatch[1];
-        const r2 = await fetch(`https://places.googleapis.com/v1/places/${pid}?languageCode=en`, {
-          headers: { "X-Goog-Api-Key": googleKey, "X-Goog-FieldMask": fm }
-        });
-        if (r2.ok) {
-          const d = await r2.json();
-          if (d.id) placeData = d;
-        }
-      }
-      if (!placeData && coordMatch && googleKey) {
-        const [, lat, lng] = coordMatch;
-        const textQuery = nameRaw ? decodeURIComponent(nameRaw[1].replace(/\+/g, " ")).split("|")[0].trim() : `beauty salon`;
-        const body = {
-          textQuery,
-          languageCode: "en",
-          locationBias: { circle: { center: { latitude: parseFloat(lat), longitude: parseFloat(lng) }, radius: 150 } }
-        };
-        const r3 = await fetch("https://places.googleapis.com/v1/places:searchText", {
+      const resolveRes = await fetch(
+        new URL("/api/resolve-gmap", new URL(c2.req.url).origin).toString(),
+        {
           method: "POST",
-          headers: { "Content-Type": "application/json", "X-Goog-Api-Key": googleKey, "X-Goog-FieldMask": fmList },
-          body: JSON.stringify(body)
-        });
-        if (r3.ok) {
-          const d3 = await r3.json();
-          placeData = d3.places?.[0];
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: gmapUrl })
         }
-      }
-      if (placeData) {
-        const addr = placeData.formattedAddress || "";
-        const areaMap = [
-          ["gangnam", "Gangnam, Seoul"],
-          ["apgujeong", "Apgujeong, Seoul"],
-          ["cheongdam", "Cheongdam, Seoul"],
-          ["sinsa", "Sinsa, Seoul"],
-          ["seocho", "Seocho, Seoul"],
-          ["hongdae", "Hongdae, Seoul"],
-          ["itaewon", "Itaewon, Seoul"],
-          ["myeongdong", "Myeongdong, Seoul"],
-          ["jongno", "Jongno, Seoul"],
-          ["sinchon", "Sinchon, Seoul"],
-          ["hapjeong", "Hapjeong, Seoul"],
-          ["mapo", "Mapo, Seoul"],
-          ["yongsan", "Yongsan, Seoul"],
-          ["hannam", "Itaewon, Seoul"],
-          ["insadong", "Insadong, Seoul"],
-          ["dongdaemun", "Dongdaemun, Seoul"],
-          ["seongsu", "Seongsu, Seoul"],
-          ["jamsil", "Jamsil, Seoul"],
-          ["\uAC15\uB0A8", "Gangnam, Seoul"],
-          ["\uD64D\uB300", "Hongdae, Seoul"],
-          ["\uC774\uD0DC\uC6D0", "Itaewon, Seoul"],
-          ["\uBA85\uB3D9", "Myeongdong, Seoul"],
-          ["\uC2E0\uCD0C", "Sinchon, Seoul"],
-          ["\uC885\uB85C", "Jongno, Seoul"]
-        ];
-        const addrLow = addr.toLowerCase();
-        let location = "";
-        for (const [kw, val] of areaMap) {
-          if (addrLow.includes(kw.toLowerCase())) {
-            location = val;
-            break;
-          }
-        }
-        if (!location) location = "Seoul";
-        let hours = "";
-        if (placeData.regularOpeningHours?.weekdayDescriptions) {
-          hours = placeData.regularOpeningHours.weekdayDescriptions.join(" | ");
-        }
-        let thumbnail = "";
-        if (placeData.photos?.length && googleKey) {
-          thumbnail = `/api/photo?name=${encodeURIComponent(placeData.photos[0].name + "/media")}`;
-        }
-        resolvedData = {
-          name: placeData.displayName?.text || "",
-          address: addr,
-          location,
-          hours,
-          rating: placeData.rating || 5,
-          reviewCount: placeData.userRatingCount || 0,
-          thumbnail,
-          placeId: placeData.id || "",
-          lat: String(placeData.location?.latitude || ""),
-          lng: String(placeData.location?.longitude || "")
-        };
+      );
+      if (resolveRes.ok) {
+        const d = await resolveRes.json();
+        if (d && (d.name || d.address)) resolvedData = d;
       }
     } catch (e) {
-      console.error("[quick-register] places error:", e?.message);
+      console.error("[quick-register] resolve-gmap error:", e?.message);
     }
-    if (!resolvedData) return c2.json({ error: "\uAD6C\uAE00\uB9F5\uC5D0\uC11C \uC5C5\uCCB4 \uC815\uBCF4\uB97C \uAC00\uC838\uC624\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. (URL \uD655\uC778 \uB610\uB294 \uC7A0\uC2DC \uD6C4 \uC7AC\uC2DC\uB3C4)" }, 400);
-    const makeSlug = (name, loc) => {
+    if (!resolvedData || !resolvedData.name && !resolvedData.address) {
+      return c2.json({ error: "\uAD6C\uAE00\uB9F5\uC5D0\uC11C \uC5C5\uCCB4 \uC815\uBCF4\uB97C \uAC00\uC838\uC624\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. (URL \uD655\uC778 \uB610\uB294 \uC7A0\uC2DC \uD6C4 \uC7AC\uC2DC\uB3C4)" }, 400);
+    }
+    const isKor = (s) => /[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]/.test(s);
+    const rawName = resolvedData.name || "";
+    const nameParts = rawName.split(/[|\uff5c]/).map((s) => s.trim()).filter(Boolean);
+    const engName = nameParts.find((s) => !isKor(s) && s.length > 0) || rawName.replace(/[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]+/g, "").replace(/\s{2,}/g, " ").trim() || rawName;
+    const makeSlug = (name, loc2) => {
       const clean = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-      const area = (loc.split(",")[0] || "").trim();
-      let base = `${clean(name)}-${clean(area)}`;
-      return base.slice(0, 60);
+      const area = (loc2.split(",")[0] || "").trim();
+      return `${clean(name)}-${clean(area)}`.slice(0, 60);
     };
-    let slug = makeSlug(resolvedData.name, resolvedData.location);
+    let slug = makeSlug(engName, resolvedData.location || "seoul");
     const existing = await sql`SELECT id FROM shops WHERE slug = ${slug}`;
     if (existing.length > 0) slug = slug + "-" + Date.now().toString().slice(-4);
+    const loc = resolvedData.location || "Seoul";
+    const cat = category || "skincare";
+    const description = resolvedData.description || `${engName} is a premier ${cat} destination located in ${loc}, Seoul. With a ${resolvedData.rating || 5}/5 rating and ${resolvedData.reviewCount || 0}+ reviews, we offer expert treatments in a foreigner-friendly environment. Book via WhatsApp with Seoul Beauty Trip.`;
+    const whyChoose = resolvedData.whyChoose?.length ? resolvedData.whyChoose : [
+      `\u{1F310} English-friendly service and easy WhatsApp booking for international visitors`,
+      `\u2B50 Rated ${resolvedData.rating || 5}/5 with ${resolvedData.reviewCount || 0}+ verified reviews`,
+      `\u{1F4CD} Conveniently located in ${loc}, perfect for tourists exploring Seoul`
+    ];
+    const metaDescription = resolvedData.metaDescription || `${engName} ${loc} Seoul - Premium ${cat} for foreigners. English-speaking staff. Book via WhatsApp instantly with Seoul Beauty Trip.`;
+    const seoKeywords = resolvedData.seoKeywords || `${engName} Seoul, ${engName} ${loc}, ${engName} reviews, ${engName} booking, best ${cat} ${loc} Seoul, ${cat} Seoul English speaking, ${loc} ${cat} foreigner friendly`;
+    const photos = resolvedData.photos || [];
+    const thumbnail = resolvedData.thumbnail || (photos[0] || "");
+    const reviews = resolvedData.reviews || [];
     const shopId = "s" + Date.now();
     await sql`
-      INSERT INTO shops (id, name, slug, category, location, address, hours, rating, review_count, thumbnail, google_place_id, lat, lng, active, created_at)
-      VALUES (
-        ${shopId}, ${resolvedData.name}, ${slug}, ${category || "skincare"},
-        ${resolvedData.location}, ${resolvedData.address}, ${resolvedData.hours},
-        ${resolvedData.rating}, ${resolvedData.reviewCount}, ${resolvedData.thumbnail},
-        ${resolvedData.placeId}, ${resolvedData.lat}, ${resolvedData.lng},
-        true, NOW()
+      INSERT INTO shops (
+        id, name, slug, category, location, address, hours,
+        rating, review_count, thumbnail, photos,
+        google_place_id, google_map_url, lat, lng,
+        description, why_choose, meta_description, seo_keywords,
+        reviews, active, created_at
+      ) VALUES (
+        ${shopId}, ${rawName}, ${slug}, ${cat},
+        ${loc}, ${resolvedData.address || ""}, ${resolvedData.hours || ""},
+        ${resolvedData.rating || 5}, ${resolvedData.reviewCount || 0},
+        ${thumbnail}, ${JSON.stringify(photos)},
+        ${resolvedData.placeId || ""}, ${gmapUrl}, ${resolvedData.lat || ""}, ${resolvedData.lng || ""},
+        ${description}, ${JSON.stringify(whyChoose)}, ${metaDescription}, ${seoKeywords},
+        ${JSON.stringify(reviews)}, true, NOW()
       )
     `;
     let videoId = null;
@@ -3725,15 +3652,15 @@ app.post("/api/quick-register", async (c2) => {
       const thumb = videoUrl.includes("cloudinary.com") ? videoUrl.replace("/video/upload/", "/video/upload/so_0,w_600,h_1066,c_fill,q_auto/").replace(/\.mp4$/, ".jpg") : "";
       await sql`
         INSERT INTO videos (id, shop_id, title, video_url, thumbnail, views, created_at)
-        VALUES (${videoId}, ${shopId}, ${resolvedData.name}, ${videoUrl.trim()}, ${thumb}, 0, NOW())
+        VALUES (${videoId}, ${shopId}, ${engName}, ${videoUrl.trim()}, ${thumb}, 0, NOW())
       `;
     }
     return c2.json({
       success: true,
       shopId,
-      shopName: resolvedData.name,
+      shopName: rawName,
       slug,
-      location: resolvedData.location,
+      location: loc,
       videoId,
       url: `/shop/${slug}`
     });
