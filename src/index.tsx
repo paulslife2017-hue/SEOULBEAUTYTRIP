@@ -6074,32 +6074,50 @@ textarea{height:80px;resize:none}
 </div>
 
 <!-- 방문자 분석 (GA4) -->
-<div class="tab-content" id="tab-analytics">
+<div class="tab-content" id="tab-analytics" style="padding:0">
   <!-- 헤더 -->
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px;flex-wrap:wrap;gap:8px">
     <div style="font-size:15px;font-weight:900;color:#fff"><i class="fas fa-chart-line" style="color:#FF4D8D;margin-right:6px"></i> 방문자 분석</div>
     <a href="https://lookerstudio.google.com/reporting/66f7ff82-9ee4-46aa-b1cf-1931cc015798" target="_blank" class="btn-sm btn-blue" style="font-size:11px;padding:6px 12px;display:inline-flex;align-items:center;gap:5px">
-      <i class="fas fa-external-link-alt"></i> 전체화면으로 보기
+      <i class="fas fa-external-link-alt"></i> 새 탭으로 보기
     </a>
   </div>
-  <!-- Looker Studio 임베드 -->
-  <div style="background:var(--cd);border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,.08);position:relative">
-    <div id="an-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--cd);z-index:2;flex-direction:column;gap:10px">
-      <i class="fas fa-chart-line" style="font-size:32px;color:rgba(255,77,141,.4);animation:pulse 1.5s infinite"></i>
+
+  <!-- 안내 배너 -->
+  <div style="margin:0 20px 12px;padding:10px 14px;background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.25);border-radius:10px;font-size:12px;color:rgba(255,255,255,.6);display:flex;align-items:center;gap:8px">
+    <i class="fas fa-lightbulb" style="color:#a78bfa"></i>
+    Looker Studio 보고서는 흰 배경으로 표시됩니다. <b style="color:#a78bfa;margin-left:4px">아래 방법으로 어둡게 바꿀 수 있어요 ↓</b>
+    <button onclick="document.getElementById('an-guide').style.display=document.getElementById('an-guide').style.display==='none'?'block':'none'" style="margin-left:auto;background:rgba(167,139,250,.2);border:1px solid rgba(167,139,250,.3);color:#a78bfa;border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer">방법 보기</button>
+  </div>
+
+  <!-- 다크모드 적용 가이드 -->
+  <div id="an-guide" style="display:none;margin:0 20px 12px;padding:14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;font-size:12px;line-height:2;color:rgba(255,255,255,.7)">
+    <b style="color:#fff;font-size:13px">📌 Looker Studio 배경 어둡게 바꾸기</b><br>
+    1. <a href="https://lookerstudio.google.com/reporting/66f7ff82-9ee4-46aa-b1cf-1931cc015798" target="_blank" style="color:#60a5fa">Looker Studio 보고서</a> 접속 → 수정 모드<br>
+    2. 상단 메뉴 <b style="color:#fff">테마 및 레이아웃</b> 클릭<br>
+    3. <b style="color:#fff">배경색</b> → 어두운 색 선택 (예: #0d0d18 또는 #1a1a2e)<br>
+    4. <b style="color:#fff">텍스트색</b> → 흰색으로 변경<br>
+    5. 저장 → 여기서 새로고침
+  </div>
+
+  <!-- Looker Studio iframe - 전체 너비 -->
+  <div style="position:relative;margin:0;background:#fff">
+    <div id="an-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#13132a;z-index:2;flex-direction:column;gap:10px;min-height:200px">
+      <i class="fas fa-chart-line" style="font-size:32px;color:rgba(255,77,141,.5);animation:pulse 1.5s infinite"></i>
       <div style="font-size:13px;color:rgba(255,255,255,.4)">대시보드 불러오는 중...</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.25)">처음 로딩은 5~10초 걸릴 수 있어요</div>
     </div>
     <iframe
       src="https://datastudio.google.com/embed/reporting/66f7ff82-9ee4-46aa-b1cf-1931cc015798/page/WLqzF"
-      style="width:100%;height:700px;border:0;display:block"
+      style="width:100%;height:800px;border:0;display:block"
       allowfullscreen
       sandbox="allow-storage-access-by-user-activation allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
       onload="document.getElementById('an-loading').style.display='none'"
     ></iframe>
   </div>
-  <div style="margin-top:10px;font-size:11px;color:rgba(255,255,255,.25);text-align:center">
-    <i class="fas fa-info-circle"></i> Looker Studio (Google) 데이터 — 실시간 GA4 연동
+  <div style="padding:8px 20px 16px;font-size:11px;color:rgba(255,255,255,.2);text-align:center">
+    <i class="fas fa-sync-alt"></i> Google Looker Studio · GA4 실시간 연동
   </div>
-
 </div>
 
 <!-- 예약관리 -->
