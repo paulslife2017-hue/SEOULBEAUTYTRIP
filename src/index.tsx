@@ -7437,12 +7437,18 @@ document.addEventListener('click', function(e){
   if(delVideoBtn){ delVideo(delVideoBtn.getAttribute('data-id')); return; }
   var addVideoBtn = e.target.closest('[data-add-video]');
   if(addVideoBtn){ openVideoPanel(addVideoBtn.getAttribute('data-add-video')); return; }
-
   // ── 영상 수정 버튼 → 수정 패널 열기 ──
   var vidEditBtn = e.target.closest('.vid-edit-btn');
   if(vidEditBtn){ openVideoEditPanel(vidEditBtn.getAttribute('data-id')); return; }
   var delBlogBtn = e.target.closest('[data-del-blog]');
   if(delBlogBtn){ delBlog(delBlogBtn.getAttribute('data-del-blog')); return; }
+  // ── 업체 아코디언 토글 ──
+  var hd = e.target.closest('.shop-accordion-hd');
+  if(hd){
+    var sid = hd.getAttribute('data-shop-id');
+    _shopExpanded[sid] = !_shopExpanded[sid];
+    renderShops();
+  }
 });
 document.addEventListener('change', function(e){
   var sel = e.target.closest('.status-select');
@@ -7540,69 +7546,116 @@ function fmtPrice(n){
   return '\u20a9'+Number(n).toLocaleString();
 }
 
-// ── 업체 목록 렌더 ──
+// ── 업체 목록 렌더 (아코디언) ──
+var _shopExpanded = {}; // 열려있는 업체 ID 추적
+
 function renderShops(){
   var el = document.getElementById('shopList');
+  if(!el) return;
   if(!shops.length){
     el.innerHTML = '<div style="text-align:center;padding:40px 24px;color:rgba(255,255,255,.25);font-size:13px"><div style="font-size:32px;margin-bottom:8px">&#127978;</div>No shops registered<br><span style="font-size:11px">Add a shop using the form above</span></div>';
     return;
   }
   var catColors = {skincare:'#f472b6',makeup:'#c084fc',hair:'#60a5fa',headspa:'#67e8f9',nail:'#34d399',clinic:'#fb923c',spa:'#a78bfa'};
-  var catLabels = {skincare:'스킨케어',makeup:'메이크업',hair:'헤어',headspa:'헤드스파',nail:'네일',clinic:'클리닉',spa:'스파'};
-  el.innerHTML = '<div style="display:grid;gap:12px">' + shops.map(function(s){
-    var vcount = videos.filter(function(v){return v.shopId===s.id;}).length;
-    var catColor = catColors[s.category] || '#aaa';
-    var catLabel = catLabels[s.category] || s.category;
-    var initial = (s.name||'S')[0].toUpperCase();
-    // 이 업체 소속 영상 목록
-    var shopVids = videos.filter(function(v){ return v.shopId === s.id; });
-    var vidsHtml = shopVids.length
-      ? shopVids.map(function(v){
-          return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid rgba(255,255,255,.05)">'
-            +'<img src="'+(v.thumbnail||'')+'" class="safe-img" data-fallback="https://placehold.co/36x48/1c1c30/FF4D8D?text=V" style="width:36px;height:48px;border-radius:6px;object-fit:cover;flex-shrink:0">'
-            +'<div style="flex:1;min-width:0">'
-              +'<div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px">'+v.title+'</div>'
-              +'<div style="font-size:10px;color:rgba(255,255,255,.3)">'+v.views+' 조회</div>'
-            +'</div>'
-            +'<div style="display:flex;gap:4px;flex-shrink:0">'
-              +'<button class="vid-edit-btn" data-id="'+v.id+'" style="padding:4px 10px;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);border-radius:6px;color:#a5b4fc;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap"><i class="fas fa-pen"></i> 수정</button>'
-              +'<button class="del-video-btn" data-id="'+v.id+'" style="padding:4px 8px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.25);border-radius:6px;color:#f87171;font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap"><i class="fas fa-trash"></i></button>'
-            +'</div>'
-          +'</div>';
-        }).join('')
-      : '<div style="font-size:11px;color:rgba(255,255,255,.2);padding:8px 0;border-top:1px solid rgba(255,255,255,.05)">등록된 영상 없음</div>';
+  var catLabels  = {skincare:'스킨케어',makeup:'메이크업',hair:'헤어',headspa:'헤드스파',nail:'네일',clinic:'클리닉',spa:'스파'};
 
-    return '<div class="shop-card" style="flex-direction:column;gap:0">'
-      // 업체 헤더행
-      +'<div style="display:flex;gap:10px;align-items:center;margin-bottom:10px">'
-        // 썸네일 or 이니셜
-        +'<div style="width:52px;height:52px;border-radius:12px;overflow:hidden;flex-shrink:0;background:linear-gradient(135deg,rgba(255,77,141,.2),rgba(155,89,182,.2));display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#FF4D8D">'
+  el.innerHTML = '<div style="display:grid;gap:10px">' + shops.map(function(s){
+    var shopVids  = videos.filter(function(v){ return v.shopId === s.id; });
+    var vcount    = shopVids.length;
+    var catColor  = catColors[s.category] || '#aaa';
+    var catLabel  = catLabels[s.category]  || s.category;
+    var initial   = (s.name||'S')[0].toUpperCase();
+    var isOpen    = !!_shopExpanded[s.id];
+
+    // ── 영상 행 (아코디언 body) ──
+    var vidRowsHtml = '';
+    if(vcount){
+      vidRowsHtml = shopVids.map(function(v){
+        return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid rgba(255,255,255,.05)">'
+          // 썸네일
+          +'<div style="position:relative;flex-shrink:0">'
+            +'<img src="'+(v.thumbnail||'')+'" class="safe-img" data-fallback="https://placehold.co/44x60/1c1c30/FF4D8D?text=▶"'
+              +' style="width:44px;height:60px;border-radius:8px;object-fit:cover;display:block">'
+            +'<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:.6"><i class="fas fa-play" style="font-size:10px;color:#fff;filter:drop-shadow(0 1px 2px #000)"></i></div>'
+          +'</div>'
+          // 정보
+          +'<div style="flex:1;min-width:0">'
+            +'<div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.9);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px">'+v.title+'</div>'
+            +'<div style="font-size:10px;color:rgba(255,255,255,.3)"><i class="fas fa-eye" style="margin-right:3px"></i>'+v.views+' 조회</div>'
+          +'</div>'
+          // 버튼
+          +'<div style="display:flex;gap:5px;flex-shrink:0">'
+            +'<button class="vid-edit-btn" data-id="'+v.id+'"'
+              +' style="padding:5px 11px;background:rgba(99,102,241,.18);border:1px solid rgba(99,102,241,.35);border-radius:7px;color:#a5b4fc;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">'
+              +'<i class="fas fa-pen"></i> 수정</button>'
+            +'<button class="del-video-btn" data-id="'+v.id+'"'
+              +' style="padding:5px 9px;background:rgba(239,68,68,.13);border:1px solid rgba(239,68,68,.28);border-radius:7px;color:#f87171;font-size:11px;font-weight:600;cursor:pointer">'
+              +'<i class="fas fa-trash"></i></button>'
+          +'</div>'
+        +'</div>';
+      }).join('');
+    } else {
+      vidRowsHtml = '<div style="text-align:center;padding:18px 0 10px;border-top:1px solid rgba(255,255,255,.05)">'
+        +'<i class="fas fa-film" style="font-size:22px;color:rgba(255,255,255,.1);margin-bottom:6px;display:block"></i>'
+        +'<div style="font-size:12px;color:rgba(255,255,255,.25);margin-bottom:0">아직 등록된 영상이 없습니다</div>'
+      +'</div>';
+    }
+
+    // ── 영상 추가 인라인 버튼 ──
+    var addVidBtn = '<button data-add-video="'+s.id+'"'
+      +' style="display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:8px;padding:9px;'
+      +'background:rgba(255,77,141,.07);border:1.5px dashed rgba(255,77,141,.35);border-radius:10px;'
+      +'color:rgba(255,77,141,.8);font-size:12px;font-weight:700;cursor:pointer;transition:.15s"'
+      +' onmouseover="this.style.background=\'rgba(255,77,141,.14)\'" onmouseout="this.style.background=\'rgba(255,77,141,.07)\'">'
+      +'<i class="fas fa-plus-circle"></i> 영상 추가하기</button>';
+
+    // ── 카드 전체 ──
+    return '<div style="background:rgba(255,255,255,.03);border:1px solid '+(isOpen?'rgba(255,77,141,.3)':'rgba(255,255,255,.08)')+';border-radius:14px;overflow:hidden">'
+
+      // ── 헤더 (클릭 → 접기/펼치기) ──
+      +'<div class="shop-accordion-hd" data-shop-id="'+s.id+'"'
+        +' style="display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;user-select:none">'
+
+        // 썸네일 / 이니셜
+        +'<div style="width:48px;height:48px;border-radius:10px;overflow:hidden;flex-shrink:0;background:linear-gradient(135deg,rgba(255,77,141,.25),rgba(155,89,182,.2));display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:#FF4D8D">'
           +(s.thumbnail ? '<img src="'+s.thumbnail+'" class="safe-img" style="width:100%;height:100%;object-fit:cover" data-fallback-text="'+initial+'">' : initial)
         +'</div>'
-        // 메타정보
+
+        // 업체명 + 뱃지
         +'<div style="flex:1;min-width:0">'
-          +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">'
-            +'<span style="font-size:14px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+s.name+'</span>'
+          +'<div style="display:flex;align-items:center;gap:7px;margin-bottom:4px;flex-wrap:wrap">'
+            +'<span style="font-size:14px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px">'+s.name+'</span>'
             +'<span style="flex-shrink:0;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;background:rgba(255,255,255,.07);color:'+catColor+'">'+catLabel+'</span>'
           +'</div>'
-          +(s.location ? '<div style="font-size:11px;color:rgba(255,255,255,.45);margin-bottom:4px"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:4px"></i>'+s.location+'</div>' : '')
-          +'<div style="display:flex;align-items:center;gap:10px">'
-            +'<span style="font-size:11px;color:#a78bfa"><i class="fas fa-film" style="margin-right:3px"></i>'+vcount+'개 영상</span>'
-            +(s.priceRange ? '<span style="font-size:11px;color:#34d399">'+s.priceRange+'</span>' : '')
-          +'</div>'
+          +(s.location ? '<div style="font-size:11px;color:rgba(255,255,255,.4)"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:3px"></i>'+s.location+'</div>' : '')
         +'</div>'
-        // 업체 액션 버튼
-        +'<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">'
-          +'<button data-add-video="'+s.id+'" style="padding:6px 12px;background:linear-gradient(135deg,#FF4D8D,#9B59B6);border:none;border-radius:8px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap"><i class="fas fa-plus"></i> 영상</button>'
-          +'<button class="edit-shop-btn" data-id="'+s.id+'" style="padding:6px 12px;background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.25);border-radius:8px;color:#60a5fa;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap"><i class="fas fa-edit"></i> 수정</button>'
-          +'<button class="del-shop-btn" data-id="'+s.id+'" style="padding:6px 12px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.25);border-radius:8px;color:#f87171;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap"><i class="fas fa-trash"></i> 삭제</button>'
+
+        // 오른쪽 — 영상수 + 수정/삭제 버튼 + 화살표
+        +'<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">'
+          +'<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;background:rgba(167,139,250,.15);color:#a78bfa">'
+            +'<i class="fas fa-film" style="margin-right:3px"></i>'+vcount
+          +'</span>'
+          +'<button class="edit-shop-btn" data-id="'+s.id+'"'
+            +' style="padding:5px 10px;background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.25);border-radius:7px;color:#60a5fa;font-size:11px;font-weight:600;cursor:pointer" title="업체 수정">'
+            +'<i class="fas fa-edit"></i></button>'
+          +'<button class="del-shop-btn" data-id="'+s.id+'"'
+            +' style="padding:5px 9px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.22);border-radius:7px;color:#f87171;font-size:11px;cursor:pointer" title="업체 삭제">'
+            +'<i class="fas fa-trash"></i></button>'
+          +'<i class="fas fa-chevron-'+(isOpen?'up':'down')+'" style="font-size:11px;color:rgba(255,255,255,.3);margin-left:2px"></i>'
         +'</div>'
       +'</div>'
-      // 영상 목록
-      + vidsHtml
+
+      // ── 영상 목록 body (아코디언) ──
+      +'<div class="shop-accordion-body" data-shop-id="'+s.id+'" style="padding:0 14px 14px;display:'+(isOpen?'block':'none')+'">'
+        + vidRowsHtml
+        + addVidBtn
+      +'</div>'
+
     +'</div>';
   }).join('') + '</div>';
 }
+
+
 
 // ── 영상 목록 렌더 (업체별 그룹) ──
 function renderVideos(){
@@ -7682,7 +7735,6 @@ window.updateStatus = function updateStatus(id, status){
 
 // ── 영상 추가 패널 열기/닫기 ──
 function openVideoPanel(shopId){
-  // id 타입 불일치 방지: 문자열로 통일해서 비교
   var shop = shops.find(function(s){ return String(s.id) === String(shopId); });
   currentShopId = shopId;
 
@@ -7696,21 +7748,42 @@ function openVideoPanel(shopId){
     tabShops.classList.add('on');
   }
 
-  // shop을 찾지 못해도 패널은 열어줌 (이름은 shopId로 표시)
+  // 해당 업체 아코디언을 강제로 펼치기
+  _shopExpanded[String(shopId)] = true;
+  renderShops();
+
+  // 다른 패널 닫기
+  document.getElementById('editShopPanel').style.display  = 'none';
+  document.getElementById('videoEditPanel').style.display = 'none';
+
+  // 패널에 업체명 세팅 후 표시
   document.getElementById('vd-shop-name').textContent = shop ? shop.name : ('#' + shopId);
   document.getElementById('videoAddPanel').style.display = 'block';
+
+  // 폼 초기화
+  ['vd-title','vd-url','vd-thumb','vd-desc','vd-tags'].forEach(function(id){
+    var el = document.getElementById(id); if(el) el.value='';
+  });
+  var badge = document.getElementById('vd-url-badge');   if(badge)  badge.style.display='none';
+  var hint  = document.getElementById('vd-url-hint');    if(hint)   hint.style.display='none';
+  var prev  = document.getElementById('vd-url-preview'); if(prev)   prev.style.display='none';
+
   setTimeout(function(){
     document.getElementById('videoAddPanel').scrollIntoView({behavior:'smooth', block:'start'});
-  }, 50);
+    var titleEl = document.getElementById('vd-title');
+    if(titleEl) titleEl.focus();
+  }, 80);
 }
 
 function closeVideoPanel(){
   document.getElementById('videoAddPanel').style.display = 'none';
   currentShopId = null;
-  ['vd-title','vd-url','vd-thumb','vd-desc','vd-tags'].forEach(function(id){document.getElementById(id).value='';});
-  document.getElementById('vd-url-badge').style.display='none';
-  document.getElementById('vd-url-hint').style.display='none';
-  document.getElementById('vd-url-preview').style.display='none';
+  ['vd-title','vd-url','vd-thumb','vd-desc','vd-tags'].forEach(function(id){
+    var el = document.getElementById(id); if(el) el.value='';
+  });
+  var badge = document.getElementById('vd-url-badge');   if(badge)  badge.style.display='none';
+  var hint  = document.getElementById('vd-url-hint');    if(hint)   hint.style.display='none';
+  var prev  = document.getElementById('vd-url-preview'); if(prev)   prev.style.display='none';
 }
 
 document.getElementById('vd-panel-close').addEventListener('click', closeVideoPanel);
@@ -7757,6 +7830,7 @@ function saveVideoEdit(){
 
   // 기존 thumbnail 유지
   var vid = videos.find(function(v){ return v.id === editingVideoId; }) || {};
+  var savedShopId = vid.shopId; // 수정 완료 후 아코디언 유지용
   fetch('/api/videos/'+editingVideoId, {
     method:'PUT',
     headers:{'Content-Type':'application/json'},
@@ -7764,6 +7838,7 @@ function saveVideoEdit(){
   }).then(function(r){ return r.json(); }).then(function(){
     btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> 저장';
     closeVideoEditPanel();
+    if(savedShopId) _shopExpanded[String(savedShopId)] = true;
     loadAll();
     alert('✅ 영상 정보가 수정되었습니다!');
   }).catch(function(){
@@ -8868,6 +8943,9 @@ window.addVideo = function addVideo(){
   if(!url){   alert('영상 URL을 입력해주세요!'); return; }
   var shop = shops.find(function(s){return s.id===currentShopId;})||{};
   var tags = document.getElementById('vd-tags').value.split(',').map(function(t){return t.trim();}).filter(Boolean);
+  var savedShopId = currentShopId; // 저장 후에도 유지
+  var btn = document.getElementById('vd-submit-btn');
+  if(btn){ btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> 등록 중...'; }
   fetch('/api/videos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
     shopId:currentShopId,
     title:title, videoUrl:url,
@@ -8876,12 +8954,18 @@ window.addVideo = function addVideo(){
     tags:tags
   })}).then(function(){
     closeVideoPanel();
+    _shopExpanded[String(savedShopId)] = true; // 등록 후 해당 업체 아코디언 열어두기
     loadAll();
+  }).finally(function(){
+    if(btn){ btn.disabled=false; btn.innerHTML='<i class="fas fa-plus-circle"></i> 영상 등록'; }
   });
 }
 
 window.delVideo = function delVideo(id){
   if(!confirm('이 영상을 삭제하시겠습니까?'))return;
+  // 삭제 후에도 해당 업체 아코디언 열린 상태 유지
+  var vid = videos.find(function(v){ return v.id===id; });
+  if(vid) _shopExpanded[String(vid.shopId)] = true;
   fetch('/api/videos/'+id,{method:'DELETE'}).then(loadAll);
 }
 
