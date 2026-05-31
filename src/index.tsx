@@ -2431,7 +2431,7 @@ ${(()=>{const allP=[shop.thumbnail,...(shop.photos||[]).filter((p:string)=>p&&p!
 
     /* ── Map ── */
     const embedUrl2 = shop.googleMapEmbed
-      || (shop.lat && shop.lng ? `https://maps.google.com/maps?q=${shop.lat},${shop.lng}&z=17&output=embed&hl=en` : '');
+      || (shop.lat && shop.lng ? `https://maps.google.com/maps?ll=${shop.lat},${shop.lng}&q=+&z=17&output=embed&hl=en` : '');
     const mapHtml2 = embedUrl2
       ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map"><iframe src="${embedUrl2}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div></div>`
       : (shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : '');
@@ -2450,7 +2450,7 @@ ${(()=>{const allP=[shop.thumbnail,...(shop.photos||[]).filter((p:string)=>p&&p!
     }).join('');
     /* ── Map (리뷰 바로 뒤) ── */
     const embedUrl3 = shop.googleMapEmbed
-      || (shop.lat && shop.lng ? `https://maps.google.com/maps?q=${shop.lat},${shop.lng}&z=17&output=embed&hl=en` : '');
+      || (shop.lat && shop.lng ? `https://maps.google.com/maps?ll=${shop.lat},${shop.lng}&q=+&z=17&output=embed&hl=en` : '');
     const mapHtml3 = embedUrl3
       ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map"><iframe src="${embedUrl3}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div></div>`
       : (shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : '');
@@ -5151,10 +5151,10 @@ function renderShopModal(shop) {
 
   /* ── 구글맵 embed: lat/lng+place_id > embed > address 순으로 시도 ── */
   var embedSrc = shop.googleMapEmbed || '';
-  // 1순위: lat/lng 좌표로 핀 표시 (z=17 근접 줌, API키 불필요)
+  // 1순위: ll 파라미터로 순수 좌표 표시 (업체 Place 매칭 없이 좌표 핀만)
   if(!embedSrc && shop.lat && shop.lng) {
     var mlat = parseFloat(shop.lat), mlng = parseFloat(shop.lng);
-    embedSrc = 'https://maps.google.com/maps?q='+mlat+','+mlng+'&z=17&output=embed&hl=en';
+    embedSrc = 'https://maps.google.com/maps?ll='+mlat+','+mlng+'&q=+&z=17&output=embed&hl=en';
   }
   // 2순위: URL에서 파싱
   if(!embedSrc && shop.googleMapUrl) {

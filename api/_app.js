@@ -4321,7 +4321,7 @@ ${(() => {
       priceHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-won-sign" style="color:var(--gold);margin-right:4px"></i>Pricing</div><div class="sp-sec-body">Prices vary by treatment &amp; consultation. <span style="color:rgba(255,255,255,.35)">Contact us via WhatsApp below for a free quote.</span></div></div>`;
     }
     const svcHtml2 = shop.services && shop.services.length > 0 ? `<div class="sp-sec"><div class="sp-sec-title">Services</div><div class="sp-svc-tags">${shop.services.map((s) => `<span class="sp-svc-tag">${s}</span>`).join("")}</div></div>` : "";
-    const embedUrl2 = shop.googleMapEmbed || (shop.lat && shop.lng ? `https://maps.google.com/maps?q=${shop.lat},${shop.lng}&z=17&output=embed&hl=en` : "");
+    const embedUrl2 = shop.googleMapEmbed || (shop.lat && shop.lng ? `https://maps.google.com/maps?ll=${shop.lat},${shop.lng}&q=+&z=17&output=embed&hl=en` : "");
     const mapHtml2 = embedUrl2 ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map"><iframe src="${embedUrl2}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div></div>` : shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : "";
     return addrHtml2 + infoGridHtml2 + descHtml2 + priceHtml2 + svcHtml2 + hoursHtml2;
   })()}
@@ -4334,7 +4334,7 @@ ${(() => {
       const rvStars = "\u2605".repeat(Math.min(5, Math.max(0, rvR))) + "\u2606".repeat(Math.max(0, 5 - rvR));
       return `<div class="sp-review-card"><div class="sp-review-top"><span class="sp-review-author">${rv.author || "Guest"}</span><span class="sp-review-stars">${rvStars}</span></div><div class="sp-review-text">${rv.text || ""}</div>${rv.time ? `<div class="sp-review-time">${rv.time}</div>` : ""}</div>`;
     }).join("");
-    const embedUrl3 = shop.googleMapEmbed || (shop.lat && shop.lng ? `https://maps.google.com/maps?q=${shop.lat},${shop.lng}&z=17&output=embed&hl=en` : "");
+    const embedUrl3 = shop.googleMapEmbed || (shop.lat && shop.lng ? `https://maps.google.com/maps?ll=${shop.lat},${shop.lng}&q=+&z=17&output=embed&hl=en` : "");
     const mapHtml3 = embedUrl3 ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map"><iframe src="${embedUrl3}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div></div>` : shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : "";
     const reviewsBlock = shopReviews2.length ? `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-star" style="color:var(--gold);margin-right:4px"></i>Google Reviews${shop.reviewCount ? ` <span style="font-size:10px;color:rgba(255,255,255,.35);font-weight:400">(${shop.rating}\u2605 \xB7 ${Number(shop.reviewCount).toLocaleString()} reviews)</span>` : ""}</div><div class="sp-reviews-wrap">${reviewCards2}</div></div>` : "";
     return reviewsBlock + mapHtml3;
@@ -6962,10 +6962,10 @@ function renderShopModal(shop) {
 
   /* \u2500\u2500 \uAD6C\uAE00\uB9F5 embed: lat/lng+place_id > embed > address \uC21C\uC73C\uB85C \uC2DC\uB3C4 \u2500\u2500 */
   var embedSrc = shop.googleMapEmbed || '';
-  // 1\uC21C\uC704: lat/lng \uC88C\uD45C\uB85C \uD540 \uD45C\uC2DC (z=17 \uADFC\uC811 \uC90C, API\uD0A4 \uBD88\uD544\uC694)
+  // 1\uC21C\uC704: ll \uD30C\uB77C\uBBF8\uD130\uB85C \uC21C\uC218 \uC88C\uD45C \uD45C\uC2DC (\uC5C5\uCCB4 Place \uB9E4\uCE6D \uC5C6\uC774 \uC88C\uD45C \uD540\uB9CC)
   if(!embedSrc && shop.lat && shop.lng) {
     var mlat = parseFloat(shop.lat), mlng = parseFloat(shop.lng);
-    embedSrc = 'https://maps.google.com/maps?q='+mlat+','+mlng+'&z=17&output=embed&hl=en';
+    embedSrc = 'https://maps.google.com/maps?ll='+mlat+','+mlng+'&q=+&z=17&output=embed&hl=en';
   }
   // 2\uC21C\uC704: URL\uC5D0\uC11C \uD30C\uC2F1
   if(!embedSrc && shop.googleMapUrl) {
