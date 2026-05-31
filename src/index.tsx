@@ -4007,7 +4007,7 @@ Sitemap: https://seoulbeautytrip.com/sitemap.xml
 app.get('/', async (c) => {
   const sql = getDb(c.env)
   try {
-    const vidRows = await sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.active=true ORDER BY RANDOM()`
+    const vidRows = await sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.active=true ORDER BY v.views DESC, v.created_at DESC`
     const initVideos = vidRows.map((r: any) => {
       // thumbnail: DB 저장값 → Cloudinary 자동 생성 (so_0 첫프레임 JPG) 순서로 fallback
       const vUrl = r.video_url || ''
@@ -4034,9 +4034,10 @@ app.get('/', async (c) => {
     // </script> 문자열이 JSON 안에 있으면 HTML 파서가 스크립트를 조기 종료 → 이스케이프 처리
     const safeJson = (obj: any) => JSON.stringify(obj).replace(/<\/script>/gi, '<\\/script>').replace(/<!--/g, '<\\!--')
 
-    // VideoObject JSON-LD — 구글 동영상 검색 색인용 (상위 5개만)
+    // VideoObject JSON-LD — 구글 동영상 검색 색인용 (전체 영상, 최대 20개)
     // embedUrl: /video/:id 전용 보기 페이지 (Google 요구사항 — 영상이 주요 콘텐츠인 전용 URL)
-    const videoJsonLd = initVideos.slice(0, 5).map((v: any) => {
+    // ※ slice 제거: 5개만 포함하면 나머지 7개가 누락되어 "일부 항목이 잘못됨" 오류 발생
+    const videoJsonLd = initVideos.slice(0, 20).map((v: any) => {
       // thumbnailUrl: 반드시 https:// 절대 URL이어야 함 (Google 필수)
       // 우선순위: DB thumbnail → Cloudinary 자동(so_0 JPG) → shop thumbnail(https만) → og-cover
       const vThumb = (v.thumbnail && v.thumbnail.startsWith('http') ? v.thumbnail : '')

@@ -5818,7 +5818,7 @@ Sitemap: https://seoulbeautytrip.com/sitemap.xml
 app.get("/", async (c2) => {
   const sql = getDb(c2.env);
   try {
-    const vidRows = await sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.active=true ORDER BY RANDOM()`;
+    const vidRows = await sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.active=true ORDER BY v.views DESC, v.created_at DESC`;
     const initVideos = vidRows.map((r) => {
       const vUrl = r.video_url || "";
       const dbThumb = r.thumbnail || "";
@@ -5843,7 +5843,7 @@ app.get("/", async (c2) => {
     });
     const initPlatform = { whatsapp: PLATFORM.whatsapp, name: PLATFORM.name, instagram: PLATFORM.instagram };
     const safeJson = (obj) => JSON.stringify(obj).replace(/<\/script>/gi, "<\\/script>").replace(/<!--/g, "<\\!--");
-    const videoJsonLd = initVideos.slice(0, 5).map((v) => {
+    const videoJsonLd = initVideos.slice(0, 20).map((v) => {
       const vThumb = (v.thumbnail && v.thumbnail.startsWith("http") ? v.thumbnail : "") || (v.videoUrl && v.videoUrl.includes("cloudinary.com") ? v.videoUrl.replace("/video/upload/", "/video/upload/so_0,w_600,h_1066,c_fill,q_auto/").replace(/\.mp4$/, ".jpg") : "") || (v.shop?.thumbnail && v.shop.thumbnail.startsWith("http") ? v.shop.thumbnail : "") || "https://seoulbeautytrip.com/og-cover.jpg";
       const vUploadDate = v.createdAt ? v.createdAt.includes("T") ? v.createdAt : v.createdAt + "T00:00:00+09:00" : (/* @__PURE__ */ new Date()).toISOString();
       const vEmbedUrl = `https://seoulbeautytrip.com/video/${v.id}`;
