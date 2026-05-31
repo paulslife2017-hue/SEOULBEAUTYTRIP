@@ -4387,8 +4387,8 @@ ${(() => {
       const mlat2 = parseFloat(shop.lat), mlng2 = parseFloat(shop.lng), z = 16;
       const tx = Math.floor((mlng2 + 180) / 360 * Math.pow(2, z)), ty = Math.floor((1 - Math.log(Math.tan(mlat2 * Math.PI / 180) + 1 / Math.cos(mlat2 * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, z));
       const t1 = `https://tile.openstreetmap.org/${z}/${tx}/${ty}.png`, t2 = `https://tile.openstreetmap.org/${z}/${tx + 1}/${ty}.png`;
-      const gLink = `https://maps.google.com/?q=${mlat2},${mlng2}`;
-      return `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map" style="cursor:pointer;overflow:hidden;position:relative" data-map-url="${gLink}" onclick="openMapUrl(this)"><div style="display:flex;height:100%;filter:saturate(0.8) brightness(0.75)"><img src="${t1}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"><img src="${t2}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"></div><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none"><i class="fas fa-map-marker-alt" style="font-size:32px;color:#e8414a;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6))"></i></div><div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);backdrop-filter:blur(4px);color:#fff;font-size:11px;padding:4px 10px;border-radius:20px;white-space:nowrap;pointer-events:none">${mlat2.toFixed(4)}\xB0N\xA0${mlng2.toFixed(4)}\xB0E</div></div></div>`;
+      const gLink = `https://maps.google.com/?q=${mlat2},${mlng2}&hl=en`;
+      return `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map" style="cursor:pointer;overflow:hidden;position:relative" data-map-url="${gLink}" onclick="openMapUrl(this)"><div style="display:flex;height:100%;filter:saturate(0.8) brightness(0.75)"><img src="${t1}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"><img src="${t2}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"></div><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none"><i class="fas fa-map-marker-alt" style="font-size:32px;color:#e8414a;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6))"></i></div>${shop.address || shop.location ? `<div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);backdrop-filter:blur(4px);color:#fff;font-size:11px;padding:4px 10px;border-radius:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:88%;pointer-events:none"><i class="fas fa-map-marker-alt" style="margin-right:4px;color:#FF4D8D"></i>${(shop.address || shop.location).trim()}</div>` : ""}</div></div>`;
     })();
     return addrHtml2 + infoGridHtml2 + descHtml2 + priceHtml2 + svcHtml2 + hoursHtml2;
   })()}
@@ -4406,8 +4406,8 @@ ${(() => {
       const mlat3 = parseFloat(shop.lat), mlng3 = parseFloat(shop.lng), z = 16;
       const tx = Math.floor((mlng3 + 180) / 360 * Math.pow(2, z)), ty = Math.floor((1 - Math.log(Math.tan(mlat3 * Math.PI / 180) + 1 / Math.cos(mlat3 * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, z));
       const t1 = `https://tile.openstreetmap.org/${z}/${tx}/${ty}.png`, t2 = `https://tile.openstreetmap.org/${z}/${tx + 1}/${ty}.png`;
-      const gLink = `https://maps.google.com/?q=${mlat3},${mlng3}`;
-      return `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map" style="cursor:pointer;overflow:hidden;position:relative" data-map-url="${gLink}" onclick="openMapUrl(this)"><div style="display:flex;height:100%;filter:saturate(0.8) brightness(0.75)"><img src="${t1}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"><img src="${t2}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"></div><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none"><i class="fas fa-map-marker-alt" style="font-size:32px;color:#e8414a;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6))"></i></div><div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);backdrop-filter:blur(4px);color:#fff;font-size:11px;padding:4px 10px;border-radius:20px;white-space:nowrap;pointer-events:none">${mlat3.toFixed(4)}\xB0N\xA0${mlng3.toFixed(4)}\xB0E</div></div></div>`;
+      const gLink = `https://maps.google.com/?q=${mlat3},${mlng3}&hl=en`;
+      return `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map" style="cursor:pointer;overflow:hidden;position:relative" data-map-url="${gLink}" onclick="openMapUrl(this)"><div style="display:flex;height:100%;filter:saturate(0.8) brightness(0.75)"><img src="${t1}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"><img src="${t2}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"></div><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none"><i class="fas fa-map-marker-alt" style="font-size:32px;color:#e8414a;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6))"></i></div>${shop.address || shop.location ? `<div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);backdrop-filter:blur(4px);color:#fff;font-size:11px;padding:4px 10px;border-radius:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:88%;pointer-events:none"><i class="fas fa-map-marker-alt" style="margin-right:4px;color:#FF4D8D"></i>${(shop.address || shop.location).trim()}</div>` : ""}</div></div>`;
     })();
     const reviewsBlock = shopReviews2.length ? `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-star" style="color:var(--gold);margin-right:4px"></i>Google Reviews${shop.reviewCount ? ` <span style="font-size:10px;color:rgba(255,255,255,.35);font-weight:400">(${shop.rating}\u2605 \xB7 ${Number(shop.reviewCount).toLocaleString()} reviews)</span>` : ""}</div><div class="sp-reviews-wrap">${reviewCards2}</div></div>` : "";
     return reviewsBlock + mapHtml3;
@@ -7044,7 +7044,7 @@ function renderShopModal(shop) {
     var tileY = Math.floor((1-Math.log(Math.tan(mlat*Math.PI/180)+1/Math.cos(mlat*Math.PI/180))/Math.PI)/2*Math.pow(2,zoom));
     var osmUrl = 'https://tile.openstreetmap.org/'+zoom+'/'+tileX+'/'+tileY+'.png';
     var osmUrl2 = 'https://tile.openstreetmap.org/'+zoom+'/'+(tileX+1)+'/'+tileY+'.png'; // \uC6B0\uC2A4 \uD0C0\uC77C
-    var mapsLink = 'https://maps.google.com/?q='+mlat+','+mlng;
+    var mapsLink = 'https://maps.google.com/?q='+mlat+','+mlng+'&hl=en';
     mapHtml = '<div class="m-sec"><div class="m-sec-title">Location</div>'
       +'<div class="m-map" style="cursor:pointer;overflow:hidden;position:relative" data-map-url="'+esc(mapsLink)+'" onclick="openMapUrl(this)">'
         // 2\uC5F4 OSM \uD0C0\uC77C \uB098\uB780\uD788 \uBC30\uCE58 (\uC804\uCCB4 \uD654\uBA74 \uCEE4\uBC84)
@@ -7058,7 +7058,7 @@ function renderShopModal(shop) {
         +'</div>'
         // \uC88C\uD45C \uD14D\uC2A4\uD2B8 \uD558\uB2E8
         +'<div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);backdrop-filter:blur(4px);color:#fff;font-size:11px;padding:4px 10px;border-radius:20px;white-space:nowrap;pointer-events:none">'
-          +mlat.toFixed(4)+'\xB0N \xA0'+mlng.toFixed(4)+'\xB0E'
+          +addrLabel
         +'</div>'
       +'</div>'
     +'</div>';
