@@ -5223,28 +5223,26 @@ function renderShopModal(shop) {
   var mapHtml = '';
   if(shop.lat && shop.lng) {
     var mlat = parseFloat(shop.lat), mlng = parseFloat(shop.lng);
-    // OSM 타일 지도 이미지 (zoom=17 기준 타일 좌표 계산)
     var zoom = 16;
     var tileX = Math.floor((mlng+180)/360*Math.pow(2,zoom));
     var tileY = Math.floor((1-Math.log(Math.tan(mlat*Math.PI/180)+1/Math.cos(mlat*Math.PI/180))/Math.PI)/2*Math.pow(2,zoom));
     var osmUrl = 'https://tile.openstreetmap.org/'+zoom+'/'+tileX+'/'+tileY+'.png';
-    var osmUrl2 = 'https://tile.openstreetmap.org/'+zoom+'/'+(tileX+1)+'/'+tileY+'.png'; // 우스 타일
+    var osmUrl2 = 'https://tile.openstreetmap.org/'+zoom+'/'+(tileX+1)+'/'+tileY+'.png';
     var mapsLink = 'https://maps.google.com/?q='+mlat+','+mlng+'&hl=en';
+    var addrLabel = (shop.address || shop.location || '').trim();
+    var addrBadge = addrLabel
+      ? '<div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);backdrop-filter:blur(4px);color:#fff;font-size:11px;padding:4px 10px;border-radius:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:88%;pointer-events:none"><i class="fas fa-map-marker-alt" style="margin-right:4px;color:#FF4D8D"></i>'+addrLabel+'</div>'
+      : '';
     mapHtml = '<div class="m-sec"><div class="m-sec-title">Location</div>'
       +'<div class="m-map" style="cursor:pointer;overflow:hidden;position:relative" data-map-url="'+esc(mapsLink)+'" onclick="openMapUrl(this)">'
-        // 2열 OSM 타일 나란히 배치 (전체 화면 커버)
         +'<div style="display:flex;height:100%;filter:saturate(0.8) brightness(0.75)">'
           +'<img src="'+osmUrl+'" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy">'
           +'<img src="'+osmUrl2+'" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy">'
         +'</div>'
-        // 핀 아이콘 중앙
         +'<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">'
           +'<i class="fas fa-map-marker-alt" style="font-size:32px;color:#e8414a;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6))"></i>'
         +'</div>'
-        // 좌표 텍스트 하단
-        +'<div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);backdrop-filter:blur(4px);color:#fff;font-size:11px;padding:4px 10px;border-radius:20px;white-space:nowrap;pointer-events:none">'
-          +addrLabel
-        +'</div>'
+        +addrBadge
       +'</div>'
     +'</div>';
   } else if(shop.address || shop.location) {

@@ -7038,28 +7038,26 @@ function renderShopModal(shop) {
   var mapHtml = '';
   if(shop.lat && shop.lng) {
     var mlat = parseFloat(shop.lat), mlng = parseFloat(shop.lng);
-    // OSM \uD0C0\uC77C \uC9C0\uB3C4 \uC774\uBBF8\uC9C0 (zoom=17 \uAE30\uC900 \uD0C0\uC77C \uC88C\uD45C \uACC4\uC0B0)
     var zoom = 16;
     var tileX = Math.floor((mlng+180)/360*Math.pow(2,zoom));
     var tileY = Math.floor((1-Math.log(Math.tan(mlat*Math.PI/180)+1/Math.cos(mlat*Math.PI/180))/Math.PI)/2*Math.pow(2,zoom));
     var osmUrl = 'https://tile.openstreetmap.org/'+zoom+'/'+tileX+'/'+tileY+'.png';
-    var osmUrl2 = 'https://tile.openstreetmap.org/'+zoom+'/'+(tileX+1)+'/'+tileY+'.png'; // \uC6B0\uC2A4 \uD0C0\uC77C
+    var osmUrl2 = 'https://tile.openstreetmap.org/'+zoom+'/'+(tileX+1)+'/'+tileY+'.png';
     var mapsLink = 'https://maps.google.com/?q='+mlat+','+mlng+'&hl=en';
+    var addrLabel = (shop.address || shop.location || '').trim();
+    var addrBadge = addrLabel
+      ? '<div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);backdrop-filter:blur(4px);color:#fff;font-size:11px;padding:4px 10px;border-radius:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:88%;pointer-events:none"><i class="fas fa-map-marker-alt" style="margin-right:4px;color:#FF4D8D"></i>'+addrLabel+'</div>'
+      : '';
     mapHtml = '<div class="m-sec"><div class="m-sec-title">Location</div>'
       +'<div class="m-map" style="cursor:pointer;overflow:hidden;position:relative" data-map-url="'+esc(mapsLink)+'" onclick="openMapUrl(this)">'
-        // 2\uC5F4 OSM \uD0C0\uC77C \uB098\uB780\uD788 \uBC30\uCE58 (\uC804\uCCB4 \uD654\uBA74 \uCEE4\uBC84)
         +'<div style="display:flex;height:100%;filter:saturate(0.8) brightness(0.75)">'
           +'<img src="'+osmUrl+'" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy">'
           +'<img src="'+osmUrl2+'" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy">'
         +'</div>'
-        // \uD540 \uC544\uC774\uCF58 \uC911\uC559
         +'<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">'
           +'<i class="fas fa-map-marker-alt" style="font-size:32px;color:#e8414a;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6))"></i>'
         +'</div>'
-        // \uC88C\uD45C \uD14D\uC2A4\uD2B8 \uD558\uB2E8
-        +'<div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);backdrop-filter:blur(4px);color:#fff;font-size:11px;padding:4px 10px;border-radius:20px;white-space:nowrap;pointer-events:none">'
-          +addrLabel
-        +'</div>'
+        +addrBadge
       +'</div>'
     +'</div>';
   } else if(shop.address || shop.location) {
