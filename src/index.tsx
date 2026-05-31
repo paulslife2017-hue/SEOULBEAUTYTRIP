@@ -2295,7 +2295,7 @@ const AREA_LABELS: Record<string,string> = {
   gangnam:'Gangnam', hongdae:'Hongdae', itaewon:'Itaewon',
   myeongdong:'Myeongdong', sinchon:'Sinchon', mapo:'Mapo',
   jongno:'Jongno', dongdaemun:'Dongdaemun', insadong:'Insadong',
-  apgujeong:'Apgujeong', yeouido:'Yeouido', seoul:'Seoul'
+  apgujeong:'Apgujeong', yeouido:'Yeouido', yongsan:'Yongsan', seoul:'Seoul'
 }
 const CAT_FAQ: Record<string,{q:string,a:string}[]> = {
   headspa:[
@@ -3218,11 +3218,13 @@ app.get('/sitemap.xml', async (c) => {
   } catch(e) {}
 
   // 각 (cat, area) 쌍에 업체가 있는지 확인
+  // seoul = 해당 카테고리 업체가 1개라도 있으면 true (지역 불문)
+  // 그 외 = location 문자열에 지역명이 포함되면 true
   function hasShopsInArea(cat: string, areaSlug: string): boolean {
     const areaLabel2 = (AREA_LABELS as any)[areaSlug] || areaSlug
     return shopRows2.some((r: any) => {
       if (r.category !== cat) return false
-      if (areaSlug === 'seoul') return true
+      if (areaSlug === 'seoul') return true  // seoul은 해당 카테고리 업체 존재하면 무조건 포함
       return (r.location || '').toLowerCase().includes(areaLabel2.toLowerCase())
     })
   }

@@ -4237,6 +4237,7 @@ var AREA_LABELS = {
   insadong: "Insadong",
   apgujeong: "Apgujeong",
   yeouido: "Yeouido",
+  yongsan: "Yongsan",
   seoul: "Seoul"
 };
 var CAT_FAQ = {
