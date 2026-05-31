@@ -6879,31 +6879,16 @@ function buildSlide(v, idx) {
   var shop = v.shop || {};
   var s = document.createElement('article');
   s.className='slide'; s.id='sl'+idx;
-  s.setAttribute('itemscope','');
-  s.setAttribute('itemtype','https://schema.org/VideoObject');
+  // microdata(itemscope/itemprop) \uC81C\uAC70 \u2192 JSON-LD\uB9CC \uC0AC\uC6A9 (Google\uC740 \uB458 \uB2E4 \uC77D\uC73C\uBA74 \uCDA9\uB3CC \uC624\uB958 \uBC1C\uC0DD)
   var tags = (v.tags||[]).map(function(t){return '<span class="vtag">'+esc(t)+'</span>';}).join('');
-  // uploadDate: ISO 8601 + \uC2DC\uAC04\uB300 \uD544\uC218 (\uAD6C\uAE00 \uC694\uAD6C\uC0AC\uD56D)
-  var uploadDate = v.createdAt
-    ? (v.createdAt.includes('T') ? v.createdAt.replace('Z','+00:00') : v.createdAt + 'T00:00:00+09:00')
-    : new Date().toISOString().replace('Z','+00:00');
-  // description fallback
-  var videoDesc = v.description || (shop.name ? 'Watch ' + shop.name + ' beauty treatments in Seoul. Book via WhatsApp.' : 'Seoul beauty salon treatment video. Book via WhatsApp.');
-  // \uC378\uB124\uC77C: Cloudinary \uC800\uD654\uC9C8 WebP \uC790\uB3D9 \uC0DD\uC131 (poster \uBE60\uB978 \uD45C\uC2DC\uC6A9)
+  // \uC378\uB124\uC77C: DB \uC800\uC7A5\uAC12 \u2192 Cloudinary so_0 \uC790\uB3D9\uC0DD\uC131 \uC21C\uC11C
   var thumb = v.thumbnail || getAutoThumb(v.videoUrl) || '';
-  // embedUrl: /video/:id \uC804\uC6A9 \uBCF4\uAE30 \uD398\uC774\uC9C0 (Google VideoObject \uC694\uAD6C\uC0AC\uD56D)
-  var embedUrl = 'https://seoulbeautytrip.com/video/' + v.id;
   // \uCCAB\uBC88\uC9F8 \uC2AC\uB77C\uC774\uB4DC\uB294 eager load, \uB098\uBA38\uC9C0\uB294 lazy
   var imgLoading = idx === 0 ? 'eager' : 'lazy';
   var imgPriority = idx === 0 ? ' fetchpriority="high"' : '';
 
   s.innerHTML =
-    '<meta itemprop="name" content="'+esc(v.title||shop.name||'Seoul Beauty Video')+'">' +
-    '<meta itemprop="description" content="'+esc(videoDesc)+'">' +
-    '<meta itemprop="thumbnailUrl" content="'+esc(thumb)+'">' +
-    '<meta itemprop="uploadDate" content="'+esc(uploadDate)+'">' +
-    (v.videoUrl ? '<meta itemprop="contentUrl" content="'+esc(v.videoUrl)+'">' : '') +
-    '<meta itemprop="embedUrl" content="'+esc(embedUrl)+'">' +
-    (thumb ? '<img class="bg-img" src="'+esc(thumb)+'" alt="'+esc(v.title)+'" loading="'+imgLoading+'" decoding="async"'+imgPriority+' onload="imgLoaded(this)" onerror="imgLoaded(this)">' : '<div class="bg-img loaded" style="background:linear-gradient(135deg,#1a0a14 0%,#1c0e22 40%,#0f0816 100%)"></div>') +
+    (thumb ? '<img class="bg-img" src="'+esc(thumb)+'" alt="'+esc(v.title||shop.name||'')+'" loading="'+imgLoading+'" decoding="async"'+imgPriority+' onload="imgLoaded(this)" onerror="imgLoaded(this)">' : '<div class="bg-img loaded" style="background:linear-gradient(135deg,#1a0a14 0%,#1c0e22 40%,#0f0816 100%)"></div>') +
     '<video id="vid'+idx+'" loop muted playsinline preload="'+(idx===0?'auto':'none')+'" poster="'+esc(thumb)+'"></video>' +
     '<div id="playic'+idx+'" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:4;width:56px;height:56px;border-radius:50%;background:rgba(0,0,0,.55);align-items:center;justify-content:center;pointer-events:none;backdrop-filter:blur(4px)"><i class="fas fa-pause" style="font-size:20px;color:#fff"></i></div>' +
     '<div id="bufic'+idx+'" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:5;pointer-events:none"><div style="width:40px;height:40px;border:3px solid rgba(255,255,255,.15);border-top-color:rgba(255,255,255,.8);border-radius:50%;animation:spin .7s linear infinite"></div></div>' +

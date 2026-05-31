@@ -5094,31 +5094,16 @@ function buildSlide(v, idx) {
   var shop = v.shop || {};
   var s = document.createElement('article');
   s.className='slide'; s.id='sl'+idx;
-  s.setAttribute('itemscope','');
-  s.setAttribute('itemtype','https://schema.org/VideoObject');
+  // microdata(itemscope/itemprop) 제거 → JSON-LD만 사용 (Google은 둘 다 읽으면 충돌 오류 발생)
   var tags = (v.tags||[]).map(function(t){return '<span class="vtag">'+esc(t)+'</span>';}).join('');
-  // uploadDate: ISO 8601 + 시간대 필수 (구글 요구사항)
-  var uploadDate = v.createdAt
-    ? (v.createdAt.includes('T') ? v.createdAt.replace('Z','+00:00') : v.createdAt + 'T00:00:00+09:00')
-    : new Date().toISOString().replace('Z','+00:00');
-  // description fallback
-  var videoDesc = v.description || (shop.name ? 'Watch ' + shop.name + ' beauty treatments in Seoul. Book via WhatsApp.' : 'Seoul beauty salon treatment video. Book via WhatsApp.');
-  // 썸네일: Cloudinary 저화질 WebP 자동 생성 (poster 빠른 표시용)
+  // 썸네일: DB 저장값 → Cloudinary so_0 자동생성 순서
   var thumb = v.thumbnail || getAutoThumb(v.videoUrl) || '';
-  // embedUrl: /video/:id 전용 보기 페이지 (Google VideoObject 요구사항)
-  var embedUrl = 'https://seoulbeautytrip.com/video/' + v.id;
   // 첫번째 슬라이드는 eager load, 나머지는 lazy
   var imgLoading = idx === 0 ? 'eager' : 'lazy';
   var imgPriority = idx === 0 ? ' fetchpriority="high"' : '';
 
   s.innerHTML =
-    '<meta itemprop="name" content="'+esc(v.title||shop.name||'Seoul Beauty Video')+'">' +
-    '<meta itemprop="description" content="'+esc(videoDesc)+'">' +
-    '<meta itemprop="thumbnailUrl" content="'+esc(thumb)+'">' +
-    '<meta itemprop="uploadDate" content="'+esc(uploadDate)+'">' +
-    (v.videoUrl ? '<meta itemprop="contentUrl" content="'+esc(v.videoUrl)+'">' : '') +
-    '<meta itemprop="embedUrl" content="'+esc(embedUrl)+'">' +
-    (thumb ? '<img class="bg-img" src="'+esc(thumb)+'" alt="'+esc(v.title)+'" loading="'+imgLoading+'" decoding="async"'+imgPriority+' onload="imgLoaded(this)" onerror="imgLoaded(this)">' : '<div class="bg-img loaded" style="background:linear-gradient(135deg,#1a0a14 0%,#1c0e22 40%,#0f0816 100%)"></div>') +
+    (thumb ? '<img class="bg-img" src="'+esc(thumb)+'" alt="'+esc(v.title||shop.name||'')+'" loading="'+imgLoading+'" decoding="async"'+imgPriority+' onload="imgLoaded(this)" onerror="imgLoaded(this)">' : '<div class="bg-img loaded" style="background:linear-gradient(135deg,#1a0a14 0%,#1c0e22 40%,#0f0816 100%)"></div>') +
     '<video id="vid'+idx+'" loop muted playsinline preload="'+(idx===0?'auto':'none')+'" poster="'+esc(thumb)+'"></video>' +
     '<div id="playic'+idx+'" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:4;width:56px;height:56px;border-radius:50%;background:rgba(0,0,0,.55);align-items:center;justify-content:center;pointer-events:none;backdrop-filter:blur(4px)"><i class="fas fa-pause" style="font-size:20px;color:#fff"></i></div>' +
     '<div id="bufic'+idx+'" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:5;pointer-events:none"><div style="width:40px;height:40px;border:3px solid rgba(255,255,255,.15);border-top-color:rgba(255,255,255,.8);border-radius:50%;animation:spin .7s linear infinite"></div></div>' +
