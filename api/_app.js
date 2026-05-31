@@ -9339,20 +9339,30 @@ function loadAll(){
     }).join('');
   });
   // shops + videos \uAC19\uC774 \uAE30\uB2E4\uB838\uB2E4\uAC00 \uB80C\uB354 (\uD0C0\uC774\uBC0D \uBB38\uC81C \uBC29\uC9C0)
+  // \uAC1C\uBCC4 fetch\uC5D0 .catch() \uCD94\uAC00 \u2192 \uC5B4\uB290 \uCABD\uC774 \uC2E4\uD328\uD574\uB3C4 \uBE48 \uBC30\uC5F4\uB85C fallback\uB418\uC5B4 renderShops() \uD56D\uC0C1 \uC2E4\uD589
   Promise.all([
-    fetch('/api/shops').then(function(r){return r.json();}),
-    fetch('/api/videos').then(function(r){return r.json();})
+    fetch('/api/shops').then(function(r){
+      if(!r.ok) throw new Error('shops '+r.status);
+      return r.json();
+    }).catch(function(e){ console.warn('[loadAll] /api/shops \uC2E4\uD328:', e); return {shops:[]}; }),
+    fetch('/api/videos').then(function(r){
+      if(!r.ok) throw new Error('videos '+r.status);
+      return r.json();
+    }).catch(function(e){ console.warn('[loadAll] /api/videos \uC2E4\uD328:', e); return {videos:[]}; })
   ]).then(function(results){
     shops  = results[0].shops  || [];
     videos = results[1].videos || [];
     renderShops();
     renderVideos();
     renderSeoLinks();
-  });
-  fetch('/api/bookings').then(function(r){return r.json();}).then(function(d){
+  }).catch(function(e){ console.error('[loadAll] Promise.all \uC624\uB958:', e); });
+  fetch('/api/bookings').then(function(r){
+    if(!r.ok) throw new Error('bookings '+r.status);
+    return r.json();
+  }).then(function(d){
     bookings = d.bookings||[];
     renderBookings();
-  });
+  }).catch(function(e){ console.warn('[loadAll] /api/bookings \uC2E4\uD328:', e); });
 }
 
 // \u2500\u2500 \uAC00\uACA9 \uD3EC\uB9F7 (\uC22B\uC790 \u2192 \u20A9xx,xxx) \u2500\u2500

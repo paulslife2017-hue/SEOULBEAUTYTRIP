@@ -7526,20 +7526,30 @@ function loadAll(){
     }).join('');
   });
   // shops + videos 같이 기다렸다가 렌더 (타이밍 문제 방지)
+  // 개별 fetch에 .catch() 추가 → 어느 쪽이 실패해도 빈 배열로 fallback되어 renderShops() 항상 실행
   Promise.all([
-    fetch('/api/shops').then(function(r){return r.json();}),
-    fetch('/api/videos').then(function(r){return r.json();})
+    fetch('/api/shops').then(function(r){
+      if(!r.ok) throw new Error('shops '+r.status);
+      return r.json();
+    }).catch(function(e){ console.warn('[loadAll] /api/shops 실패:', e); return {shops:[]}; }),
+    fetch('/api/videos').then(function(r){
+      if(!r.ok) throw new Error('videos '+r.status);
+      return r.json();
+    }).catch(function(e){ console.warn('[loadAll] /api/videos 실패:', e); return {videos:[]}; })
   ]).then(function(results){
     shops  = results[0].shops  || [];
     videos = results[1].videos || [];
     renderShops();
     renderVideos();
     renderSeoLinks();
-  });
-  fetch('/api/bookings').then(function(r){return r.json();}).then(function(d){
+  }).catch(function(e){ console.error('[loadAll] Promise.all 오류:', e); });
+  fetch('/api/bookings').then(function(r){
+    if(!r.ok) throw new Error('bookings '+r.status);
+    return r.json();
+  }).then(function(d){
     bookings = d.bookings||[];
     renderBookings();
-  });
+  }).catch(function(e){ console.warn('[loadAll] /api/bookings 실패:', e); });
 }
 
 // ── 가격 포맷 (숫자 → ₩xx,xxx) ──
