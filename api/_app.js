@@ -6144,22 +6144,26 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;line-height
     <div class="post-meta">
       <span><i class="fas fa-calendar"></i> ${dateStr}</span>
       <span><i class="fas fa-eye"></i> ${(post.views || 0) + 1} views</span>
-      <span><i class="fas fa-clock"></i> ${Math.ceil((post.content || "").replace(/<[^>]+>/g, "").split(" ").length / 200)} min read</span>
+      <span><i class="fas fa-clock"></i> BLOG_READMIN_PLACEHOLDER min read</span>
     </div>
   </header>
-  ${post.cover_image ? `<img src="${post.cover_image}" alt="${post.title}" class="post-cover" loading="lazy">` : ""}
-  <article class="post-body">${post.content || ""}</article>
-  <div class="post-tags">${tags.map((t) => `<span class="post-tag">#${t}</span>`).join("")}</div>
+  BLOG_COVER_PLACEHOLDER
+  <article class="post-body">BLOG_CONTENT_PLACEHOLDER</article>
+  <div class="post-tags">BLOG_TAGS_PLACEHOLDER</div>
   <div class="cta-box">
     <h3>\u{1F485} Ready to Book Your K-Beauty Experience?</h3>
     <p>Browse the best salons in Seoul \u2014 English booking via WhatsApp, no Korean needed.</p>
     <a href="/" class="cta-btn">\u{1F338} Find Salons Now</a>
   </div>
-  ${relatedHtml}
+  BLOG_RELATED_PLACEHOLDER
 </main>
 </body>
 </html>`;
-  return c2.html(html);
+  const readMin = Math.ceil((post.content || "").replace(/<[^>]+>/g, "").split(" ").length / 200);
+  const coverHtml = post.cover_image ? '<img src="' + post.cover_image + '" alt="' + post.title.replace(/"/g, "&quot;") + '" class="post-cover" loading="lazy">' : "";
+  const tagsHtml = tags.map((t) => '<span class="post-tag">#' + t + "</span>").join("");
+  const finalHtml = html.replace("BLOG_READMIN_PLACEHOLDER", String(readMin)).replace("BLOG_COVER_PLACEHOLDER", coverHtml).replace("BLOG_CONTENT_PLACEHOLDER", post.content || "").replace("BLOG_TAGS_PLACEHOLDER", tagsHtml).replace("BLOG_RELATED_PLACEHOLDER", relatedHtml);
+  return c2.html(finalHtml);
 });
 app.get("/sitemap.xml", async (c2) => {
   await ensureDb();
