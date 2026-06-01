@@ -4153,7 +4153,10 @@ People: `);
       "@id":"${canonicalUrl}",
       "name":"${shop.name}",
       "description":"${(shop.description || "").replace(/"/g, "'")}",
-      "image":["${ogImage}"${shop.photos && shop.photos.length ? "," + shop.photos.map((p) => `"${p.startsWith("http") ? p : base + p}"`).join(",") : ""}],
+      "image":${(() => {
+    const imgs = [ogImage, ...(shop.photos || []).map((p) => p.startsWith("http") ? p : base + p)].filter(Boolean);
+    return JSON.stringify(imgs.map((u) => ({ "@type": "ImageObject", "url": u, "thumbnailUrl": u })));
+  })()},
       "url":"${canonicalUrl}",
       "address":{
         "@type":"PostalAddress",
@@ -4257,7 +4260,7 @@ People: `);
       "description":"${(shop.description || "").replace(/"/g, "'").slice(0, 155)}",
       "inLanguage":"en",
       "isPartOf":{"@id":"${base}/#website"},
-      "primaryImageOfPage":{"@type":"ImageObject","url":"${shop.thumbnail}"}
+      "primaryImageOfPage":{"@type":"ImageObject","url":"${shop.thumbnail}","thumbnailUrl":"${shop.thumbnail}"}
     }
   ]
 }
@@ -5089,7 +5092,13 @@ app.get("/best/:category/:area", async (c2) => {
           "@id": `${base}/shop/${s.slug}`,
           "name": s.name,
           "url": `${base}/shop/${s.slug}`,
-          "image": s.thumbnail,
+          ...s.thumbnail && s.thumbnail.startsWith("http") ? {
+            "image": {
+              "@type": "ImageObject",
+              "url": s.thumbnail,
+              "thumbnailUrl": s.thumbnail
+            }
+          } : {},
           "address": {
             "@type": "PostalAddress",
             "streetAddress": s.address,
