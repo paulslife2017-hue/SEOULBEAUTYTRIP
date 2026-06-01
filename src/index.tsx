@@ -2186,17 +2186,49 @@ app.get('/shop/:slug', async (c) => {
   gtag('config', 'G-1N9ZQRHLJ0');
 </script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${shop.name} | ${shop.location.split(',')[0].trim()} ${shop.category.charAt(0).toUpperCase()+shop.category.slice(1)} Seoul | Seoul Beauty Trip</title>
+<title>${(()=>{
+  const area = shop.location.split(',')[0].trim()
+  const cat  = shop.category
+  // clinic 업체: "[Name] | Gangnam Dermatology Clinic Seoul | Foreigners"
+  if(cat==='clinic'){
+    const areaLabel = area.toLowerCase().includes('gangnam')||area.toLowerCase().includes('cheongdam')||area.toLowerCase().includes('apgujeong') ? 'Gangnam' : area
+    return shop.name+' | '+areaLabel+' Dermatology Clinic Seoul | Foreigners'
+  }
+  return shop.name+' | '+area+' '+cat.charAt(0).toUpperCase()+cat.slice(1)+' Seoul | Seoul Beauty Trip' 
+})()}</title>
 <meta name="description" content="${(()=>{
   const area = shop.location.split(',')[0].trim()
-  const cat = shop.category
-  const svc = shop.services && shop.services.length ? shop.services.slice(0,2).join(' & ') : ''
-  const rating = shop.rating ? shop.rating+'★' : ''
-  const price = shop.priceRange ? ' Prices from '+shop.priceRange+'.' : ''
-  const autoDesc = `${shop.name} is a ${rating} ${cat} salon in ${area}, Seoul.${svc?' Specializing in '+svc+'.':''} English-friendly, foreigner-approved.${price} Book via WhatsApp.`
-  return (shop.metaDescription || shop.description || autoDesc).slice(0,155)
+  const cat  = shop.category
+  const rating = shop.rating ? shop.rating+'★ rated' : ''
+  const revs   = shop.reviewCount > 0 ? ' ('+shop.reviewCount+'+ reviews)' : ''
+  const price  = shop.priceRange ? ' From '+shop.priceRange+'.' : ''
+  // clinic 전용 meta — dermatology 키워드 포함
+  if(cat==='clinic'){
+    const areaLabel = area.toLowerCase().includes('gangnam')||area.toLowerCase().includes('cheongdam')||area.toLowerCase().includes('apgujeong') ? 'Gangnam' : area
+    const autoDesc = shop.name+' — foreigner-friendly dermatology clinic in '+areaLabel+', Seoul.'+revs+' '+rating+'. English consultations, laser & aesthetic treatments.'+price+' WhatsApp booking.'
+    return (shop.metaDescription || autoDesc).slice(0,160)
+  }
+  const svc    = shop.services && shop.services.length ? ' Specializing in '+shop.services.slice(0,2).join(' & ')+'.':'' 
+  const autoDesc = shop.name+' is a '+rating+' '+cat+' salon in '+area+', Seoul.'+svc+' English-friendly, foreigner-approved.'+price+' Book via WhatsApp.'
+  return (shop.metaDescription || shop.description || autoDesc).slice(0,160)
 })()}">
-<meta name="keywords" content="${shop.seoKeywords || [shop.name, shop.name+' Seoul', shop.name+' '+shop.category, shop.name+' booking', shop.name+' review', shop.name+' foreigner', 'best '+shop.category+' '+shop.location.split(',')[0].trim()+' Seoul', shop.category+' Seoul foreigners', 'English speaking '+shop.category+' Seoul', 'Korean '+shop.category+' Seoul', ...shop.services.slice(0,3)].join(', ')}">
+<meta name="keywords" content="${(()=>{
+  const area = shop.location.split(',')[0].trim()
+  const cat  = shop.category
+  const areaGn = area.toLowerCase().includes('gangnam')||area.toLowerCase().includes('cheongdam')||area.toLowerCase().includes('apgujeong') ? 'Gangnam' : area
+  if(cat==='clinic'){
+    const base2 = [
+      shop.name, shop.name+' Seoul', shop.name+' review', shop.name+' booking', shop.name+' foreigners',
+      areaGn+' dermatology clinic', areaGn+' dermatology clinic foreigners', areaGn+' skin clinic Seoul',
+      'dermatology clinic Seoul foreigners', 'skin clinic '+areaGn+' English',
+      'Korean dermatology clinic foreigners', areaGn+' dermatologist Seoul',
+      'aesthetic clinic Seoul foreigners', 'laser treatment Seoul foreigners',
+      ...shop.services.slice(0,3)
+    ]
+    return (shop.seoKeywords || base2.join(', '))
+  }
+  return (shop.seoKeywords || [shop.name, shop.name+' Seoul', shop.name+' '+cat, shop.name+' booking', shop.name+' review', shop.name+' foreigner', 'best '+cat+' '+area+' Seoul', cat+' Seoul foreigners', 'English speaking '+cat+' Seoul', 'Korean '+cat+' Seoul', ...shop.services.slice(0,3)].join(', '))
+})()}">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="${canonicalUrl}">
 <!-- Open Graph -->
@@ -2207,7 +2239,7 @@ app.get('/shop/:slug', async (c) => {
   const cat = shop.category
   const svc = shop.services && shop.services.length ? shop.services.slice(0,2).join(' & ') : ''
   const rating = shop.rating ? shop.rating+'★' : ''
-  const autoDesc = `${shop.name} is a ${rating} ${cat} salon in ${area}, Seoul.${svc?' Specializing in '+svc+'.':''} English-friendly, foreigner-approved. Book via WhatsApp.`
+  const autoDesc = shop.name+' is a '+rating+' '+cat+' salon in '+area+', Seoul.'+(svc?' Specializing in '+svc+'.':'')+' English-friendly, foreigner-approved. Book via WhatsApp.'
   return (shop.metaDescription || shop.description || autoDesc).slice(0,155)
 })()}">
 <meta property="og:image" content="${ogImage}">
@@ -2221,7 +2253,7 @@ app.get('/shop/:slug', async (c) => {
   const cat = shop.category
   const svc = shop.services && shop.services.length ? shop.services.slice(0,2).join(' & ') : ''
   const rating = shop.rating ? shop.rating+'★' : ''
-  const autoDesc = `${shop.name} is a ${rating} ${cat} salon in ${area}, Seoul.${svc?' Specializing in '+svc+'.':''} English-friendly, foreigner-approved. Book via WhatsApp.`
+  const autoDesc = shop.name+' is a '+rating+' '+cat+' salon in '+area+', Seoul.'+(svc?' Specializing in '+svc+'.':'')+' English-friendly, foreigner-approved. Book via WhatsApp.'
   return (shop.metaDescription || shop.description || autoDesc).slice(0,155)
 })()}">
 <meta name="twitter:image" content="${ogImage}">
@@ -2231,7 +2263,7 @@ app.get('/shop/:slug', async (c) => {
   "@context":"https://schema.org",
   "@graph":[
     {
-      "@type":["LocalBusiness","BeautySalon"],
+      "@type":${shop.category==='clinic' ? '["MedicalClinic","LocalBusiness","Dermatology"]' : '["LocalBusiness","BeautySalon"]'},
       "@id":"${canonicalUrl}",
       "name":"${shop.name}",
       "description":"${(shop.description||'').replace(/"/g,"'")}",
@@ -2630,17 +2662,35 @@ ${(()=>{const allP=[shop.thumbnail,...(shop.photos||[]).filter((p:string)=>p&&p!
 
   ${(()=>{
     /* ── SEO 텍스트 섹션: 구글이 읽는 롱폼 콘텐츠 ── */
-    const area3 = (shop.location||'Seoul').split(',')[0].trim();
-    const cat3 = shop.category.charAt(0).toUpperCase()+shop.category.slice(1);
-    const svcList = shop.services && shop.services.length > 0
-      ? shop.services.slice(0,4).join(', ')
-      : cat3 + ' treatments';
-    return `<div class="sp-seo-block">
-      <h2 class="sp-seo-h2">${shop.name} — ${cat3} in ${area3}, Seoul</h2>
-      <p class="sp-seo-p">Looking for the best ${shop.category} experience in ${area3}, Seoul? ${shop.name} is a top-rated ${shop.category} destination welcoming foreign visitors with English-friendly service and easy WhatsApp booking. Whether you're visiting Seoul for the first time or a returning traveler, ${shop.name} offers an authentic Korean beauty experience tailored for international guests.</p>
-      <h2 class="sp-seo-h2">Foreigner-Friendly ${cat3} in ${area3}</h2>
-      <p class="sp-seo-p">Located in ${area3}, one of Seoul's most popular beauty districts, ${shop.name} specializes in ${svcList}. The team provides English support throughout your visit — from consultation to aftercare — so you can relax and enjoy your treatment without language barriers. Book easily via WhatsApp through Seoul Beauty Trip.</p>
-    </div>`;
+    const area3   = (shop.location||'Seoul').split(',')[0].trim();
+    const cat3    = shop.category.charAt(0).toUpperCase()+shop.category.slice(1);
+    const svcList = shop.services && shop.services.length > 0 ? shop.services.slice(0,4).join(', ') : cat3+' treatments';
+    const areaGn  = area3.toLowerCase().includes('cheongdam')||area3.toLowerCase().includes('apgujeong') ? 'Gangnam' : area3;
+    const revTxt  = shop.reviewCount > 10 ? ' With '+shop.reviewCount+'+ verified reviews and a '+shop.rating+'-star rating, it' : ' It';
+
+    if(shop.category === 'clinic'){
+      /* clinic 전용 롱폼 — dermatology 키워드 집중 */
+      const treatments = shop.services && shop.services.length > 0
+        ? shop.services.slice(0,6).join(', ')
+        : 'laser toning, skin booster injections, RF lifting, acne treatment, chemical peels';
+      return '<div class="sp-seo-block">'
+        +'<h2 class="sp-seo-h2">'+shop.name+' \u2014 Dermatology Clinic in '+areaGn+', Seoul for Foreigners</h2>'
+        +'<p class="sp-seo-p">'+shop.name+' is a foreigner-friendly dermatology clinic located in '+area3+', Seoul.'+revTxt+' is consistently rated as one of the top aesthetic clinics in '+areaGn+' by international patients. The clinic offers English-language consultations, transparent pricing, and easy WhatsApp booking \u2014 everything a foreign visitor needs to get world-class Korean dermatology treatments without the language barrier.</p>'
+        +'<h2 class="sp-seo-h2">Treatments Available at '+shop.name+'</h2>'
+        +'<p class="sp-seo-p">As a full-service '+areaGn+' dermatology clinic, '+shop.name+' provides a comprehensive range of medical aesthetic treatments popular among foreign patients: '+treatments+'. Korean dermatology clinics like '+shop.name+' use the latest FDA-approved and KFDA-approved equipment, offering results that are often 40\u201360% more affordable than equivalent treatments in the US, UK, or Australia.</p>'
+        +'<h2 class="sp-seo-h2">Why Foreign Patients Choose '+shop.name+'</h2>'
+        +'<p class="sp-seo-p">For foreigners visiting Seoul, finding a dermatology clinic with English-speaking staff and no hidden fees is the biggest challenge. '+shop.name+' solves this with dedicated English-speaking coordinators, a clear treatment menu with prices listed in advance, and a seamless booking experience via WhatsApp. Whether you\'re a first-time medical tourist or a returning patient, the team at '+shop.name+' ensures your comfort from initial consultation through aftercare.</p>'
+        +'<h2 class="sp-seo-h2">How to Book '+shop.name+' as a Foreigner</h2>'
+        +'<p class="sp-seo-p">Booking '+shop.name+' through Seoul Beauty Trip takes under 2 minutes. Simply tap the WhatsApp button above, describe your desired treatment, and our English-speaking team will confirm your appointment, explain pricing, and prepare the clinic for your visit. No Korean language skills needed. Same-day and advance bookings both available.</p>'
+        +'</div>';
+    }
+
+    return '<div class="sp-seo-block">'
+      +'<h2 class="sp-seo-h2">'+shop.name+' \u2014 '+cat3+' in '+area3+', Seoul</h2>'
+      +'<p class="sp-seo-p">Looking for the best '+shop.category+' experience in '+area3+', Seoul? '+shop.name+' is a top-rated '+shop.category+' destination welcoming foreign visitors with English-friendly service and easy WhatsApp booking.'+revTxt+' offers an authentic Korean beauty experience tailored for international guests.</p>'
+      +'<h2 class="sp-seo-h2">Foreigner-Friendly '+cat3+' in '+area3+'</h2>'
+      +'<p class="sp-seo-p">Located in '+area3+', one of Seoul\'s most popular beauty districts, '+shop.name+' specializes in '+svcList+'. The team provides English support throughout your visit \u2014 from consultation to aftercare \u2014 so you can relax and enjoy your treatment without language barriers. Book easily via WhatsApp through Seoul Beauty Trip.</p>'
+      +'</div>';
   })()}
 
   ${relatedShops.length > 0 ? `
@@ -2898,11 +2948,12 @@ const CAT_FAQ: Record<string,{q:string,a:string}[]> = {
     {q:'Are Korean nail salons foreigner-friendly?',a:'Many nail salons in tourist areas have English menus and picture references so you can easily show the design you want.'}
   ],
   clinic:[
-    {q:'Are Korean skin clinics good for foreigners?',a:'Yes, Seoul has world-class dermatology clinics with cutting-edge laser, RF, and injection treatments. Many clinics near Gangnam cater specifically to medical tourists.'},
-    {q:'Do I need a prescription for skin treatments in Seoul?',a:'Most aesthetic treatments like laser, peels, and facials do not require prescriptions. Injectable treatments like Botox require a consultation with a licensed doctor.'},
-    {q:'How much does a laser treatment cost in Seoul?',a:'Laser treatments in Seoul range from ₩100,000 to ₩500,000+ depending on the type and area treated. Korean clinics are often 30–50% cheaper than Western countries.'},
-    {q:'Is it safe to get skin treatments in Seoul as a tourist?',a:'Yes, Seoul clinics follow strict safety standards. Consult with the clinic about your skin type, medications, and any conditions before treatment.'},
-    {q:'What are popular clinic treatments among foreign tourists in Seoul?',a:'Laser toning, skin booster injections, chemical peels, RF lifting, and acne scar treatment are most popular among medical tourists visiting Seoul.'}
+    {q:'What is a Gangnam dermatology clinic?',a:'A Gangnam dermatology clinic is a medical aesthetic center in Seoul\'s Gangnam district staffed by board-certified Korean dermatologists. Unlike regular beauty salons, these clinics perform medical-grade treatments including laser resurfacing, Botox, dermal fillers, RF lifting, skin booster injections, and prescription skincare — all at prices typically 40–60% lower than equivalent treatments in Western countries.'},
+    {q:'Are Gangnam dermatology clinics foreigner-friendly?',a:'Yes. Most top-tier Gangnam dermatology clinics have English-speaking coordinators specifically for foreign patients. They provide consultations in English, transparent pricing in USD or KRW, and accommodate WhatsApp bookings from abroad. Seoul Beauty Trip only lists clinics with verified English support.'},
+    {q:'How much does a Gangnam dermatology clinic cost?',a:'Treatment prices at a Gangnam dermatology clinic vary: laser toning (₩50,000–₩150,000), skin booster injections like Rejuran or Juvelook (₩150,000–₩400,000), RF lifting/Thermage (₩300,000–₩800,000), Botox (₩50,000–₩200,000 per area), and acne scar laser (₩100,000–₩500,000). Compared to the US or UK, these prices are 40–60% cheaper for the same quality.'},
+    {q:'What treatments can I get at a Gangnam dermatology clinic as a foreigner?',a:'Popular treatments for foreign visitors at Gangnam dermatology clinics include: laser toning for pigmentation, skin booster injections (Rejuran, Juvelook, Skinbooster), Botox and dermal fillers, RF lifting (Thermage, HIFU/Ulthera), acne and acne scar laser treatment, chemical peels, and LED phototherapy. Most clinics offer same-day consultations for tourists.'},
+    {q:'Do I need to book a Gangnam dermatology clinic in advance?',a:'For laser and injection treatments, booking 1–3 days in advance is recommended. Walk-ins are sometimes accepted for basic consultations. Through Seoul Beauty Trip, you can book any Gangnam dermatology clinic via WhatsApp in English — no Korean language skills needed.'},
+    {q:'Is it safe to get dermatology treatments in Gangnam as a tourist?',a:'Yes. Korean dermatologists are among the most trained in the world — Korea has the highest rate of cosmetic procedures per capita globally. Gangnam dermatology clinics use FDA-approved and KFDA-approved equipment and products. Always disclose your medical history and current medications during the consultation.'}
   ],
   makeup:[
     {q:'What is a Korean makeup look?',a:'Korean makeup emphasizes natural, dewy skin, gradient lips, straight eyebrows, and a youthful glow. It differs from Western makeup by focusing on skin texture over heavy coverage.'},
@@ -3153,17 +3204,29 @@ app.get('/best/:category/:area', async (c) => {
 
   const faqList = CAT_FAQ[catSlug] || DEFAULT_FAQ
   const yr = new Date().getFullYear()
-  const titleMain   = `Best ${catLabel} in ${areaLabel} Seoul for Foreigners ${yr}`
-  const metaDesc    = `Best ${catLabel.toLowerCase()} in ${areaLabel}, Seoul ${yr}. Top-rated, foreigner-friendly salons with English support & WhatsApp booking. Real reviews, verified prices.`
-  const h1Text      = `Best ${catLabel} in ${areaLabel}, Seoul ${yr}`
-  const subText     = `Foreigner-Friendly · English Booking · Verified Reviews · Updated ${yr}`
+  // clinic+gangnam 조합은 "Gangnam Dermatology Clinic" 키워드 타깃
+  const isClinicGangnam = catSlug === 'clinic' && areaSlug === 'gangnam'
+  const titleMain   = isClinicGangnam
+    ? `Best Gangnam Dermatology Clinic for Foreigners ${yr} | Seoul Beauty Trip`
+    : `Best ${catLabel} in ${areaLabel} Seoul for Foreigners ${yr}`
+  const metaDesc    = isClinicGangnam
+    ? `Top-rated Gangnam dermatology clinic guide for foreigners ${yr}. English-speaking dermatologists, transparent pricing, WhatsApp booking. Laser, RF, skin booster & more.`
+    : `Best ${catLabel.toLowerCase()} in ${areaLabel}, Seoul ${yr}. Top-rated, foreigner-friendly salons with English support & WhatsApp booking. Real reviews, verified prices.`
+  const h1Text      = isClinicGangnam
+    ? `Best Gangnam Dermatology Clinic for Foreigners ${yr}`
+    : `Best ${catLabel} in ${areaLabel}, Seoul ${yr}`
+  const subText     = isClinicGangnam
+    ? `English-Speaking Dermatologists · Verified Clinics · WhatsApp Booking · Updated ${yr}`
+    : `Foreigner-Friendly · English Booking · Verified Reviews · Updated ${yr}`
   // 카테고리별 인트로 텍스트 (SEO 롱폼)
   const catIntros: Record<string,string> = {
     headspa: `Seoul's head spa scene has exploded in popularity among foreign travelers, and ${areaLabel} is home to some of the best. These foreigner-friendly head spas offer English booking, transparent pricing, and authentic Korean scalp treatments — from the viral 18-step scalp ritual to deep-cleansing scalp analysis and relaxing massage. Whether you have hair loss concerns, a dry scalp, or simply want the most relaxing experience of your Seoul trip, these ${areaLabel} head spas welcome international guests with open arms.`,
     skincare: `Korean skincare treatments in ${areaLabel}, Seoul are world-renowned for their innovation and results. Foreign tourists visiting Seoul consistently rate skin clinics and beauty salons in ${areaLabel} as must-visit experiences. From hydrating glass-skin facials and LED therapy to customized prescription skincare, these foreigner-friendly salons offer English consultations and WhatsApp booking to make your experience seamless.`,
     hair: `${areaLabel} is one of Seoul's top destinations for Korean hair transformations. From K-pop inspired cuts and colors to balayage, Korean perms, and treatment packages, these English-friendly hair salons cater specifically to international visitors. All salons listed are experienced with various hair textures and provide English support throughout.`,
     nail: `Korean nail art in ${areaLabel} is a world-class experience. These foreigner-friendly nail salons offer intricate K-beauty nail designs, premium gel applications, and English-speaking nail artists. Whether you want minimalist Korean aesthetics or elaborate 3D nail art, ${areaLabel}'s nail scene has something for every visitor.`,
-    clinic: `${areaLabel} is Seoul's medical beauty hub, home to top-tier dermatology clinics and aesthetic centers welcoming foreign patients. From laser toning and skin boosters to RF lifting and acne treatments, these clinics offer cutting-edge technology at competitive prices — often 30-50% less than Western countries — with English-speaking consultants.`,
+    clinic: isClinicGangnam
+      ? `Gangnam is Seoul's undisputed capital of medical aesthetics — and home to Korea's most foreigner-friendly dermatology clinics. A Gangnam dermatology clinic isn't just a skin clinic: it's a full-service medical aesthetic center staffed by board-certified dermatologists who routinely treat international patients. Whether you're looking for laser resurfacing, skin booster injections, acne scar treatment, RF lifting, or a simple brightening facial, Gangnam dermatology clinics offer world-class results at a fraction of Western prices — typically 40–60% less than equivalent treatments in the US, UK, or Australia. Every clinic on this list has English-speaking coordinators, transparent pricing, and accepts WhatsApp bookings for foreign visitors.`
+      : `${areaLabel} is Seoul's medical beauty hub, home to top-tier dermatology clinics and aesthetic centers welcoming foreign patients. From laser toning and skin boosters to RF lifting and acne treatments, these clinics offer cutting-edge technology at competitive prices — often 30-50% less than Western countries — with English-speaking consultants.`,
     makeup: `Experience a Korean makeup transformation in ${areaLabel}. These English-friendly makeup studios specialize in K-beauty looks including glass skin, gradient lips, and K-pop inspired styles. Perfect for photoshoots, hanbok experiences, or just a memorable Seoul beauty experience. All studios offer English booking via WhatsApp.`,
     spa: `Discover authentic Korean spa treatments in ${areaLabel}, Seoul. From traditional Korean body scrubs (때밀이) and aromatherapy massage to modern wellness packages, these foreigner-friendly spas deliver true Korean relaxation. All listed spas support English booking and welcome international guests.`
   }
@@ -3307,7 +3370,9 @@ app.get('/best/:category/:area', async (c) => {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${titleMain} | Seoul Beauty Trip</title>
 <meta name="description" content="${metaDesc}">
-<meta name="keywords" content="best ${catLabel.toLowerCase()} ${areaLabel} Seoul, ${catLabel.toLowerCase()} Seoul foreigners, ${catLabel.toLowerCase()} Seoul English, ${catLabel.toLowerCase()} ${areaLabel} tourists, foreigner friendly ${catLabel.toLowerCase()} Seoul, ${catLabel.toLowerCase()} Seoul booking, Korean ${catLabel.toLowerCase()} ${areaLabel}, ${catLabel.toLowerCase()} Seoul recommendation">
+<meta name="keywords" content="${isClinicGangnam
+    ? 'Gangnam dermatology clinic, Gangnam dermatology clinic foreigners, Gangnam skin clinic Seoul, best dermatology clinic Gangnam Seoul, Gangnam dermatologist English, Seoul dermatology clinic foreigners, skin clinic Gangnam tourists, Korean dermatology clinic Gangnam, dermatologist Seoul foreigner friendly, Gangnam aesthetic clinic English booking'
+    : `best ${catLabel.toLowerCase()} ${areaLabel} Seoul, ${catLabel.toLowerCase()} Seoul foreigners, ${catLabel.toLowerCase()} Seoul English, ${catLabel.toLowerCase()} ${areaLabel} tourists, foreigner friendly ${catLabel.toLowerCase()} Seoul, ${catLabel.toLowerCase()} Seoul booking, Korean ${catLabel.toLowerCase()} ${areaLabel}, ${catLabel.toLowerCase()} Seoul recommendation`}">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="${pageUrl}">
 <meta property="og:type" content="website">
