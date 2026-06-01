@@ -644,7 +644,7 @@ var resolveCallback = async (str, phase, preserveCallbacks, context, buffer) => 
   } else {
     buffer = [str];
   }
-  const resStr = Promise.all(callbacks.map((c2) => c2({ phase, buffer, context }))).then(
+  const resStr = Promise.all(callbacks.map((c) => c({ phase, buffer, context }))).then(
     (res) => Promise.all(
       res.filter(Boolean).map((str2) => resolveCallback(str2, phase, false, context, buffer))
     ).then(() => buffer[0])
@@ -1075,16 +1075,16 @@ var UnsupportedPathError = class extends Error {
 var COMPOSED_HANDLER = "__COMPOSED_HANDLER";
 
 // node_modules/hono/dist/hono-base.js
-var notFoundHandler = (c2) => {
-  return c2.text("404 Not Found", 404);
+var notFoundHandler = (c) => {
+  return c.text("404 Not Found", 404);
 };
-var errorHandler = (err, c2) => {
+var errorHandler = (err, c) => {
   if ("getResponse" in err) {
     const res = err.getResponse();
-    return c2.newResponse(res.body, res);
+    return c.newResponse(res.body, res);
   }
   console.error(err);
-  return c2.text("Internal Server Error", 500);
+  return c.text("Internal Server Error", 500);
 };
 var Hono = class _Hono {
   get;
@@ -1186,7 +1186,7 @@ var Hono = class _Hono {
       if (app2.errorHandler === errorHandler) {
         handler = r.handler;
       } else {
-        handler = async (c2, next) => (await compose([], app2.errorHandler)(c2, () => r.handler(c2, next))).res;
+        handler = async (c, next) => (await compose([], app2.errorHandler)(c, () => r.handler(c, next))).res;
         handler[COMPOSED_HANDLER] = r.handler;
       }
       subApp.#addRoute(r.method, r.path, handler);
@@ -1297,16 +1297,16 @@ var Hono = class _Hono {
         }
       }
     }
-    const getOptions = optionHandler ? (c2) => {
-      const options2 = optionHandler(c2);
+    const getOptions = optionHandler ? (c) => {
+      const options2 = optionHandler(c);
       return Array.isArray(options2) ? options2 : [options2];
-    } : (c2) => {
+    } : (c) => {
       let executionContext = void 0;
       try {
-        executionContext = c2.executionCtx;
+        executionContext = c.executionCtx;
       } catch {
       }
-      return [c2.env, executionContext];
+      return [c.env, executionContext];
     };
     replaceRequest ||= (() => {
       const mergedPath = mergePath(this._basePath, path);
@@ -1317,8 +1317,8 @@ var Hono = class _Hono {
         return new Request(url, request);
       };
     })();
-    const handler = async (c2, next) => {
-      const res = await applicationHandler(replaceRequest(c2.req.raw), ...getOptions(c2));
+    const handler = async (c, next) => {
+      const res = await applicationHandler(replaceRequest(c.req.raw), ...getOptions(c));
       if (res) {
         return res;
       }
@@ -1334,9 +1334,9 @@ var Hono = class _Hono {
     this.router.add(method, path, [handler, r]);
     this.routes.push(r);
   }
-  #handleError(err, c2) {
+  #handleError(err, c) {
     if (err instanceof Error) {
-      return this.errorHandler(err, c2);
+      return this.errorHandler(err, c);
     }
     throw err;
   }
@@ -1346,7 +1346,7 @@ var Hono = class _Hono {
     }
     const path = this.getPath(request, { env });
     const matchResult = this.router.match(method, path);
-    const c2 = new Context(request, {
+    const c = new Context(request, {
       path,
       matchResult,
       env,
@@ -1356,20 +1356,20 @@ var Hono = class _Hono {
     if (matchResult[0].length === 1) {
       let res;
       try {
-        res = matchResult[0][0][0][0](c2, async () => {
-          c2.res = await this.#notFoundHandler(c2);
+        res = matchResult[0][0][0][0](c, async () => {
+          c.res = await this.#notFoundHandler(c);
         });
       } catch (err) {
-        return this.#handleError(err, c2);
+        return this.#handleError(err, c);
       }
       return res instanceof Promise ? res.then(
-        (resolved) => resolved || (c2.finalized ? c2.res : this.#notFoundHandler(c2))
-      ).catch((err) => this.#handleError(err, c2)) : res ?? this.#notFoundHandler(c2);
+        (resolved) => resolved || (c.finalized ? c.res : this.#notFoundHandler(c))
+      ).catch((err) => this.#handleError(err, c)) : res ?? this.#notFoundHandler(c);
     }
     const composed = compose(matchResult[0], this.errorHandler, this.#notFoundHandler);
     return (async () => {
       try {
-        const context = await composed(c2);
+        const context = await composed(c);
         if (!context.finalized) {
           throw new Error(
             "Context is not finalized. Did you forget to return a Response object or `await next()`?"
@@ -1377,7 +1377,7 @@ var Hono = class _Hono {
         }
         return context.res;
       } catch (err) {
-        return this.#handleError(err, c2);
+        return this.#handleError(err, c);
       }
     })();
   }
@@ -1558,8 +1558,8 @@ var Node = class _Node {
   buildRegExpStr() {
     const childKeys = Object.keys(this.#children).sort(compareKey);
     const strList = childKeys.map((k) => {
-      const c2 = this.#children[k];
-      return (typeof c2.#varIndex === "number" ? `(${k})@${c2.#varIndex}` : regExpMetaChars.has(k) ? `\\${k}` : k) + c2.buildRegExpStr();
+      const c = this.#children[k];
+      return (typeof c.#varIndex === "number" ? `(${k})@${c.#varIndex}` : regExpMetaChars.has(k) ? `\\${k}` : k) + c.buildRegExpStr();
     });
     if (typeof this.#index === "number") {
       strList.unshift(`#${this.#index}`);
@@ -2149,17 +2149,17 @@ var AI_BOT_PATTERNS = [
   "PerplexityBot",
   "YouBot"
 ];
-app.use("*", async (c2, next) => {
-  const ua = c2.req.header("User-Agent") || "";
+app.use("*", async (c, next) => {
+  const ua = c.req.header("User-Agent") || "";
   const isAiBot = AI_BOT_PATTERNS.some(
     (pattern) => ua.toLowerCase().includes(pattern.toLowerCase())
   );
   if (isAiBot) {
-    return c2.text("Access Denied: AI crawlers are not permitted.", 403);
+    return c.text("Access Denied: AI crawlers are not permitted.", 403);
   }
   await next();
 });
-app.get("/robots.txt", (c2) => {
+app.get("/robots.txt", (c) => {
   const robotsTxt = `# robots.txt for SEOUL BEAUTY TRIP
 # AI crawlers and data scrapers are NOT permitted
 
@@ -2248,7 +2248,7 @@ User-agent: *
 Disallow: /api/
 Disallow: /admin/
 `;
-  return c2.text(robotsTxt, 200, { "Content-Type": "text/plain; charset=utf-8" });
+  return c.text(robotsTxt, 200, { "Content-Type": "text/plain; charset=utf-8" });
 });
 var PLATFORM = {
   whatsapp: "8201058947690",
@@ -2486,8 +2486,8 @@ var videos = [
   { id: "v5", shopId: "s5", title: "Apgujeong Derma Laser Treatment", description: "The most advanced derma clinic in Apgujeong. Laser treatments, skin brightening and anti-aging solutions.", videoUrl: "https://media.w3.org/2010/05/sintel/trailer.mp4", thumbnail: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&h=700&fit=crop", tags: ["#DermaClinic", "#LaserTreatment", "#KoreanBeauty"], views: 9800, likes: 743, createdAt: "2024-01-19" },
   { id: "v6", shopId: "s1", title: "Myeongdong Spa Body Treatment", description: "Relax with a full body spa in the heart of Myeongdong. Korean herbal therapy included!", videoUrl: "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4", thumbnail: "https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=400&h=700&fit=crop", tags: ["#KoreanSpa", "#Myeongdong", "#BodyTreatment"], views: 7300, likes: 589, createdAt: "2024-01-20" }
 ];
-async function initDb() {
-  const sql = getDb(c.env);
+async function initDb(env) {
+  const sql = getDb(env);
   try {
     await sql`CREATE TABLE IF NOT EXISTS shops (
       id TEXT PRIMARY KEY, name TEXT NOT NULL, slug TEXT, category TEXT,
@@ -2585,39 +2585,44 @@ async function initDb() {
   }
 }
 var _dbInited = false;
-async function ensureDb() {
+async function ensureDb(env) {
   if (_dbInited) return;
   _dbInited = true;
-  await initDb();
+  try {
+    await initDb(env);
+  } catch (e) {
+    _dbInited = false;
+    throw e;
+  }
 }
-app.get("/favicon.ico", (c2) => c2.body(null, 204));
-app.get("/api/videos", async (c2) => {
-  await ensureDb();
-  const sql = getDb(c2.env);
-  const cat = c2.req.query("category");
+app.get("/favicon.ico", (c) => c.body(null, 204));
+app.get("/api/videos", async (c) => {
+  await ensureDb(c.env);
+  const sql = getDb(c.env);
+  const cat = c.req.query("category");
   const rows = cat && cat !== "all" ? await sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.category=${cat} ORDER BY RANDOM()` : await sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id ORDER BY RANDOM()`;
   const result = rows.map((r) => ({
     ...rowToVideo(r),
     shop: { id: r.shop_id, name: r.shop_name, category: r.shop_cat, location: r.shop_location, thumbnail: r.shop_thumb }
   }));
-  return c2.json({ videos: result });
+  return c.json({ videos: result });
 });
-app.get("/api/shops", async (c2) => {
-  const sql = getDb(c2.env);
+app.get("/api/shops", async (c) => {
+  const sql = getDb(c.env);
   const rows = await sql`SELECT * FROM shops ORDER BY created_at DESC`;
-  return c2.json({ shops: rows.map(rowToShop) });
+  return c.json({ shops: rows.map(rowToShop) });
 });
-app.get("/api/shops/:id", async (c2) => {
-  const sql = getDb(c2.env);
-  const rows = await sql`SELECT * FROM shops WHERE id=${c2.req.param("id")}`;
-  if (!rows.length) return c2.json({ error: "Not found" }, 404);
-  const vidRows = await sql`SELECT * FROM videos WHERE shop_id=${c2.req.param("id")} ORDER BY created_at DESC`;
-  return c2.json({ shop: rowToShop(rows[0]), videos: vidRows.map(rowToVideo) });
+app.get("/api/shops/:id", async (c) => {
+  const sql = getDb(c.env);
+  const rows = await sql`SELECT * FROM shops WHERE id=${c.req.param("id")}`;
+  if (!rows.length) return c.json({ error: "Not found" }, 404);
+  const vidRows = await sql`SELECT * FROM videos WHERE shop_id=${c.req.param("id")} ORDER BY created_at DESC`;
+  return c.json({ shop: rowToShop(rows[0]), videos: vidRows.map(rowToVideo) });
 });
-app.post("/api/resolve-gmap", async (c2) => {
+app.post("/api/resolve-gmap", async (c) => {
   try {
-    const { url } = await c2.req.json();
-    if (!url) return c2.json({ error: "no url" }, 400);
+    const { url } = await c.req.json();
+    if (!url) return c.json({ error: "no url" }, 400);
     const areaMap = [
       // 한국어 키워드
       ["\uC555\uAD6C\uC815", "Apgujeong, Seoul"],
@@ -2757,7 +2762,7 @@ app.post("/api/resolve-gmap", async (c2) => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Goog-Api-Key": getGoogleKey(c2.env),
+          "X-Goog-Api-Key": getGoogleKey(c.env),
           "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.addressComponents,places.regularOpeningHours,places.rating,places.userRatingCount,places.reviews,places.photos,places.internationalPhoneNumber,places.websiteUri,places.location,places.editorialSummary,places.primaryType,places.types"
         },
         body: JSON.stringify(body)
@@ -2769,7 +2774,7 @@ app.post("/api/resolve-gmap", async (c2) => {
     const placeDetailsById = async (pid) => {
       const fieldMask = "id,displayName,formattedAddress,addressComponents,regularOpeningHours,rating,userRatingCount,reviews,photos,internationalPhoneNumber,websiteUri,location,editorialSummary,primaryType,types";
       const r = await fetch(`https://places.googleapis.com/v1/places/${pid}?languageCode=en`, {
-        headers: { "X-Goog-Api-Key": getGoogleKey(c2.env), "X-Goog-FieldMask": fieldMask }
+        headers: { "X-Goog-Api-Key": getGoogleKey(c.env), "X-Goog-FieldMask": fieldMask }
       });
       if (!r.ok) return null;
       return r.json();
@@ -2780,9 +2785,9 @@ app.post("/api/resolve-gmap", async (c2) => {
       const isKor = (s) => /[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]/.test(s);
       const stripKor = (s) => s.replace(/[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]+/g, "").replace(/\s{2,}/g, " ").trim();
       const get = (...types) => {
-        const c3 = comps.find((x) => types.some((t) => x.types?.includes(t)));
-        if (!c3) return "";
-        return !isKor(c3.longText || "") ? c3.longText || "" : !isKor(c3.shortText || "") ? c3.shortText || "" : "";
+        const c2 = comps.find((x) => types.some((t) => x.types?.includes(t)));
+        if (!c2) return "";
+        return !isKor(c2.longText || "") ? c2.longText || "" : !isKor(c2.shortText || "") ? c2.shortText || "" : "";
       };
       const street = [get("street_number"), get("route")].filter(Boolean).join(" ") || [get("sublocality_level_4"), get("sublocality_level_3"), get("sublocality_level_2")].filter(Boolean).join(" ");
       const sub1 = get("sublocality_level_1");
@@ -2808,7 +2813,7 @@ app.post("/api/resolve-gmap", async (c2) => {
         time: r.relativePublishTimeDescription || ""
       }));
       const photoNames2 = (place.photos || []).slice(0, 10).map((p) => p.name || "").filter(Boolean);
-      const photos = await resolveGooglePhotos(photoNames2, getGoogleKey(c2.env));
+      const photos = await resolveGooglePhotos(photoNames2, getGoogleKey(c.env));
       const lat = place.location?.latitude?.toString() || "";
       const lng = place.location?.longitude?.toString() || "";
       const description = place.editorialSummary?.text || "";
@@ -2847,7 +2852,7 @@ app.post("/api/resolve-gmap", async (c2) => {
       if (!hexMatch) {
         const pd = await placeDetailsById(pid);
         const result = await placeToJson(pd);
-        if (result) return c2.json(result);
+        if (result) return c.json(result);
       }
     }
     const placeIdx = resolved.indexOf("/place/");
@@ -2878,10 +2883,10 @@ app.post("/api/resolve-gmap", async (c2) => {
           const locFromName = findArea(shopName);
           if (locFromName) result.location = locFromName;
         }
-        return c2.json(result);
+        return c.json(result);
       }
       const geo = coords ? await reverseGeocode(coords.lat, coords.lon) : null;
-      return c2.json({
+      return c.json({
         name: engPart,
         address: geo?.address || "",
         location: geo?.location || findArea(shopName),
@@ -2900,21 +2905,21 @@ app.post("/api/resolve-gmap", async (c2) => {
       const coordsFromQ = extractCoords(resolved);
       if (coordsFromQ) {
         const geo = await reverseGeocode(coordsFromQ.lat, coordsFromQ.lon);
-        if (geo) return c2.json({ name: "", address: geo.address, location: geo.location, lat: coordsFromQ.lat, lng: coordsFromQ.lon });
+        if (geo) return c.json({ name: "", address: geo.address, location: geo.location, lat: coordsFromQ.lat, lng: coordsFromQ.lon });
       }
       const place = await callPlacesApi(qVal + " Seoul Korea");
       const result = await placeToJson(place);
-      if (result) return c2.json(result);
-      return c2.json({ name: "", address: qVal, location: findArea(qVal), lat: "", lng: "" });
+      if (result) return c.json(result);
+      return c.json({ name: "", address: qVal, location: findArea(qVal), lat: "", lng: "" });
     }
     const coordsOnly = extractCoords(resolved);
     if (coordsOnly) {
       const geo = await reverseGeocode(coordsOnly.lat, coordsOnly.lon);
-      if (geo) return c2.json({ name: "", address: geo.address, location: geo.location, lat: coordsOnly.lat, lng: coordsOnly.lon });
+      if (geo) return c.json({ name: "", address: geo.address, location: geo.location, lat: coordsOnly.lat, lng: coordsOnly.lon });
     }
-    return c2.json({ address: "", location: "", name: "", lat: "", lng: "" });
+    return c.json({ address: "", location: "", name: "", lat: "", lng: "" });
   } catch (e) {
-    return c2.json({ error: e.message || "failed" }, 500);
+    return c.json({ error: e.message || "failed" }, 500);
   }
 });
 var CLD = { KEY: "221647295675392", SECRET: "g10Q4wv2UzDEAGV35QluPCYz4Ms", NAME: "dc0ouozcd" };
@@ -2926,18 +2931,18 @@ async function makeSign(folder) {
   const signature = Array.from(new Uint8Array(hashBuf)).map((b) => b.toString(16).padStart(2, "0")).join("");
   return { cloudName: CLD.NAME, apiKey: CLD.KEY, timestamp, signature, folder };
 }
-app.get("/api/upload-sign", async (c2) => {
+app.get("/api/upload-sign", async (c) => {
   try {
-    return c2.json(await makeSign("seoul-beauty"));
+    return c.json(await makeSign("seoul-beauty"));
   } catch (e) {
-    return c2.json({ error: e.message || "Sign failed" }, 500);
+    return c.json({ error: e.message || "Sign failed" }, 500);
   }
 });
-app.get("/api/upload-sign-image", async (c2) => {
+app.get("/api/upload-sign-image", async (c) => {
   try {
-    return c2.json(await makeSign("seoul-beauty-photos"));
+    return c.json(await makeSign("seoul-beauty-photos"));
   } catch (e) {
-    return c2.json({ error: e.message || "Sign failed" }, 500);
+    return c.json({ error: e.message || "Sign failed" }, 500);
   }
 });
 async function makeShopSlug(sql, name, location) {
@@ -3032,9 +3037,9 @@ Return ONLY valid JSON (no extra text):
     return null;
   }
 }
-app.post("/api/shops", async (c2) => {
-  const sql = getDb(c2.env);
-  const body = await c2.req.json();
+app.post("/api/shops", async (c) => {
+  const sql = getDb(c.env);
+  const body = await c.req.json();
   const newId = "s" + Date.now();
   const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
   let description = body.description || "";
@@ -3042,7 +3047,7 @@ app.post("/api/shops", async (c2) => {
   let seoKeywords = body.seoKeywords || "";
   let whyChoose = body.whyChoose || [];
   if (!description) {
-    const apiKey = c2.env?.GSK_TOKEN || c2.env?.gsk_token || c2.env?.GENSPARK_TOKEN || c2.env?.genspark_token || "";
+    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
     const seo = await autoGenSeo(body, apiKey);
     if (seo) {
       description = seo.description || "";
@@ -3063,17 +3068,17 @@ app.post("/api/shops", async (c2) => {
     ${body.rating || 5},${body.reviewCount || 0},${cleanThumb},
     ${JSON.stringify(cleanPhotos)},${body.commission || 15},true,${today}
   ) ON CONFLICT DO NOTHING`;
-  return c2.json({ ok: true, id: newId, seoGenerated: !body.description });
+  return c.json({ ok: true, id: newId, seoGenerated: !body.description });
 });
-app.put("/api/shops/:id", async (c2) => {
-  const sql = getDb(c2.env);
-  const body = await c2.req.json();
+app.put("/api/shops/:id", async (c) => {
+  const sql = getDb(c.env);
+  const body = await c.req.json();
   let description = body.description || "";
   let metaDescription = body.metaDescription || "";
   let seoKeywords = body.seoKeywords || "";
   let whyChoose = Array.isArray(body.whyChoose) ? body.whyChoose : [];
   if (!description || body.regenerateSeo) {
-    const apiKey = c2.env?.GSK_TOKEN || c2.env?.gsk_token || c2.env?.GENSPARK_TOKEN || c2.env?.genspark_token || "";
+    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
     const seo = await autoGenSeo(body, apiKey);
     if (seo) {
       description = description || seo.description || "";
@@ -3112,22 +3117,22 @@ app.put("/api/shops/:id", async (c2) => {
     reviews=${JSON.stringify(body.reviews || [])},
     google_place_id=${body.googlePlaceId || ""},
     menu_items=${JSON.stringify(body.menuItems || [])}
-    WHERE id=${c2.req.param("id")}`;
-  return c2.json({ ok: true, seoGenerated: !body.description || !!body.regenerateSeo });
+    WHERE id=${c.req.param("id")}`;
+  return c.json({ ok: true, seoGenerated: !body.description || !!body.regenerateSeo });
 });
-app.delete("/api/shops/:id", async (c2) => {
-  const sql = getDb(c2.env);
-  await sql`DELETE FROM shops WHERE id=${c2.req.param("id")}`;
-  return c2.json({ ok: true });
+app.delete("/api/shops/:id", async (c) => {
+  const sql = getDb(c.env);
+  await sql`DELETE FROM shops WHERE id=${c.req.param("id")}`;
+  return c.json({ ok: true });
 });
-app.post("/api/videos", async (c2) => {
-  const sql = getDb(c2.env);
-  const body = await c2.req.json();
+app.post("/api/videos", async (c) => {
+  const sql = getDb(c.env);
+  const body = await c.req.json();
   const newId = "v" + Date.now();
   const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
   let description = body.description || "";
   if (!description) {
-    const apiKey = c2.env?.GSK_TOKEN || c2.env?.gsk_token || c2.env?.GENSPARK_TOKEN || c2.env?.genspark_token || "";
+    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
     if (apiKey && body.shopId) {
       const shopRows = await sql`SELECT name, category, location, services FROM shops WHERE id=${body.shopId}`;
       if (shopRows.length) {
@@ -3144,12 +3149,12 @@ app.post("/api/videos", async (c2) => {
     ${newId},${body.shopId || ""},${body.title || ""},${description},${vUrl},
     ${finalThumb},${JSON.stringify(body.tags || [])},0,0,${today}
   )`;
-  return c2.json({ ok: true, id: newId, descriptionGenerated: !body.description && !!description });
+  return c.json({ ok: true, id: newId, descriptionGenerated: !body.description && !!description });
 });
-app.delete("/api/videos/:id", async (c2) => {
-  const sql = getDb(c2.env);
-  await sql`DELETE FROM videos WHERE id=${c2.req.param("id")}`;
-  return c2.json({ ok: true });
+app.delete("/api/videos/:id", async (c) => {
+  const sql = getDb(c.env);
+  await sql`DELETE FROM videos WHERE id=${c.req.param("id")}`;
+  return c.json({ ok: true });
 });
 async function genVideoDescription(video, shop, apiKey) {
   if (!apiKey) return "";
@@ -3187,28 +3192,28 @@ Return ONLY the description text, nothing else.`;
     return "";
   }
 }
-app.post("/api/videos/:id/gen-description", async (c2) => {
-  const sql = getDb(c2.env);
-  const apiKey = c2.env?.GSK_TOKEN || c2.env?.gsk_token || c2.env?.GENSPARK_TOKEN || c2.env?.genspark_token || "";
-  if (!apiKey) return c2.json({ ok: false, error: "No API key" }, 400);
-  const vid = await sql`SELECT v.*, s.name as shop_name, s.category as shop_cat, s.location as shop_loc, s.services as shop_svcs FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE v.id=${c2.req.param("id")}`;
-  if (!vid.length) return c2.json({ ok: false, error: "Not found" }, 404);
+app.post("/api/videos/:id/gen-description", async (c) => {
+  const sql = getDb(c.env);
+  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
+  if (!apiKey) return c.json({ ok: false, error: "No API key" }, 400);
+  const vid = await sql`SELECT v.*, s.name as shop_name, s.category as shop_cat, s.location as shop_loc, s.services as shop_svcs FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE v.id=${c.req.param("id")}`;
+  if (!vid.length) return c.json({ ok: false, error: "Not found" }, 404);
   const v = vid[0];
   const shop = { name: v.shop_name, category: v.shop_cat, location: v.shop_loc, services: JSON.parse(v.shop_svcs || "[]") };
   const video = { id: v.id, title: v.title, tags: JSON.parse(v.tags || "[]") };
   const desc = await genVideoDescription(video, shop, apiKey);
-  if (!desc) return c2.json({ ok: false, error: "AI generation failed" }, 500);
-  await sql`UPDATE videos SET description=${desc} WHERE id=${c2.req.param("id")}`;
-  return c2.json({ ok: true, description: desc });
+  if (!desc) return c.json({ ok: false, error: "AI generation failed" }, 500);
+  await sql`UPDATE videos SET description=${desc} WHERE id=${c.req.param("id")}`;
+  return c.json({ ok: true, description: desc });
 });
-app.post("/api/videos/gen-description-bulk", async (c2) => {
-  const sql = getDb(c2.env);
-  const apiKey = c2.env?.GSK_TOKEN || c2.env?.gsk_token || c2.env?.GENSPARK_TOKEN || c2.env?.genspark_token || "";
-  if (!apiKey) return c2.json({ ok: false, error: "No API key" }, 400);
-  const body = await c2.req.json().catch(() => ({}));
+app.post("/api/videos/gen-description-bulk", async (c) => {
+  const sql = getDb(c.env);
+  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
+  if (!apiKey) return c.json({ ok: false, error: "No API key" }, 400);
+  const body = await c.req.json().catch(() => ({}));
   const forceAll = body?.force === true;
   const rows = forceAll ? await sql`SELECT v.*, s.name as shop_name, s.category as shop_cat, s.location as shop_loc, s.services as shop_svcs FROM videos v LEFT JOIN shops s ON v.shop_id=s.id` : await sql`SELECT v.*, s.name as shop_name, s.category as shop_cat, s.location as shop_loc, s.services as shop_svcs FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE v.description IS NULL OR v.description=''`;
-  if (!rows.length) return c2.json({ ok: true, updated: 0, message: "No videos to update" });
+  if (!rows.length) return c.json({ ok: true, updated: 0, message: "No videos to update" });
   let updated = 0, failed = 0;
   for (const v of rows) {
     const shop = { name: v.shop_name, category: v.shop_cat, location: v.shop_loc, services: JSON.parse(v.shop_svcs || "[]") };
@@ -3222,36 +3227,36 @@ app.post("/api/videos/gen-description-bulk", async (c2) => {
     }
     await new Promise((r) => setTimeout(r, 300));
   }
-  return c2.json({ ok: true, updated, failed, total: rows.length });
+  return c.json({ ok: true, updated, failed, total: rows.length });
 });
-app.put("/api/videos/:id", async (c2) => {
-  const sql = getDb(c2.env);
-  const body = await c2.req.json();
+app.put("/api/videos/:id", async (c) => {
+  const sql = getDb(c.env);
+  const body = await c.req.json();
   if (body.titleOnly) {
-    await sql`UPDATE videos SET title=${body.title || ""} WHERE id=${c2.req.param("id")}`;
+    await sql`UPDATE videos SET title=${body.title || ""} WHERE id=${c.req.param("id")}`;
   } else {
     await sql`UPDATE videos SET
       title=${body.title || ""},
       description=${body.description || ""},
       thumbnail=${body.thumbnail || ""},
       tags=${JSON.stringify(body.tags || [])}
-      WHERE id=${c2.req.param("id")}`;
+      WHERE id=${c.req.param("id")}`;
   }
-  return c2.json({ ok: true });
+  return c.json({ ok: true });
 });
-app.post("/api/videos/:id/view", async (c2) => {
-  const sql = getDb(c2.env);
-  await sql`UPDATE videos SET views=views+1 WHERE id=${c2.req.param("id")}`;
-  return c2.json({ ok: true });
+app.post("/api/videos/:id/view", async (c) => {
+  const sql = getDb(c.env);
+  await sql`UPDATE videos SET views=views+1 WHERE id=${c.req.param("id")}`;
+  return c.json({ ok: true });
 });
-app.get("/api/bookings", async (c2) => {
-  const sql = getDb(c2.env);
+app.get("/api/bookings", async (c) => {
+  const sql = getDb(c.env);
   const rows = await sql`SELECT * FROM bookings ORDER BY created_at DESC`;
-  return c2.json({ bookings: rows.map(rowToBooking) });
+  return c.json({ bookings: rows.map(rowToBooking) });
 });
-app.post("/api/bookings", async (c2) => {
-  const sql = getDb(c2.env);
-  const body = await c2.req.json();
+app.post("/api/bookings", async (c) => {
+  const sql = getDb(c.env);
+  const body = await c.req.json();
   const shopRows = await sql`SELECT name, commission FROM shops WHERE id=${body.shopId || ""}`;
   const shop = shopRows[0];
   const newId = "b" + Date.now();
@@ -3261,17 +3266,17 @@ app.post("/api/bookings", async (c2) => {
     ${body.phone || ""},${body.service || ""},${body.people || "1"},${body.date || ""},${body.message || ""},
     'new',${shop?.commission || 10},${body.estimatedAmount || ""},${today}
   )`;
-  return c2.json({ ok: true });
+  return c.json({ ok: true });
 });
-app.put("/api/bookings/:id/status", async (c2) => {
-  const sql = getDb(c2.env);
-  const { status } = await c2.req.json();
-  await sql`UPDATE bookings SET status=${status} WHERE id=${c2.req.param("id")}`;
-  return c2.json({ ok: true });
+app.put("/api/bookings/:id/status", async (c) => {
+  const sql = getDb(c.env);
+  const { status } = await c.req.json();
+  await sql`UPDATE bookings SET status=${status} WHERE id=${c.req.param("id")}`;
+  return c.json({ ok: true });
 });
-app.get("/api/stats", async (c2) => {
+app.get("/api/stats", async (c) => {
   try {
-    const sql = getDb(c2.env);
+    const sql = getDb(c.env);
     const [vStats] = await sql`SELECT COALESCE(SUM(views),0) as total_views, COUNT(*) as total FROM videos`;
     const [bStats] = await sql`SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE status='new') as new_cnt, COUNT(*) FILTER (WHERE status='confirmed') as confirmed_cnt, COUNT(*) FILTER (WHERE status='contacted') as contacted_cnt FROM bookings`;
     const [sStats] = await sql`SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE active=true) as active_cnt FROM shops`;
@@ -3279,7 +3284,7 @@ app.get("/api/stats", async (c2) => {
     const catRows = await sql`SELECT category, COUNT(*) as cnt FROM shops WHERE active=true GROUP BY category ORDER BY cnt DESC`;
     const shopViewRows = await sql`SELECT s.name, s.category, COALESCE(SUM(v.views),0) as total_views FROM shops s LEFT JOIN videos v ON v.shop_id=s.id GROUP BY s.id, s.name, s.category ORDER BY total_views DESC LIMIT 5`;
     const recentBookings = await sql`SELECT DATE(CAST(created_at AS timestamptz)) as day, COUNT(*) as cnt FROM bookings WHERE CAST(created_at AS timestamptz) >= NOW() - INTERVAL '7 days' GROUP BY day ORDER BY day`;
-    return c2.json({
+    return c.json({
       totalViews: Number(vStats.total_views),
       totalBookings: Number(bStats.total),
       newBookings: Number(bStats.new_cnt),
@@ -3293,15 +3298,15 @@ app.get("/api/stats", async (c2) => {
       recentBookings: recentBookings.map((r) => ({ day: r.day, count: Number(r.cnt) }))
     });
   } catch (e) {
-    return c2.json({ error: e.message, totalViews: 0, totalBookings: 0, newBookings: 0, confirmedBookings: 0, contactedBookings: 0, totalShops: 0, activeShops: 0, topVideos: [], categoryStats: [], shopViewStats: [], recentBookings: [] }, 200);
+    return c.json({ error: e.message, totalViews: 0, totalBookings: 0, newBookings: 0, confirmedBookings: 0, contactedBookings: 0, totalShops: 0, activeShops: 0, topVideos: [], categoryStats: [], shopViewStats: [], recentBookings: [] }, 200);
   }
 });
-app.get("/api/platform", (c2) => c2.json(PLATFORM));
-app.post("/api/ai-seo", async (c2) => {
+app.get("/api/platform", (c) => c.json(PLATFORM));
+app.post("/api/ai-seo", async (c) => {
   try {
-    const body = await c2.req.json();
+    const body = await c.req.json();
     const { name, location, category, services, priceRange, hours, placeId, rating, reviewCount } = body;
-    if (!name) return c2.json({ error: "name required" }, 400);
+    if (!name) return c.json({ error: "name required" }, 400);
     const catKeywords = {
       skincare: "Korean skincare Seoul, facial treatment Seoul, glass skin Seoul, K-beauty facial, skin clinic Seoul foreigners",
       makeup: "Korean makeup Seoul, K-beauty makeup artist, Korean beauty look, makeup studio Seoul foreigners",
@@ -3352,8 +3357,8 @@ Rules:
 
 Return ONLY valid JSON:
 {"titleSuffix":"...","metaDescription":"...","description":"...","keywords":["k1","k2","k3","k4","k5","k6","k7","k8"]}`;
-    const OPENAI_KEY = c2.env?.GSK_TOKEN || c2.env?.gsk_token || c2.env?.GENSPARK_TOKEN || c2.env?.genspark_token || "";
-    if (!OPENAI_KEY) return c2.json({ error: "API key not configured" }, 500);
+    const OPENAI_KEY = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
+    if (!OPENAI_KEY) return c.json({ error: "API key not configured" }, 500);
     const res = await fetch("https://www.genspark.ai/api/llm_proxy/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -3368,27 +3373,27 @@ Return ONLY valid JSON:
     });
     if (!res.ok) {
       const err = await res.text();
-      return c2.json({ error: "AI API error", detail: err }, 500);
+      return c.json({ error: "AI API error", detail: err }, 500);
     }
     const data = await res.json();
     const text = data.choices?.[0]?.message?.content || "";
-    if (!text) return c2.json({ error: "empty response from AI" }, 500);
+    if (!text) return c.json({ error: "empty response from AI" }, 500);
     const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
     const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return c2.json({ error: "parse error", raw: text }, 500);
+    if (!jsonMatch) return c.json({ error: "parse error", raw: text }, 500);
     const result = JSON.parse(jsonMatch[0]);
-    return c2.json(result);
+    return c.json(result);
   } catch (e) {
-    return c2.json({ error: e.message }, 500);
+    return c.json({ error: e.message }, 500);
   }
 });
-app.post("/api/parse-price-image", async (c2) => {
+app.post("/api/parse-price-image", async (c) => {
   try {
-    const body = await c2.req.json();
+    const body = await c.req.json();
     const { imageUrl } = body;
-    if (!imageUrl) return c2.json({ error: "imageUrl required" }, 400);
-    const OPENAI_KEY = c2.env?.GSK_TOKEN || c2.env?.gsk_token || c2.env?.GENSPARK_TOKEN || c2.env?.genspark_token || "";
-    if (!OPENAI_KEY) return c2.json({ error: "API key not configured" }, 500);
+    if (!imageUrl) return c.json({ error: "imageUrl required" }, 400);
+    const OPENAI_KEY = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
+    if (!OPENAI_KEY) return c.json({ error: "API key not configured" }, 500);
     const prompt = `You are a price menu OCR assistant for Korean beauty salons.
 Look at this price menu image and extract all service names and prices.
 
@@ -3422,7 +3427,7 @@ Format:
     });
     if (!res.ok) {
       const err = await res.text();
-      return c2.json({ error: "AI API error", detail: err }, 500);
+      return c.json({ error: "AI API error", detail: err }, 500);
     }
     const data = await res.json();
     const text = (data.choices?.[0]?.message?.content || "").replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
@@ -3433,15 +3438,15 @@ Format:
       const match2 = text.match(/\[[\s\S]*\]/);
       if (match2) items = JSON.parse(match2[0]);
     }
-    if (!Array.isArray(items)) return c2.json({ error: "Failed to parse items", raw: text }, 500);
-    return c2.json({ items });
+    if (!Array.isArray(items)) return c.json({ error: "Failed to parse items", raw: text }, 500);
+    return c.json({ items });
   } catch (e) {
-    return c2.json({ error: e.message }, 500);
+    return c.json({ error: e.message }, 500);
   }
 });
-app.post("/api/places-fetch", async (c2) => {
+app.post("/api/places-fetch", async (c) => {
   try {
-    const body = await c2.req.json();
+    const body = await c.req.json();
     const { query, placeId: directPlaceId } = body;
     const isKorean = (s) => /[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]/.test(s);
     const stripKorean = (s) => s.replace(/[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]+/g, "").replace(/\s{2,}/g, " ").trim();
@@ -3499,9 +3504,9 @@ app.post("/api/places-fetch", async (c2) => {
     };
     const buildEngAddress = (comps2, fallbackAddr) => {
       const get = (...types) => {
-        const c3 = comps2.find((x) => types.some((t) => x.types?.includes(t)));
-        if (!c3) return "";
-        const lt = c3.longText || "", st = c3.shortText || "";
+        const c2 = comps2.find((x) => types.some((t) => x.types?.includes(t)));
+        if (!c2) return "";
+        const lt = c2.longText || "", st = c2.shortText || "";
         return !isKorean(lt) ? lt : !isKorean(st) ? st : "";
       };
       const streetNum = get("street_number");
@@ -3542,7 +3547,7 @@ app.post("/api/places-fetch", async (c2) => {
     const FIELD_MASK_SEARCH = FIELD_MASK_DETAILS.split(",").map((f) => "places." + f).join(",");
     const fetchPlaceById = async (pid) => {
       const r = await fetch(`https://places.googleapis.com/v1/places/${pid}?languageCode=en`, {
-        headers: { "X-Goog-Api-Key": getGoogleKey(c2.env), "X-Goog-FieldMask": FIELD_MASK_DETAILS }
+        headers: { "X-Goog-Api-Key": getGoogleKey(c.env), "X-Goog-FieldMask": FIELD_MASK_DETAILS }
       });
       if (!r.ok) throw new Error("Place Details error: " + r.status);
       return r.json();
@@ -3560,23 +3565,23 @@ app.post("/api/places-fetch", async (c2) => {
     if (directPlaceId) {
       place = await fetchPlaceById(directPlaceId);
     } else {
-      if (!query) return c2.json({ error: "query or placeId required" }, 400);
+      if (!query) return c.json({ error: "query or placeId required" }, 400);
       const searchRes = await fetch("https://places.googleapis.com/v1/places:searchText", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Goog-Api-Key": getGoogleKey(c2.env),
+          "X-Goog-Api-Key": getGoogleKey(c.env),
           "X-Goog-FieldMask": FIELD_MASK_SEARCH
         },
         body: JSON.stringify({ textQuery: query, languageCode: "en" })
       });
       if (!searchRes.ok) {
         const err = await searchRes.text();
-        return c2.json({ error: "Places API error", detail: err }, 500);
+        return c.json({ error: "Places API error", detail: err }, 500);
       }
       const sd = await searchRes.json();
       place = sd.places?.[0];
-      if (!place) return c2.json({ error: "No place found" }, 404);
+      if (!place) return c.json({ error: "No place found" }, 404);
     }
     const rawDisplayName = place.displayName?.text || "";
     const nameParts = rawDisplayName.split(/[|｜]/).map((s) => s.trim()).filter(Boolean);
@@ -3606,8 +3611,8 @@ app.post("/api/places-fetch", async (c2) => {
     }));
     const rawPhotos = place.photos || [];
     const photoNames = rawPhotos.slice(0, 10).map((p) => p.name || "").filter(Boolean);
-    const photos = await resolveGooglePhotos(photoNames, getGoogleKey(c2.env));
-    return c2.json({
+    const photos = await resolveGooglePhotos(photoNames, getGoogleKey(c.env));
+    return c.json({
       placeId: place.id || "",
       name: engName,
       address: engAddress,
@@ -3625,34 +3630,34 @@ app.post("/api/places-fetch", async (c2) => {
       photos
     });
   } catch (e) {
-    return c2.json({ error: e.message }, 500);
+    return c.json({ error: e.message }, 500);
   }
 });
-app.post("/api/places-photos", async (c2) => {
+app.post("/api/places-photos", async (c) => {
   try {
-    const { placeId } = await c2.req.json();
-    if (!placeId) return c2.json({ error: "placeId required" }, 400);
+    const { placeId } = await c.req.json();
+    if (!placeId) return c.json({ error: "placeId required" }, 400);
     const res = await fetch(`https://places.googleapis.com/v1/places/${placeId}`, {
       headers: {
-        "X-Goog-Api-Key": getGoogleKey(c2.env),
+        "X-Goog-Api-Key": getGoogleKey(c.env),
         "X-Goog-FieldMask": "photos"
       }
     });
-    if (!res.ok) return c2.json({ error: "Places API error" }, 500);
+    if (!res.ok) return c.json({ error: "Places API error" }, 500);
     const data = await res.json();
     const rawPhotos = data.photos || [];
     const photoNames3 = rawPhotos.slice(0, 6).map((p) => p.name || "").filter(Boolean);
-    const photos = await resolveGooglePhotos(photoNames3, getGoogleKey(c2.env));
-    return c2.json({ photos });
+    const photos = await resolveGooglePhotos(photoNames3, getGoogleKey(c.env));
+    return c.json({ photos });
   } catch (e) {
-    return c2.json({ error: e.message }, 500);
+    return c.json({ error: e.message }, 500);
   }
 });
-app.get("/api/photo", async (c2) => {
-  const name = c2.req.query("name") || "";
-  if (!name) return c2.text("name required", 400);
+app.get("/api/photo", async (c) => {
+  const name = c.req.query("name") || "";
+  if (!name) return c.text("name required", 400);
   const cleanName = name.replace(/\/media$/, "");
-  const apiUrl = `https://places.googleapis.com/v1/${cleanName}/media?key=${getGoogleKey(c2.env)}&maxHeightPx=800&maxWidthPx=800&skipHttpRedirect=true`;
+  const apiUrl = `https://places.googleapis.com/v1/${cleanName}/media?key=${getGoogleKey(c.env)}&maxHeightPx=800&maxWidthPx=800&skipHttpRedirect=true`;
   try {
     const res = await fetch(apiUrl);
     const ct = res.headers.get("content-type") || "";
@@ -3666,9 +3671,9 @@ app.get("/api/photo", async (c2) => {
         headers: { "Content-Type": ct || "image/jpeg", "Cache-Control": "public, max-age=86400", "Access-Control-Allow-Origin": "*" }
       });
     }
-    if (!imgUrl) return c2.text("no photo uri", 502);
+    if (!imgUrl) return c.text("no photo uri", 502);
     const imgRes = await fetch(imgUrl);
-    if (!imgRes.ok) return c2.text("img fetch failed: " + imgRes.status, 502);
+    if (!imgRes.ok) return c.text("img fetch failed: " + imgRes.status, 502);
     const buf = await imgRes.arrayBuffer();
     const imgCt = imgRes.headers.get("content-type") || "image/jpeg";
     return new Response(buf, {
@@ -3679,18 +3684,18 @@ app.get("/api/photo", async (c2) => {
       }
     });
   } catch (e) {
-    return c2.text("proxy error: " + e.message, 500);
+    return c.text("proxy error: " + e.message, 500);
   }
 });
-app.post("/api/quick-register", async (c2) => {
+app.post("/api/quick-register", async (c) => {
   try {
-    const sql = getDb(c2.env);
-    const { gmapUrl, videoUrl, category } = await c2.req.json();
-    if (!gmapUrl) return c2.json({ error: "\uAD6C\uAE00\uB9F5 URL\uC744 \uC785\uB825\uD574\uC8FC\uC138\uC694" }, 400);
+    const sql = getDb(c.env);
+    const { gmapUrl, videoUrl, category } = await c.req.json();
+    if (!gmapUrl) return c.json({ error: "\uAD6C\uAE00\uB9F5 URL\uC744 \uC785\uB825\uD574\uC8FC\uC138\uC694" }, 400);
     let resolvedData = null;
     try {
       const resolveRes = await fetch(
-        new URL("/api/resolve-gmap", new URL(c2.req.url).origin).toString(),
+        new URL("/api/resolve-gmap", new URL(c.req.url).origin).toString(),
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -3705,7 +3710,7 @@ app.post("/api/quick-register", async (c2) => {
       console.error("[quick-register] resolve-gmap error:", e?.message);
     }
     if (!resolvedData || !resolvedData.name && !resolvedData.address) {
-      return c2.json({ error: "\uAD6C\uAE00\uB9F5\uC5D0\uC11C \uC5C5\uCCB4 \uC815\uBCF4\uB97C \uAC00\uC838\uC624\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. (URL \uD655\uC778 \uB610\uB294 \uC7A0\uC2DC \uD6C4 \uC7AC\uC2DC\uB3C4)" }, 400);
+      return c.json({ error: "\uAD6C\uAE00\uB9F5\uC5D0\uC11C \uC5C5\uCCB4 \uC815\uBCF4\uB97C \uAC00\uC838\uC624\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. (URL \uD655\uC778 \uB610\uB294 \uC7A0\uC2DC \uD6C4 \uC7AC\uC2DC\uB3C4)" }, 400);
     }
     const isKor = (s) => /[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]/.test(s);
     const stripCJK2 = (s) => s.replace(/[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]+/g, "").replace(/\s{2,}/g, " ").trim();
@@ -3762,7 +3767,7 @@ app.post("/api/quick-register", async (c2) => {
         VALUES (${videoId}, ${shopId}, ${engName}, ${""}, ${videoUrl.trim()}, ${thumb}, ${"[]"}, 0, 0, ${today})
       `;
     }
-    return c2.json({
+    return c.json({
       success: true,
       shopId,
       shopName: rawName,
@@ -3772,11 +3777,11 @@ app.post("/api/quick-register", async (c2) => {
       url: `/shop/${slug}`
     });
   } catch (e) {
-    return c2.json({ error: e.message || "\uB4F1\uB85D \uC911 \uC624\uB958\uAC00 \uBC1C\uC0DD\uD588\uC2B5\uB2C8\uB2E4" }, 500);
+    return c.json({ error: e.message || "\uB4F1\uB85D \uC911 \uC624\uB958\uAC00 \uBC1C\uC0DD\uD588\uC2B5\uB2C8\uB2E4" }, 500);
   }
 });
-app.post("/api/admin/fix-video-thumbnails", async (c2) => {
-  const sql = getDb(c2.env);
+app.post("/api/admin/fix-video-thumbnails", async (c) => {
+  const sql = getDb(c.env);
   const rows = await sql`SELECT id, video_url FROM videos WHERE (thumbnail IS NULL OR thumbnail='') AND video_url IS NOT NULL AND video_url != ''`;
   let fixed = 0;
   for (const r of rows) {
@@ -3786,10 +3791,10 @@ app.post("/api/admin/fix-video-thumbnails", async (c2) => {
     await sql`UPDATE videos SET thumbnail=${thumb} WHERE id=${r.id}`;
     fixed++;
   }
-  return c2.json({ ok: true, fixed, total: rows.length });
+  return c.json({ ok: true, fixed, total: rows.length });
 });
-app.post("/api/admin/fix-slugs", async (c2) => {
-  const sql = getDb(c2.env);
+app.post("/api/admin/fix-slugs", async (c) => {
+  const sql = getDb(c.env);
   const rows = await sql`SELECT id, name, location, slug FROM shops ORDER BY created_at ASC`;
   const results = [];
   for (const row of rows) {
@@ -3814,8 +3819,8 @@ app.post("/api/admin/fix-slugs", async (c2) => {
     if (conflict.length > 0) {
       for (let n = 2; n <= 99; n++) {
         const s = `${base}-${n}`;
-        const c22 = await sql`SELECT slug FROM shops WHERE slug=${s} AND id!=${row.id}`;
-        if (!c22.length) {
+        const c2 = await sql`SELECT slug FROM shops WHERE slug=${s} AND id!=${row.id}`;
+        if (!c2.length) {
           newSlug = s;
           break;
         }
@@ -3826,18 +3831,18 @@ app.post("/api/admin/fix-slugs", async (c2) => {
       results.push({ id: row.id, name: row.name, old: row.slug, new: newSlug });
     }
   }
-  return c2.json({ ok: true, updated: results.length, results });
+  return c.json({ ok: true, updated: results.length, results });
 });
-app.post("/api/admin/regenerate-seo-all", async (c2) => {
-  const sql = getDb(c2.env);
-  const apiKey = c2.env?.GSK_TOKEN || c2.env?.gsk_token || c2.env?.GENSPARK_TOKEN || c2.env?.genspark_token || "";
-  if (!apiKey) return c2.json({ error: "API key not configured" }, 500);
-  const force = c2.req.query("force") === "true";
+app.post("/api/admin/regenerate-seo-all", async (c) => {
+  const sql = getDb(c.env);
+  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
+  if (!apiKey) return c.json({ error: "API key not configured" }, 500);
+  const force = c.req.query("force") === "true";
   let rows = [];
   try {
     rows = force ? await sql`SELECT * FROM shops WHERE active=true ORDER BY created_at ASC` : await sql`SELECT * FROM shops WHERE active=true AND (description IS NULL OR description='' OR meta_description IS NULL OR meta_description='') ORDER BY created_at ASC`;
   } catch (e) {
-    return c2.json({ error: e.message }, 500);
+    return c.json({ error: e.message }, 500);
   }
   const results = [];
   for (const row of rows) {
@@ -3868,7 +3873,7 @@ app.post("/api/admin/regenerate-seo-all", async (c2) => {
     }
     await new Promise((r) => setTimeout(r, 500));
   }
-  return c2.json({ total: rows.length, results });
+  return c.json({ total: rows.length, results });
 });
 function makeBlogSlug(title) {
   return title.toLowerCase().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").slice(0, 80).replace(/^-|-$/g, "");
@@ -3939,27 +3944,27 @@ Also provide (after the HTML content, separated by ---JSON---):
     return null;
   }
 }
-app.get("/api/blogs", async (c2) => {
-  await ensureDb();
-  const sql = getDb(c2.env);
-  const status = c2.req.query("status") || "";
+app.get("/api/blogs", async (c) => {
+  await ensureDb(c.env);
+  const sql = getDb(c.env);
+  const status = c.req.query("status") || "";
   const rows = status ? await sql`SELECT id,slug,title,meta_description,excerpt,category,area,tags,cover_image,status,views,created_at,updated_at FROM blog_posts WHERE status=${status} ORDER BY created_at DESC` : await sql`SELECT id,slug,title,meta_description,excerpt,category,area,tags,cover_image,status,views,created_at,updated_at FROM blog_posts ORDER BY created_at DESC`;
-  return c2.json(rows);
+  return c.json(rows);
 });
-app.get("/api/blogs/:slug", async (c2) => {
-  await ensureDb();
-  const sql = getDb(c2.env);
-  const rows = await sql`SELECT * FROM blog_posts WHERE slug=${c2.req.param("slug")}`;
-  if (!rows.length) return c2.json({ error: "not found" }, 404);
-  return c2.json(rows[0]);
+app.get("/api/blogs/:slug", async (c) => {
+  await ensureDb(c.env);
+  const sql = getDb(c.env);
+  const rows = await sql`SELECT * FROM blog_posts WHERE slug=${c.req.param("slug")}`;
+  if (!rows.length) return c.json({ error: "not found" }, 404);
+  return c.json(rows[0]);
 });
-app.post("/api/blogs", async (c2) => {
-  await ensureDb();
-  const sql = getDb(c2.env);
-  const body = await c2.req.json();
+app.post("/api/blogs", async (c) => {
+  await ensureDb(c.env);
+  const sql = getDb(c.env);
+  const body = await c.req.json();
   const id = "b" + Date.now();
   const now = (/* @__PURE__ */ new Date()).toISOString();
-  const apiKey = c2.env?.GSK_TOKEN || c2.env?.gsk_token || c2.env?.GENSPARK_TOKEN || c2.env?.genspark_token || "";
+  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
   let title = body.title || "";
   let content = body.content || "";
   let excerpt = body.excerpt || "";
@@ -3984,14 +3989,14 @@ app.post("/api/blogs", async (c2) => {
     (id,slug,title,meta_description,content,excerpt,category,area,tags,cover_image,status,views,created_at,updated_at)
     VALUES (${id},${slug},${title},${metaDescription},${content},${excerpt},${category},${area},${JSON.stringify(tags)},${coverImage},${status},0,${now},${now})
     ON CONFLICT (slug) DO NOTHING`;
-  return c2.json({ ok: true, id, slug, aiGenerated: !body.content });
+  return c.json({ ok: true, id, slug, aiGenerated: !body.content });
 });
-app.put("/api/blogs/:id", async (c2) => {
-  await ensureDb();
-  const sql = getDb(c2.env);
-  const body = await c2.req.json();
+app.put("/api/blogs/:id", async (c) => {
+  await ensureDb(c.env);
+  const sql = getDb(c.env);
+  const body = await c.req.json();
   const now = (/* @__PURE__ */ new Date()).toISOString();
-  const apiKey = c2.env?.GSK_TOKEN || c2.env?.gsk_token || c2.env?.GENSPARK_TOKEN || c2.env?.genspark_token || "";
+  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
   let content = body.content || "";
   let excerpt = body.excerpt || "";
   let metaDescription = body.metaDescription || "";
@@ -4022,23 +4027,23 @@ app.put("/api/blogs/:id", async (c2) => {
     cover_image=${body.coverImage || ""},
     status=${body.status || "published"},
     updated_at=${now}
-    WHERE id=${c2.req.param("id")}`;
-  return c2.json({ ok: true });
+    WHERE id=${c.req.param("id")}`;
+  return c.json({ ok: true });
 });
-app.delete("/api/blogs/:id", async (c2) => {
-  await ensureDb();
-  const sql = getDb(c2.env);
-  await sql`DELETE FROM blog_posts WHERE id=${c2.req.param("id")}`;
-  return c2.json({ ok: true });
+app.delete("/api/blogs/:id", async (c) => {
+  await ensureDb(c.env);
+  const sql = getDb(c.env);
+  await sql`DELETE FROM blog_posts WHERE id=${c.req.param("id")}`;
+  return c.json({ ok: true });
 });
-app.post("/api/admin/generate-blog", async (c2) => {
-  await ensureDb();
-  const sql = getDb(c2.env);
-  const apiKey = c2.env?.GSK_TOKEN || c2.env?.gsk_token || c2.env?.GENSPARK_TOKEN || c2.env?.genspark_token || "";
-  if (!apiKey) return c2.json({ error: "API key not configured" }, 500);
-  const body = await c2.req.json();
+app.post("/api/admin/generate-blog", async (c) => {
+  await ensureDb(c.env);
+  const sql = getDb(c.env);
+  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
+  if (!apiKey) return c.json({ error: "API key not configured" }, 500);
+  const body = await c.req.json();
   const topics = body.topics || [];
-  if (!topics.length) return c2.json({ error: "topics required" }, 400);
+  if (!topics.length) return c.json({ error: "topics required" }, 400);
   const results = [];
   for (const topic of topics) {
     try {
@@ -4060,12 +4065,12 @@ app.post("/api/admin/generate-blog", async (c2) => {
     }
     await new Promise((r) => setTimeout(r, 800));
   }
-  return c2.json({ total: topics.length, results });
+  return c.json({ total: topics.length, results });
 });
-app.get("/shop/:slug", async (c2) => {
-  const sql = getDb(c2.env);
-  const shopRows = await sql`SELECT * FROM shops WHERE slug=${c2.req.param("slug")}`;
-  if (!shopRows.length) return c2.notFound();
+app.get("/shop/:slug", async (c) => {
+  const sql = getDb(c.env);
+  const shopRows = await sql`SELECT * FROM shops WHERE slug=${c.req.param("slug")}`;
+  if (!shopRows.length) return c.notFound();
   const shop = rowToShop(shopRows[0]);
   const vidRows = await sql`SELECT * FROM videos WHERE shop_id=${shop.id} ORDER BY views DESC`;
   const shopVideos = vidRows.map((r) => rowToVideo({ ...r, shop_name: shop.name }));
@@ -4091,7 +4096,7 @@ People: `);
   const ogImage = shop.thumbnail ? shop.thumbnail.startsWith("http") ? shop.thumbnail : `${base}${shop.thumbnail}` : `${base}/og-cover.jpg`;
   const catEmoji = { skincare: "\u{1F33F}", makeup: "\u{1F48B}", hair: "\u{1F487}", headspa: "\u{1F9D6}", nail: "\u{1F485}", clinic: "\u{1F3E5}" };
   const catIcon = catEmoji[shop.category] || "\u2728";
-  return c2.html(`<!DOCTYPE html>
+  return c.html(`<!DOCTYPE html>
 <html lang="en" itemscope itemtype="https://schema.org/LocalBusiness">
 <head>
 <meta charset="UTF-8">
@@ -4874,16 +4879,16 @@ var DEFAULT_FAQ = [
   { q: "What payment methods are accepted?", a: "Most salons accept credit cards and cash (Korean Won). Some also accept international cards like Visa and Mastercard." },
   { q: "Can I cancel or reschedule my booking?", a: "Yes. Contact us via WhatsApp and we will help reschedule or cancel depending on the salon's policy." }
 ];
-app.get("/video/:id", async (c2) => {
-  const sql = getDb(c2.env);
-  const vid = c2.req.param("id");
+app.get("/video/:id", async (c) => {
+  const sql = getDb(c.env);
+  const vid = c.req.param("id");
   const rows = await sql`
     SELECT v.*, s.name as shop_name, s.slug as shop_slug,
            s.category as shop_cat, s.location as shop_loc,
            s.thumbnail as shop_thumb, s.google_map_url as shop_map
     FROM videos v LEFT JOIN shops s ON v.shop_id=s.id
     WHERE v.id=${vid}`;
-  if (!rows.length) return c2.notFound();
+  if (!rows.length) return c.notFound();
   const r = rows[0];
   const video = rowToVideo({ ...r, shop_name: r.shop_name });
   const base = "https://seoulbeautytrip.com";
@@ -4924,7 +4929,7 @@ Service:
 Name: 
 People: `);
   const waUrl = `https://wa.me/${PLATFORM.whatsapp}?text=${waMsg}`;
-  return c2.html(`<!DOCTYPE html>
+  return c.html(`<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -5050,13 +5055,13 @@ fetch('/api/videos/${vid}/view',{method:'POST'}).catch(function(){});
 </body>
 </html>`);
 });
-app.get("/best/:category/:area", async (c2) => {
-  const catSlug = c2.req.param("category").toLowerCase();
-  const areaSlug = c2.req.param("area").toLowerCase();
+app.get("/best/:category/:area", async (c) => {
+  const catSlug = c.req.param("category").toLowerCase();
+  const areaSlug = c.req.param("area").toLowerCase();
   const catLabel = CATEGORY_LABELS[catSlug];
   const areaLabel = AREA_LABELS[areaSlug];
-  if (!catLabel || !areaLabel) return c2.notFound();
-  const sql = getDb(c2.env);
+  if (!catLabel || !areaLabel) return c.notFound();
+  const sql = getDb(c.env);
   const base = "https://seoulbeautytrip.com";
   const pageUrl = `${base}/best/${catSlug}/${areaSlug}`;
   const areaForQuery = areaLabel;
@@ -5068,7 +5073,7 @@ app.get("/best/:category/:area", async (c2) => {
   } catch (e) {
   }
   if (shops2.length === 0 && areaSlug !== "seoul") {
-    return c2.redirect(`/best/${catSlug}/seoul`, 301);
+    return c.redirect(`/best/${catSlug}/seoul`, 301);
   }
   if (shops2.length === 0 && areaSlug === "seoul") {
     try {
@@ -5205,7 +5210,7 @@ app.get("/best/:category/:area", async (c2) => {
 </details>`).join("");
   const relatedCats = Object.entries(CATEGORY_LABELS).filter(([k]) => k !== catSlug).map(([k, v]) => `<a href="/best/${k}/${areaSlug}" class="rel-link">${catEmoji[k] || "\u2728"} ${v} in ${areaLabel}</a>`).join("");
   const relatedAreas = Object.entries(AREA_LABELS).filter(([k]) => k !== areaSlug && k !== "seoul").slice(0, 6).map(([k, v]) => `<a href="/best/${catSlug}/${k}" class="rel-link">${emoji} ${catLabel} in ${v}</a>`).join("");
-  return c2.html(`<!DOCTYPE html>
+  return c.html(`<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -5669,8 +5674,8 @@ details[open] .faq-q::after{transform:rotate(180deg)}
 </body>
 </html>`);
 });
-app.get("/shops", async (c2) => {
-  const sql = getDb(c2.env);
+app.get("/shops", async (c) => {
+  const sql = getDb(c.env);
   const rows = await sql`SELECT * FROM shops WHERE active=true ORDER BY rating DESC, created_at DESC`;
   const shops2 = rows.map(rowToShop);
   const catColors = { skincare: "#f472b6", headspa: "#67e8f9", hair: "#60a5fa", nail: "#34d399", clinic: "#fb923c", makeup: "#c084fc", spa: "#a78bfa" };
@@ -5702,7 +5707,7 @@ app.get("/shops", async (c2) => {
     if (cnt === 0) return "";
     return `<button class="sc-flt${cat === "all" ? " on" : ""}" data-cat="${cat}">${catLabels[cat]} <span class="sc-flt-n">${cnt}</span></button>`;
   }).join("");
-  return c2.html(`<!DOCTYPE html>
+  return c.html(`<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -5969,9 +5974,9 @@ render();
 </body>
 </html>`);
 });
-app.get("/blog", async (c2) => {
-  await ensureDb();
-  const sql = getDb(c2.env);
+app.get("/blog", async (c) => {
+  await ensureDb(c.env);
+  const sql = getDb(c.env);
   const posts = await sql`SELECT id,slug,title,meta_description,excerpt,category,area,tags,cover_image,views,created_at FROM blog_posts WHERE status='published' ORDER BY created_at DESC`;
   const base = "https://seoulbeautytrip.com";
   const postCards = posts.map((p) => {
@@ -6063,12 +6068,12 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;min-height:
 <div class="blog-grid">${postCards}${emptyState}</div>
 </body>
 </html>`;
-  return c2.html(html);
+  return c.html(html);
 });
-app.get("/blog/category/:cat", async (c2) => {
-  await ensureDb();
-  const sql = getDb(c2.env);
-  const cat = c2.req.param("cat").toLowerCase();
+app.get("/blog/category/:cat", async (c) => {
+  await ensureDb(c.env);
+  const sql = getDb(c.env);
+  const cat = c.req.param("cat").toLowerCase();
   const base = "https://seoulbeautytrip.com";
   const CAT_LABELS = {
     headspa: "Head Spa",
@@ -6086,7 +6091,7 @@ app.get("/blog/category/:cat", async (c2) => {
     WHERE status='published' AND category=${cat}
     ORDER BY created_at DESC
   `;
-  if (!posts.length) return c2.redirect("/blog", 301);
+  if (!posts.length) return c.redirect("/blog", 301);
   const postCards = posts.map((p) => {
     const tags = Array.isArray(p.tags) ? p.tags : typeof p.tags === "string" ? JSON.parse(p.tags || "[]") : [];
     const dateStr = p.created_at ? new Date(p.created_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "";
@@ -6176,14 +6181,14 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;min-height:
 </footer>
 </body>
 </html>`;
-  return c2.html(html);
+  return c.html(html);
 });
-app.get("/blog/:slug", async (c2) => {
-  await ensureDb();
-  const sql = getDb(c2.env);
-  const slug = c2.req.param("slug");
+app.get("/blog/:slug", async (c) => {
+  await ensureDb(c.env);
+  const sql = getDb(c.env);
+  const slug = c.req.param("slug");
   const rows = await sql`SELECT * FROM blog_posts WHERE slug=${slug} AND status='published'`;
-  if (!rows.length) return c2.notFound();
+  if (!rows.length) return c.notFound();
   const post = rows[0];
   const tags = Array.isArray(post.tags) ? post.tags : typeof post.tags === "string" ? JSON.parse(post.tags || "[]") : [];
   sql`UPDATE blog_posts SET views=views+1 WHERE slug=${slug}`.catch(() => {
@@ -6330,11 +6335,11 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;line-height
   const coverHtml = post.cover_image ? '<img src="' + post.cover_image + '" alt="' + post.title.replace(/"/g, "&quot;") + '" class="post-cover" loading="lazy">' : "";
   const tagsHtml = tags.map((t) => '<span class="post-tag">#' + t + "</span>").join("");
   const finalHtml = html.replace("BLOG_READMIN_PLACEHOLDER", String(readMin)).replace("BLOG_COVER_PLACEHOLDER", coverHtml).replace("BLOG_CONTENT_PLACEHOLDER", post.content || "").replace("BLOG_TAGS_PLACEHOLDER", tagsHtml).replace("BLOG_RELATED_PLACEHOLDER", relatedHtml);
-  return c2.html(finalHtml);
+  return c.html(finalHtml);
 });
-app.get("/sitemap.xml", async (c2) => {
-  await ensureDb();
-  const sql = getDb(c2.env);
+app.get("/sitemap.xml", async (c) => {
+  await ensureDb(c.env);
+  const sql = getDb(c.env);
   let shopSlugs = [];
   let blogSlugs = [];
   let videoIds = [];
@@ -6417,7 +6422,7 @@ app.get("/sitemap.xml", async (c2) => {
       (id) => `<url><loc>${base}/video/${id}</loc><changefreq>monthly</changefreq><priority>0.7</priority><lastmod>${today}</lastmod></url>`
     )
   ].join("\n  ");
-  return c2.body(`<?xml version="1.0" encoding="UTF-8"?>
+  return c.body(`<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
@@ -6425,15 +6430,15 @@ app.get("/sitemap.xml", async (c2) => {
   ${urls}
 </urlset>`, 200, { "Content-Type": "application/xml; charset=utf-8" });
 });
-app.get("/robots.txt", (c2) => c2.text(
+app.get("/robots.txt", (c) => c.text(
   `User-agent: *
 Allow: /
 Disallow: /admin
 Sitemap: https://seoulbeautytrip.com/sitemap.xml
 `
 ));
-app.get("/", async (c2) => {
-  const sql = getDb(c2.env);
+app.get("/", async (c) => {
+  const sql = getDb(c.env);
   try {
     const vidRows = await sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.active=true ORDER BY v.views DESC, v.created_at DESC`;
     const initVideos = vidRows.map((r) => {
@@ -6486,16 +6491,16 @@ app.get("/", async (c2) => {
     });
     const videoLdScript = videoJsonLd.length ? `<script type="application/ld+json">${safeJson(videoJsonLd)}</script>` : "";
     const inlineScript = `${videoLdScript}<script>window.__INIT_VIDEOS__=${safeJson(initVideos)};window.__INIT_PLATFORM__=${safeJson(initPlatform)};</script>`;
-    return c2.html(MAIN_HTML.replace("__INLINE_DATA_PLACEHOLDER__", inlineScript));
+    return c.html(MAIN_HTML.replace("__INLINE_DATA_PLACEHOLDER__", inlineScript));
   } catch (e) {
     console.error("[/ route error]", e?.message || e);
-    return c2.html(MAIN_HTML.replace("__INLINE_DATA_PLACEHOLDER__", ""));
+    return c.html(MAIN_HTML.replace("__INLINE_DATA_PLACEHOLDER__", ""));
   }
 });
-app.get("/admin", (c2) => {
-  const token = c2.env?.GSK_TOKEN || c2.env?.gsk_token || c2.env?.GENSPARK_TOKEN || c2.env?.genspark_token || "";
+app.get("/admin", (c) => {
+  const token = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
   const html = ADMIN_HTML.replace("__GSK_TOKEN__", token);
-  return c2.html(html);
+  return c.html(html);
 });
 async function makeGa4Jwt(serviceAccountJson) {
   const sa = JSON.parse(serviceAccountJson);
@@ -6511,7 +6516,7 @@ async function makeGa4Jwt(serviceAccountJson) {
   const b64 = (obj) => btoa(JSON.stringify(obj)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
   const unsigned = `${b64(header)}.${b64(payload)}`;
   const pem = sa.private_key.replace(/-----[^-]+-----/g, "").replace(/\s/g, "");
-  const der = Uint8Array.from(atob(pem), (c2) => c2.charCodeAt(0));
+  const der = Uint8Array.from(atob(pem), (c) => c.charCodeAt(0));
   const key = await crypto.subtle.importKey(
     "pkcs8",
     der.buffer,
@@ -6533,14 +6538,14 @@ async function getGa4Token(serviceAccountJson) {
   const d = await r.json();
   return d.access_token;
 }
-app.get("/api/analytics", async (c2) => {
+app.get("/api/analytics", async (c) => {
   try {
     const saKey = typeof process !== "undefined" ? process.env.GA4_SERVICE_ACCOUNT_KEY : void 0;
     const propId = typeof process !== "undefined" ? process.env.GA4_PROPERTY_ID : void 0;
     if (!saKey || !propId) {
-      return c2.json({ error: "GA4_NOT_CONFIGURED" }, 503);
+      return c.json({ error: "GA4_NOT_CONFIGURED" }, 503);
     }
-    const days = parseInt(c2.req.query("days") || "7");
+    const days = parseInt(c.req.query("days") || "7");
     const startDate = `${days}daysAgo`;
     const token = await getGa4Token(saKey);
     const ga4Fetch = (body) => fetch(
@@ -6596,9 +6601,9 @@ app.get("/api/analytics", async (c2) => {
         metrics: [{ name: "totalUsers" }]
       })
     ]);
-    return c2.json({ overview, daily, countries, pages, sources, devices });
+    return c.json({ overview, daily, countries, pages, sources, devices });
   } catch (e) {
-    return c2.json({ error: e.message }, 500);
+    return c.json({ error: e.message }, 500);
   }
 });
 var index_default = app;

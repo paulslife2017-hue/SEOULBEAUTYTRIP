@@ -432,8 +432,8 @@ const bookings: Booking[] = [
 ]
 
 // ── DB 초기화: 샘플 데이터 없으면 삽입 ──
-async function initDb() {
-  const sql = getDb(c.env)
+async function initDb(env: any) {
+  const sql = getDb(env)
   try {
     // 테이블 생성
     await sql`CREATE TABLE IF NOT EXISTS shops (
@@ -508,10 +508,15 @@ async function initDb() {
 
 // ── lazy init: 첫 요청 시 1회만 실행 ──
 let _dbInited = false
-async function ensureDb() {
+async function ensureDb(env: any) {
   if (_dbInited) return
   _dbInited = true
-  await initDb()
+  try {
+    await initDb(env)
+  } catch(e) {
+    _dbInited = false  // 실패 시 재시도 허용
+    throw e
+  }
 }
 
 // ── favicon.ico 404 방지 ──
@@ -519,7 +524,7 @@ app.get('/favicon.ico', (c) => c.body(null, 204))
 
 // ── API ──
 app.get('/api/videos', async (c) => {
-  await ensureDb()
+  await ensureDb(c.env)
   const sql = getDb(c.env)
   const cat = c.req.query('category')
   const rows = cat && cat !== 'all'
@@ -2044,7 +2049,7 @@ Also provide (after the HTML content, separated by ---JSON---):
 
 // GET /api/blogs — 목록
 app.get('/api/blogs', async (c) => {
-  await ensureDb()
+  await ensureDb(c.env)
   const sql = getDb(c.env)
   const status = c.req.query('status') || ''
   const rows = status
@@ -2055,7 +2060,7 @@ app.get('/api/blogs', async (c) => {
 
 // GET /api/blogs/:slug — 단건
 app.get('/api/blogs/:slug', async (c) => {
-  await ensureDb()
+  await ensureDb(c.env)
   const sql = getDb(c.env)
   const rows = await sql`SELECT * FROM blog_posts WHERE slug=${c.req.param('slug')}`
   if (!rows.length) return c.json({ error: 'not found' }, 404)
@@ -2064,7 +2069,7 @@ app.get('/api/blogs/:slug', async (c) => {
 
 // POST /api/blogs — 생성 (AI 자동생성 or 직접입력)
 app.post('/api/blogs', async (c) => {
-  await ensureDb()
+  await ensureDb(c.env)
   const sql = getDb(c.env)
   const body = await c.req.json()
   const id = 'b' + Date.now()
@@ -2105,7 +2110,7 @@ app.post('/api/blogs', async (c) => {
 
 // PUT /api/blogs/:id — 수정
 app.put('/api/blogs/:id', async (c) => {
-  await ensureDb()
+  await ensureDb(c.env)
   const sql = getDb(c.env)
   const body = await c.req.json()
   const now = new Date().toISOString()
@@ -2148,7 +2153,7 @@ app.put('/api/blogs/:id', async (c) => {
 
 // DELETE /api/blogs/:id
 app.delete('/api/blogs/:id', async (c) => {
-  await ensureDb()
+  await ensureDb(c.env)
   const sql = getDb(c.env)
   await sql`DELETE FROM blog_posts WHERE id=${c.req.param('id')}`
   return c.json({ ok: true })
@@ -2156,7 +2161,7 @@ app.delete('/api/blogs/:id', async (c) => {
 
 // POST /api/admin/generate-blog — AI 블로그 일괄 생성
 app.post('/api/admin/generate-blog', async (c) => {
-  await ensureDb()
+  await ensureDb(c.env)
   const sql = getDb(c.env)
   const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
   if (!apiKey) return c.json({ error: 'API key not configured' }, 500)
@@ -4196,7 +4201,7 @@ render();
 // ════════════════════════════════════════════
 
 app.get('/blog', async (c) => {
-  await ensureDb()
+  await ensureDb(c.env)
   const sql = getDb(c.env)
   const posts = await sql`SELECT id,slug,title,meta_description,excerpt,category,area,tags,cover_image,views,created_at FROM blog_posts WHERE status='published' ORDER BY created_at DESC`
   const base = 'https://seoulbeautytrip.com'
@@ -4297,7 +4302,7 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;min-height:
 
 // ── 블로그 카테고리 페이지 /blog/category/:cat ──
 app.get('/blog/category/:cat', async (c) => {
-  await ensureDb()
+  await ensureDb(c.env)
   const sql = getDb(c.env)
   const cat = c.req.param('cat').toLowerCase()
   const base = 'https://seoulbeautytrip.com'
@@ -4419,7 +4424,7 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;min-height:
 })
 
 app.get('/blog/:slug', async (c) => {
-  await ensureDb()
+  await ensureDb(c.env)
   const sql = getDb(c.env)
   const slug = c.req.param('slug')
   const rows = await sql`SELECT * FROM blog_posts WHERE slug=${slug} AND status='published'`
@@ -4588,7 +4593,7 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;line-height
 })
 
 app.get('/sitemap.xml', async (c) => {
-  await ensureDb()
+  await ensureDb(c.env)
   const sql = getDb(c.env)
   let shopSlugs: string[] = []
   let blogSlugs: string[] = []
