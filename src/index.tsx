@@ -3451,10 +3451,26 @@ details[open] .faq-q::after{transform:rotate(180deg)}
 /* FOOTER */
 .lp-footer{text-align:center;padding:32px 16px;font-size:.82rem;color:#999;border-top:1px solid #eee;margin-top:40px}
 .lp-footer a{color:#e91e8c}
+/* LONGFORM GUIDE */
+.guide-block{background:#fff;border-radius:16px;padding:28px 28px;margin-bottom:16px;box-shadow:0 1px 8px rgba(0,0,0,.06)}
+.guide-block h2{font-size:1.15rem;font-weight:700;color:#1a1a2e;margin:0 0 12px;line-height:1.4}
+.guide-block h3{font-size:1rem;font-weight:700;color:#e91e8c;margin:18px 0 8px}
+.guide-block p{font-size:.9rem;color:#444;line-height:1.85;margin:0 0 12px}
+.guide-block ul,.guide-block ol{padding-left:20px;margin:8px 0 14px}
+.guide-block li{font-size:.88rem;color:#444;line-height:1.75;margin-bottom:4px}
+.guide-block strong{color:#1a1a2e;font-weight:700}
+.guide-table{width:100%;border-collapse:collapse;margin:14px 0;font-size:.85rem}
+.guide-table th{background:#fdf2f8;color:#e91e8c;font-weight:700;padding:10px 14px;text-align:left;border-bottom:2px solid #f9a8d4}
+.guide-table td{padding:9px 14px;border-bottom:1px solid #f3f4f6;color:#374151}
+.guide-table tr:last-child td{border-bottom:none}
+.guide-callout{background:linear-gradient(135deg,#fdf2f8,#f3e8ff);border-radius:12px;padding:16px 20px;margin:14px 0;border-left:4px solid #e91e8c}
+.guide-callout p{margin:0;font-size:.88rem;color:#374151}
 @media(max-width:520px){
   .card-link{flex-direction:column}
   .card-img-wrap{width:100%;min-width:unset;height:180px}
   .card-img-wrap img{min-height:180px}
+  .guide-block{padding:20px 16px}
+  .guide-table{font-size:.8rem}
 }
 </style>
 </head>
@@ -3488,6 +3504,194 @@ details[open] .faq-q::after{transform:rotate(180deg)}
   ${shopCards}
   <div class="section-title">❓ FAQ — ${catLabel} in ${areaLabel} Seoul</div>
   <div>${faqHtml}</div>
+
+  ${isClinicGangnam ? `
+  <div class="section-title">📖 Complete Guide: Gangnam Dermatology Clinics for Foreigners 2026</div>
+
+  <div class="guide-block">
+    <h2>What Is a Gangnam Dermatology Clinic?</h2>
+    <p>A <strong>Gangnam dermatology clinic</strong> is a medical aesthetic center staffed by board-certified Korean dermatologists who specialize in skin treatments ranging from laser therapy and injectables to advanced cosmetic procedures. Gangnam — Seoul's most prestigious medical district — is home to over 500 licensed dermatology clinics, making it the world's densest concentration of aesthetic dermatology in a single neighborhood.</p>
+    <p>Unlike beauty salons or spas, Gangnam dermatology clinics are fully regulated medical facilities. All procedures are performed or supervised by a licensed <em>피부과</em> (dermatologist) certified by the Korean Medical Association. This means you receive the same standard of care as Korean patients — but increasingly, with English-language support designed specifically for foreign visitors.</p>
+    <p>For foreigners seeking <strong>laser toning, skin boosters, Botox, RF lifting, or acne treatment</strong> in Seoul, the Gangnam clinic district offers world-class results at 40–60% lower cost than equivalent clinics in the US, UK, Australia, or Singapore.</p>
+
+    <h3>Gangnam vs. Other Seoul Dermatology Areas</h3>
+    <table class="guide-table">
+      <thead><tr><th>Area</th><th>Known For</th><th>Price Range</th><th>English Support</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Gangnam / Cheongdam</strong></td><td>Premium medical clinics, celebrity dermatologists</td><td>₩₩₩</td><td>High (foreigner-focused)</td></tr>
+        <tr><td>Apgujeong</td><td>Luxury cosmetic procedures, anti-aging</td><td>₩₩₩₩</td><td>Moderate</td></tr>
+        <tr><td>Hongdae</td><td>Trendy salons, budget-friendly</td><td>₩₩</td><td>Limited</td></tr>
+        <tr><td>Itaewon</td><td>International-facing clinics</td><td>₩₩₩</td><td>High</td></tr>
+        <tr><td>Myeongdong</td><td>Tourist-area walk-ins</td><td>₩₩–₩₩₩</td><td>Moderate</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="guide-block">
+    <h2>Top Treatments at Gangnam Dermatology Clinics (With 2026 Prices)</h2>
+    <p>Korean dermatology clinics in Gangnam offer the most comprehensive menu of medical-grade aesthetic treatments in Asia. Below is an up-to-date 2026 price guide based on average clinic rates across the Gangnam district. Prices can vary by clinic reputation, doctor experience, and the number of sessions purchased.</p>
+
+    <h3>Laser Treatments</h3>
+    <table class="guide-table">
+      <thead><tr><th>Treatment</th><th>What It Does</th><th>Price (per session)</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Laser Toning</strong></td><td>Brightening, pigmentation reduction, pore minimization</td><td>₩50,000 – ₩150,000</td></tr>
+        <tr><td><strong>Pico Laser</strong></td><td>Melasma, sun spots, skin texture</td><td>₩80,000 – ₩250,000</td></tr>
+        <tr><td><strong>Fractional CO2 Laser</strong></td><td>Acne scars, deep texture resurfacing</td><td>₩200,000 – ₩600,000</td></tr>
+        <tr><td><strong>V-Beam / PDL</strong></td><td>Redness, rosacea, vascular lesions</td><td>₩150,000 – ₩350,000</td></tr>
+        <tr><td><strong>Clear + Brilliant</strong></td><td>Preventative skin maintenance, glow</td><td>₩120,000 – ₩280,000</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Injectable Treatments</h3>
+    <table class="guide-table">
+      <thead><tr><th>Treatment</th><th>What It Does</th><th>Price (per session)</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Botox (forehead / glabella)</strong></td><td>Wrinkle relaxation, face slimming</td><td>₩80,000 – ₩200,000</td></tr>
+        <tr><td><strong>Botox (jaw slimming)</strong></td><td>Masseter reduction for V-line effect</td><td>₩150,000 – ₩350,000</td></tr>
+        <tr><td><strong>Rejuran Healer</strong></td><td>DNA repair, deep hydration, anti-aging</td><td>₩200,000 – ₩500,000</td></tr>
+        <tr><td><strong>Juvelook / PLLA</strong></td><td>Collagen biostimulation, long-term lifting</td><td>₩300,000 – ₩700,000</td></tr>
+        <tr><td><strong>Hyaluronic Acid Filler</strong></td><td>Volume, contouring, tear trough</td><td>₩200,000 – ₩600,000 / syringe</td></tr>
+        <tr><td><strong>Exosome Skin Booster</strong></td><td>Stem-cell-derived regeneration, glow</td><td>₩250,000 – ₩600,000</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Lifting &amp; Tightening</h3>
+    <table class="guide-table">
+      <thead><tr><th>Treatment</th><th>What It Does</th><th>Price</th></tr></thead>
+      <tbody>
+        <tr><td><strong>HIFU (Ultherapy-type)</strong></td><td>Non-surgical facelift via ultrasound</td><td>₩300,000 – ₩1,200,000</td></tr>
+        <tr><td><strong>Thermage / RF Lifting</strong></td><td>Skin tightening, collagen remodeling</td><td>₩400,000 – ₩1,500,000</td></tr>
+        <tr><td><strong>Thread Lift</strong></td><td>Minimally invasive lift with PDO threads</td><td>₩500,000 – ₩2,000,000</td></tr>
+      </tbody>
+    </table>
+
+    <div class="guide-callout">
+      <p>💡 <strong>Pro tip for foreigners:</strong> Many Gangnam dermatology clinics offer <em>package deals</em> (e.g., 5 laser toning sessions for the price of 4). If you're in Seoul for more than a week, ask about package pricing — you can often save 20–30% vs. single-session rates.</p>
+    </div>
+  </div>
+
+  <div class="guide-block">
+    <h2>Are Gangnam Dermatology Clinics Safe for Foreigners?</h2>
+    <p>Yes — Korean dermatology clinics in Gangnam operate under some of the world's strictest medical regulations. Here is what makes them safe and reliable for foreign patients:</p>
+    <ul>
+      <li><strong>KFDA-approved equipment only:</strong> All lasers, RF devices, and injectables used in Korean clinics must be approved by the Korean Food &amp; Drug Administration (KFDA). Many devices gain KFDA approval before receiving US FDA clearance.</li>
+      <li><strong>Board-certified dermatologists:</strong> Dermatology (피부과) is a fully separate specialty in Korea, requiring 4 years of post-medical-school residency. Your treatment will be performed or directly supervised by a fully certified specialist — not a nurse or aesthetician.</li>
+      <li><strong>Korea ranks #1 globally in medical procedures per capita:</strong> According to the International Society of Aesthetic Plastic Surgery (ISAPS), South Korea has the highest rate of cosmetic procedures per capita in the world. Korean clinicians have performed millions more procedures than their Western counterparts.</li>
+      <li><strong>Transparent pricing:</strong> Since 2022, Korean medical law requires clinics to display treatment prices. Foreigner-friendly clinics listed on Seoul Beauty Trip provide itemized quotes before any procedure begins.</li>
+      <li><strong>No-pressure consultations:</strong> Reputable Gangnam dermatology clinics will never push upsells or bundle packages you didn't ask for. You can always say no and pay only for what was agreed.</li>
+    </ul>
+
+    <h3>What to Watch Out For</h3>
+    <ul>
+      <li>Avoid clinics that cannot provide a written price list before treatment</li>
+      <li>Avoid walk-in clinics near tourist areas (Myeongdong station exits) that specifically target foreigners with aggressive pricing</li>
+      <li>Always confirm your doctor's name and specialization before the appointment</li>
+      <li>If a price seems too low compared to the table above, ask why — heavily discounted procedures are sometimes performed on lower-end equipment or by junior staff</li>
+    </ul>
+  </div>
+
+  <div class="guide-block">
+    <h2>How to Choose the Right Gangnam Dermatology Clinic as a Foreigner</h2>
+    <p>With over 500 dermatology clinics in the Gangnam area, narrowing down the right clinic for your needs can feel overwhelming. Here is a step-by-step process specifically designed for foreign visitors:</p>
+
+    <h3>Step 1: Define Your Treatment Goal</h3>
+    <p>Different clinics specialize in different areas. A clinic known for acne scar lasers may not be the best choice for Botox jaw slimming. Common goals and matching specializations:</p>
+    <ul>
+      <li><strong>Skin brightening / pigmentation:</strong> Look for clinics with strong laser toning and pico laser experience</li>
+      <li><strong>Acne &amp; active breakouts:</strong> Look for clinics with IPL, LED phototherapy, and prescription treatments</li>
+      <li><strong>Anti-aging &amp; lifting:</strong> Look for clinics with HIFU, RF lifting, and thread lift experience</li>
+      <li><strong>Hydration &amp; glow:</strong> Skin booster injections (Rejuran, Juvelook, Exosomes) are the Korean specialty</li>
+      <li><strong>Facial contouring:</strong> Jaw Botox and filler contouring requires specialist experience</li>
+    </ul>
+
+    <h3>Step 2: Check English Communication</h3>
+    <p>The biggest frustration for foreign patients is language barriers mid-treatment. At minimum, your chosen clinic should be able to:</p>
+    <ul>
+      <li>Respond to your initial WhatsApp or email inquiry in English</li>
+      <li>Provide an English-language treatment menu and price list</li>
+      <li>Conduct the pre-treatment consultation in English (in person or via interpreter)</li>
+      <li>Give written aftercare instructions in English</li>
+    </ul>
+    <p>All clinics listed on Seoul Beauty Trip have been verified for English communication capability. When you book through us via WhatsApp, we act as your English-language liaison from inquiry to aftercare.</p>
+
+    <h3>Step 3: Verify Reviews from Foreigners</h3>
+    <p>Google Maps reviews are your best source of truth. Filter specifically for English-language reviews and look for mentions of: English staff, transparent pricing, no-pressure consultation, and good aftercare communication. Red flags include recurring mentions of surprise charges or post-visit upselling.</p>
+
+    <h3>Step 4: Book in Advance</h3>
+    <p>Popular Gangnam dermatology clinics — especially those with English-speaking staff — are often booked 1–3 days in advance. For treatments like HIFU or thread lifts that require a pre-consultation, you may need 3–5 days advance notice. Walk-in availability is more common for simpler treatments like laser toning or Botox.</p>
+
+    <div class="guide-callout">
+      <p>📱 <strong>Booking via Seoul Beauty Trip:</strong> All clinics on this page can be booked directly via WhatsApp through Seoul Beauty Trip. Our English-speaking team confirms your appointment, briefs the clinic on your goals, and follows up after your treatment. No Korean required.</p>
+    </div>
+  </div>
+
+  <div class="guide-block">
+    <h2>Gangnam Dermatology Clinic vs. Home Country: Is It Worth Traveling For?</h2>
+    <p>One of the most common questions we hear from foreign visitors is whether the trip to a Gangnam dermatology clinic is genuinely worth it compared to getting the same treatment at home. The answer depends on your home country — but for most travelers from English-speaking countries, the answer is an emphatic yes.</p>
+
+    <h3>Cost Comparison (2026)</h3>
+    <table class="guide-table">
+      <thead><tr><th>Treatment</th><th>Seoul (Gangnam)</th><th>USA</th><th>UK</th><th>Australia</th></tr></thead>
+      <tbody>
+        <tr><td>Laser Toning (1 session)</td><td>₩50k–₩150k (~$37–$110)</td><td>$200–$400</td><td>£150–£350</td><td>A$250–A$450</td></tr>
+        <tr><td>Rejuran Healer</td><td>₩200k–₩500k (~$150–$370)</td><td>$800–$1,500</td><td>£600–£1,200</td><td>A$900–A$1,600</td></tr>
+        <tr><td>Botox (forehead)</td><td>₩80k–₩200k (~$60–$150)</td><td>$300–$600</td><td>£200–£400</td><td>A$350–A$500</td></tr>
+        <tr><td>HIFU (full face)</td><td>₩300k–₩1.2M (~$220–$880)</td><td>$1,500–$3,500</td><td>£1,200–£2,800</td><td>A$1,800–A$3,500</td></tr>
+        <tr><td>Fractional CO2 Laser</td><td>₩200k–₩600k (~$150–$440)</td><td>$1,000–$2,500</td><td>£800–£2,000</td><td>A$1,200–A$2,800</td></tr>
+      </tbody>
+    </table>
+    <p>Even accounting for flights and accommodation, many foreign patients save significant money by combining a Seoul trip with multiple treatments. A 5-day Seoul medical beauty trip with 3–4 treatments often costs less than a single equivalent treatment package at a private clinic in London, New York, or Sydney.</p>
+
+    <h3>Quality: Is Korean Dermatology Actually Better?</h3>
+    <p>For many treatments — especially those involving Korean-developed technologies — yes. Korea has driven innovation in several areas of aesthetic dermatology that are only now reaching Western markets:</p>
+    <ul>
+      <li><strong>Skin booster injections</strong> (Rejuran, Juvelook, PLLA): developed and refined in Korea, still unavailable or heavily restricted in many Western countries</li>
+      <li><strong>Laser protocols:</strong> Korean dermatologists typically perform significantly higher treatment volumes, developing refined protocols that reduce downtime and improve outcomes</li>
+      <li><strong>Exosome therapy:</strong> Korea is a global leader in exosome-based skin regeneration, with clinics offering treatments not available elsewhere</li>
+      <li><strong>Combination protocols:</strong> Korean clinics have perfected multi-step treatment combinations (e.g., pico laser + skin booster + LED) that maximize results in a single visit</li>
+    </ul>
+  </div>
+
+  <div class="guide-block">
+    <h2>What to Do Before &amp; After Your Gangnam Clinic Visit</h2>
+    <h3>Before Your Appointment (1–3 Days Prior)</h3>
+    <ul>
+      <li>Avoid retinol, AHAs/BHAs, and exfoliating products for at least 3 days before laser treatments</li>
+      <li>Avoid alcohol for 24 hours before injectable treatments (Botox, fillers)</li>
+      <li>Apply and reapply SPF 50+ sunscreen in the days leading up to your laser appointment — sun-damaged skin can have increased sensitivity</li>
+      <li>Prepare a list of current skincare products and any medications (especially blood thinners or retinoids) to share with your doctor</li>
+      <li>Take a no-makeup selfie in natural light — this helps the doctor assess your baseline skin condition</li>
+    </ul>
+
+    <h3>After Your Treatment</h3>
+    <ul>
+      <li><strong>Laser treatments:</strong> Expect mild redness for 4–24 hours. Apply prescribed barrier cream and avoid makeup for the first day. SPF is essential for 2–4 weeks post-treatment.</li>
+      <li><strong>Botox:</strong> Avoid lying down for 4 hours post-injection. Avoid strenuous exercise and alcohol for 24 hours. Results appear over 5–14 days.</li>
+      <li><strong>Skin boosters (Rejuran, fillers):</strong> Small bumps at injection sites are normal and resolve within 24–48 hours. Apply ice packs if needed. Avoid saunas and hot showers for 24 hours.</li>
+      <li><strong>HIFU / RF lifting:</strong> Mild swelling and tenderness for 3–7 days is normal. Final results appear over 3–6 months as collagen remodels.</li>
+    </ul>
+
+    <div class="guide-callout">
+      <p>✈️ <strong>Planning your Seoul trip around treatments:</strong> If you have a flight home within 24 hours of a procedure, stick to gentler treatments like laser toning or skin boosters. For more intensive procedures like fractional CO2 laser or thread lifts, allow at least 5–7 days before flying to ensure proper healing.</p>
+    </div>
+  </div>
+
+  <div class="guide-block">
+    <h2>How to Book a Gangnam Dermatology Clinic Through Seoul Beauty Trip</h2>
+    <p>Seoul Beauty Trip is an English-language platform specifically designed to help foreigners navigate the Gangnam dermatology clinic scene. Here is how the booking process works:</p>
+    <ol>
+      <li><strong>Browse clinics above</strong> — each listing includes verified reviews, treatment menus, pricing information, and location details</li>
+      <li><strong>Tap the WhatsApp button</strong> on your chosen clinic's page — this connects you directly to our English-speaking team</li>
+      <li><strong>Tell us your treatment goal</strong> — we'll confirm the right treatment, current availability, and any pre-appointment preparation needed</li>
+      <li><strong>Receive your booking confirmation</strong> — including clinic address (in Korean for your taxi), appointment time, and what to bring</li>
+      <li><strong>Attend your appointment</strong> — our team has briefed the clinic about your goals and language needs in advance</li>
+      <li><strong>Get aftercare support</strong> — if you have any questions post-treatment, message us on WhatsApp anytime</li>
+    </ol>
+    <p>All clinics listed on Seoul Beauty Trip have been personally vetted by our team. We only list clinics that consistently deliver excellent results for foreign patients and maintain transparent pricing. There is no booking fee — our service is completely free for patients.</p>
+  </div>
+  ` : ''}
+
   <div class="section-title">🔍 More ${catLabel} by Area</div>
   <div class="rel-grid">${relatedAreas}</div>
   <div class="section-title">💅 Other Beauty Services in ${areaLabel}</div>
