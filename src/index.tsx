@@ -8161,7 +8161,7 @@ function renderShops(){
             +'<span style="flex-shrink:0;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;background:rgba(255,255,255,.07);color:'+catColor+'">'+catLabel+'</span>'
           +'</div>'
           +(s.location ? '<div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:3px"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:3px"></i>'+s.location+'</div>' : '')
-          +(s.slug ? '<div style="font-size:10px;color:rgba(99,179,237,.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px"><i class="fas fa-link" style="margin-right:3px;opacity:.6"></i>/shop/'+s.slug+'</div>' : '')
+          +(s.slug ? '<a href="/shop/'+s.slug+'" target="_blank" onclick="event.stopPropagation()" style="display:block;font-size:10px;color:rgba(99,179,237,.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;text-decoration:none" onmouseover="this.style.color=\'#93c5fd\';this.style.textDecoration=\'underline\'" onmouseout="this.style.color=\'rgba(99,179,237,.6)\';this.style.textDecoration=\'none\'"><i class="fas fa-external-link-alt" style="margin-right:3px;opacity:.6"></i>/shop/'+s.slug+'</a>' : '')
         +'</div>'
 
         // 오른쪽 — 영상수 + 수정/삭제 버튼 + 화살표
@@ -8255,10 +8255,17 @@ function renderSeoLinks(){
   if(!seoEl) return;
   seoEl.innerHTML = shops.map(function(s){
     var url = '/shop/'+s.slug;
-    return '<div style="font-size:12px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05)">'+
-      '<a href="'+url+'" target="_blank" style="color:#60a5fa;text-decoration:none">'+url+'</a>'+
-      ' <span style="color:rgba(255,255,255,.3);font-size:11px">— '+s.name+'</span>'+
-    '</div>';
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:8px;margin-bottom:4px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06)">'
+      +'<div style="min-width:0;flex:1">'
+        +'<div style="font-size:12px;font-weight:700;color:#fff;margin-bottom:2px">'+s.name+'</div>'
+        +'<a href="'+url+'" target="_blank" style="font-size:11px;color:#60a5fa;text-decoration:none;display:flex;align-items:center;gap:4px" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'">'
+          +'<i class="fas fa-external-link-alt" style="font-size:9px;opacity:.7"></i>'+url
+        +'</a>'
+      +'</div>'
+      +'<a href="'+url+'" target="_blank" style="flex-shrink:0;margin-left:10px;padding:5px 10px;background:rgba(96,165,250,.12);border:1px solid rgba(96,165,250,.25);border-radius:7px;color:#60a5fa;font-size:11px;font-weight:600;text-decoration:none;white-space:nowrap" onmouseover="this.style.background=\'rgba(96,165,250,.22)\'" onmouseout="this.style.background=\'rgba(96,165,250,.12)\'">'
+        +'<i class="fas fa-eye" style="margin-right:4px"></i>보기'
+      +'</a>'
+    +'</div>';
   }).join('');
 }
 
