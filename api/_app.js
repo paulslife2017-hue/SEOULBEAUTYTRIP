@@ -2754,10 +2754,8 @@ app.post("/api/resolve-gmap", async (c2) => {
       if (isKor(address)) address = stripKor(place.formattedAddress || "") || "Seoul, South Korea";
       const rawName = place.displayName?.text || "";
       const nameParts = rawName.split(/[|\uff5c]/).map((s) => s.trim()).filter(Boolean);
-      const engName = nameParts.find((s) => !isKor(s) && s.length > 0) || (() => {
-        const stripped = stripKor(rawName);
-        return stripped.length > 1 ? stripped : "";
-      })() || rawName;
+      const p0c = nameParts[0] ? stripKor(nameParts[0]) : "";
+      const engName = (p0c.length > 1 ? p0c : null) || nameParts.find((s) => !isKor(s) && s.length > 0) || stripKor(rawName) || rawName;
       const sub1Text = comps.find((x) => x.types?.includes("sublocality_level_1"))?.longText || "";
       const sub2Text = comps.find((x) => x.types?.includes("sublocality_level_2"))?.longText || "";
       const location = findArea(sub2Text) || findArea(sub1Text) || findArea(address) || findArea(place.formattedAddress || "") || "Seoul";
@@ -2823,8 +2821,11 @@ app.post("/api/resolve-gmap", async (c2) => {
       } catch {
         shopName = rawName.trim();
       }
-      const isKor = (s) => /[\uAC00-\uD7A3]/.test(s);
-      const engPart = shopName.split("|").map((s) => s.trim()).find((s) => !isKor(s) && s.length > 2) || shopName;
+      const stripCJK = (s) => s.replace(/[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]+/g, "").replace(/\s{2,}/g, " ").trim();
+      const hasCJK = (s) => /[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]/.test(s);
+      const parts = shopName.split(/[|｜]/).map((s) => s.trim()).filter(Boolean);
+      const p0clean = parts[0] ? stripCJK(parts[0]) : "";
+      const engPart = (p0clean.length > 2 ? p0clean : null) || parts.find((s) => !hasCJK(s) && s.length > 2) || shopName;
       const coords = extractCoords(resolved);
       const latStr = coords?.lat || "";
       const lngStr = coords?.lon || "";
@@ -3668,9 +3669,11 @@ app.post("/api/quick-register", async (c2) => {
       return c2.json({ error: "\uAD6C\uAE00\uB9F5\uC5D0\uC11C \uC5C5\uCCB4 \uC815\uBCF4\uB97C \uAC00\uC838\uC624\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. (URL \uD655\uC778 \uB610\uB294 \uC7A0\uC2DC \uD6C4 \uC7AC\uC2DC\uB3C4)" }, 400);
     }
     const isKor = (s) => /[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]/.test(s);
+    const stripCJK2 = (s) => s.replace(/[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]+/g, "").replace(/\s{2,}/g, " ").trim();
     const rawName = resolvedData.name || "";
     const nameParts = rawName.split(/[|\uff5c]/).map((s) => s.trim()).filter(Boolean);
-    const engName = nameParts.find((s) => !isKor(s) && s.length > 0) || rawName.replace(/[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]+/g, "").replace(/\s{2,}/g, " ").trim() || rawName;
+    const p0clean2 = nameParts[0] ? stripCJK2(nameParts[0]) : "";
+    const engName = (p0clean2.length > 1 ? p0clean2 : null) || nameParts.find((s) => !isKor(s) && s.length > 0) || stripCJK2(rawName) || rawName;
     const makeSlug = (name, loc2) => {
       const clean = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
       const area = (loc2.split(",")[0] || "").trim();

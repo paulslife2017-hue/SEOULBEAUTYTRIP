@@ -659,11 +659,14 @@ app.post('/api/resolve-gmap', async (c) => {
       let address = [street, sub1, district, province, 'South Korea'].filter(Boolean).join(', ')
       if (isKor(address)) address = stripKor(place.formattedAddress||'') || 'Seoul, South Korea'
 
-      // 업체명: '|' 또는 '｜' 구분자로 분리 후 CJK 없는 첫 파트 선택
+      // 업체명: 파트[0]에서 CJK만 제거 → 브랜드명 최우선 추출
+      // 예: "Cheongdam Dear Clinic 청담디어의원" → "Cheongdam Dear Clinic" ✅
       const rawName: string = place.displayName?.text || ''
       const nameParts = rawName.split(/[|\uff5c]/).map((s: string) => s.trim()).filter(Boolean)
-      const engName = nameParts.find((s: string) => !isKor(s) && s.length > 0)
-        || (() => { const stripped = stripKor(rawName); return stripped.length > 1 ? stripped : '' })()
+      const p0c = nameParts[0] ? stripKor(nameParts[0]) : ''
+      const engName = (p0c.length > 1 ? p0c : null)
+        || nameParts.find((s: string) => !isKor(s) && s.length > 0)
+        || stripKor(rawName)
         || rawName
 
       // location: sublocality_level_2 → level_1 → 주소 순으로 시도
@@ -728,9 +731,20 @@ app.post('/api/resolve-gmap', async (c) => {
       let shopName = ''
       try { shopName = decodeURIComponent(rawName.split('+').join(' ')).trim() } catch { shopName = rawName.trim() }
 
-      // 한국어/일본어 제거 후 첫 영문 파트
-      const isKor = (s: string) => /[\uAC00-\uD7A3]/.test(s)
-      const engPart = shopName.split('|').map(s => s.trim()).find(s => !isKor(s) && s.length > 2) || shopName
+      // 한국어/일본어/한자 제거 후 영문 브랜드명 추출
+      // 전략: '|' split → 파트[0]에서 CJK 제거 후 영문 잔여분을 최우선 사용
+      //   예: "Cheongdam Dear Clinic 청담디어의원" → CJK 제거 → "Cheongdam Dear Clinic" ✅
+      //   파트[0] 잔여가 없을 때만 → 다른 순수 영문 파트 사용
+      const stripCJK = (s: string) => s.replace(/[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]+/g, '').replace(/\s{2,}/g, ' ').trim()
+      const hasCJK   = (s: string) => /[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]/.test(s)
+      const parts    = shopName.split(/[|｜]/).map(s => s.trim()).filter(Boolean)
+      // 1) 파트[0]에서 CJK만 제거한 영문 잔여분 (브랜드명이 첫 파트에 있는 경우)
+      // 2) 순수 영문 파트 (CJK 전혀 없는 파트, 단 파트[0]는 이미 처리됨)
+      // 3) 원본 그대로
+      const p0clean = parts[0] ? stripCJK(parts[0]) : ''
+      const engPart  = (p0clean.length > 2 ? p0clean : null)
+        || parts.find(s => !hasCJK(s) && s.length > 2)
+        || shopName
 
       // 좌표도 추출
       const coords = extractCoords(resolved)
@@ -1684,12 +1698,16 @@ app.post('/api/quick-register', async (c) => {
       return c.json({ error: '구글맵에서 업체 정보를 가져오지 못했습니다. (URL 확인 또는 잠시 후 재시도)' }, 400)
     }
 
-    // ── STEP 2: 업체명 정리 (한국어/일본어 제거) ──
+    // ── STEP 2: 업체명 정리 — 파트[0]에서 CJK만 제거 → 브랜드명 최우선 추출 ──
+    // 예: "Cheongdam Dear Clinic 청담디어의원" → "Cheongdam Dear Clinic" ✅
     const isKor = (s: string) => /[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]/.test(s)
+    const stripCJK2 = (s: string) => s.replace(/[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]+/g,'').replace(/\s{2,}/g,' ').trim()
     const rawName: string = resolvedData.name || ''
     const nameParts = rawName.split(/[|\uff5c]/).map((s: string) => s.trim()).filter(Boolean)
-    const engName = nameParts.find((s: string) => !isKor(s) && s.length > 0)
-      || rawName.replace(/[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]+/g,'').replace(/\s{2,}/g,' ').trim()
+    const p0clean2 = nameParts[0] ? stripCJK2(nameParts[0]) : ''
+    const engName = (p0clean2.length > 1 ? p0clean2 : null)
+      || nameParts.find((s: string) => !isKor(s) && s.length > 0)
+      || stripCJK2(rawName)
       || rawName
 
     // ── STEP 3: slug 생성 ──
