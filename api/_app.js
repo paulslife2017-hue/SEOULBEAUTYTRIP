@@ -4361,25 +4361,6 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 .sp-gthumb img{width:100%;height:100%;object-fit:cover}
 /* WRAP */
 .sp-wrap{max-width:600px;margin:0 auto;padding:16px 20px 100px}
-/* \u2500\u2500 PC (\u2265900px) 2-column layout \u2500\u2500 */
-@media(min-width:900px){
-  .sp-page-root{display:grid;grid-template-columns:560px 1fr;grid-template-rows:auto;gap:0;max-width:1140px;margin:0 auto;align-items:start}
-  /* \uC67C\uCABD: \uD788\uC5B4\uB85C + \uAC24\uB7EC\uB9AC + \uCF58\uD150\uCE20 */
-  .sp-left-col{grid-column:1;grid-row:1/3}
-  /* \uC624\uB978\uCABD: \uC0AC\uC9C4 \uADF8\uB9AC\uB4DC */
-  .sp-right-col{grid-column:2;grid-row:1/3;padding:20px 24px 0;position:sticky;top:72px}
-  .sp-hero{height:380px;border-radius:0}
-  .sp-wrap{max-width:none;padding:16px 24px 100px}
-  /* \uC624\uB978\uCABD \uC0AC\uC9C4 \uADF8\uB9AC\uB4DC */
-  .sp-photo-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;border-radius:14px;overflow:hidden}
-  .sp-photo-grid-item{aspect-ratio:1;overflow:hidden;cursor:pointer;background:#111}
-  .sp-photo-grid-item img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s,opacity .2s}
-  .sp-photo-grid-item:hover img{transform:scale(1.05);opacity:.9}
-  .sp-photo-grid-item:first-child{grid-column:1/-1;aspect-ratio:16/9}
-  .sp-photo-grid-title{font-size:11px;font-weight:800;color:rgba(255,255,255,.4);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:5px}
-  /* \uBAA8\uBC14\uC77C \uAC24\uB7EC\uB9AC \uC2A4\uD06C\uB864\uC740 PC\uC5D0\uC11C \uC228\uAE40 */
-  .sp-gallery{display:none}
-}
 /* ACTION BTNS */
 .sp-actions{display:flex;gap:10px;margin-bottom:20px}
 .sp-wa{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:15px;background:linear-gradient(135deg,#25D366,#0EA855);border:none;border-radius:14px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;text-decoration:none;box-shadow:0 4px 20px rgba(37,211,102,.3);transition:opacity .2s}
@@ -4478,9 +4459,6 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
   <a href="/" class="sp-nav-logo" itemprop="url"><span itemprop="name">Seoul Beauty Trip</span></a>
   <a href="/" class="sp-nav-back"><i class="fas fa-arrow-left"></i> Catalog</a>
 </nav>
-
-<div class="sp-page-root">
-<div class="sp-left-col">
 
 <div class="sp-hero">
   <img class="sp-hero-img" src="${shop.thumbnail}" alt="${shop.name} \u2014 ${shop.location} ${shop.category}" itemprop="image">
@@ -4645,18 +4623,6 @@ ${(() => {
 
   <div style="height:100px"></div>
 </div>
-</div><!-- /.sp-left-col -->
-
-${(() => {
-    const allP2 = [shop.thumbnail, ...(shop.photos || []).filter((p) => p && p !== shop.thumbnail)];
-    if (allP2.length < 2) return "</div><!-- /.sp-page-root -->";
-    const _altL2 = ["interior", "treatment room", "service area", "staff", "entrance", "detail", "ambiance", "reception", "view", "decor"];
-    const items2 = allP2.slice(0, 9).map((url, i) => {
-      const _alt2 = shop.name + " " + shop.category + " Seoul \u2014 " + (_altL2[i] || "photo " + (i + 1));
-      return `<div class="sp-photo-grid-item" onclick="setHeroPc('` + url + `')" title="Click to preview"><img src="` + url + '" alt="' + _alt2 + '" loading="lazy"></div>';
-    }).join("");
-    return '<div class="sp-right-col"><div class="sp-photo-grid-title"><i class="fas fa-images" style="color:var(--pk2)"></i> Photos (' + allP2.length + ')</div><div class="sp-photo-grid">' + items2 + "</div></div></div><!-- /.sp-page-root -->";
-  })()}
 
 <div class="sp-float">
   <a href="${waUrl}" target="_blank" rel="noopener">
@@ -4679,10 +4645,6 @@ function setHero(url, el) {
   document.querySelector('.sp-hero-img').src = url;
   document.querySelectorAll('.sp-gthumb').forEach(function(t){ t.classList.remove('active'); });
   el.classList.add('active');
-}
-function setHeroPc(url) {
-  var img = document.querySelector('.sp-hero-img');
-  if(img){ img.src = url; img.style.transition='opacity .3s'; img.style.opacity='0.7'; setTimeout(function(){ img.style.opacity='1'; },300); }
 }
 
 /* \u2500\u2500 sp-vid-card: \uD398\uC774\uC9C0 \uB85C\uB4DC \uC989\uC2DC + \uC2A4\uD06C\uB864 \uC9C4\uC785\uC2DC \uC790\uB3D9\uC7AC\uC0DD (\uC1FC\uCE20/\uB9B4\uC2A4 \uBC29\uC2DD) \u2500\u2500 */
