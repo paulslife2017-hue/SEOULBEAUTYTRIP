@@ -2086,6 +2086,32 @@ var getDb = (env) => {
 var getGoogleKey = (env) => {
   return env?.GOOGLE_PLACES_KEY || (typeof process !== "undefined" ? process.env.GOOGLE_PLACES_KEY : void 0) || "";
 };
+async function resolveGooglePhotoUrl(photoName, apiKey) {
+  if (!photoName || !apiKey) return "";
+  try {
+    const cleanName = photoName.replace(/\/media$/, "");
+    const apiUrl = `https://places.googleapis.com/v1/${cleanName}/media?key=${apiKey}&maxHeightPx=800&maxWidthPx=800&skipHttpRedirect=true`;
+    const res = await fetch(apiUrl);
+    if (!res.ok) return "";
+    const ct = res.headers.get("content-type") || "";
+    if (ct.includes("application/json")) {
+      const json = await res.json();
+      return json.photoUri || "";
+    }
+    return "";
+  } catch {
+    return "";
+  }
+}
+async function resolveGooglePhotos(photoNames, apiKey) {
+  const results = [];
+  for (let i = 0; i < photoNames.length; i += 3) {
+    const batch = photoNames.slice(i, i + 3);
+    const resolved = await Promise.all(batch.map((n) => resolveGooglePhotoUrl(n, apiKey)));
+    results.push(...resolved);
+  }
+  return results.filter(Boolean);
+}
 var app = new Hono2();
 var AI_BOT_PATTERNS = [
   // OpenAI
@@ -2748,7 +2774,7 @@ app.post("/api/resolve-gmap", async (c2) => {
       if (!r.ok) return null;
       return r.json();
     };
-    const placeToJson = (place) => {
+    const placeToJson = async (place) => {
       if (!place) return null;
       const comps = place.addressComponents || [];
       const isKor = (s) => /[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]/.test(s);
@@ -2781,7 +2807,8 @@ app.post("/api/resolve-gmap", async (c2) => {
         text: r.text?.text || "",
         time: r.relativePublishTimeDescription || ""
       }));
-      const photos = (place.photos || []).slice(0, 10).map((p) => `/api/photo?name=${encodeURIComponent(p.name || "")}`);
+      const photoNames2 = (place.photos || []).slice(0, 10).map((p) => p.name || "").filter(Boolean);
+      const photos = await resolveGooglePhotos(photoNames2, getGoogleKey(c2.env));
       const lat = place.location?.latitude?.toString() || "";
       const lng = place.location?.longitude?.toString() || "";
       const description = place.editorialSummary?.text || "";
@@ -2819,7 +2846,7 @@ app.post("/api/resolve-gmap", async (c2) => {
       const hexMatch = pid.match(/^([0-9a-f]+):([0-9a-f]+)$/i);
       if (!hexMatch) {
         const pd = await placeDetailsById(pid);
-        const result = placeToJson(pd);
+        const result = await placeToJson(pd);
         if (result) return c2.json(result);
       }
     }
@@ -2843,7 +2870,7 @@ app.post("/api/resolve-gmap", async (c2) => {
       const lngStr = coords?.lon || "";
       const searchQ = engPart + " Seoul Korea";
       const place = await callPlacesApi(searchQ, coords || void 0);
-      const result = placeToJson(place);
+      const result = await placeToJson(place);
       if (result) {
         if (latStr && !result.lat) result.lat = latStr;
         if (lngStr && !result.lng) result.lng = lngStr;
@@ -2876,7 +2903,7 @@ app.post("/api/resolve-gmap", async (c2) => {
         if (geo) return c2.json({ name: "", address: geo.address, location: geo.location, lat: coordsFromQ.lat, lng: coordsFromQ.lon });
       }
       const place = await callPlacesApi(qVal + " Seoul Korea");
-      const result = placeToJson(place);
+      const result = await placeToJson(place);
       if (result) return c2.json(result);
       return c2.json({ name: "", address: qVal, location: findArea(qVal), lat: "", lng: "" });
     }
@@ -3578,10 +3605,8 @@ app.post("/api/places-fetch", async (c2) => {
       time: r.relativePublishTimeDescription || ""
     }));
     const rawPhotos = place.photos || [];
-    const photos = rawPhotos.slice(0, 10).map((p) => {
-      const name = encodeURIComponent(p.name || "");
-      return `/api/photo?name=${name}`;
-    });
+    const photoNames = rawPhotos.slice(0, 10).map((p) => p.name || "").filter(Boolean);
+    const photos = await resolveGooglePhotos(photoNames, getGoogleKey(c2.env));
     return c2.json({
       placeId: place.id || "",
       name: engName,
@@ -3616,10 +3641,8 @@ app.post("/api/places-photos", async (c2) => {
     if (!res.ok) return c2.json({ error: "Places API error" }, 500);
     const data = await res.json();
     const rawPhotos = data.photos || [];
-    const photos = rawPhotos.slice(0, 6).map((p) => {
-      const name = encodeURIComponent(p.name || "");
-      return `/api/photo?name=${name}`;
-    });
+    const photoNames3 = rawPhotos.slice(0, 6).map((p) => p.name || "").filter(Boolean);
+    const photos = await resolveGooglePhotos(photoNames3, getGoogleKey(c2.env));
     return c2.json({ photos });
   } catch (e) {
     return c2.json({ error: e.message }, 500);

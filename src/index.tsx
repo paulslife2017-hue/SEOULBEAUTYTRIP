@@ -23,6 +23,33 @@ const getDb = (env?: Env) => {
 const getGoogleKey = (env?: Env) => {
   return env?.GOOGLE_PLACES_KEY || (typeof process !== 'undefined' ? process.env.GOOGLE_PLACES_KEY : undefined) || ''
 }
+// Google Places photo name → 실제 https:// URL 변환
+// DB 저장 시 반드시 이 함수를 통해 절대 URL로 변환 (상대경로 저장 금지)
+async function resolveGooglePhotoUrl(photoName: string, apiKey: string): Promise<string> {
+  if (!photoName || !apiKey) return ''
+  try {
+    const cleanName = photoName.replace(/\/media$/, '')
+    const apiUrl = `https://places.googleapis.com/v1/${cleanName}/media?key=${apiKey}&maxHeightPx=800&maxWidthPx=800&skipHttpRedirect=true`
+    const res = await fetch(apiUrl)
+    if (!res.ok) return ''
+    const ct = res.headers.get('content-type') || ''
+    if (ct.includes('application/json')) {
+      const json: any = await res.json()
+      return json.photoUri || ''
+    }
+    return ''
+  } catch { return '' }
+}
+// 여러 장 병렬 변환 (최대 concurrency 3)
+async function resolveGooglePhotos(photoNames: string[], apiKey: string): Promise<string[]> {
+  const results: string[] = []
+  for (let i = 0; i < photoNames.length; i += 3) {
+    const batch = photoNames.slice(i, i + 3)
+    const resolved = await Promise.all(batch.map(n => resolveGooglePhotoUrl(n, apiKey)))
+    results.push(...resolved)
+  }
+  return results.filter(Boolean)
+}
 
 const app = new Hono<{ Bindings: Env }>()
 
@@ -653,7 +680,7 @@ app.post('/api/resolve-gmap', async (c) => {
       return r.json()
     }
 
-    const placeToJson = (place: any) => {
+    const placeToJson = async (place: any) => {
       if (!place) return null
       const comps: any[] = place.addressComponents || []
       // 한국어 + 일본어 + 한자 모두 포함
@@ -695,7 +722,8 @@ app.post('/api/resolve-gmap', async (c) => {
         author: r.authorAttribution?.displayName||'Guest', rating: r.rating||5,
         text: r.text?.text||'', time: r.relativePublishTimeDescription||''
       }))
-      const photos = (place.photos||[]).slice(0,10).map((p: any) => `/api/photo?name=${encodeURIComponent(p.name||'')}`)
+      const photoNames2 = (place.photos||[]).slice(0,10).map((p: any) => p.name||'').filter(Boolean)
+      const photos = await resolveGooglePhotos(photoNames2, getGoogleKey(c.env))
       const lat = place.location?.latitude?.toString() || ''
       const lng = place.location?.longitude?.toString() || ''
 
@@ -731,7 +759,7 @@ app.post('/api/resolve-gmap', async (c) => {
       const hexMatch = pid.match(/^([0-9a-f]+):([0-9a-f]+)$/i)
       if (!hexMatch) {
         const pd = await placeDetailsById(pid)
-        const result = placeToJson(pd)
+        const result = await placeToJson(pd)
         if (result) return c.json(result)
       }
     }
@@ -767,7 +795,7 @@ app.post('/api/resolve-gmap', async (c) => {
       // Places Text Search로 전체 정보 가져오기 (좌표 있으면 locationBias 적용)
       const searchQ = engPart + ' Seoul Korea'
       const place = await callPlacesApi(searchQ, coords || undefined)
-      const result = placeToJson(place)
+      const result = await placeToJson(place)
       if (result) {
         if (latStr && !result.lat) result.lat = latStr
         if (lngStr && !result.lng) result.lng = lngStr
@@ -798,7 +826,7 @@ app.post('/api/resolve-gmap', async (c) => {
         if (geo) return c.json({ name: '', address: geo.address, location: geo.location, lat: coordsFromQ.lat, lng: coordsFromQ.lon })
       }
       const place = await callPlacesApi(qVal + ' Seoul Korea')
-      const result = placeToJson(place)
+      const result = await placeToJson(place)
       if (result) return c.json(result)
       return c.json({ name: '', address: qVal, location: findArea(qVal), lat: '', lng: '' })
     }
@@ -1582,12 +1610,10 @@ app.post('/api/places-fetch', async (c) => {
       time: r.relativePublishTimeDescription || ''
     }))
 
-    // ── 사진 URL (최대 10장) ──
+    // ── 사진 URL (최대 10장) — 실제 https:// URL로 변환하여 저장 ──
     const rawPhotos: any[] = place.photos || []
-    const photos = rawPhotos.slice(0, 10).map((p: any) => {
-      const name = encodeURIComponent(p.name || '')
-      return `/api/photo?name=${name}`
-    })
+    const photoNames = rawPhotos.slice(0, 10).map((p: any) => p.name || '').filter(Boolean)
+    const photos = await resolveGooglePhotos(photoNames, getGoogleKey(c.env))
 
     return c.json({
       placeId:             place.id || '',
@@ -1626,10 +1652,8 @@ app.post('/api/places-photos', async (c) => {
     if (!res.ok) return c.json({ error: 'Places API error' }, 500)
     const data: any = await res.json()
     const rawPhotos: any[] = data.photos || []
-    const photos = rawPhotos.slice(0, 6).map((p: any) => {
-      const name = encodeURIComponent(p.name || '')
-      return `/api/photo?name=${name}`
-    })
+    const photoNames3 = rawPhotos.slice(0, 6).map((p: any) => p.name || '').filter(Boolean)
+    const photos = await resolveGooglePhotos(photoNames3, getGoogleKey(c.env))
     return c.json({ photos })
   } catch(e: any) {
     return c.json({ error: e.message }, 500)
