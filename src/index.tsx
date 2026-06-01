@@ -240,7 +240,8 @@ function rowToShop(r: any): Shop {
     hours: r.hours || '', services: r.services || [],
     servicePrices: r.service_prices || [], description: r.description || '',
     rating: r.rating || 5.0, reviewCount: r.review_count || 0,
-    thumbnail: r.thumbnail || '', photos: r.photos || [],
+    thumbnail: (r.thumbnail && r.thumbnail.startsWith('http')) ? r.thumbnail : '',
+    photos: (() => { const p = r.photos || []; return Array.isArray(p) ? p.filter((u:string) => u && u.startsWith('http')) : []; })(),
     commission: r.commission || 15,
     active: r.active !== false, createdAt: r.created_at || '',
     reviews: (() => { if(!r.reviews) return []; if(Array.isArray(r.reviews)) return r.reviews; try { return JSON.parse(r.reviews) } catch { return [] } })(),
@@ -259,6 +260,18 @@ function cloudinaryThumb(videoUrl: string): string {
   return videoUrl
     .replace('/video/upload/', '/video/upload/so_0,w_600,h_1066,c_fill,q_auto/')
     .replace(/\.mp4$/, '.jpg')
+}
+// 업체 thumbnail/photos 정제 — Schema.org thumbnailUrl 에러 방지
+// Google은 ImageObject.thumbnailUrl 이 절대 https:// URL이어야 함
+// 상대경로·빈값·http:// (비보안)는 모두 제거하고 photos[0] fallback 적용
+function sanitizeThumb(thumb: string, photos: string[]): string {
+  const isAbs = (u: string) => typeof u === 'string' && u.startsWith('https://')
+  if (isAbs(thumb)) return thumb
+  const fallback = (photos || []).find(isAbs)
+  return fallback || ''
+}
+function sanitizePhotos(photos: string[]): string[] {
+  return (photos || []).filter((u: string) => typeof u === 'string' && u.startsWith('https://'))
 }
 // title이 인스타 파일명 패턴이면 shopName으로 대체
 function cleanVideoTitle(title: string, shopName: string): string {
@@ -953,14 +966,18 @@ app.post('/api/shops', async (c) => {
   // slug 자동 생성 (항상 새로 생성 — 품질 보장, 중복 방지)
   const slug = await makeShopSlug(sql, body.name||'', body.location||'')
 
+  // Schema.org thumbnailUrl 에러 방지 — 반드시 https:// 절대 URL만 저장
+  const cleanPhotos = sanitizePhotos(body.photos||[])
+  const cleanThumb  = sanitizeThumb(body.thumbnail||'', cleanPhotos)
+
   await sql`INSERT INTO shops (id,name,slug,category,location,address,google_map_url,google_map_embed,lat,lng,price_range,hours,services,service_prices,description,meta_description,seo_keywords,why_choose,rating,review_count,thumbnail,photos,commission,active,created_at) VALUES (
     ${newId},${body.name||''},${slug},${body.category||''},${body.location||''},${body.address||''},
     ${body.googleMapUrl||''},${body.googleMapEmbed||''},${body.lat||''},${body.lng||''},
     ${body.priceRange||''},${body.hours||''},
     ${JSON.stringify(body.services||[])},${JSON.stringify(body.servicePrices||[])},
     ${description},${metaDescription},${seoKeywords},${JSON.stringify(whyChoose)},
-    ${body.rating||5.0},${body.reviewCount||0},${body.thumbnail||''},
-    ${JSON.stringify(body.photos||[])},${body.commission||15},true,${today}
+    ${body.rating||5.0},${body.reviewCount||0},${cleanThumb},
+    ${JSON.stringify(cleanPhotos)},${body.commission||15},true,${today}
   ) ON CONFLICT DO NOTHING`
   return c.json({ ok: true, id: newId, seoGenerated: !body.description })
 })
@@ -988,6 +1005,10 @@ app.put('/api/shops/:id', async (c) => {
   // slug: 보내온 값 없으면 name+location으로 새로 생성 (수정 시에도 품질 보장)
   const slugVal = body.slug || await makeShopSlug(sql, body.name||'', body.location||'')
 
+  // Schema.org thumbnailUrl 에러 방지 — 반드시 https:// 절대 URL만 저장
+  const cleanPhotosU = sanitizePhotos(body.photos||[])
+  const cleanThumbU  = sanitizeThumb(body.thumbnail||'', cleanPhotosU)
+
   await sql`UPDATE shops SET
     name=${body.name||''},
     slug=${slugVal},
@@ -1008,8 +1029,8 @@ app.put('/api/shops/:id', async (c) => {
     why_choose=${JSON.stringify(whyChoose)},
     rating=${body.rating||5.0},
     review_count=${body.reviewCount||0},
-    thumbnail=${body.thumbnail||''},
-    photos=${JSON.stringify(body.photos||[])},
+    thumbnail=${cleanThumbU},
+    photos=${JSON.stringify(cleanPhotosU)},
     commission=${body.commission||15},
     active=${body.active!==false},
     reviews=${JSON.stringify(body.reviews||[])},
@@ -1741,9 +1762,9 @@ app.post('/api/quick-register', async (c) => {
     const seoKeywords = resolvedData.seoKeywords ||
       `${engName} Seoul, ${engName} ${loc}, ${engName} reviews, ${engName} booking, best ${cat} ${loc} Seoul, ${cat} Seoul English speaking, ${loc} ${cat} foreigner friendly`
 
-    // ── STEP 7: photos 처리 ──
-    const photos: string[] = resolvedData.photos || []
-    const thumbnail = resolvedData.thumbnail || (photos[0] || '')
+    // ── STEP 7: photos 처리 — Schema.org thumbnailUrl 에러 방지 (https:// 절대 URL만 허용) ──
+    const photos: string[] = sanitizePhotos(resolvedData.photos || [])
+    const thumbnail = sanitizeThumb(resolvedData.thumbnail || '', photos)
 
     // ── STEP 8: reviews 처리 ──
     const reviews = resolvedData.reviews || []
@@ -3206,21 +3227,33 @@ app.get('/best/:category/:area', async (c) => {
   const yr = new Date().getFullYear()
   // clinic+gangnam 조합은 "Gangnam Dermatology Clinic" 키워드 타깃
   const isClinicGangnam = catSlug === 'clinic' && areaSlug === 'gangnam'
+  // headspa+myeongdong 조합은 "Korean Head Spa Myeongdong" 키워드 타깃
+  const isHeadSpaMyeongdong = catSlug === 'headspa' && areaSlug === 'myeongdong'
   const titleMain   = isClinicGangnam
     ? `Best Gangnam Dermatology Clinic for Foreigners ${yr} | Seoul Beauty Trip`
+    : isHeadSpaMyeongdong
+    ? `Best Korean Head Spa in Myeongdong Seoul ${yr} | Seoul Beauty Trip`
     : `Best ${catLabel} in ${areaLabel} Seoul for Foreigners ${yr}`
   const metaDesc    = isClinicGangnam
     ? `Top-rated Gangnam dermatology clinic guide for foreigners ${yr}. English-speaking dermatologists, transparent pricing, WhatsApp booking. Laser, RF, skin booster & more.`
+    : isHeadSpaMyeongdong
+    ? `Best Korean head spa in Myeongdong Seoul ${yr}. Viral 18-step scalp treatment, foreigner-friendly with English booking. Prices, tips & honest guide for tourists.`
     : `Best ${catLabel.toLowerCase()} in ${areaLabel}, Seoul ${yr}. Top-rated, foreigner-friendly salons with English support & WhatsApp booking. Real reviews, verified prices.`
   const h1Text      = isClinicGangnam
     ? `Best Gangnam Dermatology Clinic for Foreigners ${yr}`
+    : isHeadSpaMyeongdong
+    ? `Best Korean Head Spa in Myeongdong, Seoul ${yr}`
     : `Best ${catLabel} in ${areaLabel}, Seoul ${yr}`
   const subText     = isClinicGangnam
     ? `English-Speaking Dermatologists · Verified Clinics · WhatsApp Booking · Updated ${yr}`
+    : isHeadSpaMyeongdong
+    ? `Viral 18-Step Scalp Ritual · English Booking · Verified Salons · Updated ${yr}`
     : `Foreigner-Friendly · English Booking · Verified Reviews · Updated ${yr}`
   // 카테고리별 인트로 텍스트 (SEO 롱폼)
   const catIntros: Record<string,string> = {
-    headspa: `Seoul's head spa scene has exploded in popularity among foreign travelers, and ${areaLabel} is home to some of the best. These foreigner-friendly head spas offer English booking, transparent pricing, and authentic Korean scalp treatments — from the viral 18-step scalp ritual to deep-cleansing scalp analysis and relaxing massage. Whether you have hair loss concerns, a dry scalp, or simply want the most relaxing experience of your Seoul trip, these ${areaLabel} head spas welcome international guests with open arms.`,
+    headspa: isHeadSpaMyeongdong
+      ? `Myeongdong is the most tourist-friendly neighbourhood in Seoul — and its head spa scene is perfectly designed for first-time foreign visitors. You can walk in off the street, communicate in English, and walk out with the most relaxing scalp treatment of your life. The <strong>Korean head spa Myeongdong</strong> experience typically includes a thorough scalp analysis, multi-step deep cleanse, pressure-point massage, and nourishing treatment mask — all performed in a reclining chair in a serene, spa-like environment. No Korean required. No awkward navigation. Just 60–90 minutes of pure relaxation in the heart of Seoul.`
+      : `Seoul's head spa scene has exploded in popularity among foreign travelers, and ${areaLabel} is home to some of the best. These foreigner-friendly head spas offer English booking, transparent pricing, and authentic Korean scalp treatments — from the viral 18-step scalp ritual to deep-cleansing scalp analysis and relaxing massage. Whether you have hair loss concerns, a dry scalp, or simply want the most relaxing experience of your Seoul trip, these ${areaLabel} head spas welcome international guests with open arms.`,
     skincare: `Korean skincare treatments in ${areaLabel}, Seoul are world-renowned for their innovation and results. Foreign tourists visiting Seoul consistently rate skin clinics and beauty salons in ${areaLabel} as must-visit experiences. From hydrating glass-skin facials and LED therapy to customized prescription skincare, these foreigner-friendly salons offer English consultations and WhatsApp booking to make your experience seamless.`,
     hair: `${areaLabel} is one of Seoul's top destinations for Korean hair transformations. From K-pop inspired cuts and colors to balayage, Korean perms, and treatment packages, these English-friendly hair salons cater specifically to international visitors. All salons listed are experienced with various hair textures and provide English support throughout.`,
     nail: `Korean nail art in ${areaLabel} is a world-class experience. These foreigner-friendly nail salons offer intricate K-beauty nail designs, premium gel applications, and English-speaking nail artists. Whether you want minimalist Korean aesthetics or elaborate 3D nail art, ${areaLabel}'s nail scene has something for every visitor.`,
@@ -3378,6 +3411,8 @@ app.get('/best/:category/:area', async (c) => {
 <meta name="description" content="${metaDesc}">
 <meta name="keywords" content="${isClinicGangnam
     ? 'Gangnam dermatology clinic, Gangnam dermatology clinic foreigners, Gangnam skin clinic Seoul, best dermatology clinic Gangnam Seoul, Gangnam dermatologist English, Seoul dermatology clinic foreigners, skin clinic Gangnam tourists, Korean dermatology clinic Gangnam, dermatologist Seoul foreigner friendly, Gangnam aesthetic clinic English booking'
+    : isHeadSpaMyeongdong
+    ? 'head spa Myeongdong, Korean head spa Myeongdong Seoul, Myeongdong scalp treatment, head spa Seoul Myeongdong foreigners, Korean scalp massage Myeongdong, 18 step head spa Seoul, head spa Seoul English, Myeongdong head spa booking, head spa Myeongdong price, best head spa Seoul tourists'
     : `best ${catLabel.toLowerCase()} ${areaLabel} Seoul, ${catLabel.toLowerCase()} Seoul foreigners, ${catLabel.toLowerCase()} Seoul English, ${catLabel.toLowerCase()} ${areaLabel} tourists, foreigner friendly ${catLabel.toLowerCase()} Seoul, ${catLabel.toLowerCase()} Seoul booking, Korean ${catLabel.toLowerCase()} ${areaLabel}, ${catLabel.toLowerCase()} Seoul recommendation`}">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="${pageUrl}">
@@ -3695,6 +3730,124 @@ details[open] .faq-q::after{transform:rotate(180deg)}
       <li><strong>Get aftercare support</strong> — if you have any questions post-treatment, message us on WhatsApp anytime</li>
     </ol>
     <p>All clinics listed on Seoul Beauty Trip have been personally vetted by our team. We only list clinics that consistently deliver excellent results for foreign patients and maintain transparent pricing. There is no booking fee — our service is completely free for patients.</p>
+  </div>
+  ` : ''}
+
+  ${isHeadSpaMyeongdong ? `
+  <div class="section-title">📖 Complete Guide: Korean Head Spa in Myeongdong for First-Timers 2026</div>
+
+  <div class="guide-block">
+    <h2>What Is a Korean Head Spa — And Why Myeongdong?</h2>
+    <p>A <strong>Korean head spa</strong> is a multi-step therapeutic scalp and hair treatment that goes far beyond a regular shampoo. It combines scalp diagnosis, deep-cleanse, stimulating massage, and nourishing treatments into a single 60–90 minute ritual designed to relieve stress, improve scalp health, and leave your hair visibly shinier.</p>
+    <p>Myeongdong is the single best neighbourhood for first-time visitors to experience a Korean head spa. As Seoul's most international shopping district, virtually every head spa here has English-speaking staff, printed English menus, and experience handling foreign card payments. You don't need to speak Korean, book weeks in advance, or navigate complicated subway routes — many salons accept walk-ins right off the main shopping street.</p>
+    <p>The <strong>viral 18-step Korean head spa</strong> you've seen on TikTok and YouTube? Myeongdong is where most of those videos are filmed. The neighbourhood's salons have perfected the foreigner experience, and the results speak for themselves.</p>
+
+    <h3>Myeongdong vs. Other Seoul Head Spa Areas</h3>
+    <table class="guide-table">
+      <thead><tr><th>Area</th><th>Best For</th><th>Price Range</th><th>English Level</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Myeongdong</strong></td><td>First-timers, walk-ins, viral TikTok experience</td><td>&#8361;60,000–120,000</td><td>Excellent</td></tr>
+        <tr><td>Gangnam</td><td>Premium treatments, medical-grade scalp care</td><td>&#8361;80,000–180,000</td><td>Good</td></tr>
+        <tr><td>Hongdae</td><td>Trendy atmosphere, younger crowd</td><td>&#8361;50,000–100,000</td><td>Moderate</td></tr>
+        <tr><td>Itaewon</td><td>International vibe, diverse hair types</td><td>&#8361;70,000–130,000</td><td>Excellent</td></tr>
+        <tr><td>Insadong</td><td>Traditional atmosphere, cultural experience</td><td>&#8361;55,000–110,000</td><td>Moderate</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="guide-block">
+    <h2>What Happens During a Korean Head Spa? Step-by-Step</h2>
+    <p>Most Myeongdong head spas follow a structured ritual. Here's what to expect from the moment you sit down:</p>
+    <ol>
+      <li><strong>Scalp Consultation</strong> — A therapist examines your scalp type (oily, dry, sensitive, or combination) using a digital scalp camera in many salons. This determines which products and pressure levels will be used.</li>
+      <li><strong>Pre-Treatment Oil Application</strong> — A nourishing oil or serum is applied to loosen buildup and prepare the scalp for deep cleansing. This phase alone is deeply relaxing.</li>
+      <li><strong>First Shampoo (Clarifying)</strong> — A clarifying shampoo removes product buildup, pollution, and excess sebum. The therapist uses specific finger techniques to stimulate blood circulation.</li>
+      <li><strong>Scalp Scrub / Exfoliation</strong> — A gentle exfoliant is massaged into the scalp to remove dead skin cells. This step is often described as "the most satisfying" by first-timers.</li>
+      <li><strong>Second Shampoo (Nourishing)</strong> — A second shampoo, tailored to your scalp type, provides hydration and prepares the scalp for the treatment mask.</li>
+      <li><strong>Treatment Mask Application</strong> — A targeted treatment mask (for hair loss, hydration, or scalp balance) is applied to both the scalp and lengths. This sits for 10–20 minutes under heat.</li>
+      <li><strong>Extended Head &amp; Shoulder Massage</strong> — While the mask works, you receive a full head, neck, and shoulder massage. Pressure points along the scalp are stimulated to relieve tension and promote circulation.</li>
+      <li><strong>Rinse &amp; Conditioning Treatment</strong> — The mask is thoroughly rinsed and a conditioning treatment is worked through the hair lengths.</li>
+      <li><strong>Blow-Dry &amp; Styling</strong> — Your hair is blow-dried and styled to finish. Many salons include a complimentary facial mist or scalp tonic spray.</li>
+    </ol>
+    <div class="guide-callout">
+      <p><strong>Pro Tip:</strong> The full 18-step version adds additional steam treatments, LED scalp therapy, acupressure scalp massage, and a hair gloss treatment. Ask specifically for the "18-step" or "premium" package when booking — it typically adds 30 minutes and &#8361;20,000–40,000 to the base price.</p>
+    </div>
+  </div>
+
+  <div class="guide-block">
+    <h2>Head Spa Prices in Myeongdong 2026</h2>
+    <p>Myeongdong head spa prices are generally mid-range — more affordable than Gangnam but with the same quality of service. Here's what to expect:</p>
+    <table class="guide-table">
+      <thead><tr><th>Treatment</th><th>Duration</th><th>Price Range</th><th>Best For</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Basic Head Spa</strong></td><td>60 min</td><td>&#8361;55,000–75,000</td><td>First-timers, relaxation</td></tr>
+        <tr><td><strong>Standard Head Spa</strong></td><td>75 min</td><td>&#8361;75,000–100,000</td><td>Deep cleanse + massage</td></tr>
+        <tr><td><strong>Premium / 18-Step</strong></td><td>90–110 min</td><td>&#8361;100,000–140,000</td><td>Full ritual experience</td></tr>
+        <tr><td><strong>Scalp Treatment Add-on</strong></td><td>+20 min</td><td>&#8361;20,000–40,000</td><td>Hair loss, dandruff concern</td></tr>
+        <tr><td><strong>Couple Package</strong></td><td>75–90 min</td><td>&#8361;130,000–200,000</td><td>Two people together</td></tr>
+      </tbody>
+    </table>
+    <div class="guide-callout">
+      <p><strong>Booking Tip:</strong> Prices listed above are per person. Walk-in rates may be slightly higher than pre-booked rates. Book via Seoul Beauty Trip's WhatsApp to confirm availability and lock in the best price.</p>
+    </div>
+  </div>
+
+  <div class="guide-block">
+    <h2>Is a Korean Head Spa Safe for All Hair Types?</h2>
+    <p>Yes — Korean head spas are designed to work with all hair types, including curly, coily, fine, thick, chemically treated, and colour-treated hair. Myeongdong salons, in particular, have significant experience with international guests who have diverse hair textures.</p>
+    <p>When you arrive, mention the following to your therapist:</p>
+    <ul>
+      <li>Recent chemical treatments (colour, perm, relaxer) within the last 2–3 weeks</li>
+      <li>Any scalp sensitivities or skin conditions (psoriasis, eczema, sensitive skin)</li>
+      <li>Hair loss concerns — the therapist can adjust the treatment protocol</li>
+      <li>Preference for lighter or firmer massage pressure</li>
+    </ul>
+    <p>Most Myeongdong salons can communicate these adjustments in English. All products used are professional-grade Korean cosmetics brands (Mise en Scene, Ryo, Pyunkang Yul, etc.) — gentle, well-tested, and safe for international visitors.</p>
+  </div>
+
+  <div class="guide-block">
+    <h2>How to Get to Head Spas in Myeongdong</h2>
+    <p>Myeongdong is extremely easy to reach from anywhere in Seoul:</p>
+    <ul>
+      <li><strong>Subway:</strong> Line 4 (Blue), Myeongdong Station (Exit 5 or 8) — most salons are within a 5-minute walk</li>
+      <li><strong>From Hongdae:</strong> 20 minutes via Line 2 → transfer at City Hall to Line 1</li>
+      <li><strong>From Gangnam:</strong> 25 minutes via Line 2 → transfer at Euljiro 3-ga to Line 2</li>
+      <li><strong>From Itaewon:</strong> 15 minutes via Line 6 → transfer at Samgakji to Line 4</li>
+      <li><strong>From Incheon Airport:</strong> Airport Railroad (AREX) to Seoul Station, then 2 stops on Line 4</li>
+    </ul>
+    <div class="guide-callout">
+      <p><strong>Location Tip:</strong> Most head spas are located on the upper floors (2F–6F) of buildings along the main Myeongdong street and the side streets between Myeongdong Cathedral and Lotte Department Store. Look for signs in the elevator lobbies.</p>
+    </div>
+  </div>
+
+  <div class="guide-block">
+    <h2>Before &amp; After Your Head Spa — What You Need to Know</h2>
+    <h3>Before Your Appointment</h3>
+    <ul>
+      <li>Avoid applying heavy dry shampoo or styling products on the day of your appointment — your therapist will need to work through any buildup</li>
+      <li>You don't need to pre-wash your hair — the salon will cleanse everything as part of the treatment</li>
+      <li>Arrive 5–10 minutes early to complete a brief consultation card</li>
+      <li>Wear a top you don't mind getting slightly damp around the collar</li>
+    </ul>
+    <h3>After Your Treatment</h3>
+    <ul>
+      <li>Your scalp may feel slightly more sensitive than usual for 24 hours — this is normal</li>
+      <li>Avoid washing your hair for at least 24 hours to let the treatment fully absorb</li>
+      <li>Avoid heavy heat styling for 48 hours after a treatment mask</li>
+      <li>For ongoing scalp concerns (hair loss, dandruff), consider a follow-up treatment after 2–3 weeks</li>
+    </ul>
+  </div>
+
+  <div class="guide-block">
+    <h2>How to Book a Myeongdong Head Spa as a Foreigner</h2>
+    <p>Booking a head spa in Myeongdong is straightforward — especially through Seoul Beauty Trip:</p>
+    <ol>
+      <li><strong>Browse the salons above</strong> and check ratings, reviews, and photos</li>
+      <li><strong>Click "Book via WhatsApp"</strong> on any salon listing — our English-speaking team handles communication with the salon</li>
+      <li><strong>Confirm your date, time, and treatment</strong> — we'll send you a booking confirmation with the exact address and floor number</li>
+      <li><strong>Arrive and enjoy</strong> — your therapist will be briefed on your preferences and any language needs in advance</li>
+    </ol>
+    <p>All salons listed on Seoul Beauty Trip have been verified for quality, English support, and foreigner-friendly service. Booking via our WhatsApp is always free — no platform fee, no hidden charges.</p>
   </div>
   ` : ''}
 
