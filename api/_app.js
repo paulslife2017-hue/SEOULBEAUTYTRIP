@@ -5664,7 +5664,7 @@ app.get("/blog/:slug", async (c2) => {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${post.title} | Seoul Beauty Trip Blog</title>
 <meta name="description" content="${post.meta_description || post.excerpt || ""}">
-<meta name="robots" content="${!post.title || !post.meta_description || post.slug.startsWith("test-") ? "noindex, follow" : "index, follow"}">
+<meta name="robots" content="${!post.title || post.slug.startsWith("test-") || !post.meta_description && !post.excerpt ? "noindex, follow" : "index, follow"}">
 <link rel="canonical" href="${canonicalUrl}">
 <meta property="og:title" content="${post.title}">
 <meta property="og:description" content="${post.meta_description || post.excerpt || ""}">
