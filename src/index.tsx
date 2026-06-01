@@ -3088,12 +3088,28 @@ app.get('/best/:category/:area', async (c) => {
 
   // 해당 카테고리+지역 업체 조회
   let shops: Shop[] = []
+  let fallbackArea = false
   try {
     const rows = areaSlug === 'seoul'
       ? await sql`SELECT * FROM shops WHERE active=true AND category=${catSlug} ORDER BY rating DESC, review_count DESC LIMIT 10`
       : await sql`SELECT * FROM shops WHERE active=true AND category=${catSlug} AND LOWER(location) LIKE ${('%'+areaLabel+'%').toLowerCase()} ORDER BY rating DESC, review_count DESC LIMIT 10`
     shops = rows.map(rowToShop)
   } catch(e) {}
+
+  // 업체 없는 지역 → /best/:category/seoul 로 301 redirect
+  // (thin content 방지 + "리디렉션 포함 발견됨" 근본 해소)
+  if (shops.length === 0 && areaSlug !== 'seoul') {
+    return c.redirect(`/best/${catSlug}/seoul`, 301)
+  }
+
+  // seoul 범위에서도 없으면 전체 fallback
+  if (shops.length === 0 && areaSlug === 'seoul') {
+    try {
+      const rows = await sql`SELECT * FROM shops WHERE active=true AND category=${catSlug} ORDER BY rating DESC, review_count DESC LIMIT 10`
+      shops = rows.map(rowToShop)
+      fallbackArea = true
+    } catch(e) {}
+  }
 
   const faqList = CAT_FAQ[catSlug] || DEFAULT_FAQ
   const yr = new Date().getFullYear()
@@ -3252,7 +3268,7 @@ app.get('/best/:category/:area', async (c) => {
 <title>${titleMain} | Seoul Beauty Trip</title>
 <meta name="description" content="${metaDesc}">
 <meta name="keywords" content="best ${catLabel.toLowerCase()} ${areaLabel} Seoul, ${catLabel.toLowerCase()} Seoul foreigners, ${catLabel.toLowerCase()} Seoul English, ${catLabel.toLowerCase()} ${areaLabel} tourists, foreigner friendly ${catLabel.toLowerCase()} Seoul, ${catLabel.toLowerCase()} Seoul booking, Korean ${catLabel.toLowerCase()} ${areaLabel}, ${catLabel.toLowerCase()} Seoul recommendation">
-<meta name="robots" content="${shops.length > 0 ? 'index, follow' : 'noindex, follow'}">
+<meta name="robots" content="index, follow">
 <link rel="canonical" href="${pageUrl}">
 <meta property="og:type" content="website">
 <meta property="og:title" content="${titleMain} | Seoul Beauty Trip">
@@ -3975,11 +3991,41 @@ app.get('/sitemap.xml', async (c) => {
   const base = 'https://seoulbeautytrip.com'
   const today = new Date().toISOString().split('T')[0]
 
-  // 카테고리×지역 조합 — 모든 Best 페이지 사이트맵에 포함 (업체 없어도 FAQ 등 콘텐츠 있음)
+  // 카테고리×지역 조합 — 실제 업체가 있는 페이지만 sitemap 포함
+  // (업체 없는 지역은 /best/:cat/seoul 로 301 redirect → sitemap 중복/thin 제거)
   const bestPages: string[] = []
-  for (const cat of Object.keys(CATEGORY_LABELS)) {
-    for (const area of Object.keys(AREA_LABELS)) {
-      bestPages.push(`<url><loc>${base}/best/${cat}/${area}</loc><changefreq>weekly</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`)
+  try {
+    // 업체가 있는 카테고리+지역 조합 조회
+    const shopRows = await sql`
+      SELECT category, LOWER(location) as loc FROM shops WHERE active=true
+    `
+    const hasCatArea = new Set<string>()
+    for (const r of shopRows) {
+      const cat = r.category as string
+      for (const [areaKey, areaLabel] of Object.entries(AREA_LABELS)) {
+        if (areaKey === 'seoul') continue
+        if ((r.loc as string || '').includes(areaLabel.toLowerCase())) {
+          hasCatArea.add(`${cat}|${areaKey}`)
+        }
+      }
+    }
+    for (const cat of Object.keys(CATEGORY_LABELS)) {
+      // seoul (전체) 항상 포함
+      bestPages.push(`<url><loc>${base}/best/${cat}/seoul</loc><changefreq>weekly</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`)
+      // 업체 있는 특정 지역만 포함
+      for (const area of Object.keys(AREA_LABELS)) {
+        if (area === 'seoul') continue
+        if (hasCatArea.has(`${cat}|${area}`)) {
+          bestPages.push(`<url><loc>${base}/best/${cat}/${area}</loc><changefreq>weekly</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`)
+        }
+      }
+    }
+  } catch(e) {
+    // fallback: 기존 방식
+    for (const cat of Object.keys(CATEGORY_LABELS)) {
+      for (const area of Object.keys(AREA_LABELS)) {
+        bestPages.push(`<url><loc>${base}/best/${cat}/${area}</loc><changefreq>weekly</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`)
+      }
     }
   }
 
