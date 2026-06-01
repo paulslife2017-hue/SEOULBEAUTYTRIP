@@ -2453,12 +2453,13 @@ app.get('/shop/:slug', async (c) => {
 }
 body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh}
 /* NAV */
-.sp-nav{position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:rgba(8,8,14,.92);backdrop-filter:blur(20px);border-bottom:1px solid var(--border)}
+.sp-nav{position:sticky;top:0;z-index:100;background:rgba(8,8,14,.92);backdrop-filter:blur(20px);border-bottom:1px solid var(--border)}
+.sp-nav-inner{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;max-width:600px;margin:0 auto}
 .sp-nav-logo{font-family:var(--ff-serif);font-size:15px;font-weight:700;background:linear-gradient(135deg,#fff,var(--pk3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-decoration:none}
 .sp-nav-back{display:flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid var(--border);border-radius:20px;color:rgba(255,255,255,.6);font-size:12px;font-weight:600;text-decoration:none;transition:all .2s;background:rgba(255,255,255,.04)}
 .sp-nav-back:hover{color:#fff;border-color:rgba(255,255,255,.2);background:rgba(255,255,255,.07)}
 /* HERO */
-.sp-hero{position:relative;height:320px;overflow:hidden}
+.sp-hero{position:relative;height:320px;overflow:hidden;max-width:600px;margin:0 auto}
 .sp-hero-img{width:100%;height:100%;object-fit:cover}
 .sp-hero-ov{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(8,8,14,.1) 0%,transparent 30%,rgba(8,8,14,.6) 65%,var(--bg) 100%)}
 .sp-hero-info{position:absolute;bottom:0;left:0;right:0;padding:24px 20px 20px}
@@ -2469,7 +2470,7 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 .sp-stars{color:var(--gold);font-size:13px;letter-spacing:1px}
 .sp-rating-num{font-size:12px;color:rgba(255,255,255,.55)}
 /* GALLERY */
-.sp-gallery{display:flex;gap:8px;overflow-x:auto;padding:16px 20px;scrollbar-width:none;background:var(--bg)}
+.sp-gallery{display:flex;gap:8px;overflow-x:auto;padding:16px 20px;scrollbar-width:none;background:var(--bg);max-width:600px;margin:0 auto}
 .sp-gallery::-webkit-scrollbar{display:none}
 .sp-gthumb{flex-shrink:0;width:72px;height:72px;border-radius:10px;overflow:hidden;cursor:pointer;border:2px solid transparent;transition:border-color .2s}
 .sp-gthumb.active,.sp-gthumb:hover{border-color:var(--pk)}
@@ -2571,8 +2572,10 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 </head>
 <body>
 <nav class="sp-nav" itemscope itemtype="https://schema.org/SiteNavigationElement">
-  <a href="/" class="sp-nav-logo" itemprop="url"><span itemprop="name">Seoul Beauty Trip</span></a>
-  <a href="/" class="sp-nav-back"><i class="fas fa-arrow-left"></i> Catalog</a>
+  <div class="sp-nav-inner">
+    <a href="/" class="sp-nav-logo" itemprop="url"><span itemprop="name">Seoul Beauty Trip</span></a>
+    <a href="/" class="sp-nav-back"><i class="fas fa-arrow-left"></i> Catalog</a>
+  </div>
 </nav>
 
 <div class="sp-hero">
