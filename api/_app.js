@@ -4063,21 +4063,43 @@ People: `);
 </script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${shop.name} | ${shop.location.split(",")[0].trim()} ${shop.category.charAt(0).toUpperCase() + shop.category.slice(1)} Seoul | Seoul Beauty Trip</title>
-<meta name="description" content="${(shop.metaDescription || shop.description || `${shop.name} is a top-rated ${shop.category} salon in ${shop.location.split(",")[0].trim()}, Seoul. English-friendly service. Book via WhatsApp.`).slice(0, 155)}">
+<meta name="description" content="${(() => {
+    const area = shop.location.split(",")[0].trim();
+    const cat = shop.category;
+    const svc = shop.services && shop.services.length ? shop.services.slice(0, 2).join(" & ") : "";
+    const rating = shop.rating ? shop.rating + "\u2605" : "";
+    const price = shop.priceRange ? " Prices from " + shop.priceRange + "." : "";
+    const autoDesc = `${shop.name} is a ${rating} ${cat} salon in ${area}, Seoul.${svc ? " Specializing in " + svc + "." : ""} English-friendly, foreigner-approved.${price} Book via WhatsApp.`;
+    return (shop.metaDescription || shop.description || autoDesc).slice(0, 155);
+  })()}">
 <meta name="keywords" content="${shop.seoKeywords || [shop.name, shop.name + " Seoul", shop.name + " " + shop.category, shop.name + " booking", shop.name + " review", shop.name + " foreigner", "best " + shop.category + " " + shop.location.split(",")[0].trim() + " Seoul", shop.category + " Seoul foreigners", "English speaking " + shop.category + " Seoul", "Korean " + shop.category + " Seoul", ...shop.services.slice(0, 3)].join(", ")}">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="${canonicalUrl}">
 <!-- Open Graph -->
 <meta property="og:type" content="business.business">
 <meta property="og:title" content="${shop.name} | Seoul Beauty Trip">
-<meta property="og:description" content="${shop.description.slice(0, 155)}">
+<meta property="og:description" content="${(() => {
+    const area = shop.location.split(",")[0].trim();
+    const cat = shop.category;
+    const svc = shop.services && shop.services.length ? shop.services.slice(0, 2).join(" & ") : "";
+    const rating = shop.rating ? shop.rating + "\u2605" : "";
+    const autoDesc = `${shop.name} is a ${rating} ${cat} salon in ${area}, Seoul.${svc ? " Specializing in " + svc + "." : ""} English-friendly, foreigner-approved. Book via WhatsApp.`;
+    return (shop.metaDescription || shop.description || autoDesc).slice(0, 155);
+  })()}">
 <meta property="og:image" content="${ogImage}">
 <meta property="og:url" content="${canonicalUrl}">
 <meta property="og:site_name" content="Seoul Beauty Trip">
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${shop.name} | Seoul Beauty Trip">
-<meta name="twitter:description" content="${shop.description.slice(0, 155)}">
+<meta name="twitter:description" content="${(() => {
+    const area = shop.location.split(",")[0].trim();
+    const cat = shop.category;
+    const svc = shop.services && shop.services.length ? shop.services.slice(0, 2).join(" & ") : "";
+    const rating = shop.rating ? shop.rating + "\u2605" : "";
+    const autoDesc = `${shop.name} is a ${rating} ${cat} salon in ${area}, Seoul.${svc ? " Specializing in " + svc + "." : ""} English-friendly, foreigner-approved. Book via WhatsApp.`;
+    return (shop.metaDescription || shop.description || autoDesc).slice(0, 155);
+  })()}">
 <meta name="twitter:image" content="${ogImage}">
 <!-- Schema.org -->
 <script type="application/ld+json">
@@ -4360,8 +4382,14 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 ${(() => {
     const allP = [shop.thumbnail, ...(shop.photos || []).filter((p) => p && p !== shop.thumbnail)];
     if (allP.length < 2) return "";
-    const thumbs = allP.map((url, i) => `<div class="sp-gthumb${i === 0 ? " active" : ""}" onclick="setHero('${url}',this)"><img src="${url}" alt="${shop.name} photo ${i + 1}" loading="lazy"></div>`).join("");
-    return `<div class="sp-gallery">${thumbs}</div>`;
+    const _altL = ["interior", "treatment room", "service area", "staff", "entrance", "detail", "ambiance", "reception"];
+    const thumbs = allP.map((url, i) => {
+      const _cls = "sp-gthumb" + (i === 0 ? " active" : "");
+      const _lbl = _altL[i] || "photo " + (i + 1);
+      const _alt = shop.name + " " + shop.category + " Seoul \u2014 " + _lbl;
+      return '<div class="' + _cls + `" onclick="setHero('` + url + `',this)"><img src="` + url + '" alt="' + _alt + '" loading="lazy"></div>';
+    }).join("");
+    return '<div class="sp-gallery">' + thumbs + "</div>";
   })()}
 
 <div class="sp-wrap">
@@ -5621,6 +5649,119 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;min-height:
 </html>`;
   return c2.html(html);
 });
+app.get("/blog/category/:cat", async (c2) => {
+  await ensureDb();
+  const sql = getDb(c2.env);
+  const cat = c2.req.param("cat").toLowerCase();
+  const base = "https://seoulbeautytrip.com";
+  const CAT_LABELS = {
+    headspa: "Head Spa",
+    skincare: "Skincare",
+    hair: "Hair Salon",
+    nail: "Nail Art",
+    clinic: "Skin Clinic",
+    makeup: "Makeup",
+    spa: "Spa"
+  };
+  const catLabel = CAT_LABELS[cat] || cat.charAt(0).toUpperCase() + cat.slice(1);
+  const posts = await sql`
+    SELECT id,slug,title,meta_description,excerpt,category,area,tags,cover_image,views,created_at
+    FROM blog_posts
+    WHERE status='published' AND category=${cat}
+    ORDER BY created_at DESC
+  `;
+  if (!posts.length) return c2.redirect("/blog", 301);
+  const postCards = posts.map((p) => {
+    const tags = Array.isArray(p.tags) ? p.tags : typeof p.tags === "string" ? JSON.parse(p.tags || "[]") : [];
+    const dateStr = p.created_at ? new Date(p.created_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "";
+    return `
+    <article class="blog-card" onclick="location.href='/blog/${p.slug}'">
+      <div class="blog-card-img" style="${p.cover_image ? `background-image:url('${p.cover_image}')` : "background:linear-gradient(135deg,#ff4d8d22,#9b59b622)"}">
+        <span class="blog-cat-badge">${catLabel}</span>
+      </div>
+      <div class="blog-card-body">
+        <div class="blog-meta"><span class="blog-area">${p.area || "Seoul"}</span><span class="blog-date">${dateStr}</span></div>
+        <h2 class="blog-title">${p.title}</h2>
+        <p class="blog-excerpt">${p.excerpt || p.meta_description || ""}</p>
+        <div class="blog-footer">
+          <div class="blog-tags">${tags.slice(0, 3).map((t) => `<span class="blog-tag">#${t}</span>`).join("")}</div>
+          <span class="blog-read">Read more \u2192</span>
+        </div>
+      </div>
+    </article>`;
+  }).join("");
+  const otherCats = Object.entries(CAT_LABELS).filter(([k]) => k !== cat).map(([k, v]) => `<a href="/blog/category/${k}" style="display:inline-flex;align-items:center;padding:6px 14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.6);text-decoration:none;font-size:12px;font-weight:600;transition:all .2s" onmouseover="this.style.background='rgba(255,77,141,.15)';this.style.borderColor='rgba(255,77,141,.3)';this.style.color='#FF4D8D'" onmouseout="this.style.background='rgba(255,255,255,.06)';this.style.borderColor='rgba(255,255,255,.1)';this.style.color='rgba(255,255,255,.6)'">${v}</a>`).join("");
+  const metaDesc = `Best ${catLabel} guides for foreigners in Seoul. Expert tips, salon reviews, pricing, and English-friendly booking \u2014 updated ${(/* @__PURE__ */ new Date()).getFullYear()}.`;
+  const canonicalUrl = `${base}/blog/category/${cat}`;
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1N9ZQRHLJ0"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-1N9ZQRHLJ0');</script>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${catLabel} in Seoul \u2014 K-Beauty Guides for Foreigners | Seoul Beauty Trip</title>
+<meta name="description" content="${metaDesc}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="${canonicalUrl}">
+<meta property="og:title" content="${catLabel} in Seoul \u2014 K-Beauty Guides for Foreigners">
+<meta property="og:description" content="${metaDesc}">
+<meta property="og:url" content="${canonicalUrl}">
+<meta property="og:type" content="website">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"CollectionPage","url":"${canonicalUrl}","name":"${catLabel} Seoul Guide","description":"${metaDesc}","breadcrumb":{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"${base}"},{"@type":"ListItem","position":2,"name":"Blog","item":"${base}/blog"},{"@type":"ListItem","position":3,"name":"${catLabel}","item":"${canonicalUrl}"}]}}</script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;min-height:100vh}
+.nav{background:#13132a;border-bottom:1px solid rgba(255,77,141,.15);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.nav-logo{font-size:16px;font-weight:900;background:linear-gradient(135deg,#FF4D8D,#FF85B3);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-decoration:none}
+.nav-back{color:rgba(255,255,255,.5);text-decoration:none;font-size:13px;display:flex;align-items:center;gap:5px;padding:6px 13px;border:1px solid rgba(255,255,255,.12);border-radius:16px;transition:all .2s}
+.nav-back:hover{color:#fff;border-color:rgba(255,77,141,.4)}
+.blog-hero{padding:40px 20px 24px;text-align:center;background:linear-gradient(180deg,rgba(255,77,141,.08) 0%,transparent 100%)}
+.blog-hero h1{font-size:clamp(22px,5vw,34px);font-weight:900;margin-bottom:8px}
+.blog-hero p{color:rgba(255,255,255,.5);font-size:14px;max-width:480px;margin:0 auto 16px}
+.breadcrumb{font-size:12px;color:rgba(255,255,255,.35);margin-bottom:12px}
+.breadcrumb a{color:rgba(255,255,255,.45);text-decoration:none}
+.breadcrumb a:hover{color:#FF4D8D}
+.cat-nav{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:20px;padding:0 20px}
+.blog-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px;padding:20px;max-width:1100px;margin:0 auto}
+.blog-card{background:rgba(255,255,255,.04);border-radius:16px;overflow:hidden;cursor:pointer;transition:transform .2s,box-shadow .2s;border:1px solid rgba(255,255,255,.07)}
+.blog-card:hover{transform:translateY(-3px);box-shadow:0 8px 30px rgba(255,77,141,.12);border-color:rgba(255,77,141,.2)}
+.blog-card-img{height:180px;background-size:cover;background-position:center;position:relative}
+.blog-cat-badge{position:absolute;top:12px;left:12px;background:rgba(255,77,141,.85);backdrop-filter:blur(6px);color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:12px}
+.blog-card-body{padding:16px}
+.blog-meta{display:flex;justify-content:space-between;margin-bottom:8px}
+.blog-area{font-size:11px;color:#FF4D8D;font-weight:700}
+.blog-date{font-size:11px;color:rgba(255,255,255,.3)}
+.blog-title{font-size:16px;font-weight:800;line-height:1.4;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.blog-excerpt{font-size:13px;color:rgba(255,255,255,.5);line-height:1.6;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:12px}
+.blog-footer{display:flex;justify-content:space-between;align-items:center}
+.blog-tags{display:flex;gap:4px;flex-wrap:wrap}
+.blog-tag{font-size:10px;color:rgba(255,255,255,.3);background:rgba(255,255,255,.06);padding:3px 7px;border-radius:8px}
+.blog-read{font-size:12px;color:#FF4D8D;font-weight:700;white-space:nowrap}
+@media(max-width:480px){.blog-grid{grid-template-columns:1fr;padding:14px}}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a href="/" class="nav-logo">Seoul Beauty Trip</a>
+  <a href="/blog" class="nav-back"><i class="fas fa-arrow-left"></i> All Posts</a>
+</nav>
+<header class="blog-hero">
+  <div class="breadcrumb"><a href="/">Home</a> \u203A <a href="/blog">Blog</a> \u203A ${catLabel}</div>
+  <h1><i class="fas fa-${cat === "headspa" ? "spa" : cat === "clinic" ? "stethoscope" : cat === "hair" ? "cut" : cat === "nail" ? "hand-sparkles" : cat === "makeup" ? "star" : cat === "skincare" ? "leaf" : "hot-tub"}" style="color:#FF4D8D;margin-right:8px"></i>${catLabel} in Seoul</h1>
+  <p>Expert guides for foreigners \u2014 English-friendly salons, honest reviews & real pricing</p>
+  <div class="cat-nav">${otherCats}</div>
+</header>
+<main class="blog-grid">${postCards}</main>
+<footer style="text-align:center;padding:32px 20px;color:rgba(255,255,255,.25);font-size:12px;border-top:1px solid rgba(255,255,255,.06);margin-top:20px">
+  <a href="/blog" style="color:#FF4D8D;text-decoration:none;font-weight:700">\u2190 All Seoul Beauty Guides</a>
+  <p style="margin-top:8px">\xA9 ${(/* @__PURE__ */ new Date()).getFullYear()} Seoul Beauty Trip. All rights reserved.</p>
+</footer>
+</body>
+</html>`;
+  return c2.html(html);
+});
 app.get("/blog/:slug", async (c2) => {
   await ensureDb();
   const sql = getDb(c2.env);
@@ -5832,9 +5973,19 @@ app.get("/sitemap.xml", async (c2) => {
       }
     }
   }
+  const blogCatSet = /* @__PURE__ */ new Set();
+  try {
+    const catRows = await sql`SELECT DISTINCT category FROM blog_posts WHERE status='published' AND category IS NOT NULL AND category!=''`;
+    for (const r of catRows) blogCatSet.add(r.category);
+  } catch (e) {
+  }
+  const blogCatPages = Array.from(blogCatSet).map(
+    (cat) => `<url><loc>${base}/blog/category/${cat}</loc><changefreq>weekly</changefreq><priority>0.85</priority><lastmod>${today}</lastmod></url>`
+  );
   const urls = [
     `<url><loc>${base}/</loc><changefreq>daily</changefreq><priority>1.0</priority><lastmod>${today}</lastmod></url>`,
     `<url><loc>${base}/blog</loc><changefreq>daily</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`,
+    ...blogCatPages,
     ...bestPages,
     ...shopSlugs.map(
       (slug) => `<url><loc>${base}/shop/${slug}</loc><changefreq>weekly</changefreq><priority>0.8</priority><lastmod>${today}</lastmod></url>`
@@ -11265,10 +11416,12 @@ window.genAiSeo = async function genAiSeo(prefix) {
     }
     if (statusEl) {
       var kw = (data.keywords || []).slice(0,4).join(', ');
+      var area2 = (location||'Seoul').split(',')[0].trim();
       statusEl.innerHTML = '<div style="background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.3);border-radius:9px;padding:8px 10px;margin-top:4px">'
         + '<div style="color:#a78bfa;font-weight:800;margin-bottom:4px"><i class="fas fa-magic"></i> SEO \uC0DD\uC131 \uC644\uB8CC!</div>'
         + (data.titleSuffix ? '<div style="font-size:11px;color:rgba(255,255,255,.55);margin-bottom:3px">\uD0C0\uC774\uD2C0: <b style="color:rgba(255,255,255,.8)">'+data.titleSuffix+'</b></div>' : '')
-        + '<div style="font-size:10px;color:rgba(255,255,255,.4)">\uD0A4\uC6CC\uB4DC: '+kw+'</div>'
+        + '<div style="font-size:10px;color:rgba(255,255,255,.4);margin-bottom:3px">\uD0A4\uC6CC\uB4DC: '+kw+'</div>'
+        + '<div style="font-size:10px;color:rgba(74,222,128,.7);border-top:1px solid rgba(255,255,255,.08);padding-top:5px;margin-top:3px"><i class="fas fa-image" style="margin-right:3px"></i>\uC774\uBBF8\uC9C0 alt \uD0DC\uADF8 \uC790\uB3D9 \uC801\uC6A9: <b style="color:rgba(74,222,128,.9)">'+name+' '+category+' Seoul \u2014 interior/treatment room/...</b></div>'
         + '</div>';
     }
   } catch(e) {
