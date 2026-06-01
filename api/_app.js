@@ -5259,8 +5259,8 @@ app.get("/shops", async (c2) => {
   const shops2 = rows.map(rowToShop);
   const catColors = { skincare: "#f472b6", headspa: "#67e8f9", hair: "#60a5fa", nail: "#34d399", clinic: "#fb923c", makeup: "#c084fc", spa: "#a78bfa" };
   const catIcons = { skincare: "fa-leaf", makeup: "fa-magic", hair: "fa-cut", headspa: "fa-spa", nail: "fa-hand-sparkles", clinic: "fa-briefcase-medical", spa: "fa-hot-tub" };
-  const cats = ["all", "skincare", "makeup", "hair", "headspa", "nail", "clinic", "spa"];
-  const catLabels = { all: "All", skincare: "Skincare", makeup: "Makeup", hair: "Hair", headspa: "Head Spa", nail: "Nail", clinic: "Clinic", spa: "Spa" };
+  const cats = ["all", "clinic", "headspa", "skincare", "hair", "nail", "makeup", "spa"];
+  const catLabels = { all: "All", clinic: "Clinic", headspa: "Head Spa", skincare: "Skincare", hair: "Hair", nail: "Nail", makeup: "Makeup", spa: "Spa" };
   const catCountMap = {};
   shops2.forEach((s) => {
     catCountMap[s.category] = (catCountMap[s.category] || 0) + 1;
@@ -6668,12 +6668,12 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   </div>
   <nav class="cats" id="cats" aria-label="Beauty categories">
     <button class="cat on" data-cat="all"><i class="fas fa-star"></i> All</button>
-    <button class="cat" data-cat="skincare"><i class="fas fa-leaf"></i> Skincare</button>
-    <button class="cat" data-cat="makeup"><i class="fas fa-magic"></i> Makeup</button>
-    <button class="cat" data-cat="hair"><i class="fas fa-cut"></i> Hair</button>
-    <button class="cat" data-cat="headspa"><i class="fas fa-spa"></i> Head Spa</button>
-    <button class="cat" data-cat="nail"><i class="fas fa-hand-sparkles"></i> Nail</button>
     <button class="cat" data-cat="clinic"><i class="fas fa-briefcase-medical"></i> Clinic</button>
+    <button class="cat" data-cat="headspa"><i class="fas fa-spa"></i> Head Spa</button>
+    <button class="cat" data-cat="skincare"><i class="fas fa-leaf"></i> Skincare</button>
+    <button class="cat" data-cat="hair"><i class="fas fa-cut"></i> Hair</button>
+    <button class="cat" data-cat="nail"><i class="fas fa-hand-sparkles"></i> Nail</button>
+    <button class="cat" data-cat="makeup"><i class="fas fa-magic"></i> Makeup</button>
     <button class="cat" data-cat="spa"><i class="fas fa-hot-tub"></i> Spa</button>
   </nav>
 </header>
@@ -6690,12 +6690,12 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   </div>
   <div class="so-chips-row" id="so-filters">
     <button class="so-chip on" data-filter="all">All</button>
-    <button class="so-chip" data-filter="skincare">Skincare</button>
-    <button class="so-chip" data-filter="makeup">Makeup</button>
-    <button class="so-chip" data-filter="hair">Hair</button>
-    <button class="so-chip" data-filter="headspa">Head Spa</button>
-    <button class="so-chip" data-filter="nail">Nail</button>
     <button class="so-chip" data-filter="clinic">Clinic</button>
+    <button class="so-chip" data-filter="headspa">Head Spa</button>
+    <button class="so-chip" data-filter="skincare">Skincare</button>
+    <button class="so-chip" data-filter="hair">Hair</button>
+    <button class="so-chip" data-filter="nail">Nail</button>
+    <button class="so-chip" data-filter="makeup">Makeup</button>
     <button class="so-chip" data-filter="spa">Spa</button>
     <button class="so-chip" data-filter="Gangnam">Gangnam</button>
     <button class="so-chip" data-filter="Hongdae">Hongdae</button>
@@ -6725,11 +6725,11 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
     </div>
     <div class="sp-filter" id="sp-filter">
       <button class="sp-flt on" data-cat="all">All</button>
-      <button class="sp-flt" data-cat="skincare">Skincare</button>
+      <button class="sp-flt" data-cat="clinic">Clinic</button>
       <button class="sp-flt" data-cat="headspa">Head Spa</button>
+      <button class="sp-flt" data-cat="skincare">Skincare</button>
       <button class="sp-flt" data-cat="hair">Hair</button>
       <button class="sp-flt" data-cat="nail">Nail</button>
-      <button class="sp-flt" data-cat="clinic">Clinic</button>
       <button class="sp-flt" data-cat="makeup">Makeup</button>
       <button class="sp-flt" data-cat="spa">Spa</button>
     </div>
@@ -6980,6 +6980,8 @@ function loadVideos(cat) {
       }
       hideCatLoading();
       renderFeed();
+      // \uCE74\uD14C\uACE0\uB9AC \uC804\uD658 \uD6C4 setupObs \uAC15\uC81C \uC2E4\uD589 \uBCF4\uC7A5
+      if(_ldHidden) { setupObs(); }
       if(!_ldHidden){
         setLdProgress(85);
         _ldReadyFlags.videos = true;
@@ -6990,6 +6992,7 @@ function loadVideos(cat) {
       vids = [];
       hideCatLoading();
       renderFeed();
+      if(_ldHidden) { setupObs(); }
       if(!_ldHidden){ hideLd(); }
     });
   // \uCD5C\uB300 5\uCD08 fallback
@@ -7926,7 +7929,7 @@ function _renderSearchResults(q, filter){
   if(!grid) return;
   var kw = (q||'').toLowerCase().trim();
   var catColors = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',nail:'#34d399',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa'};
-  var CAT_LIST = ['skincare','makeup','hair','headspa','nail','clinic','spa'];
+  var CAT_LIST = ['clinic','headspa','skincare','hair','nail','makeup','spa'];
   var AREA_LIST = ['gangnam','hongdae','myeongdong','sinsa','itaewon','insadong','jongno','mapo','yongsan','apgujeong','cheongdam','bukchon'];
 
   var results = allShopsData.filter(function(s){
