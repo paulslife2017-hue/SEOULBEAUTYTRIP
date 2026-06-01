@@ -14,11 +14,16 @@ type Env = {
 // 로컬: .dev.vars 파일에 설정
 // Vercel 프로덕션: Vercel 대시보드 Environment Variables에 설정
 // Cloudflare 프로덕션: wrangler pages secret put DATABASE_URL
+// DB 커넥션 캐싱 — 매 요청마다 새 연결 생성 방지 (Neon cold start 타임아웃 방지)
+let _cachedSql: ReturnType<typeof neon> | null = null
+let _cachedUrl = ''
 const getDb = (env?: Env) => {
-  // Vercel(Node.js) 환경은 process.env, Cloudflare는 c.env 사용
   const url = env?.DATABASE_URL || (typeof process !== 'undefined' ? process.env.DATABASE_URL : undefined)
   if (!url) throw new Error('DATABASE_URL environment variable is not set')
-  return neon(url)
+  if (_cachedSql && _cachedUrl === url) return _cachedSql
+  _cachedSql = neon(url)
+  _cachedUrl = url
+  return _cachedSql
 }
 const getGoogleKey = (env?: Env) => {
   return env?.GOOGLE_PLACES_KEY || (typeof process !== 'undefined' ? process.env.GOOGLE_PLACES_KEY : undefined) || ''
@@ -527,9 +532,12 @@ app.get('/api/videos', async (c) => {
   await ensureDb(c.env)
   const sql = getDb(c.env)
   const cat = c.req.query('category')
-  const rows = cat && cat !== 'all'
-    ? await sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.category=${cat} ORDER BY RANDOM()`
-    : await sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id ORDER BY RANDOM()`
+  const rows = await withTimeout(
+    cat && cat !== 'all'
+      ? sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.category=${cat} ORDER BY RANDOM()`
+      : sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id ORDER BY RANDOM()`,
+    15000, []
+  )
   const result = rows.map((r: any) => ({
     ...rowToVideo(r),
     shop: { id: r.shop_id, name: r.shop_name, category: r.shop_cat, location: r.shop_location, thumbnail: r.shop_thumb }
@@ -539,7 +547,10 @@ app.get('/api/videos', async (c) => {
 
 app.get('/api/shops', async (c) => {
   const sql = getDb(c.env)
-  const rows = await sql`SELECT * FROM shops ORDER BY created_at DESC`
+  const rows = await withTimeout(
+    sql`SELECT * FROM shops ORDER BY created_at DESC`,
+    15000, []
+  )
   return c.json({ shops: rows.map(rowToShop) })
 })
 app.get('/api/shops/:id', async (c) => {
@@ -2199,18 +2210,18 @@ app.post('/api/admin/generate-blog', async (c) => {
 // ── SEO 업체 상세 페이지 ──
 app.get('/shop/:slug', async (c) => {
   const sql = getDb(c.env)
-  const shopRows = await sql`SELECT * FROM shops WHERE slug=${c.req.param('slug')}`
+  const shopRows = await withTimeout(sql`SELECT * FROM shops WHERE slug=${c.req.param('slug')}`, 15000, [])
   if (!shopRows.length) return c.notFound()
   const shop = rowToShop(shopRows[0])
-  const vidRows = await sql`SELECT * FROM videos WHERE shop_id=${shop.id} ORDER BY views DESC`
+  const vidRows = await withTimeout(sql`SELECT * FROM videos WHERE shop_id=${shop.id} ORDER BY views DESC`, 15000, [])
   const shopVideos = vidRows.map((r: any) => rowToVideo({ ...r, shop_name: shop.name }))
   // 같은 카테고리 업체 (본인 제외, 최대 6개, rating 높은 순)
-  const relatedRows = await sql`
+  const relatedRows = await withTimeout(sql`
     SELECT id, name, slug, category, location, thumbnail, rating, review_count, description
     FROM shops
     WHERE category=${shop.category} AND id != ${shop.id} AND slug IS NOT NULL
     ORDER BY rating DESC NULLS LAST, review_count DESC NULLS LAST
-    LIMIT 6`
+    LIMIT 6`, 15000, [])
   const relatedShops = relatedRows.map((r: any) => rowToShop(r))
   const shopArea = shop.location ? ` (${shop.location.split(',')[0].trim()})` : ''
   const waMsg = encodeURIComponent(`[ Booking Request ]\nShop: ${shop.name}${shopArea}\n\nDate: \nTime: \nService: \nName: \nPeople: `)
@@ -4704,10 +4715,17 @@ Sitemap: https://seoulbeautytrip.com/sitemap.xml
 `))
 
 // ── MAIN PAGE ── (초기 데이터 인라인으로 삽입해 첫 fetch 제거)
+// DB 쿼리 타임아웃 래퍼 (Neon cold start 대비 — Vercel 60s 제한 초과 방지)
+const withTimeout = (promise: Promise<any>, ms: number, fallback: any): Promise<any> =>
+  Promise.race([promise, new Promise<any>(resolve => setTimeout(() => resolve(fallback), ms))])
+
 app.get('/', async (c) => {
   const sql = getDb(c.env)
   try {
-    const vidRows = await sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.active=true ORDER BY v.views DESC, v.created_at DESC`
+    const vidRows = await withTimeout(
+      sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.active=true ORDER BY v.views DESC, v.created_at DESC`,
+      15000, []
+    )
     const initVideos = vidRows.map((r: any) => {
       // thumbnail: DB 저장값 → Cloudinary 자동 생성 (so_0 첫프레임 JPG) 순서로 fallback
       const vUrl = r.video_url || ''

@@ -2078,10 +2078,15 @@ var Hono2 = class extends Hono {
 
 // src/index.tsx
 var import_serverless = require("@neondatabase/serverless");
+var _cachedSql = null;
+var _cachedUrl = "";
 var getDb = (env) => {
   const url = env?.DATABASE_URL || (typeof process !== "undefined" ? process.env.DATABASE_URL : void 0);
   if (!url) throw new Error("DATABASE_URL environment variable is not set");
-  return (0, import_serverless.neon)(url);
+  if (_cachedSql && _cachedUrl === url) return _cachedSql;
+  _cachedSql = (0, import_serverless.neon)(url);
+  _cachedUrl = url;
+  return _cachedSql;
 };
 var getGoogleKey = (env) => {
   return env?.GOOGLE_PLACES_KEY || (typeof process !== "undefined" ? process.env.GOOGLE_PLACES_KEY : void 0) || "";
@@ -2600,7 +2605,11 @@ app.get("/api/videos", async (c) => {
   await ensureDb(c.env);
   const sql = getDb(c.env);
   const cat = c.req.query("category");
-  const rows = cat && cat !== "all" ? await sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.category=${cat} ORDER BY RANDOM()` : await sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id ORDER BY RANDOM()`;
+  const rows = await withTimeout(
+    cat && cat !== "all" ? sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.category=${cat} ORDER BY RANDOM()` : sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id ORDER BY RANDOM()`,
+    15e3,
+    []
+  );
   const result = rows.map((r) => ({
     ...rowToVideo(r),
     shop: { id: r.shop_id, name: r.shop_name, category: r.shop_cat, location: r.shop_location, thumbnail: r.shop_thumb }
@@ -2609,7 +2618,11 @@ app.get("/api/videos", async (c) => {
 });
 app.get("/api/shops", async (c) => {
   const sql = getDb(c.env);
-  const rows = await sql`SELECT * FROM shops ORDER BY created_at DESC`;
+  const rows = await withTimeout(
+    sql`SELECT * FROM shops ORDER BY created_at DESC`,
+    15e3,
+    []
+  );
   return c.json({ shops: rows.map(rowToShop) });
 });
 app.get("/api/shops/:id", async (c) => {
@@ -4069,17 +4082,17 @@ app.post("/api/admin/generate-blog", async (c) => {
 });
 app.get("/shop/:slug", async (c) => {
   const sql = getDb(c.env);
-  const shopRows = await sql`SELECT * FROM shops WHERE slug=${c.req.param("slug")}`;
+  const shopRows = await withTimeout(sql`SELECT * FROM shops WHERE slug=${c.req.param("slug")}`, 15e3, []);
   if (!shopRows.length) return c.notFound();
   const shop = rowToShop(shopRows[0]);
-  const vidRows = await sql`SELECT * FROM videos WHERE shop_id=${shop.id} ORDER BY views DESC`;
+  const vidRows = await withTimeout(sql`SELECT * FROM videos WHERE shop_id=${shop.id} ORDER BY views DESC`, 15e3, []);
   const shopVideos = vidRows.map((r) => rowToVideo({ ...r, shop_name: shop.name }));
-  const relatedRows = await sql`
+  const relatedRows = await withTimeout(sql`
     SELECT id, name, slug, category, location, thumbnail, rating, review_count, description
     FROM shops
     WHERE category=${shop.category} AND id != ${shop.id} AND slug IS NOT NULL
     ORDER BY rating DESC NULLS LAST, review_count DESC NULLS LAST
-    LIMIT 6`;
+    LIMIT 6`, 15e3, []);
   const relatedShops = relatedRows.map((r) => rowToShop(r));
   const shopArea = shop.location ? ` (${shop.location.split(",")[0].trim()})` : "";
   const waMsg = encodeURIComponent(`[ Booking Request ]
@@ -6437,10 +6450,15 @@ Disallow: /admin
 Sitemap: https://seoulbeautytrip.com/sitemap.xml
 `
 ));
+var withTimeout = (promise, ms, fallback) => Promise.race([promise, new Promise((resolve) => setTimeout(() => resolve(fallback), ms))]);
 app.get("/", async (c) => {
   const sql = getDb(c.env);
   try {
-    const vidRows = await sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.active=true ORDER BY v.views DESC, v.created_at DESC`;
+    const vidRows = await withTimeout(
+      sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.active=true ORDER BY v.views DESC, v.created_at DESC`,
+      15e3,
+      []
+    );
     const initVideos = vidRows.map((r) => {
       const vUrl = r.video_url || "";
       const dbThumb = r.thumbnail || "";
