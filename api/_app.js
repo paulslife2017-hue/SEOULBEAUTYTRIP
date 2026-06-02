@@ -7385,8 +7385,7 @@ function prefetchShops(){
       var list = d.shops || [];
       list.forEach(function(s){
         if(s && s.id && !shopCache[s.id]) {
-          // description/whyChoose \uD3EC\uD568\uB41C \uC644\uC804\uD55C \uB370\uC774\uD130\uBA74 _detail \uB9C8\uCEE4 \uCD94\uAC00 \u2192 \uBAA8\uB2EC \uC7ACfetch \uBD88\uD544\uC694
-          if(s.description || (s.whyChoose && s.whyChoose.length)) s._detail = true;
+          // _detail\uC740 \uBD99\uC774\uC9C0 \uC54A\uC74C \u2192 \uBAA8\uB2EC \uC5F4 \uB54C /api/shops/:id \uB85C videos \uD3EC\uD568 \uC0C1\uC138 fetch \uBC18\uB4DC\uC2DC \uC2E4\uD589
           shopCache[s.id] = s;
         }
       });

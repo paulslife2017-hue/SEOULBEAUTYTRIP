@@ -5679,8 +5679,7 @@ function prefetchShops(){
       var list = d.shops || [];
       list.forEach(function(s){
         if(s && s.id && !shopCache[s.id]) {
-          // description/whyChoose 포함된 완전한 데이터면 _detail 마커 추가 → 모달 재fetch 불필요
-          if(s.description || (s.whyChoose && s.whyChoose.length)) s._detail = true;
+          // _detail은 붙이지 않음 → 모달 열 때 /api/shops/:id 로 videos 포함 상세 fetch 반드시 실행
           shopCache[s.id] = s;
         }
       });
