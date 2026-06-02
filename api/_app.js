@@ -2982,70 +2982,139 @@ async function makeShopSlug(sql, name, location) {
   }
   return `${candidate}-${Date.now().toString().slice(-4)}`;
 }
-async function autoGenSeo(body, apiKey) {
+async function fetchGooglePlacesInfo(placeId, googleKey) {
+  if (!placeId || !googleKey) return {};
+  const fields = "displayName,rating,userRatingCount,reviews,regularOpeningHours,editorialSummary,types,primaryType,businessStatus,priceLevel";
+  try {
+    const url = `https://places.googleapis.com/v1/places/${placeId}?fields=${encodeURIComponent(fields)}&key=${googleKey}`;
+    const res = await fetch(url, { headers: { Accept: "application/json" } });
+    if (!res.ok) return {};
+    return await res.json();
+  } catch {
+    return {};
+  }
+}
+function summarizeHours(periods) {
+  if (!periods?.length) return "";
+  const dayName = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const slots = {};
+  for (const p of periods) {
+    const d = p.open?.day;
+    if (d == null) continue;
+    slots[d] = `${String(p.open.hour).padStart(2, "0")}:${String(p.open.minute).padStart(2, "0")}\u2013${String(p.close.hour).padStart(2, "0")}:${String(p.close.minute).padStart(2, "0")}`;
+  }
+  const timeToD = {};
+  for (const [d, t] of Object.entries(slots)) timeToD[t] = [...timeToD[t] || [], dayName[Number(d)]];
+  return Object.entries(timeToD).map(([t, ds]) => `${ds[0]}${ds.length > 1 ? "\u2013" + ds[ds.length - 1] : ""} ${t}`).join(" | ");
+}
+function buildSeoContext(body, places) {
+  const lines = [];
+  lines.push(`Shop name    : ${body.name}`);
+  lines.push(`Category     : ${body.category}`);
+  lines.push(`Neighborhood : ${body.location || "Seoul"}`);
+  lines.push(`Google rating: ${body.rating || 5}/5.0  (${body.reviewCount || 0}+ verified reviews)`);
+  if (places && Object.keys(places).length) {
+    const skipTypes = /* @__PURE__ */ new Set(["point_of_interest", "establishment", "service", "health", "local_business"]);
+    const types = (places.types || []).filter((t) => !skipTypes.has(t)).map((t) => t.replace(/_/g, " ")).slice(0, 4);
+    if (types.length) lines.push(`Business type: ${types.join(", ")}`);
+    const editorial = places.editorialSummary?.text;
+    if (editorial) lines.push(`Google intro : ${editorial}`);
+    const plMap = {
+      PRICE_LEVEL_INEXPENSIVE: "Budget-friendly (\u20A9)",
+      PRICE_LEVEL_MODERATE: "Mid-range (\u20A9\u20A9)",
+      PRICE_LEVEL_EXPENSIVE: "Premium (\u20A9\u20A9\u20A9)",
+      PRICE_LEVEL_VERY_EXPENSIVE: "Luxury (\u20A9\u20A9\u20A9\u20A9)"
+    };
+    const pl = plMap[places.priceLevel || ""];
+    if (pl) lines.push(`Price level  : ${pl}`);
+    const hrs = summarizeHours(places.regularOpeningHours?.periods || []);
+    if (hrs) lines.push(`Opening hours: ${hrs}`);
+  }
+  const services = Array.isArray(body.services) ? body.services.slice(0, 8) : [];
+  if (services.length) lines.push(`Services     : ${services.join(", ")}`);
+  const seen = /* @__PURE__ */ new Set();
+  const reviews = [];
+  for (const r of body.reviews || []) {
+    const t = (r.text || "").replace(/\n/g, " ").trim();
+    if (t && !seen.has(t.slice(0, 40))) {
+      seen.add(t.slice(0, 40));
+      reviews.push({ rating: r.rating, text: t });
+    }
+  }
+  if (places?.reviews) {
+    for (const r of places.reviews) {
+      const t = (r.text?.text || "").replace(/\n/g, " ").trim();
+      if (t && !seen.has(t.slice(0, 40)) && reviews.length < 8) {
+        seen.add(t.slice(0, 40));
+        reviews.push({ rating: r.rating, text: t });
+      }
+    }
+  }
+  if (reviews.length) {
+    lines.push(`
+Customer reviews (${reviews.length} samples):`);
+    for (const [i, rv] of reviews.entries()) lines.push(`  [${i + 1}] ${rv.rating}\u2605  "${rv.text.slice(0, 220)}"`);
+  }
+  return lines.join("\n");
+}
+async function autoGenSeo(body, apiKey, googleKey) {
   if (!apiKey || !body.name) return null;
   try {
-    const catKeywords = {
-      skincare: "Korean skincare Seoul, facial treatment Seoul, glass skin Seoul, K-beauty facial, skin clinic Seoul foreigners",
-      makeup: "Korean makeup Seoul, K-beauty makeup artist, Korean beauty look, makeup studio Seoul foreigners",
-      hair: "Korean hair salon Seoul, K-pop hairstyle Seoul, hair coloring Seoul foreigners, balayage Seoul",
-      headspa: "head spa Seoul, Korean head spa foreigners, scalp treatment Seoul, Korean scalp massage",
-      nail: "Korean nail art Seoul, nail salon Seoul foreigners, K-pop nail design, gel nails Seoul English",
-      clinic: "Korean dermatology Seoul, skin clinic Seoul foreigners, laser treatment Seoul, aesthetic clinic Korea",
-      spa: "Korean spa Seoul, body treatment Seoul foreigners, Korean massage Seoul, relaxation spa Seoul English"
-    };
+    const places = await fetchGooglePlacesInfo(body.placeId || body.googlePlaceId || "", googleKey || "");
+    const context = buildSeoContext(body, places);
     const area = (body.location || "Seoul").split(",")[0].trim();
-    const catKeyword = catKeywords[body.category] || "Korean beauty Seoul, K-beauty";
-    const serviceList = Array.isArray(body.services) ? body.services.join(", ") : body.services || "beauty services";
-    const brandVariants = `${body.name} Seoul, ${body.name} ${body.category}, ${body.name} booking, ${body.name} review, ${body.name} foreigner, ${body.name} English, ${body.name} price`;
-    const ratingInfo = body.rating ? `- Google Rating: ${body.rating}/5 (${body.reviewCount || 0} reviews)` : "";
-    const prompt = `You are a senior SEO content writer for a Korean beauty booking platform targeting foreign tourists visiting Seoul.
+    const cat = body.category || "beauty";
+    const catHints = {
+      clinic: "Focus on: specific treatments (laser names, injectables, procedures), doctor expertise, skin results from reviews.",
+      hair: "Focus on: stylist skill, color/cut results, damage repair, before-after transformations in reviews.",
+      headspa: "Focus on: scalp care method, relaxation depth, therapist attentiveness, step-by-step treatment.",
+      skincare: "Focus on: facial technique, skin analysis, glow results, product quality mentioned in reviews.",
+      makeup: "Focus on: color analysis process, consultation style, what clients specifically learned or changed.",
+      nail: "Focus on: nail art style, design options, precision, longevity from review feedback.",
+      dental: "Focus on: specific dental procedures, pain-free experience, visible results."
+    };
+    const hint = catHints[cat] || "Focus on standout features and unique aspects mentioned in reviews.";
+    const prompt = `Write unique copy for "${body.name}" (${cat} in ${area}, Seoul) using ONLY the data below.
+Category hint: ${hint}
 
-Write compelling, detailed, Google-optimized content for this real beauty salon that foreigners can book in English via WhatsApp.
+DATA:
+${context}
 
-Shop details:
-- Name: ${body.name}
-- Area: ${area}, Seoul, South Korea
-- Category: ${body.category}
-- Services offered: ${serviceList}
-- Price range: ${body.priceRange || "contact for pricing"}
-${ratingInfo}
-
-Your task: Create SEO content that ranks for BOTH brand searches ("${body.name} Seoul") AND generic searches ("best ${body.category} ${area} Seoul foreigners").
-
-Rules:
-1. titleSuffix: max 45 chars, format "${body.name} | ${area} ${body.category} Seoul"
-
-2. metaDescription: 148-158 chars. Must include: shop name, ${area}, ${body.category}, "foreigners"/"English", "Book via WhatsApp". Make it click-worthy.
-
-3. description: Write a rich, detailed paragraph of 500-700 characters (NOT words). Structure:
-   - Sentence 1: What ${body.name} is and what makes it special (mention ${area}, ${body.category})
-   - Sentence 2: Describe the experience/treatments \u2014 what customers feel/get. Use vivid sensory language.
-   - Sentence 3: Why it's ideal for foreigners \u2014 English support, foreigner-friendly booking, WhatsApp booking
-   - Sentence 4 (if services available): Highlight 2-3 key services with brief description
-   - End with a call-to-action: "Book your session via WhatsApp with Seoul Beauty Trip."
-   This must be a flowing, natural paragraph \u2014 NOT a list. Total 500-700 characters.
-
-4. whyChoose: Write 3 bullet points (as a JSON array of strings, each 60-100 chars) explaining why foreigners should choose ${body.name}. Focus on: English support, quality/expertise, unique treatments, location convenience. Each bullet starts with an emoji.
-
-5. keywords: exactly 10 strings \u2014 4 brand keywords + 6 generic. Include long-tail keywords like "best ${body.category} ${area} Seoul 2025", "${body.category} Seoul English speaking", "${area} ${body.category} foreigner friendly"
-
-6. No markdown, no quotes inside string values.
-
-Return ONLY valid JSON (no extra text):
-{"titleSuffix":"...","metaDescription":"...","description":"...","whyChoose":["...","...","..."],"keywords":["k1","k2","k3","k4","k5","k6","k7","k8","k9","k10"]}`;
+Return ONLY a single valid JSON object \u2014 no markdown, no explanation:
+{
+  "description": "<2\u20133 sentence paragraph, 80\u2013140 words. Must mention: exact neighborhood (${area}), rating+review count, 1\u20132 specific details from reviews (treatment name, reviewer quote fragment, unique feature). No generic filler.>",
+  "whyChoose": [
+    "<emoji + specific treatment/service highlight unique to THIS shop. 55\u201385 chars>",
+    "<emoji + standout staff, atmosphere or result detail from actual reviews. 55\u201385 chars>",
+    "<emoji + foreigner accessibility specific to this shop's location/situation. 55\u201385 chars>"
+  ],
+  "metaDescription": "<145\u2013158 chars. Include shop name, ${area}, ${cat}, and a specific hook from reviews.>",
+  "titleSuffix": "<max 45 chars: ${body.name} | ${area} ${cat}>",
+  "keywords": ["<brand+area>","<brand booking>","<brand review>","<brand foreigner>","<best ${cat} ${area} Seoul>","<${cat} Seoul English>","<${area} ${cat} foreigner>","<${cat} Seoul 2025>","<${area} beauty Seoul>","<${cat} Seoul booking>"]
+}`;
     const res = await fetch("https://www.genspark.ai/api/llm_proxy/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: "claude-haiku-4-5", messages: [{ role: "user", content: prompt }], max_tokens: 1800 })
+      body: JSON.stringify({
+        model: "gpt-5.1",
+        messages: [
+          { role: "system", content: "You are a Seoul beauty copywriter. Output ONLY valid JSON \u2014 no markdown, no extra text." },
+          { role: "user", content: prompt }
+        ],
+        max_tokens: 1200,
+        temperature: 0.75
+      })
     });
     if (!res.ok) return null;
     const data = await res.json();
-    const text = data.choices?.[0]?.message?.content || "";
+    const text = (data.choices?.[0]?.message?.content || "").trim();
+    if (!text) return null;
     const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
     const m = cleaned.match(/\{[\s\S]*\}/);
     if (!m) return null;
-    return JSON.parse(m[0]);
+    const parsed = JSON.parse(m[0]);
+    if (!parsed.description || !Array.isArray(parsed.whyChoose) || parsed.whyChoose.length < 3) return null;
+    return parsed;
   } catch {
     return null;
   }
@@ -3741,14 +3810,39 @@ app.post("/api/quick-register", async (c) => {
     if (existing.length > 0) slug = slug + "-" + Date.now().toString().slice(-4);
     const loc = resolvedData.location || "Seoul";
     const cat = category || "skincare";
-    const description = resolvedData.description || `${engName} is a premier ${cat} destination located in ${loc}, Seoul. With a ${resolvedData.rating || 5}/5 rating and ${resolvedData.reviewCount || 0}+ reviews, we offer expert treatments in a foreigner-friendly environment. Book via WhatsApp with Seoul Beauty Trip.`;
-    const whyChoose = resolvedData.whyChoose?.length ? resolvedData.whyChoose : [
+    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || "";
+    const gKey = c.env?.GOOGLE_PLACES_KEY || "";
+    let description = resolvedData.description || "";
+    let whyChoose = resolvedData.whyChoose?.length ? resolvedData.whyChoose : [];
+    let metaDescription = resolvedData.metaDescription || "";
+    let seoKeywords = resolvedData.seoKeywords || "";
+    const seoResult = await autoGenSeo({
+      name: engName,
+      category: cat,
+      location: loc,
+      rating: resolvedData.rating || 5,
+      reviewCount: resolvedData.reviewCount || 0,
+      placeId: resolvedData.placeId || resolvedData.googlePlaceId || "",
+      services: resolvedData.services || [],
+      reviews: resolvedData.reviews || []
+    }, apiKey, gKey);
+    if (seoResult) {
+      if (!description) description = seoResult.description;
+      if (!whyChoose.length) whyChoose = seoResult.whyChoose;
+      if (!metaDescription) metaDescription = seoResult.metaDescription || "";
+      if (!seoKeywords) seoKeywords = Array.isArray(seoResult.keywords) ? seoResult.keywords.join(", ") : "";
+    }
+    if (!description)
+      description = `${engName} is a ${cat} destination in ${loc}, Seoul. Rated ${resolvedData.rating || 5}/5 with ${resolvedData.reviewCount || 0}+ reviews. Book via WhatsApp with Seoul Beauty Trip.`;
+    if (!whyChoose.length) whyChoose = [
       `\u{1F310} English-friendly service and easy WhatsApp booking for international visitors`,
       `\u2B50 Rated ${resolvedData.rating || 5}/5 with ${resolvedData.reviewCount || 0}+ verified reviews`,
       `\u{1F4CD} Conveniently located in ${loc}, perfect for tourists exploring Seoul`
     ];
-    const metaDescription = resolvedData.metaDescription || `${engName} ${loc} Seoul - Premium ${cat} for foreigners. English-speaking staff. Book via WhatsApp instantly with Seoul Beauty Trip.`;
-    const seoKeywords = resolvedData.seoKeywords || `${engName} Seoul, ${engName} ${loc}, ${engName} reviews, ${engName} booking, best ${cat} ${loc} Seoul, ${cat} Seoul English speaking, ${loc} ${cat} foreigner friendly`;
+    if (!metaDescription)
+      metaDescription = `${engName} ${loc} Seoul \u2014 Premium ${cat} for foreigners. English-speaking staff. Book via WhatsApp with Seoul Beauty Trip.`;
+    if (!seoKeywords)
+      seoKeywords = `${engName} Seoul, ${engName} ${loc}, best ${cat} ${loc} Seoul, ${cat} Seoul English speaking`;
     const photos = sanitizePhotos(resolvedData.photos || []);
     const thumbnail = sanitizeThumb(resolvedData.thumbnail || "", photos);
     const reviews = resolvedData.reviews || [];
@@ -3861,6 +3955,7 @@ app.post("/api/admin/regenerate-seo-all", async (c) => {
   for (const row of rows) {
     const shop = rowToShop(row);
     try {
+      const gKey = c.env?.GOOGLE_PLACES_KEY || "";
       const seo = await autoGenSeo({
         name: shop.name,
         category: shop.category,
@@ -3868,8 +3963,10 @@ app.post("/api/admin/regenerate-seo-all", async (c) => {
         services: shop.services,
         priceRange: shop.priceRange,
         rating: shop.rating,
-        reviewCount: shop.reviewCount
-      }, apiKey);
+        reviewCount: shop.reviewCount,
+        placeId: shop.googlePlaceId || "",
+        reviews: shop.reviews || []
+      }, apiKey, gKey);
       if (!seo) {
         results.push({ id: shop.id, name: shop.name, status: "skipped (api fail)" });
         continue;
