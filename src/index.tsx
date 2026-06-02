@@ -5678,7 +5678,11 @@ function prefetchShops(){
     .then(function(d){
       var list = d.shops || [];
       list.forEach(function(s){
-        if(s && s.id && !shopCache[s.id]) shopCache[s.id] = s;
+        if(s && s.id && !shopCache[s.id]) {
+          // description/whyChoose 포함된 완전한 데이터면 _detail 마커 추가 → 모달 재fetch 불필요
+          if(s.description || (s.whyChoose && s.whyChoose.length)) s._detail = true;
+          shopCache[s.id] = s;
+        }
       });
       setLdProgress(40);
       _ldReadyFlags.shops = true;
@@ -6099,10 +6103,18 @@ function openShopModal(shopId) {
   }
 
   // 4) 상세 API fetch → 캐시 저장 후 렌더
+  // allShopsData에도 있으면 즉시 렌더 (prefetch보다 먼저 올 수도 있음)
+  var fromAll = allShopsData.find(function(s){ return s.id === shopId; });
+  if(fromAll && fromAll.name) {
+    if(fromAll.description || (fromAll.whyChoose && fromAll.whyChoose.length)) fromAll._detail = true;
+    shopCache[shopId] = fromAll;
+    renderShopModal(fromAll);
+    return;
+  }
   fetch('/api/shops/'+shopId).then(function(r){ return r.json(); }).then(function(d){
     var shop = d.shop;
     if(!shop){ document.getElementById('modalContent').innerHTML='<div style="padding:20px;color:#f87171">Shop information unavailable.</div>'; return; }
-    shop._detail = true; // 상세 완료 마커
+    shop._detail = true;
     shop._videos = d.videos || [];
     shopCache[shopId] = shop;
     renderShopModal(shop);

@@ -7384,7 +7384,11 @@ function prefetchShops(){
     .then(function(d){
       var list = d.shops || [];
       list.forEach(function(s){
-        if(s && s.id && !shopCache[s.id]) shopCache[s.id] = s;
+        if(s && s.id && !shopCache[s.id]) {
+          // description/whyChoose \uD3EC\uD568\uB41C \uC644\uC804\uD55C \uB370\uC774\uD130\uBA74 _detail \uB9C8\uCEE4 \uCD94\uAC00 \u2192 \uBAA8\uB2EC \uC7ACfetch \uBD88\uD544\uC694
+          if(s.description || (s.whyChoose && s.whyChoose.length)) s._detail = true;
+          shopCache[s.id] = s;
+        }
       });
       setLdProgress(40);
       _ldReadyFlags.shops = true;
@@ -7805,10 +7809,18 @@ function openShopModal(shopId) {
   }
 
   // 4) \uC0C1\uC138 API fetch \u2192 \uCE90\uC2DC \uC800\uC7A5 \uD6C4 \uB80C\uB354
+  // allShopsData\uC5D0\uB3C4 \uC788\uC73C\uBA74 \uC989\uC2DC \uB80C\uB354 (prefetch\uBCF4\uB2E4 \uBA3C\uC800 \uC62C \uC218\uB3C4 \uC788\uC74C)
+  var fromAll = allShopsData.find(function(s){ return s.id === shopId; });
+  if(fromAll && fromAll.name) {
+    if(fromAll.description || (fromAll.whyChoose && fromAll.whyChoose.length)) fromAll._detail = true;
+    shopCache[shopId] = fromAll;
+    renderShopModal(fromAll);
+    return;
+  }
   fetch('/api/shops/'+shopId).then(function(r){ return r.json(); }).then(function(d){
     var shop = d.shop;
     if(!shop){ document.getElementById('modalContent').innerHTML='<div style="padding:20px;color:#f87171">Shop information unavailable.</div>'; return; }
-    shop._detail = true; // \uC0C1\uC138 \uC644\uB8CC \uB9C8\uCEE4
+    shop._detail = true;
     shop._videos = d.videos || [];
     shopCache[shopId] = shop;
     renderShopModal(shop);
