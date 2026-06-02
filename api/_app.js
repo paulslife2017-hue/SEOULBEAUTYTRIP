@@ -6975,9 +6975,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .m-why-list{display:flex;flex-direction:column;gap:8px}
 .m-why-item{font-size:13px;color:rgba(255,255,255,.75);line-height:1.6;padding:10px 14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;border-left:3px solid var(--pk2)}
 /* \uBAA8\uB2EC SEO \uD14D\uC2A4\uD2B8 \uBE14\uB85D */
-.m-seo-block{margin-top:4px;margin-bottom:14px;padding:16px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);border-radius:14px}
-.m-seo-h2{font-size:13px;font-weight:700;color:rgba(255,255,255,.45);margin:0 0 8px;line-height:1.4}
-.m-seo-p{font-size:12px;color:rgba(255,255,255,.35);line-height:1.7;margin:0 0 12px}
+.m-seo-block{margin-top:4px;margin-bottom:14px;padding:16px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:14px}
+.m-seo-h2{font-size:13px;font-weight:700;color:rgba(255,255,255,.65);margin:0 0 8px;line-height:1.4}
+.m-seo-p{font-size:12px;color:rgba(255,255,255,.55);line-height:1.7;margin:0 0 12px}
 .m-seo-p:last-child{margin-bottom:0}
 /* \uC0AC\uC9C4 \uADF8\uB9AC\uB4DC */
 .m-photos-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;border-radius:12px;overflow:hidden}
@@ -7763,17 +7763,24 @@ function openShopModal(shopId) {
   // 2) prefetch \uB85C \uAE30\uBCF8 \uC815\uBCF4\uB9CC \uC788\uB294 \uCE90\uC2DC \u2192 \uC989\uC2DC \uAE30\uBCF8 \uB80C\uB354 \uD6C4 \uC0C1\uC138 \uC815\uBCF4 \uBC31\uADF8\uB77C\uC6B4\uB4DC \uBCF4\uC644
   if(cached && cached.name) {
     renderShopModal(cached); // \uC2A4\uD53C\uB108 \uC5C6\uC774 \uAE30\uBCF8 \uC815\uBCF4\uB85C \uBA3C\uC800 \uD45C\uC2DC
-    // \uC0C1\uC138 \uC815\uBCF4 \uBC31\uADF8\uB77C\uC6B4\uB4DC fetch \u2192 \uC870\uC6A9\uD788 \uB36E\uC5B4\uC50C\uC6B0\uAE30
+    // \uC0C1\uC138 \uC815\uBCF4 \uBC31\uADF8\uB77C\uC6B4\uB4DC fetch \u2192 videos \uBCD1\uD569 \uD6C4 \uC870\uC6A9\uD788 \uC5C5\uB370\uC774\uD2B8
     fetch('/api/shops/'+shopId)
       .then(function(r){ return r.json(); })
       .then(function(d){
-        var shop = d.shop; if(!shop) return;
-        shop._detail = true; // \uC0C1\uC138 \uC644\uB8CC \uB9C8\uCEE4
-        shop._videos = d.videos || [];
-        shopCache[shopId] = shop;
+        var detailShop = d.shop; if(!detailShop) return;
+        var merged = detailShop;
+        merged._detail = true;
+        merged._videos = d.videos || [];
+        // prefetch \uCE90\uC2DC\uC5D0 \uC788\uB358 \uB370\uC774\uD130\uB85C \uBE48 \uD544\uB4DC \uBCF4\uC644
+        if(cached) {
+          if(!merged.whyChoose || !merged.whyChoose.length) merged.whyChoose = cached.whyChoose || [];
+          if(!merged.description) merged.description = cached.description || '';
+          if(!merged.reviews || !merged.reviews.length) merged.reviews = cached.reviews || [];
+        }
+        shopCache[shopId] = merged;
         // \uBAA8\uB2EC\uC774 \uC544\uC9C1 \uC5F4\uB824\uC788\uC73C\uBA74 \uC790\uC5F0\uC2A4\uB7FD\uAC8C \uC5C5\uB370\uC774\uD2B8
         if(document.getElementById('shopModal').classList.contains('open')) {
-          renderShopModal(shop);
+          renderShopModal(merged);
         }
       }).catch(function(){});
     return;
@@ -7871,7 +7878,7 @@ function renderShopModal(shop) {
     var today = new Date().getDay(); // 0=Sun
     if(days.length > 1) {
       // \uAD6C\uAE00 Places \uD3EC\uB9F7
-      var rows = days.map(function(line) {
+      var hoursRows = days.map(function(line) {
         var col = line.indexOf(':');
         var dayPart = col > -1 ? line.slice(0, col).trim() : line;
         var timePart = col > -1 ? line.slice(col+1).trim() : '';
@@ -7884,7 +7891,7 @@ function renderShopModal(shop) {
       }).join('');
       hoursHtml = '<div class="m-sec"><div class="m-sec-title"><i class="fas fa-clock" style="color:var(--gold);margin-right:4px"></i>Hours</div>'
         +'<div style="background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:6px 14px">'
-        +'<table class="m-hours-table">'+rows+'</table></div></div>';
+        +'<table class="m-hours-table">'+hoursRows+'</table></div></div>';
     } else {
       // \uB2E8\uC21C \uD14D\uC2A4\uD2B8
       hoursHtml = '<div class="m-sec"><div class="m-sec-title"><i class="fas fa-clock" style="color:var(--gold);margin-right:4px"></i>Hours</div>'
@@ -7967,10 +7974,10 @@ function renderShopModal(shop) {
   var priceHtml = '';
   if(prices.length > 0) {
     // \uAC00\uACA9 \uACF5\uAC1C \uC5C5\uCCB4 \u2192 Price List \uD14C\uC774\uBE14
-    var rows = prices.map(function(p){
+    var priceRows = prices.map(function(p){
       return '<div class="m-price-item"><span class="m-price-name">'+esc(p.name||'')+'</span><span class="m-price-val">'+esc(p.price||'')+'</span></div>';
     }).join('');
-    priceHtml = '<div class="m-sec"><div class="m-sec-title"><i class="fas fa-won-sign" style="color:var(--gold);margin-right:4px"></i>Price List</div><div class="m-price-list">'+rows+'</div></div>';
+    priceHtml = '<div class="m-sec"><div class="m-sec-title"><i class="fas fa-won-sign" style="color:var(--gold);margin-right:4px"></i>Price List</div><div class="m-price-list">'+priceRows+'</div></div>';
   } else {
     // \uAC00\uACA9 \uBE44\uACF5\uAC1C \uC5C5\uCCB4 \u2192 \uC548\uB0B4 \uD14D\uC2A4\uD2B8\uB9CC \uD45C\uC2DC
     priceHtml = '<div class="m-sec">'

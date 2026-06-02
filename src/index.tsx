@@ -5269,9 +5269,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .m-why-list{display:flex;flex-direction:column;gap:8px}
 .m-why-item{font-size:13px;color:rgba(255,255,255,.75);line-height:1.6;padding:10px 14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;border-left:3px solid var(--pk2)}
 /* 모달 SEO 텍스트 블록 */
-.m-seo-block{margin-top:4px;margin-bottom:14px;padding:16px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);border-radius:14px}
-.m-seo-h2{font-size:13px;font-weight:700;color:rgba(255,255,255,.45);margin:0 0 8px;line-height:1.4}
-.m-seo-p{font-size:12px;color:rgba(255,255,255,.35);line-height:1.7;margin:0 0 12px}
+.m-seo-block{margin-top:4px;margin-bottom:14px;padding:16px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:14px}
+.m-seo-h2{font-size:13px;font-weight:700;color:rgba(255,255,255,.65);margin:0 0 8px;line-height:1.4}
+.m-seo-p{font-size:12px;color:rgba(255,255,255,.55);line-height:1.7;margin:0 0 12px}
 .m-seo-p:last-child{margin-bottom:0}
 /* 사진 그리드 */
 .m-photos-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;border-radius:12px;overflow:hidden}
@@ -6057,17 +6057,24 @@ function openShopModal(shopId) {
   // 2) prefetch 로 기본 정보만 있는 캐시 → 즉시 기본 렌더 후 상세 정보 백그라운드 보완
   if(cached && cached.name) {
     renderShopModal(cached); // 스피너 없이 기본 정보로 먼저 표시
-    // 상세 정보 백그라운드 fetch → 조용히 덮어씌우기
+    // 상세 정보 백그라운드 fetch → videos 병합 후 조용히 업데이트
     fetch('/api/shops/'+shopId)
       .then(function(r){ return r.json(); })
       .then(function(d){
-        var shop = d.shop; if(!shop) return;
-        shop._detail = true; // 상세 완료 마커
-        shop._videos = d.videos || [];
-        shopCache[shopId] = shop;
+        var detailShop = d.shop; if(!detailShop) return;
+        var merged = detailShop;
+        merged._detail = true;
+        merged._videos = d.videos || [];
+        // prefetch 캐시에 있던 데이터로 빈 필드 보완
+        if(cached) {
+          if(!merged.whyChoose || !merged.whyChoose.length) merged.whyChoose = cached.whyChoose || [];
+          if(!merged.description) merged.description = cached.description || '';
+          if(!merged.reviews || !merged.reviews.length) merged.reviews = cached.reviews || [];
+        }
+        shopCache[shopId] = merged;
         // 모달이 아직 열려있으면 자연스럽게 업데이트
         if(document.getElementById('shopModal').classList.contains('open')) {
-          renderShopModal(shop);
+          renderShopModal(merged);
         }
       }).catch(function(){});
     return;
@@ -6165,7 +6172,7 @@ function renderShopModal(shop) {
     var today = new Date().getDay(); // 0=Sun
     if(days.length > 1) {
       // 구글 Places 포맷
-      var rows = days.map(function(line) {
+      var hoursRows = days.map(function(line) {
         var col = line.indexOf(':');
         var dayPart = col > -1 ? line.slice(0, col).trim() : line;
         var timePart = col > -1 ? line.slice(col+1).trim() : '';
@@ -6178,7 +6185,7 @@ function renderShopModal(shop) {
       }).join('');
       hoursHtml = '<div class="m-sec"><div class="m-sec-title"><i class="fas fa-clock" style="color:var(--gold);margin-right:4px"></i>Hours</div>'
         +'<div style="background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:6px 14px">'
-        +'<table class="m-hours-table">'+rows+'</table></div></div>';
+        +'<table class="m-hours-table">'+hoursRows+'</table></div></div>';
     } else {
       // 단순 텍스트
       hoursHtml = '<div class="m-sec"><div class="m-sec-title"><i class="fas fa-clock" style="color:var(--gold);margin-right:4px"></i>Hours</div>'
@@ -6261,10 +6268,10 @@ function renderShopModal(shop) {
   var priceHtml = '';
   if(prices.length > 0) {
     // 가격 공개 업체 → Price List 테이블
-    var rows = prices.map(function(p){
+    var priceRows = prices.map(function(p){
       return '<div class="m-price-item"><span class="m-price-name">'+esc(p.name||'')+'</span><span class="m-price-val">'+esc(p.price||'')+'</span></div>';
     }).join('');
-    priceHtml = '<div class="m-sec"><div class="m-sec-title"><i class="fas fa-won-sign" style="color:var(--gold);margin-right:4px"></i>Price List</div><div class="m-price-list">'+rows+'</div></div>';
+    priceHtml = '<div class="m-sec"><div class="m-sec-title"><i class="fas fa-won-sign" style="color:var(--gold);margin-right:4px"></i>Price List</div><div class="m-price-list">'+priceRows+'</div></div>';
   } else {
     // 가격 비공개 업체 → 안내 텍스트만 표시
     priceHtml = '<div class="m-sec">'
