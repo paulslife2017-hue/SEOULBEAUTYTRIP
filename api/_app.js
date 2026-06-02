@@ -6971,6 +6971,14 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .m-review-stars{font-size:12px;color:var(--gold);letter-spacing:1px}
 .m-review-text{font-size:12.5px;color:rgba(255,255,255,.62);line-height:1.75}
 .m-review-time{font-size:10px;color:rgba(255,255,255,.28);margin-top:5px}
+/* \uBAA8\uB2EC WHY CHOOSE */
+.m-why-list{display:flex;flex-direction:column;gap:8px}
+.m-why-item{font-size:13px;color:rgba(255,255,255,.75);line-height:1.6;padding:10px 14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;border-left:3px solid var(--pk2)}
+/* \uBAA8\uB2EC SEO \uD14D\uC2A4\uD2B8 \uBE14\uB85D */
+.m-seo-block{margin-top:4px;margin-bottom:14px;padding:16px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);border-radius:14px}
+.m-seo-h2{font-size:13px;font-weight:700;color:rgba(255,255,255,.45);margin:0 0 8px;line-height:1.4}
+.m-seo-p{font-size:12px;color:rgba(255,255,255,.35);line-height:1.7;margin:0 0 12px}
+.m-seo-p:last-child{margin-bottom:0}
 /* \uC0AC\uC9C4 \uADF8\uB9AC\uB4DC */
 .m-photos-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;border-radius:12px;overflow:hidden}
 .m-photos-grid img{width:100%;aspect-ratio:1;object-fit:cover;cursor:pointer;transition:opacity .2s}
@@ -7914,6 +7922,46 @@ function renderShopModal(shop) {
       +'</div>'
     : '';
 
+  /* \u2500\u2500 Why Choose \u2500\u2500 */
+  var whyHtml = '';
+  var wc = shop.whyChoose || [];
+  if(wc.length > 0) {
+    var wcItems = wc.map(function(b){ return '<div class="m-why-item">'+esc(b)+'</div>'; }).join('');
+    whyHtml = '<div class="m-sec">'
+      +'<div class="m-sec-title"><i class="fas fa-check-circle" style="color:var(--pk);margin-right:4px"></i>Why Choose '+esc(shop.name||'')+'</div>'
+      +'<div class="m-why-list">'+wcItems+'</div>'
+    +'</div>';
+  }
+
+  /* \u2500\u2500 SEO \uD14D\uC2A4\uD2B8 (\uAD6C\uAE00/\uBC29\uBB38\uC790\uC6A9 \uB871\uD3FC) \u2500\u2500 */
+  var seoHtml = '';
+  (function(){
+    var area3 = (shop.location||'Seoul').split(',')[0].trim();
+    var cat3  = (shop.category||'beauty').charAt(0).toUpperCase()+(shop.category||'beauty').slice(1);
+    var svcList = (shop.services&&shop.services.length>0) ? shop.services.slice(0,4).join(', ') : cat3+' treatments';
+    var areaGn  = (area3.toLowerCase().indexOf('cheongdam')>-1||area3.toLowerCase().indexOf('apgujeong')>-1) ? 'Gangnam' : area3;
+    var revTxt  = (shop.reviewCount>10) ? ' With '+shop.reviewCount+'+ verified reviews and a '+shop.rating+'-star rating, it' : ' It';
+
+    if(shop.category==='clinic'){
+      var treatments = (shop.services&&shop.services.length>0) ? shop.services.slice(0,6).join(', ') : 'laser toning, skin booster injections, RF lifting, acne treatment';
+      seoHtml = '<div class="m-seo-block">'
+        +'<h2 class="m-seo-h2">'+esc(shop.name)+' \u2014 Dermatology Clinic in '+esc(areaGn)+', Seoul for Foreigners</h2>'
+        +'<p class="m-seo-p">'+esc(shop.name)+' is a foreigner-friendly dermatology clinic located in '+esc(area3)+', Seoul.'+revTxt+' is consistently rated as one of the top aesthetic clinics in '+esc(areaGn)+' by international patients. The clinic offers English-language consultations, transparent pricing, and easy WhatsApp booking \u2014 everything a foreign visitor needs to get world-class Korean dermatology treatments without the language barrier.</p>'
+        +'<h2 class="m-seo-h2">Why Foreign Patients Choose '+esc(shop.name)+'</h2>'
+        +'<p class="m-seo-p">For foreigners visiting Seoul, finding a dermatology clinic with English-speaking staff and no hidden fees is the biggest challenge. '+esc(shop.name)+' solves this with dedicated English-speaking coordinators, a clear treatment menu with prices listed in advance, and a seamless booking experience via WhatsApp. Whether you're a first-time medical tourist or a returning patient, the team ensures your comfort from initial consultation through aftercare.</p>'
+        +'<h2 class="m-seo-h2">How to Book '+esc(shop.name)+' as a Foreigner</h2>'
+        +'<p class="m-seo-p">Booking '+esc(shop.name)+' through Seoul Beauty Trip takes under 2 minutes. Simply tap the WhatsApp button below, describe your desired treatment, and our English-speaking team will confirm your appointment, explain pricing, and prepare the clinic for your visit. No Korean language skills needed. Same-day and advance bookings both available.</p>'
+      +'</div>';
+    } else {
+      seoHtml = '<div class="m-seo-block">'
+        +'<h2 class="m-seo-h2">'+esc(shop.name)+' \u2014 '+esc(cat3)+' in '+esc(area3)+', Seoul</h2>'
+        +'<p class="m-seo-p">Looking for the best '+esc(shop.category)+' experience in '+esc(area3)+', Seoul? '+esc(shop.name)+' is a top-rated '+esc(shop.category)+' destination welcoming foreign visitors with English-friendly service and easy WhatsApp booking.'+revTxt+' offers an authentic Korean beauty experience tailored for international guests.</p>'
+        +'<h2 class="m-seo-h2">Foreigner-Friendly '+esc(cat3)+' in '+esc(area3)+'</h2>'
+        +'<p class="m-seo-p">Located in '+esc(area3)+', one of Seoul's most popular beauty districts, '+esc(shop.name)+' specializes in '+esc(svcList)+'. The team provides English support throughout your visit \u2014 from consultation to aftercare \u2014 so you can relax and enjoy your treatment without language barriers. Book easily via WhatsApp through Seoul Beauty Trip.</p>'
+      +'</div>';
+    }
+  })();
+
   /* \u2500\u2500 \uAC00\uACA9 \uC139\uC158 \u2014 \uAC00\uACA9 \uC788\uC73C\uBA74 \uD14C\uC774\uBE14, \uC5C6\uC73C\uBA74 \uC0C1\uB2F4 \uC548\uB0B4 \u2500\u2500 */
   var prices = shop.servicePrices || [];
   var priceHtml = '';
@@ -8051,12 +8099,14 @@ function renderShopModal(shop) {
     + addrHtml
     + infoGridHtml
     + descHtml
+    + whyHtml
     + priceHtml
     + svcHtml
     + reviewsHtml
     + hoursHtml
     + mapHtml
-    + videosHtml;
+    + videosHtml
+    + seoHtml;
 
   /* \u2500\u2500 \uBC84\uD2BC \uC601\uC5ED \u2500\u2500 */
   var shopSlug = shop.slug || '';
