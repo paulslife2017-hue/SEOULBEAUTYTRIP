@@ -2318,7 +2318,8 @@ function rowToShop(r) {
       } catch {
         return [];
       }
-    })()
+    })(),
+    seoText: r.seo_text || ""
   };
 }
 function cloudinaryThumb(videoUrl) {
@@ -3074,6 +3075,16 @@ async function autoGenSeo(body, apiKey, googleKey) {
       dental: "Focus on: specific dental procedures, pain-free experience, visible results."
     };
     const hint = catHints[cat] || "Focus on standout features and unique aspects mentioned in reviews.";
+    const seoStructureHints = {
+      clinic: 'H2-1: "[Name] \u2014 [specific treatment type] Clinic in [area], Seoul". H2-2: "Treatments at [Name]: [list 2-3 specific procedure names]". H2-3: "Why Foreigners Choose [Name] for Korean Dermatology". Each paragraph cites actual rating, review count, or a real reviewer phrase.',
+      hair: 'H2-1: "[Name] \u2014 Hair Salon in [area] Seoul". H2-2: "What [Name] Does Differently: [color/cut specialty]". H2-3: "Booking [Name] as a Foreigner in Seoul". Each paragraph references specific stylist skills or before-after results from reviews.',
+      headspa: 'H2-1: "[Name] \u2014 Head Spa in [area], Seoul". H2-2: "The [Name] Scalp Treatment Experience". H2-3: "Visiting [Name] as a Foreign Guest in Seoul". Each paragraph describes a specific step or sensory detail from reviews.',
+      skincare: 'H2-1: "[Name] \u2014 Skincare Studio in [area], Seoul". H2-2: "Facial Treatments at [Name]". H2-3: "Why Foreign Skin-Care Lovers Visit [Name]". Reference skin concerns, product brands, or glow results from reviews.',
+      nail: 'H2-1: "[Name] \u2014 Nail Art Studio in [area], Seoul". H2-2: "Nail Designs and Services at [Name]". H2-3: "Getting Nails Done at [Name] as a Foreigner". Cite design styles, longevity, or reviewer compliments.',
+      makeup: 'H2-1: "[Name] \u2014 Makeup & Color Analysis in [area], Seoul". H2-2: "What Happens at a [Name] Session". H2-3: "Foreigners and [Name]: English-Friendly Beauty Consultation". Reference personal color types, cosmetics used, or client transformations.',
+      dental: 'H2-1: "[Name] \u2014 Dental Clinic in [area], Seoul". H2-2: "Dental Procedures at [Name]". H2-3: "Foreign Patients at [Name]: English Support & Pricing". Reference specific treatments and pain-free feedback.'
+    };
+    const seoHint = seoStructureHints[cat] || "Three H2 sections: intro, services, and foreigner guide. Each cites real shop data.";
     const prompt = `Write unique copy for "${body.name}" (${cat} in ${area}, Seoul) using ONLY the data below.
 Category hint: ${hint}
 
@@ -3090,7 +3101,8 @@ Return ONLY a single valid JSON object \u2014 no markdown, no explanation:
   ],
   "metaDescription": "<145\u2013158 chars. Include shop name, ${area}, ${cat}, and a specific hook from reviews.>",
   "titleSuffix": "<max 45 chars: ${body.name} | ${area} ${cat}>",
-  "keywords": ["<brand+area>","<brand booking>","<brand review>","<brand foreigner>","<best ${cat} ${area} Seoul>","<${cat} Seoul English>","<${area} ${cat} foreigner>","<${cat} Seoul 2025>","<${area} beauty Seoul>","<${cat} Seoul booking>"]
+  "keywords": ["<brand+area>","<brand booking>","<brand review>","<brand foreigner>","<best ${cat} ${area} Seoul>","<${cat} Seoul English>","<${area} ${cat} foreigner>","<${cat} Seoul 2025>","<${area} beauty Seoul>","<${cat} Seoul booking>"],
+  "seoText": "<3 HTML paragraphs with H2 headings. Structure: ${seoHint}. Each paragraph 60\u2013100 words. NO phone/URL/exact address. Use <h2 class=\\"sp-seo-h2\\"> and <p class=\\"sp-seo-p\\"> tags. Must be 100% unique to this specific shop \u2014 cite real rating, review phrases, or treatment names. No generic sentences that could apply to any shop.>"
 }`;
     const res = await fetch("https://www.genspark.ai/api/llm_proxy/v1/chat/completions", {
       method: "POST",
@@ -3098,10 +3110,10 @@ Return ONLY a single valid JSON object \u2014 no markdown, no explanation:
       body: JSON.stringify({
         model: "gpt-5.1",
         messages: [
-          { role: "system", content: "You are a Seoul beauty copywriter. Output ONLY valid JSON \u2014 no markdown, no extra text." },
+          { role: "system", content: "You are a Seoul beauty SEO copywriter. Output ONLY valid JSON \u2014 no markdown, no extra text. seoText must be raw HTML string (h2+p tags), not an array." },
           { role: "user", content: prompt }
         ],
-        max_tokens: 1200,
+        max_tokens: 2e3,
         temperature: 0.75
       })
     });
@@ -3114,6 +3126,7 @@ Return ONLY a single valid JSON object \u2014 no markdown, no explanation:
     if (!m) return null;
     const parsed = JSON.parse(m[0]);
     if (!parsed.description || !Array.isArray(parsed.whyChoose) || parsed.whyChoose.length < 3) return null;
+    if (!parsed.seoText) parsed.seoText = "";
     return parsed;
   } catch {
     return null;
@@ -3128,6 +3141,7 @@ app.post("/api/shops", async (c) => {
   let metaDescription = body.metaDescription || "";
   let seoKeywords = body.seoKeywords || "";
   let whyChoose = body.whyChoose || [];
+  let seoText = body.seoText || "";
   if (!description) {
     const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
     const seo = await autoGenSeo(body, apiKey);
@@ -3136,17 +3150,18 @@ app.post("/api/shops", async (c) => {
       metaDescription = seo.metaDescription || "";
       seoKeywords = Array.isArray(seo.keywords) ? seo.keywords.join(", ") : "";
       whyChoose = Array.isArray(seo.whyChoose) ? seo.whyChoose : [];
+      seoText = seo.seoText || "";
     }
   }
   const slug = await makeShopSlug(sql, body.name || "", body.location || "");
   const cleanPhotos = sanitizePhotos(body.photos || []);
   const cleanThumb = sanitizeThumb(body.thumbnail || "", cleanPhotos);
-  await sql`INSERT INTO shops (id,name,slug,category,location,address,google_map_url,google_map_embed,lat,lng,price_range,hours,services,service_prices,description,meta_description,seo_keywords,why_choose,rating,review_count,thumbnail,photos,commission,active,created_at) VALUES (
+  await sql`INSERT INTO shops (id,name,slug,category,location,address,google_map_url,google_map_embed,lat,lng,price_range,hours,services,service_prices,description,meta_description,seo_keywords,seo_text,why_choose,rating,review_count,thumbnail,photos,commission,active,created_at) VALUES (
     ${newId},${body.name || ""},${slug},${body.category || ""},${body.location || ""},${body.address || ""},
     ${body.googleMapUrl || ""},${body.googleMapEmbed || ""},${body.lat || ""},${body.lng || ""},
     ${body.priceRange || ""},${body.hours || ""},
     ${JSON.stringify(body.services || [])},${JSON.stringify(body.servicePrices || [])},
-    ${description},${metaDescription},${seoKeywords},${JSON.stringify(whyChoose)},
+    ${description},${metaDescription},${seoKeywords},${seoText},${JSON.stringify(whyChoose)},
     ${body.rating || 5},${body.reviewCount || 0},${cleanThumb},
     ${JSON.stringify(cleanPhotos)},${body.commission || 15},true,${today}
   ) ON CONFLICT DO NOTHING`;
@@ -3159,6 +3174,7 @@ app.put("/api/shops/:id", async (c) => {
   let metaDescription = body.metaDescription || "";
   let seoKeywords = body.seoKeywords || "";
   let whyChoose = Array.isArray(body.whyChoose) ? body.whyChoose : [];
+  let seoTextPut = body.seoText || "";
   if (!description || body.regenerateSeo) {
     const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
     const seo = await autoGenSeo(body, apiKey);
@@ -3167,6 +3183,7 @@ app.put("/api/shops/:id", async (c) => {
       metaDescription = metaDescription || seo.metaDescription || "";
       seoKeywords = seoKeywords || (Array.isArray(seo.keywords) ? seo.keywords.join(", ") : "");
       if (!whyChoose.length) whyChoose = Array.isArray(seo.whyChoose) ? seo.whyChoose : [];
+      if (!seoTextPut) seoTextPut = seo.seoText || "";
     }
   }
   const slugVal = body.slug || await makeShopSlug(sql, body.name || "", body.location || "");
@@ -3189,6 +3206,7 @@ app.put("/api/shops/:id", async (c) => {
     description=${description},
     meta_description=${metaDescription},
     seo_keywords=${seoKeywords},
+    seo_text=${seoTextPut},
     why_choose=${JSON.stringify(whyChoose)},
     rating=${body.rating || 5},
     review_count=${body.reviewCount || 0},
@@ -3826,11 +3844,13 @@ app.post("/api/quick-register", async (c) => {
       services: resolvedData.services || [],
       reviews: resolvedData.reviews || []
     }, apiKey, gKey);
+    let seoTextVal = "";
     if (seoResult) {
       if (!description) description = seoResult.description;
       if (!whyChoose.length) whyChoose = seoResult.whyChoose;
       if (!metaDescription) metaDescription = seoResult.metaDescription || "";
       if (!seoKeywords) seoKeywords = Array.isArray(seoResult.keywords) ? seoResult.keywords.join(", ") : "";
+      seoTextVal = seoResult.seoText || "";
     }
     if (!description)
       description = `${engName} is a ${cat} destination in ${loc}, Seoul. Rated ${resolvedData.rating || 5}/5 with ${resolvedData.reviewCount || 0}+ reviews. Book via WhatsApp with Seoul Beauty Trip.`;
@@ -3852,7 +3872,7 @@ app.post("/api/quick-register", async (c) => {
         id, name, slug, category, location, address, hours,
         rating, review_count, thumbnail, photos,
         google_place_id, google_map_url, lat, lng,
-        description, why_choose, meta_description, seo_keywords,
+        description, why_choose, meta_description, seo_keywords, seo_text,
         reviews, active, created_at
       ) VALUES (
         ${shopId}, ${rawName}, ${slug}, ${cat},
@@ -3860,7 +3880,7 @@ app.post("/api/quick-register", async (c) => {
         ${resolvedData.rating || 5}, ${resolvedData.reviewCount || 0},
         ${thumbnail}, ${JSON.stringify(photos)},
         ${resolvedData.placeId || ""}, ${gmapUrl}, ${resolvedData.lat || ""}, ${resolvedData.lng || ""},
-        ${description}, ${JSON.stringify(whyChoose)}, ${metaDescription}, ${seoKeywords},
+        ${description}, ${JSON.stringify(whyChoose)}, ${metaDescription}, ${seoKeywords}, ${seoTextVal},
         ${JSON.stringify(reviews)}, true, NOW()
       )
     `;
@@ -3975,7 +3995,8 @@ app.post("/api/admin/regenerate-seo-all", async (c) => {
         description      = ${seo.description || shop.description},
         meta_description = ${seo.metaDescription || ""},
         seo_keywords     = ${Array.isArray(seo.keywords) ? seo.keywords.join(", ") : ""},
-        why_choose       = ${JSON.stringify(Array.isArray(seo.whyChoose) ? seo.whyChoose : [])}
+        why_choose       = ${JSON.stringify(Array.isArray(seo.whyChoose) ? seo.whyChoose : [])},
+        seo_text         = ${seo.seoText || ""}
         WHERE id = ${shop.id}`;
       results.push({ id: shop.id, name: shop.name, status: "updated" });
     } catch (e) {
@@ -4686,6 +4707,9 @@ ${(() => {
   })()}
 
   ${(() => {
+    if (shop.seoText && shop.seoText.trim()) {
+      return '<div class="sp-seo-block">' + shop.seoText + "</div>";
+    }
     const area3 = (shop.location || "Seoul").split(",")[0].trim();
     const cat3 = shop.category.charAt(0).toUpperCase() + shop.category.slice(1);
     const svcList = shop.services && shop.services.length > 0 ? shop.services.slice(0, 4).join(", ") : cat3 + " treatments";
@@ -7685,34 +7709,34 @@ function buildSlide(v, idx) {
       ve.addEventListener('play',     function(){ hideBuf(); if(playIc) playIc.style.display='none'; });
       ve.addEventListener('pause',    function(){ hideBuf(); if(playIc) playIc.style.display='flex'; });
 
-      // \u2500\u2500 \uC5D0\uB7EC/\uBA48\uCDA4 \uC2DC \uC790\uB3D9 \uC7AC\uC2DC\uB3C4 \u2500\u2500
+      // \u2500\u2500 \uC5D0\uB7EC \uC2DC \uC790\uB3D9 \uC7AC\uC2DC\uB3C4 (1\uD68C) \u2500\u2500
       ve.addEventListener('error', function(){
         hideBuf();
-        // 1\uCD08 \uD6C4 src \uC7AC\uC138\uD305\uC73C\uB85C \uC7AC\uC2DC\uB3C4
-        setTimeout(function(){
-          if(ve.dataset.src && !ve.dataset.retried){
-            ve.dataset.retried = '1';
+        if(ve.dataset.src && !ve.dataset.retried){
+          ve.dataset.retried = '1';
+          setTimeout(function(){
             ve.src = ve.dataset.src;
             ve.load();
             ve.play().catch(function(){});
-          }
-        }, 1000);
+          }, 1500);
+        }
       });
 
-      // \u2500\u2500 stalled 3\uCD08 \uC9C0\uC18D \uC2DC \uAC15\uC81C load() \u2500\u2500
+      // \u2500\u2500 stalled: 5\uCD08 \uC9C0\uC18D \uC2DC\uC5D0\uB9CC src \uC7AC\uC138\uD305 (load() \uB0A8\uC6A9 \uAE08\uC9C0) \u2500\u2500
       var _stallTimer = null;
       ve.addEventListener('stalled', function(){
         clearTimeout(_stallTimer);
         _stallTimer = setTimeout(function(){
-          if(ve.dataset.src && ve.networkState === 2 /* NETWORK_LOADING */){
-            var t = ve.currentTime;
+          // NETWORK_IDLE(1) or NETWORK_NO_SOURCE(3) \u2192 src \uC7AC\uC138\uD305
+          if(ve.dataset.src && ve.paused === false && ve.networkState !== 2){
+            ve.src = ve.dataset.src;
             ve.load();
-            ve.currentTime = t;
             ve.play().catch(function(){});
           }
-        }, 3000);
+        }, 5000);
       });
       ve.addEventListener('playing', function(){ clearTimeout(_stallTimer); });
+      ve.addEventListener('pause',   function(){ clearTimeout(_stallTimer); });
     }
 
     if(ov && ve) {
@@ -7725,10 +7749,8 @@ function buildSlide(v, idx) {
 
     document.getElementById('wabtn'+vidIdx).onclick = function(e){
       e.stopPropagation();
-      // slug \uC788\uC73C\uBA74 \uC5C5\uCCB4 \uC0C1\uC138 \uD398\uC774\uC9C0\uB85C \uC774\uB3D9, \uC5C6\uC73C\uBA74 \uBAA8\uB2EC
-      var slug = shopData.slug || (vid.shop && vid.shop.slug) || '';
-      if(slug){ location.href = '/shop/'+slug; }
-      else { openShopModal(vid.shopId||shopData.id); }
+      // \uD56D\uC0C1 \uBAA8\uB2EC \uC5F4\uAE30 (\uC0C1\uC138 \uD398\uC774\uC9C0\uC640 \uB3D9\uC77C \uCF58\uD150\uCE20)
+      openShopModal(vid.shopId||shopData.id);
     };
 
     var infoEl = s.querySelector('.info');
@@ -7745,105 +7767,100 @@ function loadVidSrc(vid){
   }
 }
 function preloadNext(idx){
-  // \uB2E4\uC74C 2\uAC1C \uC2AC\uB77C\uC774\uB4DC \uBBF8\uB9AC \uB2E4\uC6B4\uB85C\uB4DC (\uC1FC\uCE20\uCC98\uB7FC \uB04A\uAE40 \uC5C6\uC774)
-  for(var n=1; n<=2; n++){
-    var next = document.getElementById('vid'+(idx+n));
-    if(next && !next.src && next.dataset.src){
-      next.preload = 'auto';
-      next.src = next.dataset.src;
-      next.load();
-    }
+  // \uB2E4\uC74C 1\uAC1C\uB9CC preload \u2014 2\uAC1C \uB3D9\uC2DC \uB2E4\uC6B4\uB85C\uB4DC\uB294 \uBAA8\uBC14\uC77C \uB300\uC5ED\uD3ED \uACBD\uC7C1 \uC720\uBC1C
+  var next = document.getElementById('vid'+(idx+1));
+  if(next && !next.src && next.dataset.src){
+    next.preload = 'auto';
+    next.src = next.dataset.src;
+    // load()\uB294 \uD638\uCD9C\uD558\uC9C0 \uC54A\uC74C \u2014 src \uC138\uD305\uB9CC\uC73C\uB85C \uBE0C\uB77C\uC6B0\uC800\uAC00 \uC54C\uC544\uC11C \uBC84\uD37C\uB9C1
   }
 }
 
 function _playVid(vid, bufIc){
   if(!vid) return;
-  // \uCCAB \uC7AC\uC0DD\uC740 \uBC18\uB4DC\uC2DC muted\uB85C \uC2DC\uC791 (\uBE0C\uB77C\uC6B0\uC800 \uC790\uB3D9\uC7AC\uC0DD \uC815\uCC45)
-  // \uB2E8, \uC0AC\uC6A9\uC790\uAC00 \uC774\uBBF8 \uC18C\uB9AC\uB97C \uCF20 \uC0C1\uD0DC(isMuted===false)\uB77C\uBA74 \uC18C\uB9AC \uC720\uC9C0
   vid.muted = isMuted;
-  if(bufIc) bufIc.style.display = 'flex';
-  // src \uC5C6\uC73C\uBA74 \uC138\uD305
+
+  // src \uBBF8\uC138\uD305\uC774\uBA74 \uC9C0\uAE08 \uC138\uD305 (load()\uB294 \uD638\uCD9C \uC548 \uD568 \u2014 play()\uAC00 \uC554\uBB35\uC801\uC73C\uB85C \uD638\uCD9C)
   if(!vid.src && vid.dataset.src){
     vid.preload = 'auto';
     vid.src = vid.dataset.src;
-    vid.load();
   }
-  var _retried = false;
-  var doPlay = function(){
-    var p = vid.play();
-    if(!p) return;
-    p.then(function(){
-      if(bufIc) bufIc.style.display = 'none';
-      // \uC7AC\uC0DD \uC131\uACF5 \uD6C4 \uD604\uC7AC isMuted \uC0C1\uD0DC \uB2E4\uC2DC \uBC18\uC601 (\uD0C0\uC774\uBC0D \uBCF4\uC815)
-      vid.muted = isMuted;
-    }).catch(function(err){
-      // NotAllowedError: \uC18C\uB9AC \uC788\uB294 autoplay \uCC28\uB2E8 \u2192 muted\uB85C \uAC15\uC81C \uC7AC\uC2DC\uB3C4
-      if(!_retried){
-        _retried = true;
-        vid.muted = true; // \uAC15\uC81C \uC74C\uC18C\uAC70\uB85C \uC7AC\uC2DC\uB3C4
-        if(isMuted === false) isMuted = true; // \uC18C\uB9AC \uCF1C\uC9C4 \uC0C1\uD0DC\uC600\uB2E4\uBA74 muted\uB85C \uB3D9\uAE30\uD654
-        _syncMuteUI(); // \uBC84\uD2BC UI \uB3D9\uAE30\uD654
-        setTimeout(function(){
-          vid.play().then(function(){
-            if(bufIc) bufIc.style.display = 'none';
-          }).catch(function(){
-            if(bufIc) bufIc.style.display = 'none';
-          });
-        }, 500);
-      } else {
-        if(bufIc) bufIc.style.display = 'none';
-      }
-    });
-  };
+
+  // \uC774\uBBF8 \uCDA9\uBD84\uD788 \uBC84\uD37C\uB410\uC73C\uBA74 \uC2A4\uD53C\uB108 \uC5C6\uC774 \uBC14\uB85C \uC7AC\uC0DD
   if(vid.readyState >= 3){
     if(bufIc) bufIc.style.display = 'none';
-    doPlay();
   } else {
-    vid.addEventListener('canplay', function onCp(){
-      vid.removeEventListener('canplay', onCp);
-      if(bufIc) bufIc.style.display = 'none';
-      doPlay();
-    }, {once: true});
-    doPlay();
+    if(bufIc) bufIc.style.display = 'flex';
   }
+
+  var _retried = false;
+  var p = vid.play();
+  if(!p) return;
+  p.then(function(){
+    if(bufIc) bufIc.style.display = 'none';
+    vid.muted = isMuted; // \uC7AC\uC0DD \uC9C1\uD6C4 mute \uC0C1\uD0DC \uC7AC\uD655\uC778
+  }).catch(function(err){
+    // NotAllowedError: unmuted autoplay \uCC28\uB2E8 \u2192 muted \uAC15\uC81C \uD6C4 \uC7AC\uC2DC\uB3C4
+    if(!_retried){
+      _retried = true;
+      vid.muted = true;
+      if(isMuted === false){ isMuted = true; _syncMuteUI(); }
+      vid.play().then(function(){
+        if(bufIc) bufIc.style.display = 'none';
+      }).catch(function(){
+        if(bufIc) bufIc.style.display = 'none';
+      });
+    } else {
+      if(bufIc) bufIc.style.display = 'none';
+    }
+  });
 }
 
 function setupObs(){
-  // _obsReady: true\uAC00 \uB418\uAE30 \uC804\uAE4C\uC9C0 IntersectionObserver \uCF5C\uBC31\uC5D0\uC11C play \uAE08\uC9C0
-  // (\uCCAB \uC9C4\uC785 \uC2DC observe() \uC989\uC2DC \uCF5C\uBC31 fire \u2192 \uC544\uB798 \uC9C1\uC811 _playVid(v0)\uC640 \uCDA9\uB3CC \uBC29\uC9C0)
+  // _obsReady: observe() \uC9C1\uD6C4 \uC989\uC2DC fire\uB418\uB294 \uCF5C\uBC31\uC744 \uBB34\uC2DC\uD558\uAE30 \uC704\uD55C \uD50C\uB798\uADF8
   var _obsReady = false;
+  // \uD604\uC7AC \uC7AC\uC0DD \uC911\uC778 \uC2AC\uB77C\uC774\uB4DC \uC778\uB371\uC2A4 \uCD94\uC801 (\uC911\uBCF5 play \uBC29\uC9C0)
+  var _curIdx = 0;
+
   var obs = new IntersectionObserver(function(entries){
     entries.forEach(function(e){
       var idx = parseInt(e.target.id.replace('sl',''));
       var vid = document.getElementById('vid'+idx);
       var bufIc = document.getElementById('bufic'+idx);
-      document.querySelectorAll('.dot').forEach(function(d,i){ d.classList.toggle('on',i===idx); });
 
       if(e.isIntersecting){
-        if(vid && _obsReady){ // _obsReady \uD6C4\uC5D0\uB9CC obs\uAC00 play \uB2F4\uB2F9
+        // \uC778\uB514\uCF00\uC774\uD130 \uB3C4\uD2B8 \uC5C5\uB370\uC774\uD2B8
+        document.querySelectorAll('.dot').forEach(function(d,i){ d.classList.toggle('on',i===idx); });
+
+        if(_obsReady && idx !== _curIdx){
+          // \uC774\uC804 \uC2AC\uB77C\uC774\uB4DC \uC815\uC9C0 (currentTime \uC720\uC9C0 \u2014 \uB8E8\uD504 \uC601\uC0C1\uC740 \uC704\uCE58 \uBCF4\uC874\uC774 \uB0AB\uB2E4)
+          var prevVid = document.getElementById('vid'+_curIdx);
+          if(prevVid && !prevVid.paused){ prevVid.pause(); }
+          _curIdx = idx;
           _playVid(vid, bufIc);
           preloadNext(idx);
-        } else if(vid){
-          preloadNext(idx); // \uC544\uC9C1 _obsReady \uC804 \u2192 preload\uB9CC
+        } else if(!_obsReady){
+          preloadNext(idx); // \uCD08\uAE30\uD654 \uC911 \u2192 preload\uB9CC
         }
       } else {
-        if(vid){ vid.pause(); vid.currentTime = 0; }
+        // \uD654\uBA74 \uBC16\uC73C\uB85C \uC644\uC804\uD788 \uBC97\uC5B4\uB098\uBA74 \uC815\uC9C0 + \uC2A4\uD53C\uB108 \uC81C\uAC70
+        if(vid && !vid.paused){ vid.pause(); }
         if(bufIc) bufIc.style.display = 'none';
       }
     });
-  },{threshold: 0.6});
+  // threshold\uB97C \uB0AE\uCDB0 \uC2A4\uC640\uC774\uD504 \uC911 \uACBD\uACC4\uC5D0\uC11C \uC774\uBCA4\uD2B8 \uC774\uC911 \uBC1C\uC0DD \uBC29\uC9C0
+  },{threshold: 0.8});
 
   document.querySelectorAll('.slide').forEach(function(s){ obs.observe(s); });
 
-  // \uCCAB \uC2AC\uB77C\uC774\uB4DC \uC9C1\uC811 \uC7AC\uC0DD \uD6C4 obs\uC5D0 \uC81C\uC5B4\uAD8C \uB118\uAE40
+  // \uCCAB \uC2AC\uB77C\uC774\uB4DC \uC9C1\uC811 \uC7AC\uC0DD \u2192 \uC774\uD6C4 obs\uC5D0 \uC81C\uC5B4\uAD8C \uB118\uAE40
   var v0 = document.getElementById('vid0');
   var buf0 = document.getElementById('bufic0');
   var dot0 = document.getElementById('dot0');
   if(dot0) dot0.classList.add('on');
   _playVid(v0, buf0);
   preloadNext(0);
-  // \uC57D\uAC04\uC758 \uB51C\uB808\uC774 \uD6C4 obs \uD65C\uC131\uD654 (\uCCAB \uCF5C\uBC31 \uBB34\uC2DC \uC644\uB8CC \uD6C4)
-  setTimeout(function(){ _obsReady = true; }, 800);
+  setTimeout(function(){ _obsReady = true; }, 600);
 }
 
 function openShopModal(shopId) {
@@ -8048,9 +8065,15 @@ function renderShopModal(shop) {
     +'</div>';
   }
 
-  /* \u2500\u2500 SEO \uD14D\uC2A4\uD2B8 (\uAD6C\uAE00/\uBC29\uBB38\uC790\uC6A9 \uB871\uD3FC) \u2500\u2500 */
+  /* \u2500\u2500 SEO \uD14D\uC2A4\uD2B8 (\uAD6C\uAE00/\uBC29\uBB38\uC790\uC6A9 \uB871\uD3FC) \u2014 DB seo_text \uC6B0\uC120, \uC5C6\uC73C\uBA74 fallback \u2500\u2500 */
   var seoHtml = '';
   (function(){
+    // DB\uC5D0 \uACE0\uC720 seo_text \uC788\uC73C\uBA74 \uADF8\uB300\uB85C \uC0AC\uC6A9 (\uC0C1\uC138 \uD398\uC774\uC9C0\uC640 \uB3D9\uC77C \uCF58\uD150\uCE20)
+    if(shop.seoText && shop.seoText.trim()){
+      seoHtml = '<div class="m-seo-block">'+shop.seoText+'</div>';
+      return;
+    }
+    // fallback: DB seo_text \uC5C6\uC744 \uB54C \uD15C\uD50C\uB9BF
     var area3 = (shop.location||'Seoul').split(',')[0].trim();
     var cat3  = (shop.category||'beauty').charAt(0).toUpperCase()+(shop.category||'beauty').slice(1);
     var svcList = (shop.services&&shop.services.length>0) ? shop.services.slice(0,4).join(', ') : cat3+' treatments';

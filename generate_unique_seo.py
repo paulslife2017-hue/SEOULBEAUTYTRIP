@@ -196,6 +196,21 @@ STRICT rules:
 - Output ONLY valid JSON — zero markdown, zero extra text.\
 """
 
+# seo_text 생성용 시스템 프롬프트
+SEO_TEXT_SYSTEM_PROMPT = """\
+You are an SEO content writer for seoulbeautytrip.com — a K-beauty booking platform for foreigners visiting Seoul.
+Write long-form HTML SEO content that is 100% unique for each shop.
+
+STRICT rules:
+- Use REAL data: shop name, neighborhood, rating, review count, specific treatments, reviewer quotes/phrases.
+- Each heading and paragraph must be SPECIFIC to THIS shop — no copy-paste between shops.
+- NO generic filler: ban "hassle-free", "seamless", "world-class", "state-of-the-art", "premier",
+  "cutting-edge", "look no further", "game-changer", "effortless".
+- Do NOT mention phone number, website URL, or exact street address.
+- HTML tags allowed: <h2>, <p>, <strong>, <em>. No <div>, no <script>, no inline styles.
+- Output ONLY valid JSON — zero markdown, zero extra text.\
+"""
+
 def build_prompt(context: str, shop_name: str, category: str) -> str:
     # 카테고리별 힌트
     cat_hints = {
@@ -208,6 +223,18 @@ def build_prompt(context: str, shop_name: str, category: str) -> str:
         "dental":   "Focus on: specific dental procedure, pain-free experience, results from reviews.",
     }
     hint = cat_hints.get(category, "Focus on standout features mentioned in reviews.")
+
+    # SEO longform 구조 힌트 (카테고리별 다른 H2 구조)
+    seo_structure_hints = {
+        "clinic":  'H2-1: "[Name] — [specific treatment type] Clinic in [neighborhood], Seoul". H2-2: "Treatments at [Name]: [list 2-3 specific procedure names from data]". H2-3: "Why Foreigners Choose [Name] for Korean Dermatology". Cite real rating, review count, reviewer phrases.',
+        "hair":    'H2-1: "[Name] — Hair Salon in [neighborhood], Seoul". H2-2: "What [Name] Does Differently: [color/cut specialty from reviews]". H2-3: "Booking [Name] as a Foreigner in Seoul". Reference stylist skills or before-after results.',
+        "headspa": 'H2-1: "[Name] — Head Spa in [neighborhood], Seoul". H2-2: "The [Name] Scalp Treatment Experience". H2-3: "Visiting [Name] as a Foreign Guest in Seoul". Describe specific steps or sensory details from reviews.',
+        "skincare":'H2-1: "[Name] — Skincare Studio in [neighborhood], Seoul". H2-2: "Facial Treatments at [Name]". H2-3: "Why Foreign Skin-Care Lovers Visit [Name]". Reference skin concerns, glow results from reviews.',
+        "nail":    'H2-1: "[Name] — Nail Art Studio in [neighborhood], Seoul". H2-2: "Nail Designs and Services at [Name]". H2-3: "Getting Nails Done at [Name] as a Foreigner". Cite design styles, longevity, reviewer compliments.',
+        "makeup":  'H2-1: "[Name] — Makeup & Color Analysis in [neighborhood], Seoul". H2-2: "What Happens at a [Name] Session". H2-3: "Foreigners and [Name]: English-Friendly Beauty Consultation". Reference personal color types, client transformations.',
+        "dental":  'H2-1: "[Name] — Dental Clinic in [neighborhood], Seoul". H2-2: "Dental Procedures at [Name]". H2-3: "Foreign Patients at [Name]: English Support & Pricing". Reference specific treatments and pain-free feedback.',
+    }
+    seo_hint = seo_structure_hints.get(category, "Three H2 sections: intro, services, foreigner guide. Each cites real shop data.")
 
     return f"""\
 Write unique copy for "{shop_name}" using only the data below.
@@ -223,10 +250,40 @@ Return a single JSON object:
     "<Bullet 1 — emoji + specific treatment/service highlight unique to THIS shop. 55–85 chars.>",
     "<Bullet 2 — emoji + standout staff/atmosphere/result detail from actual reviews. 55–85 chars.>",
     "<Bullet 3 — emoji + foreigner-accessibility fact (English staff, subway proximity, tourist-area, booking ease) — must be specific to this shop's location/situation. 55–85 chars.>"
-  ]
+  ],
+  "seoText": "<3 HTML sections using <h2 class=\\"sp-seo-h2\\"> and <p class=\\"sp-seo-p\\"> tags. Structure: {seo_hint}. Each paragraph 60-100 words. NO phone/URL/exact address. Must be 100% unique to this specific shop — cite real rating, reviewer phrases, or treatment names from the DATA above. No sentence should be reusable for another shop.>"
 }}
 
-Each bullet must cover a DIFFERENT angle. No two bullets with the same theme.\
+Each whyChoose bullet must cover a DIFFERENT angle. No two bullets with the same theme.
+seoText must be a single HTML string (not an array), no outer div wrapper.\
+"""
+
+
+def build_seotext_prompt(shop: dict, context: str) -> str:
+    """seoText만 단독 생성하는 짧은 프롬프트 (재시도용)"""
+    cat = shop.get("category","beauty")
+    name = shop["name"]
+    seo_structure_hints = {
+        "clinic":  f'H2-1: "{name} — Dermatology Clinic in [neighborhood], Seoul". H2-2: "Treatments at {name}". H2-3: "Why Foreigners Choose {name}".',
+        "hair":    f'H2-1: "{name} — Hair Salon in [neighborhood], Seoul". H2-2: "What {name} Does Differently". H2-3: "Booking {name} as a Foreigner in Seoul".',
+        "headspa": f'H2-1: "{name} — Head Spa in [neighborhood], Seoul". H2-2: "The {name} Scalp Treatment Experience". H2-3: "Visiting {name} as a Foreign Guest".',
+        "skincare":f'H2-1: "{name} — Skincare Studio in [neighborhood], Seoul". H2-2: "Facial Treatments at {name}". H2-3: "Why Foreign Visitors Choose {name}".',
+        "nail":    f'H2-1: "{name} — Nail Art Studio in [neighborhood], Seoul". H2-2: "Nail Services at {name}". H2-3: "Getting Nails Done at {name} as a Foreigner".',
+        "makeup":  f'H2-1: "{name} — Color Analysis in [neighborhood], Seoul". H2-2: "What Happens at {name}". H2-3: "Foreigners and {name}: English-Friendly Consultation".',
+        "dental":  f'H2-1: "{name} — Dental Clinic in [neighborhood], Seoul". H2-2: "Dental Procedures at {name}". H2-3: "Foreign Patients at {name}".',
+    }
+    hint = seo_structure_hints.get(cat, f'Three H2 sections about {name}: intro, services, foreigner guide.')
+    return f"""\
+Write ONLY the seoText field for "{name}" using the data below.
+Structure: {hint}
+Each paragraph 60-100 words. Use <h2 class="sp-seo-h2"> and <p class="sp-seo-p"> tags.
+Cite real rating, review phrases, treatment names. No phone/URL/address.
+
+DATA:
+{context}
+
+Return a single JSON object:
+{{"seoText": "<HTML string with 3 h2+p sections>"}}
 """
 
 
@@ -291,20 +348,25 @@ def parse_gpt_output(raw: str) -> dict | None:
         result = json.loads(clean)
         desc = result.get("description","").strip()
         why  = result.get("whyChoose",[])
+        seo  = result.get("seoText","").strip()
         if desc and isinstance(why, list) and len(why) == 3:
-            return {"description": desc, "whyChoose": [str(b).strip() for b in why]}
+            return {
+                "description": desc,
+                "whyChoose": [str(b).strip() for b in why],
+                "seoText": seo,
+            }
     except json.JSONDecodeError:
         pass
     return None
 
 
 # ── 5. DB 업데이트 ────────────────────────────────
-def update_shop_db(shop_id: str, description: str, why_choose: list) -> int:
+def update_shop_db(shop_id: str, description: str, why_choose: list, seo_text: str = "") -> int:
     conn = psycopg2.connect(DATABASE_URL)
     cur  = conn.cursor()
     cur.execute(
-        "UPDATE shops SET description=%s, why_choose=%s WHERE id=%s",
-        (description, json.dumps(why_choose, ensure_ascii=False), shop_id)
+        "UPDATE shops SET description=%s, why_choose=%s, seo_text=%s WHERE id=%s",
+        (description, json.dumps(why_choose, ensure_ascii=False), seo_text or None, shop_id)
     )
     conn.commit()
     n = cur.rowcount
@@ -363,10 +425,22 @@ def generate_seo_for_shop(shop: dict, dry_run: bool = False) -> dict | None:
     print(f"  description: {result['description'][:90]}…")
     for i, b in enumerate(result["whyChoose"]):
         print(f"  why[{i}]: {b}")
+    seo_preview = result.get("seoText","")
+    if seo_preview:
+        print(f"  seoText: {seo_preview[:100]}…")
+    else:
+        print("  seoText: (empty — will retry once)")
+        # seoText 누락 시 1회 재시도 (GPT reasoning 토큰 부족으로 잘릴 수 있음)
+        raw2 = call_gpt(SEO_TEXT_SYSTEM_PROMPT, build_seotext_prompt(shop, context))
+        if raw2:
+            result2 = parse_gpt_output(raw2)
+            if result2 and result2.get("seoText"):
+                result["seoText"] = result2["seoText"]
+                print(f"  seoText (retry): {result['seoText'][:100]}…")
 
     # Step 5: DB 업데이트
     if not dry_run:
-        n = update_shop_db(sid, result["description"], result["whyChoose"])
+        n = update_shop_db(sid, result["description"], result["whyChoose"], result.get("seoText",""))
         print(f"  ③ DB updated ({n} row)")
     else:
         print("  ③ DRY RUN — DB skipped")
