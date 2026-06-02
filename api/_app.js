@@ -2084,7 +2084,7 @@ var getDb = (env) => {
   const url = env?.DATABASE_URL || (typeof process !== "undefined" ? process.env.DATABASE_URL : void 0);
   if (!url) throw new Error("DATABASE_URL environment variable is not set");
   if (_cachedSql && _cachedUrl === url) return _cachedSql;
-  _cachedSql = (0, import_serverless.neon)(url);
+  _cachedSql = (0, import_serverless.neon)(url, { fetchConnectionCache: true });
   _cachedUrl = url;
   return _cachedSql;
 };
@@ -2627,9 +2627,9 @@ app.get("/api/shops", async (c) => {
 });
 app.get("/api/shops/:id", async (c) => {
   const sql = getDb(c.env);
-  const rows = await sql`SELECT * FROM shops WHERE id=${c.req.param("id")}`;
+  const rows = await withTimeout(sql`SELECT * FROM shops WHERE id=${c.req.param("id")}`, 1e4, []);
   if (!rows.length) return c.json({ error: "Not found" }, 404);
-  const vidRows = await sql`SELECT * FROM videos WHERE shop_id=${c.req.param("id")} ORDER BY created_at DESC`;
+  const vidRows = await withTimeout(sql`SELECT * FROM videos WHERE shop_id=${c.req.param("id")} ORDER BY created_at DESC`, 8e3, []);
   return c.json({ shop: rowToShop(rows[0]), videos: vidRows.map(rowToVideo) });
 });
 app.post("/api/resolve-gmap", async (c) => {
@@ -7452,8 +7452,8 @@ function loadVideos(cat) {
       if(_ldHidden) { setupObs(); }
       if(!_ldHidden){ hideLd(); }
     });
-  // \uCD5C\uB300 5\uCD08 fallback
-  _ldFallbackTimer = setTimeout(function(){ hideLd(); hideCatLoading(); }, 5000);
+  // \uCD5C\uB300 8\uCD08 fallback (Neon DB cold start \uB300\uC751)
+  _ldFallbackTimer = setTimeout(function(){ hideLd(); hideCatLoading(); }, 8000);
 }
 
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }

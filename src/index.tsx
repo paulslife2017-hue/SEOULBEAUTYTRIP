@@ -21,7 +21,8 @@ const getDb = (env?: Env) => {
   const url = env?.DATABASE_URL || (typeof process !== 'undefined' ? process.env.DATABASE_URL : undefined)
   if (!url) throw new Error('DATABASE_URL environment variable is not set')
   if (_cachedSql && _cachedUrl === url) return _cachedSql
-  _cachedSql = neon(url)
+  // fetchConnectionCache: true → HTTP 연결 재사용으로 cold start 단축
+  _cachedSql = neon(url, { fetchConnectionCache: true })
   _cachedUrl = url
   return _cachedSql
 }
@@ -555,9 +556,9 @@ app.get('/api/shops', async (c) => {
 })
 app.get('/api/shops/:id', async (c) => {
   const sql = getDb(c.env)
-  const rows = await sql`SELECT * FROM shops WHERE id=${c.req.param('id')}`
+  const rows = await withTimeout(sql`SELECT * FROM shops WHERE id=${c.req.param('id')}`, 10000, [])
   if (!rows.length) return c.json({ error: 'Not found' }, 404)
-  const vidRows = await sql`SELECT * FROM videos WHERE shop_id=${c.req.param('id')} ORDER BY created_at DESC`
+  const vidRows = await withTimeout(sql`SELECT * FROM videos WHERE shop_id=${c.req.param('id')} ORDER BY created_at DESC`, 8000, [])
   return c.json({ shop: rowToShop(rows[0]), videos: vidRows.map(rowToVideo) })
 })
 // ── 구글맵 단축URL 언팩 → 업체명·주소·지역 반환 ──
@@ -5746,8 +5747,8 @@ function loadVideos(cat) {
       if(_ldHidden) { setupObs(); }
       if(!_ldHidden){ hideLd(); }
     });
-  // 최대 5초 fallback
-  _ldFallbackTimer = setTimeout(function(){ hideLd(); hideCatLoading(); }, 5000);
+  // 최대 8초 fallback (Neon DB cold start 대응)
+  _ldFallbackTimer = setTimeout(function(){ hideLd(); hideCatLoading(); }, 8000);
 }
 
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
