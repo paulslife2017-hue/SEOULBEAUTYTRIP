@@ -4860,7 +4860,7 @@ ${(() => {
 </div>
 
 <div class="sp-float">
-  <a href="${waUrl}" target="_blank" rel="noopener">
+  <a href="${waUrl}" target="_blank" rel="noopener" onclick="if(typeof gtag==='function')gtag('event','whatsapp_click',{event_category:'conversion',event_label:'${shop.name.replace(/'/g, "\\'")}',shop_name:'${shop.name.replace(/'/g, "\\'")}',shop_category:'${shop.category}',page_location:window.location.href})">
     <i class="fab fa-whatsapp" style="font-size:20px"></i> Book via WhatsApp
   </a>
 </div>
@@ -5025,6 +5025,8 @@ function openMapUrl(el){
   frame.src=embedUrl;
   ov.style.display='flex';
   document.body.style.overflow='hidden';
+  // GA4: \uC9C0\uB3C4 \uD074\uB9AD \uC774\uBCA4\uD2B8
+  if(typeof gtag==='function') gtag('event','map_click',{event_category:'engagement',event_label:title,page_location:window.location.href});
 }
 function closeMapOverlay(){
   var ov=document.getElementById('mapOverlay');
@@ -7830,6 +7832,8 @@ function openMapUrl(el){
   frame.src = embedUrl;
   ov.style.display = 'flex';
   document.body.style.overflow = 'hidden';
+  // GA4: \uC9C0\uB3C4 \uD074\uB9AD \uC774\uBCA4\uD2B8
+  if(typeof gtag==='function') gtag('event','map_click',{event_category:'engagement',event_label:title,page_location:window.location.href});
 }
 function closeMapOverlay(){
   var ov = document.getElementById('mapOverlay');
@@ -7980,6 +7984,8 @@ function buildSlide(v, idx) {
 
     document.getElementById('wabtn'+vidIdx).onclick = function(e){
       e.stopPropagation();
+      // GA4: Book \uBC84\uD2BC \uD074\uB9AD (\uBE44\uB514\uC624 \uD53C\uB4DC)
+      if(typeof gtag==='function') gtag('event','book_btn_click',{event_category:'engagement',event_label:shopData?shopData.name:'unknown',shop_name:shopData?shopData.name:'',page_location:window.location.href});
       // \uD56D\uC0C1 \uBAA8\uB2EC \uC5F4\uAE30 (\uC0C1\uC138 \uD398\uC774\uC9C0\uC640 \uB3D9\uC77C \uCF58\uD150\uCE20)
       openShopModal(vid.shopId||shopData.id);
     };
@@ -8100,6 +8106,11 @@ function openShopModal(shopId) {
   document.getElementById('modalBtns').innerHTML = '';
   document.getElementById('shopModal').classList.add('open');
   document.getElementById('modalScroll').scrollTop = 0;
+  // GA4: \uC5C5\uCCB4 \uBAA8\uB2EC \uC5F4\uAE30 \uC774\uBCA4\uD2B8
+  if(typeof gtag==='function'){
+    var sc = shopCache[shopId];
+    gtag('event','shop_view',{event_category:'engagement',event_label:sc?sc.name:shopId,shop_id:shopId,shop_name:sc?sc.name:'',shop_category:sc?sc.category:'',page_location:window.location.href});
+  }
 
   // 1) \uCE90\uC2DC\uC5D0 \uC788\uACE0 \uC0C1\uC138 \uC815\uBCF4(services \uB4F1)\uB3C4 \uC788\uC73C\uBA74 \u2192 \uC989\uC2DC \uB80C\uB354, \uBC31\uADF8\uB77C\uC6B4\uB4DC \uAC31\uC2E0\uC740 \uC0DD\uB7B5
   var cached = shopCache[shopId];
@@ -8540,6 +8551,20 @@ function renderShopModal(shop) {
   }
 
   document.getElementById('modalBtns').innerHTML = waBtn + btn2Row;
+
+  // GA4: WhatsApp \uBC84\uD2BC \uD074\uB9AD \uCD94\uC801
+  var waEl = document.getElementById('modalBtns').querySelector('a.m-wa');
+  if(waEl && typeof gtag==='function'){
+    waEl.addEventListener('click', function(){
+      gtag('event','whatsapp_click',{
+        event_category:'conversion',
+        event_label: shop ? (shop.name||'unknown') : 'unknown',
+        shop_name: shop ? (shop.name||'') : '',
+        shop_category: shop ? (shop.category||'') : '',
+        page_location: window.location.href
+      });
+    });
+  }
 }
 
 /* \u2500\u2500 \uBAA8\uB2EC \uB0B4 \uC601\uC0C1 \uC7AC\uC0DD/\uC815\uC9C0 \u2500\u2500 */

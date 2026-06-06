@@ -3028,7 +3028,7 @@ ${(()=>{const allP=[shop.thumbnail,...(shop.photos||[]).filter((p:string)=>p&&p!
 </div>
 
 <div class="sp-float">
-  <a href="${waUrl}" target="_blank" rel="noopener">
+  <a href="${waUrl}" target="_blank" rel="noopener" onclick="if(typeof gtag==='function')gtag('event','whatsapp_click',{event_category:'conversion',event_label:'${shop.name.replace(/'/g,"\\'")}',shop_name:'${shop.name.replace(/'/g,"\\'")}',shop_category:'${shop.category}',page_location:window.location.href})">
     <i class="fab fa-whatsapp" style="font-size:20px"></i> Book via WhatsApp
   </a>
 </div>
@@ -3193,6 +3193,8 @@ function openMapUrl(el){
   frame.src=embedUrl;
   ov.style.display='flex';
   document.body.style.overflow='hidden';
+  // GA4: 지도 클릭 이벤트
+  if(typeof gtag==='function') gtag('event','map_click',{event_category:'engagement',event_label:title,page_location:window.location.href});
 }
 function closeMapOverlay(){
   var ov=document.getElementById('mapOverlay');
@@ -6148,6 +6150,8 @@ function openMapUrl(el){
   frame.src = embedUrl;
   ov.style.display = 'flex';
   document.body.style.overflow = 'hidden';
+  // GA4: 지도 클릭 이벤트
+  if(typeof gtag==='function') gtag('event','map_click',{event_category:'engagement',event_label:title,page_location:window.location.href});
 }
 function closeMapOverlay(){
   var ov = document.getElementById('mapOverlay');
@@ -6298,6 +6302,8 @@ function buildSlide(v, idx) {
 
     document.getElementById('wabtn'+vidIdx).onclick = function(e){
       e.stopPropagation();
+      // GA4: Book 버튼 클릭 (비디오 피드)
+      if(typeof gtag==='function') gtag('event','book_btn_click',{event_category:'engagement',event_label:shopData?shopData.name:'unknown',shop_name:shopData?shopData.name:'',page_location:window.location.href});
       // 항상 모달 열기 (상세 페이지와 동일 콘텐츠)
       openShopModal(vid.shopId||shopData.id);
     };
@@ -6418,6 +6424,11 @@ function openShopModal(shopId) {
   document.getElementById('modalBtns').innerHTML = '';
   document.getElementById('shopModal').classList.add('open');
   document.getElementById('modalScroll').scrollTop = 0;
+  // GA4: 업체 모달 열기 이벤트
+  if(typeof gtag==='function'){
+    var sc = shopCache[shopId];
+    gtag('event','shop_view',{event_category:'engagement',event_label:sc?sc.name:shopId,shop_id:shopId,shop_name:sc?sc.name:'',shop_category:sc?sc.category:'',page_location:window.location.href});
+  }
 
   // 1) 캐시에 있고 상세 정보(services 등)도 있으면 → 즉시 렌더, 백그라운드 갱신은 생략
   var cached = shopCache[shopId];
@@ -6858,6 +6869,20 @@ function renderShopModal(shop) {
   }
 
   document.getElementById('modalBtns').innerHTML = waBtn + btn2Row;
+
+  // GA4: WhatsApp 버튼 클릭 추적
+  var waEl = document.getElementById('modalBtns').querySelector('a.m-wa');
+  if(waEl && typeof gtag==='function'){
+    waEl.addEventListener('click', function(){
+      gtag('event','whatsapp_click',{
+        event_category:'conversion',
+        event_label: shop ? (shop.name||'unknown') : 'unknown',
+        shop_name: shop ? (shop.name||'') : '',
+        shop_category: shop ? (shop.category||'') : '',
+        page_location: window.location.href
+      });
+    });
+  }
 }
 
 /* ── 모달 내 영상 재생/정지 ── */
