@@ -2887,10 +2887,32 @@ ${(()=>{const allP=[shop.thumbnail,...(shop.photos||[]).filter((p:string)=>p&&p!
     /* ── SEO 텍스트 섹션: DB seo_text 우선, 없으면 템플릿 fallback ── */
     if(shop.seoText && shop.seoText.trim()){
       // DB에 &amp; 등 엔티티로 저장된 경우 복원
-      const cleanSeo = shop.seoText
+      let cleanSeo = shop.seoText
         .replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')
         .replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&nbsp;/g,' ')
         .replace(/&mdash;/g,'—').replace(/&ndash;/g,'–').replace(/&hellip;/g,'…');
+      // H2가 없으면 업체명+카테고리+지역 기반 H2 자동 삽입
+      if(!cleanSeo.includes('<h2')){
+        const _area = (shop.location||'Seoul').split(',')[0].trim();
+        const _cat  = shop.category.charAt(0).toUpperCase()+shop.category.slice(1);
+        const _areaLabel = _area.toLowerCase().includes('cheongdam')||_area.toLowerCase().includes('apgujeong') ? 'Gangnam' : _area;
+        const _catLabel: Record<string,string> = {skincare:'Skincare',makeup:'Makeup',hair:'Hair Salon',nail:'Nail',clinic:'Dermatology Clinic',headspa:'Head Spa',spa:'Spa'};
+        const _catName = _catLabel[shop.category] || _cat;
+        // p 태그를 H2+p 쌍으로 분리 (3개 p → h2+p, h2+p, h2+p)
+        const _paras = cleanSeo.match(/<p[^>]*>[\s\S]*?<\/p>/g) || [];
+        const _h2titles = [
+          shop.name+' \u2014 '+_catName+' in '+_areaLabel+', Seoul',
+          'Foreigner-Friendly '+_catName+' in '+_areaLabel,
+          'How to Book '+shop.name+' for Foreign Visitors'
+        ];
+        if(_paras.length >= 2){
+          cleanSeo = _paras.map(function(p, i){
+            return '<h2 class="sp-seo-h2">'+(_h2titles[i] || shop.name+' \u2014 '+_catName)+'</h2>'+p;
+          }).join('');
+        } else {
+          cleanSeo = '<h2 class="sp-seo-h2">'+_h2titles[0]+'</h2>'+cleanSeo;
+        }
+      }
       return '<div class="sp-seo-block">'+cleanSeo+'</div>';
     }
     /* fallback: DB seo_text 없을 때 템플릿 */
@@ -6501,7 +6523,23 @@ function renderShopModal(shop) {
     // DB에 고유 seo_text 있으면 그대로 사용 (상세 페이지와 동일 콘텐츠)
     // decodeHtmlEntities: DB에 &amp; 등 엔티티로 저장된 경우 복원
     if(shop.seoText && shop.seoText.trim()){
-      seoHtml = '<div class="m-seo-block">'+decodeHtmlEntities(shop.seoText)+'</div>';
+      let _mSeo = decodeHtmlEntities(shop.seoText);
+      // H2 없으면 자동 삽입 (모바일뷰)
+      if(!_mSeo.includes('<h2')){
+        const _ma = (shop.location||'Seoul').split(',')[0].trim();
+        const _mc = shop.category;
+        const _mcLabel: Record<string,string> = {skincare:'Skincare',makeup:'Makeup',hair:'Hair Salon',nail:'Nail',clinic:'Dermatology Clinic',headspa:'Head Spa',spa:'Spa'};
+        const _mcName = _mcLabel[_mc] || (_mc.charAt(0).toUpperCase()+_mc.slice(1));
+        const _mArea = _ma.toLowerCase().includes('cheongdam')||_ma.toLowerCase().includes('apgujeong') ? 'Gangnam' : _ma;
+        const _mh2s = [shop.name+' \u2014 '+_mcName+' in '+_mArea+', Seoul','Foreigner-Friendly '+_mcName+' in '+_mArea,'How to Book '+shop.name];
+        const _mps = _mSeo.match(/<p[^>]*>[\s\S]*?<\/p>/g) || [];
+        if(_mps.length >= 2){
+          _mSeo = _mps.map(function(p,i){ return '<h2 class="sp-seo-h2">'+(_mh2s[i]||shop.name)+'</h2>'+p; }).join('');
+        } else {
+          _mSeo = '<h2 class="sp-seo-h2">'+_mh2s[0]+'</h2>'+_mSeo;
+        }
+      }
+      seoHtml = '<div class="m-seo-block">'+_mSeo+'</div>';
       return;
     }
     // fallback: DB seo_text 없을 때 템플릿
