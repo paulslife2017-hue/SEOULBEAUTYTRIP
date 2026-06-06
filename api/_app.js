@@ -6868,13 +6868,13 @@ app.get("/admin", (c) => {
   const html = ADMIN_HTML.replace("__GSK_TOKEN__", token);
   return c.html(html);
 });
-async function makeGa4Jwt(serviceAccountJson) {
+async function makeGa4Jwt(serviceAccountJson, scope = "https://www.googleapis.com/auth/analytics.readonly") {
   const sa = JSON.parse(serviceAccountJson);
   const now = Math.floor(Date.now() / 1e3);
   const header = { alg: "RS256", typ: "JWT" };
   const payload = {
     iss: sa.client_email,
-    scope: "https://www.googleapis.com/auth/analytics.readonly",
+    scope,
     aud: "https://oauth2.googleapis.com/token",
     iat: now,
     exp: now + 3600
@@ -6894,8 +6894,8 @@ async function makeGa4Jwt(serviceAccountJson) {
   const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
   return `${unsigned}.${sigB64}`;
 }
-async function getGa4Token(serviceAccountJson) {
-  const jwt = await makeGa4Jwt(serviceAccountJson);
+async function getGa4Token(serviceAccountJson, scope) {
+  const jwt = await makeGa4Jwt(serviceAccountJson, scope);
   const r = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -6995,7 +6995,7 @@ app.get("/api/search-console", async (c) => {
     const endDate = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
     const startDate = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10);
     const siteUrl = "https://seoulbeautytrip.com";
-    const token = await getGa4Token(saKey);
+    const token = await getGa4Token(saKey, "https://www.googleapis.com/auth/webmasters.readonly");
     const scFetch = (body) => fetch(
       `https://searchconsole.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`,
       { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(body) }

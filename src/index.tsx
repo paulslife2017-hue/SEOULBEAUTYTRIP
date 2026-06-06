@@ -5187,13 +5187,13 @@ app.get('/admin', (c) => {
 
 // ── GA4 Data API 프록시 ──
 // GA4 서비스 계정 JWT 생성 (RS256)
-async function makeGa4Jwt(serviceAccountJson: string): Promise<string> {
+async function makeGa4Jwt(serviceAccountJson: string, scope = 'https://www.googleapis.com/auth/analytics.readonly'): Promise<string> {
   const sa = JSON.parse(serviceAccountJson)
   const now = Math.floor(Date.now() / 1000)
   const header = { alg: 'RS256', typ: 'JWT' }
   const payload = {
     iss: sa.client_email,
-    scope: 'https://www.googleapis.com/auth/analytics.readonly',
+    scope,
     aud: 'https://oauth2.googleapis.com/token',
     iat: now,
     exp: now + 3600
@@ -5214,8 +5214,8 @@ async function makeGa4Jwt(serviceAccountJson: string): Promise<string> {
   return `${unsigned}.${sigB64}`
 }
 
-async function getGa4Token(serviceAccountJson: string): Promise<string> {
-  const jwt = await makeGa4Jwt(serviceAccountJson)
+async function getGa4Token(serviceAccountJson: string, scope?: string): Promise<string> {
+  const jwt = await makeGa4Jwt(serviceAccountJson, scope)
   const r = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -5333,7 +5333,8 @@ app.get('/api/search-console', async (c) => {
     const startDate = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10)
     const siteUrl = 'https://seoulbeautytrip.com'
 
-    const token = await getGa4Token(saKey)
+    // Search Console은 webmasters.readonly scope 필요 (GA4의 analytics.readonly와 다름)
+    const token = await getGa4Token(saKey, 'https://www.googleapis.com/auth/webmasters.readonly')
 
     const scFetch = (body: object) => fetch(
       `https://searchconsole.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`,
