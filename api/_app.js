@@ -2610,7 +2610,7 @@ app.get("/api/videos", async (c) => {
   const sql = getDb(c.env);
   const cat = c.req.query("category");
   const rows = await withTimeout(
-    cat && cat !== "all" ? sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.category=${cat} ORDER BY RANDOM()` : sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id ORDER BY RANDOM()`,
+    cat && cat !== "all" ? sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.category=${cat} ORDER BY v.views DESC, v.created_at DESC` : sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id ORDER BY v.views DESC, v.created_at DESC`,
     15e3,
     []
   );
@@ -7758,10 +7758,8 @@ function loadVideos(cat) {
   if((cat === 'all' || !cat) && window.__INIT_VIDEOS__ && window.__INIT_VIDEOS__.length) {
     vids = window.__INIT_VIDEOS__;
     window.__INIT_VIDEOS__ = null;
-    for(var i=vids.length-1;i>0;i--){
-      var j=Math.floor(Math.random()*(i+1));
-      var tmp=vids[i]; vids[i]=vids[j]; vids[j]=tmp;
-    }
+    // \uC870\uD68C\uC218 \uB0B4\uB9BC\uCC28\uC21C \uC815\uB82C (\uC11C\uBC84\uC5D0\uC11C \uC774\uBBF8 \uC815\uB82C\uB418\uC5B4 \uC624\uC9C0\uB9CC \uD074\uB77C\uC774\uC5B8\uD2B8\uC5D0\uC11C\uB3C4 \uBCF4\uC7A5)
+    vids.sort(function(a, b){ return (b.views||0) - (a.views||0); });
     renderFeed();
     setLdProgress(85);
     _ldReadyFlags.videos = true;
@@ -9575,15 +9573,16 @@ textarea{height:80px;resize:none}
     <div style="margin-bottom:10px">
       <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:5px">\uCE74\uD14C\uACE0\uB9AC *</label>
       <div style="display:flex;flex-wrap:wrap;gap:6px" id="qr-cat-btns">
-        <button onclick="qrSetCat('headspa')" class="qr-cat-btn" data-cat="headspa" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,77,141,.4);background:rgba(255,77,141,.15);color:#FF4D8D;font-size:12px;font-weight:700;cursor:pointer">\u{1F9D6} \uD5E4\uB4DC\uC2A4\uD30C</button>
+        <button onclick="qrSetCat('clinic')" class="qr-cat-btn" data-cat="clinic" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,77,141,.4);background:rgba(255,77,141,.15);color:#FF4D8D;font-size:12px;font-weight:700;cursor:pointer">\u{1F3E5} \uD074\uB9AC\uB2C9</button>
+        <button onclick="qrSetCat('headspa')" class="qr-cat-btn" data-cat="headspa" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">\u{1F9D6} \uD5E4\uB4DC\uC2A4\uD30C</button>
         <button onclick="qrSetCat('skincare')" class="qr-cat-btn" data-cat="skincare" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">\u2728 \uC2A4\uD0A8\uCF00\uC5B4</button>
         <button onclick="qrSetCat('hair')" class="qr-cat-btn" data-cat="hair" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">\u{1F487} \uD5E4\uC5B4</button>
         <button onclick="qrSetCat('nail')" class="qr-cat-btn" data-cat="nail" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">\u{1F485} \uB124\uC77C</button>
-        <button onclick="qrSetCat('clinic')" class="qr-cat-btn" data-cat="clinic" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">\u{1F3E5} \uD074\uB9AC\uB2C9</button>
         <button onclick="qrSetCat('makeup')" class="qr-cat-btn" data-cat="makeup" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">\u{1F484} \uBA54\uC774\uD06C\uC5C5</button>
+        <button onclick="qrSetCat('tattoo')" class="qr-cat-btn" data-cat="tattoo" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">\u2712\uFE0F \uD0C0\uD22C</button>
         <button onclick="qrSetCat('spa')" class="qr-cat-btn" data-cat="spa" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">\u{1F6C1} \uC2A4\uD30C</button>
       </div>
-      <input type="hidden" id="qr-category" value="headspa">
+      <input type="hidden" id="qr-category" value="clinic">
     </div>
 
     <!-- \uAD6C\uAE00\uB9F5 URL -->
@@ -10520,7 +10519,7 @@ window.qrSetCat = function(cat) {
 window.quickRegister = async function quickRegister() {
   var gmapUrl   = (document.getElementById('qr-gmap').value || '').trim();
   var videoUrl  = (document.getElementById('qr-video').value || '').trim(); // \uC5C5\uB85C\uB4DC \uC644\uB8CC \uD6C4 \uC790\uB3D9 \uC138\uD305
-  var category  = document.getElementById('qr-category').value || 'headspa';
+  var category  = document.getElementById('qr-category').value || 'clinic';
   var btn       = document.getElementById('qr-btn');
   var status    = document.getElementById('qr-status');
   var result    = document.getElementById('qr-result');

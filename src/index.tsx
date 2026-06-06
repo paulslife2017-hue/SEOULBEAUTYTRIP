@@ -539,8 +539,8 @@ app.get('/api/videos', async (c) => {
   const cat = c.req.query('category')
   const rows = await withTimeout(
     cat && cat !== 'all'
-      ? sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.category=${cat} ORDER BY RANDOM()`
-      : sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id ORDER BY RANDOM()`,
+      ? sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.category=${cat} ORDER BY v.views DESC, v.created_at DESC`
+      : sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id ORDER BY v.views DESC, v.created_at DESC`,
     15000, []
   )
   const result = rows.map((r: any) => ({
@@ -6076,10 +6076,8 @@ function loadVideos(cat) {
   if((cat === 'all' || !cat) && window.__INIT_VIDEOS__ && window.__INIT_VIDEOS__.length) {
     vids = window.__INIT_VIDEOS__;
     window.__INIT_VIDEOS__ = null;
-    for(var i=vids.length-1;i>0;i--){
-      var j=Math.floor(Math.random()*(i+1));
-      var tmp=vids[i]; vids[i]=vids[j]; vids[j]=tmp;
-    }
+    // 조회수 내림차순 정렬 (서버에서 이미 정렬되어 오지만 클라이언트에서도 보장)
+    vids.sort(function(a, b){ return (b.views||0) - (a.views||0); });
     renderFeed();
     setLdProgress(85);
     _ldReadyFlags.videos = true;
@@ -7895,15 +7893,16 @@ textarea{height:80px;resize:none}
     <div style="margin-bottom:10px">
       <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:5px">카테고리 *</label>
       <div style="display:flex;flex-wrap:wrap;gap:6px" id="qr-cat-btns">
-        <button onclick="qrSetCat('headspa')" class="qr-cat-btn" data-cat="headspa" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,77,141,.4);background:rgba(255,77,141,.15);color:#FF4D8D;font-size:12px;font-weight:700;cursor:pointer">🧖 헤드스파</button>
+        <button onclick="qrSetCat('clinic')" class="qr-cat-btn" data-cat="clinic" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,77,141,.4);background:rgba(255,77,141,.15);color:#FF4D8D;font-size:12px;font-weight:700;cursor:pointer">🏥 클리닉</button>
+        <button onclick="qrSetCat('headspa')" class="qr-cat-btn" data-cat="headspa" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">🧖 헤드스파</button>
         <button onclick="qrSetCat('skincare')" class="qr-cat-btn" data-cat="skincare" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">✨ 스킨케어</button>
         <button onclick="qrSetCat('hair')" class="qr-cat-btn" data-cat="hair" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">💇 헤어</button>
         <button onclick="qrSetCat('nail')" class="qr-cat-btn" data-cat="nail" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">💅 네일</button>
-        <button onclick="qrSetCat('clinic')" class="qr-cat-btn" data-cat="clinic" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">🏥 클리닉</button>
         <button onclick="qrSetCat('makeup')" class="qr-cat-btn" data-cat="makeup" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">💄 메이크업</button>
+        <button onclick="qrSetCat('tattoo')" class="qr-cat-btn" data-cat="tattoo" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">✒️ 타투</button>
         <button onclick="qrSetCat('spa')" class="qr-cat-btn" data-cat="spa" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">🛁 스파</button>
       </div>
-      <input type="hidden" id="qr-category" value="headspa">
+      <input type="hidden" id="qr-category" value="clinic">
     </div>
 
     <!-- 구글맵 URL -->
@@ -8840,7 +8839,7 @@ window.qrSetCat = function(cat) {
 window.quickRegister = async function quickRegister() {
   var gmapUrl   = (document.getElementById('qr-gmap').value || '').trim();
   var videoUrl  = (document.getElementById('qr-video').value || '').trim(); // 업로드 완료 후 자동 세팅
-  var category  = document.getElementById('qr-category').value || 'headspa';
+  var category  = document.getElementById('qr-category').value || 'clinic';
   var btn       = document.getElementById('qr-btn');
   var status    = document.getElementById('qr-status');
   var result    = document.getElementById('qr-result');
