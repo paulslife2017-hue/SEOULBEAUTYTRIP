@@ -3104,8 +3104,8 @@ Return ONLY a single valid JSON object \u2014 no markdown, no explanation:
   ],
   "metaDescription": "<145\u2013158 chars. Include shop name, ${area}, ${cat}, and a specific hook from reviews.>",
   "titleSuffix": "<max 45 chars: ${body.name} | ${area} ${cat}>",
-  "keywords": ["<brand+area>","<brand booking>","<brand review>","<brand foreigner>","<best ${cat} ${area} Seoul>","<${cat} Seoul English>","<${area} ${cat} foreigner>","<${cat} Seoul 2025>","<${area} beauty Seoul>","<${cat} Seoul booking>"],
-  "seoText": "<3 HTML paragraphs with H2 headings. Structure: ${seoHint}. Each paragraph 60\u2013100 words. NO phone/URL/exact address. Use <h2 class=\\"sp-seo-h2\\"> and <p class=\\"sp-seo-p\\"> tags. Must be 100% unique to this specific shop \u2014 cite real rating, review phrases, or treatment names. No generic sentences that could apply to any shop.>"
+  "keywords": ["<brand+area>","<brand booking>","<brand review>","<brand foreigner>","<best ${cat} ${area} Seoul 2026>","<${cat} Seoul English 2026>","<${area} ${cat} foreigner>","<${cat} Seoul 2026>","<${area} beauty Seoul 2026>","<${cat} Seoul English speaking>","<book ${cat} Seoul foreigners>","<${area} ${cat} foreigners review>"],
+  "seoText": "<EXACTLY 3 sections, each with one H2 then one P. Structure: ${seoHint}. Rules: (1) Every P must be 70-110 words. (2) Each H2 must contain the shop name OR area OR Seoul. (3) Mention the year 2026 at least once naturally. (4) NO phone/URL/exact address. (5) Use ONLY: <h2 class=\\"sp-seo-h2\\"> and <p class=\\"sp-seo-p\\"> tags. (6) Must be 100% unique \u2014 cite real rating, review count, or a real reviewer phrase. (7) End with a sentence about English-friendly booking. Output ONLY the raw HTML string, NOT an array, NOT markdown.>"
 }`;
     const res = await fetch("https://www.genspark.ai/api/llm_proxy/v1/chat/completions", {
       method: "POST",
@@ -3113,10 +3113,10 @@ Return ONLY a single valid JSON object \u2014 no markdown, no explanation:
       body: JSON.stringify({
         model: "gpt-5.1",
         messages: [
-          { role: "system", content: "You are a Seoul beauty SEO copywriter. Output ONLY valid JSON \u2014 no markdown, no extra text. seoText must be raw HTML string (h2+p tags), not an array." },
+          { role: "system", content: 'You are a Seoul K-beauty SEO expert writing for foreign tourists in 2026. Output ONLY valid JSON \u2014 no markdown, no extra text. seoText MUST be a raw HTML string (h2+p tags only), NOT an array, NOT markdown. Always include "2026" naturally in at least one paragraph. Always mention the specific neighborhood. Always end with English-friendly booking info.' },
           { role: "user", content: prompt }
         ],
-        max_tokens: 2e3,
+        max_tokens: 2500,
         temperature: 0.75
       })
     });
@@ -3130,6 +3130,18 @@ Return ONLY a single valid JSON object \u2014 no markdown, no explanation:
     const parsed = JSON.parse(m[0]);
     if (!parsed.description || !Array.isArray(parsed.whyChoose) || parsed.whyChoose.length < 3) return null;
     if (!parsed.seoText) parsed.seoText = "";
+    if (parsed.seoText && !parsed.seoText.includes("<h2")) {
+      const _area2 = (body.location || "Seoul").split(",")[0].trim();
+      const _catMap2 = { clinic: "Dermatology Clinic", hair: "Hair Salon", headspa: "Head Spa", skincare: "Skincare", makeup: "Makeup", nail: "Nail Art", dental: "Dental Clinic" };
+      const _catN2 = _catMap2[body.category || ""] || (body.category || "Beauty").charAt(0).toUpperCase() + (body.category || "").slice(1);
+      const _h2auto = [body.name + " \u2014 " + _catN2 + " in " + _area2 + ", Seoul 2026", "Foreigner-Friendly " + _catN2 + " in " + _area2, "How to Book " + body.name + " as a Foreign Visitor"];
+      const _ps2 = parsed.seoText.match(/<p[^>]*>[\s\S]*?<\/p>/g) || [];
+      if (_ps2.length >= 2) {
+        parsed.seoText = _ps2.map((p, i) => '<h2 class="sp-seo-h2">' + (_h2auto[i] || body.name) + "</h2>" + p).join("");
+      } else {
+        parsed.seoText = '<h2 class="sp-seo-h2">' + _h2auto[0] + "</h2>" + parsed.seoText;
+      }
+    }
     return parsed;
   } catch {
     return null;
@@ -3968,9 +3980,10 @@ app.post("/api/admin/regenerate-seo-all", async (c) => {
   const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
   if (!apiKey) return c.json({ error: "API key not configured" }, 500);
   const force = c.req.query("force") === "true";
+  const noH2Only = c.req.query("no_h2") === "true";
   let rows = [];
   try {
-    rows = force ? await sql`SELECT * FROM shops WHERE active=true ORDER BY created_at ASC` : await sql`SELECT * FROM shops WHERE active=true AND (description IS NULL OR description='' OR meta_description IS NULL OR meta_description='') ORDER BY created_at ASC`;
+    rows = force ? await sql`SELECT * FROM shops WHERE active=true ORDER BY created_at ASC` : noH2Only ? await sql`SELECT * FROM shops WHERE active=true AND (seo_text IS NULL OR seo_text='' OR seo_text NOT LIKE '%<h2%') ORDER BY created_at ASC` : await sql`SELECT * FROM shops WHERE active=true AND (description IS NULL OR description='' OR meta_description IS NULL OR meta_description='') ORDER BY created_at ASC`;
   } catch (e) {
     return c.json({ error: e.message }, 500);
   }
@@ -4245,7 +4258,7 @@ People: `);
   };
   const _catLabel = _catTitleLabels[_shopCat] || _shopCat.charAt(0).toUpperCase() + _shopCat.slice(1);
   const _areaFinal = _shopArea.toLowerCase().replace("cheongdam", "Gangnam").replace("apgujeong", "Gangnam") !== _shopArea ? "Gangnam" : _shopArea;
-  const _pageTitle = shop.name + " " + _areaFinal + " " + _catLabel + " Seoul | Foreigners Guide";
+  const _pageTitle = shop.name + " " + _areaFinal + " " + _catLabel + " Seoul 2026 | Foreigners Guide";
   const _metaDescLabels = {
     clinic: "dermatology clinic",
     hair: "hair salon",
@@ -4277,7 +4290,8 @@ People: `);
   const _extras = _catKwMap[_shopCat] || [];
   const _svcKw = shop.services.slice(0, 3);
   const _base2 = [_n, _n + " Seoul", _n + " " + _areaGn, _n + " review", _n + " booking", _n + " foreigners", _n + " English", "best " + _shopCat + " " + _areaGn + " Seoul"];
-  const _keywords = shop.seoKeywords && shop.seoKeywords.trim().length > 20 ? shop.seoKeywords : [..._base2, ..._extras, ..._svcKw].join(", ");
+  const _year2026kw = [_n + " Seoul 2026", "best " + _shopCat + " " + _areaGn + " Seoul 2026", _shopCat + " Seoul foreigners 2026"];
+  const _keywords = shop.seoKeywords && shop.seoKeywords.trim().length > 20 ? shop.seoKeywords.includes("2026") ? shop.seoKeywords : shop.seoKeywords + ", " + _year2026kw.join(", ") : [..._base2, ..._extras, ..._svcKw, ..._year2026kw].join(", ");
   const _ogCatLabels = {
     clinic: "Dermatology Clinic",
     hair: "Hair Salon",
@@ -4379,6 +4393,29 @@ People: `);
         "longitude":"${shop.lng || ""}"
       },
       "openingHours":"${shop.hours.replace(/"/g, "'")}",
+      ${(() => {
+    const _days = { monday: "Monday", tuesday: "Tuesday", wednesday: "Wednesday", thursday: "Thursday", friday: "Friday", saturday: "Saturday", sunday: "Sunday", mon: "Monday", tue: "Tuesday", wed: "Wednesday", thu: "Thursday", fri: "Friday", sat: "Saturday", sun: "Sunday" };
+    const _hrs = shop.hours.toLowerCase();
+    const _specs = [];
+    const _p1 = _hrs.matchAll(/([a-z]+):\s*(\d+):(\d+)\s*(am|pm)?\s*[\u2013\-~]+\s*(\d+):(\d+)\s*(am|pm)?/gi);
+    for (const m of _p1) {
+      const day = _days[m[1].toLowerCase()];
+      if (!day) continue;
+      let oh = parseInt(m[2]);
+      const om = m[3];
+      const oap = (m[4] || "").toLowerCase();
+      let ch = parseInt(m[5]);
+      const cm = m[6];
+      const cap = (m[7] || "").toLowerCase();
+      if (oap === "pm" && oh !== 12) oh += 12;
+      if (oap === "am" && oh === 12) oh = 0;
+      if (cap === "pm" && ch !== 12) ch += 12;
+      if (cap === "am" && ch === 12) ch = 0;
+      _specs.push('{"@type":"OpeningHoursSpecification","dayOfWeek":"https://schema.org/' + day + '","opens":"' + String(oh).padStart(2, "0") + ":" + om + '","closes":"' + String(ch).padStart(2, "0") + ":" + cm + '"}');
+    }
+    if (_specs.length > 0) return '"openingHoursSpecification":[' + _specs.join(",") + "],";
+    return "";
+  })()}
       "priceRange":"${shop.priceRange}",
       "currenciesAccepted":"KRW",
       "paymentAccepted":"Cash, Credit Card",
@@ -4616,11 +4653,12 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 </nav>
 
 <div class="sp-hero">
-  <img class="sp-hero-img" src="${shop.thumbnail}" alt="${shop.name} \u2014 ${shop.location} ${shop.category}" itemprop="image">
+  <img class="sp-hero-img" src="${shop.thumbnail}" alt="${shop.name} ${_catLabel} in ${_areaFinal} Seoul \u2014 Best Korean Beauty for Foreigners" itemprop="image" width="800" height="600">
   <div class="sp-hero-ov"></div>
   <div class="sp-hero-info">
     <div class="sp-cat-badge">${catIcon} ${shop.category.charAt(0).toUpperCase() + shop.category.slice(1)} \xB7 ${shop.location.split(",")[0].trim()} Seoul</div>
     <h1 class="sp-title" itemprop="name">${shop.name}</h1>
+    <div class="sp-subtitle" style="font-size:13px;color:rgba(255,255,255,.65);margin-top:4px;font-weight:500;letter-spacing:.3px">${_catLabel} &middot; ${_areaFinal}, Seoul &middot; English Booking Available</div>
     <div class="sp-loc"><i class="fas fa-map-marker-alt" style="color:var(--pk)"></i><span itemprop="addressLocality">${shop.location}, Seoul</span></div>
     <div style="margin-top:7px;display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.45);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.15);border-radius:20px;padding:5px 12px;width:fit-content;cursor:pointer;max-width:90vw;overflow:hidden" onclick="navigator.clipboard&&navigator.clipboard.writeText('${canonicalUrl}').then(function(){var el=document.getElementById('sp-url-copied');if(el){el.style.opacity='1';setTimeout(function(){el.style.opacity='0'},1500)}})">
       <i class="fas fa-link" style="color:rgba(255,255,255,.5);font-size:10px;flex-shrink:0"></i>
@@ -4639,12 +4677,12 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 ${(() => {
     const allP = [shop.thumbnail, ...(shop.photos || []).filter((p) => p && p !== shop.thumbnail)];
     if (allP.length < 2) return "";
-    const _altL = ["interior", "treatment room", "service area", "staff", "entrance", "detail", "ambiance", "reception"];
+    const _altL = ["interior and atmosphere", "treatment room setup", "service area for foreigners", "professional staff", "entrance and facade", "treatment detail shot", "relaxing ambiance", "reception and waiting area"];
     const thumbs = allP.map((url, i) => {
       const _cls = "sp-gthumb" + (i === 0 ? " active" : "");
       const _lbl = _altL[i] || "photo " + (i + 1);
-      const _alt = shop.name + " " + shop.category + " Seoul \u2014 " + _lbl;
-      return '<div class="' + _cls + `" onclick="setHero('` + url + `',this)"><img src="` + url + '" alt="' + _alt + '" loading="lazy"></div>';
+      const _alt = shop.name + " " + _catLabel + " " + _areaFinal + " Seoul \u2014 " + _lbl;
+      return '<div class="' + _cls + `" onclick="setHero('` + url + `',this)"><img src="` + url + '" alt="' + _alt + '" loading="lazy" width="120" height="160"></div>';
     }).join("");
     return '<div class="sp-gallery">' + thumbs + "</div>";
   })()}
@@ -4785,8 +4823,10 @@ ${(() => {
     const rArea = (r.location || "").split(",")[0].trim();
     const rRating = r.rating ? `<span class="sp-rel-rating"><i class="fas fa-star" style="font-size:8px"></i>${Number(r.rating).toFixed(1)}</span>` : "";
     const rThumb = r.thumbnail || "";
+    const rCatL = { clinic: "Clinic", hair: "Hair Salon", headspa: "Head Spa", skincare: "Skincare", makeup: "Makeup", nail: "Nail", spa: "Spa" };
+    const rCatLabel = rCatL[r.category] || r.category;
     return `<a class="sp-rel-card" href="/shop/${r.slug}">
-          ${rThumb ? `<img class="sp-rel-thumb" src="${rThumb}" alt="${r.name}" loading="lazy">` : `<div class="sp-rel-thumb" style="background:#111"></div>`}
+          ${rThumb ? `<img class="sp-rel-thumb" src="${rThumb}" alt="${r.name} ${rCatLabel} ${rArea} Seoul" loading="lazy">` : `<div class="sp-rel-thumb" style="background:#111"></div>`}
           <div class="sp-rel-ov"></div>
           <div class="sp-rel-info">
             <div class="sp-rel-name">${r.name}</div>
@@ -4799,6 +4839,17 @@ ${(() => {
   }).join("")}
     </div>
   </div>` : ""}
+
+  <!-- \uB0B4\uBD80 SEO \uB9C1\uD06C \uC138\uC158: \uAD6C\uAE00\uC774 \uD398\uC774\uC9C0 \uC8FC\uC81C\uC640 \uC0AC\uC774\uD2B8 \uAD6C\uC870\uB97C \uD30C\uC545\uD558\uB3C4\uB85D \uB3D5\uB294 \uB2E4\uCC28\uC6D0 \uB9C1\uD06C -->
+  <div class="sp-seo-links" style="padding:0 20px 16px;margin-bottom:0">
+    <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.3);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:10px">Explore More in Seoul</div>
+    <div style="display:flex;flex-wrap:wrap;gap:7px">
+      <a href="/best/${shop.category}/seoul" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.65);font-size:11.5px;text-decoration:none" title="Best ${_catLabel} in Seoul for Foreigners"><i class="fas fa-crown" style="color:var(--pk);font-size:9px"></i>Best ${_catLabel} in Seoul</a>
+      ${_areaFinal !== "Seoul" ? `<a href="/best/${shop.category}/${_areaFinal.toLowerCase()}" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.65);font-size:11.5px;text-decoration:none" title="Best ${_catLabel} in ${_areaFinal} Seoul"><i class="fas fa-map-marker-alt" style="color:var(--pk2);font-size:9px"></i>Best ${_catLabel} in ${_areaFinal}</a>` : ""}
+      <a href="/blog" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.65);font-size:11.5px;text-decoration:none" title="Seoul Beauty Blog for Foreigners"><i class="fas fa-book-open" style="color:var(--pk);font-size:9px"></i>Seoul Beauty Guide</a>
+      <a href="/blog/category/${shop.category}" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.65);font-size:11.5px;text-decoration:none" title="${_catLabel} Tips for Foreigners in Seoul"><i class="fas fa-feather-alt" style="color:var(--pk2);font-size:9px"></i>${_catLabel} Tips</a>
+    </div>
+  </div>
 
   <div style="height:100px"></div>
 </div>
