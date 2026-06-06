@@ -6604,16 +6604,17 @@ function renderShopModal(shop) {
     // DB에 고유 seo_text 있으면 그대로 사용 (상세 페이지와 동일 콘텐츠)
     // decodeHtmlEntities: DB에 &amp; 등 엔티티로 저장된 경우 복원
     if(shop.seoText && shop.seoText.trim()){
-      let _mSeo = decodeHtmlEntities(shop.seoText);
+      var _mSeo = decodeHtmlEntities(shop.seoText);
       // H2 없으면 자동 삽입 (모바일뷰)
       if(!_mSeo.includes('<h2')){
-        const _ma = (shop.location||'Seoul').split(',')[0].trim();
-        const _mc = shop.category;
+        var _ma = (shop.location||'Seoul').split(',')[0].trim();
+        var _mc = shop.category;
         var _mcLabel = {skincare:'Skincare',makeup:'Makeup',hair:'Hair Salon',nail:'Nail',clinic:'Dermatology Clinic',headspa:'Head Spa',spa:'Spa'};
-        const _mcName = _mcLabel[_mc] || (_mc.charAt(0).toUpperCase()+_mc.slice(1));
-        const _mArea = _ma.toLowerCase().includes('cheongdam')||_ma.toLowerCase().includes('apgujeong') ? 'Gangnam' : _ma;
-        const _mh2s = [shop.name+' \u2014 '+_mcName+' in '+_mArea+', Seoul','Foreigner-Friendly '+_mcName+' in '+_mArea,'How to Book '+shop.name];
-        const _mps = _mSeo.match(/<p[^>]*>[\s\S]*?<\/p>/g) || [];
+        var _mcName = _mcLabel[_mc] || (_mc.charAt(0).toUpperCase()+_mc.slice(1));
+        var _mArea = _ma.toLowerCase().includes('cheongdam')||_ma.toLowerCase().includes('apgujeong') ? 'Gangnam' : _ma;
+        var _mh2s = [shop.name+' \u2014 '+_mcName+' in '+_mArea+', Seoul','Foreigner-Friendly '+_mcName+' in '+_mArea,'How to Book '+shop.name];
+        var _pTagRe = new RegExp('<p[^>]*>[\\s\\S]*?<\\/p>', 'g');
+        var _mps = _mSeo.match(_pTagRe) || [];
         if(_mps.length >= 2){
           _mSeo = _mps.map(function(p,i){ return '<h2 class="sp-seo-h2">'+(_mh2s[i]||shop.name)+'</h2>'+p; }).join('');
         } else {

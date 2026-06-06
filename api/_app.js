@@ -8279,16 +8279,17 @@ function renderShopModal(shop) {
     // DB\uC5D0 \uACE0\uC720 seo_text \uC788\uC73C\uBA74 \uADF8\uB300\uB85C \uC0AC\uC6A9 (\uC0C1\uC138 \uD398\uC774\uC9C0\uC640 \uB3D9\uC77C \uCF58\uD150\uCE20)
     // decodeHtmlEntities: DB\uC5D0 &amp; \uB4F1 \uC5D4\uD2F0\uD2F0\uB85C \uC800\uC7A5\uB41C \uACBD\uC6B0 \uBCF5\uC6D0
     if(shop.seoText && shop.seoText.trim()){
-      let _mSeo = decodeHtmlEntities(shop.seoText);
+      var _mSeo = decodeHtmlEntities(shop.seoText);
       // H2 \uC5C6\uC73C\uBA74 \uC790\uB3D9 \uC0BD\uC785 (\uBAA8\uBC14\uC77C\uBDF0)
       if(!_mSeo.includes('<h2')){
-        const _ma = (shop.location||'Seoul').split(',')[0].trim();
-        const _mc = shop.category;
+        var _ma = (shop.location||'Seoul').split(',')[0].trim();
+        var _mc = shop.category;
         var _mcLabel = {skincare:'Skincare',makeup:'Makeup',hair:'Hair Salon',nail:'Nail',clinic:'Dermatology Clinic',headspa:'Head Spa',spa:'Spa'};
-        const _mcName = _mcLabel[_mc] || (_mc.charAt(0).toUpperCase()+_mc.slice(1));
-        const _mArea = _ma.toLowerCase().includes('cheongdam')||_ma.toLowerCase().includes('apgujeong') ? 'Gangnam' : _ma;
-        const _mh2s = [shop.name+' \u2014 '+_mcName+' in '+_mArea+', Seoul','Foreigner-Friendly '+_mcName+' in '+_mArea,'How to Book '+shop.name];
-        const _mps = _mSeo.match(/<p[^>]*>[sS]*?</p>/g) || [];
+        var _mcName = _mcLabel[_mc] || (_mc.charAt(0).toUpperCase()+_mc.slice(1));
+        var _mArea = _ma.toLowerCase().includes('cheongdam')||_ma.toLowerCase().includes('apgujeong') ? 'Gangnam' : _ma;
+        var _mh2s = [shop.name+' \u2014 '+_mcName+' in '+_mArea+', Seoul','Foreigner-Friendly '+_mcName+' in '+_mArea,'How to Book '+shop.name];
+        var _pTagRe = new RegExp('<p[^>]*>[\\s\\S]*?<\\/p>', 'g');
+        var _mps = _mSeo.match(_pTagRe) || [];
         if(_mps.length >= 2){
           _mSeo = _mps.map(function(p,i){ return '<h2 class="sp-seo-h2">'+(_mh2s[i]||shop.name)+'</h2>'+p; }).join('');
         } else {
