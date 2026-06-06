@@ -1081,7 +1081,7 @@ Return ONLY a single valid JSON object — no markdown, no explanation:
     if (parsed.seoText && !parsed.seoText.includes('<h2')) {
       // p 태그를 h2+p 쌍으로 변환
       const _area2 = (body.location||'Seoul').split(',')[0].trim()
-      const _catMap2: Record<string,string> = {clinic:'Dermatology Clinic',hair:'Hair Salon',headspa:'Head Spa',skincare:'Skincare',makeup:'Makeup',nail:'Nail Art',dental:'Dental Clinic'}
+      const _catMap2: Record<string,string> = {clinic:'Dermatology Clinic',hair:'Hair Salon',headspa:'Head Spa',skincare:'Skincare',makeup:'Makeup',nail:'Nail Art',dental:'Dental Clinic',tattoo:'Eyebrow Tattoo'}
       const _catN2 = _catMap2[body.category||''] || (body.category||'Beauty').charAt(0).toUpperCase()+(body.category||'').slice(1)
       const _h2auto = [body.name+' \u2014 '+_catN2+' in '+_area2+', Seoul 2026','Foreigner-Friendly '+_catN2+' in '+_area2,'How to Book '+body.name+' as a Foreign Visitor']
       const _ps2 = (parsed.seoText as string).match(/<p[^>]*>[\s\S]*?<\/p>/g) || []
@@ -2383,7 +2383,7 @@ app.get('/shop/:slug', async (c) => {
   const ogImage = shop.thumbnail
     ? (shop.thumbnail.startsWith('http') ? shop.thumbnail : `${base}${shop.thumbnail}`)
     : `${base}/og-cover.jpg`
-  const catEmoji: Record<string,string> = {skincare:'🌿',makeup:'💋',hair:'💇',headspa:'🧖',nail:'💅',clinic:'🏥'}
+  const catEmoji: Record<string,string> = {skincare:'🌿',makeup:'💋',hair:'💇',headspa:'🧖',nail:'💅',clinic:'🏥',tattoo:'✒️'}
   const catIcon = catEmoji[shop.category] || '✨'
 
   // ── 템플릿 밖에서 미리 계산 (esbuild: HTML 템플릿 내 object literal {} 충돌 방지) ──
@@ -2391,7 +2391,7 @@ app.get('/shop/:slug', async (c) => {
   const _shopCat   = shop.category
   const _catTitleLabels: Record<string,string> = {
     clinic:'Dermatology Clinic', hair:'Hair Salon', headspa:'Head Spa',
-    skincare:'Skincare', makeup:'Makeup & Color Analysis', nail:'Nail Art', dental:'Dental Clinic'
+    skincare:'Skincare', makeup:'Makeup & Color Analysis', nail:'Nail Art', dental:'Dental Clinic', tattoo:'Eyebrow Tattoo & Microblading'
   }
   const _catLabel  = _catTitleLabels[_shopCat] || (_shopCat.charAt(0).toUpperCase()+_shopCat.slice(1))
   const _areaFinal = _shopArea.toLowerCase().replace('cheongdam','Gangnam').replace('apgujeong','Gangnam') !== _shopArea ? 'Gangnam' : _shopArea
@@ -2400,7 +2400,7 @@ app.get('/shop/:slug', async (c) => {
 
   const _metaDescLabels: Record<string,string> = {
     clinic:'dermatology clinic', hair:'hair salon', headspa:'head spa & scalp clinic',
-    skincare:'skincare studio', makeup:'personal color & makeup', nail:'nail art studio', dental:'dental clinic'
+    skincare:'skincare studio', makeup:'personal color & makeup', nail:'nail art studio', dental:'dental clinic', tattoo:'eyebrow tattoo & microblading studio'
   }
   const _catLbl2   = _metaDescLabels[_shopCat] || _shopCat
   const _rating    = shop.rating ? shop.rating+'★' : ''
@@ -2437,7 +2437,7 @@ app.get('/shop/:slug', async (c) => {
 
   const _ogCatLabels: Record<string,string> = {
     clinic:'Dermatology Clinic', hair:'Hair Salon', headspa:'Head Spa',
-    skincare:'Skincare', makeup:'Makeup', nail:'Nail', dental:'Dental'
+    skincare:'Skincare', makeup:'Makeup', nail:'Nail', dental:'Dental', tattoo:'Eyebrow Tattoo'
   }
   const _ogCatLabel = _ogCatLabels[_shopCat] || _shopCat
   const _ogTitle   = shop.name+' | '+_shopArea.replace('Cheongdam','Gangnam').replace('Apgujeong','Gangnam')+' '+_ogCatLabel+' Seoul'
@@ -2455,13 +2455,13 @@ app.get('/shop/:slug', async (c) => {
 
   const _breadcrumbCatLabels: Record<string,string> = {
     clinic:'Dermatology Clinic Seoul', hair:'Hair Salon Seoul', headspa:'Head Spa Seoul',
-    skincare:'Skincare Seoul', makeup:'Makeup Seoul', nail:'Nail Salon Seoul', dental:'Dental Clinic Seoul'
+    skincare:'Skincare Seoul', makeup:'Makeup Seoul', nail:'Nail Salon Seoul', dental:'Dental Clinic Seoul', tattoo:'Eyebrow Tattoo Seoul'
   }
   const _bcCatName = _breadcrumbCatLabels[_shopCat] || _shopCat
 
   const _wpCatLabels: Record<string,string> = {
     clinic:'Dermatology Clinic', hair:'Hair Salon', headspa:'Head Spa',
-    skincare:'Skincare Studio', makeup:'Makeup & Color Analysis', nail:'Nail Art Studio', dental:'Dental Clinic'
+    skincare:'Skincare Studio', makeup:'Makeup & Color Analysis', nail:'Nail Art Studio', dental:'Dental Clinic', tattoo:'Eyebrow Tattoo Studio'
   }
   const _wpCatLabel = _wpCatLabels[_shopCat] || _shopCat
   const _wpName    = shop.name+' \u2014 '+_shopArea+' '+_wpCatLabel+' Seoul'
@@ -2938,7 +2938,7 @@ ${(()=>{const allP=[shop.thumbnail,...(shop.photos||[]).filter((p:string)=>p&&p!
         const _area = (shop.location||'Seoul').split(',')[0].trim();
         const _cat  = shop.category.charAt(0).toUpperCase()+shop.category.slice(1);
         const _areaLabel = _area.toLowerCase().includes('cheongdam')||_area.toLowerCase().includes('apgujeong') ? 'Gangnam' : _area;
-        const _catLabel: Record<string,string> = {skincare:'Skincare',makeup:'Makeup',hair:'Hair Salon',nail:'Nail',clinic:'Dermatology Clinic',headspa:'Head Spa',spa:'Spa'};
+        const _catLabel: Record<string,string> = {skincare:'Skincare',makeup:'Makeup',hair:'Hair Salon',nail:'Nail',clinic:'Dermatology Clinic',headspa:'Head Spa',spa:'Spa',tattoo:'Eyebrow Tattoo'};
         const _catName = _catLabel[shop.category] || _cat;
         // p 태그를 H2+p 쌍으로 분리 (3개 p → h2+p, h2+p, h2+p)
         const _paras = cleanSeo.match(/<p[^>]*>[\s\S]*?<\/p>/g) || [];
@@ -2996,7 +2996,7 @@ ${(()=>{const allP=[shop.thumbnail,...(shop.photos||[]).filter((p:string)=>p&&p!
         const rArea = (r.location||'').split(',')[0].trim()
         const rRating = r.rating ? `<span class="sp-rel-rating"><i class="fas fa-star" style="font-size:8px"></i>${Number(r.rating).toFixed(1)}</span>` : ''
         const rThumb = r.thumbnail || ''
-        const rCatL: Record<string,string> = {clinic:'Clinic',hair:'Hair Salon',headspa:'Head Spa',skincare:'Skincare',makeup:'Makeup',nail:'Nail',spa:'Spa'}
+        const rCatL: Record<string,string> = {clinic:'Clinic',hair:'Hair Salon',headspa:'Head Spa',skincare:'Skincare',makeup:'Makeup',nail:'Nail',spa:'Spa',tattoo:'Eyebrow Tattoo'}
         const rCatLabel = rCatL[r.category] || r.category
         return `<a class="sp-rel-card" href="/shop/${r.slug}">
           ${rThumb ? `<img class="sp-rel-thumb" src="${rThumb}" alt="${r.name} ${rCatLabel} ${rArea} Seoul" loading="lazy">` : `<div class="sp-rel-thumb" style="background:#111"></div>`}
@@ -3218,7 +3218,7 @@ function closeMapOverlay(){
 // ══════════════════════════════════════════════════════
 const CATEGORY_LABELS: Record<string,string> = {
   skincare:'Skincare', makeup:'Makeup', hair:'Hair Salon',
-  headspa:'Head Spa', nail:'Nail Salon', clinic:'Skin Clinic', spa:'Spa & Massage'
+  headspa:'Head Spa', nail:'Nail Salon', clinic:'Skin Clinic', spa:'Spa & Massage', tattoo:'Eyebrow Tattoo'
 }
 const AREA_LABELS: Record<string,string> = {
   gangnam:'Gangnam', hongdae:'Hongdae', itaewon:'Itaewon',
@@ -3276,6 +3276,14 @@ const CAT_FAQ: Record<string,{q:string,a:string}[]> = {
     {q:'How much does a Korean spa cost in Seoul?',a:'Basic spa treatments start from ₩50,000. Premium body treatments and full spa packages range from ₩100,000 to ₩300,000.'},
     {q:'Are Seoul spas open to foreigners?',a:'Yes, most Seoul spas welcome foreigners. Seoul Beauty Trip lists spas with English booking support and foreigner-friendly service.'},
     {q:'Should I book a spa in Seoul in advance?',a:'Yes, especially for weekend visits. Premium time slots fill quickly. Book via WhatsApp through Seoul Beauty Trip for easy English reservations.'}
+  ],
+  tattoo:[
+    {q:'What is eyebrow microblading in Korea?',a:'Korean eyebrow microblading (눈썹 반영구) is a semi-permanent tattooing technique that creates hair-stroke-like marks to define, reshape, and fill in eyebrows. Korea is globally recognized for its advanced microblading artistry, producing ultra-natural results that can last 1–2 years.'},
+    {q:'How much does eyebrow microblading cost in Seoul?',a:'Eyebrow microblading in Seoul typically costs ₩150,000–₩400,000 depending on the studio and technique (hairstroke, powder brow, or combo brow). This is significantly more affordable than Western countries where the same treatment can cost $500–$1,000+.'},
+    {q:'Is Korean microblading safe for foreigners?',a:'Yes. Korean eyebrow tattoo studios are licensed, use single-use sterile needles, and follow strict hygiene protocols. Seoul Beauty Trip only lists studios verified for foreign visitors with English support and transparent aftercare guidance.'},
+    {q:'How long does eyebrow microblading last in Korea?',a:'Korean microblading typically lasts 12–18 months before a touch-up is needed. Powder brow techniques can last up to 2 years. Longevity depends on skin type, sun exposure, and aftercare.'},
+    {q:'Can men get eyebrow microblading in Seoul?',a:'Absolutely. Men\'s eyebrow tattooing is a growing trend in Korea. Studios like INOUTE specialize in natural-looking men\'s eyebrow microblading, creating fuller, defined brows without an obvious "tattooed" appearance.'},
+    {q:'Do I need to book an eyebrow tattoo appointment in Seoul in advance?',a:'Yes, booking 1–3 days in advance is recommended. Popular studios can be fully booked on weekends. Book via WhatsApp through Seoul Beauty Trip for easy English-language reservations.'}
   ]
 }
 const DEFAULT_FAQ = [
@@ -3585,10 +3593,11 @@ body{background:#0f0f12;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
       ? `Gangnam is Seoul's undisputed capital of medical aesthetics — and home to Korea's most foreigner-friendly dermatology clinics. A Gangnam dermatology clinic isn't just a skin clinic: it's a full-service medical aesthetic center staffed by board-certified dermatologists who routinely treat international patients. Whether you're looking for laser resurfacing, skin booster injections, acne scar treatment, RF lifting, or a simple brightening facial, Gangnam dermatology clinics offer world-class results at a fraction of Western prices — typically 40–60% less than equivalent treatments in the US, UK, or Australia. Every clinic on this list has English-speaking coordinators, transparent pricing, and accepts WhatsApp bookings for foreign visitors.`
       : `${areaLabel} is Seoul's medical beauty hub, home to top-tier dermatology clinics and aesthetic centers welcoming foreign patients. From laser toning and skin boosters to RF lifting and acne treatments, these clinics offer cutting-edge technology at competitive prices — often 30-50% less than Western countries — with English-speaking consultants.`,
     makeup: `Experience a Korean makeup transformation in ${areaLabel}. These English-friendly makeup studios specialize in K-beauty looks including glass skin, gradient lips, and K-pop inspired styles. Perfect for photoshoots, hanbok experiences, or just a memorable Seoul beauty experience. All studios offer English booking via WhatsApp.`,
-    spa: `Discover authentic Korean spa treatments in ${areaLabel}, Seoul. From traditional Korean body scrubs (때밀이) and aromatherapy massage to modern wellness packages, these foreigner-friendly spas deliver true Korean relaxation. All listed spas support English booking and welcome international guests.`
+    spa: `Discover authentic Korean spa treatments in ${areaLabel}, Seoul. From traditional Korean body scrubs (때밀이) and aromatherapy massage to modern wellness packages, these foreigner-friendly spas deliver true Korean relaxation. All listed spas support English booking and welcome international guests.`,
+    tattoo: `Korean eyebrow tattooing (눈썹 반영구) in ${areaLabel}, Seoul is globally acclaimed for its ultra-natural, hair-stroke precision. Unlike traditional heavy tattooing, Korean microblading and powder brow techniques create results so natural that people around you simply think you were born with perfect eyebrows — not that you had a procedure. Studios in Seoul use single-use sterile needles, FDA-approved pigments, and follow strict hygiene protocols. Whether you prefer the hairline stroke technique for the most natural look, the soft powder brow for a defined finish, or a combo brow for depth and texture, ${areaLabel} studios listed here welcome foreign visitors with English-language consultations and easy WhatsApp booking. Men's eyebrow tattooing is also a growing specialty — Korean studios understand how to design brows that look completely natural on male faces. Prices are 40–60% lower than equivalent studios in the US, UK, or Australia.`
   }
   const introText = catIntros[catSlug] || `Discover the best ${catLabel.toLowerCase()} experiences in ${areaLabel}, Seoul. All salons are foreigner-friendly with English booking support via WhatsApp. Browse top-rated options below.`
-  const catEmoji: Record<string,string> = {skincare:'🌿',makeup:'💋',hair:'💇',headspa:'🧖',nail:'💅',clinic:'🏥',spa:'🛁'}
+  const catEmoji: Record<string,string> = {skincare:'🌿',makeup:'💋',hair:'💇',headspa:'🧖',nail:'💅',clinic:'🏥',spa:'🛁',tattoo:'✒️'}
   const emoji = catEmoji[catSlug] || '✨'
 
   // Schema.org JSON-LD
@@ -4192,10 +4201,10 @@ app.get('/shops', async (c) => {
   const sql = getDb(c.env)
   const rows = await sql`SELECT * FROM shops WHERE active=true ORDER BY rating DESC, created_at DESC`
   const shops = rows.map(rowToShop)
-  const catColors: Record<string,string> = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',nail:'#34d399',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa'}
-  const catIcons:  Record<string,string> = {skincare:'fa-leaf',makeup:'fa-magic',hair:'fa-cut',headspa:'fa-spa',nail:'fa-hand-sparkles',clinic:'fa-briefcase-medical',spa:'fa-hot-tub'}
-  const cats      = ['all','clinic','headspa','skincare','hair','nail','makeup','spa']
-  const catLabels: Record<string,string> = {all:'All',clinic:'Clinic',headspa:'Head Spa',skincare:'Skincare',hair:'Hair',nail:'Nail',makeup:'Makeup',spa:'Spa'}
+  const catColors: Record<string,string> = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',nail:'#34d399',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa',tattoo:'#e879f9'}
+  const catIcons:  Record<string,string> = {skincare:'fa-leaf',makeup:'fa-magic',hair:'fa-cut',headspa:'fa-spa',nail:'fa-hand-sparkles',clinic:'fa-briefcase-medical',spa:'fa-hot-tub',tattoo:'fa-pen-nib'}
+  const cats      = ['all','clinic','headspa','skincare','hair','nail','makeup','spa','tattoo']
+  const catLabels: Record<string,string> = {all:'All',clinic:'Clinic',headspa:'Head Spa',skincare:'Skincare',hair:'Hair',nail:'Nail',makeup:'Makeup',spa:'Spa',tattoo:'Brow Tattoo'}
 
   const catCountMap: Record<string,number> = {}
   shops.forEach((s: any) => { catCountMap[s.category] = (catCountMap[s.category]||0)+1 })
@@ -4503,7 +4512,7 @@ app.get('/blog', async (c) => {
 
   const postCards = posts.map((p: any) => {
     const tags = Array.isArray(p.tags) ? p.tags : (typeof p.tags === 'string' ? JSON.parse(p.tags||'[]') : [])
-    const catLabel: Record<string,string> = { headspa:'Head Spa', skincare:'Skincare', hair:'Hair Salon', nail:'Nail Art', clinic:'Skin Clinic', makeup:'Makeup', spa:'Spa' }
+    const catLabel: Record<string,string> = { headspa:'Head Spa', skincare:'Skincare', hair:'Hair Salon', nail:'Nail Art', clinic:'Skin Clinic', makeup:'Makeup', spa:'Spa', tattoo:'Eyebrow Tattoo' }
     const cat = catLabel[p.category] || p.category || 'Beauty'
     const dateStr = p.created_at ? new Date(p.created_at).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'}) : ''
     return `
@@ -4604,7 +4613,7 @@ app.get('/blog/category/:cat', async (c) => {
 
   const CAT_LABELS: Record<string,string> = {
     headspa: 'Head Spa', skincare: 'Skincare', hair: 'Hair Salon',
-    nail: 'Nail Art', clinic: 'Skin Clinic', makeup: 'Makeup', spa: 'Spa'
+    nail: 'Nail Art', clinic: 'Skin Clinic', makeup: 'Makeup', spa: 'Spa', tattoo: 'Eyebrow Tattoo'
   }
   const catLabel = CAT_LABELS[cat] || cat.charAt(0).toUpperCase() + cat.slice(1)
 
@@ -4704,7 +4713,7 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;min-height:
 </nav>
 <header class="blog-hero">
   <div class="breadcrumb"><a href="/">Home</a> › <a href="/blog">Blog</a> › ${catLabel}</div>
-  <h1><i class="fas fa-${cat==='headspa'?'spa':cat==='clinic'?'stethoscope':cat==='hair'?'cut':cat==='nail'?'hand-sparkles':cat==='makeup'?'star':cat==='skincare'?'leaf':'hot-tub'}" style="color:#FF4D8D;margin-right:8px"></i>${catLabel} in Seoul</h1>
+  <h1><i class="fas fa-${cat==='headspa'?'spa':cat==='clinic'?'stethoscope':cat==='hair'?'cut':cat==='nail'?'hand-sparkles':cat==='makeup'?'star':cat==='skincare'?'leaf':cat==='tattoo'?'pen-nib':'hot-tub'}" style="color:#FF4D8D;margin-right:8px"></i>${catLabel} in Seoul</h1>
   <p>Expert guides for foreigners — English-friendly salons, honest reviews & real pricing</p>
   <div class="cat-nav">${otherCats}</div>
 </header>
@@ -4734,7 +4743,7 @@ app.get('/blog/:slug', async (c) => {
   const related = await sql`SELECT slug,title,excerpt,category,area,created_at FROM blog_posts WHERE status='published' AND slug!=${slug} AND category=${post.category||''} ORDER BY created_at DESC LIMIT 3`
 
   const base = 'https://seoulbeautytrip.com'
-  const catLabel: Record<string,string> = { headspa:'Head Spa', skincare:'Skincare', hair:'Hair Salon', nail:'Nail Art', clinic:'Skin Clinic', makeup:'Makeup', spa:'Spa' }
+  const catLabel: Record<string,string> = { headspa:'Head Spa', skincare:'Skincare', hair:'Hair Salon', nail:'Nail Art', clinic:'Skin Clinic', makeup:'Makeup', spa:'Spa', tattoo:'Eyebrow Tattoo' }
   const cat = catLabel[post.category] || post.category || 'Beauty'
   const dateStr = post.created_at ? new Date(post.created_at).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}) : ''
   const canonicalUrl = `${base}/blog/${slug}`
@@ -5091,9 +5100,9 @@ app.get('/', async (c) => {
     }))
 
     // ── SSR: 카탈로그 패널 HTML 서버에서 렌더링 (Google 크롤러가 읽을 수 있도록)
-    const catColorsSSR: Record<string,string> = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',nail:'#34d399',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa'}
-    const catFaIconsSSR: Record<string,string> = {skincare:'fa-leaf',makeup:'fa-magic',hair:'fa-cut',headspa:'fa-spa',nail:'fa-hand-sparkles',clinic:'fa-briefcase-medical',spa:'fa-hot-tub'}
-    const catLabelsSSR: Record<string,string> = {skincare:'Skincare',makeup:'Makeup',hair:'Hair',headspa:'Head Spa',nail:'Nail',clinic:'Clinic',spa:'Spa'}
+    const catColorsSSR: Record<string,string> = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',nail:'#34d399',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa',tattoo:'#e879f9'}
+    const catFaIconsSSR: Record<string,string> = {skincare:'fa-leaf',makeup:'fa-magic',hair:'fa-cut',headspa:'fa-spa',nail:'fa-hand-sparkles',clinic:'fa-briefcase-medical',spa:'fa-hot-tub',tattoo:'fa-pen-nib'}
+    const catLabelsSSR: Record<string,string> = {skincare:'Skincare',makeup:'Makeup',hair:'Hair',headspa:'Head Spa',nail:'Nail',clinic:'Clinic',spa:'Spa',tattoo:'Brow Tattoo'}
 
     const ssrShopCards = initShops.map((s: any) => {
       const col  = catColorsSSR[s.category] || '#aaa'
@@ -5113,7 +5122,7 @@ app.get('/', async (c) => {
 
     const ssrCatCounts: Record<string,number> = {}
     initShops.forEach((s: any) => { ssrCatCounts[s.category] = (ssrCatCounts[s.category]||0)+1 })
-    const ssrFilterBtns = ['all','clinic','headspa','skincare','hair','nail','makeup','spa'].map(cat => {
+    const ssrFilterBtns = ['all','clinic','headspa','skincare','hair','nail','makeup','spa','tattoo'].map(cat => {
       const cnt = cat === 'all' ? initShops.length : (ssrCatCounts[cat]||0)
       if(cnt === 0) return ''
       const lbl = cat === 'all' ? 'All' : catLabelsSSR[cat] || cat
@@ -5843,8 +5852,8 @@ __INLINE_DATA_PLACEHOLDER__
 <script>
 var vids = [], isMuted = true, liked = {}, platform = {}, allShopsData = [];
 var shopCache = {}; // 모달 캐시: shopId → shop 객체
-var catIcons = {skincare:'&#127807;',makeup:'&#128139;',hair:'&#128135;',headspa:'&#129496;',nail:'&#128133;',clinic:'&#127973;',spa:'&#129510;'};
-var catFaIcons = {skincare:'fa-leaf',makeup:'fa-magic',hair:'fa-cut',headspa:'fa-spa',nail:'fa-hand-sparkles',clinic:'fa-briefcase-medical',spa:'fa-hot-tub'};
+var catIcons = {skincare:'&#127807;',makeup:'&#128139;',hair:'&#128135;',headspa:'&#129496;',nail:'&#128133;',clinic:'&#127973;',spa:'&#129510;',tattoo:'&#9998;'};
+var catFaIcons = {skincare:'fa-leaf',makeup:'fa-magic',hair:'fa-cut',headspa:'fa-spa',nail:'fa-hand-sparkles',clinic:'fa-briefcase-medical',spa:'fa-hot-tub',tattoo:'fa-pen-nib'};
 
 if(window.__INIT_PLATFORM__) { platform = window.__INIT_PLATFORM__; }
 else { fetch('/api/platform').then(function(r){return r.json();}).then(function(d){ platform = d; }); }
@@ -6609,7 +6618,7 @@ function renderShopModal(shop) {
       if(!_mSeo.includes('<h2')){
         var _ma = (shop.location||'Seoul').split(',')[0].trim();
         var _mc = shop.category;
-        var _mcLabel = {skincare:'Skincare',makeup:'Makeup',hair:'Hair Salon',nail:'Nail',clinic:'Dermatology Clinic',headspa:'Head Spa',spa:'Spa'};
+        var _mcLabel = {skincare:'Skincare',makeup:'Makeup',hair:'Hair Salon',nail:'Nail',clinic:'Dermatology Clinic',headspa:'Head Spa',spa:'Spa',tattoo:'Eyebrow Tattoo'};
         var _mcName = _mcLabel[_mc] || (_mc.charAt(0).toUpperCase()+_mc.slice(1));
         var _mArea = _ma.toLowerCase().includes('cheongdam')||_ma.toLowerCase().includes('apgujeong') ? 'Gangnam' : _ma;
         var _mh2s = [shop.name+' \u2014 '+_mcName+' in '+_mArea+', Seoul','Foreigner-Friendly '+_mcName+' in '+_mArea,'How to Book '+shop.name];
@@ -7113,8 +7122,8 @@ function _renderSearchResults(q, filter){
   var header = document.getElementById('so-header');
   if(!grid) return;
   var kw = (q||'').toLowerCase().trim();
-  var catColors = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',nail:'#34d399',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa'};
-  var CAT_LIST = ['clinic','headspa','skincare','hair','nail','makeup','spa'];
+  var catColors = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',nail:'#34d399',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa',tattoo:'#e879f9'};
+  var CAT_LIST = ['clinic','headspa','skincare','hair','nail','makeup','spa','tattoo'];
   var AREA_LIST = ['gangnam','hongdae','myeongdong','sinsa','itaewon','insadong','jongno','mapo','yongsan','apgujeong','cheongdam','bukchon'];
 
   var results = allShopsData.filter(function(s){
@@ -7406,7 +7415,7 @@ function renderShopPanel(cat) {
   var grid = document.getElementById('sp-grid');
   var countEl = document.getElementById('sp-count');
   if(!grid) return;
-  var catColors = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',nail:'#34d399',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa'};
+  var catColors = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',nail:'#34d399',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa',tattoo:'#e879f9'};
   var filtered = cat === 'all' ? allShopsData : allShopsData.filter(function(s){ return s.category === cat; });
   if(countEl) countEl.textContent = filtered.length + ' shops';
   if(!filtered.length){
