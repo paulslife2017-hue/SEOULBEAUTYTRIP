@@ -8005,12 +8005,13 @@ textarea{height:80px;resize:none}
       <div>
         <label>카테고리 *</label>
         <select id="sh-cat">
+          <option value="clinic">클리닉 (의원)</option>
           <option value="skincare">스킨케어</option>
           <option value="makeup">메이크업</option>
           <option value="hair">헤어</option>
           <option value="headspa">헤드스파</option>
           <option value="nail">네일</option>
-          <option value="clinic">클리닉</option>
+          <option value="tattoo">눈썹 타투·반영구</option>
           <option value="spa">스파·마사지</option>
         </select>
       </div>
@@ -8125,12 +8126,13 @@ textarea{height:80px;resize:none}
       <div>
         <label>카테고리</label>
         <select id="edit-sh-cat">
+          <option value="clinic">클리닉 (의원)</option>
           <option value="skincare">스킨케어</option>
           <option value="makeup">메이크업</option>
           <option value="hair">헤어</option>
           <option value="headspa">헤드스파</option>
           <option value="nail">네일</option>
-          <option value="clinic">클리닉</option>
+          <option value="tattoo">눈썹 타투·반영구</option>
           <option value="spa">스파·마사지</option>
         </select>
       </div>
@@ -9109,7 +9111,11 @@ function renderShops(){
   var catColors = {skincare:'#f472b6',makeup:'#c084fc',hair:'#60a5fa',headspa:'#67e8f9',nail:'#34d399',clinic:'#fb923c',spa:'#a78bfa'};
   var catLabels  = {skincare:'스킨케어',makeup:'메이크업',hair:'헤어',headspa:'헤드스파',nail:'네일',clinic:'클리닉',spa:'스파'};
 
-  el.innerHTML = '<div style="display:grid;gap:10px">' + shops.map(function(s){
+  // 업체명 알파벳 오름차순 정렬
+  var sortedShops = shops.slice().sort(function(a, b){
+    return (a.name||'').toLowerCase().localeCompare((b.name||'').toLowerCase());
+  });
+  el.innerHTML = '<div style="display:grid;gap:10px">' + sortedShops.map(function(s){
     var shopVids  = videos.filter(function(v){ return v.shopId === s.id; });
     var vcount    = shopVids.length;
     var catColor  = catColors[s.category] || '#aaa';
@@ -9424,7 +9430,7 @@ function openEditShopPanel(shopId){
   // 폼에 기존값 채우기
   document.getElementById('edit-shop-name-label').textContent = shop.name;
   document.getElementById('edit-sh-name').value = shop.name || '';
-  document.getElementById('edit-sh-cat').value = shop.category || 'skincare';
+  document.getElementById('edit-sh-cat').value = shop.category || 'clinic';
   document.getElementById('edit-sh-loc').value = shop.location || '';
   document.getElementById('edit-sh-addr').value = shop.address || '';
   document.getElementById('edit-sh-hours').value = shop.hours || '';

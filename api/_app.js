@@ -9685,12 +9685,13 @@ textarea{height:80px;resize:none}
       <div>
         <label>\uCE74\uD14C\uACE0\uB9AC *</label>
         <select id="sh-cat">
+          <option value="clinic">\uD074\uB9AC\uB2C9 (\uC758\uC6D0)</option>
           <option value="skincare">\uC2A4\uD0A8\uCF00\uC5B4</option>
           <option value="makeup">\uBA54\uC774\uD06C\uC5C5</option>
           <option value="hair">\uD5E4\uC5B4</option>
           <option value="headspa">\uD5E4\uB4DC\uC2A4\uD30C</option>
           <option value="nail">\uB124\uC77C</option>
-          <option value="clinic">\uD074\uB9AC\uB2C9</option>
+          <option value="tattoo">\uB208\uC379 \uD0C0\uD22C\xB7\uBC18\uC601\uAD6C</option>
           <option value="spa">\uC2A4\uD30C\xB7\uB9C8\uC0AC\uC9C0</option>
         </select>
       </div>
@@ -9805,12 +9806,13 @@ textarea{height:80px;resize:none}
       <div>
         <label>\uCE74\uD14C\uACE0\uB9AC</label>
         <select id="edit-sh-cat">
+          <option value="clinic">\uD074\uB9AC\uB2C9 (\uC758\uC6D0)</option>
           <option value="skincare">\uC2A4\uD0A8\uCF00\uC5B4</option>
           <option value="makeup">\uBA54\uC774\uD06C\uC5C5</option>
           <option value="hair">\uD5E4\uC5B4</option>
           <option value="headspa">\uD5E4\uB4DC\uC2A4\uD30C</option>
           <option value="nail">\uB124\uC77C</option>
-          <option value="clinic">\uD074\uB9AC\uB2C9</option>
+          <option value="tattoo">\uB208\uC379 \uD0C0\uD22C\xB7\uBC18\uC601\uAD6C</option>
           <option value="spa">\uC2A4\uD30C\xB7\uB9C8\uC0AC\uC9C0</option>
         </select>
       </div>
@@ -10789,7 +10791,11 @@ function renderShops(){
   var catColors = {skincare:'#f472b6',makeup:'#c084fc',hair:'#60a5fa',headspa:'#67e8f9',nail:'#34d399',clinic:'#fb923c',spa:'#a78bfa'};
   var catLabels  = {skincare:'\uC2A4\uD0A8\uCF00\uC5B4',makeup:'\uBA54\uC774\uD06C\uC5C5',hair:'\uD5E4\uC5B4',headspa:'\uD5E4\uB4DC\uC2A4\uD30C',nail:'\uB124\uC77C',clinic:'\uD074\uB9AC\uB2C9',spa:'\uC2A4\uD30C'};
 
-  el.innerHTML = '<div style="display:grid;gap:10px">' + shops.map(function(s){
+  // \uC5C5\uCCB4\uBA85 \uC54C\uD30C\uBCB3 \uC624\uB984\uCC28\uC21C \uC815\uB82C
+  var sortedShops = shops.slice().sort(function(a, b){
+    return (a.name||'').toLowerCase().localeCompare((b.name||'').toLowerCase());
+  });
+  el.innerHTML = '<div style="display:grid;gap:10px">' + sortedShops.map(function(s){
     var shopVids  = videos.filter(function(v){ return v.shopId === s.id; });
     var vcount    = shopVids.length;
     var catColor  = catColors[s.category] || '#aaa';
@@ -11104,7 +11110,7 @@ function openEditShopPanel(shopId){
   // \uD3FC\uC5D0 \uAE30\uC874\uAC12 \uCC44\uC6B0\uAE30
   document.getElementById('edit-shop-name-label').textContent = shop.name;
   document.getElementById('edit-sh-name').value = shop.name || '';
-  document.getElementById('edit-sh-cat').value = shop.category || 'skincare';
+  document.getElementById('edit-sh-cat').value = shop.category || 'clinic';
   document.getElementById('edit-sh-loc').value = shop.location || '';
   document.getElementById('edit-sh-addr').value = shop.address || '';
   document.getElementById('edit-sh-hours').value = shop.hours || '';
