@@ -7861,46 +7861,80 @@ textarea{height:80px;resize:none}
 <div class="tab-content" id="tab-analytics" style="padding:0">
   <!-- 헤더 -->
   <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px;flex-wrap:wrap;gap:8px">
-    <div style="font-size:15px;font-weight:900;color:#fff"><i class="fas fa-chart-line" style="color:#FF4D8D;margin-right:6px"></i> 방문자 분석</div>
-    <a href="https://lookerstudio.google.com/reporting/66f7ff82-9ee4-46aa-b1cf-1931cc015798" target="_blank" class="btn-sm btn-blue" style="font-size:11px;padding:6px 12px;display:inline-flex;align-items:center;gap:5px">
-      <i class="fas fa-external-link-alt"></i> 새 탭으로 보기
-    </a>
-  </div>
-
-  <!-- 안내 배너 -->
-  <div style="margin:0 20px 12px;padding:10px 14px;background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.25);border-radius:10px;font-size:12px;color:rgba(255,255,255,.6);display:flex;align-items:center;gap:8px">
-    <i class="fas fa-lightbulb" style="color:#a78bfa"></i>
-    Looker Studio 보고서는 흰 배경으로 표시됩니다. <b style="color:#a78bfa;margin-left:4px">아래 방법으로 어둡게 바꿀 수 있어요 ↓</b>
-    <button onclick="document.getElementById('an-guide').style.display=document.getElementById('an-guide').style.display==='none'?'block':'none'" style="margin-left:auto;background:rgba(167,139,250,.2);border:1px solid rgba(167,139,250,.3);color:#a78bfa;border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer">방법 보기</button>
-  </div>
-
-  <!-- 다크모드 적용 가이드 -->
-  <div id="an-guide" style="display:none;margin:0 20px 12px;padding:14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;font-size:12px;line-height:2;color:rgba(255,255,255,.7)">
-    <b style="color:#fff;font-size:13px">📌 Looker Studio 배경 어둡게 바꾸기</b><br>
-    1. <a href="https://lookerstudio.google.com/reporting/66f7ff82-9ee4-46aa-b1cf-1931cc015798" target="_blank" style="color:#60a5fa">Looker Studio 보고서</a> 접속 → 수정 모드<br>
-    2. 상단 메뉴 <b style="color:#fff">테마 및 레이아웃</b> 클릭<br>
-    3. <b style="color:#fff">배경색</b> → 어두운 색 선택 (예: #0d0d18 또는 #1a1a2e)<br>
-    4. <b style="color:#fff">텍스트색</b> → 흰색으로 변경<br>
-    5. 저장 → 여기서 새로고침
-  </div>
-
-  <!-- Looker Studio iframe - 전체 너비 -->
-  <div style="position:relative;margin:0;background:#fff">
-    <div id="an-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#13132a;z-index:2;flex-direction:column;gap:10px;min-height:200px">
-      <i class="fas fa-chart-line" style="font-size:32px;color:rgba(255,77,141,.5);animation:pulse 1.5s infinite"></i>
-      <div style="font-size:13px;color:rgba(255,255,255,.4)">대시보드 불러오는 중...</div>
-      <div style="font-size:11px;color:rgba(255,255,255,.25)">처음 로딩은 5~10초 걸릴 수 있어요</div>
+    <div style="font-size:15px;font-weight:900;color:#fff"><i class="fas fa-chart-line" style="color:#FF4D8D;margin-right:6px"></i> 방문자 분석 <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,.35);margin-left:4px">GA4 실시간</span></div>
+    <div style="display:flex;gap:6px">
+      <button id="an-btn-7" onclick="loadAnalytics(7)" style="padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;border:none;background:linear-gradient(135deg,#FF4D8D,#9B59B6);color:#fff">7일</button>
+      <button id="an-btn-28" onclick="loadAnalytics(28)" style="padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.07);color:rgba(255,255,255,.6)">28일</button>
+      <button id="an-btn-90" onclick="loadAnalytics(90)" style="padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.07);color:rgba(255,255,255,.6)">90일</button>
     </div>
-    <iframe
-      src="https://datastudio.google.com/embed/reporting/66f7ff82-9ee4-46aa-b1cf-1931cc015798/page/WLqzF"
-      style="width:100%;height:800px;border:0;display:block"
-      allowfullscreen
-      sandbox="allow-storage-access-by-user-activation allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-      onload="document.getElementById('an-loading').style.display='none'"
-    ></iframe>
   </div>
-  <div style="padding:8px 20px 16px;font-size:11px;color:rgba(255,255,255,.2);text-align:center">
-    <i class="fas fa-sync-alt"></i> Google Looker Studio · GA4 실시간 연동
+
+  <!-- GA4 미설정 안내 (숨김) -->
+  <div id="an-setup-notice" style="display:none;margin:0 20px 12px;padding:14px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:10px;font-size:12px;color:rgba(255,255,255,.7)">
+    <i class="fas fa-exclamation-triangle" style="color:#fbbf24;margin-right:6px"></i>
+    GA4 연동이 설정되지 않았습니다.
+  </div>
+
+  <!-- 핵심 지표 카드 4개 -->
+  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;padding:0 20px 14px">
+    <div style="background:rgba(255,77,141,.08);border:1px solid rgba(255,77,141,.2);border-radius:14px;padding:14px">
+      <div style="font-size:10px;color:rgba(255,255,255,.4);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px">총 방문자</div>
+      <div id="an-users" style="font-size:28px;font-weight:900;color:#FF4D8D;line-height:1">-</div>
+      <div id="an-users-sub" style="font-size:10px;color:rgba(255,255,255,.3);margin-top:3px">로딩 중...</div>
+    </div>
+    <div style="background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.2);border-radius:14px;padding:14px">
+      <div style="font-size:10px;color:rgba(255,255,255,.4);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px">페이지뷰</div>
+      <div id="an-pageviews" style="font-size:28px;font-weight:900;color:#60a5fa;line-height:1">-</div>
+      <div id="an-pv-sub" style="font-size:10px;color:rgba(255,255,255,.3);margin-top:3px">로딩 중...</div>
+    </div>
+    <div style="background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.2);border-radius:14px;padding:14px">
+      <div style="font-size:10px;color:rgba(255,255,255,.4);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px">신규 방문자</div>
+      <div id="an-new-users" style="font-size:28px;font-weight:900;color:#34d399;line-height:1">-</div>
+      <div id="an-new-sub" style="font-size:10px;color:rgba(255,255,255,.3);margin-top:3px">로딩 중...</div>
+    </div>
+    <div style="background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2);border-radius:14px;padding:14px">
+      <div style="font-size:10px;color:rgba(255,255,255,.4);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px">평균 체류시간</div>
+      <div id="an-duration" style="font-size:28px;font-weight:900;color:#fbbf24;line-height:1">-</div>
+      <div id="an-dur-sub" style="font-size:10px;color:rgba(255,255,255,.3);margin-top:3px">로딩 중...</div>
+    </div>
+  </div>
+
+  <!-- 일별 방문자 차트 -->
+  <div style="margin:0 20px 14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px">
+    <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:10px"><i class="fas fa-chart-bar" style="color:#FF4D8D;margin-right:5px"></i> 일별 방문자</div>
+    <canvas id="an-daily-chart" height="100"></canvas>
+  </div>
+
+  <!-- 국가 + 유입경로 나란히 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 20px 14px">
+    <!-- 국가별 -->
+    <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px">
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:10px"><i class="fas fa-globe" style="color:#60a5fa;margin-right:5px"></i> 국가별</div>
+      <div id="an-countries" style="display:flex;flex-direction:column;gap:7px;font-size:12px;color:rgba(255,255,255,.7)">
+        <div style="color:rgba(255,255,255,.2);font-size:11px">로딩 중...</div>
+      </div>
+    </div>
+    <!-- 유입 경로 도넛 -->
+    <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px">
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:10px"><i class="fas fa-share-alt" style="color:#34d399;margin-right:5px"></i> 유입 경로</div>
+      <canvas id="an-source-chart"></canvas>
+    </div>
+  </div>
+
+  <!-- 인기 페이지 -->
+  <div style="margin:0 20px 14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px">
+    <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:8px"><i class="fas fa-fire" style="color:#fb923c;margin-right:5px"></i> 인기 페이지 Top 10</div>
+    <div id="an-pages" style="color:rgba(255,255,255,.2);font-size:11px">로딩 중...</div>
+  </div>
+
+  <!-- 디바이스 -->
+  <div style="margin:0 20px 20px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px">
+    <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:10px"><i class="fas fa-mobile-alt" style="color:#a78bfa;margin-right:5px"></i> 디바이스</div>
+    <div id="an-devices" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;color:rgba(255,255,255,.2);font-size:11px">로딩 중...</div>
+  </div>
+
+  <div style="padding:0 20px 16px;font-size:10px;color:rgba(255,255,255,.2);text-align:center">
+    <i class="fas fa-sync-alt"></i> Google Analytics 4 · Property ID: 539604689
   </div>
 </div>
 
