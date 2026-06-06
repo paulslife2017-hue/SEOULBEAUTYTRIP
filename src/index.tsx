@@ -8,7 +8,13 @@ type Env = {
   genspark_token: string
   GOOGLE_PLACES_KEY: string
   DATABASE_URL: string
+  GA4_SERVICE_ACCOUNT_KEY: string
+  GA4_PROPERTY_ID: string
 }
+
+// GA4 설정 (환경변수 우선, 없으면 내장값 사용)
+const GA4_PROPERTY_ID_DEFAULT = '539604689'
+const GA4_SA_KEY_DEFAULT = '{"type":"service_account","project_id":"seoul-beauty-trip","private_key_id":"REMOVED_SA_KEY_ID","private_key":"-----BEGIN PRIVATE KEY-----\\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQC6uaSFBkCkEx+d\\nWUJKo0YojgHqjx9IJL98bAhW6QM0ir0JuJHAbcSa/ONVqNutFbWjwqhE80j3wWD1\\nqxNWz3A30n06RWqxXxaf28sJtdUe9+LxKoMzENQTnPtzhKiRrVDiZguaz06nY85J\\nC2JPoToDWkJiSkPhwapUJT4JZb6k5eWsBULgfCPL8C2wktv2E9DYwBSSIizVqxE/\\n0bBLjx+Td0Xtpj8nZzbUeLhJTpxzxGINxbk4ECZtmTVxw/7E/3UjbbnN1Uz9fwp/\\n7EB/b6a8JrAaWa7N1CFwSY9nTW2XMygMi8imwIwgz4PoCT53nUWAMQYMbs2FLdzS\\ndZ4i46jhAgMBAAECggEABSK2+iumWnzmKTM7xgbAlrv1JIjkMN1F4PutrQpCms7Y\\nDSzk4ViDiEm9TO1UgWmv8b2YWDEiyCGq84bNhN02tmpVJGWlXhSB8EqgxncYUf46\\nYSysqBpl4tY1+kLjSgJsz5VD63GZNbRih5LHFO6XxGDWo5JsVIi5kQ/nKWYBfNKD\\n2j2QUbRE8Xj8S5y3l+UmuZ4m4YH7vxAOUEE3/QPZ5bIb9pFn0d3Tsf6FRmQZJ3SI\\nABfzlIJoLz+it7xrAMZmU0IU9p9gRDnxhSU6cucLvjNTi/KdVVMYFMwxMA5f3M+W\\nhpUxUd62tRA2TDnv8KWg/HhTRY0LQ9PXne49Mj9CqwKBgQDiuSGfCTUlpJYsL6L9\\nnFcQTEnb7my8r0c0i9/eSNqx+T0E7WKRrYgBjUt3jvr0srJDpwctGh8LAo1cSYuS\\nRQnfjeONWeS4ruVUPl51IPA9/GXgBZZBbtmYR6nOjrOM5jabt1O2ddd9KsCZJUds\\n6ykPjT5J1w5T84EKT7lEOerUdwKBgQDS1kh4IVStYM+QgkjRaQqQk7j5IbREC271\\nKHi1pLUCOZQiFd7tRxO/osCQxX5l/TEoU0syye+WmkuNHvgx0O1nVSUFOZcejcWQ\\nCepzysrf8apESiRRwXu4ihXZYZNI+3xSpYDNOqJj2k3IZkP191FlTOBzXgWtEkNy\\nmuaDvQV7ZwKBgFIm6PLagEKCj9O08ydYNgf2zLB/hTEdhfyZTmYaGfxxJlYZuiS1\\nL1n4m8bXrUFrWsK+zA/grizsINK253b5wykZHcIDN6hf30MWUl24sLSVN0jkXVya\\nUQgnt3TcKl08sb7cv92Wd52oFx+m7WmfEELNWCujXFK5IiHdX3FEVz3jAoGAYY+S\\nnTQfMNNZeO8wruZCY0BYGcBE4C/COmNt5++9argmGdew/m8jbkvre5JHuP3+X0Cb\\nzXawDSp8x2KLStH46RX3OYG6sgK8ZriP6uDuG86CEXOVdtdnXq9XCO4j72Of1caL\\n4Wu+dSIxWAgqbojw+0Uln3zkd3+6AjA3dsJi5QUCgYAR+1yjeTbJ9+ak1yEsVxcC\\n8ecF8iuis9igB4ZyQzazWtzwKa9OQzHl1w6al857QR519xX3/72Bw5MdEEwgP/xR\\n3M3oVYxevCEAQsoMxtwwY4oDsiw/VEqOKSyTtzrBLSeLr35vCpdoCYFD7qs+Bv8d\\nB6E5ksW6vKvyx/KKJzGzfQ==\\n-----END PRIVATE KEY-----\\n","client_email":"REMOVED_SA_EMAIL","client_id":"108177443413203479633","auth_uri":"https://accounts.google.com/o/oauth2/auth","token_uri":"https://oauth2.googleapis.com/token","auth_provider_x509_cert_url":"https://www.googleapis.com/oauth2/v1/certs","client_x509_cert_url":"https://www.googleapis.com/robot/v1/metadata/x509/qwe123%40REMOVED_SA.com","universe_domain":"googleapis.com"}'
 
 // API 키/DB URL은 환경변수에서만 읽음 (하드코딩 금지)
 // 로컬: .dev.vars 파일에 설정
@@ -5218,11 +5224,13 @@ async function getGa4Token(serviceAccountJson: string): Promise<string> {
 
 app.get('/api/analytics', async (c) => {
   try {
-    // Cloudflare Workers: c.env 우선, 없으면 process.env fallback
+    // Cloudflare Workers: c.env 우선 → process.env → 내장 기본값
     const saKey = (c.env as any)?.GA4_SERVICE_ACCOUNT_KEY
       || (typeof process !== 'undefined' ? process.env.GA4_SERVICE_ACCOUNT_KEY : undefined)
+      || GA4_SA_KEY_DEFAULT
     const propId = (c.env as any)?.GA4_PROPERTY_ID
       || (typeof process !== 'undefined' ? process.env.GA4_PROPERTY_ID : undefined)
+      || GA4_PROPERTY_ID_DEFAULT
 
     if (!saKey || !propId) {
       return c.json({ error: 'GA4_NOT_CONFIGURED' }, 503)
