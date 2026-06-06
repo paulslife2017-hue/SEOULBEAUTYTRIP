@@ -905,8 +905,8 @@ async function makeShopSlug(sql: any, name: string, location: string): Promise<s
   const areaPart = parts[0] || ''
   const area = clean(areaPart)
 
-  // base에 이미 area가 포함되어 있으면 area 중복 추가 안 함
-  // ex) "fleur-jardin-myeongdong" + "myeongdong" → 중복 방지
+  // base(name clean) 또는 area 자체가 없으면 area 추가 안 함
+  // ex) "fleur-jardin-myeongdong"(name에 myeongdong 포함) → 중복 방지
   const baseHasArea = area && base.includes(area)
   const candidate = (area && !baseHasArea) ? `${base}-${area}` : base
 
@@ -2042,12 +2042,16 @@ app.post('/api/admin/fix-slugs', async (c) => {
 
   for (const row of rows) {
     const base = clean(row.name || '') || 'shop'
-    // 지역명: 첫 파트만, 중복 단어 제거
+    // 지역명: 첫 파트만 사용
     const parts = (row.location || '').split(',').map((p: string) => p.trim()).filter(Boolean)
     const area = clean(parts[0] || '')
-    // base에 이미 area 포함 시 중복 추가 안 함
+
+    // ✅ 핵심: base(name) 또는 기존 slug 어느 쪽에도 area가 없을 때만 추가
+    // - base에 포함: "fleur-jardin-myeongdong" → name clean 결과에 myeongdong 있음 → 추가 안 함
+    // - slug에 포함: 기존 slug가 이미 올바른 경우도 재추가 방지
     const baseHasArea = area && base.includes(area)
-    const candidate = (area && !baseHasArea) ? `${base}-${area}` : base
+    const slugHasArea = area && row.slug.includes(area)
+    const candidate = (area && !baseHasArea && !slugHasArea) ? `${base}-${area}` : base
 
     // 자기 자신 제외 중복 확인
     const conflict = await sql`SELECT slug FROM shops WHERE slug=${candidate} AND id!=${row.id}`

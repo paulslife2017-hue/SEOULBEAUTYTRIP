@@ -3952,7 +3952,8 @@ app.post("/api/admin/fix-slugs", async (c) => {
     const parts = (row.location || "").split(",").map((p) => p.trim()).filter(Boolean);
     const area = clean(parts[0] || "");
     const baseHasArea = area && base.includes(area);
-    const candidate = area && !baseHasArea ? `${base}-${area}` : base;
+    const slugHasArea = area && row.slug.includes(area);
+    const candidate = area && !baseHasArea && !slugHasArea ? `${base}-${area}` : base;
     const conflict = await sql`SELECT slug FROM shops WHERE slug=${candidate} AND id!=${row.id}`;
     let newSlug = candidate;
     if (conflict.length > 0) {
