@@ -7637,7 +7637,13 @@ function _checkLdReady() {
   _injectVideoIntoShops();
   var elapsed = Date.now() - _ldStartTime;
   var delay = Math.max(0, _MIN_SPLASH_MS - elapsed);
-  setTimeout(hideLd, delay);
+  // DOM\uC774 \uC900\uBE44\uB41C \uD6C4\uC5D0 hideLd \uC2E4\uD589 \uBCF4\uC7A5
+  // (prefetchShops\uAC00 \uC2A4\uD06C\uB9BD\uD2B8 \uD30C\uC2F1 \uC2DC\uC810\uC5D0 \uC989\uC2DC \uC644\uB8CC\uB418\uBA74 DOM\uC774 \uC544\uC9C1 \uC5C6\uC744 \uC218 \uC788\uC74C)
+  if(document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(hideLd, delay); }, {once: true});
+  } else {
+    setTimeout(hideLd, delay);
+  }
 }
 
 /* vids \uBC30\uC5F4\uC5D0\uC11C shopId \uAE30\uC900\uC73C\uB85C \uC601\uC0C1 \uC815\uBCF4\uB97C allShopsData\uC5D0 \uC8FC\uC785 */
@@ -8907,7 +8913,10 @@ document.getElementById('so-filters').addEventListener('click', function(e){
 document.addEventListener('keydown', function(e){
   if(e.key === 'Escape') closeSearch();
 });
-window.addEventListener('load', function(){
+/* \u2605 \uD575\uC2EC \uC218\uC815: window 'load' \u2192 'DOMContentLoaded' \uB85C \uBCC0\uACBD
+   'load'\uB294 \uBAA8\uB4E0 \uC774\uBBF8\uC9C0\xB7CDN\xB7\uD3F0\uD2B8\uAC00 \uB2E4 \uBC1B\uC544\uC9C8 \uB54C\uAE4C\uC9C0 \uAE30\uB2E4\uB9BC (5~15\uCD08 \uC9C0\uC5F0 \uAC00\uB2A5)
+   'DOMContentLoaded'\uB294 HTML \uD30C\uC2F1 \uC644\uB8CC \uC989\uC2DC \uC2E4\uD589 (0.1~0.3\uCD08) \u2192 \uB85C\uB529 \uD654\uBA74 \uC989\uC2DC \uD574\uC81C \uAC00\uB2A5 */
+document.addEventListener('DOMContentLoaded', function(){
   document.querySelectorAll('.cat').forEach(function(b){
     b.addEventListener('click', function(){
       document.querySelectorAll('.cat').forEach(function(x){ x.classList.remove('on'); });

@@ -5962,7 +5962,13 @@ function _checkLdReady() {
   _injectVideoIntoShops();
   var elapsed = Date.now() - _ldStartTime;
   var delay = Math.max(0, _MIN_SPLASH_MS - elapsed);
-  setTimeout(hideLd, delay);
+  // DOM이 준비된 후에 hideLd 실행 보장
+  // (prefetchShops가 스크립트 파싱 시점에 즉시 완료되면 DOM이 아직 없을 수 있음)
+  if(document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(hideLd, delay); }, {once: true});
+  } else {
+    setTimeout(hideLd, delay);
+  }
 }
 
 /* vids 배열에서 shopId 기준으로 영상 정보를 allShopsData에 주입 */
@@ -7232,7 +7238,10 @@ document.getElementById('so-filters').addEventListener('click', function(e){
 document.addEventListener('keydown', function(e){
   if(e.key === 'Escape') closeSearch();
 });
-window.addEventListener('load', function(){
+/* ★ 핵심 수정: window 'load' → 'DOMContentLoaded' 로 변경
+   'load'는 모든 이미지·CDN·폰트가 다 받아질 때까지 기다림 (5~15초 지연 가능)
+   'DOMContentLoaded'는 HTML 파싱 완료 즉시 실행 (0.1~0.3초) → 로딩 화면 즉시 해제 가능 */
+document.addEventListener('DOMContentLoaded', function(){
   document.querySelectorAll('.cat').forEach(function(b){
     b.addEventListener('click', function(){
       document.querySelectorAll('.cat').forEach(function(x){ x.classList.remove('on'); });
