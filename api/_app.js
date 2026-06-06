@@ -10585,88 +10585,110 @@ window.loadAnalytics = async function loadAnalytics(days) {
     var scData = await scRes.json();
     if(scData.error) throw new Error(scData.error);
 
+    var NO_DATA = '<div style="color:rgba(255,255,255,.3);font-size:11px;padding:10px 0;text-align:center">\u{1F50D} \uC544\uC9C1 \uAC80\uC0C9 \uB178\uCD9C \uB370\uC774\uD130 \uC5C6\uC74C<br><span style="font-size:10px;opacity:.6">\uAD6C\uAE00 \uAC80\uC0C9\uC5D0 \uB178\uCD9C\uB418\uBA74 \uC790\uB3D9\uC73C\uB85C \uD45C\uC2DC\uB429\uB2C8\uB2E4</span></div>';
+
     // \uAC80\uC0C9\uC5B4
     var kwEl = document.getElementById('sc-keywords');
-    if(kwEl && scData.keywords && scData.keywords.rows) {
-      var kwMax = scData.keywords.rows[0]?.clicks || 1;
-      kwEl.innerHTML = scData.keywords.rows.map(function(r, i){
-        var q = r.keys[0];
-        var clicks = r.clicks, impr = r.impressions;
-        var ctr = (r.ctr*100).toFixed(1);
-        var pos = r.position.toFixed(1);
-        var pct = Math.round(clicks/Math.max(kwMax,1)*100);
-        var rankColors = ['#fbbf24','#94a3b8','#b45309'];
-        return '<div style="padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04)">'
-          +'<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">'
-          +'<span style="font-size:10px;font-weight:900;color:'+(rankColors[i]||'rgba(255,255,255,.25)')+';min-width:14px">'+(i+1)+'</span>'
-          +'<span style="flex:1;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+q+'</span>'
-          +'<span style="font-size:10px;color:#34d399;font-weight:700">'+clicks+'\uD074\uB9AD</span>'
-          +'</div>'
-          +'<div style="display:flex;align-items:center;gap:5px;padding-left:19px">'
-          +'<div style="flex:1;height:3px;background:rgba(255,255,255,.06);border-radius:2px"><div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,#34d399,#60a5fa);border-radius:2px"></div></div>'
-          +'<span style="font-size:9px;color:rgba(255,255,255,.3)">\uB178\uCD9C '+impr+' \xB7 CTR '+ctr+'% \xB7 \uD3C9\uADE0\uC21C\uC704 '+pos+'\uC704</span>'
-          +'</div>'
-          +'</div>';
-      }).join('') || '<div style="color:rgba(255,255,255,.25)">\uB370\uC774\uD130 \uC5C6\uC74C (\uC11C\uCE58\uCF58\uC194 \uB178\uCD9C \uD544\uC694)</div>';
+    if(kwEl) {
+      var kwRows = (scData.keywords && scData.keywords.rows) || [];
+      if(kwRows.length === 0) {
+        kwEl.innerHTML = NO_DATA;
+      } else {
+        var kwMax = kwRows[0].clicks || 1;
+        kwEl.innerHTML = kwRows.map(function(r, i){
+          var q = r.keys[0];
+          var clicks = r.clicks, impr = r.impressions;
+          var ctr = (r.ctr*100).toFixed(1);
+          var pos = r.position.toFixed(1);
+          var pct = Math.round(clicks/Math.max(kwMax,1)*100);
+          var rankColors = ['#fbbf24','#94a3b8','#b45309'];
+          return '<div style="padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04)">'
+            +'<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">'
+            +'<span style="font-size:10px;font-weight:900;color:'+(rankColors[i]||'rgba(255,255,255,.25)')+';min-width:14px">'+(i+1)+'</span>'
+            +'<span style="flex:1;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+q+'</span>'
+            +'<span style="font-size:10px;color:#34d399;font-weight:700">'+clicks+'\uD074\uB9AD</span>'
+            +'</div>'
+            +'<div style="display:flex;align-items:center;gap:5px;padding-left:19px">'
+            +'<div style="flex:1;height:3px;background:rgba(255,255,255,.06);border-radius:2px"><div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,#34d399,#60a5fa);border-radius:2px"></div></div>'
+            +'<span style="font-size:9px;color:rgba(255,255,255,.3)">\uB178\uCD9C '+impr+' \xB7 CTR '+ctr+'% \xB7 \uD3C9\uADE0\uC21C\uC704 '+pos+'\uC704</span>'
+            +'</div>'
+            +'</div>';
+        }).join('');
+      }
     }
 
     // \uD398\uC774\uC9C0\uBCC4 \uAC80\uC0C9 \uC720\uC785
     var scPgEl = document.getElementById('sc-pages');
-    if(scPgEl && scData.pages && scData.pages.rows) {
-      var pgMax2 = scData.pages.rows[0]?.clicks || 1;
-      scPgEl.innerHTML = scData.pages.rows.map(function(r){
-        var page = r.keys[0].replace('https://seoulbeautytrip.com','') || '/';
-        var clicks = r.clicks, impr = r.impressions, pos = r.position.toFixed(1);
-        var pct3 = Math.round(clicks/Math.max(pgMax2,1)*100);
-        var shortPage = page.length > 30 ? page.slice(0,30)+'\u2026' : page;
-        return '<div style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,.04)">'
-          +'<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px">'
-          +'<span style="flex:1;color:rgba(255,255,255,.8);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+page+'">'+shortPage+'</span>'
-          +'<span style="font-size:10px;color:#60a5fa;font-weight:700">'+clicks+'\uD074\uB9AD</span>'
-          +'</div>'
-          +'<div style="display:flex;align-items:center;gap:5px">'
-          +'<div style="flex:1;height:3px;background:rgba(255,255,255,.06);border-radius:2px"><div style="height:100%;width:'+pct3+'%;background:#60a5fa;border-radius:2px"></div></div>'
-          +'<span style="font-size:9px;color:rgba(255,255,255,.3)">\uB178\uCD9C '+impr+' \xB7 '+pos+'\uC704</span>'
-          +'</div>'
-          +'</div>';
-      }).join('') || '<div style="color:rgba(255,255,255,.25)">\uB370\uC774\uD130 \uC5C6\uC74C</div>';
+    if(scPgEl) {
+      var pgRows = (scData.pages && scData.pages.rows) || [];
+      if(pgRows.length === 0) {
+        scPgEl.innerHTML = NO_DATA;
+      } else {
+        var pgMax2 = pgRows[0].clicks || 1;
+        scPgEl.innerHTML = pgRows.map(function(r){
+          var page = r.keys[0].replace('https://seoulbeautytrip.com','') || '/';
+          var clicks = r.clicks, impr = r.impressions, pos = r.position.toFixed(1);
+          var pct3 = Math.round(clicks/Math.max(pgMax2,1)*100);
+          var shortPage = page.length > 30 ? page.slice(0,30)+'\u2026' : page;
+          return '<div style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,.04)">'
+            +'<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px">'
+            +'<span style="flex:1;color:rgba(255,255,255,.8);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+page+'">'+shortPage+'</span>'
+            +'<span style="font-size:10px;color:#60a5fa;font-weight:700">'+clicks+'\uD074\uB9AD</span>'
+            +'</div>'
+            +'<div style="display:flex;align-items:center;gap:5px">'
+            +'<div style="flex:1;height:3px;background:rgba(255,255,255,.06);border-radius:2px"><div style="height:100%;width:'+pct3+'%;background:#60a5fa;border-radius:2px"></div></div>'
+            +'<span style="font-size:9px;color:rgba(255,255,255,.3)">\uB178\uCD9C '+impr+' \xB7 '+pos+'\uC704</span>'
+            +'</div>'
+            +'</div>';
+        }).join('');
+      }
     }
 
     // \uC11C\uCE58\uCF58\uC194 \uAD6D\uAC00
     var scCntEl = document.getElementById('sc-countries');
-    if(scCntEl && scData.countries && scData.countries.rows) {
-      var flags2 = {'kor':'\u{1F1F0}\u{1F1F7}','usa':'\u{1F1FA}\u{1F1F8}','jpn':'\u{1F1EF}\u{1F1F5}','chn':'\u{1F1E8}\u{1F1F3}','gbr':'\u{1F1EC}\u{1F1E7}','aus':'\u{1F1E6}\u{1F1FA}','can':'\u{1F1E8}\u{1F1E6}','sgp':'\u{1F1F8}\u{1F1EC}','twn':'\u{1F1F9}\u{1F1FC}','fra':'\u{1F1EB}\u{1F1F7}','deu':'\u{1F1E9}\u{1F1EA}','tha':'\u{1F1F9}\u{1F1ED}','vnm':'\u{1F1FB}\u{1F1F3}'};
-      var cntMax2 = scData.countries.rows[0]?.clicks || 1;
-      scCntEl.innerHTML = scData.countries.rows.map(function(r){
-        var cc = r.keys[0];
-        var flag2 = flags2[cc] || '\u{1F30D}';
-        var clicks2 = r.clicks, impr2 = r.impressions;
-        var pct4 = Math.round(clicks2/Math.max(cntMax2,1)*100);
-        return '<div style="display:flex;align-items:center;gap:5px">'
-          +'<span>'+flag2+'</span>'
-          +'<span style="flex:1;color:rgba(255,255,255,.7);text-transform:uppercase;font-size:10px">'+cc+'</span>'
-          +'<div style="width:50px;height:4px;background:rgba(255,255,255,.08);border-radius:2px"><div style="height:100%;width:'+pct4+'%;background:#34d399;border-radius:2px"></div></div>'
-          +'<span style="color:rgba(255,255,255,.4);min-width:20px;text-align:right">'+clicks2+'</span>'
-          +'</div>';
-      }).join('');
+    if(scCntEl) {
+      var cntRows = (scData.countries && scData.countries.rows) || [];
+      if(cntRows.length === 0) {
+        scCntEl.innerHTML = NO_DATA;
+      } else {
+        var flags2 = {'kor':'\u{1F1F0}\u{1F1F7}','usa':'\u{1F1FA}\u{1F1F8}','jpn':'\u{1F1EF}\u{1F1F5}','chn':'\u{1F1E8}\u{1F1F3}','gbr':'\u{1F1EC}\u{1F1E7}','aus':'\u{1F1E6}\u{1F1FA}','can':'\u{1F1E8}\u{1F1E6}','sgp':'\u{1F1F8}\u{1F1EC}','twn':'\u{1F1F9}\u{1F1FC}','fra':'\u{1F1EB}\u{1F1F7}','deu':'\u{1F1E9}\u{1F1EA}','tha':'\u{1F1F9}\u{1F1ED}','vnm':'\u{1F1FB}\u{1F1F3}'};
+        var cntMax2 = cntRows[0].clicks || 1;
+        scCntEl.innerHTML = cntRows.map(function(r){
+          var cc = r.keys[0];
+          var flag2 = flags2[cc] || '\u{1F30D}';
+          var clicks2 = r.clicks, impr2 = r.impressions;
+          var pct4 = Math.round(clicks2/Math.max(cntMax2,1)*100);
+          return '<div style="display:flex;align-items:center;gap:5px">'
+            +'<span>'+flag2+'</span>'
+            +'<span style="flex:1;color:rgba(255,255,255,.7);text-transform:uppercase;font-size:10px">'+cc+'</span>'
+            +'<div style="width:50px;height:4px;background:rgba(255,255,255,.08);border-radius:2px"><div style="height:100%;width:'+pct4+'%;background:#34d399;border-radius:2px"></div></div>'
+            +'<span style="color:rgba(255,255,255,.4);min-width:20px;text-align:right">'+clicks2+'</span>'
+            +'</div>';
+        }).join('');
+      }
     }
 
     // \uC11C\uCE58\uCF58\uC194 \uB514\uBC14\uC774\uC2A4
     var scDevEl = document.getElementById('sc-devices');
-    if(scDevEl && scData.devices && scData.devices.rows) {
-      var devIcons2 = {MOBILE:'\u{1F4F1}',DESKTOP:'\u{1F4BB}',TABLET:'\u{1F4DF}'};
-      var devTotal2 = scData.devices.rows.reduce(function(s,r){return s+r.clicks;},0);
-      scDevEl.innerHTML = scData.devices.rows.map(function(r){
-        var dev = r.keys[0];
-        var clicks3 = r.clicks;
-        var pct5 = devTotal2>0?Math.round(clicks3/devTotal2*100):0;
-        return '<div style="display:flex;align-items:center;gap:6px">'
-          +'<span>'+(devIcons2[dev]||'\u{1F5A5}')+'</span>'
-          +'<span style="flex:1;color:rgba(255,255,255,.7);font-size:11px">'+dev+'</span>'
-          +'<span style="color:#fbbf24;font-weight:700">'+pct5+'%</span>'
-          +'<span style="color:rgba(255,255,255,.3);font-size:10px">('+clicks3+')</span>'
-          +'</div>';
-      }).join('');
+    if(scDevEl) {
+      var devRows = (scData.devices && scData.devices.rows) || [];
+      if(devRows.length === 0) {
+        scDevEl.innerHTML = NO_DATA;
+      } else {
+        var devIcons2 = {MOBILE:'\u{1F4F1}',DESKTOP:'\u{1F4BB}',TABLET:'\u{1F4DF}'};
+        var devTotal2 = devRows.reduce(function(s,r){return s+r.clicks;},0);
+        scDevEl.innerHTML = devRows.map(function(r){
+          var dev = r.keys[0];
+          var clicks3 = r.clicks;
+          var pct5 = devTotal2>0?Math.round(clicks3/devTotal2*100):0;
+          return '<div style="display:flex;align-items:center;gap:6px">'
+            +'<span>'+(devIcons2[dev]||'\u{1F5A5}')+'</span>'
+            +'<span style="flex:1;color:rgba(255,255,255,.7);font-size:11px">'+dev+'</span>'
+            +'<span style="color:#fbbf24;font-weight:700">'+pct5+'%</span>'
+            +'<span style="color:rgba(255,255,255,.3);font-size:10px">('+clicks3+')</span>'
+            +'</div>';
+        }).join('');
+      }
     }
 
   } catch(scErr) {
