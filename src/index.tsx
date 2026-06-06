@@ -5218,8 +5218,11 @@ async function getGa4Token(serviceAccountJson: string): Promise<string> {
 
 app.get('/api/analytics', async (c) => {
   try {
-    const saKey = typeof process !== 'undefined' ? process.env.GA4_SERVICE_ACCOUNT_KEY : undefined
-    const propId = typeof process !== 'undefined' ? process.env.GA4_PROPERTY_ID : undefined
+    // Cloudflare Workers: c.env 우선, 없으면 process.env fallback
+    const saKey = (c.env as any)?.GA4_SERVICE_ACCOUNT_KEY
+      || (typeof process !== 'undefined' ? process.env.GA4_SERVICE_ACCOUNT_KEY : undefined)
+    const propId = (c.env as any)?.GA4_PROPERTY_ID
+      || (typeof process !== 'undefined' ? process.env.GA4_PROPERTY_ID : undefined)
 
     if (!saKey || !propId) {
       return c.json({ error: 'GA4_NOT_CONFIGURED' }, 503)

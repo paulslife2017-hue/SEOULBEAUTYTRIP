@@ -6907,8 +6907,8 @@ async function getGa4Token(serviceAccountJson) {
 }
 app.get("/api/analytics", async (c) => {
   try {
-    const saKey = typeof process !== "undefined" ? process.env.GA4_SERVICE_ACCOUNT_KEY : void 0;
-    const propId = typeof process !== "undefined" ? process.env.GA4_PROPERTY_ID : void 0;
+    const saKey = c.env?.GA4_SERVICE_ACCOUNT_KEY || (typeof process !== "undefined" ? process.env.GA4_SERVICE_ACCOUNT_KEY : void 0);
+    const propId = c.env?.GA4_PROPERTY_ID || (typeof process !== "undefined" ? process.env.GA4_PROPERTY_ID : void 0);
     if (!saKey || !propId) {
       return c.json({ error: "GA4_NOT_CONFIGURED" }, 503);
     }
