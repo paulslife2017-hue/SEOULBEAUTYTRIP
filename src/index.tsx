@@ -894,27 +894,23 @@ app.get('/api/upload-sign-image', async (c) => {
 // "Jiwoo Clinic" + "Gangnam, Seoul" → "jiwoo-clinic-gangnam"
 // 중복 방지: DB에서 같은 slug 있으면 숫자 suffix 붙임
 async function makeShopSlug(sql: any, name: string, location: string): Promise<string> {
-  // 업체명 → slug 베이스
-  let base = ''
-  for (let i = 0; i < name.length; i++) {
-    const ch = name[i].toLowerCase()
-    base += (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') ? ch : '-'
-  }
-  // 연속 하이픈 정리
-  base = base.replace(/-+/g, '-').replace(/^-|-$/g, '') || 'shop'
+  const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
-  // 지역명 추출 (첫 단어, 영문만)
-  const areaRaw = (location || '').split(',')[0].trim()
-  let area = ''
-  for (let i = 0; i < areaRaw.length; i++) {
-    const ch = areaRaw[i].toLowerCase()
-    area += (ch >= 'a' && ch <= 'z') ? ch : '-'
-  }
-  area = area.replace(/-+/g, '-').replace(/^-|-$/g, '')
+  // 업체명 slug
+  const base = clean(name) || 'shop'
 
-  const candidate = area ? `${base}-${area}` : base
+  // 지역명: 첫 번째 파트만 사용, 중복 단어 제거
+  // ex) "Myeongdong, Myeongdong, Seoul" → "myeongdong"
+  const parts = (location || '').split(',').map((p: string) => p.trim()).filter(Boolean)
+  const areaPart = parts[0] || ''
+  const area = clean(areaPart)
 
-  // DB 중복 확인 → 있으면 -2, -3, ...
+  // base에 이미 area가 포함되어 있으면 area 중복 추가 안 함
+  // ex) "fleur-jardin-myeongdong" + "myeongdong" → 중복 방지
+  const baseHasArea = area && base.includes(area)
+  const candidate = (area && !baseHasArea) ? `${base}-${area}` : base
+
+  // DB 중복 확인 → 있으면 -2, -3, ... (숫자 timestamp 대신 순번)
   const existing = await sql`SELECT slug FROM shops WHERE slug LIKE ${candidate + '%'}`
   const existingSlugs = new Set(existing.map((r: any) => r.slug))
   if (!existingSlugs.has(candidate)) return candidate
@@ -922,7 +918,7 @@ async function makeShopSlug(sql: any, name: string, location: string): Promise<s
     const s = `${candidate}-${n}`
     if (!existingSlugs.has(s)) return s
   }
-  return `${candidate}-${Date.now().toString().slice(-4)}`
+  return `${candidate}-2`
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1896,12 +1892,23 @@ app.post('/api/quick-register', async (c) => {
     // ── STEP 3: slug 생성 ──
     const makeSlug = (name: string, loc: string) => {
       const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-      const area = (loc.split(',')[0] || '').trim()
-      return `${clean(name)}-${clean(area)}`.slice(0, 60)
+      const parts = (loc || '').split(',').map((p: string) => p.trim()).filter(Boolean)
+      const area = clean(parts[0] || '')
+      const base = clean(name)
+      // base에 이미 area 포함 시 중복 추가 안 함
+      const candidate = (area && !base.includes(area)) ? `${base}-${area}` : base
+      return candidate.slice(0, 60)
     }
     let slug = makeSlug(engName, resolvedData.location || 'seoul')
-    const existing = await sql`SELECT id FROM shops WHERE slug = ${slug}`
-    if (existing.length > 0) slug = slug + '-' + Date.now().toString().slice(-4)
+    const existingSlug = await sql`SELECT id FROM shops WHERE slug = ${slug}`
+    if (existingSlug.length > 0) {
+      // 순번으로 처리 (-2, -3, ...)
+      for (let n = 2; n <= 99; n++) {
+        const s = `${slug}-${n}`
+        const dup = await sql`SELECT id FROM shops WHERE slug = ${s}`
+        if (!dup.length) { slug = s; break; }
+      }
+    }
 
     // ── STEP 4~6: GPT + Google Places로 고유 SEO 자동 생성 ──
     const loc = resolvedData.location || 'Seoul'
@@ -2031,32 +2038,23 @@ app.post('/api/admin/fix-slugs', async (c) => {
   const sql = getDb(c.env)
   const rows = await sql`SELECT id, name, location, slug FROM shops ORDER BY created_at ASC`
   const results: {id:string, name:string, old:string, new:string}[] = []
+  const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
   for (const row of rows) {
-    // 자기 자신을 제외한 slug 중복 확인을 위해 임시로 다른 slug로 변경
-    // → 새 slug 계산 시 자기 자신은 무시
-    const base = (function() {
-      let b = ''
-      for (let i = 0; i < (row.name||'').length; i++) {
-        const ch = (row.name[i]||'').toLowerCase()
-        b += (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') ? ch : '-'
-      }
-      b = b.replace(/-+/g,'-').replace(/^-|-$/g,'') || 'shop'
-      const areaRaw = (row.location||'').split(',')[0].trim()
-      let area = ''
-      for (let i = 0; i < areaRaw.length; i++) {
-        const ch = areaRaw[i].toLowerCase()
-        area += (ch >= 'a' && ch <= 'z') ? ch : '-'
-      }
-      area = area.replace(/-+/g,'-').replace(/^-|-$/g,'')
-      return area ? `${b}-${area}` : b
-    })()
+    const base = clean(row.name || '') || 'shop'
+    // 지역명: 첫 파트만, 중복 단어 제거
+    const parts = (row.location || '').split(',').map((p: string) => p.trim()).filter(Boolean)
+    const area = clean(parts[0] || '')
+    // base에 이미 area 포함 시 중복 추가 안 함
+    const baseHasArea = area && base.includes(area)
+    const candidate = (area && !baseHasArea) ? `${base}-${area}` : base
+
     // 자기 자신 제외 중복 확인
-    const conflict = await sql`SELECT slug FROM shops WHERE slug=${base} AND id!=${row.id}`
-    let newSlug = base
+    const conflict = await sql`SELECT slug FROM shops WHERE slug=${candidate} AND id!=${row.id}`
+    let newSlug = candidate
     if (conflict.length > 0) {
       for (let n = 2; n <= 99; n++) {
-        const s = `${base}-${n}`
+        const s = `${candidate}-${n}`
         const c2 = await sql`SELECT slug FROM shops WHERE slug=${s} AND id!=${row.id}`
         if (!c2.length) { newSlug = s; break }
       }
@@ -5294,7 +5292,61 @@ app.get('/api/analytics', async (c) => {
       })
     ])
 
-    return c.json({ overview, daily, countries, pages, sources, devices })
+    // ── GA4 소스/매체 상세 (session source / medium)
+    const [sourceMedium, landingPages] = await Promise.all([
+      ga4Fetch({
+        dateRanges: [{ startDate, endDate: 'today' }],
+        dimensions: [{ name: 'sessionSourceMedium' }],
+        metrics: [{ name: 'sessions' }, { name: 'totalUsers' }],
+        orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
+        limit: 10
+      }),
+      ga4Fetch({
+        dateRanges: [{ startDate, endDate: 'today' }],
+        dimensions: [{ name: 'landingPage' }],
+        metrics: [{ name: 'sessions' }, { name: 'bounceRate' }],
+        orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
+        limit: 10
+      })
+    ])
+
+    return c.json({ overview, daily, countries, pages, sources, devices, sourceMedium, landingPages })
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+})
+
+// ── 서치콘솔 API (검색어 + 페이지별 노출/클릭)
+app.get('/api/search-console', async (c) => {
+  try {
+    const saKey = (c.env as any)?.GA4_SERVICE_ACCOUNT_KEY
+      || (typeof process !== 'undefined' ? process.env.GA4_SERVICE_ACCOUNT_KEY : undefined)
+      || GA4_SA_KEY_DEFAULT
+
+    const days = parseInt(c.req.query('days') || '28')
+    const endDate = new Date().toISOString().slice(0, 10)
+    const startDate = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10)
+    const siteUrl = 'https://seoulbeautytrip.com'
+
+    const token = await getGa4Token(saKey)
+
+    const scFetch = (body: object) => fetch(
+      `https://searchconsole.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`,
+      { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+    ).then(r => r.json())
+
+    const [keywords, pages, countries, devices] = await Promise.all([
+      // 검색어 Top 20
+      scFetch({ startDate, endDate, dimensions: ['query'], rowLimit: 20, dataState: 'all' }),
+      // 페이지별 Top 15
+      scFetch({ startDate, endDate, dimensions: ['page'], rowLimit: 15, dataState: 'all' }),
+      // 국가별
+      scFetch({ startDate, endDate, dimensions: ['country'], rowLimit: 10, dataState: 'all' }),
+      // 디바이스별
+      scFetch({ startDate, endDate, dimensions: ['device'], rowLimit: 5, dataState: 'all' })
+    ])
+
+    return c.json({ keywords, pages, countries, devices, startDate, endDate })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
   }
@@ -7921,6 +7973,18 @@ textarea{height:80px;resize:none}
     </div>
   </div>
 
+  <!-- 소스/매체 상세 + 랜딩페이지 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 20px 14px">
+    <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px">
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:8px"><i class="fas fa-route" style="color:#fb923c;margin-right:5px"></i> 유입 소스/매체 상세</div>
+      <div id="an-source-medium" style="display:flex;flex-direction:column;gap:6px;font-size:11px;color:rgba(255,255,255,.2)">로딩 중...</div>
+    </div>
+    <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px">
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:8px"><i class="fas fa-door-open" style="color:#a78bfa;margin-right:5px"></i> 첫 진입 페이지</div>
+      <div id="an-landing" style="display:flex;flex-direction:column;gap:6px;font-size:11px;color:rgba(255,255,255,.2)">로딩 중...</div>
+    </div>
+  </div>
+
   <!-- 인기 페이지 -->
   <div style="margin:0 20px 14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px">
     <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:8px"><i class="fas fa-fire" style="color:#fb923c;margin-right:5px"></i> 인기 페이지 Top 10</div>
@@ -7928,13 +7992,44 @@ textarea{height:80px;resize:none}
   </div>
 
   <!-- 디바이스 -->
-  <div style="margin:0 20px 20px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px">
+  <div style="margin:0 20px 14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px">
     <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:10px"><i class="fas fa-mobile-alt" style="color:#a78bfa;margin-right:5px"></i> 디바이스</div>
     <div id="an-devices" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;color:rgba(255,255,255,.2);font-size:11px">로딩 중...</div>
   </div>
 
+  <!-- 구글 서치콘솔 섹션 -->
+  <div style="margin:0 20px 6px;padding:10px 14px;background:rgba(52,211,153,.06);border:1px solid rgba(52,211,153,.2);border-radius:10px;font-size:11px;color:rgba(52,211,153,.8);display:flex;align-items:center;gap:6px">
+    <i class="fas fa-search"></i> <b>Google Search Console</b> <span style="color:rgba(255,255,255,.3);margin-left:4px">· 실제 검색 노출/클릭 데이터</span>
+  </div>
+
+  <!-- 검색어 + 페이지별 노출 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 20px 14px">
+    <!-- 검색어 Top 20 -->
+    <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px">
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:8px"><i class="fas fa-search" style="color:#34d399;margin-right:5px"></i> 검색 키워드 Top 20</div>
+      <div id="sc-keywords" style="display:flex;flex-direction:column;gap:5px;font-size:11px;color:rgba(255,255,255,.2)">로딩 중...</div>
+    </div>
+    <!-- 페이지별 노출 -->
+    <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px">
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:8px"><i class="fas fa-file-alt" style="color:#60a5fa;margin-right:5px"></i> 페이지별 검색 유입</div>
+      <div id="sc-pages" style="display:flex;flex-direction:column;gap:5px;font-size:11px;color:rgba(255,255,255,.2)">로딩 중...</div>
+    </div>
+  </div>
+
+  <!-- 서치콘솔 국가 + 디바이스 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 20px 20px">
+    <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px">
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:8px"><i class="fas fa-globe" style="color:#34d399;margin-right:5px"></i> 검색 유입 국가</div>
+      <div id="sc-countries" style="display:flex;flex-direction:column;gap:5px;font-size:11px;color:rgba(255,255,255,.2)">로딩 중...</div>
+    </div>
+    <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px">
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:8px"><i class="fas fa-mobile-alt" style="color:#fbbf24;margin-right:5px"></i> 검색 디바이스</div>
+      <div id="sc-devices" style="display:flex;flex-direction:column;gap:5px;font-size:11px;color:rgba(255,255,255,.2)">로딩 중...</div>
+    </div>
+  </div>
+
   <div style="padding:0 20px 16px;font-size:10px;color:rgba(255,255,255,.2);text-align:center">
-    <i class="fas fa-sync-alt"></i> Google Analytics 4 · Property ID: 539604689
+    <i class="fas fa-sync-alt"></i> Google Analytics 4 + Search Console · Property: 539604689
   </div>
 </div>
 
@@ -8782,11 +8877,144 @@ window.loadAnalytics = async function loadAnalytics(days) {
       }).join('');
     }
 
+    // ── 소스/매체 상세 ──
+    var smEl = document.getElementById('an-source-medium');
+    if(smEl && data.sourceMedium && data.sourceMedium.rows) {
+      var smMax = parseInt(data.sourceMedium.rows[0]?.metricValues[0]?.value||1);
+      smEl.innerHTML = data.sourceMedium.rows.slice(0,8).map(function(r){
+        var sm = r.dimensionValues[0].value;
+        var sess = parseInt(r.metricValues[0].value||0);
+        var pct = Math.round(sess/smMax*100);
+        var color = sm.includes('google')?'#FF4D8D':sm.includes('organic')?'#34d399':sm.includes('direct')?'#60a5fa':'#fbbf24';
+        return '<div style="display:flex;align-items:center;gap:6px">'
+          +'<span style="flex:1;color:rgba(255,255,255,.7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px">'+sm+'</span>'
+          +'<div style="width:60px;height:5px;background:rgba(255,255,255,.08);border-radius:3px;flex-shrink:0"><div style="height:100%;width:'+pct+'%;background:'+color+';border-radius:3px"></div></div>'
+          +'<span style="color:rgba(255,255,255,.4);min-width:24px;text-align:right">'+sess+'</span>'
+          +'</div>';
+      }).join('');
+    }
+
+    // ── 랜딩페이지 ──
+    var landEl = document.getElementById('an-landing');
+    if(landEl && data.landingPages && data.landingPages.rows) {
+      var landMax = parseInt(data.landingPages.rows[0]?.metricValues[0]?.value||1);
+      landEl.innerHTML = data.landingPages.rows.slice(0,8).map(function(r){
+        var path = r.dimensionValues[0].value;
+        var sess = parseInt(r.metricValues[0].value||0);
+        var bounce = Math.round(parseFloat(r.metricValues[1]?.value||0)*100);
+        var pct = Math.round(sess/landMax*100);
+        var shortPath = path.length > 28 ? path.slice(0,28)+'…' : path;
+        return '<div style="display:flex;align-items:center;gap:6px">'
+          +'<span style="flex:1;color:rgba(255,255,255,.7);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px" title="'+path+'">'+shortPath+'</span>'
+          +'<div style="width:50px;height:5px;background:rgba(255,255,255,.08);border-radius:3px;flex-shrink:0"><div style="height:100%;width:'+pct+'%;background:#a78bfa;border-radius:3px"></div></div>'
+          +'<span style="color:rgba(255,255,255,.4);min-width:24px;text-align:right">'+sess+'</span>'
+          +'</div>';
+      }).join('');
+    }
+
   } catch(e) {
     console.error('Analytics load error:', e);
     ['an-users','an-pageviews','an-new-users','an-duration'].forEach(function(id){
       var el = document.getElementById(id);
       if(el) el.textContent = 'ERR';
+    });
+  }
+
+  // ── 서치콘솔 데이터 별도 로드 ──
+  try {
+    var scRes = await fetch('/api/search-console?days=' + days);
+    var scData = await scRes.json();
+    if(scData.error) throw new Error(scData.error);
+
+    // 검색어
+    var kwEl = document.getElementById('sc-keywords');
+    if(kwEl && scData.keywords && scData.keywords.rows) {
+      var kwMax = scData.keywords.rows[0]?.clicks || 1;
+      kwEl.innerHTML = scData.keywords.rows.map(function(r, i){
+        var q = r.keys[0];
+        var clicks = r.clicks, impr = r.impressions;
+        var ctr = (r.ctr*100).toFixed(1);
+        var pos = r.position.toFixed(1);
+        var pct = Math.round(clicks/Math.max(kwMax,1)*100);
+        var rankColors = ['#fbbf24','#94a3b8','#b45309'];
+        return '<div style="padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04)">'
+          +'<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">'
+          +'<span style="font-size:10px;font-weight:900;color:'+(rankColors[i]||'rgba(255,255,255,.25)')+';min-width:14px">'+(i+1)+'</span>'
+          +'<span style="flex:1;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+q+'</span>'
+          +'<span style="font-size:10px;color:#34d399;font-weight:700">'+clicks+'클릭</span>'
+          +'</div>'
+          +'<div style="display:flex;align-items:center;gap:5px;padding-left:19px">'
+          +'<div style="flex:1;height:3px;background:rgba(255,255,255,.06);border-radius:2px"><div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,#34d399,#60a5fa);border-radius:2px"></div></div>'
+          +'<span style="font-size:9px;color:rgba(255,255,255,.3)">노출 '+impr+' · CTR '+ctr+'% · 평균순위 '+pos+'위</span>'
+          +'</div>'
+          +'</div>';
+      }).join('') || '<div style="color:rgba(255,255,255,.25)">데이터 없음 (서치콘솔 노출 필요)</div>';
+    }
+
+    // 페이지별 검색 유입
+    var scPgEl = document.getElementById('sc-pages');
+    if(scPgEl && scData.pages && scData.pages.rows) {
+      var pgMax2 = scData.pages.rows[0]?.clicks || 1;
+      scPgEl.innerHTML = scData.pages.rows.map(function(r){
+        var page = r.keys[0].replace('https://seoulbeautytrip.com','') || '/';
+        var clicks = r.clicks, impr = r.impressions, pos = r.position.toFixed(1);
+        var pct3 = Math.round(clicks/Math.max(pgMax2,1)*100);
+        var shortPage = page.length > 30 ? page.slice(0,30)+'…' : page;
+        return '<div style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,.04)">'
+          +'<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px">'
+          +'<span style="flex:1;color:rgba(255,255,255,.8);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+page+'">'+shortPage+'</span>'
+          +'<span style="font-size:10px;color:#60a5fa;font-weight:700">'+clicks+'클릭</span>'
+          +'</div>'
+          +'<div style="display:flex;align-items:center;gap:5px">'
+          +'<div style="flex:1;height:3px;background:rgba(255,255,255,.06);border-radius:2px"><div style="height:100%;width:'+pct3+'%;background:#60a5fa;border-radius:2px"></div></div>'
+          +'<span style="font-size:9px;color:rgba(255,255,255,.3)">노출 '+impr+' · '+pos+'위</span>'
+          +'</div>'
+          +'</div>';
+      }).join('') || '<div style="color:rgba(255,255,255,.25)">데이터 없음</div>';
+    }
+
+    // 서치콘솔 국가
+    var scCntEl = document.getElementById('sc-countries');
+    if(scCntEl && scData.countries && scData.countries.rows) {
+      var flags2 = {'kor':'🇰🇷','usa':'🇺🇸','jpn':'🇯🇵','chn':'🇨🇳','gbr':'🇬🇧','aus':'🇦🇺','can':'🇨🇦','sgp':'🇸🇬','twn':'🇹🇼','fra':'🇫🇷','deu':'🇩🇪','tha':'🇹🇭','vnm':'🇻🇳'};
+      var cntMax2 = scData.countries.rows[0]?.clicks || 1;
+      scCntEl.innerHTML = scData.countries.rows.map(function(r){
+        var cc = r.keys[0];
+        var flag2 = flags2[cc] || '🌍';
+        var clicks2 = r.clicks, impr2 = r.impressions;
+        var pct4 = Math.round(clicks2/Math.max(cntMax2,1)*100);
+        return '<div style="display:flex;align-items:center;gap:5px">'
+          +'<span>'+flag2+'</span>'
+          +'<span style="flex:1;color:rgba(255,255,255,.7);text-transform:uppercase;font-size:10px">'+cc+'</span>'
+          +'<div style="width:50px;height:4px;background:rgba(255,255,255,.08);border-radius:2px"><div style="height:100%;width:'+pct4+'%;background:#34d399;border-radius:2px"></div></div>'
+          +'<span style="color:rgba(255,255,255,.4);min-width:20px;text-align:right">'+clicks2+'</span>'
+          +'</div>';
+      }).join('');
+    }
+
+    // 서치콘솔 디바이스
+    var scDevEl = document.getElementById('sc-devices');
+    if(scDevEl && scData.devices && scData.devices.rows) {
+      var devIcons2 = {MOBILE:'📱',DESKTOP:'💻',TABLET:'📟'};
+      var devTotal2 = scData.devices.rows.reduce(function(s:number,r:any){return s+r.clicks;},0);
+      scDevEl.innerHTML = scData.devices.rows.map(function(r){
+        var dev = r.keys[0];
+        var clicks3 = r.clicks;
+        var pct5 = devTotal2>0?Math.round(clicks3/devTotal2*100):0;
+        return '<div style="display:flex;align-items:center;gap:6px">'
+          +'<span>'+(devIcons2[dev as keyof typeof devIcons2]||'🖥')+'</span>'
+          +'<span style="flex:1;color:rgba(255,255,255,.7);font-size:11px">'+dev+'</span>'
+          +'<span style="color:#fbbf24;font-weight:700">'+pct5+'%</span>'
+          +'<span style="color:rgba(255,255,255,.3);font-size:10px">('+clicks3+')</span>'
+          +'</div>';
+      }).join('');
+    }
+
+  } catch(scErr) {
+    console.warn('Search Console load error:', scErr);
+    ['sc-keywords','sc-pages','sc-countries','sc-devices'].forEach(function(id){
+      var el = document.getElementById(id);
+      if(el) el.innerHTML = '<div style="color:rgba(255,255,255,.2);font-size:10px">서치콘솔 데이터 없음</div>';
     });
   }
 };
