@@ -8562,8 +8562,7 @@ function renderShopModal(shop) {
     + reviewsHtml
     + hoursHtml
     + mapHtml
-    + videosHtml
-    + seoHtml;
+    + videosHtml;
 
   /* \u2500\u2500 \uBC84\uD2BC \uC601\uC5ED \u2500\u2500 */
   var shopSlug = shop.slug || '';

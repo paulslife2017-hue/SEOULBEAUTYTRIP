@@ -6907,8 +6907,7 @@ function renderShopModal(shop) {
     + reviewsHtml
     + hoursHtml
     + mapHtml
-    + videosHtml
-    + seoHtml;
+    + videosHtml;
 
   /* ── 버튼 영역 ── */
   var shopSlug = shop.slug || '';
