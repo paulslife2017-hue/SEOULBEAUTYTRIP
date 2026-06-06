@@ -2382,7 +2382,7 @@ app.get('/shop/:slug', async (c) => {
   // thumbnail이 상대경로(/api/photo...)면 절대 URL로 변환 — OG/Twitter 크롤러용
   const ogImage = shop.thumbnail
     ? (shop.thumbnail.startsWith('http') ? shop.thumbnail : `${base}${shop.thumbnail}`)
-    : `${base}/og-cover.jpg`
+    : `https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg`
   const catEmoji: Record<string,string> = {skincare:'🌿',makeup:'💋',hair:'💇',headspa:'🧖',nail:'💅',clinic:'🏥',tattoo:'✒️'}
   const catIcon = catEmoji[shop.category] || '✨'
 
@@ -3317,7 +3317,7 @@ app.get('/video/:id', async (c) => {
   const thumb = (video.thumbnail && video.thumbnail.startsWith('http') ? video.thumbnail : '')
     || autoThumb
     || shopThumbAbs
-    || `${base}/og-cover.jpg`
+    || `https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg`
   const ogThumb = thumb.startsWith('http') ? thumb : `${base}${thumb}`
   const shopName = r.shop_name || 'Seoul Beauty'
   const title = video.title || `${shopName} Beauty Video`
@@ -3347,7 +3347,7 @@ app.get('/video/:id', async (c) => {
       '@type': 'Organization',
       'name': 'Seoul Beauty Trip',
       'url': base,
-      'logo': { '@type': 'ImageObject', 'url': `${base}/og-cover.jpg` }
+      'logo': { '@type': 'ImageObject', 'url': `https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg` }
     }
   }
   const ldJson = JSON.stringify(videoLd).replace(/<\/script>/gi, '<\\/script>').replace(/<!--/g, '<\\!--')
@@ -3752,13 +3752,13 @@ body{background:#0f0f12;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
 <meta property="og:type" content="website">
 <meta property="og:title" content="${titleMain} | Seoul Beauty Trip">
 <meta property="og:description" content="${metaDesc}">
-<meta property="og:image" content="${shops[0]?.thumbnail ? (shops[0].thumbnail.startsWith('http') ? shops[0].thumbnail : base+shops[0].thumbnail) : base+'/og-cover.jpg'}">
+<meta property="og:image" content="${shops[0]?.thumbnail ? (shops[0].thumbnail.startsWith('http') ? shops[0].thumbnail : base+shops[0].thumbnail) : 'https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg'}">
 <meta property="og:url" content="${pageUrl}">
 <meta property="og:site_name" content="Seoul Beauty Trip">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${titleMain} | Seoul Beauty Trip">
 <meta name="twitter:description" content="${metaDesc}">
-<meta name="twitter:image" content="${shops[0]?.thumbnail || base+'/og-cover.jpg'}">
+<meta name="twitter:image" content="${shops[0]?.thumbnail || 'https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg'}">
 <script type="application/ld+json">${JSON.stringify({'@context':'https://schema.org','@graph':schemaGraph})}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -5059,7 +5059,7 @@ app.get('/', async (c) => {
       const vThumb = (v.thumbnail && v.thumbnail.startsWith('http') ? v.thumbnail : '')
         || (v.videoUrl && v.videoUrl.includes('cloudinary.com') ? v.videoUrl.replace('/video/upload/', '/video/upload/so_0,w_600,h_1066,c_fill,q_auto/').replace(/\.mp4$/, '.jpg') : '')
         || (v.shop?.thumbnail && v.shop.thumbnail.startsWith('http') ? v.shop.thumbnail : '')
-        || 'https://seoulbeautytrip.com/og-cover.jpg'
+        || 'https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg'
       const vUploadDate = v.createdAt
         ? (v.createdAt.includes('T') ? v.createdAt : v.createdAt + 'T00:00:00+09:00')
         : new Date().toISOString()
@@ -5080,7 +5080,7 @@ app.get('/', async (c) => {
           '@type': 'Organization',
           'name': 'Seoul Beauty Trip',
           'url': 'https://seoulbeautytrip.com',
-          'logo': { '@type': 'ImageObject', 'url': 'https://seoulbeautytrip.com/og-cover.jpg' }
+          'logo': { '@type': 'ImageObject', 'url': 'https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg' }
         }
       }
     })
@@ -5296,14 +5296,14 @@ const MAIN_HTML = `<!DOCTYPE html>
 <meta property="og:site_name" content="Seoul Beauty Trip">
 <meta property="og:title" content="Seoul Beauty Trip — Book Korean Beauty in Seoul">
 <meta property="og:description" content="Discover and book the best Korean beauty salons in Seoul. Skincare, makeup, hair, nail art and derma clinics — foreign-friendly with WhatsApp booking.">
-<meta property="og:image" content="https://seoulbeautytrip.com/og-cover.jpg">
+<meta property="og:image" content="https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg">
 <meta property="og:url" content="https://seoulbeautytrip.com/">
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:site" content="@seoulbeautytrip">
 <meta name="twitter:title" content="Seoul Beauty Trip — Book Korean Beauty in Seoul">
 <meta name="twitter:description" content="Discover and book the best Korean beauty salons in Seoul. WhatsApp booking, foreign-friendly.">
-<meta name="twitter:image" content="https://seoulbeautytrip.com/og-cover.jpg">
+<meta name="twitter:image" content="https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg">
 <!-- Schema.org -->
 <script type="application/ld+json">
 {
@@ -5327,7 +5327,7 @@ const MAIN_HTML = `<!DOCTYPE html>
       "@id":"https://seoulbeautytrip.com/#organization",
       "name":"Seoul Beauty Trip",
       "url":"https://seoulbeautytrip.com/",
-      "logo":"https://seoulbeautytrip.com/og-cover.jpg",
+      "logo":"https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg",
       "sameAs":["https://instagram.com/seoulbeautytrip"]
     }
   ]

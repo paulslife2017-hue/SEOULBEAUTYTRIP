@@ -17,6 +17,30 @@
   ],
   "rewrites": [
     {
+      "source": "/static/(.*)",
+      "destination": "/static/$1"
+    },
+    {
+      "source": "/og-cover.jpg",
+      "destination": "/og-cover.jpg"
+    },
+    {
+      "source": "/favicon.ico",
+      "destination": "/favicon.ico"
+    },
+    {
+      "source": "/(.*\\.jpg)",
+      "destination": "/$1"
+    },
+    {
+      "source": "/(.*\\.png)",
+      "destination": "/$1"
+    },
+    {
+      "source": "/(.*\\.webp)",
+      "destination": "/$1"
+    },
+    {
       "source": "/(.*)",
       "destination": "/api/index"
     }
