@@ -539,8 +539,8 @@ app.get('/api/videos', async (c) => {
   const cat = c.req.query('category')
   const rows = await withTimeout(
     cat && cat !== 'all'
-      ? sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.category=${cat} ORDER BY v.views DESC, v.created_at DESC`
-      : sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id ORDER BY v.views DESC, v.created_at DESC`,
+      ? sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.category=${cat} ORDER BY RANDOM()`
+      : sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id ORDER BY RANDOM()`,
     15000, []
   )
   const result = rows.map((r: any) => ({
@@ -6076,8 +6076,10 @@ function loadVideos(cat) {
   if((cat === 'all' || !cat) && window.__INIT_VIDEOS__ && window.__INIT_VIDEOS__.length) {
     vids = window.__INIT_VIDEOS__;
     window.__INIT_VIDEOS__ = null;
-    // 조회수 내림차순 정렬 (서버에서 이미 정렬되어 오지만 클라이언트에서도 보장)
-    vids.sort(function(a, b){ return (b.views||0) - (a.views||0); });
+    for(var i=vids.length-1;i>0;i--){
+      var j=Math.floor(Math.random()*(i+1));
+      var tmp=vids[i]; vids[i]=vids[j]; vids[j]=tmp;
+    }
     renderFeed();
     setLdProgress(85);
     _ldReadyFlags.videos = true;

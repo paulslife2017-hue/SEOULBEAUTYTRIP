@@ -2610,7 +2610,7 @@ app.get("/api/videos", async (c) => {
   const sql = getDb(c.env);
   const cat = c.req.query("category");
   const rows = await withTimeout(
-    cat && cat !== "all" ? sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.category=${cat} ORDER BY v.views DESC, v.created_at DESC` : sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id ORDER BY v.views DESC, v.created_at DESC`,
+    cat && cat !== "all" ? sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.category=${cat} ORDER BY RANDOM()` : sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id ORDER BY RANDOM()`,
     15e3,
     []
   );
@@ -7758,8 +7758,10 @@ function loadVideos(cat) {
   if((cat === 'all' || !cat) && window.__INIT_VIDEOS__ && window.__INIT_VIDEOS__.length) {
     vids = window.__INIT_VIDEOS__;
     window.__INIT_VIDEOS__ = null;
-    // \uC870\uD68C\uC218 \uB0B4\uB9BC\uCC28\uC21C \uC815\uB82C (\uC11C\uBC84\uC5D0\uC11C \uC774\uBBF8 \uC815\uB82C\uB418\uC5B4 \uC624\uC9C0\uB9CC \uD074\uB77C\uC774\uC5B8\uD2B8\uC5D0\uC11C\uB3C4 \uBCF4\uC7A5)
-    vids.sort(function(a, b){ return (b.views||0) - (a.views||0); });
+    for(var i=vids.length-1;i>0;i--){
+      var j=Math.floor(Math.random()*(i+1));
+      var tmp=vids[i]; vids[i]=vids[j]; vids[j]=tmp;
+    }
     renderFeed();
     setLdProgress(85);
     _ldReadyFlags.videos = true;
