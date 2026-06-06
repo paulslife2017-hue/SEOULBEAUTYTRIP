@@ -6318,6 +6318,17 @@ app.get("/blog", async (c) => {
 <meta property="og:description" content="Expert guides on the best head spas, hair salons, skincare clinics and nail art in Seoul for foreign visitors.">
 <meta property="og:url" content="${base}/blog">
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="Seoul Beauty Trip">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:alt" content="Seoul Beauty Blog \u2014 K-Beauty Guides & Tips">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Seoul Beauty Blog \u2014 K-Beauty Guides & Tips">
+<meta name="twitter:description" content="Expert guides on the best head spas, hair salons, skincare clinics and nail art in Seoul for foreign visitors.">
+<meta name="twitter:image" content="https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg">
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"Blog","url":"${base}/blog","name":"Seoul Beauty Blog","description":"K-Beauty guides and tips for foreign visitors in Seoul","publisher":{"@type":"Organization","name":"Seoul Beauty Trip","url":"${base}"}}</script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
 <style>
@@ -6525,10 +6536,17 @@ app.get("/blog/:slug", async (c) => {
 <meta property="og:description" content="${post.meta_description || post.excerpt || ""}">
 <meta property="og:url" content="${canonicalUrl}">
 <meta property="og:type" content="article">
-${post.cover_image ? `<meta property="og:image" content="${post.cover_image}">` : ""}
+<meta property="og:site_name" content="Seoul Beauty Trip">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="${post.cover_image || "https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg"}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:alt" content="${post.title}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${post.title}">
 <meta name="twitter:description" content="${post.meta_description || ""}">
+<meta name="twitter:image" content="${post.cover_image || "https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg"}">
 <script type="application/ld+json">${JSON.stringify({
     "@context": "https://schema.org",
     "@type": "BlogPosting",
@@ -6979,13 +6997,19 @@ var MAIN_HTML = `<!DOCTYPE html>
 <meta property="og:title" content="Seoul Beauty Trip \u2014 Book Korean Beauty in Seoul">
 <meta property="og:description" content="Discover and book the best Korean beauty salons in Seoul. Skincare, makeup, hair, nail art and derma clinics \u2014 foreign-friendly with WhatsApp booking.">
 <meta property="og:image" content="https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:alt" content="Seoul Beauty Trip \u2014 Book Korean Beauty in Seoul">
 <meta property="og:url" content="https://seoulbeautytrip.com/">
+<meta property="og:locale" content="en_US">
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:site" content="@seoulbeautytrip">
 <meta name="twitter:title" content="Seoul Beauty Trip \u2014 Book Korean Beauty in Seoul">
 <meta name="twitter:description" content="Discover and book the best Korean beauty salons in Seoul. WhatsApp booking, foreign-friendly.">
 <meta name="twitter:image" content="https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg">
+<meta name="twitter:image:alt" content="Seoul Beauty Trip \u2014 Book Korean Beauty in Seoul">
 <!-- Schema.org -->
 <script type="application/ld+json">
 {
