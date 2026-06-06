@@ -5984,19 +5984,34 @@ function _injectVideoIntoShops() {
 
 /* ── 스플래시 중 shops 데이터 Prefetch ──
    스플래시가 보이는 동안 /api/shops 를 미리 가져와서
-   shopCache 에 채워둠 → 모달 열 때 fetch 없이 즉시 렌더 */
+   shopCache 에 채워둠 → 모달 열 때 fetch 없이 즉시 렌더
+   
+   [버그 수정] __INIT_SHOPS__ 인라인 데이터가 있으면 즉시 사용 (fetch 불필요)
+   → Neon cold start로 fetch가 느려지면 로딩 화면이 무한 대기하는 문제 방지 */
 var _prefetchDone = false;
 function prefetchShops(){
   if(_prefetchDone) return;
   _prefetchDone = true;
   setLdProgress(10);
+  // SSR 인라인 데이터가 있으면 fetch 없이 즉시 완료
+  if(window.__INIT_SHOPS__ && window.__INIT_SHOPS__.length) {
+    var inlineList = window.__INIT_SHOPS__;
+    window.__INIT_SHOPS__ = null;
+    inlineList.forEach(function(s){
+      if(s && s.id && !shopCache[s.id]) shopCache[s.id] = s;
+    });
+    setLdProgress(40);
+    _ldReadyFlags.shops = true;
+    _checkLdReady();
+    return;
+  }
+  // 인라인 데이터 없을 때만 fetch
   fetch('/api/shops')
     .then(function(r){ return r.json(); })
     .then(function(d){
       var list = d.shops || [];
       list.forEach(function(s){
         if(s && s.id && !shopCache[s.id]) {
-          // _detail은 붙이지 않음 → 모달 열 때 /api/shops/:id 로 videos 포함 상세 fetch 반드시 실행
           shopCache[s.id] = s;
         }
       });
@@ -6029,6 +6044,11 @@ function loadVideos(cat) {
     renderFeed();
     setLdProgress(85);
     _ldReadyFlags.videos = true;
+    // [버그 수정] 인라인 데이터로 즉시 완료해도 fallback timer는 반드시 세팅
+    // prefetchShops가 느릴 경우 shops 플래그를 기다리다 무한 대기하는 것 방지
+    if(!_ldFallbackTimer) {
+      _ldFallbackTimer = setTimeout(function(){ hideLd(); hideCatLoading(); }, 5000);
+    }
     _checkLdReady();
     return;
   }

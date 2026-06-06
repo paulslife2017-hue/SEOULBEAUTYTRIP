@@ -7659,19 +7659,34 @@ function _injectVideoIntoShops() {
 
 /* \u2500\u2500 \uC2A4\uD50C\uB798\uC2DC \uC911 shops \uB370\uC774\uD130 Prefetch \u2500\u2500
    \uC2A4\uD50C\uB798\uC2DC\uAC00 \uBCF4\uC774\uB294 \uB3D9\uC548 /api/shops \uB97C \uBBF8\uB9AC \uAC00\uC838\uC640\uC11C
-   shopCache \uC5D0 \uCC44\uC6CC\uB460 \u2192 \uBAA8\uB2EC \uC5F4 \uB54C fetch \uC5C6\uC774 \uC989\uC2DC \uB80C\uB354 */
+   shopCache \uC5D0 \uCC44\uC6CC\uB460 \u2192 \uBAA8\uB2EC \uC5F4 \uB54C fetch \uC5C6\uC774 \uC989\uC2DC \uB80C\uB354
+   
+   [\uBC84\uADF8 \uC218\uC815] __INIT_SHOPS__ \uC778\uB77C\uC778 \uB370\uC774\uD130\uAC00 \uC788\uC73C\uBA74 \uC989\uC2DC \uC0AC\uC6A9 (fetch \uBD88\uD544\uC694)
+   \u2192 Neon cold start\uB85C fetch\uAC00 \uB290\uB824\uC9C0\uBA74 \uB85C\uB529 \uD654\uBA74\uC774 \uBB34\uD55C \uB300\uAE30\uD558\uB294 \uBB38\uC81C \uBC29\uC9C0 */
 var _prefetchDone = false;
 function prefetchShops(){
   if(_prefetchDone) return;
   _prefetchDone = true;
   setLdProgress(10);
+  // SSR \uC778\uB77C\uC778 \uB370\uC774\uD130\uAC00 \uC788\uC73C\uBA74 fetch \uC5C6\uC774 \uC989\uC2DC \uC644\uB8CC
+  if(window.__INIT_SHOPS__ && window.__INIT_SHOPS__.length) {
+    var inlineList = window.__INIT_SHOPS__;
+    window.__INIT_SHOPS__ = null;
+    inlineList.forEach(function(s){
+      if(s && s.id && !shopCache[s.id]) shopCache[s.id] = s;
+    });
+    setLdProgress(40);
+    _ldReadyFlags.shops = true;
+    _checkLdReady();
+    return;
+  }
+  // \uC778\uB77C\uC778 \uB370\uC774\uD130 \uC5C6\uC744 \uB54C\uB9CC fetch
   fetch('/api/shops')
     .then(function(r){ return r.json(); })
     .then(function(d){
       var list = d.shops || [];
       list.forEach(function(s){
         if(s && s.id && !shopCache[s.id]) {
-          // _detail\uC740 \uBD99\uC774\uC9C0 \uC54A\uC74C \u2192 \uBAA8\uB2EC \uC5F4 \uB54C /api/shops/:id \uB85C videos \uD3EC\uD568 \uC0C1\uC138 fetch \uBC18\uB4DC\uC2DC \uC2E4\uD589
           shopCache[s.id] = s;
         }
       });
@@ -7704,6 +7719,11 @@ function loadVideos(cat) {
     renderFeed();
     setLdProgress(85);
     _ldReadyFlags.videos = true;
+    // [\uBC84\uADF8 \uC218\uC815] \uC778\uB77C\uC778 \uB370\uC774\uD130\uB85C \uC989\uC2DC \uC644\uB8CC\uD574\uB3C4 fallback timer\uB294 \uBC18\uB4DC\uC2DC \uC138\uD305
+    // prefetchShops\uAC00 \uB290\uB9B4 \uACBD\uC6B0 shops \uD50C\uB798\uADF8\uB97C \uAE30\uB2E4\uB9AC\uB2E4 \uBB34\uD55C \uB300\uAE30\uD558\uB294 \uAC83 \uBC29\uC9C0
+    if(!_ldFallbackTimer) {
+      _ldFallbackTimer = setTimeout(function(){ hideLd(); hideCatLoading(); }, 5000);
+    }
     _checkLdReady();
     return;
   }
