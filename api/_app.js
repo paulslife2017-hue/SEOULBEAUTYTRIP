@@ -10654,13 +10654,13 @@ window.loadAnalytics = async function loadAnalytics(days) {
     var scDevEl = document.getElementById('sc-devices');
     if(scDevEl && scData.devices && scData.devices.rows) {
       var devIcons2 = {MOBILE:'\u{1F4F1}',DESKTOP:'\u{1F4BB}',TABLET:'\u{1F4DF}'};
-      var devTotal2 = scData.devices.rows.reduce(function(s:number,r:any){return s+r.clicks;},0);
+      var devTotal2 = scData.devices.rows.reduce(function(s,r){return s+r.clicks;},0);
       scDevEl.innerHTML = scData.devices.rows.map(function(r){
         var dev = r.keys[0];
         var clicks3 = r.clicks;
         var pct5 = devTotal2>0?Math.round(clicks3/devTotal2*100):0;
         return '<div style="display:flex;align-items:center;gap:6px">'
-          +'<span>'+(devIcons2[dev as keyof typeof devIcons2]||'\u{1F5A5}')+'</span>'
+          +'<span>'+(devIcons2[dev]||'\u{1F5A5}')+'</span>'
           +'<span style="flex:1;color:rgba(255,255,255,.7);font-size:11px">'+dev+'</span>'
           +'<span style="color:#fbbf24;font-weight:700">'+pct5+'%</span>'
           +'<span style="color:rgba(255,255,255,.3);font-size:10px">('+clicks3+')</span>'
