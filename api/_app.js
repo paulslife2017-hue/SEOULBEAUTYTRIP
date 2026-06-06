@@ -2252,6 +2252,9 @@ Allow: /
 User-agent: *
 Disallow: /api/
 Disallow: /admin/
+
+# Sitemap location
+Sitemap: https://seoulbeautytrip.com/sitemap.xml
 `;
   return c.text(robotsTxt, 200, { "Content-Type": "text/plain; charset=utf-8" });
 });
@@ -6548,7 +6551,11 @@ app.get("/sitemap.xml", async (c) => {
   let videoIds = [];
   try {
     const rows = await sql`SELECT slug FROM shops WHERE active=true AND slug IS NOT NULL AND slug!=''`;
-    shopSlugs = rows.map((r) => r.slug).filter(Boolean);
+    shopSlugs = rows.map((r) => r.slug).filter((s) => {
+      if (!s || s.startsWith("-")) return false;
+      if (/^-/.test(s)) return false;
+      return true;
+    });
   } catch (e) {
   }
   try {

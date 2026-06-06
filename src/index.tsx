@@ -185,6 +185,9 @@ Allow: /
 User-agent: *
 Disallow: /api/
 Disallow: /admin/
+
+# Sitemap location
+Sitemap: https://seoulbeautytrip.com/sitemap.xml
 `
   return c.text(robotsTxt, 200, { 'Content-Type': 'text/plain; charset=utf-8' })
 })
@@ -4815,7 +4818,12 @@ app.get('/sitemap.xml', async (c) => {
   let videoIds: string[] = []
   try {
     const rows = await sql`SELECT slug FROM shops WHERE active=true AND slug IS NOT NULL AND slug!=''`
-    shopSlugs = rows.map((r: any) => r.slug).filter(Boolean)
+    shopSlugs = rows.map((r: any) => r.slug).filter((s: string) => {
+      // 비정상 slug 필터링: 하이픈으로 시작하거나, 숫자로만 끝나는 이상한 slug 제외
+      if (!s || s.startsWith('-')) return false
+      if (/^-/.test(s)) return false
+      return true
+    })
   } catch(e) {}
   try {
     const brows = await sql`SELECT slug, title, meta_description, content FROM blog_posts WHERE status='published' AND slug IS NOT NULL AND slug != '' AND title IS NOT NULL AND title != ''`
