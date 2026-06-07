@@ -501,6 +501,14 @@ async function initDb(env: any) {
       date TEXT, message TEXT, status TEXT DEFAULT 'new',
       commission_rate INTEGER DEFAULT 10, estimated_amount TEXT, created_at TEXT
     )`
+    // 영상 IP별 조회수 중복 방지 로그 테이블
+    await sql`CREATE TABLE IF NOT EXISTS video_views_log (
+      id TEXT PRIMARY KEY,
+      video_id TEXT NOT NULL,
+      viewer_ip TEXT NOT NULL,
+      viewed_at TEXT NOT NULL
+    )`
+    try { await sql`CREATE UNIQUE INDEX IF NOT EXISTS uq_video_ip ON video_views_log(video_id, viewer_ip)` } catch(e) {}
     // 샘플 데이터 삽입 (비어있을 때만)
     const cnt = await sql`SELECT COUNT(*) as c FROM shops`
     if (Number(cnt[0].c) === 0) {
@@ -1354,8 +1362,33 @@ app.put('/api/videos/:id', async (c) => {
 })
 app.post('/api/videos/:id/view', async (c) => {
   const sql = getDb(c.env)
-  await sql`UPDATE videos SET views=views+1 WHERE id=${c.req.param('id')}`
-  return c.json({ ok: true })
+  const videoId = c.req.param('id')
+  // Cloudflare가 제공하는 실제 방문자 IP (헤더 순서: CF → X-Real-IP → fallback)
+  const ip = c.req.header('cf-connecting-ip')
+    || c.req.header('x-real-ip')
+    || c.req.header('x-forwarded-for')?.split(',')[0]?.trim()
+    || 'unknown'
+  // 24시간 내 같은 IP의 동일 영상 조회는 카운트하지 않음
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  try {
+    const existing = await sql`
+      SELECT id FROM video_views_log
+      WHERE video_id=${videoId} AND viewer_ip=${ip} AND viewed_at > ${cutoff}
+      LIMIT 1`
+    if (existing.length === 0) {
+      // 새 조회 → views +1, 로그 기록
+      const logId = 'vl' + Date.now() + Math.random().toString(36).slice(2, 6)
+      await sql`UPDATE videos SET views=views+1 WHERE id=${videoId}`
+      await sql`INSERT INTO video_views_log (id, video_id, viewer_ip, viewed_at)
+        VALUES (${logId}, ${videoId}, ${ip}, ${new Date().toISOString()})
+        ON CONFLICT (video_id, viewer_ip) DO UPDATE SET viewed_at=EXCLUDED.viewed_at`
+      return c.json({ ok: true, counted: true })
+    }
+  } catch(e) {
+    // 로그 테이블 오류 시 fallback: 항상 카운트
+    await sql`UPDATE videos SET views=views+1 WHERE id=${videoId}`
+  }
+  return c.json({ ok: true, counted: false })
 })
 
 app.get('/api/bookings', async (c) => {
@@ -2014,6 +2047,15 @@ app.post('/api/quick-register', async (c) => {
 
 // ══════════════════════════════════════════
 // ── 일괄 SEO 재생성 API ──
+// ── POST /api/admin/reset-video-views — 영상 조회수 초기화 ──
+app.post('/api/admin/reset-video-views', async (c) => {
+  const sql = getDb(c.env)
+  await sql`UPDATE videos SET views=0`
+  await sql`DELETE FROM video_views_log`
+  const [cnt] = await sql`SELECT COUNT(*) as c FROM videos`
+  return c.json({ ok: true, message: `Reset views=0 for ${cnt.c} videos, cleared view log` })
+})
+
 // ── POST /api/admin/fix-video-thumbnails ──
 // thumbnail이 비어있는 영상들에 Cloudinary so_0 자동 썸네일을 DB에 일괄 저장
 app.post('/api/admin/fix-video-thumbnails', async (c) => {
@@ -3493,8 +3535,10 @@ vid.addEventListener('ended', function(){
   playBtn.style.display='flex';
   if(poster){ poster.style.display='block'; }
 });
-// 조회수 카운트
+// 조회수 카운트 (IP 중복 방지 적용)
 fetch('/api/videos/${vid}/view',{method:'POST'}).catch(function(){});
+// GA4: 단일 영상 페이지 재생 이벤트
+if(typeof gtag!=='undefined') gtag('event','video_play',{event_category:'video',video_id:'${vid}',video_title:'${video.title.replace(/'/g, "'")}',page_location:window.location.href});
 </script>
 </body>
 </html>`)
@@ -4917,6 +4961,78 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;line-height
   </div>
   BLOG_RELATED_PLACEHOLDER
 </main>
+<script>
+(function(){
+  // GA4 블로그 행동 추적
+  var _slug = '${slug}';
+  var _title = ${JSON.stringify(post.title)};
+  var _cat   = '${post.category||''}';
+  var _scrollMilestones = {25:false,50:false,75:false,100:false};
+  var _readStart = Date.now();
+  // 스크롤 깊이 추적 (25/50/75/100%)
+  function onScroll(){
+    var docH = Math.max(document.documentElement.scrollHeight - window.innerHeight, 1);
+    var pct  = Math.floor((window.scrollY / docH) * 100);
+    [25,50,75,100].forEach(function(m){
+      if(pct>=m && !_scrollMilestones[m]){
+        _scrollMilestones[m]=true;
+        if(typeof gtag==='function') gtag('event','scroll_depth',{
+          event_category:'blog',
+          blog_slug: _slug,
+          blog_title: _title,
+          blog_category: _cat,
+          percent: m,
+          page_location: window.location.href
+        });
+        // 100%까지 읽으면 blog_read_complete 이벤트
+        if(m===100){
+          var timeSpent = Math.round((Date.now()-_readStart)/1000);
+          if(typeof gtag==='function') gtag('event','blog_read_complete',{
+            event_category:'blog',
+            blog_slug: _slug,
+            blog_title: _title,
+            blog_category: _cat,
+            time_spent_sec: timeSpent,
+            page_location: window.location.href
+          });
+        }
+      }
+    });
+  }
+  window.addEventListener('scroll', onScroll, {passive:true});
+  // CTA 클릭 추적
+  document.querySelectorAll('.cta-btn,.cta-box a').forEach(function(el){
+    el.addEventListener('click', function(){
+      if(typeof gtag==='function') gtag('event','blog_cta_click',{
+        event_category:'conversion',
+        blog_slug: _slug,
+        blog_title: _title,
+        blog_category: _cat,
+        page_location: window.location.href
+      });
+    });
+  });
+  // 내부 링크 (Related Guides) 클릭 추적
+  document.querySelectorAll('a[href*="/blog/"]').forEach(function(el){
+    el.addEventListener('click', function(){
+      if(typeof gtag==='function') gtag('event','internal_link_click',{
+        event_category:'blog',
+        from_slug: _slug,
+        to_url: el.href,
+        page_location: window.location.href
+      });
+    });
+  });
+  // GA4: 페이지 진입 시 blog_view 이벤트
+  if(typeof gtag==='function') gtag('event','blog_view',{
+    event_category:'blog',
+    blog_slug: _slug,
+    blog_title: _title,
+    blog_category: _cat,
+    page_location: window.location.href
+  });
+})();
+</script>
 </body>
 </html>`
   // content/tags 등을 별도로 치환 (CF Workers 템플릿 리터럴 CPU 부담 경감)
@@ -6381,7 +6497,7 @@ function buildSlide(v, idx) {
     document.getElementById('wabtn'+vidIdx).onclick = function(e){
       e.stopPropagation();
       // GA4: Book 버튼 클릭 (비디오 피드)
-      if(typeof gtag==='function') gtag('event','book_btn_click',{event_category:'engagement',event_label:shopData?shopData.name:'unknown',shop_name:shopData?shopData.name:'',page_location:window.location.href});
+      if(typeof gtag==='function') gtag('event','book_btn_click',{event_category:'conversion',event_label:shopData?shopData.name:'unknown',shop_name:shopData?shopData.name:'',shop_category:shopData?shopData.category:'',video_id:vid.id,page_location:window.location.href});
       // 항상 모달 열기 (상세 페이지와 동일 콘텐츠)
       openShopModal(vid.shopId||shopData.id);
     };
@@ -6389,7 +6505,58 @@ function buildSlide(v, idx) {
     var infoEl = s.querySelector('.info');
     if(infoEl) infoEl.addEventListener('click', function(e){ e.stopPropagation(); });
 
-    fetch('/api/videos/'+vid.id+'/view', {method:'POST'}).catch(function(){});
+    // ── GA4: 영상 재생 시작 이벤트 + IP별 조회수 카운트 ──
+    var _gaPlayed = false;
+    var _gaMilestones = {25:false,50:false,75:false,100:false};
+    if(ve) {
+      ve.addEventListener('play', function(){
+        if(!_gaPlayed) {
+          _gaPlayed = true;
+          if(typeof gtag==='function') gtag('event','video_play',{
+            event_category:'video',
+            video_id: vid.id,
+            video_title: vid.title||'',
+            shop_name: shopData?shopData.name:'',
+            shop_category: shopData?shopData.category:'',
+            page_location: window.location.href
+          });
+          // DB 조회수 +1 (IP 중복 방지 적용)
+          fetch('/api/videos/'+vid.id+'/view',{method:'POST'}).catch(function(){});
+        }
+      });
+      // GA4: 영상 25/50/75% 진행 마일스톤
+      ve.addEventListener('timeupdate', function(){
+        if(!ve.duration||ve.duration===0) return;
+        var pct = Math.floor((ve.currentTime/ve.duration)*100);
+        [25,50,75].forEach(function(m){
+          if(pct>=m&&!_gaMilestones[m]){
+            _gaMilestones[m]=true;
+            if(typeof gtag==='function') gtag('event','video_progress',{
+              event_category:'video',
+              video_id: vid.id,
+              video_title: vid.title||'',
+              percent: m,
+              shop_name: shopData?shopData.name:'',
+              shop_category: shopData?shopData.category:'',
+              page_location: window.location.href
+            });
+          }
+        });
+      });
+      ve.addEventListener('ended', function(){
+        if(!_gaMilestones[100]){
+          _gaMilestones[100]=true;
+          if(typeof gtag==='function') gtag('event','video_complete',{
+            event_category:'video',
+            video_id: vid.id,
+            video_title: vid.title||'',
+            shop_name: shopData?shopData.name:'',
+            shop_category: shopData?shopData.category:'',
+            page_location: window.location.href
+          });
+        }
+      });
+    }
   })(v, idx, shop);
 }
 

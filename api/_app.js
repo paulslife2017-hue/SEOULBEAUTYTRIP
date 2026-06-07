@@ -2574,6 +2574,16 @@ async function initDb(env) {
       date TEXT, message TEXT, status TEXT DEFAULT 'new',
       commission_rate INTEGER DEFAULT 10, estimated_amount TEXT, created_at TEXT
     )`;
+    await sql`CREATE TABLE IF NOT EXISTS video_views_log (
+      id TEXT PRIMARY KEY,
+      video_id TEXT NOT NULL,
+      viewer_ip TEXT NOT NULL,
+      viewed_at TEXT NOT NULL
+    )`;
+    try {
+      await sql`CREATE UNIQUE INDEX IF NOT EXISTS uq_video_ip ON video_views_log(video_id, viewer_ip)`;
+    } catch (e) {
+    }
     const cnt = await sql`SELECT COUNT(*) as c FROM shops`;
     if (Number(cnt[0].c) === 0) {
       for (const s of shops) {
@@ -3357,8 +3367,26 @@ app.put("/api/videos/:id", async (c) => {
 });
 app.post("/api/videos/:id/view", async (c) => {
   const sql = getDb(c.env);
-  await sql`UPDATE videos SET views=views+1 WHERE id=${c.req.param("id")}`;
-  return c.json({ ok: true });
+  const videoId = c.req.param("id");
+  const ip = c.req.header("cf-connecting-ip") || c.req.header("x-real-ip") || c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1e3).toISOString();
+  try {
+    const existing = await sql`
+      SELECT id FROM video_views_log
+      WHERE video_id=${videoId} AND viewer_ip=${ip} AND viewed_at > ${cutoff}
+      LIMIT 1`;
+    if (existing.length === 0) {
+      const logId = "vl" + Date.now() + Math.random().toString(36).slice(2, 6);
+      await sql`UPDATE videos SET views=views+1 WHERE id=${videoId}`;
+      await sql`INSERT INTO video_views_log (id, video_id, viewer_ip, viewed_at)
+        VALUES (${logId}, ${videoId}, ${ip}, ${(/* @__PURE__ */ new Date()).toISOString()})
+        ON CONFLICT (video_id, viewer_ip) DO UPDATE SET viewed_at=EXCLUDED.viewed_at`;
+      return c.json({ ok: true, counted: true });
+    }
+  } catch (e) {
+    await sql`UPDATE videos SET views=views+1 WHERE id=${videoId}`;
+  }
+  return c.json({ ok: true, counted: false });
 });
 app.get("/api/bookings", async (c) => {
   const sql = getDb(c.env);
@@ -3929,6 +3957,13 @@ app.post("/api/quick-register", async (c) => {
   } catch (e) {
     return c.json({ error: e.message || "\uB4F1\uB85D \uC911 \uC624\uB958\uAC00 \uBC1C\uC0DD\uD588\uC2B5\uB2C8\uB2E4" }, 500);
   }
+});
+app.post("/api/admin/reset-video-views", async (c) => {
+  const sql = getDb(c.env);
+  await sql`UPDATE videos SET views=0`;
+  await sql`DELETE FROM video_views_log`;
+  const [cnt] = await sql`SELECT COUNT(*) as c FROM videos`;
+  return c.json({ ok: true, message: `Reset views=0 for ${cnt.c} videos, cleared view log` });
 });
 app.post("/api/admin/fix-video-thumbnails", async (c) => {
   const sql = getDb(c.env);
@@ -5316,8 +5351,10 @@ vid.addEventListener('ended', function(){
   playBtn.style.display='flex';
   if(poster){ poster.style.display='block'; }
 });
-// \uC870\uD68C\uC218 \uCE74\uC6B4\uD2B8
+// \uC870\uD68C\uC218 \uCE74\uC6B4\uD2B8 (IP \uC911\uBCF5 \uBC29\uC9C0 \uC801\uC6A9)
 fetch('/api/videos/${vid}/view',{method:'POST'}).catch(function(){});
+// GA4: \uB2E8\uC77C \uC601\uC0C1 \uD398\uC774\uC9C0 \uC7AC\uC0DD \uC774\uBCA4\uD2B8
+if(typeof gtag!=='undefined') gtag('event','video_play',{event_category:'video',video_id:'${vid}',video_title:'${video.title.replace(/'/g, "'")}',page_location:window.location.href});
 </script>
 </body>
 </html>`);
@@ -6650,6 +6687,78 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;line-height
   </div>
   BLOG_RELATED_PLACEHOLDER
 </main>
+<script>
+(function(){
+  // GA4 \uBE14\uB85C\uADF8 \uD589\uB3D9 \uCD94\uC801
+  var _slug = '${slug}';
+  var _title = ${JSON.stringify(post.title)};
+  var _cat   = '${post.category || ""}';
+  var _scrollMilestones = {25:false,50:false,75:false,100:false};
+  var _readStart = Date.now();
+  // \uC2A4\uD06C\uB864 \uAE4A\uC774 \uCD94\uC801 (25/50/75/100%)
+  function onScroll(){
+    var docH = Math.max(document.documentElement.scrollHeight - window.innerHeight, 1);
+    var pct  = Math.floor((window.scrollY / docH) * 100);
+    [25,50,75,100].forEach(function(m){
+      if(pct>=m && !_scrollMilestones[m]){
+        _scrollMilestones[m]=true;
+        if(typeof gtag==='function') gtag('event','scroll_depth',{
+          event_category:'blog',
+          blog_slug: _slug,
+          blog_title: _title,
+          blog_category: _cat,
+          percent: m,
+          page_location: window.location.href
+        });
+        // 100%\uAE4C\uC9C0 \uC77D\uC73C\uBA74 blog_read_complete \uC774\uBCA4\uD2B8
+        if(m===100){
+          var timeSpent = Math.round((Date.now()-_readStart)/1000);
+          if(typeof gtag==='function') gtag('event','blog_read_complete',{
+            event_category:'blog',
+            blog_slug: _slug,
+            blog_title: _title,
+            blog_category: _cat,
+            time_spent_sec: timeSpent,
+            page_location: window.location.href
+          });
+        }
+      }
+    });
+  }
+  window.addEventListener('scroll', onScroll, {passive:true});
+  // CTA \uD074\uB9AD \uCD94\uC801
+  document.querySelectorAll('.cta-btn,.cta-box a').forEach(function(el){
+    el.addEventListener('click', function(){
+      if(typeof gtag==='function') gtag('event','blog_cta_click',{
+        event_category:'conversion',
+        blog_slug: _slug,
+        blog_title: _title,
+        blog_category: _cat,
+        page_location: window.location.href
+      });
+    });
+  });
+  // \uB0B4\uBD80 \uB9C1\uD06C (Related Guides) \uD074\uB9AD \uCD94\uC801
+  document.querySelectorAll('a[href*="/blog/"]').forEach(function(el){
+    el.addEventListener('click', function(){
+      if(typeof gtag==='function') gtag('event','internal_link_click',{
+        event_category:'blog',
+        from_slug: _slug,
+        to_url: el.href,
+        page_location: window.location.href
+      });
+    });
+  });
+  // GA4: \uD398\uC774\uC9C0 \uC9C4\uC785 \uC2DC blog_view \uC774\uBCA4\uD2B8
+  if(typeof gtag==='function') gtag('event','blog_view',{
+    event_category:'blog',
+    blog_slug: _slug,
+    blog_title: _title,
+    blog_category: _cat,
+    page_location: window.location.href
+  });
+})();
+</script>
 </body>
 </html>`;
   const readMin = Math.ceil((post.content || "").replace(/<[^>]+>/g, "").split(" ").length / 200);
@@ -8036,7 +8145,7 @@ function buildSlide(v, idx) {
     document.getElementById('wabtn'+vidIdx).onclick = function(e){
       e.stopPropagation();
       // GA4: Book \uBC84\uD2BC \uD074\uB9AD (\uBE44\uB514\uC624 \uD53C\uB4DC)
-      if(typeof gtag==='function') gtag('event','book_btn_click',{event_category:'engagement',event_label:shopData?shopData.name:'unknown',shop_name:shopData?shopData.name:'',page_location:window.location.href});
+      if(typeof gtag==='function') gtag('event','book_btn_click',{event_category:'conversion',event_label:shopData?shopData.name:'unknown',shop_name:shopData?shopData.name:'',shop_category:shopData?shopData.category:'',video_id:vid.id,page_location:window.location.href});
       // \uD56D\uC0C1 \uBAA8\uB2EC \uC5F4\uAE30 (\uC0C1\uC138 \uD398\uC774\uC9C0\uC640 \uB3D9\uC77C \uCF58\uD150\uCE20)
       openShopModal(vid.shopId||shopData.id);
     };
@@ -8044,7 +8153,58 @@ function buildSlide(v, idx) {
     var infoEl = s.querySelector('.info');
     if(infoEl) infoEl.addEventListener('click', function(e){ e.stopPropagation(); });
 
-    fetch('/api/videos/'+vid.id+'/view', {method:'POST'}).catch(function(){});
+    // \u2500\u2500 GA4: \uC601\uC0C1 \uC7AC\uC0DD \uC2DC\uC791 \uC774\uBCA4\uD2B8 + IP\uBCC4 \uC870\uD68C\uC218 \uCE74\uC6B4\uD2B8 \u2500\u2500
+    var _gaPlayed = false;
+    var _gaMilestones = {25:false,50:false,75:false,100:false};
+    if(ve) {
+      ve.addEventListener('play', function(){
+        if(!_gaPlayed) {
+          _gaPlayed = true;
+          if(typeof gtag==='function') gtag('event','video_play',{
+            event_category:'video',
+            video_id: vid.id,
+            video_title: vid.title||'',
+            shop_name: shopData?shopData.name:'',
+            shop_category: shopData?shopData.category:'',
+            page_location: window.location.href
+          });
+          // DB \uC870\uD68C\uC218 +1 (IP \uC911\uBCF5 \uBC29\uC9C0 \uC801\uC6A9)
+          fetch('/api/videos/'+vid.id+'/view',{method:'POST'}).catch(function(){});
+        }
+      });
+      // GA4: \uC601\uC0C1 25/50/75% \uC9C4\uD589 \uB9C8\uC77C\uC2A4\uD1A4
+      ve.addEventListener('timeupdate', function(){
+        if(!ve.duration||ve.duration===0) return;
+        var pct = Math.floor((ve.currentTime/ve.duration)*100);
+        [25,50,75].forEach(function(m){
+          if(pct>=m&&!_gaMilestones[m]){
+            _gaMilestones[m]=true;
+            if(typeof gtag==='function') gtag('event','video_progress',{
+              event_category:'video',
+              video_id: vid.id,
+              video_title: vid.title||'',
+              percent: m,
+              shop_name: shopData?shopData.name:'',
+              shop_category: shopData?shopData.category:'',
+              page_location: window.location.href
+            });
+          }
+        });
+      });
+      ve.addEventListener('ended', function(){
+        if(!_gaMilestones[100]){
+          _gaMilestones[100]=true;
+          if(typeof gtag==='function') gtag('event','video_complete',{
+            event_category:'video',
+            video_id: vid.id,
+            video_title: vid.title||'',
+            shop_name: shopData?shopData.name:'',
+            shop_category: shopData?shopData.category:'',
+            page_location: window.location.href
+          });
+        }
+      });
+    }
   })(v, idx, shop);
 }
 
