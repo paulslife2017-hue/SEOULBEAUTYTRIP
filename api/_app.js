@@ -9697,6 +9697,27 @@ textarea{height:80px;resize:none}
     <div id="topVids"></div>
   </div>
 
+  <!-- \uC720\uC785\uCC44\uB110 + \uC870\uD68C\uC218 \uCD08\uAE30\uD654 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+    <!-- \uC720\uC785\uCC44\uB110 \uBBF8\uB2C8 \uCE74\uB4DC -->
+    <div class="card" style="margin-bottom:0;padding:14px;border-color:rgba(52,211,153,.25);background:rgba(52,211,153,.04)">
+      <div class="card-title" style="font-size:12px;margin-bottom:10px">
+        <i class="fas fa-share-alt" style="color:#34d399"></i> \uC720\uC785 \uCC44\uB110 <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,.35)">\uCD5C\uADFC 7\uC77C</span>
+        <button onclick="loadDashboardSources()" style="float:right;background:none;border:none;color:rgba(255,255,255,.3);cursor:pointer;font-size:10px;padding:0"><i class="fas fa-sync-alt"></i></button>
+      </div>
+      <div id="dash-sources" style="display:flex;flex-direction:column;gap:6px;font-size:11px;color:rgba(255,255,255,.3)">\uB85C\uB529 \uC911...</div>
+    </div>
+    <!-- \uC601\uC0C1 \uC870\uD68C\uC218 \uCD08\uAE30\uD654 -->
+    <div class="card" style="margin-bottom:0;padding:14px;border-color:rgba(239,68,68,.25);background:rgba(239,68,68,.04)">
+      <div class="card-title" style="font-size:12px;margin-bottom:10px"><i class="fas fa-video" style="color:#ef4444"></i> \uC601\uC0C1 \uC870\uD68C\uC218 \uAD00\uB9AC</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:12px;line-height:1.5">\uC601\uC0C1 \uC870\uD68C\uC218\uB97C \uBAA8\uB450 0\uC73C\uB85C \uCD08\uAE30\uD654\uD569\uB2C8\uB2E4.<br>\uAC19\uC740 IP\uB294 24\uC2DC\uAC04 1\uD68C\uB9CC \uCE74\uC6B4\uD2B8\uB429\uB2C8\uB2E4.</div>
+      <button onclick="resetVideoViews()" id="reset-views-btn" style="width:100%;padding:10px;background:linear-gradient(135deg,rgba(239,68,68,.3),rgba(220,38,38,.2));border:1.5px solid rgba(239,68,68,.4);border-radius:10px;color:#fca5a5;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
+        <i class="fas fa-redo"></i> \uC804\uCCB4 \uC870\uD68C\uC218 \uCD08\uAE30\uD654
+      </button>
+      <div id="reset-views-result" style="font-size:11px;margin-top:8px;color:rgba(255,255,255,.4);text-align:center"></div>
+    </div>
+  </div>
+
   <!-- SEO \uAD00\uB9AC \uCE74\uB4DC -->
   <div class="card" style="border:1px solid rgba(99,102,241,.3)">
     <div class="card-header">
@@ -10358,6 +10379,16 @@ textarea{height:80px;resize:none}
     </div>
     <div id="token-status" style="font-size:11px;margin-top:8px;color:rgba(255,255,255,.4)"></div>
   </div>
+  <!-- \uC601\uC0C1 \uC870\uD68C\uC218 \uCD08\uAE30\uD654 (Settings \uD0ED) -->
+  <div class="card" style="margin-bottom:16px;border-color:rgba(239,68,68,.25);background:rgba(239,68,68,.04)">
+    <div class="card-title" style="margin-bottom:4px"><i class="fas fa-video" style="color:#ef4444"></i> \uC601\uC0C1 \uC870\uD68C\uC218 \uCD08\uAE30\uD654</div>
+    <div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:14px">\uBAA8\uB4E0 \uC601\uC0C1 \uC870\uD68C\uC218\uB97C 0\uC73C\uB85C \uB9AC\uC14B\uD569\uB2C8\uB2E4. \uC774\uD6C4\uC5D4 \uAC19\uC740 IP\uC5D0\uC11C 24\uC2DC\uAC04 \uB0B4 1\uD68C\uB9CC \uCE74\uC6B4\uD2B8\uB429\uB2C8\uB2E4.</div>
+    <button onclick="resetVideoViews()" id="reset-views-btn2" style="padding:10px 20px;background:linear-gradient(135deg,rgba(239,68,68,.3),rgba(220,38,38,.2));border:1.5px solid rgba(239,68,68,.4);border-radius:10px;color:#fca5a5;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:7px">
+      <i class="fas fa-redo"></i> \uC804\uCCB4 \uC601\uC0C1 \uC870\uD68C\uC218 \uCD08\uAE30\uD654
+    </button>
+    <div id="reset-views-result2" style="font-size:11px;margin-top:8px;color:rgba(255,255,255,.4)"></div>
+  </div>
+
   <div class="card" style="margin-bottom:16px">
     <div class="card-title" style="margin-bottom:16px"><i class="fas fa-link" style="color:#60a5fa"></i> \uC0AC\uC774\uD2B8 \uB9C1\uD06C \uBAA8\uC74C</div>
     <div style="display:flex;flex-direction:column;gap:10px">
@@ -10542,6 +10573,69 @@ window.genBlogBatch = async function genBlogBatch(){
 // \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 var _anDailyChart = null;
 var _anSourceChart = null;
+
+// \u2500\u2500 \uB300\uC2DC\uBCF4\uB4DC \uC720\uC785\uCC44\uB110 \uB85C\uB4DC \u2500\u2500
+window.loadDashboardSources = async function() {
+  var el = document.getElementById('dash-sources');
+  if(!el) return;
+  el.innerHTML = '<span style="color:rgba(255,255,255,.25)">\uB85C\uB529 \uC911...</span>';
+  try {
+    var res = await fetch('/api/analytics?days=7');
+    var data = await res.json();
+    if(!data.sources || !data.sources.rows) { el.innerHTML = '<span style="color:rgba(255,255,255,.25)">\uB370\uC774\uD130 \uC5C6\uC74C</span>'; return; }
+    var total = data.sources.rows.reduce(function(s,r){ return s+parseInt(r.metricValues[0].value||0); },0);
+    var colors = {'Direct':'#60a5fa','Organic Search':'#34d399','Organic Social':'#f472b6','Paid Social':'#fbbf24','Unassigned':'rgba(255,255,255,.3)'};
+    var icons = {'Direct':'\u{1F517}','Organic Search':'\u{1F50D}','Organic Social':'\u{1F4F1}','Paid Social':'\u{1F4B0}','Unassigned':'\u2753'};
+    el.innerHTML = data.sources.rows.slice(0,5).map(function(r){
+      var ch = r.dimensionValues[0].value;
+      var cnt = parseInt(r.metricValues[0].value||0);
+      var pct = total>0 ? Math.round(cnt/total*100) : 0;
+      var color = colors[ch] || '#a78bfa';
+      var icon = icons[ch] || '\u{1F310}';
+      return '<div style="display:flex;align-items:center;gap:6px">'
+        +'<span style="font-size:13px;min-width:18px">'+icon+'</span>'
+        +'<span style="flex:1;color:rgba(255,255,255,.75);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+ch+'</span>'
+        +'<div style="width:50px;height:5px;background:rgba(255,255,255,.08);border-radius:3px;flex-shrink:0"><div style="height:100%;width:'+pct+'%;background:'+color+';border-radius:3px"></div></div>'
+        +'<span style="color:rgba(255,255,255,.5);min-width:28px;text-align:right;font-weight:700">'+cnt+'</span>'
+        +'</div>';
+    }).join('');
+    if(total>0){
+      el.innerHTML += '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06);font-size:10px;color:rgba(255,255,255,.3);text-align:right">\uCD1D \uC138\uC158 '+total.toLocaleString()+'\uD68C \xB7 <a onclick="document.querySelector('.tab[data-tab=analytics]').click();loadAnalytics(7);" style="color:#34d399;cursor:pointer;text-decoration:underline">\uC0C1\uC138 \uBCF4\uAE30</a></div>';
+    }
+  } catch(e) {
+    el.innerHTML = '<span style="color:#ef4444;font-size:11px">\uB85C\uB4DC \uC2E4\uD328</span>';
+  }
+};
+
+// \u2500\u2500 \uC601\uC0C1 \uC870\uD68C\uC218 \uCD08\uAE30\uD654 \u2500\u2500
+window.resetVideoViews = async function() {
+  if(!confirm('\u26A0\uFE0F \uBAA8\uB4E0 \uC601\uC0C1 \uC870\uD68C\uC218\uB97C 0\uC73C\uB85C \uCD08\uAE30\uD654\uD569\uB2C8\uB2E4.
+\uC774 \uC791\uC5C5\uC740 \uB418\uB3CC\uB9B4 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.
+\uACC4\uC18D\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?')) return;
+  var btn1 = document.getElementById('reset-views-btn');
+  var btn2 = document.getElementById('reset-views-btn2');
+  var res1 = document.getElementById('reset-views-result');
+  var res2 = document.getElementById('reset-views-result2');
+  [btn1,btn2].forEach(function(b){ if(b){ b.disabled=true; b.innerHTML='<i class="fas fa-spinner fa-spin"></i> \uCD08\uAE30\uD654 \uC911...'; } });
+  try {
+    var r = await fetch('/api/admin/reset-video-views', {method:'POST'});
+    var d = await r.json();
+    var msg = d.ok ? '\u2705 '+d.message : '\u274C \uC2E4\uD328: '+(d.error||'\uC54C \uC218 \uC5C6\uB294 \uC624\uB958');
+    var color = d.ok ? '#34d399' : '#ef4444';
+    [res1,res2].forEach(function(el){ if(el){ el.style.color=color; el.textContent=msg; } });
+    if(d.ok) {
+      // \uB300\uC2DC\uBCF4\uB4DC \uC22B\uC790 \uC5C5\uB370\uC774\uD2B8
+      var stViews = document.getElementById('st-views');
+      if(stViews) stViews.textContent = '0';
+      setTimeout(function(){ if(typeof loadShops==='function') loadShops(); }, 500);
+    }
+  } catch(e) {
+    [res1,res2].forEach(function(el){ if(el){ el.style.color='#ef4444'; el.textContent='\u274C \uB124\uD2B8\uC6CC\uD06C \uC624\uB958'; } });
+  } finally {
+    [btn1,btn2].forEach(function(b){ if(b){ b.disabled=false; b.innerHTML='<i class="fas fa-redo"></i> \uC804\uCCB4 \uC870\uD68C\uC218 \uCD08\uAE30\uD654'; } });
+    if(btn2) btn2.innerHTML='<i class="fas fa-redo"></i> \uC804\uCCB4 \uC601\uC0C1 \uC870\uD68C\uC218 \uCD08\uAE30\uD654';
+  }
+};
 
 window.loadAnalytics = async function loadAnalytics(days) {
   days = days || 7;
@@ -11277,6 +11371,9 @@ var currentShopId = null;
 
 // \u2500\u2500 \uB370\uC774\uD130 \uB85C\uB4DC \u2500\u2500
 function loadAll(){
+  // \uC720\uC785\uCC44\uB110 \uBBF8\uB2C8 \uCE74\uB4DC \uB85C\uB4DC
+  if(typeof window.loadDashboardSources === 'function') window.loadDashboardSources();
+
   fetch('/api/stats').then(function(r){return r.json();}).catch(function(){ return {}; }).then(function(d){
     // \u2500\u2500 \uD575\uC2EC \uC9C0\uD45C \uCE74\uB4DC \u2500\u2500
     var fmtNum = function(n){ return n>=1000?(n/1000).toFixed(1)+'K':n; };

@@ -8051,6 +8051,27 @@ textarea{height:80px;resize:none}
     <div id="topVids"></div>
   </div>
 
+  <!-- 유입채널 + 조회수 초기화 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+    <!-- 유입채널 미니 카드 -->
+    <div class="card" style="margin-bottom:0;padding:14px;border-color:rgba(52,211,153,.25);background:rgba(52,211,153,.04)">
+      <div class="card-title" style="font-size:12px;margin-bottom:10px">
+        <i class="fas fa-share-alt" style="color:#34d399"></i> 유입 채널 <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,.35)">최근 7일</span>
+        <button onclick="loadDashboardSources()" style="float:right;background:none;border:none;color:rgba(255,255,255,.3);cursor:pointer;font-size:10px;padding:0"><i class="fas fa-sync-alt"></i></button>
+      </div>
+      <div id="dash-sources" style="display:flex;flex-direction:column;gap:6px;font-size:11px;color:rgba(255,255,255,.3)">로딩 중...</div>
+    </div>
+    <!-- 영상 조회수 초기화 -->
+    <div class="card" style="margin-bottom:0;padding:14px;border-color:rgba(239,68,68,.25);background:rgba(239,68,68,.04)">
+      <div class="card-title" style="font-size:12px;margin-bottom:10px"><i class="fas fa-video" style="color:#ef4444"></i> 영상 조회수 관리</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:12px;line-height:1.5">영상 조회수를 모두 0으로 초기화합니다.<br>같은 IP는 24시간 1회만 카운트됩니다.</div>
+      <button onclick="resetVideoViews()" id="reset-views-btn" style="width:100%;padding:10px;background:linear-gradient(135deg,rgba(239,68,68,.3),rgba(220,38,38,.2));border:1.5px solid rgba(239,68,68,.4);border-radius:10px;color:#fca5a5;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
+        <i class="fas fa-redo"></i> 전체 조회수 초기화
+      </button>
+      <div id="reset-views-result" style="font-size:11px;margin-top:8px;color:rgba(255,255,255,.4);text-align:center"></div>
+    </div>
+  </div>
+
   <!-- SEO 관리 카드 -->
   <div class="card" style="border:1px solid rgba(99,102,241,.3)">
     <div class="card-header">
@@ -8712,6 +8733,16 @@ textarea{height:80px;resize:none}
     </div>
     <div id="token-status" style="font-size:11px;margin-top:8px;color:rgba(255,255,255,.4)"></div>
   </div>
+  <!-- 영상 조회수 초기화 (Settings 탭) -->
+  <div class="card" style="margin-bottom:16px;border-color:rgba(239,68,68,.25);background:rgba(239,68,68,.04)">
+    <div class="card-title" style="margin-bottom:4px"><i class="fas fa-video" style="color:#ef4444"></i> 영상 조회수 초기화</div>
+    <div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:14px">모든 영상 조회수를 0으로 리셋합니다. 이후엔 같은 IP에서 24시간 내 1회만 카운트됩니다.</div>
+    <button onclick="resetVideoViews()" id="reset-views-btn2" style="padding:10px 20px;background:linear-gradient(135deg,rgba(239,68,68,.3),rgba(220,38,38,.2));border:1.5px solid rgba(239,68,68,.4);border-radius:10px;color:#fca5a5;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:7px">
+      <i class="fas fa-redo"></i> 전체 영상 조회수 초기화
+    </button>
+    <div id="reset-views-result2" style="font-size:11px;margin-top:8px;color:rgba(255,255,255,.4)"></div>
+  </div>
+
   <div class="card" style="margin-bottom:16px">
     <div class="card-title" style="margin-bottom:16px"><i class="fas fa-link" style="color:#60a5fa"></i> 사이트 링크 모음</div>
     <div style="display:flex;flex-direction:column;gap:10px">
@@ -8896,6 +8927,67 @@ window.genBlogBatch = async function genBlogBatch(){
 // ══════════════════════════════════════════════
 var _anDailyChart = null;
 var _anSourceChart = null;
+
+// ── 대시보드 유입채널 로드 ──
+window.loadDashboardSources = async function() {
+  var el = document.getElementById('dash-sources');
+  if(!el) return;
+  el.innerHTML = '<span style="color:rgba(255,255,255,.25)">로딩 중...</span>';
+  try {
+    var res = await fetch('/api/analytics?days=7');
+    var data = await res.json();
+    if(!data.sources || !data.sources.rows) { el.innerHTML = '<span style="color:rgba(255,255,255,.25)">데이터 없음</span>'; return; }
+    var total = data.sources.rows.reduce(function(s,r){ return s+parseInt(r.metricValues[0].value||0); },0);
+    var colors = {'Direct':'#60a5fa','Organic Search':'#34d399','Organic Social':'#f472b6','Paid Social':'#fbbf24','Unassigned':'rgba(255,255,255,.3)'};
+    var icons = {'Direct':'🔗','Organic Search':'🔍','Organic Social':'📱','Paid Social':'💰','Unassigned':'❓'};
+    el.innerHTML = data.sources.rows.slice(0,5).map(function(r){
+      var ch = r.dimensionValues[0].value;
+      var cnt = parseInt(r.metricValues[0].value||0);
+      var pct = total>0 ? Math.round(cnt/total*100) : 0;
+      var color = colors[ch] || '#a78bfa';
+      var icon = icons[ch] || '🌐';
+      return '<div style="display:flex;align-items:center;gap:6px">'
+        +'<span style="font-size:13px;min-width:18px">'+icon+'</span>'
+        +'<span style="flex:1;color:rgba(255,255,255,.75);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+ch+'</span>'
+        +'<div style="width:50px;height:5px;background:rgba(255,255,255,.08);border-radius:3px;flex-shrink:0"><div style="height:100%;width:'+pct+'%;background:'+color+';border-radius:3px"></div></div>'
+        +'<span style="color:rgba(255,255,255,.5);min-width:28px;text-align:right;font-weight:700">'+cnt+'</span>'
+        +'</div>';
+    }).join('');
+    if(total>0){
+      el.innerHTML += '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06);font-size:10px;color:rgba(255,255,255,.3);text-align:right">총 세션 '+total.toLocaleString()+'회 · <a onclick="document.querySelector(\'.tab[data-tab=analytics]\').click();loadAnalytics(7);" style="color:#34d399;cursor:pointer;text-decoration:underline">상세 보기</a></div>';
+    }
+  } catch(e) {
+    el.innerHTML = '<span style="color:#ef4444;font-size:11px">로드 실패</span>';
+  }
+};
+
+// ── 영상 조회수 초기화 ──
+window.resetVideoViews = async function() {
+  if(!confirm('⚠️ 모든 영상 조회수를 0으로 초기화합니다.\n이 작업은 되돌릴 수 없습니다.\n계속하시겠습니까?')) return;
+  var btn1 = document.getElementById('reset-views-btn');
+  var btn2 = document.getElementById('reset-views-btn2');
+  var res1 = document.getElementById('reset-views-result');
+  var res2 = document.getElementById('reset-views-result2');
+  [btn1,btn2].forEach(function(b){ if(b){ b.disabled=true; b.innerHTML='<i class="fas fa-spinner fa-spin"></i> 초기화 중...'; } });
+  try {
+    var r = await fetch('/api/admin/reset-video-views', {method:'POST'});
+    var d = await r.json();
+    var msg = d.ok ? '✅ '+d.message : '❌ 실패: '+(d.error||'알 수 없는 오류');
+    var color = d.ok ? '#34d399' : '#ef4444';
+    [res1,res2].forEach(function(el){ if(el){ el.style.color=color; el.textContent=msg; } });
+    if(d.ok) {
+      // 대시보드 숫자 업데이트
+      var stViews = document.getElementById('st-views');
+      if(stViews) stViews.textContent = '0';
+      setTimeout(function(){ if(typeof loadShops==='function') loadShops(); }, 500);
+    }
+  } catch(e) {
+    [res1,res2].forEach(function(el){ if(el){ el.style.color='#ef4444'; el.textContent='❌ 네트워크 오류'; } });
+  } finally {
+    [btn1,btn2].forEach(function(b){ if(b){ b.disabled=false; b.innerHTML='<i class="fas fa-redo"></i> 전체 조회수 초기화'; } });
+    if(btn2) btn2.innerHTML='<i class="fas fa-redo"></i> 전체 영상 조회수 초기화';
+  }
+};
 
 window.loadAnalytics = async function loadAnalytics(days) {
   days = days || 7;
@@ -9631,6 +9723,9 @@ var currentShopId = null;
 
 // ── 데이터 로드 ──
 function loadAll(){
+  // 유입채널 미니 카드 로드
+  if(typeof window.loadDashboardSources === 'function') window.loadDashboardSources();
+
   fetch('/api/stats').then(function(r){return r.json();}).catch(function(){ return {}; }).then(function(d){
     // ── 핵심 지표 카드 ──
     var fmtNum = function(n){ return n>=1000?(n/1000).toFixed(1)+'K':n; };
