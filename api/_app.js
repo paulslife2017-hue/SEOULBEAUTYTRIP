@@ -9717,6 +9717,17 @@ textarea{height:80px;resize:none}
 <!-- \uC5C5\uCCB4\xB7\uC601\uC0C1 \uD1B5\uD569\uAD00\uB9AC -->
 <div class="tab-content" id="tab-shops">
 
+  <!-- \u{1F50D} \uC911\uBCF5 \uC5C5\uCCB4 \uAC10\uC9C0 -->
+  <div class="card" id="dup-card" style="margin-bottom:16px;border:1.5px solid rgba(245,158,11,.3);background:linear-gradient(135deg,rgba(245,158,11,.06),rgba(239,68,68,.04))">
+    <div class="card-header" style="margin-bottom:10px">
+      <div class="card-title"><i class="fas fa-clone" style="color:#f59e0b"></i> \uC911\uBCF5 \uC5C5\uCCB4 \uAC10\uC9C0 <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,.4)">\u2014 \uC774\uB984\xB7PlaceID\xB7\uAD6C\uAE00\uB9F5URL \uAE30\uC900 \uC790\uB3D9 \uAC80\uC0AC</span></div>
+      <button onclick="checkDuplicates()" id="dup-btn" style="padding:8px 16px;background:linear-gradient(135deg,rgba(245,158,11,.3),rgba(239,68,68,.2));border:1px solid rgba(245,158,11,.4);border-radius:10px;color:#fbbf24;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px">
+        <i class="fas fa-search"></i> \uC911\uBCF5 \uAC80\uC0AC
+      </button>
+    </div>
+    <div id="dup-result" style="font-size:12.5px;color:rgba(255,255,255,.45);padding:4px 0">\uAC80\uC0AC \uBC84\uD2BC\uC744 \uB204\uB974\uBA74 \uC804\uCCB4 \uC5C5\uCCB4\uB97C \uC2A4\uCE94\uD569\uB2C8\uB2E4.</div>
+  </div>
+
   <!-- \u26A1 \uC6D0\uD074\uB9AD \uBE60\uB978 \uB4F1\uB85D -->
   <div class="card" style="margin-bottom:16px;border:2px solid rgba(255,77,141,.4);background:linear-gradient(135deg,rgba(255,77,141,.08),rgba(155,89,182,.06))">
     <div class="card-header" style="margin-bottom:14px">
@@ -10824,6 +10835,122 @@ window.qrSetCat = function(cat) {
     this.value = ''; // \uAC19\uC740 \uD30C\uC77C \uC7AC\uC120\uD0DD \uD5C8\uC6A9
   });
 })();
+
+// \u2500\u2500 \uC911\uBCF5 \uC5C5\uCCB4 \uAC10\uC9C0 \u2500\u2500
+window.checkDuplicates = async function checkDuplicates() {
+  var btn = document.getElementById('dup-btn');
+  var resultEl = document.getElementById('dup-result');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> \uC2A4\uCE94 \uC911...';
+  resultEl.innerHTML = '<span style="color:rgba(255,255,255,.4)">\uC804\uCCB4 \uC5C5\uCCB4 \uBD88\uB7EC\uC624\uB294 \uC911...</span>';
+
+  try {
+    var resp = await fetch('/api/shops?limit=500');
+    var data = await resp.json();
+    var shops = data.shops || data;
+
+    // 1) \uC774\uB984 \uC911\uBCF5
+    var nameMap = {};
+    // 2) PlaceID \uC911\uBCF5
+    var pidMap = {};
+    // 3) \uAD6C\uAE00\uB9F5URL \uC911\uBCF5
+    var urlMap = {};
+
+    shops.forEach(function(s) {
+      var name = (s.name || '').trim().toLowerCase();
+      var pid  = (s.googlePlaceId || s.placeId || '').trim();
+      var url  = (s.googleMapUrl || '').trim();
+
+      if(name) { if(!nameMap[name]) nameMap[name]=[]; nameMap[name].push(s); }
+      if(pid)  { if(!pidMap[pid])   pidMap[pid]=[];   pidMap[pid].push(s);   }
+      if(url)  { if(!urlMap[url])   urlMap[url]=[];   urlMap[url].push(s);   }
+    });
+
+    var dupNames = Object.entries(nameMap).filter(function(e){ return e[1].length > 1; });
+    var dupPids  = Object.entries(pidMap).filter(function(e){ return e[1].length > 1; });
+    var dupUrls  = Object.entries(urlMap).filter(function(e){ return e[1].length > 1; });
+
+    var totalDup = dupNames.length + dupPids.length + dupUrls.length;
+
+    if(totalDup === 0) {
+      resultEl.innerHTML =
+        '<div style="display:flex;align-items:center;gap:8px;color:#34d399;font-weight:700;font-size:13px">'
+        + '<i class="fas fa-check-circle"></i> \uC911\uBCF5 \uC5C6\uC74C! \uCD1D ' + shops.length + '\uAC1C \uC5C5\uCCB4 \uBAA8\uB450 \uC815\uC0C1\uC785\uB2C8\uB2E4.</div>';
+    } else {
+      var html = '<div style="color:#f59e0b;font-weight:800;font-size:13px;margin-bottom:12px">'
+        + '<i class="fas fa-exclamation-triangle"></i> '
+        + totalDup + '\uAC74 \uC911\uBCF5 \uBC1C\uACAC! (\uCD1D ' + shops.length + '\uAC1C \uC5C5\uCCB4 \uC911)</div>';
+
+      // \uC774\uB984 \uC911\uBCF5
+      if(dupNames.length > 0) {
+        html += '<div style="font-size:11px;color:rgba(255,255,255,.45);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">\u{1F4DB} \uC774\uB984 \uC911\uBCF5 (' + dupNames.length + '\uAC74)</div>';
+        dupNames.forEach(function(e) {
+          var key = e[0]; var list = e[1];
+          html += '<div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:10px;padding:10px 12px;margin-bottom:8px">';
+          html += '<div style="font-size:12px;font-weight:700;color:#fbbf24;margin-bottom:6px">"' + list[0].name + '" \u2014 ' + list.length + '\uAC1C \uC911\uBCF5</div>';
+          html += '<div style="display:flex;flex-direction:column;gap:4px">';
+          list.forEach(function(s) {
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;font-size:11.5px;color:rgba(255,255,255,.65);padding:4px 0;border-bottom:1px solid rgba(255,255,255,.05)">'
+              + '<span><span style="color:rgba(255,255,255,.3);font-size:10px">ID:</span> ' + s.id + ' &nbsp;|&nbsp; ' + (s.location||'') + '</span>'
+              + '<span style="display:flex;gap:5px">'
+              + '<a href="/shop/' + s.slug + '" target="_blank" style="padding:3px 9px;background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);border-radius:6px;color:#60a5fa;font-size:10.5px;font-weight:700;text-decoration:none">\uBCF4\uAE30</a>'
+              + '</span></div>';
+          });
+          html += '</div></div>';
+        });
+      }
+
+      // PlaceID \uC911\uBCF5
+      if(dupPids.length > 0) {
+        html += '<div style="font-size:11px;color:rgba(255,255,255,.45);font-weight:700;margin:10px 0 6px;text-transform:uppercase;letter-spacing:.5px">\u{1F194} PlaceID \uC911\uBCF5 (' + dupPids.length + '\uAC74)</div>';
+        dupPids.forEach(function(e) {
+          var key = e[0]; var list = e[1];
+          html += '<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:10px;padding:10px 12px;margin-bottom:8px">';
+          html += '<div style="font-size:12px;font-weight:700;color:#f87171;margin-bottom:6px">PlaceID: ' + key.substring(0,20) + '... \u2014 ' + list.length + '\uAC1C \uC911\uBCF5</div>';
+          html += '<div style="display:flex;flex-direction:column;gap:4px">';
+          list.forEach(function(s) {
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;font-size:11.5px;color:rgba(255,255,255,.65);padding:4px 0;border-bottom:1px solid rgba(255,255,255,.05)">'
+              + '<span style="font-weight:600">' + (s.name||s.slug) + '</span>'
+              + '<span style="display:flex;gap:5px">'
+              + '<a href="/shop/' + s.slug + '" target="_blank" style="padding:3px 9px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:6px;color:#f87171;font-size:10.5px;font-weight:700;text-decoration:none">\uBCF4\uAE30</a>'
+              + '</span></div>';
+          });
+          html += '</div></div>';
+        });
+      }
+
+      // \uAD6C\uAE00\uB9F5URL \uC911\uBCF5
+      if(dupUrls.length > 0) {
+        html += '<div style="font-size:11px;color:rgba(255,255,255,.45);font-weight:700;margin:10px 0 6px;text-transform:uppercase;letter-spacing:.5px">\u{1F5FA}\uFE0F \uAD6C\uAE00\uB9F5URL \uC911\uBCF5 (' + dupUrls.length + '\uAC74)</div>';
+        dupUrls.forEach(function(e) {
+          var key = e[0]; var list = e[1];
+          html += '<div style="background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.2);border-radius:10px;padding:10px 12px;margin-bottom:8px">';
+          html += '<div style="font-size:12px;font-weight:700;color:#a5b4fc;margin-bottom:6px">\uB3D9\uC77C \uAD6C\uAE00\uB9F5 \u2014 ' + list.length + '\uAC1C \uC911\uBCF5</div>';
+          html += '<div style="display:flex;flex-direction:column;gap:4px">';
+          list.forEach(function(s) {
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;font-size:11.5px;color:rgba(255,255,255,.65);padding:4px 0;border-bottom:1px solid rgba(255,255,255,.05)">'
+              + '<span style="font-weight:600">' + (s.name||s.slug) + '</span>'
+              + '<span style="display:flex;gap:5px">'
+              + '<a href="/shop/' + s.slug + '" target="_blank" style="padding:3px 9px;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);border-radius:6px;color:#a5b4fc;font-size:10.5px;font-weight:700;text-decoration:none">\uBCF4\uAE30</a>'
+              + '</span></div>';
+          });
+          html += '</div></div>';
+        });
+      }
+
+      // \uC0AD\uC81C \uC548\uB0B4
+      html += '<div style="margin-top:10px;padding:10px 12px;background:rgba(255,255,255,.04);border-radius:8px;font-size:11.5px;color:rgba(255,255,255,.4);line-height:1.7">'
+        + '<i class="fas fa-info-circle" style="color:#60a5fa"></i> \uC911\uBCF5 \uC5C5\uCCB4\uB97C \uC0AD\uC81C\uD558\uB824\uBA74 \uC5C5\uCCB4 \uBAA9\uB85D\uC5D0\uC11C \uD574\uB2F9 \uC5C5\uCCB4\uC758 <strong style="color:rgba(255,255,255,.65)">\uC0AD\uC81C \uBC84\uD2BC</strong>\uC744 \uC774\uC6A9\uD558\uC138\uC694.</div>';
+
+      resultEl.innerHTML = html;
+    }
+  } catch(err) {
+    resultEl.innerHTML = '<span style="color:#ef4444"><i class="fas fa-times-circle"></i> \uC624\uB958: ' + err.message + '</span>';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-search"></i> \uC911\uBCF5 \uAC80\uC0AC';
+  }
+};
 
 window.quickRegister = async function quickRegister() {
   var gmapUrl   = (document.getElementById('qr-gmap').value || '').trim();

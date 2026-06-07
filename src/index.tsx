@@ -8064,6 +8064,17 @@ textarea{height:80px;resize:none}
 <!-- 업체·영상 통합관리 -->
 <div class="tab-content" id="tab-shops">
 
+  <!-- 🔍 중복 업체 감지 -->
+  <div class="card" id="dup-card" style="margin-bottom:16px;border:1.5px solid rgba(245,158,11,.3);background:linear-gradient(135deg,rgba(245,158,11,.06),rgba(239,68,68,.04))">
+    <div class="card-header" style="margin-bottom:10px">
+      <div class="card-title"><i class="fas fa-clone" style="color:#f59e0b"></i> 중복 업체 감지 <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,.4)">— 이름·PlaceID·구글맵URL 기준 자동 검사</span></div>
+      <button onclick="checkDuplicates()" id="dup-btn" style="padding:8px 16px;background:linear-gradient(135deg,rgba(245,158,11,.3),rgba(239,68,68,.2));border:1px solid rgba(245,158,11,.4);border-radius:10px;color:#fbbf24;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px">
+        <i class="fas fa-search"></i> 중복 검사
+      </button>
+    </div>
+    <div id="dup-result" style="font-size:12.5px;color:rgba(255,255,255,.45);padding:4px 0">검사 버튼을 누르면 전체 업체를 스캔합니다.</div>
+  </div>
+
   <!-- ⚡ 원클릭 빠른 등록 -->
   <div class="card" style="margin-bottom:16px;border:2px solid rgba(255,77,141,.4);background:linear-gradient(135deg,rgba(255,77,141,.08),rgba(155,89,182,.06))">
     <div class="card-header" style="margin-bottom:14px">
@@ -9171,6 +9182,122 @@ window.qrSetCat = function(cat) {
     this.value = ''; // 같은 파일 재선택 허용
   });
 })();
+
+// ── 중복 업체 감지 ──
+window.checkDuplicates = async function checkDuplicates() {
+  var btn = document.getElementById('dup-btn');
+  var resultEl = document.getElementById('dup-result');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 스캔 중...';
+  resultEl.innerHTML = '<span style="color:rgba(255,255,255,.4)">전체 업체 불러오는 중...</span>';
+
+  try {
+    var resp = await fetch('/api/shops?limit=500');
+    var data = await resp.json();
+    var shops = data.shops || data;
+
+    // 1) 이름 중복
+    var nameMap = {};
+    // 2) PlaceID 중복
+    var pidMap = {};
+    // 3) 구글맵URL 중복
+    var urlMap = {};
+
+    shops.forEach(function(s) {
+      var name = (s.name || '').trim().toLowerCase();
+      var pid  = (s.googlePlaceId || s.placeId || '').trim();
+      var url  = (s.googleMapUrl || '').trim();
+
+      if(name) { if(!nameMap[name]) nameMap[name]=[]; nameMap[name].push(s); }
+      if(pid)  { if(!pidMap[pid])   pidMap[pid]=[];   pidMap[pid].push(s);   }
+      if(url)  { if(!urlMap[url])   urlMap[url]=[];   urlMap[url].push(s);   }
+    });
+
+    var dupNames = Object.entries(nameMap).filter(function(e){ return e[1].length > 1; });
+    var dupPids  = Object.entries(pidMap).filter(function(e){ return e[1].length > 1; });
+    var dupUrls  = Object.entries(urlMap).filter(function(e){ return e[1].length > 1; });
+
+    var totalDup = dupNames.length + dupPids.length + dupUrls.length;
+
+    if(totalDup === 0) {
+      resultEl.innerHTML =
+        '<div style="display:flex;align-items:center;gap:8px;color:#34d399;font-weight:700;font-size:13px">'
+        + '<i class="fas fa-check-circle"></i> 중복 없음! 총 ' + shops.length + '개 업체 모두 정상입니다.</div>';
+    } else {
+      var html = '<div style="color:#f59e0b;font-weight:800;font-size:13px;margin-bottom:12px">'
+        + '<i class="fas fa-exclamation-triangle"></i> '
+        + totalDup + '건 중복 발견! (총 ' + shops.length + '개 업체 중)</div>';
+
+      // 이름 중복
+      if(dupNames.length > 0) {
+        html += '<div style="font-size:11px;color:rgba(255,255,255,.45);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">📛 이름 중복 (' + dupNames.length + '건)</div>';
+        dupNames.forEach(function(e) {
+          var key = e[0]; var list = e[1];
+          html += '<div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:10px;padding:10px 12px;margin-bottom:8px">';
+          html += '<div style="font-size:12px;font-weight:700;color:#fbbf24;margin-bottom:6px">"' + list[0].name + '" — ' + list.length + '개 중복</div>';
+          html += '<div style="display:flex;flex-direction:column;gap:4px">';
+          list.forEach(function(s) {
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;font-size:11.5px;color:rgba(255,255,255,.65);padding:4px 0;border-bottom:1px solid rgba(255,255,255,.05)">'
+              + '<span><span style="color:rgba(255,255,255,.3);font-size:10px">ID:</span> ' + s.id + ' &nbsp;|&nbsp; ' + (s.location||'') + '</span>'
+              + '<span style="display:flex;gap:5px">'
+              + '<a href="/shop/' + s.slug + '" target="_blank" style="padding:3px 9px;background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);border-radius:6px;color:#60a5fa;font-size:10.5px;font-weight:700;text-decoration:none">보기</a>'
+              + '</span></div>';
+          });
+          html += '</div></div>';
+        });
+      }
+
+      // PlaceID 중복
+      if(dupPids.length > 0) {
+        html += '<div style="font-size:11px;color:rgba(255,255,255,.45);font-weight:700;margin:10px 0 6px;text-transform:uppercase;letter-spacing:.5px">🆔 PlaceID 중복 (' + dupPids.length + '건)</div>';
+        dupPids.forEach(function(e) {
+          var key = e[0]; var list = e[1];
+          html += '<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:10px;padding:10px 12px;margin-bottom:8px">';
+          html += '<div style="font-size:12px;font-weight:700;color:#f87171;margin-bottom:6px">PlaceID: ' + key.substring(0,20) + '... — ' + list.length + '개 중복</div>';
+          html += '<div style="display:flex;flex-direction:column;gap:4px">';
+          list.forEach(function(s) {
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;font-size:11.5px;color:rgba(255,255,255,.65);padding:4px 0;border-bottom:1px solid rgba(255,255,255,.05)">'
+              + '<span style="font-weight:600">' + (s.name||s.slug) + '</span>'
+              + '<span style="display:flex;gap:5px">'
+              + '<a href="/shop/' + s.slug + '" target="_blank" style="padding:3px 9px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:6px;color:#f87171;font-size:10.5px;font-weight:700;text-decoration:none">보기</a>'
+              + '</span></div>';
+          });
+          html += '</div></div>';
+        });
+      }
+
+      // 구글맵URL 중복
+      if(dupUrls.length > 0) {
+        html += '<div style="font-size:11px;color:rgba(255,255,255,.45);font-weight:700;margin:10px 0 6px;text-transform:uppercase;letter-spacing:.5px">🗺️ 구글맵URL 중복 (' + dupUrls.length + '건)</div>';
+        dupUrls.forEach(function(e) {
+          var key = e[0]; var list = e[1];
+          html += '<div style="background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.2);border-radius:10px;padding:10px 12px;margin-bottom:8px">';
+          html += '<div style="font-size:12px;font-weight:700;color:#a5b4fc;margin-bottom:6px">동일 구글맵 — ' + list.length + '개 중복</div>';
+          html += '<div style="display:flex;flex-direction:column;gap:4px">';
+          list.forEach(function(s) {
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;font-size:11.5px;color:rgba(255,255,255,.65);padding:4px 0;border-bottom:1px solid rgba(255,255,255,.05)">'
+              + '<span style="font-weight:600">' + (s.name||s.slug) + '</span>'
+              + '<span style="display:flex;gap:5px">'
+              + '<a href="/shop/' + s.slug + '" target="_blank" style="padding:3px 9px;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);border-radius:6px;color:#a5b4fc;font-size:10.5px;font-weight:700;text-decoration:none">보기</a>'
+              + '</span></div>';
+          });
+          html += '</div></div>';
+        });
+      }
+
+      // 삭제 안내
+      html += '<div style="margin-top:10px;padding:10px 12px;background:rgba(255,255,255,.04);border-radius:8px;font-size:11.5px;color:rgba(255,255,255,.4);line-height:1.7">'
+        + '<i class="fas fa-info-circle" style="color:#60a5fa"></i> 중복 업체를 삭제하려면 업체 목록에서 해당 업체의 <strong style="color:rgba(255,255,255,.65)">삭제 버튼</strong>을 이용하세요.</div>';
+
+      resultEl.innerHTML = html;
+    }
+  } catch(err) {
+    resultEl.innerHTML = '<span style="color:#ef4444"><i class="fas fa-times-circle"></i> 오류: ' + err.message + '</span>';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-search"></i> 중복 검사';
+  }
+};
 
 window.quickRegister = async function quickRegister() {
   var gmapUrl   = (document.getElementById('qr-gmap').value || '').trim();
