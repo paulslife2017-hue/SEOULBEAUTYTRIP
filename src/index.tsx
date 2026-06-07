@@ -3342,9 +3342,9 @@ app.get('/video/:id', async (c) => {
     : ''
   // 업체 페이지 링크
   const shopUrl = r.shop_slug ? `${base}/shop/${r.shop_slug}` : `${base}/`
-  // VideoObject JSON-LD (이 페이지가 embedUrl의 실제 대상)
-  // ⚠️ contentUrl(mp4 직접링크) 제거 — Google이 이를 별도 "동영상 URL"로 인식해 21개 URL 오류 발생
-  // embedUrl만 유지: 이 페이지 자체가 동영상의 전용 보기 페이지
+  // VideoObject JSON-LD — Google 동영상 검색 색인 요구사항 완전 충족
+  // contentUrl: 실제 mp4 파일 URL (Google이 "주요 콘텐츠" 판단에 필수)
+  // embedUrl: 이 전용 보기 페이지 URL
   const videoLd = {
     '@context': 'https://schema.org',
     '@type': 'VideoObject',
@@ -3353,7 +3353,10 @@ app.get('/video/:id', async (c) => {
     'thumbnailUrl': ogThumb,
     'uploadDate': uploadDate,
     'embedUrl': pageUrl,
+    'contentUrl': video.videoUrl || streamUrl,
     'duration': 'PT30S',
+    'isFamilyFriendly': true,
+    'inLanguage': 'en',
     'publisher': {
       '@type': 'Organization',
       'name': 'Seoul Beauty Trip',
@@ -3391,6 +3394,11 @@ app.get('/video/:id', async (c) => {
 <meta name="twitter:title" content="${title} | Seoul Beauty Trip">
 <meta name="twitter:description" content="${desc.slice(0,155)}">
 <meta name="twitter:image" content="${ogThumb}">
+<meta property="og:video" content="${streamUrl}">
+<meta property="og:video:secure_url" content="${streamUrl}">
+<meta property="og:video:type" content="video/mp4">
+<meta property="og:video:width" content="600">
+<meta property="og:video:height" content="1066">
 <script type="application/ld+json">${ldJson}</script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -3424,6 +3432,7 @@ html,body{background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFon
     <div id="vid-poster" style="background-image:url('${ogThumb}')"></div>
     <!-- primary video element: Google이 이 페이지의 주요 콘텐츠로 인식 -->
     <video id="mainVid" loop playsinline preload="metadata"
+      itemprop="video"
       poster="${ogThumb}"
       src="${streamUrl}"
     ></video>

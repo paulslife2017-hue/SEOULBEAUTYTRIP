@@ -5169,7 +5169,10 @@ app.get("/video/:id", async (c) => {
     "thumbnailUrl": ogThumb,
     "uploadDate": uploadDate,
     "embedUrl": pageUrl,
+    "contentUrl": video.videoUrl || streamUrl,
     "duration": "PT30S",
+    "isFamilyFriendly": true,
+    "inLanguage": "en",
     "publisher": {
       "@type": "Organization",
       "name": "Seoul Beauty Trip",
@@ -5214,6 +5217,11 @@ People: `);
 <meta name="twitter:title" content="${title} | Seoul Beauty Trip">
 <meta name="twitter:description" content="${desc.slice(0, 155)}">
 <meta name="twitter:image" content="${ogThumb}">
+<meta property="og:video" content="${streamUrl}">
+<meta property="og:video:secure_url" content="${streamUrl}">
+<meta property="og:video:type" content="video/mp4">
+<meta property="og:video:width" content="600">
+<meta property="og:video:height" content="1066">
 <script type="application/ld+json">${ldJson}</script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -5247,6 +5255,7 @@ html,body{background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFon
     <div id="vid-poster" style="background-image:url('${ogThumb}')"></div>
     <!-- primary video element: Google\uC774 \uC774 \uD398\uC774\uC9C0\uC758 \uC8FC\uC694 \uCF58\uD150\uCE20\uB85C \uC778\uC2DD -->
     <video id="mainVid" loop playsinline preload="metadata"
+      itemprop="video"
       poster="${ogThumb}"
       src="${streamUrl}"
     ></video>
