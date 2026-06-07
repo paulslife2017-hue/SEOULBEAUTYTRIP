@@ -8954,7 +8954,7 @@ window.loadDashboardSources = async function() {
         +'</div>';
     }).join('');
     if(total>0){
-      el.innerHTML += '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06);font-size:10px;color:rgba(255,255,255,.3);text-align:right">총 세션 '+total.toLocaleString()+'회 · <a onclick="document.querySelector(\'.tab[data-tab=analytics]\').click();loadAnalytics(7);" style="color:#34d399;cursor:pointer;text-decoration:underline">상세 보기</a></div>';
+      el.innerHTML += '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06);font-size:10px;color:rgba(255,255,255,.3);text-align:right">총 세션 '+total.toLocaleString()+'회 · <span onclick="var t=document.getElementsByClassName(\'tab\');for(var i=0;i<t.length;i++){if(t[i].getAttribute(\'data-tab\')==\'analytics\'){t[i].click();break;}}" style="color:#34d399;cursor:pointer;text-decoration:underline">상세 보기</span></div>';
     }
   } catch(e) {
     el.innerHTML = '<span style="color:#ef4444;font-size:11px">로드 실패</span>';
