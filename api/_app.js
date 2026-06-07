@@ -10574,6 +10574,17 @@ window.genBlogBatch = async function genBlogBatch(){
 var _anDailyChart = null;
 var _anSourceChart = null;
 
+// \u2500\u2500 \uB300\uC2DC\uBCF4\uB4DC \u2192 \uBD84\uC11D \uD0ED \uC774\uB3D9 \uB9C1\uD06C \uC774\uBCA4\uD2B8 \uC704\uC784 \u2500\u2500
+document.addEventListener('click', function(e) {
+  if(e.target && e.target.id === 'dash-go-analytics') {
+    e.preventDefault();
+    var tabs = document.querySelectorAll('.tab');
+    for(var i=0;i<tabs.length;i++){
+      if(tabs[i].getAttribute('data-tab')==='analytics'){ tabs[i].click(); break; }
+    }
+  }
+});
+
 // \u2500\u2500 \uB300\uC2DC\uBCF4\uB4DC \uC720\uC785\uCC44\uB110 \uB85C\uB4DC \u2500\u2500
 window.loadDashboardSources = async function() {
   var el = document.getElementById('dash-sources');
@@ -10600,7 +10611,7 @@ window.loadDashboardSources = async function() {
         +'</div>';
     }).join('');
     if(total>0){
-      el.innerHTML += '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06);font-size:10px;color:rgba(255,255,255,.3);text-align:right">\uCD1D \uC138\uC158 '+total.toLocaleString()+'\uD68C \xB7 <span onclick="var t=document.getElementsByClassName('tab');for(var i=0;i<t.length;i++){if(t[i].getAttribute('data-tab')=='analytics'){t[i].click();break;}}" style="color:#34d399;cursor:pointer;text-decoration:underline">\uC0C1\uC138 \uBCF4\uAE30</span></div>';
+      el.innerHTML += '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06);font-size:10px;color:rgba(255,255,255,.3);text-align:right">\uCD1D \uC138\uC158 '+total.toLocaleString()+'\uD68C \xB7 <a href="#" id="dash-go-analytics" style="color:#34d399;text-decoration:underline">\uC0C1\uC138 \uBCF4\uAE30 \u2192</a></div>';
     }
   } catch(e) {
     el.innerHTML = '<span style="color:#ef4444;font-size:11px">\uB85C\uB4DC \uC2E4\uD328</span>';
@@ -10609,9 +10620,7 @@ window.loadDashboardSources = async function() {
 
 // \u2500\u2500 \uC601\uC0C1 \uC870\uD68C\uC218 \uCD08\uAE30\uD654 \u2500\u2500
 window.resetVideoViews = async function() {
-  if(!confirm('\u26A0\uFE0F \uBAA8\uB4E0 \uC601\uC0C1 \uC870\uD68C\uC218\uB97C 0\uC73C\uB85C \uCD08\uAE30\uD654\uD569\uB2C8\uB2E4.
-\uC774 \uC791\uC5C5\uC740 \uB418\uB3CC\uB9B4 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.
-\uACC4\uC18D\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?')) return;
+  if(!confirm('\u26A0\uFE0F \uBAA8\uB4E0 \uC601\uC0C1 \uC870\uD68C\uC218\uB97C 0\uC73C\uB85C \uCD08\uAE30\uD654\uD569\uB2C8\uB2E4. \uC774 \uC791\uC5C5\uC740 \uB418\uB3CC\uB9B4 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4. \uACC4\uC18D\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?')) return;
   var btn1 = document.getElementById('reset-views-btn');
   var btn2 = document.getElementById('reset-views-btn2');
   var res1 = document.getElementById('reset-views-result');

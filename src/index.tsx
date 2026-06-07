@@ -8928,6 +8928,17 @@ window.genBlogBatch = async function genBlogBatch(){
 var _anDailyChart = null;
 var _anSourceChart = null;
 
+// ── 대시보드 → 분석 탭 이동 링크 이벤트 위임 ──
+document.addEventListener('click', function(e) {
+  if(e.target && e.target.id === 'dash-go-analytics') {
+    e.preventDefault();
+    var tabs = document.querySelectorAll('.tab');
+    for(var i=0;i<tabs.length;i++){
+      if(tabs[i].getAttribute('data-tab')==='analytics'){ tabs[i].click(); break; }
+    }
+  }
+});
+
 // ── 대시보드 유입채널 로드 ──
 window.loadDashboardSources = async function() {
   var el = document.getElementById('dash-sources');
@@ -8954,7 +8965,7 @@ window.loadDashboardSources = async function() {
         +'</div>';
     }).join('');
     if(total>0){
-      el.innerHTML += '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06);font-size:10px;color:rgba(255,255,255,.3);text-align:right">총 세션 '+total.toLocaleString()+'회 · <span onclick="var t=document.getElementsByClassName(\'tab\');for(var i=0;i<t.length;i++){if(t[i].getAttribute(\'data-tab\')==\'analytics\'){t[i].click();break;}}" style="color:#34d399;cursor:pointer;text-decoration:underline">상세 보기</span></div>';
+      el.innerHTML += '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06);font-size:10px;color:rgba(255,255,255,.3);text-align:right">총 세션 '+total.toLocaleString()+'회 · <a href="#" id="dash-go-analytics" style="color:#34d399;text-decoration:underline">상세 보기 →</a></div>';
     }
   } catch(e) {
     el.innerHTML = '<span style="color:#ef4444;font-size:11px">로드 실패</span>';
@@ -8963,7 +8974,7 @@ window.loadDashboardSources = async function() {
 
 // ── 영상 조회수 초기화 ──
 window.resetVideoViews = async function() {
-  if(!confirm('⚠️ 모든 영상 조회수를 0으로 초기화합니다.\n이 작업은 되돌릴 수 없습니다.\n계속하시겠습니까?')) return;
+  if(!confirm('⚠️ 모든 영상 조회수를 0으로 초기화합니다. 이 작업은 되돌릴 수 없습니다. 계속하시겠습니까?')) return;
   var btn1 = document.getElementById('reset-views-btn');
   var btn2 = document.getElementById('reset-views-btn2');
   var res1 = document.getElementById('reset-views-result');
