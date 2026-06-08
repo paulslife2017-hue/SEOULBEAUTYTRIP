@@ -7101,7 +7101,51 @@ app.get("/api/analytics", async (c) => {
         limit: 10
       })
     ]);
-    return c.json({ overview, daily, countries, pages, sources, devices, sourceMedium, landingPages });
+    const [videoSwipe, videoSummary, searchEvent, searchClick, whatsappClick] = await Promise.all([
+      // 영상 넘김 (video_swipe) — 평균 몇 번 넘기나
+      ga4Fetch({
+        dateRanges: [{ startDate, endDate: "today" }],
+        metrics: [{ name: "eventCount" }, { name: "totalUsers" }],
+        dimensionFilter: { filter: { fieldName: "eventName", stringFilter: { matchType: "EXACT", value: "video_swipe" } } }
+      }),
+      // 세션당 영상 요약 (session_video_summary)
+      ga4Fetch({
+        dateRanges: [{ startDate, endDate: "today" }],
+        dimensions: [{ name: "customEvent:total_videos_seen" }],
+        metrics: [{ name: "eventCount" }],
+        dimensionFilter: { filter: { fieldName: "eventName", stringFilter: { matchType: "EXACT", value: "session_video_summary" } } },
+        orderBys: [{ metric: { metricName: "eventCount" }, desc: true }],
+        limit: 10
+      }),
+      // 검색어 top 10
+      ga4Fetch({
+        dateRanges: [{ startDate, endDate: "today" }],
+        dimensions: [{ name: "customEvent:search_term" }],
+        metrics: [{ name: "eventCount" }],
+        dimensionFilter: { filter: { fieldName: "eventName", stringFilter: { matchType: "EXACT", value: "search" } } },
+        orderBys: [{ metric: { metricName: "eventCount" }, desc: true }],
+        limit: 10
+      }),
+      // 검색 후 클릭된 업체 top 10
+      ga4Fetch({
+        dateRanges: [{ startDate, endDate: "today" }],
+        dimensions: [{ name: "customEvent:shop_name" }],
+        metrics: [{ name: "eventCount" }],
+        dimensionFilter: { filter: { fieldName: "eventName", stringFilter: { matchType: "EXACT", value: "search_shop_click" } } },
+        orderBys: [{ metric: { metricName: "eventCount" }, desc: true }],
+        limit: 10
+      }),
+      // WhatsApp 클릭 업체 top 10
+      ga4Fetch({
+        dateRanges: [{ startDate, endDate: "today" }],
+        dimensions: [{ name: "customEvent:shop_name" }, { name: "customEvent:shop_category" }],
+        metrics: [{ name: "eventCount" }],
+        dimensionFilter: { filter: { fieldName: "eventName", stringFilter: { matchType: "EXACT", value: "whatsapp_click" } } },
+        orderBys: [{ metric: { metricName: "eventCount" }, desc: true }],
+        limit: 10
+      })
+    ]);
+    return c.json({ overview, daily, countries, pages, sources, devices, sourceMedium, landingPages, videoSwipe, videoSummary, searchEvent, searchClick, whatsappClick });
   } catch (e) {
     return c.json({ error: e.message }, 500);
   }
@@ -8053,6 +8097,11 @@ function buildSlide(v, idx) {
   var shop = v.shop || {};
   var s = document.createElement('article');
   s.className='slide'; s.id='sl'+idx;
+  // GA4 \uCD94\uC801\uC6A9 data \uC18D\uC131 \u2014 \uC2A4\uC640\uC774\uD504 \uC774\uBCA4\uD2B8\uC5D0\uC11C \uC601\uC0C1/\uC0F5 \uC815\uBCF4 \uCC38\uC870
+  s.setAttribute('data-vid-id', v.id || ('video_'+idx));
+  s.setAttribute('data-vid-title', v.title || '');
+  s.setAttribute('data-shop-name', shop.name || '');
+  s.setAttribute('data-shop-cat', shop.category || '');
   // microdata(itemscope/itemprop) \uC81C\uAC70 \u2192 JSON-LD\uB9CC \uC0AC\uC6A9 (Google\uC740 \uB458 \uB2E4 \uC77D\uC73C\uBA74 \uCDA9\uB3CC \uC624\uB958 \uBC1C\uC0DD)
   var tags = (v.tags||[]).map(function(t){return '<span class="vtag">'+esc(t)+'</span>';}).join('');
   // \uC378\uB124\uC77C: DB \uC800\uC7A5\uAC12 \u2192 Cloudinary so_0 \uC790\uB3D9\uC0DD\uC131 \uC21C\uC11C
@@ -8264,6 +8313,10 @@ function _playVid(vid, bufIc){
   });
 }
 
+// \u2500\u2500 GA4 \uC138\uC158\uB2F9 \uC601\uC0C1 \uD589\uB3D9 \uCD94\uC801 \uBCC0\uC218 \u2500\u2500
+var _sessionVideosSeen = [];   // \uC774\uBC88 \uC138\uC158\uC5D0 \uBCF8 \uC601\uC0C1 id \uBAA9\uB85D
+var _sessionVideosCount = 0;   // \uC774\uBC88 \uC138\uC158\uC5D0 \uB118\uAE34 \uC601\uC0C1 \uC218
+
 function setupObs(){
   // _obsReady: observe() \uC9C1\uD6C4 \uC989\uC2DC fire\uB418\uB294 \uCF5C\uBC31\uC744 \uBB34\uC2DC\uD558\uAE30 \uC704\uD55C \uD50C\uB798\uADF8
   var _obsReady = false;
@@ -8284,10 +8337,45 @@ function setupObs(){
           // \uC774\uC804 \uC2AC\uB77C\uC774\uB4DC \uC815\uC9C0 (currentTime \uC720\uC9C0 \u2014 \uB8E8\uD504 \uC601\uC0C1\uC740 \uC704\uCE58 \uBCF4\uC874\uC774 \uB0AB\uB2E4)
           var prevVid = document.getElementById('vid'+_curIdx);
           if(prevVid && !prevVid.paused){ prevVid.pause(); }
+
+          // \u2500\u2500 GA4: \uC601\uC0C1 \uC2A4\uC640\uC774\uD504/\uB118\uAE40 \uCD94\uC801 \u2500\u2500
+          var direction = idx > _curIdx ? 'next' : 'prev';
+          var slideEl = document.getElementById('sl'+idx);
+          var vidId = slideEl ? slideEl.getAttribute('data-vid-id') || ('video_'+idx) : ('video_'+idx);
+          var vidTitle = slideEl ? slideEl.getAttribute('data-vid-title') || '' : '';
+          var shopName = slideEl ? slideEl.getAttribute('data-shop-name') || '' : '';
+
+          // \uC138\uC158 \uC601\uC0C1 \uBAA9\uB85D\uC5D0 \uCD94\uAC00 (\uC911\uBCF5 \uC81C\uAC70)
+          if(_sessionVideosSeen.indexOf(vidId) === -1){
+            _sessionVideosSeen.push(vidId);
+            _sessionVideosCount++;
+          }
+
+          if(typeof gtag==='function'){
+            gtag('event','video_swipe',{
+              event_category: 'video_behavior',
+              video_index: idx,
+              video_id: vidId,
+              video_title: vidTitle,
+              shop_name: shopName,
+              direction: direction,
+              from_index: _curIdx,
+              session_videos_seen: _sessionVideosCount,
+              page_location: window.location.href
+            });
+          }
+
           _curIdx = idx;
           _playVid(vid, bufIc);
           preloadNext(idx);
         } else if(!_obsReady){
+          // \uCCAB \uC601\uC0C1 \uC138\uC158 \uCD94\uC801 \uC2DC\uC791
+          var slideEl0 = document.getElementById('sl'+idx);
+          var vidId0 = slideEl0 ? slideEl0.getAttribute('data-vid-id') || ('video_'+idx) : ('video_'+idx);
+          if(_sessionVideosSeen.indexOf(vidId0) === -1){
+            _sessionVideosSeen.push(vidId0);
+            _sessionVideosCount = 1;
+          }
           preloadNext(idx); // \uCD08\uAE30\uD654 \uC911 \u2192 preload\uB9CC
         }
       } else {
@@ -8310,6 +8398,18 @@ function setupObs(){
   preloadNext(0);
   setTimeout(function(){ _obsReady = true; }, 600);
 }
+
+// \u2500\u2500 GA4: \uD398\uC774\uC9C0 \uC774\uD0C8 \uC2DC \uC138\uC158 \uC601\uC0C1 \uCD1D \uC2DC\uCCAD \uAC1C\uC218 \uC804\uC1A1 \u2500\u2500
+window.addEventListener('beforeunload', function(){
+  if(_sessionVideosCount > 0 && typeof gtag === 'function'){
+    gtag('event','session_video_summary',{
+      event_category: 'video_behavior',
+      total_videos_seen: _sessionVideosCount,
+      video_ids: _sessionVideosSeen.slice(0,10).join(','),
+      page_location: window.location.href
+    });
+  }
+});
 
 function openShopModal(shopId) {
   if(!shopId) return;
@@ -8762,15 +8862,36 @@ function renderShopModal(shop) {
 
   document.getElementById('modalBtns').innerHTML = waBtn + btn2Row;
 
-  // GA4: WhatsApp \uBC84\uD2BC \uD074\uB9AD \uCD94\uC801
+  // GA4: WhatsApp \uBC84\uD2BC \uD074\uB9AD \uCD94\uC801 (\uC601\uC0C1 \uC778\uB371\uC2A4 + \uAC80\uC0C9 \uACBD\uB85C \uD3EC\uD568)
   var waEl = document.getElementById('modalBtns').querySelector('a.m-wa');
   if(waEl && typeof gtag==='function'){
     waEl.addEventListener('click', function(){
+      // \uD604\uC7AC \uBCF4\uC774\uB294 \uC601\uC0C1 \uC778\uB371\uC2A4 \uD30C\uC545
+      var currentVideoIdx = -1;
+      var currentVideoId = '';
+      document.querySelectorAll('.slide').forEach(function(sl, i){
+        var rect = sl.getBoundingClientRect();
+        if(rect.top >= -50 && rect.bottom <= window.innerHeight + 50){
+          currentVideoIdx = i;
+          currentVideoId = sl.getAttribute('data-vid-id') || ('video_'+i);
+        }
+      });
+      // \uAC80\uC0C9\uC5D0\uC11C \uC654\uB294\uC9C0 \uC5EC\uBD80
+      var fromSearch = _searchOpen || false;
+      var searchQuery = '';
+      var sinp = document.getElementById('soInput');
+      if(sinp) searchQuery = sinp.value.trim();
+
       gtag('event','whatsapp_click',{
-        event_category:'conversion',
+        event_category: 'conversion',
         event_label: shop ? (shop.name||'unknown') : 'unknown',
         shop_name: shop ? (shop.name||'') : '',
         shop_category: shop ? (shop.category||'') : '',
+        video_index: currentVideoIdx,
+        video_id: currentVideoId,
+        from_search: fromSearch ? 'yes' : 'no',
+        search_term: searchQuery,
+        session_videos_seen: _sessionVideosCount,
         page_location: window.location.href
       });
     });
@@ -9119,10 +9240,30 @@ function _renderSearchResults(q, filter){
   }).join('');
 }
 
+// GA4 \uAC80\uC0C9\uC5B4 \uB514\uBC14\uC6B4\uC2A4 \uD0C0\uC774\uBA38
+var _searchGaTimer = null;
 function onSearch(q){
   var x = document.getElementById('soX');
   if(x) x.classList.toggle('on', q.length > 0);
   _renderSearchResults(q, _soFilter);
+
+  // \u2500\u2500 GA4: \uAC80\uC0C9\uC5B4 \uCD94\uC801 (1\uCD08 \uB514\uBC14\uC6B4\uC2A4 \u2014 \uD0C0\uC774\uD551 \uC911 \uC774\uBCA4\uD2B8 \uD3ED\uBC1C \uBC29\uC9C0) \u2500\u2500
+  if(_searchGaTimer) clearTimeout(_searchGaTimer);
+  if(q && q.trim().length >= 2){
+    _searchGaTimer = setTimeout(function(){
+      var results = document.querySelectorAll('#so-grid .so-card').length;
+      if(typeof gtag==='function'){
+        gtag('event','search',{
+          event_category: 'user_behavior',
+          search_term: q.trim(),
+          search_filter: _soFilter || 'all',
+          results_count: results,
+          session_videos_seen: _sessionVideosCount,
+          page_location: window.location.href
+        });
+      }
+    }, 1000);
+  }
 }
 
 function clearSoInput(){
@@ -9156,6 +9297,25 @@ function closeSearch(){
 function openShopFromSearch(sid){
   var overlay = document.getElementById('search-overlay');
   if(overlay) overlay.classList.remove('open');
+
+  // \u2500\u2500 GA4: \uAC80\uC0C9 \uACB0\uACFC\uC5D0\uC11C \uC5C5\uCCB4 \uD074\uB9AD \uCD94\uC801 \u2500\u2500
+  var searchQuery = '';
+  var inp = document.getElementById('soInput');
+  if(inp) searchQuery = inp.value.trim();
+  var sc = typeof shopCache !== 'undefined' ? shopCache[sid] : null;
+  if(typeof gtag==='function'){
+    gtag('event','search_shop_click',{
+      event_category: 'user_behavior',
+      shop_id: sid,
+      shop_name: sc ? (sc.name||'') : '',
+      shop_category: sc ? (sc.category||'') : '',
+      search_term: searchQuery,
+      search_filter: _soFilter || 'all',
+      session_videos_seen: _sessionVideosCount,
+      page_location: window.location.href
+    });
+  }
+
   openShopModal(sid);
 }
 
@@ -9835,6 +9995,58 @@ textarea{height:80px;resize:none}
   <div style="margin:0 20px 14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px">
     <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:10px"><i class="fas fa-mobile-alt" style="color:#a78bfa;margin-right:5px"></i> \uB514\uBC14\uC774\uC2A4</div>
     <div id="an-devices" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;color:rgba(255,255,255,.2);font-size:11px">\uB85C\uB529 \uC911...</div>
+  </div>
+
+  <!-- \u2550\u2550 \uC0AC\uC6A9\uC790 \uD589\uB3D9 \uBD84\uC11D \uC139\uC158 \u2550\u2550 -->
+  <div style="margin:0 20px 6px;padding:10px 14px;background:rgba(232,65,122,.06);border:1px solid rgba(232,65,122,.2);border-radius:10px;font-size:11px;color:rgba(232,65,122,.9);display:flex;align-items:center;gap:6px">
+    <i class="fas fa-route"></i> <b>\uC0AC\uC6A9\uC790 \uD589\uB3D9 \uBD84\uC11D</b> <span style="color:rgba(255,255,255,.3);margin-left:4px">\xB7 \uC601\uC0C1 \uC2DC\uCCAD \xB7 \uAC80\uC0C9 \xB7 WhatsApp \uD074\uB9AD \uD750\uB984</span>
+  </div>
+
+  <!-- \uD589\uB3D9 \uC694\uC57D \uCE74\uB4DC 3\uAC1C -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 20px 14px">
+    <div style="background:rgba(255,77,141,.07);border:1px solid rgba(255,77,141,.2);border-radius:14px;padding:14px;text-align:center">
+      <div style="font-size:22px;margin-bottom:4px">\u{1F3AC}</div>
+      <div id="bh-swipe-count" style="font-size:22px;font-weight:900;color:#FF4D8D">-</div>
+      <div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:3px">\uCD1D \uC601\uC0C1 \uB118\uAE40 \uC218</div>
+    </div>
+    <div style="background:rgba(96,165,250,.07);border:1px solid rgba(96,165,250,.2);border-radius:14px;padding:14px;text-align:center">
+      <div style="font-size:22px;margin-bottom:4px">\u{1F50D}</div>
+      <div id="bh-search-count" style="font-size:22px;font-weight:900;color:#60a5fa">-</div>
+      <div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:3px">\uAC80\uC0C9 \uD69F\uC218</div>
+    </div>
+    <div style="background:rgba(52,211,153,.07);border:1px solid rgba(52,211,153,.2);border-radius:14px;padding:14px;text-align:center">
+      <div style="font-size:22px;margin-bottom:4px">\u{1F4AC}</div>
+      <div id="bh-wa-count" style="font-size:22px;font-weight:900;color:#34d399">-</div>
+      <div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:3px">WhatsApp \uD074\uB9AD</div>
+    </div>
+  </div>
+
+  <!-- \uC138\uC158\uB2F9 \uC601\uC0C1 \uC2DC\uCCAD \uAC1C\uC218 \uBD84\uD3EC + \uAC80\uC0C9 \uD0A4\uC6CC\uB4DC -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 20px 14px">
+    <!-- \uC138\uC158\uB2F9 \uC601\uC0C1 \uC2DC\uCCAD \uAC1C\uC218 -->
+    <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px">
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:10px"><i class="fas fa-film" style="color:#FF4D8D;margin-right:5px"></i> \uC138\uC158\uB2F9 \uC601\uC0C1 \uC2DC\uCCAD \uAC1C\uC218</div>
+      <div id="bh-video-dist" style="display:flex;flex-direction:column;gap:6px;font-size:11px;color:rgba(255,255,255,.2)">\uB85C\uB529 \uC911...</div>
+    </div>
+    <!-- \uAC80\uC0C9 \uD0A4\uC6CC\uB4DC Top 10 -->
+    <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px">
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:10px"><i class="fas fa-search" style="color:#60a5fa;margin-right:5px"></i> \uC0AC\uC774\uD2B8 \uB0B4 \uAC80\uC0C9\uC5B4 Top 10</div>
+      <div id="bh-search-terms" style="display:flex;flex-direction:column;gap:5px;font-size:11px;color:rgba(255,255,255,.2)">\uB85C\uB529 \uC911...</div>
+    </div>
+  </div>
+
+  <!-- \uAC80\uC0C9 \uD6C4 \uD074\uB9AD\uB41C \uC5C5\uCCB4 + WhatsApp \uD074\uB9AD \uC5C5\uCCB4 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 20px 14px">
+    <!-- \uAC80\uC0C9 \uD6C4 \uD074\uB9AD\uB41C \uC5C5\uCCB4 -->
+    <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px">
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:10px"><i class="fas fa-store" style="color:#fbbf24;margin-right:5px"></i> \uAC80\uC0C9 \uD6C4 \uD074\uB9AD\uB41C \uC5C5\uCCB4</div>
+      <div id="bh-search-clicks" style="display:flex;flex-direction:column;gap:5px;font-size:11px;color:rgba(255,255,255,.2)">\uB85C\uB529 \uC911...</div>
+    </div>
+    <!-- WhatsApp \uD074\uB9AD \uC5C5\uCCB4 -->
+    <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px">
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:10px"><i class="fab fa-whatsapp" style="color:#25d366;margin-right:5px"></i> WhatsApp \uD074\uB9AD \uC5C5\uCCB4 Top 10</div>
+      <div id="bh-wa-shops" style="display:flex;flex-direction:column;gap:5px;font-size:11px;color:rgba(255,255,255,.2)">\uB85C\uB529 \uC911...</div>
+    </div>
   </div>
 
   <!-- \uAD6C\uAE00 \uC11C\uCE58\uCF58\uC194 \uC139\uC158 -->
@@ -10808,6 +11020,115 @@ window.loadAnalytics = async function loadAnalytics(days) {
           + '<div style="font-size:11px;color:rgba(255,255,255,.3);margin-top:2px">' + uv.toLocaleString() + '\uBA85</div>'
           + '</div>';
       }).join('');
+    }
+
+    // \u2550\u2550 \uC0AC\uC6A9\uC790 \uD589\uB3D9 \uBD84\uC11D \u2550\u2550
+
+    // \u2500\u2500 \uD589\uB3D9 \uC694\uC57D \uCE74\uB4DC \u2500\u2500
+    var swipeEl = document.getElementById('bh-swipe-count');
+    var searchEl = document.getElementById('bh-search-count');
+    var waEl2 = document.getElementById('bh-wa-count');
+    if(swipeEl && data.videoSwipe && data.videoSwipe.rows && data.videoSwipe.rows[0]){
+      swipeEl.textContent = parseInt(data.videoSwipe.rows[0].metricValues[0].value||0).toLocaleString();
+    } else if(swipeEl){ swipeEl.textContent = '0'; }
+    if(searchEl && data.searchEvent && data.searchEvent.rows && data.searchEvent.rows[0]){
+      searchEl.textContent = parseInt(data.searchEvent.rows[0].metricValues[0].value||0).toLocaleString();
+    } else if(searchEl){ searchEl.textContent = '0'; }
+    if(waEl2 && data.whatsappClick && data.whatsappClick.rows && data.whatsappClick.rows[0]){
+      var waTot = data.whatsappClick.rows.reduce(function(s,r){return s+parseInt(r.metricValues[0].value||0);},0);
+      waEl2.textContent = waTot.toLocaleString();
+    } else if(waEl2){ waEl2.textContent = '0'; }
+
+    // \u2500\u2500 \uC138\uC158\uB2F9 \uC601\uC0C1 \uC2DC\uCCAD \uAC1C\uC218 \uBD84\uD3EC \u2500\u2500
+    var vdEl = document.getElementById('bh-video-dist');
+    if(vdEl){
+      var vdRows = (data.videoSummary && data.videoSummary.rows) || [];
+      var NO_BH = '<div style="color:rgba(255,255,255,.25);font-size:11px;padding:10px 0;text-align:center">\u{1F4CA} \uB370\uC774\uD130 \uC218\uC9D1 \uC911...<br><span style="font-size:10px;opacity:.6">\uBC29\uBB38\uC790\uAC00 \uC313\uC774\uBA74 \uD45C\uC2DC\uB429\uB2C8\uB2E4</span></div>';
+      if(!vdRows.length){ vdEl.innerHTML = NO_BH; }
+      else {
+        var vdMax = parseInt(vdRows[0].metricValues[0].value||1);
+        vdEl.innerHTML = vdRows.map(function(r){
+          var cnt = r.dimensionValues[0].value;
+          var ev = parseInt(r.metricValues[0].value||0);
+          var pct = Math.round(ev/vdMax*100);
+          var label = cnt==='1'?'1\uAC1C\uB9CC \uBCF4\uACE0 \uB098\uAC10':cnt+'\uAC1C \uBCF4\uACE0 \uB098\uAC10';
+          return '<div style="display:flex;align-items:center;gap:6px">'
+            +'<span style="min-width:90px;color:rgba(255,255,255,.75)">'+label+'</span>'
+            +'<div style="flex:1;height:6px;background:rgba(255,255,255,.07);border-radius:3px"><div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,#FF4D8D,#9B59B6);border-radius:3px"></div></div>'
+            +'<span style="min-width:22px;text-align:right;color:rgba(255,255,255,.4)">'+ev+'</span>'
+            +'</div>';
+        }).join('');
+      }
+    }
+
+    // \u2500\u2500 \uC0AC\uC774\uD2B8 \uB0B4 \uAC80\uC0C9\uC5B4 Top 10 \u2500\u2500
+    var stEl = document.getElementById('bh-search-terms');
+    if(stEl){
+      var stRows = (data.searchEvent && data.searchEvent.rows) || [];
+      if(!stRows.length){ stEl.innerHTML = '<div style="color:rgba(255,255,255,.25);font-size:11px;padding:10px 0;text-align:center">\u{1F50D} \uAC80\uC0C9 \uB370\uC774\uD130 \uC218\uC9D1 \uC911...</div>'; }
+      else {
+        var stMax = parseInt(stRows[0].metricValues[0].value||1);
+        stEl.innerHTML = stRows.map(function(r, i){
+          var term = r.dimensionValues[0].value || '(\uC5C6\uC74C)';
+          var ev = parseInt(r.metricValues[0].value||0);
+          var pct = Math.round(ev/stMax*100);
+          var rankC = ['#fbbf24','#94a3b8','#b45309'];
+          return '<div style="display:flex;align-items:center;gap:6px">'
+            +'<span style="font-size:10px;font-weight:900;color:'+(rankC[i]||'rgba(255,255,255,.25)')+';min-width:14px">'+(i+1)+'</span>'
+            +'<span style="flex:1;color:rgba(255,255,255,.8);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+term+'</span>'
+            +'<div style="width:50px;height:5px;background:rgba(255,255,255,.07);border-radius:3px"><div style="height:100%;width:'+pct+'%;background:#60a5fa;border-radius:3px"></div></div>'
+            +'<span style="min-width:20px;text-align:right;color:rgba(255,255,255,.4)">'+ev+'</span>'
+            +'</div>';
+        }).join('');
+      }
+    }
+
+    // \u2500\u2500 \uAC80\uC0C9 \uD6C4 \uD074\uB9AD\uB41C \uC5C5\uCCB4 \u2500\u2500
+    var scEl2 = document.getElementById('bh-search-clicks');
+    if(scEl2){
+      var scRows2 = (data.searchClick && data.searchClick.rows) || [];
+      if(!scRows2.length){ scEl2.innerHTML = '<div style="color:rgba(255,255,255,.25);font-size:11px;padding:10px 0;text-align:center">\u{1F3EA} \uB370\uC774\uD130 \uC218\uC9D1 \uC911...</div>'; }
+      else {
+        var scMax2 = parseInt(scRows2[0].metricValues[0].value||1);
+        scEl2.innerHTML = scRows2.map(function(r, i){
+          var shop2 = r.dimensionValues[0].value || '(\uC5C6\uC74C)';
+          var ev = parseInt(r.metricValues[0].value||0);
+          var pct = Math.round(ev/scMax2*100);
+          var rankC2 = ['#fbbf24','#94a3b8','#b45309'];
+          return '<div style="display:flex;align-items:center;gap:6px">'
+            +'<span style="font-size:10px;font-weight:900;color:'+(rankC2[i]||'rgba(255,255,255,.25)')+';min-width:14px">'+(i+1)+'</span>'
+            +'<span style="flex:1;color:rgba(255,255,255,.8);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+shop2+'</span>'
+            +'<div style="width:50px;height:5px;background:rgba(255,255,255,.07);border-radius:3px"><div style="height:100%;width:'+pct+'%;background:#fbbf24;border-radius:3px"></div></div>'
+            +'<span style="min-width:20px;text-align:right;color:rgba(255,255,255,.4)">'+ev+'</span>'
+            +'</div>';
+        }).join('');
+      }
+    }
+
+    // \u2500\u2500 WhatsApp \uD074\uB9AD \uC5C5\uCCB4 Top 10 \u2500\u2500
+    var waShEl = document.getElementById('bh-wa-shops');
+    if(waShEl){
+      var waRows = (data.whatsappClick && data.whatsappClick.rows) || [];
+      if(!waRows.length){ waShEl.innerHTML = '<div style="color:rgba(255,255,255,.25);font-size:11px;padding:10px 0;text-align:center">\u{1F4AC} WhatsApp \uD074\uB9AD \uB370\uC774\uD130 \uC218\uC9D1 \uC911...</div>'; }
+      else {
+        var waMax = parseInt(waRows[0].metricValues[0].value||1);
+        waShEl.innerHTML = waRows.map(function(r, i){
+          var sn = r.dimensionValues[0].value || '(\uC5C6\uC74C)';
+          var cat = r.dimensionValues[1] ? r.dimensionValues[1].value : '';
+          var ev = parseInt(r.metricValues[0].value||0);
+          var pct = Math.round(ev/waMax*100);
+          var rankC3 = ['#fbbf24','#94a3b8','#b45309'];
+          return '<div style="display:flex;align-items:center;gap:6px">'
+            +'<span style="font-size:10px;font-weight:900;color:'+(rankC3[i]||'rgba(255,255,255,.25)')+';min-width:14px">'+(i+1)+'</span>'
+            +'<div style="flex:1;overflow:hidden">'
+              +'<div style="color:rgba(255,255,255,.85);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+sn+'</div>'
+              +(cat?'<div style="font-size:10px;color:rgba(255,255,255,.3)">'+cat+'</div>':'')
+            +'</div>'
+            +'<div style="width:50px;height:5px;background:rgba(255,255,255,.07);border-radius:3px"><div style="height:100%;width:'+pct+'%;background:#25d366;border-radius:3px"></div></div>'
+            +'<span style="min-width:20px;text-align:right;color:rgba(255,255,255,.4)">'+ev+'</span>'
+            +'</div>';
+        }).join('');
+      }
     }
 
     // \u2500\u2500 \uC18C\uC2A4/\uB9E4\uCCB4 \uC0C1\uC138 \u2500\u2500

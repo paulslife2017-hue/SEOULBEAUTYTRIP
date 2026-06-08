@@ -5440,7 +5440,53 @@ app.get('/api/analytics', async (c) => {
       })
     ])
 
-    return c.json({ overview, daily, countries, pages, sources, devices, sourceMedium, landingPages })
+    // ── 행동 이벤트: 영상 스와이프 / 검색 / WhatsApp 클릭 ──
+    const [videoSwipe, videoSummary, searchEvent, searchClick, whatsappClick] = await Promise.all([
+      // 영상 넘김 (video_swipe) — 평균 몇 번 넘기나
+      ga4Fetch({
+        dateRanges: [{ startDate, endDate: 'today' }],
+        metrics: [{ name: 'eventCount' }, { name: 'totalUsers' }],
+        dimensionFilter: { filter: { fieldName: 'eventName', stringFilter: { matchType: 'EXACT', value: 'video_swipe' } } }
+      }),
+      // 세션당 영상 요약 (session_video_summary)
+      ga4Fetch({
+        dateRanges: [{ startDate, endDate: 'today' }],
+        dimensions: [{ name: 'customEvent:total_videos_seen' }],
+        metrics: [{ name: 'eventCount' }],
+        dimensionFilter: { filter: { fieldName: 'eventName', stringFilter: { matchType: 'EXACT', value: 'session_video_summary' } } },
+        orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
+        limit: 10
+      }),
+      // 검색어 top 10
+      ga4Fetch({
+        dateRanges: [{ startDate, endDate: 'today' }],
+        dimensions: [{ name: 'customEvent:search_term' }],
+        metrics: [{ name: 'eventCount' }],
+        dimensionFilter: { filter: { fieldName: 'eventName', stringFilter: { matchType: 'EXACT', value: 'search' } } },
+        orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
+        limit: 10
+      }),
+      // 검색 후 클릭된 업체 top 10
+      ga4Fetch({
+        dateRanges: [{ startDate, endDate: 'today' }],
+        dimensions: [{ name: 'customEvent:shop_name' }],
+        metrics: [{ name: 'eventCount' }],
+        dimensionFilter: { filter: { fieldName: 'eventName', stringFilter: { matchType: 'EXACT', value: 'search_shop_click' } } },
+        orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
+        limit: 10
+      }),
+      // WhatsApp 클릭 업체 top 10
+      ga4Fetch({
+        dateRanges: [{ startDate, endDate: 'today' }],
+        dimensions: [{ name: 'customEvent:shop_name' }, { name: 'customEvent:shop_category' }],
+        metrics: [{ name: 'eventCount' }],
+        dimensionFilter: { filter: { fieldName: 'eventName', stringFilter: { matchType: 'EXACT', value: 'whatsapp_click' } } },
+        orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
+        limit: 10
+      })
+    ])
+
+    return c.json({ overview, daily, countries, pages, sources, devices, sourceMedium, landingPages, videoSwipe, videoSummary, searchEvent, searchClick, whatsappClick })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
   }
@@ -6405,6 +6451,11 @@ function buildSlide(v, idx) {
   var shop = v.shop || {};
   var s = document.createElement('article');
   s.className='slide'; s.id='sl'+idx;
+  // GA4 추적용 data 속성 — 스와이프 이벤트에서 영상/샵 정보 참조
+  s.setAttribute('data-vid-id', v.id || ('video_'+idx));
+  s.setAttribute('data-vid-title', v.title || '');
+  s.setAttribute('data-shop-name', shop.name || '');
+  s.setAttribute('data-shop-cat', shop.category || '');
   // microdata(itemscope/itemprop) 제거 → JSON-LD만 사용 (Google은 둘 다 읽으면 충돌 오류 발생)
   var tags = (v.tags||[]).map(function(t){return '<span class="vtag">'+esc(t)+'</span>';}).join('');
   // 썸네일: DB 저장값 → Cloudinary so_0 자동생성 순서
@@ -6616,6 +6667,10 @@ function _playVid(vid, bufIc){
   });
 }
 
+// ── GA4 세션당 영상 행동 추적 변수 ──
+var _sessionVideosSeen = [];   // 이번 세션에 본 영상 id 목록
+var _sessionVideosCount = 0;   // 이번 세션에 넘긴 영상 수
+
 function setupObs(){
   // _obsReady: observe() 직후 즉시 fire되는 콜백을 무시하기 위한 플래그
   var _obsReady = false;
@@ -6636,10 +6691,45 @@ function setupObs(){
           // 이전 슬라이드 정지 (currentTime 유지 — 루프 영상은 위치 보존이 낫다)
           var prevVid = document.getElementById('vid'+_curIdx);
           if(prevVid && !prevVid.paused){ prevVid.pause(); }
+
+          // ── GA4: 영상 스와이프/넘김 추적 ──
+          var direction = idx > _curIdx ? 'next' : 'prev';
+          var slideEl = document.getElementById('sl'+idx);
+          var vidId = slideEl ? slideEl.getAttribute('data-vid-id') || ('video_'+idx) : ('video_'+idx);
+          var vidTitle = slideEl ? slideEl.getAttribute('data-vid-title') || '' : '';
+          var shopName = slideEl ? slideEl.getAttribute('data-shop-name') || '' : '';
+
+          // 세션 영상 목록에 추가 (중복 제거)
+          if(_sessionVideosSeen.indexOf(vidId) === -1){
+            _sessionVideosSeen.push(vidId);
+            _sessionVideosCount++;
+          }
+
+          if(typeof gtag==='function'){
+            gtag('event','video_swipe',{
+              event_category: 'video_behavior',
+              video_index: idx,
+              video_id: vidId,
+              video_title: vidTitle,
+              shop_name: shopName,
+              direction: direction,
+              from_index: _curIdx,
+              session_videos_seen: _sessionVideosCount,
+              page_location: window.location.href
+            });
+          }
+
           _curIdx = idx;
           _playVid(vid, bufIc);
           preloadNext(idx);
         } else if(!_obsReady){
+          // 첫 영상 세션 추적 시작
+          var slideEl0 = document.getElementById('sl'+idx);
+          var vidId0 = slideEl0 ? slideEl0.getAttribute('data-vid-id') || ('video_'+idx) : ('video_'+idx);
+          if(_sessionVideosSeen.indexOf(vidId0) === -1){
+            _sessionVideosSeen.push(vidId0);
+            _sessionVideosCount = 1;
+          }
           preloadNext(idx); // 초기화 중 → preload만
         }
       } else {
@@ -6662,6 +6752,18 @@ function setupObs(){
   preloadNext(0);
   setTimeout(function(){ _obsReady = true; }, 600);
 }
+
+// ── GA4: 페이지 이탈 시 세션 영상 총 시청 개수 전송 ──
+window.addEventListener('beforeunload', function(){
+  if(_sessionVideosCount > 0 && typeof gtag === 'function'){
+    gtag('event','session_video_summary',{
+      event_category: 'video_behavior',
+      total_videos_seen: _sessionVideosCount,
+      video_ids: _sessionVideosSeen.slice(0,10).join(','),
+      page_location: window.location.href
+    });
+  }
+});
 
 function openShopModal(shopId) {
   if(!shopId) return;
@@ -7114,15 +7216,36 @@ function renderShopModal(shop) {
 
   document.getElementById('modalBtns').innerHTML = waBtn + btn2Row;
 
-  // GA4: WhatsApp 버튼 클릭 추적
+  // GA4: WhatsApp 버튼 클릭 추적 (영상 인덱스 + 검색 경로 포함)
   var waEl = document.getElementById('modalBtns').querySelector('a.m-wa');
   if(waEl && typeof gtag==='function'){
     waEl.addEventListener('click', function(){
+      // 현재 보이는 영상 인덱스 파악
+      var currentVideoIdx = -1;
+      var currentVideoId = '';
+      document.querySelectorAll('.slide').forEach(function(sl, i){
+        var rect = sl.getBoundingClientRect();
+        if(rect.top >= -50 && rect.bottom <= window.innerHeight + 50){
+          currentVideoIdx = i;
+          currentVideoId = sl.getAttribute('data-vid-id') || ('video_'+i);
+        }
+      });
+      // 검색에서 왔는지 여부
+      var fromSearch = _searchOpen || false;
+      var searchQuery = '';
+      var sinp = document.getElementById('soInput');
+      if(sinp) searchQuery = sinp.value.trim();
+
       gtag('event','whatsapp_click',{
-        event_category:'conversion',
+        event_category: 'conversion',
         event_label: shop ? (shop.name||'unknown') : 'unknown',
         shop_name: shop ? (shop.name||'') : '',
         shop_category: shop ? (shop.category||'') : '',
+        video_index: currentVideoIdx,
+        video_id: currentVideoId,
+        from_search: fromSearch ? 'yes' : 'no',
+        search_term: searchQuery,
+        session_videos_seen: _sessionVideosCount,
         page_location: window.location.href
       });
     });
@@ -7471,10 +7594,30 @@ function _renderSearchResults(q, filter){
   }).join('');
 }
 
+// GA4 검색어 디바운스 타이머
+var _searchGaTimer = null;
 function onSearch(q){
   var x = document.getElementById('soX');
   if(x) x.classList.toggle('on', q.length > 0);
   _renderSearchResults(q, _soFilter);
+
+  // ── GA4: 검색어 추적 (1초 디바운스 — 타이핑 중 이벤트 폭발 방지) ──
+  if(_searchGaTimer) clearTimeout(_searchGaTimer);
+  if(q && q.trim().length >= 2){
+    _searchGaTimer = setTimeout(function(){
+      var results = document.querySelectorAll('#so-grid .so-card').length;
+      if(typeof gtag==='function'){
+        gtag('event','search',{
+          event_category: 'user_behavior',
+          search_term: q.trim(),
+          search_filter: _soFilter || 'all',
+          results_count: results,
+          session_videos_seen: _sessionVideosCount,
+          page_location: window.location.href
+        });
+      }
+    }, 1000);
+  }
 }
 
 function clearSoInput(){
@@ -7508,6 +7651,25 @@ function closeSearch(){
 function openShopFromSearch(sid){
   var overlay = document.getElementById('search-overlay');
   if(overlay) overlay.classList.remove('open');
+
+  // ── GA4: 검색 결과에서 업체 클릭 추적 ──
+  var searchQuery = '';
+  var inp = document.getElementById('soInput');
+  if(inp) searchQuery = inp.value.trim();
+  var sc = typeof shopCache !== 'undefined' ? shopCache[sid] : null;
+  if(typeof gtag==='function'){
+    gtag('event','search_shop_click',{
+      event_category: 'user_behavior',
+      shop_id: sid,
+      shop_name: sc ? (sc.name||'') : '',
+      shop_category: sc ? (sc.category||'') : '',
+      search_term: searchQuery,
+      search_filter: _soFilter || 'all',
+      session_videos_seen: _sessionVideosCount,
+      page_location: window.location.href
+    });
+  }
+
   openShopModal(sid);
 }
 
@@ -8189,6 +8351,58 @@ textarea{height:80px;resize:none}
   <div style="margin:0 20px 14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px">
     <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:10px"><i class="fas fa-mobile-alt" style="color:#a78bfa;margin-right:5px"></i> 디바이스</div>
     <div id="an-devices" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;color:rgba(255,255,255,.2);font-size:11px">로딩 중...</div>
+  </div>
+
+  <!-- ══ 사용자 행동 분석 섹션 ══ -->
+  <div style="margin:0 20px 6px;padding:10px 14px;background:rgba(232,65,122,.06);border:1px solid rgba(232,65,122,.2);border-radius:10px;font-size:11px;color:rgba(232,65,122,.9);display:flex;align-items:center;gap:6px">
+    <i class="fas fa-route"></i> <b>사용자 행동 분석</b> <span style="color:rgba(255,255,255,.3);margin-left:4px">· 영상 시청 · 검색 · WhatsApp 클릭 흐름</span>
+  </div>
+
+  <!-- 행동 요약 카드 3개 -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 20px 14px">
+    <div style="background:rgba(255,77,141,.07);border:1px solid rgba(255,77,141,.2);border-radius:14px;padding:14px;text-align:center">
+      <div style="font-size:22px;margin-bottom:4px">🎬</div>
+      <div id="bh-swipe-count" style="font-size:22px;font-weight:900;color:#FF4D8D">-</div>
+      <div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:3px">총 영상 넘김 수</div>
+    </div>
+    <div style="background:rgba(96,165,250,.07);border:1px solid rgba(96,165,250,.2);border-radius:14px;padding:14px;text-align:center">
+      <div style="font-size:22px;margin-bottom:4px">🔍</div>
+      <div id="bh-search-count" style="font-size:22px;font-weight:900;color:#60a5fa">-</div>
+      <div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:3px">검색 횟수</div>
+    </div>
+    <div style="background:rgba(52,211,153,.07);border:1px solid rgba(52,211,153,.2);border-radius:14px;padding:14px;text-align:center">
+      <div style="font-size:22px;margin-bottom:4px">💬</div>
+      <div id="bh-wa-count" style="font-size:22px;font-weight:900;color:#34d399">-</div>
+      <div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:3px">WhatsApp 클릭</div>
+    </div>
+  </div>
+
+  <!-- 세션당 영상 시청 개수 분포 + 검색 키워드 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 20px 14px">
+    <!-- 세션당 영상 시청 개수 -->
+    <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px">
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:10px"><i class="fas fa-film" style="color:#FF4D8D;margin-right:5px"></i> 세션당 영상 시청 개수</div>
+      <div id="bh-video-dist" style="display:flex;flex-direction:column;gap:6px;font-size:11px;color:rgba(255,255,255,.2)">로딩 중...</div>
+    </div>
+    <!-- 검색 키워드 Top 10 -->
+    <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px">
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:10px"><i class="fas fa-search" style="color:#60a5fa;margin-right:5px"></i> 사이트 내 검색어 Top 10</div>
+      <div id="bh-search-terms" style="display:flex;flex-direction:column;gap:5px;font-size:11px;color:rgba(255,255,255,.2)">로딩 중...</div>
+    </div>
+  </div>
+
+  <!-- 검색 후 클릭된 업체 + WhatsApp 클릭 업체 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 20px 14px">
+    <!-- 검색 후 클릭된 업체 -->
+    <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px">
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:10px"><i class="fas fa-store" style="color:#fbbf24;margin-right:5px"></i> 검색 후 클릭된 업체</div>
+      <div id="bh-search-clicks" style="display:flex;flex-direction:column;gap:5px;font-size:11px;color:rgba(255,255,255,.2)">로딩 중...</div>
+    </div>
+    <!-- WhatsApp 클릭 업체 -->
+    <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px">
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:10px"><i class="fab fa-whatsapp" style="color:#25d366;margin-right:5px"></i> WhatsApp 클릭 업체 Top 10</div>
+      <div id="bh-wa-shops" style="display:flex;flex-direction:column;gap:5px;font-size:11px;color:rgba(255,255,255,.2)">로딩 중...</div>
+    </div>
   </div>
 
   <!-- 구글 서치콘솔 섹션 -->
@@ -9162,6 +9376,115 @@ window.loadAnalytics = async function loadAnalytics(days) {
           + '<div style="font-size:11px;color:rgba(255,255,255,.3);margin-top:2px">' + uv.toLocaleString() + '명</div>'
           + '</div>';
       }).join('');
+    }
+
+    // ══ 사용자 행동 분석 ══
+
+    // ── 행동 요약 카드 ──
+    var swipeEl = document.getElementById('bh-swipe-count');
+    var searchEl = document.getElementById('bh-search-count');
+    var waEl2 = document.getElementById('bh-wa-count');
+    if(swipeEl && data.videoSwipe && data.videoSwipe.rows && data.videoSwipe.rows[0]){
+      swipeEl.textContent = parseInt(data.videoSwipe.rows[0].metricValues[0].value||0).toLocaleString();
+    } else if(swipeEl){ swipeEl.textContent = '0'; }
+    if(searchEl && data.searchEvent && data.searchEvent.rows && data.searchEvent.rows[0]){
+      searchEl.textContent = parseInt(data.searchEvent.rows[0].metricValues[0].value||0).toLocaleString();
+    } else if(searchEl){ searchEl.textContent = '0'; }
+    if(waEl2 && data.whatsappClick && data.whatsappClick.rows && data.whatsappClick.rows[0]){
+      var waTot = data.whatsappClick.rows.reduce(function(s,r){return s+parseInt(r.metricValues[0].value||0);},0);
+      waEl2.textContent = waTot.toLocaleString();
+    } else if(waEl2){ waEl2.textContent = '0'; }
+
+    // ── 세션당 영상 시청 개수 분포 ──
+    var vdEl = document.getElementById('bh-video-dist');
+    if(vdEl){
+      var vdRows = (data.videoSummary && data.videoSummary.rows) || [];
+      var NO_BH = '<div style="color:rgba(255,255,255,.25);font-size:11px;padding:10px 0;text-align:center">📊 데이터 수집 중...<br><span style="font-size:10px;opacity:.6">방문자가 쌓이면 표시됩니다</span></div>';
+      if(!vdRows.length){ vdEl.innerHTML = NO_BH; }
+      else {
+        var vdMax = parseInt(vdRows[0].metricValues[0].value||1);
+        vdEl.innerHTML = vdRows.map(function(r){
+          var cnt = r.dimensionValues[0].value;
+          var ev = parseInt(r.metricValues[0].value||0);
+          var pct = Math.round(ev/vdMax*100);
+          var label = cnt==='1'?'1개만 보고 나감':cnt+'개 보고 나감';
+          return '<div style="display:flex;align-items:center;gap:6px">'
+            +'<span style="min-width:90px;color:rgba(255,255,255,.75)">'+label+'</span>'
+            +'<div style="flex:1;height:6px;background:rgba(255,255,255,.07);border-radius:3px"><div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,#FF4D8D,#9B59B6);border-radius:3px"></div></div>'
+            +'<span style="min-width:22px;text-align:right;color:rgba(255,255,255,.4)">'+ev+'</span>'
+            +'</div>';
+        }).join('');
+      }
+    }
+
+    // ── 사이트 내 검색어 Top 10 ──
+    var stEl = document.getElementById('bh-search-terms');
+    if(stEl){
+      var stRows = (data.searchEvent && data.searchEvent.rows) || [];
+      if(!stRows.length){ stEl.innerHTML = '<div style="color:rgba(255,255,255,.25);font-size:11px;padding:10px 0;text-align:center">🔍 검색 데이터 수집 중...</div>'; }
+      else {
+        var stMax = parseInt(stRows[0].metricValues[0].value||1);
+        stEl.innerHTML = stRows.map(function(r, i){
+          var term = r.dimensionValues[0].value || '(없음)';
+          var ev = parseInt(r.metricValues[0].value||0);
+          var pct = Math.round(ev/stMax*100);
+          var rankC = ['#fbbf24','#94a3b8','#b45309'];
+          return '<div style="display:flex;align-items:center;gap:6px">'
+            +'<span style="font-size:10px;font-weight:900;color:'+(rankC[i]||'rgba(255,255,255,.25)')+';min-width:14px">'+(i+1)+'</span>'
+            +'<span style="flex:1;color:rgba(255,255,255,.8);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+term+'</span>'
+            +'<div style="width:50px;height:5px;background:rgba(255,255,255,.07);border-radius:3px"><div style="height:100%;width:'+pct+'%;background:#60a5fa;border-radius:3px"></div></div>'
+            +'<span style="min-width:20px;text-align:right;color:rgba(255,255,255,.4)">'+ev+'</span>'
+            +'</div>';
+        }).join('');
+      }
+    }
+
+    // ── 검색 후 클릭된 업체 ──
+    var scEl2 = document.getElementById('bh-search-clicks');
+    if(scEl2){
+      var scRows2 = (data.searchClick && data.searchClick.rows) || [];
+      if(!scRows2.length){ scEl2.innerHTML = '<div style="color:rgba(255,255,255,.25);font-size:11px;padding:10px 0;text-align:center">🏪 데이터 수집 중...</div>'; }
+      else {
+        var scMax2 = parseInt(scRows2[0].metricValues[0].value||1);
+        scEl2.innerHTML = scRows2.map(function(r, i){
+          var shop2 = r.dimensionValues[0].value || '(없음)';
+          var ev = parseInt(r.metricValues[0].value||0);
+          var pct = Math.round(ev/scMax2*100);
+          var rankC2 = ['#fbbf24','#94a3b8','#b45309'];
+          return '<div style="display:flex;align-items:center;gap:6px">'
+            +'<span style="font-size:10px;font-weight:900;color:'+(rankC2[i]||'rgba(255,255,255,.25)')+';min-width:14px">'+(i+1)+'</span>'
+            +'<span style="flex:1;color:rgba(255,255,255,.8);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+shop2+'</span>'
+            +'<div style="width:50px;height:5px;background:rgba(255,255,255,.07);border-radius:3px"><div style="height:100%;width:'+pct+'%;background:#fbbf24;border-radius:3px"></div></div>'
+            +'<span style="min-width:20px;text-align:right;color:rgba(255,255,255,.4)">'+ev+'</span>'
+            +'</div>';
+        }).join('');
+      }
+    }
+
+    // ── WhatsApp 클릭 업체 Top 10 ──
+    var waShEl = document.getElementById('bh-wa-shops');
+    if(waShEl){
+      var waRows = (data.whatsappClick && data.whatsappClick.rows) || [];
+      if(!waRows.length){ waShEl.innerHTML = '<div style="color:rgba(255,255,255,.25);font-size:11px;padding:10px 0;text-align:center">💬 WhatsApp 클릭 데이터 수집 중...</div>'; }
+      else {
+        var waMax = parseInt(waRows[0].metricValues[0].value||1);
+        waShEl.innerHTML = waRows.map(function(r, i){
+          var sn = r.dimensionValues[0].value || '(없음)';
+          var cat = r.dimensionValues[1] ? r.dimensionValues[1].value : '';
+          var ev = parseInt(r.metricValues[0].value||0);
+          var pct = Math.round(ev/waMax*100);
+          var rankC3 = ['#fbbf24','#94a3b8','#b45309'];
+          return '<div style="display:flex;align-items:center;gap:6px">'
+            +'<span style="font-size:10px;font-weight:900;color:'+(rankC3[i]||'rgba(255,255,255,.25)')+';min-width:14px">'+(i+1)+'</span>'
+            +'<div style="flex:1;overflow:hidden">'
+              +'<div style="color:rgba(255,255,255,.85);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+sn+'</div>'
+              +(cat?'<div style="font-size:10px;color:rgba(255,255,255,.3)">'+cat+'</div>':'')
+            +'</div>'
+            +'<div style="width:50px;height:5px;background:rgba(255,255,255,.07);border-radius:3px"><div style="height:100%;width:'+pct+'%;background:#25d366;border-radius:3px"></div></div>'
+            +'<span style="min-width:20px;text-align:right;color:rgba(255,255,255,.4)">'+ev+'</span>'
+            +'</div>';
+        }).join('');
+      }
     }
 
     // ── 소스/매체 상세 ──
