@@ -1222,16 +1222,18 @@ app.post('/api/videos', async (c) => {
   const newId = 'v' + Date.now()
   const today = new Date().toISOString().split('T')[0]
 
-  // description 없으면 AI 자동 생성
+  // description + tags 없으면 AI 자동 생성
   let description = body.description || ''
-  if (!description) {
+  let autoTags: string[] = body.tags || []
+  if (!description || !autoTags.length) {
     const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
     if (apiKey && body.shopId) {
       const shopRows = await sql`SELECT name, category, location, services FROM shops WHERE id=${body.shopId}` as any[]
       if (shopRows.length) {
         const shop = { name: shopRows[0].name, category: shopRows[0].category, location: shopRows[0].location, services: JSON.parse(shopRows[0].services||'[]') }
-        const video = { title: body.title||'', tags: body.tags||[] }
-        description = await genVideoDescription(video, shop, apiKey)
+        const video = { title: body.title||'', tags: autoTags }
+        if (!description) description = await genVideoDescription(video, shop, apiKey)
+        if (!autoTags.length) autoTags = await genVideoTags(video, shop, apiKey)
       }
     }
   }
@@ -1245,9 +1247,9 @@ app.post('/api/videos', async (c) => {
 
   await sql`INSERT INTO videos (id,shop_id,title,description,video_url,thumbnail,tags,views,likes,created_at) VALUES (
     ${newId},${body.shopId||''},${body.title||''},${description},${vUrl},
-    ${finalThumb},${JSON.stringify(body.tags||[])},0,0,${today}
+    ${finalThumb},${JSON.stringify(autoTags)},0,0,${today}
   )`
-  return c.json({ ok: true, id: newId, descriptionGenerated: !body.description && !!description })
+  return c.json({ ok: true, id: newId, descriptionGenerated: !body.description && !!description, tagsGenerated: !body.tags?.length && !!autoTags.length })
 })
 app.delete('/api/videos/:id', async (c) => {
   const sql = getDb(c.env)
@@ -1293,6 +1295,54 @@ Return ONLY the description text, nothing else.`
   } catch { return '' }
 }
 
+// ── 영상 태그 자동 생성 헬퍼 ──
+async function genVideoTags(video: any, shop: any, apiKey: string): Promise<string[]> {
+  if (!apiKey) return []
+  const shopName = shop?.name || video.title || 'Seoul Beauty'
+  const category = shop?.category || ''
+  const location = (shop?.location || 'Seoul').split(',')[0].trim()
+
+  const catTagMap: Record<string, string[]> = {
+    clinic:   ['#KoreanClinic','#SeoulClinic','#KBeautyClinic','#DermaSeoul'],
+    skincare: ['#KoreanSkincare','#GlassSkin','#SeoulSkincare','#KBeauty'],
+    headspa:  ['#HeadSpa','#KoreanHeadSpa','#SeoulHeadSpa','#ScalpTreatment'],
+    hair:     ['#KoreanHair','#SeoulHairSalon','#KHairStyle','#HairSeoul'],
+    nail:     ['#KoreanNail','#SeoulNailArt','#KNailDesign','#NailSeoul'],
+    makeup:   ['#KBeautyMakeup','#KoreanMakeup','#SeoulMakeup','#GlowUp'],
+    spa:      ['#KoreanSpa','#SeoulSpa','#RelaxSeoul','#KBeautySpa'],
+    tattoo:   ['#KoreanTattoo','#SeoulTattoo','#KTattooArt','#TattooSeoul']
+  }
+  const catTags = catTagMap[category] || ['#KBeauty','#SeoulBeauty']
+  const areaTag = '#' + location.replace(/\s+/g,'')  // e.g. #Gangnam
+
+  const prompt = `Generate 5 hashtags for a Korean beauty salon Instagram/TikTok video.
+
+Shop: ${shopName}
+Category: ${category}
+Area: ${location}, Seoul
+
+Rules:
+- Mix: 2 brand tags (#${shopName.replace(/\s+/g,'').slice(0,20)}Seoul, #${shopName.replace(/\s+/g,'').slice(0,20)}), 2 category tags, 1 travel tag
+- No spaces in tags, CamelCase
+- Include #SeoulBeautyTrip as one tag
+- Return ONLY a JSON array: ["#tag1","#tag2","#tag3","#tag4","#tag5"]`
+
+  try {
+    const res = await fetch('https://www.genspark.ai/api/llm_proxy/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({ model: 'claude-haiku-4-5', messages: [{ role: 'user', content: prompt }], max_tokens: 100 })
+    })
+    if (!res.ok) return [areaTag, ...catTags.slice(0,3), '#SeoulBeautyTrip']
+    const data: any = await res.json()
+    const content = (data.choices?.[0]?.message?.content || '').trim()
+    const parsed = JSON.parse(content.includes('[') ? content.slice(content.indexOf('['), content.lastIndexOf(']')+1) : content)
+    return Array.isArray(parsed) ? parsed.slice(0,6) : [areaTag, ...catTags.slice(0,3), '#SeoulBeautyTrip']
+  } catch {
+    return [areaTag, ...catTags.slice(0,3), '#SeoulBeautyTrip']
+  }
+}
+
 // POST /api/videos/:id/gen-description — 개별 영상 AI description 생성
 app.post('/api/videos/:id/gen-description', async (c) => {
   const sql = getDb(c.env)
@@ -1313,7 +1363,65 @@ app.post('/api/videos/:id/gen-description', async (c) => {
   return c.json({ ok: true, description: desc })
 })
 
-// POST /api/videos/gen-description-bulk — 빈 description 영상 일괄 AI 생성
+// POST /api/shops/fill-seo-bulk — 누락 SEO 필드 일괄 AI 생성
+app.post('/api/shops/fill-seo-bulk', async (c) => {
+  const sql = getDb(c.env)
+  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
+  if (!apiKey) return c.json({ ok: false, error: 'No API key' }, 400)
+
+  const body = await c.req.json().catch(() => ({})) as any
+  const forceAll = body?.force === true
+
+  // 누락된 필드가 있는 업체만 가져오기
+  const rows = forceAll
+    ? await sql`SELECT * FROM shops WHERE active=true` as any[]
+    : await sql`SELECT * FROM shops WHERE active=true AND (
+        description IS NULL OR description='' OR
+        meta_description IS NULL OR meta_description='' OR
+        seo_keywords IS NULL OR seo_keywords='' OR
+        seo_text IS NULL OR seo_text=''
+      )` as any[]
+
+  if (!rows.length) return c.json({ ok: true, updated: 0, message: 'All shops have complete SEO' })
+
+  let updated = 0, failed = 0
+  for (const row of rows) {
+    const shopBody = {
+      name: row.name, category: row.category, location: row.location,
+      address: row.address, rating: row.rating, reviewCount: row.review_count,
+      hours: row.hours, description: row.description,
+      reviews: JSON.parse(row.reviews||'[]'),
+      services: JSON.parse(row.services||'[]')
+    }
+    try {
+      const seo = await autoGenSeo(shopBody, apiKey)
+      if (!seo) { failed++; continue }
+
+      const newDesc = row.description || seo.description || ''
+      const newMeta = row.meta_description || seo.metaDescription || ''
+      const newKw   = row.seo_keywords   || (Array.isArray(seo.keywords) ? seo.keywords.join(', ') : '')
+      const newSeoT = row.seo_text       || seo.seoText || ''
+      const newWhy  = row.why_choose && row.why_choose !== '[]'
+        ? row.why_choose
+        : JSON.stringify(Array.isArray(seo.whyChoose) ? seo.whyChoose : [])
+
+      await sql`UPDATE shops SET
+        description=${newDesc},
+        meta_description=${newMeta},
+        seo_keywords=${newKw},
+        seo_text=${newSeoT},
+        why_choose=${newWhy}
+        WHERE id=${row.id}`
+      updated++
+    } catch {
+      failed++
+    }
+    await new Promise(r => setTimeout(r, 400))
+  }
+  return c.json({ ok: true, updated, failed, total: rows.length })
+})
+
+// POST /api/videos/gen-description-bulk — 빈 description/tags 영상 일괄 AI 생성
 app.post('/api/videos/gen-description-bulk', async (c) => {
   const sql = getDb(c.env)
   const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
@@ -1324,23 +1432,35 @@ app.post('/api/videos/gen-description-bulk', async (c) => {
 
   const rows = forceAll
     ? await sql`SELECT v.*, s.name as shop_name, s.category as shop_cat, s.location as shop_loc, s.services as shop_svcs FROM videos v LEFT JOIN shops s ON v.shop_id=s.id`
-    : await sql`SELECT v.*, s.name as shop_name, s.category as shop_cat, s.location as shop_loc, s.services as shop_svcs FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE v.description IS NULL OR v.description=''`
+    : await sql`SELECT v.*, s.name as shop_name, s.category as shop_cat, s.location as shop_loc, s.services as shop_svcs FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE (v.description IS NULL OR v.description='') OR (v.tags IS NULL OR v.tags='[]' OR v.tags='')`
 
   if (!(rows as any[]).length) return c.json({ ok: true, updated: 0, message: 'No videos to update' })
 
   let updated = 0, failed = 0
   for (const v of rows as any[]) {
     const shop = { name: v.shop_name, category: v.shop_cat, location: v.shop_loc, services: JSON.parse(v.shop_svcs||'[]') }
-    const video = { id: v.id, title: v.title, tags: JSON.parse(v.tags||'[]') }
-    const desc = await genVideoDescription(video, shop, apiKey)
-    if (desc) {
-      await sql`UPDATE videos SET description=${desc} WHERE id=${v.id}`
-      updated++
-    } else {
+    const existingTags = JSON.parse(v.tags||'[]')
+    const video = { id: v.id, title: v.title, tags: existingTags }
+
+    const needDesc = !v.description || forceAll
+    const needTags = !existingTags.length || forceAll
+
+    try {
+      let desc = v.description || ''
+      let tags = existingTags
+
+      if (needDesc) desc = await genVideoDescription(video, shop, apiKey)
+      if (needTags) tags = await genVideoTags(video, shop, apiKey)
+
+      if (needDesc || needTags) {
+        await sql`UPDATE videos SET description=${desc}, tags=${JSON.stringify(tags)} WHERE id=${v.id}`
+        updated++
+      }
+    } catch {
       failed++
     }
     // rate limit 방지
-    await new Promise(r => setTimeout(r, 300))
+    await new Promise(r => setTimeout(r, 400))
   }
   return c.json({ ok: true, updated, failed, total: (rows as any[]).length })
 })
