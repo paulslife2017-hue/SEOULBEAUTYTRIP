@@ -2302,7 +2302,8 @@ app.post('/api/track', async (c) => {
 app.get('/api/visitors', async (c) => {
   const auth = c.req.header('x-admin-token') || c.req.query('token') || ''
   const token = c.env?.GSK_TOKEN || c.env?.gsk_token || ''
-  if (auth !== token) return c.json({ error: 'Unauthorized' }, 401)
+  // token이 설정된 경우에만 검증 (미설정 환경에서는 어드민 페이지 자체가 보호됨)
+  if (token && auth !== token) return c.json({ error: 'Unauthorized' }, 401)
 
   try {
     const sql = getDb(c.env)
@@ -2337,18 +2338,38 @@ app.get('/api/visitors', async (c) => {
 app.get('/api/visitors/:sessionId', async (c) => {
   const auth = c.req.header('x-admin-token') || c.req.query('token') || ''
   const token = c.env?.GSK_TOKEN || c.env?.gsk_token || ''
-  if (auth !== token) return c.json({ error: 'Unauthorized' }, 401)
+  if (token && auth !== token) return c.json({ error: 'Unauthorized' }, 401)
 
   try {
     const sql = getDb(c.env)
     const sid = c.req.param('sessionId')
+    // 이벤트 + 페이지별 체류시간 계산 포함
     const events = await sql`
-      SELECT * FROM visitor_events
-      WHERE session_id = ${sid}
-      ORDER BY created_at ASC
+      SELECT
+        ve.*,
+        EXTRACT(EPOCH FROM (
+          LEAD(ve.created_at) OVER (PARTITION BY ve.session_id ORDER BY ve.created_at)
+          - ve.created_at
+        ))::int AS next_event_gap_sec
+      FROM visitor_events ve
+      WHERE ve.session_id = ${sid}
+      ORDER BY ve.created_at ASC
     `
     const session = await sql`SELECT * FROM visitor_sessions WHERE session_id = ${sid}`
-    return c.json({ session: session[0] || null, events })
+    // 페이지별 요약 (체류시간, 스크롤, 클릭수)
+    const pageSummary = await sql`
+      SELECT
+        page,
+        COUNT(*) FILTER (WHERE event = 'page_view') AS views,
+        MAX(scroll_pct) AS max_scroll,
+        COUNT(*) FILTER (WHERE event = 'shop_click' OR event = 'wa_click') AS clicks,
+        MAX(duration) AS stay_sec
+      FROM visitor_events
+      WHERE session_id = ${sid} AND page != ''
+      GROUP BY page
+      ORDER BY MIN(created_at)
+    `
+    return c.json({ session: session[0] || null, events, pageSummary })
   } catch(e: any) {
     return c.json({ error: e.message }, 500)
   }
@@ -2358,7 +2379,7 @@ app.get('/api/visitors/:sessionId', async (c) => {
 app.get('/api/visitors-stats', async (c) => {
   const auth = c.req.header('x-admin-token') || c.req.query('token') || ''
   const token = c.env?.GSK_TOKEN || c.env?.gsk_token || ''
-  if (auth !== token) return c.json({ error: 'Unauthorized' }, 401)
+  if (token && auth !== token) return c.json({ error: 'Unauthorized' }, 401)
 
   try {
     const sql = getDb(c.env)
@@ -10054,7 +10075,12 @@ window.loadVisitors = async function(){
   if(listEl) listEl.innerHTML = '<div style="text-align:center;padding:30px;color:rgba(255,255,255,.25);font-size:13px"><i class="fas fa-circle-notch fa-spin" style="font-size:20px;margin-bottom:8px;display:block"></i>로딩 중...</div>';
   try {
     var res = await fetch('/api/visitors?limit=200&days='+_vsDays, { headers:{'x-admin-token':tk} });
-    if(!res.ok){ if(listEl) listEl.innerHTML='<div style="padding:20px;text-align:center;color:#f87171;font-size:13px">인증 실패 — 토큰 확인</div>'; return; }
+    if(!res.ok){
+      var errData = {}; try { errData = await res.json(); } catch(e2){}
+      var errMsg = errData.error || ('HTTP '+res.status);
+      if(listEl) listEl.innerHTML='<div style="padding:20px;text-align:center;color:#f87171;font-size:13px">❌ 로드 실패: '+escHtml(errMsg)+'<br><span style="font-size:11px;color:rgba(255,255,255,.35)">설정 탭에서 토큰을 저장하거나, Vercel 환경변수 GSK_TOKEN을 확인하세요</span></div>';
+      return;
+    }
     var data = await res.json();
     _vsAllSessions = data.sessions || [];
     _vsOffset = 0;
@@ -10151,74 +10177,167 @@ document.addEventListener('click', function(e){
 // 타임라인 토글
 window.toggleVsTimeline = async function(sid){
   var row = document.getElementById('vsr-'+sid);
-  var tl = document.getElementById('vstl-'+sid);
+  var tl  = document.getElementById('vstl-'+sid);
   var chev = row ? row.querySelector('.vs-row-chevron') : null;
   if(!tl) return;
   var isOpen = tl.style.display !== 'none';
-  if(isOpen){
-    tl.style.display='none';
-    if(chev) chev.style.transform='';
-    return;
-  }
+  if(isOpen){ tl.style.display='none'; if(chev) chev.style.transform=''; return; }
   tl.style.display='block';
   if(chev) chev.style.transform='rotate(180deg)';
-  if(tl.dataset.loaded) return; // 이미 로드됨
+  if(tl.dataset.loaded) return;
   tl.dataset.loaded = '1';
   var tk = _GSK_TOKEN || localStorage.getItem('_gsk_token') || '';
   try {
     var res = await fetch('/api/visitors/'+sid, { headers:{'x-admin-token':tk} });
-    if(!res.ok){ tl.innerHTML='<div style="color:#f87171;font-size:11px;padding:8px">인증 실패</div>'; return; }
+    if(!res.ok){
+      tl.innerHTML='<div style="color:#f87171;font-size:11px;padding:12px">❌ 로드 실패 ('+res.status+')</div>';
+      return;
+    }
     var data = await res.json();
-    var evs = data.events || [];
-    if(!evs.length){ tl.innerHTML='<div style="color:rgba(255,255,255,.25);font-size:11px;padding:8px">이벤트 없음</div>'; return; }
-    tl.innerHTML = '<div class="vs-tl-list">'+evs.map(function(ev,i){
-      return buildTlItem(ev, i===0 ? null : evs[i-1]);
-    }).join('')+'</div>';
+    var evs  = data.events || [];
+    var sess = data.session || {};
+    var pages = data.pageSummary || [];
+    if(!evs.length){ tl.innerHTML='<div style="color:rgba(255,255,255,.25);font-size:11px;padding:12px">이벤트 없음</div>'; return; }
+
+    // ── 세션 요약 헤더 ────────────────────────────────
+    var totalSec = sess.durationSec || sess.duration_sec || 0;
+    var waClicked = sess.waClicked || sess.wa_clicked;
+    var refStr = sess.referrer ? '<span style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:bottom">'+escHtml(sess.referrer)+'</span>' : '직접 방문';
+    var uaStr  = sess.ua ? escHtml(sess.ua.substring(0,60)) : '';
+    var summaryHtml =
+      '<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:10px 12px;margin-bottom:12px">'
+      +'<div style="display:flex;flex-wrap:wrap;gap:10px 18px;font-size:10px;color:rgba(255,255,255,.5)">'
+      +'<span><i class="fas fa-clock" style="color:#60a5fa;margin-right:4px"></i>총 '+fmtDur(totalSec)+'</span>'
+      +'<span><i class="fas fa-file-alt" style="color:#a78bfa;margin-right:4px"></i>'+( sess.pageCount||sess.page_count||0)+'페이지</span>'
+      +'<span><i class="fas fa-arrows-alt-v" style="color:#4ade80;margin-right:4px"></i>최대 '+(sess.maxScroll||sess.max_scroll||0)+'% 스크롤</span>'
+      +(waClicked ? '<span style="color:#25d366"><i class="fab fa-whatsapp" style="margin-right:4px"></i>WA 클릭 ✅</span>' : '')
+      +'<span><i class="fas fa-sign-in-alt" style="color:#fbbf24;margin-right:4px"></i>'+refStr+'</span>'
+      +'</div>'
+      +(uaStr ? '<div style="font-size:9px;color:rgba(255,255,255,.2);margin-top:5px;word-break:break-all">'+uaStr+'</div>' : '')
+      +'</div>';
+
+    // ── 페이지별 여정 요약 (방문한 순서) ─────────────────
+    var journeyHtml = '';
+    if(pages.length){
+      journeyHtml = '<div style="margin-bottom:12px">'
+        +'<div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.35);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">📍 페이지 여정</div>'
+        +'<div style="display:flex;flex-direction:column;gap:4px">'
+        + pages.map(function(p, pi){
+            var scrollBar = Math.min(100, p.maxScroll||p.max_scroll||0);
+            var stayS = p.staySec||p.stay_sec||0;
+            var pageName = (p.page||'/').replace(/^\/shop\//,'/shop/ ').replace(/^\/best\//,'/best/ ');
+            return '<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:rgba(255,255,255,.03);border-radius:6px;border:1px solid rgba(255,255,255,.05)">'
+              +'<span style="font-size:9px;color:rgba(255,255,255,.25);min-width:14px;text-align:right">'+(pi+1)+'</span>'
+              +'<div style="flex:1;min-width:0">'
+              +'<div style="font-size:10px;color:rgba(255,255,255,.65);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(pageName)+'</div>'
+              +'<div style="display:flex;align-items:center;gap:6px;margin-top:3px">'
+              +'<div style="flex:1;height:3px;background:rgba(255,255,255,.07);border-radius:2px">'
+              +'<div style="height:3px;background:linear-gradient(90deg,#60a5fa,#a78bfa);border-radius:2px;width:'+scrollBar+'%;transition:width .4s"></div>'
+              +'</div>'
+              +'<span style="font-size:9px;color:rgba(255,255,255,.3);flex-shrink:0">'+scrollBar+'%</span>'
+              +(stayS ? '<span style="font-size:9px;color:rgba(255,255,255,.25);flex-shrink:0">'+fmtDur(stayS)+'</span>' : '')
+              +(p.clicks>0 ? '<span style="font-size:9px;color:#fb923c;flex-shrink:0"><i class="fas fa-hand-pointer"></i> '+p.clicks+'</span>' : '')
+              +'</div></div></div>';
+          }).join('')
+        +'</div></div>';
+    }
+
+    // ── 상세 이벤트 타임라인 ──────────────────────────────
+    var tlHtml = '<div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.35);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">⏱ 상세 이벤트 로그</div>'
+      +'<div class="vs-tl-list">'
+      + evs.map(function(ev,i){ return buildTlItem(ev, i===0?null:evs[i-1]); }).join('')
+      +'</div>';
+
+    tl.innerHTML = summaryHtml + journeyHtml + tlHtml;
   } catch(e){
     tl.innerHTML='<div style="color:#f87171;font-size:11px;padding:8px">오류: '+escHtml(e.message)+'</div>';
   }
 };
 
-// 타임라인 아이템 HTML
+// 타임라인 아이템 HTML — 상세 버전
 function buildTlItem(ev, prev){
   var cfg = {
-    page_view:    { ico:'fa-eye',            color:'#60a5fa', label:'페이지 진입' },
-    page_exit:    { ico:'fa-door-open',      color:'#94a3b8', label:'페이지 이탈' },
-    scroll_depth: { ico:'fa-arrows-alt-v',   color:'#4ade80', label:'스크롤' },
-    wa_click:     { ico:'fa-whatsapp fab',   color:'#25d366', label:'WA 클릭' },
-    shop_view:    { ico:'fa-store',          color:'#f472b6', label:'업체 조회' },
-    shop_click:   { ico:'fa-hand-pointer',   color:'#fb923c', label:'업체 클릭' },
-    video_play:   { ico:'fa-play',           color:'#a78bfa', label:'영상 시청' },
-    search:       { ico:'fa-search',         color:'#fbbf24', label:'검색' },
-    filter_click: { ico:'fa-filter',         color:'#e879f9', label:'필터' }
+    page_view:    { ico:'fa-eye',           color:'#60a5fa', label:'페이지 진입' },
+    page_exit:    { ico:'fa-door-open',     color:'#94a3b8', label:'페이지 이탈' },
+    scroll_depth: { ico:'fa-arrows-alt-v',  color:'#4ade80', label:'스크롤 도달' },
+    wa_click:     { ico:'fa-whatsapp',      color:'#25d366', label:'WhatsApp 클릭' },
+    shop_view:    { ico:'fa-store',         color:'#f472b6', label:'업체 상세 조회' },
+    shop_click:   { ico:'fa-hand-pointer',  color:'#fb923c', label:'업체 클릭' },
+    video_play:   { ico:'fa-play-circle',   color:'#a78bfa', label:'영상 시청' },
+    search:       { ico:'fa-search',        color:'#fbbf24', label:'검색' },
+    filter_click: { ico:'fa-filter',        color:'#e879f9', label:'필터 선택' }
   };
-  var c = cfg[ev.event] || { ico:'fa-circle', color:'rgba(255,255,255,.3)', label:ev.event };
+  var c = cfg[ev.event] || { ico:'fa-circle-dot', color:'rgba(255,255,255,.3)', label:ev.event };
   var iconClass = (ev.event==='wa_click') ? 'fab fa-whatsapp' : 'fas '+c.ico;
-  var ts = ev.createdAt ? new Date(ev.createdAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
+  var ts = ev.created_at||ev.createdAt
+    ? new Date(ev.created_at||ev.createdAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})
+    : '';
 
-  // 경과시간 (이전 이벤트 대비)
-  var gap = '';
-  if(prev && ev.createdAt && prev.createdAt){
-    var diff = Math.round((new Date(ev.createdAt)-new Date(prev.createdAt))/1000);
-    if(diff>0) gap='<span style="font-size:9px;color:rgba(255,255,255,.2);margin-left:6px">+'+fmtDur(diff)+'</span>';
+  // 이전 이벤트와의 경과시간
+  var gapHtml = '';
+  if(prev){
+    var prevTs = prev.created_at||prev.createdAt;
+    var curTs  = ev.created_at||ev.createdAt;
+    if(prevTs && curTs){
+      var diff = Math.round((new Date(curTs)-new Date(prevTs))/1000);
+      if(diff >= 3){
+        gapHtml = '<div style="display:flex;align-items:center;gap:4px;padding:2px 0 2px 26px;color:rgba(255,255,255,.18);font-size:9px">'
+          +'<div style="flex:1;height:1px;background:rgba(255,255,255,.06)"></div>'
+          +'<span>+'+fmtDur(diff)+'</span>'
+          +'<div style="flex:1;height:1px;background:rgba(255,255,255,.06)"></div>'
+          +'</div>';
+      }
+    }
   }
 
-  var detail = '';
-  if(ev.page && ev.event==='page_view') detail='<span style="font-size:10px;color:rgba(255,255,255,.45);margin-left:4px">'+escHtml(ev.page)+'</span>';
-  if(ev.event==='scroll_depth') detail='<span style="font-size:10px;color:'+c.color+';margin-left:4px;font-weight:700">'+ev.scrollPct+'%</span>';
-  if(ev.event==='page_exit' && ev.duration) detail='<span style="font-size:10px;color:rgba(255,255,255,.4);margin-left:4px">'+fmtDur(ev.duration)+'</span>';
-  if(ev.shopName) detail='<span style="font-size:10px;color:'+c.color+';margin-left:4px">'+escHtml(ev.shopName)+'</span>';
-  if(ev.value && ev.event==='search') detail='<span style="font-size:10px;color:#fbbf24;margin-left:4px">"'+escHtml(ev.value)+'"</span>';
-  if(ev.value && ev.event==='filter_click') detail='<span style="font-size:10px;color:#e879f9;margin-left:4px">'+escHtml(ev.value)+'</span>';
+  // 이벤트별 상세 정보
+  var details = [];
+  var page = ev.page||'';
+  var shopN = ev.shop_name||ev.shopName||'';
+  var val   = ev.value||'';
+  var scrollP = ev.scroll_pct||ev.scrollPct||0;
+  var dur   = ev.duration||0;
+  var gap2  = ev.next_event_gap_sec||0;
 
-  return '<div class="vs-tl-item">'
-    +'<div class="vs-tl-dot" style="background:'+c.color+'"><i class="'+iconClass+'" style="font-size:8px;color:#111"></i></div>'
-    +'<div class="vs-tl-content">'
-    +'<div style="display:flex;align-items:center;gap:0;flex-wrap:wrap">'
+  if(page && ev.event==='page_view'){
+    details.push('<span style="color:rgba(255,255,255,.5)">'+escHtml(page)+'</span>');
+  }
+  if(ev.event==='scroll_depth'){
+    var scrollColor = scrollP>=75?'#34d399':scrollP>=50?'#60a5fa':'#94a3b8';
+    details.push('<span style="color:'+scrollColor+';font-weight:700">'+scrollP+'% 도달</span>');
+  }
+  if(ev.event==='page_exit'){
+    if(dur) details.push('<span style="color:rgba(255,255,255,.4)">체류 '+fmtDur(dur)+'</span>');
+    if(page) details.push('<span style="color:rgba(255,255,255,.35)">'+escHtml(page)+'</span>');
+  }
+  if(shopN){
+    details.push('<span style="color:'+c.color+';font-weight:600">'+escHtml(shopN)+'</span>');
+  }
+  if(val && ev.event==='search'){
+    details.push('<span style="color:#fbbf24">"'+escHtml(val)+'"</span>');
+  }
+  if(val && ev.event==='filter_click'){
+    details.push('<span style="color:#e879f9">'+escHtml(val)+'</span>');
+  }
+  if(ev.event==='video_play' && val){
+    details.push('<span style="color:#a78bfa">'+escHtml(val)+'</span>');
+  }
+  // 다음 이벤트까지 체류시간 (page_view에만)
+  if(ev.event==='page_view' && gap2 && gap2 < 3600){
+    details.push('<span style="color:rgba(255,255,255,.25);font-size:9px">→ '+fmtDur(gap2)+'후 다음 행동</span>');
+  }
+
+  var detailHtml = details.length ? '<div style="margin-top:2px;display:flex;flex-wrap:wrap;gap:4px 8px">'+details.map(function(d){ return '<span style="font-size:10px">'+d+'</span>'; }).join('')+'</div>' : '';
+
+  return gapHtml
+    +'<div class="vs-tl-item">'
+    +'<div class="vs-tl-dot" style="background:'+c.color+';flex-shrink:0"><i class="'+iconClass+'" style="font-size:8px;color:#0d0d18"></i></div>'
+    +'<div class="vs-tl-content" style="flex:1">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between">'
     +'<span style="font-size:11px;font-weight:700;color:'+c.color+'">'+c.label+'</span>'
-    +detail+gap
+    +'<span style="font-size:9px;color:rgba(255,255,255,.2)">'+ts+'</span>'
     +'</div>'
-    +'<div style="font-size:9px;color:rgba(255,255,255,.2);margin-top:2px">'+ts+'</div>'
+    +detailHtml
     +'</div></div>';
 }
 

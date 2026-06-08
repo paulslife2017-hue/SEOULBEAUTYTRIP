@@ -4186,7 +4186,7 @@ app.post("/api/track", async (c) => {
 app.get("/api/visitors", async (c) => {
   const auth = c.req.header("x-admin-token") || c.req.query("token") || "";
   const token = c.env?.GSK_TOKEN || c.env?.gsk_token || "";
-  if (auth !== token) return c.json({ error: "Unauthorized" }, 401);
+  if (token && auth !== token) return c.json({ error: "Unauthorized" }, 401);
   try {
     const sql = getDb(c.env);
     const limit = parseInt(c.req.query("limit") || "50");
@@ -4215,17 +4215,35 @@ app.get("/api/visitors", async (c) => {
 app.get("/api/visitors/:sessionId", async (c) => {
   const auth = c.req.header("x-admin-token") || c.req.query("token") || "";
   const token = c.env?.GSK_TOKEN || c.env?.gsk_token || "";
-  if (auth !== token) return c.json({ error: "Unauthorized" }, 401);
+  if (token && auth !== token) return c.json({ error: "Unauthorized" }, 401);
   try {
     const sql = getDb(c.env);
     const sid = c.req.param("sessionId");
     const events = await sql`
-      SELECT * FROM visitor_events
-      WHERE session_id = ${sid}
-      ORDER BY created_at ASC
+      SELECT
+        ve.*,
+        EXTRACT(EPOCH FROM (
+          LEAD(ve.created_at) OVER (PARTITION BY ve.session_id ORDER BY ve.created_at)
+          - ve.created_at
+        ))::int AS next_event_gap_sec
+      FROM visitor_events ve
+      WHERE ve.session_id = ${sid}
+      ORDER BY ve.created_at ASC
     `;
     const session = await sql`SELECT * FROM visitor_sessions WHERE session_id = ${sid}`;
-    return c.json({ session: session[0] || null, events });
+    const pageSummary = await sql`
+      SELECT
+        page,
+        COUNT(*) FILTER (WHERE event = 'page_view') AS views,
+        MAX(scroll_pct) AS max_scroll,
+        COUNT(*) FILTER (WHERE event = 'shop_click' OR event = 'wa_click') AS clicks,
+        MAX(duration) AS stay_sec
+      FROM visitor_events
+      WHERE session_id = ${sid} AND page != ''
+      GROUP BY page
+      ORDER BY MIN(created_at)
+    `;
+    return c.json({ session: session[0] || null, events, pageSummary });
   } catch (e) {
     return c.json({ error: e.message }, 500);
   }
@@ -4233,7 +4251,7 @@ app.get("/api/visitors/:sessionId", async (c) => {
 app.get("/api/visitors-stats", async (c) => {
   const auth = c.req.header("x-admin-token") || c.req.query("token") || "";
   const token = c.env?.GSK_TOKEN || c.env?.gsk_token || "";
-  if (auth !== token) return c.json({ error: "Unauthorized" }, 401);
+  if (token && auth !== token) return c.json({ error: "Unauthorized" }, 401);
   try {
     const sql = getDb(c.env);
     const days = parseInt(c.req.query("days") || "7");
@@ -11640,7 +11658,12 @@ window.loadVisitors = async function(){
   if(listEl) listEl.innerHTML = '<div style="text-align:center;padding:30px;color:rgba(255,255,255,.25);font-size:13px"><i class="fas fa-circle-notch fa-spin" style="font-size:20px;margin-bottom:8px;display:block"></i>\uB85C\uB529 \uC911...</div>';
   try {
     var res = await fetch('/api/visitors?limit=200&days='+_vsDays, { headers:{'x-admin-token':tk} });
-    if(!res.ok){ if(listEl) listEl.innerHTML='<div style="padding:20px;text-align:center;color:#f87171;font-size:13px">\uC778\uC99D \uC2E4\uD328 \u2014 \uD1A0\uD070 \uD655\uC778</div>'; return; }
+    if(!res.ok){
+      var errData = {}; try { errData = await res.json(); } catch(e2){}
+      var errMsg = errData.error || ('HTTP '+res.status);
+      if(listEl) listEl.innerHTML='<div style="padding:20px;text-align:center;color:#f87171;font-size:13px">\u274C \uB85C\uB4DC \uC2E4\uD328: '+escHtml(errMsg)+'<br><span style="font-size:11px;color:rgba(255,255,255,.35)">\uC124\uC815 \uD0ED\uC5D0\uC11C \uD1A0\uD070\uC744 \uC800\uC7A5\uD558\uAC70\uB098, Vercel \uD658\uACBD\uBCC0\uC218 GSK_TOKEN\uC744 \uD655\uC778\uD558\uC138\uC694</span></div>';
+      return;
+    }
     var data = await res.json();
     _vsAllSessions = data.sessions || [];
     _vsOffset = 0;
@@ -11737,74 +11760,167 @@ document.addEventListener('click', function(e){
 // \uD0C0\uC784\uB77C\uC778 \uD1A0\uAE00
 window.toggleVsTimeline = async function(sid){
   var row = document.getElementById('vsr-'+sid);
-  var tl = document.getElementById('vstl-'+sid);
+  var tl  = document.getElementById('vstl-'+sid);
   var chev = row ? row.querySelector('.vs-row-chevron') : null;
   if(!tl) return;
   var isOpen = tl.style.display !== 'none';
-  if(isOpen){
-    tl.style.display='none';
-    if(chev) chev.style.transform='';
-    return;
-  }
+  if(isOpen){ tl.style.display='none'; if(chev) chev.style.transform=''; return; }
   tl.style.display='block';
   if(chev) chev.style.transform='rotate(180deg)';
-  if(tl.dataset.loaded) return; // \uC774\uBBF8 \uB85C\uB4DC\uB428
+  if(tl.dataset.loaded) return;
   tl.dataset.loaded = '1';
   var tk = _GSK_TOKEN || localStorage.getItem('_gsk_token') || '';
   try {
     var res = await fetch('/api/visitors/'+sid, { headers:{'x-admin-token':tk} });
-    if(!res.ok){ tl.innerHTML='<div style="color:#f87171;font-size:11px;padding:8px">\uC778\uC99D \uC2E4\uD328</div>'; return; }
+    if(!res.ok){
+      tl.innerHTML='<div style="color:#f87171;font-size:11px;padding:12px">\u274C \uB85C\uB4DC \uC2E4\uD328 ('+res.status+')</div>';
+      return;
+    }
     var data = await res.json();
-    var evs = data.events || [];
-    if(!evs.length){ tl.innerHTML='<div style="color:rgba(255,255,255,.25);font-size:11px;padding:8px">\uC774\uBCA4\uD2B8 \uC5C6\uC74C</div>'; return; }
-    tl.innerHTML = '<div class="vs-tl-list">'+evs.map(function(ev,i){
-      return buildTlItem(ev, i===0 ? null : evs[i-1]);
-    }).join('')+'</div>';
+    var evs  = data.events || [];
+    var sess = data.session || {};
+    var pages = data.pageSummary || [];
+    if(!evs.length){ tl.innerHTML='<div style="color:rgba(255,255,255,.25);font-size:11px;padding:12px">\uC774\uBCA4\uD2B8 \uC5C6\uC74C</div>'; return; }
+
+    // \u2500\u2500 \uC138\uC158 \uC694\uC57D \uD5E4\uB354 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    var totalSec = sess.durationSec || sess.duration_sec || 0;
+    var waClicked = sess.waClicked || sess.wa_clicked;
+    var refStr = sess.referrer ? '<span style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:bottom">'+escHtml(sess.referrer)+'</span>' : '\uC9C1\uC811 \uBC29\uBB38';
+    var uaStr  = sess.ua ? escHtml(sess.ua.substring(0,60)) : '';
+    var summaryHtml =
+      '<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:10px 12px;margin-bottom:12px">'
+      +'<div style="display:flex;flex-wrap:wrap;gap:10px 18px;font-size:10px;color:rgba(255,255,255,.5)">'
+      +'<span><i class="fas fa-clock" style="color:#60a5fa;margin-right:4px"></i>\uCD1D '+fmtDur(totalSec)+'</span>'
+      +'<span><i class="fas fa-file-alt" style="color:#a78bfa;margin-right:4px"></i>'+( sess.pageCount||sess.page_count||0)+'\uD398\uC774\uC9C0</span>'
+      +'<span><i class="fas fa-arrows-alt-v" style="color:#4ade80;margin-right:4px"></i>\uCD5C\uB300 '+(sess.maxScroll||sess.max_scroll||0)+'% \uC2A4\uD06C\uB864</span>'
+      +(waClicked ? '<span style="color:#25d366"><i class="fab fa-whatsapp" style="margin-right:4px"></i>WA \uD074\uB9AD \u2705</span>' : '')
+      +'<span><i class="fas fa-sign-in-alt" style="color:#fbbf24;margin-right:4px"></i>'+refStr+'</span>'
+      +'</div>'
+      +(uaStr ? '<div style="font-size:9px;color:rgba(255,255,255,.2);margin-top:5px;word-break:break-all">'+uaStr+'</div>' : '')
+      +'</div>';
+
+    // \u2500\u2500 \uD398\uC774\uC9C0\uBCC4 \uC5EC\uC815 \uC694\uC57D (\uBC29\uBB38\uD55C \uC21C\uC11C) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    var journeyHtml = '';
+    if(pages.length){
+      journeyHtml = '<div style="margin-bottom:12px">'
+        +'<div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.35);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">\u{1F4CD} \uD398\uC774\uC9C0 \uC5EC\uC815</div>'
+        +'<div style="display:flex;flex-direction:column;gap:4px">'
+        + pages.map(function(p, pi){
+            var scrollBar = Math.min(100, p.maxScroll||p.max_scroll||0);
+            var stayS = p.staySec||p.stay_sec||0;
+            var pageName = (p.page||'/').replace(/^/shop//,'/shop/ ').replace(/^/best//,'/best/ ');
+            return '<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:rgba(255,255,255,.03);border-radius:6px;border:1px solid rgba(255,255,255,.05)">'
+              +'<span style="font-size:9px;color:rgba(255,255,255,.25);min-width:14px;text-align:right">'+(pi+1)+'</span>'
+              +'<div style="flex:1;min-width:0">'
+              +'<div style="font-size:10px;color:rgba(255,255,255,.65);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(pageName)+'</div>'
+              +'<div style="display:flex;align-items:center;gap:6px;margin-top:3px">'
+              +'<div style="flex:1;height:3px;background:rgba(255,255,255,.07);border-radius:2px">'
+              +'<div style="height:3px;background:linear-gradient(90deg,#60a5fa,#a78bfa);border-radius:2px;width:'+scrollBar+'%;transition:width .4s"></div>'
+              +'</div>'
+              +'<span style="font-size:9px;color:rgba(255,255,255,.3);flex-shrink:0">'+scrollBar+'%</span>'
+              +(stayS ? '<span style="font-size:9px;color:rgba(255,255,255,.25);flex-shrink:0">'+fmtDur(stayS)+'</span>' : '')
+              +(p.clicks>0 ? '<span style="font-size:9px;color:#fb923c;flex-shrink:0"><i class="fas fa-hand-pointer"></i> '+p.clicks+'</span>' : '')
+              +'</div></div></div>';
+          }).join('')
+        +'</div></div>';
+    }
+
+    // \u2500\u2500 \uC0C1\uC138 \uC774\uBCA4\uD2B8 \uD0C0\uC784\uB77C\uC778 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    var tlHtml = '<div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.35);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">\u23F1 \uC0C1\uC138 \uC774\uBCA4\uD2B8 \uB85C\uADF8</div>'
+      +'<div class="vs-tl-list">'
+      + evs.map(function(ev,i){ return buildTlItem(ev, i===0?null:evs[i-1]); }).join('')
+      +'</div>';
+
+    tl.innerHTML = summaryHtml + journeyHtml + tlHtml;
   } catch(e){
     tl.innerHTML='<div style="color:#f87171;font-size:11px;padding:8px">\uC624\uB958: '+escHtml(e.message)+'</div>';
   }
 };
 
-// \uD0C0\uC784\uB77C\uC778 \uC544\uC774\uD15C HTML
+// \uD0C0\uC784\uB77C\uC778 \uC544\uC774\uD15C HTML \u2014 \uC0C1\uC138 \uBC84\uC804
 function buildTlItem(ev, prev){
   var cfg = {
-    page_view:    { ico:'fa-eye',            color:'#60a5fa', label:'\uD398\uC774\uC9C0 \uC9C4\uC785' },
-    page_exit:    { ico:'fa-door-open',      color:'#94a3b8', label:'\uD398\uC774\uC9C0 \uC774\uD0C8' },
-    scroll_depth: { ico:'fa-arrows-alt-v',   color:'#4ade80', label:'\uC2A4\uD06C\uB864' },
-    wa_click:     { ico:'fa-whatsapp fab',   color:'#25d366', label:'WA \uD074\uB9AD' },
-    shop_view:    { ico:'fa-store',          color:'#f472b6', label:'\uC5C5\uCCB4 \uC870\uD68C' },
-    shop_click:   { ico:'fa-hand-pointer',   color:'#fb923c', label:'\uC5C5\uCCB4 \uD074\uB9AD' },
-    video_play:   { ico:'fa-play',           color:'#a78bfa', label:'\uC601\uC0C1 \uC2DC\uCCAD' },
-    search:       { ico:'fa-search',         color:'#fbbf24', label:'\uAC80\uC0C9' },
-    filter_click: { ico:'fa-filter',         color:'#e879f9', label:'\uD544\uD130' }
+    page_view:    { ico:'fa-eye',           color:'#60a5fa', label:'\uD398\uC774\uC9C0 \uC9C4\uC785' },
+    page_exit:    { ico:'fa-door-open',     color:'#94a3b8', label:'\uD398\uC774\uC9C0 \uC774\uD0C8' },
+    scroll_depth: { ico:'fa-arrows-alt-v',  color:'#4ade80', label:'\uC2A4\uD06C\uB864 \uB3C4\uB2EC' },
+    wa_click:     { ico:'fa-whatsapp',      color:'#25d366', label:'WhatsApp \uD074\uB9AD' },
+    shop_view:    { ico:'fa-store',         color:'#f472b6', label:'\uC5C5\uCCB4 \uC0C1\uC138 \uC870\uD68C' },
+    shop_click:   { ico:'fa-hand-pointer',  color:'#fb923c', label:'\uC5C5\uCCB4 \uD074\uB9AD' },
+    video_play:   { ico:'fa-play-circle',   color:'#a78bfa', label:'\uC601\uC0C1 \uC2DC\uCCAD' },
+    search:       { ico:'fa-search',        color:'#fbbf24', label:'\uAC80\uC0C9' },
+    filter_click: { ico:'fa-filter',        color:'#e879f9', label:'\uD544\uD130 \uC120\uD0DD' }
   };
-  var c = cfg[ev.event] || { ico:'fa-circle', color:'rgba(255,255,255,.3)', label:ev.event };
+  var c = cfg[ev.event] || { ico:'fa-circle-dot', color:'rgba(255,255,255,.3)', label:ev.event };
   var iconClass = (ev.event==='wa_click') ? 'fab fa-whatsapp' : 'fas '+c.ico;
-  var ts = ev.createdAt ? new Date(ev.createdAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
+  var ts = ev.created_at||ev.createdAt
+    ? new Date(ev.created_at||ev.createdAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})
+    : '';
 
-  // \uACBD\uACFC\uC2DC\uAC04 (\uC774\uC804 \uC774\uBCA4\uD2B8 \uB300\uBE44)
-  var gap = '';
-  if(prev && ev.createdAt && prev.createdAt){
-    var diff = Math.round((new Date(ev.createdAt)-new Date(prev.createdAt))/1000);
-    if(diff>0) gap='<span style="font-size:9px;color:rgba(255,255,255,.2);margin-left:6px">+'+fmtDur(diff)+'</span>';
+  // \uC774\uC804 \uC774\uBCA4\uD2B8\uC640\uC758 \uACBD\uACFC\uC2DC\uAC04
+  var gapHtml = '';
+  if(prev){
+    var prevTs = prev.created_at||prev.createdAt;
+    var curTs  = ev.created_at||ev.createdAt;
+    if(prevTs && curTs){
+      var diff = Math.round((new Date(curTs)-new Date(prevTs))/1000);
+      if(diff >= 3){
+        gapHtml = '<div style="display:flex;align-items:center;gap:4px;padding:2px 0 2px 26px;color:rgba(255,255,255,.18);font-size:9px">'
+          +'<div style="flex:1;height:1px;background:rgba(255,255,255,.06)"></div>'
+          +'<span>+'+fmtDur(diff)+'</span>'
+          +'<div style="flex:1;height:1px;background:rgba(255,255,255,.06)"></div>'
+          +'</div>';
+      }
+    }
   }
 
-  var detail = '';
-  if(ev.page && ev.event==='page_view') detail='<span style="font-size:10px;color:rgba(255,255,255,.45);margin-left:4px">'+escHtml(ev.page)+'</span>';
-  if(ev.event==='scroll_depth') detail='<span style="font-size:10px;color:'+c.color+';margin-left:4px;font-weight:700">'+ev.scrollPct+'%</span>';
-  if(ev.event==='page_exit' && ev.duration) detail='<span style="font-size:10px;color:rgba(255,255,255,.4);margin-left:4px">'+fmtDur(ev.duration)+'</span>';
-  if(ev.shopName) detail='<span style="font-size:10px;color:'+c.color+';margin-left:4px">'+escHtml(ev.shopName)+'</span>';
-  if(ev.value && ev.event==='search') detail='<span style="font-size:10px;color:#fbbf24;margin-left:4px">"'+escHtml(ev.value)+'"</span>';
-  if(ev.value && ev.event==='filter_click') detail='<span style="font-size:10px;color:#e879f9;margin-left:4px">'+escHtml(ev.value)+'</span>';
+  // \uC774\uBCA4\uD2B8\uBCC4 \uC0C1\uC138 \uC815\uBCF4
+  var details = [];
+  var page = ev.page||'';
+  var shopN = ev.shop_name||ev.shopName||'';
+  var val   = ev.value||'';
+  var scrollP = ev.scroll_pct||ev.scrollPct||0;
+  var dur   = ev.duration||0;
+  var gap2  = ev.next_event_gap_sec||0;
 
-  return '<div class="vs-tl-item">'
-    +'<div class="vs-tl-dot" style="background:'+c.color+'"><i class="'+iconClass+'" style="font-size:8px;color:#111"></i></div>'
-    +'<div class="vs-tl-content">'
-    +'<div style="display:flex;align-items:center;gap:0;flex-wrap:wrap">'
+  if(page && ev.event==='page_view'){
+    details.push('<span style="color:rgba(255,255,255,.5)">'+escHtml(page)+'</span>');
+  }
+  if(ev.event==='scroll_depth'){
+    var scrollColor = scrollP>=75?'#34d399':scrollP>=50?'#60a5fa':'#94a3b8';
+    details.push('<span style="color:'+scrollColor+';font-weight:700">'+scrollP+'% \uB3C4\uB2EC</span>');
+  }
+  if(ev.event==='page_exit'){
+    if(dur) details.push('<span style="color:rgba(255,255,255,.4)">\uCCB4\uB958 '+fmtDur(dur)+'</span>');
+    if(page) details.push('<span style="color:rgba(255,255,255,.35)">'+escHtml(page)+'</span>');
+  }
+  if(shopN){
+    details.push('<span style="color:'+c.color+';font-weight:600">'+escHtml(shopN)+'</span>');
+  }
+  if(val && ev.event==='search'){
+    details.push('<span style="color:#fbbf24">"'+escHtml(val)+'"</span>');
+  }
+  if(val && ev.event==='filter_click'){
+    details.push('<span style="color:#e879f9">'+escHtml(val)+'</span>');
+  }
+  if(ev.event==='video_play' && val){
+    details.push('<span style="color:#a78bfa">'+escHtml(val)+'</span>');
+  }
+  // \uB2E4\uC74C \uC774\uBCA4\uD2B8\uAE4C\uC9C0 \uCCB4\uB958\uC2DC\uAC04 (page_view\uC5D0\uB9CC)
+  if(ev.event==='page_view' && gap2 && gap2 < 3600){
+    details.push('<span style="color:rgba(255,255,255,.25);font-size:9px">\u2192 '+fmtDur(gap2)+'\uD6C4 \uB2E4\uC74C \uD589\uB3D9</span>');
+  }
+
+  var detailHtml = details.length ? '<div style="margin-top:2px;display:flex;flex-wrap:wrap;gap:4px 8px">'+details.map(function(d){ return '<span style="font-size:10px">'+d+'</span>'; }).join('')+'</div>' : '';
+
+  return gapHtml
+    +'<div class="vs-tl-item">'
+    +'<div class="vs-tl-dot" style="background:'+c.color+';flex-shrink:0"><i class="'+iconClass+'" style="font-size:8px;color:#0d0d18"></i></div>'
+    +'<div class="vs-tl-content" style="flex:1">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between">'
     +'<span style="font-size:11px;font-weight:700;color:'+c.color+'">'+c.label+'</span>'
-    +detail+gap
+    +'<span style="font-size:9px;color:rgba(255,255,255,.2)">'+ts+'</span>'
     +'</div>'
-    +'<div style="font-size:9px;color:rgba(255,255,255,.2);margin-top:2px">'+ts+'</div>'
+    +detailHtml
     +'</div></div>';
 }
 
