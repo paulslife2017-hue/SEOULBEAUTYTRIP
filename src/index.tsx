@@ -944,24 +944,71 @@ app.get('/api/upload-sign-image', async (c) => {
 // ── slug 자동 생성 헬퍼 ──
 // "Jiwoo Clinic" + "Gangnam, Seoul" → "jiwoo-clinic-gangnam"
 // 중복 방지: DB에서 같은 slug 있으면 숫자 suffix 붙임
-async function makeShopSlug(sql: any, name: string, location: string): Promise<string> {
+// ── SEO slug 생성 원칙 ──────────────────────────────────────
+// 패턴: [브랜드명]-[카테고리키워드]-[지역명]
+// 규칙:
+//   1. Seoul 없음 (도메인 seoulbeautytrip.com에 이미 포함)
+//   2. 카테고리 키워드 삽입 (clinic / plastic-surgery / hair-salon / spa 등)
+//   3. 지역명 필수 (gangnam / myeongdong / hongdae 등)
+//   4. 45자 이하
+//   5. 중복 단어 제거 (barog-clinic-gangnam-gangnam → barog-clinic-gangnam)
+// ────────────────────────────────────────────────────────────
+const CAT_SLUG_KEYWORD: Record<string, string> = {
+  clinic:   'clinic',
+  skincare: 'skincare',
+  hair:     'hair-salon',
+  headspa:  'head-spa',
+  makeup:   'color-studio',
+  tattoo:   'tattoo',
+  nail:     'nail-salon',
+  spa:      'spa',
+}
+
+// location 문자열 → slug용 지역명 (Seoul 제외)
+function locationToSlugArea(location: string): string {
+  if (!location) return ''
+  const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+  // "Gangnam, Seoul" → "gangnam"
+  // "Myeongdong, Seoul" → "myeongdong"
+  const parts = location.split(',').map(p => p.trim()).filter(Boolean)
+  for (const p of parts) {
+    const a = clean(p)
+    if (a && a !== 'seoul' && a !== 'korea' && a !== 'south-korea') return a
+  }
+  return ''
+}
+
+async function makeShopSlug(sql: any, name: string, location: string, category?: string): Promise<string> {
   const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
-  // 업체명 slug
   const base = clean(name) || 'shop'
+  const area = locationToSlugArea(location)
+  const catKw = category ? (CAT_SLUG_KEYWORD[category] || '') : ''
 
-  // 지역명: 첫 번째 파트만 사용, 중복 단어 제거
-  // ex) "Myeongdong, Myeongdong, Seoul" → "myeongdong"
-  const parts = (location || '').split(',').map((p: string) => p.trim()).filter(Boolean)
-  const areaPart = parts[0] || ''
-  const area = clean(areaPart)
+  // 브랜드명에 카테고리 키워드가 이미 있는지 확인
+  // ex) "gd-clinic" + catKw="clinic" → 이미 포함 → 추가 안 함
+  const catParts = catKw.split('-')
+  const baseHasCat = catParts.every(kw => base.split('-').includes(kw))
 
-  // base(name clean) 또는 area 자체가 없으면 area 추가 안 함
-  // ex) "fleur-jardin-myeongdong"(name에 myeongdong 포함) → 중복 방지
-  const baseHasArea = area && base.includes(area)
-  const candidate = (area && !baseHasArea) ? `${base}-${area}` : base
+  // 브랜드명에 지역명이 이미 있는지 확인
+  // ex) "barog-clinic-gangnam" + area="gangnam" → 이미 포함 → 추가 안 함
+  const areaParts = area.split('-')
+  const baseHasArea = area && areaParts.every(kw => base.split('-').includes(kw))
 
-  // DB 중복 확인 → 있으면 -2, -3, ... (숫자 timestamp 대신 순번)
+  // slug 조합
+  let candidate = base
+  if (catKw && !baseHasCat) candidate = `${candidate}-${catKw}`
+  if (area && !baseHasArea) {
+    // candidate에 이미 area가 있는지도 확인 (catKw 추가 후 중복 가능)
+    const cParts = candidate.split('-')
+    const cHasArea = areaParts.every(kw => cParts.includes(kw))
+    if (!cHasArea) candidate = `${candidate}-${area}`
+  }
+
+  // 45자 제한
+  if (candidate.length > 45) candidate = candidate.slice(0, 45).replace(/-+$/, '')
+
+  // DB 중복 확인 → 있으면 -2, -3, ... (숫자 timestamp 절대 사용 안 함)
   const existing = await sql`SELECT slug FROM shops WHERE slug LIKE ${candidate + '%'}`
   const existingSlugs = new Set(existing.map((r: any) => r.slug))
   if (!existingSlugs.has(candidate)) return candidate
@@ -1164,26 +1211,28 @@ app.post('/api/shops', async (c) => {
   const newId = 's' + Date.now()
   const today = new Date().toISOString().split('T')[0]
 
-  // description 없으면 AI SEO 자동 생성
-  let description = body.description || ''
+  // AI SEO 자동 생성 — 항상 실행 (seoText 없거나 description 없으면)
+  // 이미 완전한 SEO가 있으면 그대로 사용, 불완전하면 AI로 보완
+  let description    = body.description    || ''
   let metaDescription = body.metaDescription || ''
-  let seoKeywords = body.seoKeywords || ''
+  let seoKeywords    = body.seoKeywords    || ''
   let whyChoose: string[] = body.whyChoose || []
-  let seoText = body.seoText || ''
-  if (!description) {
+  let seoText        = body.seoText        || ''
+  const needsSeo = !description || !seoText || !whyChoose.length
+  if (needsSeo) {
     const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
     const seo = await autoGenSeo(body, apiKey)
     if (seo) {
-      description = seo.description || ''
-      metaDescription = seo.metaDescription || ''
-      seoKeywords = Array.isArray(seo.keywords) ? seo.keywords.join(', ') : ''
-      whyChoose = Array.isArray(seo.whyChoose) ? seo.whyChoose : []
-      seoText = seo.seoText || ''
+      description    = description    || seo.description    || ''
+      metaDescription = metaDescription || seo.metaDescription || ''
+      seoKeywords    = seoKeywords    || (Array.isArray(seo.keywords) ? seo.keywords.join(', ') : '')
+      if (!whyChoose.length) whyChoose = Array.isArray(seo.whyChoose) ? seo.whyChoose : []
+      seoText        = seoText        || seo.seoText        || ''
     }
   }
 
   // slug 자동 생성 (항상 새로 생성 — 품질 보장, 중복 방지)
-  const slug = await makeShopSlug(sql, body.name||'', body.location||'')
+  const slug = await makeShopSlug(sql, body.name||'', body.location||'', body.category||'')
 
   // Schema.org thumbnailUrl 에러 방지 — 반드시 https:// 절대 URL만 저장
   const cleanPhotos = sanitizePhotos(body.photos||[])
@@ -1224,7 +1273,7 @@ app.put('/api/shops/:id', async (c) => {
   }
 
   // slug: 보내온 값 없으면 name+location으로 새로 생성 (수정 시에도 품질 보장)
-  const slugVal = body.slug || await makeShopSlug(sql, body.name||'', body.location||'')
+  const slugVal = body.slug || await makeShopSlug(sql, body.name||'', body.location||'', body.category||'')
 
   // Schema.org thumbnailUrl 에러 방지 — 반드시 https:// 절대 URL만 저장
   const cleanPhotosU = sanitizePhotos(body.photos||[])
@@ -1280,7 +1329,7 @@ app.post('/api/admin/restore-shop', async (c) => {
   const body = await c.req.json()
   if (!body.id || !body.name) return c.json({ ok: false, error: 'id and name required' }, 400)
   const today = new Date().toISOString().split('T')[0]
-  const slug = await makeShopSlug(sql, body.name, body.location||'')
+  const slug = await makeShopSlug(sql, body.name, body.location||'', body.category||'clinic')
   const cleanPhotos = sanitizePhotos(body.photos||[])
   const cleanThumb  = sanitizeThumb(body.thumbnail||'', cleanPhotos)
   await sql`INSERT INTO shops (id,name,slug,category,location,address,google_map_url,google_map_embed,lat,lng,price_range,hours,services,service_prices,description,meta_description,seo_keywords,seo_text,why_choose,rating,review_count,thumbnail,photos,commission,active,created_at,place_id,whatsapp) VALUES (
@@ -2125,25 +2174,8 @@ app.post('/api/quick-register', async (c) => {
       || rawName
 
     // ── STEP 3: slug 생성 ──
-    const makeSlug = (name: string, loc: string) => {
-      const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-      const parts = (loc || '').split(',').map((p: string) => p.trim()).filter(Boolean)
-      const area = clean(parts[0] || '')
-      const base = clean(name)
-      // base에 이미 area 포함 시 중복 추가 안 함
-      const candidate = (area && !base.includes(area)) ? `${base}-${area}` : base
-      return candidate.slice(0, 60)
-    }
-    let slug = makeSlug(engName, resolvedData.location || 'seoul')
-    const existingSlug = await sql`SELECT id FROM shops WHERE slug = ${slug}`
-    if (existingSlug.length > 0) {
-      // 순번으로 처리 (-2, -3, ...)
-      for (let n = 2; n <= 99; n++) {
-        const s = `${slug}-${n}`
-        const dup = await sql`SELECT id FROM shops WHERE slug = ${s}`
-        if (!dup.length) { slug = s; break; }
-      }
-    }
+    // SEO 최적 slug: makeShopSlug 공통 함수 사용 (카테고리 키워드 + 지역명 포함)
+    let slug = await makeShopSlug(sql, engName, resolvedData.location || 'seoul', category || 'clinic')
 
     // ── STEP 4~6: GPT + Google Places로 고유 SEO 자동 생성 ──
     const loc = resolvedData.location || 'Seoul'
@@ -2386,45 +2418,64 @@ app.get('/api/visitors-live', async (c) => {
 
     // 최근 3분 이내 last_active인 세션 = 실시간 접속자
     const liveSessions = await sql`
-      SELECT session_id, visitor_id, device,
+      SELECT vs.session_id, vs.visitor_id, vs.device,
              (SELECT page FROM visitor_events WHERE session_id=vs.session_id ORDER BY created_at DESC LIMIT 1) AS current_page
       FROM visitor_sessions vs
       WHERE last_active >= NOW() - INTERVAL '3 minutes'
       ORDER BY last_active DESC
     `
 
-    // 현재 보고 있는 페이지별 집계
-    const pageMap: Record<string, number> = {}
-    let lastExitPage = ''
-    let lastExitDevice = ''
+    // /shop/slug → 업체명 변환 헬퍼: slug 목록 수집 후 한 번에 JOIN
+    const slugSet = new Set<string>()
     for (const s of liveSessions as any[]) {
-      const pg = s.current_page || '/'
-      pageMap[pg] = (pageMap[pg] || 0) + 1
+      const pg: string = s.current_page || ''
+      const m = pg.match(/^\/shop\/([^/?#]+)/)
+      if (m) slugSet.add(m[1])
     }
-    const activePages = Object.entries(pageMap)
-      .map(([page, count]) => ({ page, count }))
-      .sort((a, b) => b.count - a.count)
 
-    // 최근 나가기 이벤트 (page_exit, 최근 10개)
+    // 최근 나가기 이벤트 (page_exit, 최근 10개) — shops JOIN으로 업체명 포함
     const recentExits = await sql`
       SELECT ve.id, ve.page, ve.duration, ve.created_at,
-             vs.device
+             vs.device,
+             sh.name AS shop_name
       FROM visitor_events ve
       LEFT JOIN visitor_sessions vs ON vs.session_id = ve.session_id
+      LEFT JOIN shops sh ON sh.slug = REGEXP_REPLACE(ve.page, '^/shop/', '')
+                            AND ve.page LIKE '/shop/%'
       WHERE ve.event = 'page_exit'
       ORDER BY ve.created_at DESC
       LIMIT 10
     `
-    if ((recentExits as any[]).length > 0) {
-      lastExitPage = (recentExits as any[])[0]?.page || ''
-      lastExitDevice = (recentExits as any[])[0]?.device || ''
+
+    // slug → 업체명 맵 (실시간 접속자용)
+    let slugNameMap: Record<string, string> = {}
+    if (slugSet.size > 0) {
+      const slugArr = Array.from(slugSet)
+      const shopRows = await sql`SELECT slug, name FROM shops WHERE slug = ANY(${slugArr}::text[])`
+      for (const r of shopRows as any[]) slugNameMap[r.slug] = r.name
     }
 
+    // 현재 보고 있는 페이지별 집계 (업체명 포함)
+    const pageMap: Record<string, { count: number; shopName?: string }> = {}
+    for (const s of liveSessions as any[]) {
+      const pg = s.current_page || '/'
+      if (!pageMap[pg]) {
+        const m = pg.match(/^\/shop\/([^/?#]+)/)
+        const shopName = m ? slugNameMap[m[1]] : undefined
+        pageMap[pg] = { count: 0, shopName }
+      }
+      pageMap[pg].count++
+    }
+    const activePages = Object.entries(pageMap)
+      .map(([page, v]) => ({ page, count: v.count, shopName: v.shopName }))
+      .sort((a, b) => b.count - a.count)
+
+    const lastExit = (recentExits as any[])[0]
     return c.json({
       activeCount: liveSessions.length,
       activePages,
-      lastExitPage,
-      lastExitDevice,
+      lastExitPage:   lastExit?.page || '',
+      lastExitDevice: lastExit?.device || '',
       recentExits
     })
   } catch(e: any) {
@@ -6514,10 +6565,20 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 /* 모달 WHY CHOOSE */
 .m-why-list{display:flex;flex-direction:column;gap:8px}
 .m-why-item{font-size:13px;color:rgba(255,255,255,.75);line-height:1.6;padding:10px 14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;border-left:3px solid var(--pk2)}
-/* 모달 SEO 텍스트 블록 */
-.m-seo-block{margin-top:4px;margin-bottom:14px;padding:18px 16px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:14px}
-.m-seo-h2{font-size:14px;font-weight:700;color:rgba(255,255,255,.8);margin:0 0 8px 0;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.07);line-height:1.4}
-.m-seo-p{font-size:12.5px;color:rgba(255,255,255,.6);line-height:1.8;margin:0 0 14px}
+/* 모달 SEO 텍스트 블록 — sp-seo-block과 동일 스타일 */
+.m-seo-block{margin-top:4px;margin-bottom:14px;padding:18px 16px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:14px;border-top:2px solid rgba(232,65,122,.25)}
+.m-seo-block-head{display:flex;align-items:center;gap:6px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.06)}
+.m-seo-block-head i{color:rgba(232,65,122,.7);font-size:12px}
+.m-seo-block-head span{font-size:10px;font-weight:800;color:rgba(255,255,255,.35);letter-spacing:1.5px;text-transform:uppercase}
+/* sp-seo-h2/p를 모달에서도 재사용 (동일 클래스) */
+.m-seo-block .sp-seo-h2{font-size:13.5px;font-weight:700;color:rgba(255,255,255,.8);margin:0 0 7px 0;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.05);line-height:1.4;display:flex;align-items:center;gap:6px}
+.m-seo-block .sp-seo-h2::before{content:'';display:block;width:3px;height:14px;background:var(--pk2);border-radius:2px;flex-shrink:0}
+.m-seo-block .sp-seo-p{font-size:12.5px;color:rgba(255,255,255,.52);line-height:1.85;margin:0 0 16px}
+.m-seo-block .sp-seo-p:last-child{margin-bottom:0}
+/* fallback: m-seo-h2/p 클래스도 동일하게 */
+.m-seo-h2{font-size:13.5px;font-weight:700;color:rgba(255,255,255,.8);margin:0 0 7px 0;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.05);line-height:1.4;display:flex;align-items:center;gap:6px}
+.m-seo-h2::before{content:'';display:block;width:3px;height:14px;background:var(--pk2);border-radius:2px;flex-shrink:0}
+.m-seo-p{font-size:12.5px;color:rgba(255,255,255,.52);line-height:1.85;margin:0 0 16px}
 .m-seo-p:last-child{margin-bottom:0}
 /* 사진 그리드 */
 .m-photos-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;border-radius:12px;overflow:hidden}
@@ -7619,56 +7680,57 @@ function renderShopModal(shop) {
     +'</div>';
   }
 
-  /* ── SEO 텍스트 (구글/방문자용 롱폼) — DB seo_text 우선, 없으면 fallback ── */
+  /* ── SEO 텍스트 — SEO 상세 페이지(/shop/:slug)와 동일 콘텐츠/스타일 ── */
   var seoHtml = '';
   (function(){
-    // DB에 고유 seo_text 있으면 그대로 사용 (상세 페이지와 동일 콘텐츠)
-    // decodeHtmlEntities: DB에 &amp; 등 엔티티로 저장된 경우 복원
+    var _seoHead = '<div class="m-seo-block-head"><i class="fas fa-magnifying-glass"></i><span>Travel Guide</span></div>';
+    var area3 = (shop.location||'Seoul').split(',')[0].trim();
+    var _catLabel = {skincare:'Skincare',makeup:'Makeup',hair:'Hair Salon',nail:'Nail',clinic:'Dermatology Clinic',headspa:'Head Spa',spa:'Spa',tattoo:'Eyebrow Tattoo'};
+    var cat3     = _catLabel[shop.category] || ((shop.category||'beauty').charAt(0).toUpperCase()+(shop.category||'beauty').slice(1));
+    var areaGn   = (area3.toLowerCase().indexOf('cheongdam')>-1||area3.toLowerCase().indexOf('apgujeong')>-1) ? 'Gangnam' : area3;
+    var svcList  = (shop.services&&shop.services.length>0) ? shop.services.slice(0,4).join(', ') : cat3+' treatments';
+    var revTxt   = (shop.reviewCount>10) ? ' With '+shop.reviewCount+'+ verified reviews and a '+shop.rating+'-star rating, it' : ' It';
+
+    // DB seo_text 있으면 그대로 사용 (상세 페이지와 완전히 동일)
     if(shop.seoText && shop.seoText.trim()){
       var _mSeo = decodeHtmlEntities(shop.seoText);
-      // H2 없으면 자동 삽입 (모바일뷰)
+      // H2 없으면 자동 삽입
       if(!_mSeo.includes('<h2')){
-        var _ma = (shop.location||'Seoul').split(',')[0].trim();
-        var _mc = shop.category;
-        var _mcLabel = {skincare:'Skincare',makeup:'Makeup',hair:'Hair Salon',nail:'Nail',clinic:'Dermatology Clinic',headspa:'Head Spa',spa:'Spa',tattoo:'Eyebrow Tattoo'};
-        var _mcName = _mcLabel[_mc] || (_mc.charAt(0).toUpperCase()+_mc.slice(1));
-        var _mArea = _ma.toLowerCase().includes('cheongdam')||_ma.toLowerCase().includes('apgujeong') ? 'Gangnam' : _ma;
-        var _mh2s = [shop.name+' \u2014 '+_mcName+' in '+_mArea+', Seoul','Foreigner-Friendly '+_mcName+' in '+_mArea,'How to Book '+shop.name];
+        var _h2titles = [
+          shop.name+' \u2014 '+cat3+' in '+areaGn+', Seoul',
+          'Foreigner-Friendly '+cat3+' in '+areaGn,
+          'How to Book '+shop.name+' for Foreign Visitors'
+        ];
         var _pTagRe = new RegExp('<p[^>]*>[\\s\\S]*?<\\/p>', 'g');
         var _mps = _mSeo.match(_pTagRe) || [];
         if(_mps.length >= 2){
-          _mSeo = _mps.map(function(p,i){ return '<h2 class="sp-seo-h2">'+(_mh2s[i]||shop.name)+'</h2>'+p; }).join('');
+          _mSeo = _mps.map(function(p,i){ return '<h2 class="sp-seo-h2">'+(_h2titles[i]||shop.name+' \u2014 '+cat3)+'</h2>'+p; }).join('');
         } else {
-          _mSeo = '<h2 class="sp-seo-h2">'+_mh2s[0]+'</h2>'+_mSeo;
+          _mSeo = '<h2 class="sp-seo-h2">'+_h2titles[0]+'</h2>'+_mSeo;
         }
       }
-      seoHtml = '<div class="m-seo-block">'+_mSeo+'</div>';
+      seoHtml = '<div class="m-seo-block">'+_seoHead+_mSeo+'</div>';
       return;
     }
-    // fallback: DB seo_text 없을 때 템플릿
-    var area3 = (shop.location||'Seoul').split(',')[0].trim();
-    var cat3  = (shop.category||'beauty').charAt(0).toUpperCase()+(shop.category||'beauty').slice(1);
-    var svcList = (shop.services&&shop.services.length>0) ? shop.services.slice(0,4).join(', ') : cat3+' treatments';
-    var areaGn  = (area3.toLowerCase().indexOf('cheongdam')>-1||area3.toLowerCase().indexOf('apgujeong')>-1) ? 'Gangnam' : area3;
-    var revTxt  = (shop.reviewCount>10) ? ' With '+shop.reviewCount+'+ verified reviews and a '+shop.rating+'-star rating, it' : ' It';
 
+    // fallback: DB seo_text 없을 때 — SEO 상세 페이지 fallback과 동일한 템플릿
     if(shop.category==='clinic'){
-      var treatments = (shop.services&&shop.services.length>0) ? shop.services.slice(0,6).join(', ') : 'laser toning, skin booster injections, RF lifting, acne treatment';
-      seoHtml = '<div class="m-seo-block">'
-        +'<h2 class="m-seo-h2">'+esc(shop.name)+' \u2014 Dermatology Clinic in '+esc(areaGn)+', Seoul for Foreigners</h2>'
-        +'<p class="m-seo-p">'+esc(shop.name)+' is a foreigner-friendly dermatology clinic located in '+esc(area3)+', Seoul.'+revTxt+' is consistently rated as one of the top aesthetic clinics in '+esc(areaGn)+' by international patients. The clinic offers English-language consultations, transparent pricing, and easy WhatsApp booking \u2014 everything a foreign visitor needs to get world-class Korean dermatology treatments without the language barrier.</p>'
-        +'<h2 class="m-seo-h2">Why Foreign Patients Choose '+esc(shop.name)+'</h2>'
-        +'<p class="m-seo-p">For foreigners visiting Seoul, finding a dermatology clinic with English-speaking staff and no hidden fees is the biggest challenge. '+esc(shop.name)+' solves this with dedicated English-speaking coordinators, a clear treatment menu with prices listed in advance, and a seamless booking experience via WhatsApp. Whether you are a first-time medical tourist or a returning patient, the team ensures your comfort from initial consultation through aftercare.</p>'
-        +'<h2 class="m-seo-h2">How to Book '+esc(shop.name)+' as a Foreigner</h2>'
-        +'<p class="m-seo-p">Booking '+esc(shop.name)+' through Seoul Beauty Trip takes under 2 minutes. Simply tap the WhatsApp button below, describe your desired treatment, and our English-speaking team will confirm your appointment, explain pricing, and prepare the clinic for your visit. No Korean language skills needed. Same-day and advance bookings both available.</p>'
-      +'</div>';
+      var treatments = (shop.services&&shop.services.length>0) ? shop.services.slice(0,6).join(', ') : 'laser toning, skin booster injections, RF lifting, acne treatment, chemical peels';
+      seoHtml = '<div class="m-seo-block">'+_seoHead
+        +'<h2 class="sp-seo-h2">'+esc(shop.name)+' \u2014 Dermatology Clinic in '+esc(areaGn)+', Seoul for Foreigners</h2>'
+        +'<p class="sp-seo-p">'+esc(shop.name)+' is a foreigner-friendly dermatology clinic located in '+esc(area3)+', Seoul.'+revTxt+' is consistently rated as one of the top aesthetic clinics in '+esc(areaGn)+' by international patients. The clinic offers English-language consultations, transparent pricing, and easy WhatsApp booking \u2014 everything a foreign visitor needs to get world-class Korean dermatology treatments without the language barrier.</p>'
+        +'<h2 class="sp-seo-h2">Treatments Available at '+esc(shop.name)+'</h2>'
+        +'<p class="sp-seo-p">As a full-service '+esc(areaGn)+' dermatology clinic, '+esc(shop.name)+' provides: '+esc(treatments)+'. Korean clinics use the latest KFDA-approved equipment, offering results often 40\u201360% more affordable than equivalent treatments in the US, UK, or Australia.</p>'
+        +'<h2 class="sp-seo-h2">Why Foreign Patients Choose '+esc(shop.name)+'</h2>'
+        +'<p class="sp-seo-p">For foreigners visiting Seoul, finding a clinic with English-speaking staff and transparent fees is the biggest challenge. '+esc(shop.name)+' solves this with dedicated English-speaking coordinators, clear pricing, and seamless WhatsApp booking. Book via Seoul Beauty Trip \u2014 no Korean needed, same-day bookings available.</p>'
+        +'</div>';
     } else {
-      seoHtml = '<div class="m-seo-block">'
-        +'<h2 class="m-seo-h2">'+esc(shop.name)+' \u2014 '+esc(cat3)+' in '+esc(area3)+', Seoul</h2>'
-        +'<p class="m-seo-p">Looking for the best '+esc(shop.category)+' experience in '+esc(area3)+', Seoul? '+esc(shop.name)+' is a top-rated '+esc(shop.category)+' destination welcoming foreign visitors with English-friendly service and easy WhatsApp booking.'+revTxt+' offers an authentic Korean beauty experience tailored for international guests.</p>'
-        +'<h2 class="m-seo-h2">Foreigner-Friendly '+esc(cat3)+' in '+esc(area3)+'</h2>'
-        +'<p class="m-seo-p">Located in '+esc(area3)+', one of the top beauty districts in Seoul, '+esc(shop.name)+' specializes in '+esc(svcList)+'. The team provides English support throughout your visit \u2014 from consultation to aftercare \u2014 so you can relax and enjoy your treatment without language barriers. Book easily via WhatsApp through Seoul Beauty Trip.</p>'
-      +'</div>';
+      seoHtml = '<div class="m-seo-block">'+_seoHead
+        +'<h2 class="sp-seo-h2">'+esc(shop.name)+' \u2014 '+esc(cat3)+' in '+esc(area3)+', Seoul</h2>'
+        +'<p class="sp-seo-p">Looking for the best '+esc(shop.category)+' experience in '+esc(area3)+', Seoul? '+esc(shop.name)+' is a top-rated destination welcoming foreign visitors with English-friendly service and easy WhatsApp booking.'+revTxt+' offers an authentic Korean beauty experience tailored for international guests.</p>'
+        +'<h2 class="sp-seo-h2">Foreigner-Friendly '+esc(cat3)+' in '+esc(areaGn)+'</h2>'
+        +'<p class="sp-seo-p">Located in '+esc(area3)+', one of Seoul\'s top beauty districts, '+esc(shop.name)+' specializes in '+esc(svcList)+'. English support from consultation to aftercare \u2014 book easily via WhatsApp through Seoul Beauty Trip.</p>'
+        +'</div>';
     }
   })();
 
@@ -10155,56 +10217,68 @@ window.loadVisitorStats = async function(days){
 var _vsExitLog = [];   // 최근 나가기 로그 (최대 30개)
 var _vsLiveTimer = null;
 
+// slug → 업체명 변환 헬퍼
+function slugToPageLabel(page, shopName){
+  if(!page) return '—';
+  if(shopName) return shopName;
+  if(page === '/') return '홈';
+  if(page.startsWith('/shop/')) return page.replace('/shop/','').replace(/-/g,' ');
+  if(page.startsWith('/best/')) return 'Best: '+page.replace('/best/','');
+  return page;
+}
+
 async function loadLiveVisitors(){
   var tk = _GSK_TOKEN || localStorage.getItem('_gsk_token') || '';
   try {
-    // 최근 3분 이내 active 세션 = 실시간 접속자
     var res = await fetch('/api/visitors-live', { headers:{'x-admin-token':tk} });
     if(!res.ok) return;
     var d = await res.json();
 
-    // 숫자 업데이트
+    // ── 실시간 접속자 수 ──
     var countEl = document.getElementById('vs-live-count');
     if(countEl){
-      var prev = parseInt(countEl.textContent) || 0;
       var next = d.activeCount || 0;
       countEl.textContent = next;
       countEl.style.color = next > 0 ? '#34d399' : 'rgba(255,255,255,.3)';
-      // 나가기 감지: 이전보다 줄었으면 exit 로그에 추가
-      if(prev > next && prev > 0){
-        var exitTime = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-        _vsExitLog.unshift({ time: exitTime, page: d.lastExitPage || '—', device: d.lastExitDevice || '—' });
-        if(_vsExitLog.length > 30) _vsExitLog.pop();
-        renderExitLog();
+    }
+
+    // ── 현재 보고 있는 페이지 목록 (업체명 표시) ──
+    var pagesEl = document.getElementById('vs-live-pages');
+    if(pagesEl){
+      if(d.activePages && d.activePages.length){
+        pagesEl.innerHTML = d.activePages.slice(0,6).map(function(p){
+          var label = slugToPageLabel(p.page, p.shopName);
+          var isShop = (p.page||'').startsWith('/shop/');
+          var dotColor = isShop ? '#f472b6' : '#34d399';
+          return '<div style="display:flex;align-items:center;gap:6px;padding:3px 0">'
+            +'<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+dotColor+';flex-shrink:0;box-shadow:0 0 4px '+dotColor+'80"></span>'
+            +'<span style="font-size:11px;color:rgba(255,255,255,.65);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">'+escHtml(label)+'</span>'
+            +(p.count>1?'<span style="font-size:10px;color:rgba(255,255,255,.3);background:rgba(255,255,255,.07);padding:1px 5px;border-radius:10px;flex-shrink:0">'+p.count+'명</span>':'')
+            +'</div>';
+        }).join('');
+      } else {
+        pagesEl.innerHTML = '<div style="font-size:11px;color:rgba(255,255,255,.2);text-align:center;padding:8px">현재 접속자 없음</div>';
       }
     }
 
-    // 현재 보고 있는 페이지 목록
-    var pagesEl = document.getElementById('vs-live-pages');
-    if(pagesEl && d.activePages && d.activePages.length){
-      pagesEl.innerHTML = d.activePages.slice(0,5).map(function(p){
-        var pageName = (p.page||'/').replace('/shop/','shop/ ').replace('/best/','best/ ');
-        return '<div style="display:flex;align-items:center;gap:6px;font-size:11px">'
-          +'<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#34d399;flex-shrink:0"></span>'
-          +'<span style="color:rgba(255,255,255,.55);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">'+escHtml(pageName)+'</span>'
-          +'<span style="color:rgba(255,255,255,.25);flex-shrink:0">'+p.count+'명</span>'
-          +'</div>';
-      }).join('');
-    } else if(pagesEl){
-      pagesEl.innerHTML = '<span style="font-size:11px;color:rgba(255,255,255,.2)">현재 접속자 없음</span>';
-    }
-
-    // 업데이트 시각
+    // ── 갱신 시각 ──
     var updEl = document.getElementById('vs-live-updated');
-    if(updEl) updEl.textContent = '갱신: '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    if(updEl) updEl.textContent = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
 
-    // exit_log API에서 실제 나가기 이벤트도 반영
+    // ── DB에서 최근 나가기 이벤트 병합 (shop_name 포함) ──
     if(d.recentExits && d.recentExits.length){
       d.recentExits.forEach(function(ex){
         var already = _vsExitLog.some(function(l){ return l._id === ex.id; });
         if(!already){
           var exitTime = ex.created_at ? new Date(ex.created_at).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '—';
-          _vsExitLog.unshift({ _id: ex.id, time: exitTime, page: ex.page||'—', device: ex.device||'—', dur: ex.duration||0 });
+          _vsExitLog.unshift({
+            _id: ex.id,
+            time: exitTime,
+            page: ex.page||'—',
+            shopName: ex.shop_name || null,
+            device: ex.device||'—',
+            dur: ex.duration||0
+          });
         }
       });
       _vsExitLog = _vsExitLog.slice(0,30);
@@ -10217,18 +10291,21 @@ function renderExitLog(){
   var el = document.getElementById('vs-exit-log');
   if(!el) return;
   if(!_vsExitLog.length){
-    el.innerHTML='<div style="font-size:10px;color:rgba(255,255,255,.2)">아직 나가기 이벤트 없음</div>';
+    el.innerHTML='<div style="font-size:11px;color:rgba(255,255,255,.2);text-align:center;padding:8px">아직 나가기 기록 없음</div>';
     return;
   }
   el.innerHTML = _vsExitLog.map(function(l){
-    var durStr = l.dur ? ' · '+fmtDur(l.dur) : '';
+    var durStr = l.dur ? fmtDur(l.dur) : '';
     var devIco = l.device==='mobile'?'fa-mobile-alt':l.device==='tablet'?'fa-tablet-alt':'fa-desktop';
-    return '<div style="display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.04)">'
-      +'<i class="fas fa-door-open" style="color:#94a3b8;font-size:9px;flex-shrink:0"></i>'
-      +'<span style="font-size:9px;color:rgba(255,255,255,.25);flex-shrink:0">'+l.time+'</span>'
-      +'<i class="fas '+devIco+'" style="color:rgba(255,255,255,.2);font-size:9px;flex-shrink:0"></i>'
-      +'<span style="font-size:10px;color:rgba(255,255,255,.45);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">'+escHtml((l.page||'—').replace('/shop/','shop/ '))+'</span>'
-      +(durStr ? '<span style="font-size:9px;color:rgba(255,255,255,.25);flex-shrink:0">'+durStr+'</span>' : '')
+    var devColor = l.device==='mobile'?'#f472b6':l.device==='tablet'?'#fb923c':'#60a5fa';
+    var pageLabel = slugToPageLabel(l.page, l.shopName);
+    var isShop = (l.page||'').startsWith('/shop/');
+    return '<div style="display:grid;grid-template-columns:auto auto 1fr auto auto;align-items:center;gap:5px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04)">'
+      +'<span style="font-size:9px;color:rgba(255,255,255,.22);white-space:nowrap">'+l.time+'</span>'
+      +'<i class="fas '+devIco+'" style="color:'+devColor+';font-size:9px"></i>'
+      +'<span style="font-size:10px;color:'+(isShop?'#f9a8d4':'rgba(255,255,255,.5)')+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(pageLabel)+'</span>'
+      +(durStr?'<span style="font-size:9px;color:rgba(255,255,255,.3);white-space:nowrap">'+durStr+'</span>':'<span></span>')
+      +'<i class="fas fa-sign-out-alt" style="color:rgba(255,255,255,.2);font-size:9px"></i>'
       +'</div>';
   }).join('');
 }
@@ -10316,39 +10393,65 @@ window.vsLoadMore = function(){
 // 방문자 행 HTML 생성
 function buildVsRow(s){
   var badges = '';
-  if(s.waClicked) badges += '<span class="vs-badge vs-badge-wa"><i class="fab fa-whatsapp"></i> WA</span>';
-  if(s.shopViews>0) badges += '<span class="vs-badge vs-badge-shop"><i class="fas fa-store"></i> '+s.shopViews+'</span>';
-  if(s.videoPlays>0) badges += '<span class="vs-badge vs-badge-vid"><i class="fas fa-play"></i> '+s.videoPlays+'</span>';
-  if(s.device==='mobile') badges += '<span class="vs-badge vs-badge-mobile"><i class="fas fa-mobile-alt"></i></span>';
+  if(s.waClicked)    badges += '<span class="vs-badge vs-badge-wa"><i class="fab fa-whatsapp"></i> WA클릭</span>';
+  if(s.shopViews>0)  badges += '<span class="vs-badge vs-badge-shop"><i class="fas fa-store"></i> 업체 '+s.shopViews+'</span>';
+  if(s.videoPlays>0) badges += '<span class="vs-badge vs-badge-vid"><i class="fas fa-play"></i> 영상 '+s.videoPlays+'</span>';
+  if(s.device==='mobile') badges += '<span class="vs-badge vs-badge-mobile"><i class="fas fa-mobile-alt"></i> 모바일</span>';
 
-  var devIco = s.device==='mobile'?'fa-mobile-alt':s.device==='tablet'?'fa-tablet-alt':'fa-desktop';
+  var devIco   = s.device==='mobile'?'fa-mobile-alt':s.device==='tablet'?'fa-tablet-alt':'fa-desktop';
   var devColor = s.device==='mobile'?'#f472b6':s.device==='tablet'?'#fb923c':'#60a5fa';
-  var dur = s.avgDuration!=null ? fmtDur(s.avgDuration) : '—';
-  var ago = timeAgo(s.startedAt);
-  var pgCount = s.pageCount||0;
+  var dur  = s.avgDuration!=null ? fmtDur(s.avgDuration) : '—';
+  var ago  = timeAgo(s.startedAt);
+  var pgCount   = s.pageCount||0;
   var maxScroll = s.maxScroll||0;
+
+  // 첫 페이지 라벨: /shop/slug → 업체명 스타일
+  var fp = s.firstPage || '/';
+  var fpLabel = fp;
+  var fpColor = 'rgba(255,255,255,.4)';
+  if(fp === '/') { fpLabel = '🏠 홈'; }
+  else if(fp.startsWith('/shop/')) {
+    fpLabel = '🏪 ' + fp.replace('/shop/','').replace(/-/g,' ');
+    fpColor = '#f9a8d4';
+  } else if(fp.startsWith('/best/')) {
+    fpLabel = '⭐ Best: ' + fp.replace('/best/','');
+  }
+
+  // 체류시간 바 (0~300초 기준)
+  var durSec = s.avgDuration||0;
+  var durPct = Math.min(100, Math.round(durSec/300*100));
+  var durBarColor = durPct>60?'#34d399':durPct>20?'#fbbf24':'#94a3b8';
 
   return '<div class="vs-row" id="vsr-'+s.sessionId+'" data-sid="'+s.sessionId+'">'
     +'<div class="vs-row-left vs-row-clickable" style="cursor:pointer">'
-    +'<i class="fas '+devIco+'" style="color:'+devColor+';font-size:16px;margin-right:8px;flex-shrink:0"></i>'
-    +'<div class="vs-row-body">'
+    // 디바이스 아이콘
+    +'<i class="fas '+devIco+'" style="color:'+devColor+';font-size:16px;margin-right:10px;flex-shrink:0"></i>'
+    +'<div class="vs-row-body" style="flex:1;min-width:0">'
+    // 1행: visitor ID + 시간
     +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
-    +'<span style="font-size:12px;font-weight:700;color:#e2e8f0;font-family:monospace">'+s.visitorId.slice(-8)+'</span>'
-    +'<span style="font-size:10px;color:rgba(255,255,255,.3)">'+ago+'</span>'
+    +'<span style="font-size:11px;font-weight:700;color:#e2e8f0;font-family:monospace;letter-spacing:.5px">'+escHtml((s.visitorId||'').slice(-8))+'</span>'
+    +(s.country?'<span style="font-size:10px;background:rgba(255,255,255,.07);padding:1px 6px;border-radius:8px;color:rgba(255,255,255,.55)">'+escHtml(s.country)+'</span>':'')
+    +'<span style="font-size:10px;color:rgba(255,255,255,.25);margin-left:auto">'+ago+'</span>'
     +'</div>'
-    +'<div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px">'
-    +(s.firstPage||'/') +'</div>'
-    +'<div style="display:flex;gap:10px;margin-top:5px;flex-wrap:wrap">'
-    +'<span style="font-size:10px;color:rgba(255,255,255,.4)"><i class="fas fa-file-alt" style="color:rgba(255,255,255,.25);margin-right:3px"></i>'+pgCount+'p</span>'
-    +'<span style="font-size:10px;color:rgba(255,255,255,.4)"><i class="fas fa-clock" style="color:rgba(255,255,255,.25);margin-right:3px"></i>'+dur+'</span>'
-    +'<span style="font-size:10px;color:rgba(255,255,255,.4)"><i class="fas fa-arrows-alt-v" style="color:rgba(255,255,255,.25);margin-right:3px"></i>'+maxScroll+'%</span>'
-    +(s.country?'<span style="font-size:10px;color:rgba(255,255,255,.4)"><i class="fas fa-map-marker-alt" style="color:rgba(255,255,255,.25);margin-right:3px"></i>'+escHtml(s.country)+'</span>':'')
+    // 2행: 첫 방문 페이지
+    +'<div style="font-size:10px;color:'+fpColor+';margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(fpLabel)+'</div>'
+    // 3행: 통계 (페이지수 / 체류시간 바 / 스크롤)
+    +'<div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap">'
+    +'<span style="font-size:10px;color:rgba(255,255,255,.4)"><i class="fas fa-file-alt" style="color:rgba(255,255,255,.2);margin-right:3px"></i>'+pgCount+'p</span>'
+    +'<span style="font-size:10px;color:rgba(255,255,255,.4)"><i class="fas fa-clock" style="color:rgba(255,255,255,.2);margin-right:3px"></i>'+dur+'</span>'
+    // 체류 시간 바
+    +'<div style="flex:1;min-width:40px;max-width:80px;height:4px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden">'
+    +'<div style="width:'+durPct+'%;height:100%;background:'+durBarColor+';border-radius:2px;transition:width .5s"></div>'
     +'</div>'
-    +'<div class="vs-row-badges" style="margin-top:6px">'+badges+'</div>'
+    +'<span style="font-size:10px;color:rgba(255,255,255,.3)">↕'+maxScroll+'%</span>'
     +'</div>'
-    +'<i class="fas fa-chevron-down vs-row-chevron" style="margin-left:auto;color:rgba(255,255,255,.25);font-size:11px;flex-shrink:0;transition:transform .2s"></i>'
+    // 4행: 배지
+    +(badges?'<div class="vs-row-badges" style="margin-top:5px">'+badges+'</div>':'')
     +'</div>'
-    +'<div class="vs-timeline" id="vstl-'+s.sessionId+'" style="display:none;padding:12px 0 4px 24px;border-top:1px solid rgba(255,255,255,.05);margin-top:8px">'
+    +'<i class="fas fa-chevron-down vs-row-chevron" style="margin-left:8px;color:rgba(255,255,255,.2);font-size:10px;flex-shrink:0;transition:transform .2s"></i>'
+    +'</div>'
+    // 타임라인 (클릭 시 펼쳐짐)
+    +'<div class="vs-timeline" id="vstl-'+s.sessionId+'" style="display:none;padding:10px 0 4px 26px;border-top:1px solid rgba(255,255,255,.05);margin-top:8px">'
     +'<div style="text-align:center;padding:10px;color:rgba(255,255,255,.25);font-size:11px"><i class="fas fa-circle-notch fa-spin"></i> 로딩...</div>'
     +'</div>'
     +'</div>';

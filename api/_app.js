@@ -3027,14 +3027,43 @@ app.get("/api/upload-sign-image", async (c) => {
     return c.json({ error: e.message || "Sign failed" }, 500);
   }
 });
-async function makeShopSlug(sql, name, location) {
+var CAT_SLUG_KEYWORD = {
+  clinic: "clinic",
+  skincare: "skincare",
+  hair: "hair-salon",
+  headspa: "head-spa",
+  makeup: "color-studio",
+  tattoo: "tattoo",
+  nail: "nail-salon",
+  spa: "spa"
+};
+function locationToSlugArea(location) {
+  if (!location) return "";
+  const clean = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const parts = location.split(",").map((p) => p.trim()).filter(Boolean);
+  for (const p of parts) {
+    const a = clean(p);
+    if (a && a !== "seoul" && a !== "korea" && a !== "south-korea") return a;
+  }
+  return "";
+}
+async function makeShopSlug(sql, name, location, category) {
   const clean = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const base = clean(name) || "shop";
-  const parts = (location || "").split(",").map((p) => p.trim()).filter(Boolean);
-  const areaPart = parts[0] || "";
-  const area = clean(areaPart);
-  const baseHasArea = area && base.includes(area);
-  const candidate = area && !baseHasArea ? `${base}-${area}` : base;
+  const area = locationToSlugArea(location);
+  const catKw = category ? CAT_SLUG_KEYWORD[category] || "" : "";
+  const catParts = catKw.split("-");
+  const baseHasCat = catParts.every((kw) => base.split("-").includes(kw));
+  const areaParts = area.split("-");
+  const baseHasArea = area && areaParts.every((kw) => base.split("-").includes(kw));
+  let candidate = base;
+  if (catKw && !baseHasCat) candidate = `${candidate}-${catKw}`;
+  if (area && !baseHasArea) {
+    const cParts = candidate.split("-");
+    const cHasArea = areaParts.every((kw) => cParts.includes(kw));
+    if (!cHasArea) candidate = `${candidate}-${area}`;
+  }
+  if (candidate.length > 45) candidate = candidate.slice(0, 45).replace(/-+$/, "");
   const existing = await sql`SELECT slug FROM shops WHERE slug LIKE ${candidate + "%"}`;
   const existingSlugs = new Set(existing.map((r) => r.slug));
   if (!existingSlugs.has(candidate)) return candidate;
@@ -3218,18 +3247,19 @@ app.post("/api/shops", async (c) => {
   let seoKeywords = body.seoKeywords || "";
   let whyChoose = body.whyChoose || [];
   let seoText = body.seoText || "";
-  if (!description) {
+  const needsSeo = !description || !seoText || !whyChoose.length;
+  if (needsSeo) {
     const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
     const seo = await autoGenSeo(body, apiKey);
     if (seo) {
-      description = seo.description || "";
-      metaDescription = seo.metaDescription || "";
-      seoKeywords = Array.isArray(seo.keywords) ? seo.keywords.join(", ") : "";
-      whyChoose = Array.isArray(seo.whyChoose) ? seo.whyChoose : [];
-      seoText = seo.seoText || "";
+      description = description || seo.description || "";
+      metaDescription = metaDescription || seo.metaDescription || "";
+      seoKeywords = seoKeywords || (Array.isArray(seo.keywords) ? seo.keywords.join(", ") : "");
+      if (!whyChoose.length) whyChoose = Array.isArray(seo.whyChoose) ? seo.whyChoose : [];
+      seoText = seoText || seo.seoText || "";
     }
   }
-  const slug = await makeShopSlug(sql, body.name || "", body.location || "");
+  const slug = await makeShopSlug(sql, body.name || "", body.location || "", body.category || "");
   const cleanPhotos = sanitizePhotos(body.photos || []);
   const cleanThumb = sanitizeThumb(body.thumbnail || "", cleanPhotos);
   await sql`INSERT INTO shops (id,name,slug,category,location,address,google_map_url,google_map_embed,lat,lng,price_range,hours,services,service_prices,description,meta_description,seo_keywords,seo_text,why_choose,rating,review_count,thumbnail,photos,commission,active,created_at) VALUES (
@@ -3262,7 +3292,7 @@ app.put("/api/shops/:id", async (c) => {
       if (!seoTextPut) seoTextPut = seo.seoText || "";
     }
   }
-  const slugVal = body.slug || await makeShopSlug(sql, body.name || "", body.location || "");
+  const slugVal = body.slug || await makeShopSlug(sql, body.name || "", body.location || "", body.category || "");
   const cleanPhotosU = sanitizePhotos(body.photos || []);
   const cleanThumbU = sanitizeThumb(body.thumbnail || "", cleanPhotosU);
   await sql`UPDATE shops SET
@@ -3311,7 +3341,7 @@ app.post("/api/admin/restore-shop", async (c) => {
   const body = await c.req.json();
   if (!body.id || !body.name) return c.json({ ok: false, error: "id and name required" }, 400);
   const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
-  const slug = await makeShopSlug(sql, body.name, body.location || "");
+  const slug = await makeShopSlug(sql, body.name, body.location || "", body.category || "clinic");
   const cleanPhotos = sanitizePhotos(body.photos || []);
   const cleanThumb = sanitizeThumb(body.thumbnail || "", cleanPhotos);
   await sql`INSERT INTO shops (id,name,slug,category,location,address,google_map_url,google_map_embed,lat,lng,price_range,hours,services,service_prices,description,meta_description,seo_keywords,seo_text,why_choose,rating,review_count,thumbnail,photos,commission,active,created_at,place_id,whatsapp) VALUES (
@@ -4044,26 +4074,7 @@ app.post("/api/quick-register", async (c) => {
     const nameParts = rawName.split(/[|\uff5c]/).map((s) => s.trim()).filter(Boolean);
     const p0clean2 = nameParts[0] ? stripCJK2(nameParts[0]) : "";
     const engName = (p0clean2.length > 1 ? p0clean2 : null) || nameParts.find((s) => !isKor(s) && s.length > 0) || stripCJK2(rawName) || rawName;
-    const makeSlug = (name, loc2) => {
-      const clean = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-      const parts = (loc2 || "").split(",").map((p) => p.trim()).filter(Boolean);
-      const area = clean(parts[0] || "");
-      const base = clean(name);
-      const candidate = area && !base.includes(area) ? `${base}-${area}` : base;
-      return candidate.slice(0, 60);
-    };
-    let slug = makeSlug(engName, resolvedData.location || "seoul");
-    const existingSlug = await sql`SELECT id FROM shops WHERE slug = ${slug}`;
-    if (existingSlug.length > 0) {
-      for (let n = 2; n <= 99; n++) {
-        const s = `${slug}-${n}`;
-        const dup = await sql`SELECT id FROM shops WHERE slug = ${s}`;
-        if (!dup.length) {
-          slug = s;
-          break;
-        }
-      }
-    }
+    let slug = await makeShopSlug(sql, engName, resolvedData.location || "seoul", category || "clinic");
     const loc = resolvedData.location || "Seoul";
     const cat = category || "skincare";
     const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || "";
@@ -4255,38 +4266,53 @@ app.get("/api/visitors-live", async (c) => {
   try {
     const sql = getDb(c.env);
     const liveSessions = await sql`
-      SELECT session_id, visitor_id, device,
+      SELECT vs.session_id, vs.visitor_id, vs.device,
              (SELECT page FROM visitor_events WHERE session_id=vs.session_id ORDER BY created_at DESC LIMIT 1) AS current_page
       FROM visitor_sessions vs
       WHERE last_active >= NOW() - INTERVAL '3 minutes'
       ORDER BY last_active DESC
     `;
-    const pageMap = {};
-    let lastExitPage = "";
-    let lastExitDevice = "";
+    const slugSet = /* @__PURE__ */ new Set();
     for (const s of liveSessions) {
-      const pg = s.current_page || "/";
-      pageMap[pg] = (pageMap[pg] || 0) + 1;
+      const pg = s.current_page || "";
+      const m = pg.match(/^\/shop\/([^/?#]+)/);
+      if (m) slugSet.add(m[1]);
     }
-    const activePages = Object.entries(pageMap).map(([page, count]) => ({ page, count })).sort((a, b) => b.count - a.count);
     const recentExits = await sql`
       SELECT ve.id, ve.page, ve.duration, ve.created_at,
-             vs.device
+             vs.device,
+             sh.name AS shop_name
       FROM visitor_events ve
       LEFT JOIN visitor_sessions vs ON vs.session_id = ve.session_id
+      LEFT JOIN shops sh ON sh.slug = REGEXP_REPLACE(ve.page, '^/shop/', '')
+                            AND ve.page LIKE '/shop/%'
       WHERE ve.event = 'page_exit'
       ORDER BY ve.created_at DESC
       LIMIT 10
     `;
-    if (recentExits.length > 0) {
-      lastExitPage = recentExits[0]?.page || "";
-      lastExitDevice = recentExits[0]?.device || "";
+    let slugNameMap = {};
+    if (slugSet.size > 0) {
+      const slugArr = Array.from(slugSet);
+      const shopRows = await sql`SELECT slug, name FROM shops WHERE slug = ANY(${slugArr}::text[])`;
+      for (const r of shopRows) slugNameMap[r.slug] = r.name;
     }
+    const pageMap = {};
+    for (const s of liveSessions) {
+      const pg = s.current_page || "/";
+      if (!pageMap[pg]) {
+        const m = pg.match(/^\/shop\/([^/?#]+)/);
+        const shopName = m ? slugNameMap[m[1]] : void 0;
+        pageMap[pg] = { count: 0, shopName };
+      }
+      pageMap[pg].count++;
+    }
+    const activePages = Object.entries(pageMap).map(([page, v]) => ({ page, count: v.count, shopName: v.shopName })).sort((a, b) => b.count - a.count);
+    const lastExit = recentExits[0];
     return c.json({
       activeCount: liveSessions.length,
       activePages,
-      lastExitPage,
-      lastExitDevice,
+      lastExitPage: lastExit?.page || "",
+      lastExitDevice: lastExit?.device || "",
       recentExits
     });
   } catch (e) {
@@ -8090,10 +8116,20 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 /* \uBAA8\uB2EC WHY CHOOSE */
 .m-why-list{display:flex;flex-direction:column;gap:8px}
 .m-why-item{font-size:13px;color:rgba(255,255,255,.75);line-height:1.6;padding:10px 14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;border-left:3px solid var(--pk2)}
-/* \uBAA8\uB2EC SEO \uD14D\uC2A4\uD2B8 \uBE14\uB85D */
-.m-seo-block{margin-top:4px;margin-bottom:14px;padding:18px 16px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:14px}
-.m-seo-h2{font-size:14px;font-weight:700;color:rgba(255,255,255,.8);margin:0 0 8px 0;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.07);line-height:1.4}
-.m-seo-p{font-size:12.5px;color:rgba(255,255,255,.6);line-height:1.8;margin:0 0 14px}
+/* \uBAA8\uB2EC SEO \uD14D\uC2A4\uD2B8 \uBE14\uB85D \u2014 sp-seo-block\uACFC \uB3D9\uC77C \uC2A4\uD0C0\uC77C */
+.m-seo-block{margin-top:4px;margin-bottom:14px;padding:18px 16px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:14px;border-top:2px solid rgba(232,65,122,.25)}
+.m-seo-block-head{display:flex;align-items:center;gap:6px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.06)}
+.m-seo-block-head i{color:rgba(232,65,122,.7);font-size:12px}
+.m-seo-block-head span{font-size:10px;font-weight:800;color:rgba(255,255,255,.35);letter-spacing:1.5px;text-transform:uppercase}
+/* sp-seo-h2/p\uB97C \uBAA8\uB2EC\uC5D0\uC11C\uB3C4 \uC7AC\uC0AC\uC6A9 (\uB3D9\uC77C \uD074\uB798\uC2A4) */
+.m-seo-block .sp-seo-h2{font-size:13.5px;font-weight:700;color:rgba(255,255,255,.8);margin:0 0 7px 0;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.05);line-height:1.4;display:flex;align-items:center;gap:6px}
+.m-seo-block .sp-seo-h2::before{content:'';display:block;width:3px;height:14px;background:var(--pk2);border-radius:2px;flex-shrink:0}
+.m-seo-block .sp-seo-p{font-size:12.5px;color:rgba(255,255,255,.52);line-height:1.85;margin:0 0 16px}
+.m-seo-block .sp-seo-p:last-child{margin-bottom:0}
+/* fallback: m-seo-h2/p \uD074\uB798\uC2A4\uB3C4 \uB3D9\uC77C\uD558\uAC8C */
+.m-seo-h2{font-size:13.5px;font-weight:700;color:rgba(255,255,255,.8);margin:0 0 7px 0;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.05);line-height:1.4;display:flex;align-items:center;gap:6px}
+.m-seo-h2::before{content:'';display:block;width:3px;height:14px;background:var(--pk2);border-radius:2px;flex-shrink:0}
+.m-seo-p{font-size:12.5px;color:rgba(255,255,255,.52);line-height:1.85;margin:0 0 16px}
 .m-seo-p:last-child{margin-bottom:0}
 /* \uC0AC\uC9C4 \uADF8\uB9AC\uB4DC */
 .m-photos-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;border-radius:12px;overflow:hidden}
@@ -9195,56 +9231,57 @@ function renderShopModal(shop) {
     +'</div>';
   }
 
-  /* \u2500\u2500 SEO \uD14D\uC2A4\uD2B8 (\uAD6C\uAE00/\uBC29\uBB38\uC790\uC6A9 \uB871\uD3FC) \u2014 DB seo_text \uC6B0\uC120, \uC5C6\uC73C\uBA74 fallback \u2500\u2500 */
+  /* \u2500\u2500 SEO \uD14D\uC2A4\uD2B8 \u2014 SEO \uC0C1\uC138 \uD398\uC774\uC9C0(/shop/:slug)\uC640 \uB3D9\uC77C \uCF58\uD150\uCE20/\uC2A4\uD0C0\uC77C \u2500\u2500 */
   var seoHtml = '';
   (function(){
-    // DB\uC5D0 \uACE0\uC720 seo_text \uC788\uC73C\uBA74 \uADF8\uB300\uB85C \uC0AC\uC6A9 (\uC0C1\uC138 \uD398\uC774\uC9C0\uC640 \uB3D9\uC77C \uCF58\uD150\uCE20)
-    // decodeHtmlEntities: DB\uC5D0 &amp; \uB4F1 \uC5D4\uD2F0\uD2F0\uB85C \uC800\uC7A5\uB41C \uACBD\uC6B0 \uBCF5\uC6D0
+    var _seoHead = '<div class="m-seo-block-head"><i class="fas fa-magnifying-glass"></i><span>Travel Guide</span></div>';
+    var area3 = (shop.location||'Seoul').split(',')[0].trim();
+    var _catLabel = {skincare:'Skincare',makeup:'Makeup',hair:'Hair Salon',nail:'Nail',clinic:'Dermatology Clinic',headspa:'Head Spa',spa:'Spa',tattoo:'Eyebrow Tattoo'};
+    var cat3     = _catLabel[shop.category] || ((shop.category||'beauty').charAt(0).toUpperCase()+(shop.category||'beauty').slice(1));
+    var areaGn   = (area3.toLowerCase().indexOf('cheongdam')>-1||area3.toLowerCase().indexOf('apgujeong')>-1) ? 'Gangnam' : area3;
+    var svcList  = (shop.services&&shop.services.length>0) ? shop.services.slice(0,4).join(', ') : cat3+' treatments';
+    var revTxt   = (shop.reviewCount>10) ? ' With '+shop.reviewCount+'+ verified reviews and a '+shop.rating+'-star rating, it' : ' It';
+
+    // DB seo_text \uC788\uC73C\uBA74 \uADF8\uB300\uB85C \uC0AC\uC6A9 (\uC0C1\uC138 \uD398\uC774\uC9C0\uC640 \uC644\uC804\uD788 \uB3D9\uC77C)
     if(shop.seoText && shop.seoText.trim()){
       var _mSeo = decodeHtmlEntities(shop.seoText);
-      // H2 \uC5C6\uC73C\uBA74 \uC790\uB3D9 \uC0BD\uC785 (\uBAA8\uBC14\uC77C\uBDF0)
+      // H2 \uC5C6\uC73C\uBA74 \uC790\uB3D9 \uC0BD\uC785
       if(!_mSeo.includes('<h2')){
-        var _ma = (shop.location||'Seoul').split(',')[0].trim();
-        var _mc = shop.category;
-        var _mcLabel = {skincare:'Skincare',makeup:'Makeup',hair:'Hair Salon',nail:'Nail',clinic:'Dermatology Clinic',headspa:'Head Spa',spa:'Spa',tattoo:'Eyebrow Tattoo'};
-        var _mcName = _mcLabel[_mc] || (_mc.charAt(0).toUpperCase()+_mc.slice(1));
-        var _mArea = _ma.toLowerCase().includes('cheongdam')||_ma.toLowerCase().includes('apgujeong') ? 'Gangnam' : _ma;
-        var _mh2s = [shop.name+' \u2014 '+_mcName+' in '+_mArea+', Seoul','Foreigner-Friendly '+_mcName+' in '+_mArea,'How to Book '+shop.name];
+        var _h2titles = [
+          shop.name+' \u2014 '+cat3+' in '+areaGn+', Seoul',
+          'Foreigner-Friendly '+cat3+' in '+areaGn,
+          'How to Book '+shop.name+' for Foreign Visitors'
+        ];
         var _pTagRe = new RegExp('<p[^>]*>[\\s\\S]*?<\\/p>', 'g');
         var _mps = _mSeo.match(_pTagRe) || [];
         if(_mps.length >= 2){
-          _mSeo = _mps.map(function(p,i){ return '<h2 class="sp-seo-h2">'+(_mh2s[i]||shop.name)+'</h2>'+p; }).join('');
+          _mSeo = _mps.map(function(p,i){ return '<h2 class="sp-seo-h2">'+(_h2titles[i]||shop.name+' \u2014 '+cat3)+'</h2>'+p; }).join('');
         } else {
-          _mSeo = '<h2 class="sp-seo-h2">'+_mh2s[0]+'</h2>'+_mSeo;
+          _mSeo = '<h2 class="sp-seo-h2">'+_h2titles[0]+'</h2>'+_mSeo;
         }
       }
-      seoHtml = '<div class="m-seo-block">'+_mSeo+'</div>';
+      seoHtml = '<div class="m-seo-block">'+_seoHead+_mSeo+'</div>';
       return;
     }
-    // fallback: DB seo_text \uC5C6\uC744 \uB54C \uD15C\uD50C\uB9BF
-    var area3 = (shop.location||'Seoul').split(',')[0].trim();
-    var cat3  = (shop.category||'beauty').charAt(0).toUpperCase()+(shop.category||'beauty').slice(1);
-    var svcList = (shop.services&&shop.services.length>0) ? shop.services.slice(0,4).join(', ') : cat3+' treatments';
-    var areaGn  = (area3.toLowerCase().indexOf('cheongdam')>-1||area3.toLowerCase().indexOf('apgujeong')>-1) ? 'Gangnam' : area3;
-    var revTxt  = (shop.reviewCount>10) ? ' With '+shop.reviewCount+'+ verified reviews and a '+shop.rating+'-star rating, it' : ' It';
 
+    // fallback: DB seo_text \uC5C6\uC744 \uB54C \u2014 SEO \uC0C1\uC138 \uD398\uC774\uC9C0 fallback\uACFC \uB3D9\uC77C\uD55C \uD15C\uD50C\uB9BF
     if(shop.category==='clinic'){
-      var treatments = (shop.services&&shop.services.length>0) ? shop.services.slice(0,6).join(', ') : 'laser toning, skin booster injections, RF lifting, acne treatment';
-      seoHtml = '<div class="m-seo-block">'
-        +'<h2 class="m-seo-h2">'+esc(shop.name)+' \u2014 Dermatology Clinic in '+esc(areaGn)+', Seoul for Foreigners</h2>'
-        +'<p class="m-seo-p">'+esc(shop.name)+' is a foreigner-friendly dermatology clinic located in '+esc(area3)+', Seoul.'+revTxt+' is consistently rated as one of the top aesthetic clinics in '+esc(areaGn)+' by international patients. The clinic offers English-language consultations, transparent pricing, and easy WhatsApp booking \u2014 everything a foreign visitor needs to get world-class Korean dermatology treatments without the language barrier.</p>'
-        +'<h2 class="m-seo-h2">Why Foreign Patients Choose '+esc(shop.name)+'</h2>'
-        +'<p class="m-seo-p">For foreigners visiting Seoul, finding a dermatology clinic with English-speaking staff and no hidden fees is the biggest challenge. '+esc(shop.name)+' solves this with dedicated English-speaking coordinators, a clear treatment menu with prices listed in advance, and a seamless booking experience via WhatsApp. Whether you are a first-time medical tourist or a returning patient, the team ensures your comfort from initial consultation through aftercare.</p>'
-        +'<h2 class="m-seo-h2">How to Book '+esc(shop.name)+' as a Foreigner</h2>'
-        +'<p class="m-seo-p">Booking '+esc(shop.name)+' through Seoul Beauty Trip takes under 2 minutes. Simply tap the WhatsApp button below, describe your desired treatment, and our English-speaking team will confirm your appointment, explain pricing, and prepare the clinic for your visit. No Korean language skills needed. Same-day and advance bookings both available.</p>'
-      +'</div>';
+      var treatments = (shop.services&&shop.services.length>0) ? shop.services.slice(0,6).join(', ') : 'laser toning, skin booster injections, RF lifting, acne treatment, chemical peels';
+      seoHtml = '<div class="m-seo-block">'+_seoHead
+        +'<h2 class="sp-seo-h2">'+esc(shop.name)+' \u2014 Dermatology Clinic in '+esc(areaGn)+', Seoul for Foreigners</h2>'
+        +'<p class="sp-seo-p">'+esc(shop.name)+' is a foreigner-friendly dermatology clinic located in '+esc(area3)+', Seoul.'+revTxt+' is consistently rated as one of the top aesthetic clinics in '+esc(areaGn)+' by international patients. The clinic offers English-language consultations, transparent pricing, and easy WhatsApp booking \u2014 everything a foreign visitor needs to get world-class Korean dermatology treatments without the language barrier.</p>'
+        +'<h2 class="sp-seo-h2">Treatments Available at '+esc(shop.name)+'</h2>'
+        +'<p class="sp-seo-p">As a full-service '+esc(areaGn)+' dermatology clinic, '+esc(shop.name)+' provides: '+esc(treatments)+'. Korean clinics use the latest KFDA-approved equipment, offering results often 40\u201360% more affordable than equivalent treatments in the US, UK, or Australia.</p>'
+        +'<h2 class="sp-seo-h2">Why Foreign Patients Choose '+esc(shop.name)+'</h2>'
+        +'<p class="sp-seo-p">For foreigners visiting Seoul, finding a clinic with English-speaking staff and transparent fees is the biggest challenge. '+esc(shop.name)+' solves this with dedicated English-speaking coordinators, clear pricing, and seamless WhatsApp booking. Book via Seoul Beauty Trip \u2014 no Korean needed, same-day bookings available.</p>'
+        +'</div>';
     } else {
-      seoHtml = '<div class="m-seo-block">'
-        +'<h2 class="m-seo-h2">'+esc(shop.name)+' \u2014 '+esc(cat3)+' in '+esc(area3)+', Seoul</h2>'
-        +'<p class="m-seo-p">Looking for the best '+esc(shop.category)+' experience in '+esc(area3)+', Seoul? '+esc(shop.name)+' is a top-rated '+esc(shop.category)+' destination welcoming foreign visitors with English-friendly service and easy WhatsApp booking.'+revTxt+' offers an authentic Korean beauty experience tailored for international guests.</p>'
-        +'<h2 class="m-seo-h2">Foreigner-Friendly '+esc(cat3)+' in '+esc(area3)+'</h2>'
-        +'<p class="m-seo-p">Located in '+esc(area3)+', one of the top beauty districts in Seoul, '+esc(shop.name)+' specializes in '+esc(svcList)+'. The team provides English support throughout your visit \u2014 from consultation to aftercare \u2014 so you can relax and enjoy your treatment without language barriers. Book easily via WhatsApp through Seoul Beauty Trip.</p>'
-      +'</div>';
+      seoHtml = '<div class="m-seo-block">'+_seoHead
+        +'<h2 class="sp-seo-h2">'+esc(shop.name)+' \u2014 '+esc(cat3)+' in '+esc(area3)+', Seoul</h2>'
+        +'<p class="sp-seo-p">Looking for the best '+esc(shop.category)+' experience in '+esc(area3)+', Seoul? '+esc(shop.name)+' is a top-rated destination welcoming foreign visitors with English-friendly service and easy WhatsApp booking.'+revTxt+' offers an authentic Korean beauty experience tailored for international guests.</p>'
+        +'<h2 class="sp-seo-h2">Foreigner-Friendly '+esc(cat3)+' in '+esc(areaGn)+'</h2>'
+        +'<p class="sp-seo-p">Located in '+esc(area3)+', one of Seoul's top beauty districts, '+esc(shop.name)+' specializes in '+esc(svcList)+'. English support from consultation to aftercare \u2014 book easily via WhatsApp through Seoul Beauty Trip.</p>'
+        +'</div>';
     }
   })();
 
@@ -11726,56 +11763,68 @@ window.loadVisitorStats = async function(days){
 var _vsExitLog = [];   // \uCD5C\uADFC \uB098\uAC00\uAE30 \uB85C\uADF8 (\uCD5C\uB300 30\uAC1C)
 var _vsLiveTimer = null;
 
+// slug \u2192 \uC5C5\uCCB4\uBA85 \uBCC0\uD658 \uD5EC\uD37C
+function slugToPageLabel(page, shopName){
+  if(!page) return '\u2014';
+  if(shopName) return shopName;
+  if(page === '/') return '\uD648';
+  if(page.startsWith('/shop/')) return page.replace('/shop/','').replace(/-/g,' ');
+  if(page.startsWith('/best/')) return 'Best: '+page.replace('/best/','');
+  return page;
+}
+
 async function loadLiveVisitors(){
   var tk = _GSK_TOKEN || localStorage.getItem('_gsk_token') || '';
   try {
-    // \uCD5C\uADFC 3\uBD84 \uC774\uB0B4 active \uC138\uC158 = \uC2E4\uC2DC\uAC04 \uC811\uC18D\uC790
     var res = await fetch('/api/visitors-live', { headers:{'x-admin-token':tk} });
     if(!res.ok) return;
     var d = await res.json();
 
-    // \uC22B\uC790 \uC5C5\uB370\uC774\uD2B8
+    // \u2500\u2500 \uC2E4\uC2DC\uAC04 \uC811\uC18D\uC790 \uC218 \u2500\u2500
     var countEl = document.getElementById('vs-live-count');
     if(countEl){
-      var prev = parseInt(countEl.textContent) || 0;
       var next = d.activeCount || 0;
       countEl.textContent = next;
       countEl.style.color = next > 0 ? '#34d399' : 'rgba(255,255,255,.3)';
-      // \uB098\uAC00\uAE30 \uAC10\uC9C0: \uC774\uC804\uBCF4\uB2E4 \uC904\uC5C8\uC73C\uBA74 exit \uB85C\uADF8\uC5D0 \uCD94\uAC00
-      if(prev > next && prev > 0){
-        var exitTime = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-        _vsExitLog.unshift({ time: exitTime, page: d.lastExitPage || '\u2014', device: d.lastExitDevice || '\u2014' });
-        if(_vsExitLog.length > 30) _vsExitLog.pop();
-        renderExitLog();
+    }
+
+    // \u2500\u2500 \uD604\uC7AC \uBCF4\uACE0 \uC788\uB294 \uD398\uC774\uC9C0 \uBAA9\uB85D (\uC5C5\uCCB4\uBA85 \uD45C\uC2DC) \u2500\u2500
+    var pagesEl = document.getElementById('vs-live-pages');
+    if(pagesEl){
+      if(d.activePages && d.activePages.length){
+        pagesEl.innerHTML = d.activePages.slice(0,6).map(function(p){
+          var label = slugToPageLabel(p.page, p.shopName);
+          var isShop = (p.page||'').startsWith('/shop/');
+          var dotColor = isShop ? '#f472b6' : '#34d399';
+          return '<div style="display:flex;align-items:center;gap:6px;padding:3px 0">'
+            +'<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+dotColor+';flex-shrink:0;box-shadow:0 0 4px '+dotColor+'80"></span>'
+            +'<span style="font-size:11px;color:rgba(255,255,255,.65);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">'+escHtml(label)+'</span>'
+            +(p.count>1?'<span style="font-size:10px;color:rgba(255,255,255,.3);background:rgba(255,255,255,.07);padding:1px 5px;border-radius:10px;flex-shrink:0">'+p.count+'\uBA85</span>':'')
+            +'</div>';
+        }).join('');
+      } else {
+        pagesEl.innerHTML = '<div style="font-size:11px;color:rgba(255,255,255,.2);text-align:center;padding:8px">\uD604\uC7AC \uC811\uC18D\uC790 \uC5C6\uC74C</div>';
       }
     }
 
-    // \uD604\uC7AC \uBCF4\uACE0 \uC788\uB294 \uD398\uC774\uC9C0 \uBAA9\uB85D
-    var pagesEl = document.getElementById('vs-live-pages');
-    if(pagesEl && d.activePages && d.activePages.length){
-      pagesEl.innerHTML = d.activePages.slice(0,5).map(function(p){
-        var pageName = (p.page||'/').replace('/shop/','shop/ ').replace('/best/','best/ ');
-        return '<div style="display:flex;align-items:center;gap:6px;font-size:11px">'
-          +'<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#34d399;flex-shrink:0"></span>'
-          +'<span style="color:rgba(255,255,255,.55);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">'+escHtml(pageName)+'</span>'
-          +'<span style="color:rgba(255,255,255,.25);flex-shrink:0">'+p.count+'\uBA85</span>'
-          +'</div>';
-      }).join('');
-    } else if(pagesEl){
-      pagesEl.innerHTML = '<span style="font-size:11px;color:rgba(255,255,255,.2)">\uD604\uC7AC \uC811\uC18D\uC790 \uC5C6\uC74C</span>';
-    }
-
-    // \uC5C5\uB370\uC774\uD2B8 \uC2DC\uAC01
+    // \u2500\u2500 \uAC31\uC2E0 \uC2DC\uAC01 \u2500\u2500
     var updEl = document.getElementById('vs-live-updated');
-    if(updEl) updEl.textContent = '\uAC31\uC2E0: '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    if(updEl) updEl.textContent = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
 
-    // exit_log API\uC5D0\uC11C \uC2E4\uC81C \uB098\uAC00\uAE30 \uC774\uBCA4\uD2B8\uB3C4 \uBC18\uC601
+    // \u2500\u2500 DB\uC5D0\uC11C \uCD5C\uADFC \uB098\uAC00\uAE30 \uC774\uBCA4\uD2B8 \uBCD1\uD569 (shop_name \uD3EC\uD568) \u2500\u2500
     if(d.recentExits && d.recentExits.length){
       d.recentExits.forEach(function(ex){
         var already = _vsExitLog.some(function(l){ return l._id === ex.id; });
         if(!already){
           var exitTime = ex.created_at ? new Date(ex.created_at).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '\u2014';
-          _vsExitLog.unshift({ _id: ex.id, time: exitTime, page: ex.page||'\u2014', device: ex.device||'\u2014', dur: ex.duration||0 });
+          _vsExitLog.unshift({
+            _id: ex.id,
+            time: exitTime,
+            page: ex.page||'\u2014',
+            shopName: ex.shop_name || null,
+            device: ex.device||'\u2014',
+            dur: ex.duration||0
+          });
         }
       });
       _vsExitLog = _vsExitLog.slice(0,30);
@@ -11788,18 +11837,21 @@ function renderExitLog(){
   var el = document.getElementById('vs-exit-log');
   if(!el) return;
   if(!_vsExitLog.length){
-    el.innerHTML='<div style="font-size:10px;color:rgba(255,255,255,.2)">\uC544\uC9C1 \uB098\uAC00\uAE30 \uC774\uBCA4\uD2B8 \uC5C6\uC74C</div>';
+    el.innerHTML='<div style="font-size:11px;color:rgba(255,255,255,.2);text-align:center;padding:8px">\uC544\uC9C1 \uB098\uAC00\uAE30 \uAE30\uB85D \uC5C6\uC74C</div>';
     return;
   }
   el.innerHTML = _vsExitLog.map(function(l){
-    var durStr = l.dur ? ' \xB7 '+fmtDur(l.dur) : '';
+    var durStr = l.dur ? fmtDur(l.dur) : '';
     var devIco = l.device==='mobile'?'fa-mobile-alt':l.device==='tablet'?'fa-tablet-alt':'fa-desktop';
-    return '<div style="display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.04)">'
-      +'<i class="fas fa-door-open" style="color:#94a3b8;font-size:9px;flex-shrink:0"></i>'
-      +'<span style="font-size:9px;color:rgba(255,255,255,.25);flex-shrink:0">'+l.time+'</span>'
-      +'<i class="fas '+devIco+'" style="color:rgba(255,255,255,.2);font-size:9px;flex-shrink:0"></i>'
-      +'<span style="font-size:10px;color:rgba(255,255,255,.45);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">'+escHtml((l.page||'\u2014').replace('/shop/','shop/ '))+'</span>'
-      +(durStr ? '<span style="font-size:9px;color:rgba(255,255,255,.25);flex-shrink:0">'+durStr+'</span>' : '')
+    var devColor = l.device==='mobile'?'#f472b6':l.device==='tablet'?'#fb923c':'#60a5fa';
+    var pageLabel = slugToPageLabel(l.page, l.shopName);
+    var isShop = (l.page||'').startsWith('/shop/');
+    return '<div style="display:grid;grid-template-columns:auto auto 1fr auto auto;align-items:center;gap:5px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04)">'
+      +'<span style="font-size:9px;color:rgba(255,255,255,.22);white-space:nowrap">'+l.time+'</span>'
+      +'<i class="fas '+devIco+'" style="color:'+devColor+';font-size:9px"></i>'
+      +'<span style="font-size:10px;color:'+(isShop?'#f9a8d4':'rgba(255,255,255,.5)')+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(pageLabel)+'</span>'
+      +(durStr?'<span style="font-size:9px;color:rgba(255,255,255,.3);white-space:nowrap">'+durStr+'</span>':'<span></span>')
+      +'<i class="fas fa-sign-out-alt" style="color:rgba(255,255,255,.2);font-size:9px"></i>'
       +'</div>';
   }).join('');
 }
@@ -11887,39 +11939,65 @@ window.vsLoadMore = function(){
 // \uBC29\uBB38\uC790 \uD589 HTML \uC0DD\uC131
 function buildVsRow(s){
   var badges = '';
-  if(s.waClicked) badges += '<span class="vs-badge vs-badge-wa"><i class="fab fa-whatsapp"></i> WA</span>';
-  if(s.shopViews>0) badges += '<span class="vs-badge vs-badge-shop"><i class="fas fa-store"></i> '+s.shopViews+'</span>';
-  if(s.videoPlays>0) badges += '<span class="vs-badge vs-badge-vid"><i class="fas fa-play"></i> '+s.videoPlays+'</span>';
-  if(s.device==='mobile') badges += '<span class="vs-badge vs-badge-mobile"><i class="fas fa-mobile-alt"></i></span>';
+  if(s.waClicked)    badges += '<span class="vs-badge vs-badge-wa"><i class="fab fa-whatsapp"></i> WA\uD074\uB9AD</span>';
+  if(s.shopViews>0)  badges += '<span class="vs-badge vs-badge-shop"><i class="fas fa-store"></i> \uC5C5\uCCB4 '+s.shopViews+'</span>';
+  if(s.videoPlays>0) badges += '<span class="vs-badge vs-badge-vid"><i class="fas fa-play"></i> \uC601\uC0C1 '+s.videoPlays+'</span>';
+  if(s.device==='mobile') badges += '<span class="vs-badge vs-badge-mobile"><i class="fas fa-mobile-alt"></i> \uBAA8\uBC14\uC77C</span>';
 
-  var devIco = s.device==='mobile'?'fa-mobile-alt':s.device==='tablet'?'fa-tablet-alt':'fa-desktop';
+  var devIco   = s.device==='mobile'?'fa-mobile-alt':s.device==='tablet'?'fa-tablet-alt':'fa-desktop';
   var devColor = s.device==='mobile'?'#f472b6':s.device==='tablet'?'#fb923c':'#60a5fa';
-  var dur = s.avgDuration!=null ? fmtDur(s.avgDuration) : '\u2014';
-  var ago = timeAgo(s.startedAt);
-  var pgCount = s.pageCount||0;
+  var dur  = s.avgDuration!=null ? fmtDur(s.avgDuration) : '\u2014';
+  var ago  = timeAgo(s.startedAt);
+  var pgCount   = s.pageCount||0;
   var maxScroll = s.maxScroll||0;
+
+  // \uCCAB \uD398\uC774\uC9C0 \uB77C\uBCA8: /shop/slug \u2192 \uC5C5\uCCB4\uBA85 \uC2A4\uD0C0\uC77C
+  var fp = s.firstPage || '/';
+  var fpLabel = fp;
+  var fpColor = 'rgba(255,255,255,.4)';
+  if(fp === '/') { fpLabel = '\u{1F3E0} \uD648'; }
+  else if(fp.startsWith('/shop/')) {
+    fpLabel = '\u{1F3EA} ' + fp.replace('/shop/','').replace(/-/g,' ');
+    fpColor = '#f9a8d4';
+  } else if(fp.startsWith('/best/')) {
+    fpLabel = '\u2B50 Best: ' + fp.replace('/best/','');
+  }
+
+  // \uCCB4\uB958\uC2DC\uAC04 \uBC14 (0~300\uCD08 \uAE30\uC900)
+  var durSec = s.avgDuration||0;
+  var durPct = Math.min(100, Math.round(durSec/300*100));
+  var durBarColor = durPct>60?'#34d399':durPct>20?'#fbbf24':'#94a3b8';
 
   return '<div class="vs-row" id="vsr-'+s.sessionId+'" data-sid="'+s.sessionId+'">'
     +'<div class="vs-row-left vs-row-clickable" style="cursor:pointer">'
-    +'<i class="fas '+devIco+'" style="color:'+devColor+';font-size:16px;margin-right:8px;flex-shrink:0"></i>'
-    +'<div class="vs-row-body">'
+    // \uB514\uBC14\uC774\uC2A4 \uC544\uC774\uCF58
+    +'<i class="fas '+devIco+'" style="color:'+devColor+';font-size:16px;margin-right:10px;flex-shrink:0"></i>'
+    +'<div class="vs-row-body" style="flex:1;min-width:0">'
+    // 1\uD589: visitor ID + \uC2DC\uAC04
     +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
-    +'<span style="font-size:12px;font-weight:700;color:#e2e8f0;font-family:monospace">'+s.visitorId.slice(-8)+'</span>'
-    +'<span style="font-size:10px;color:rgba(255,255,255,.3)">'+ago+'</span>'
+    +'<span style="font-size:11px;font-weight:700;color:#e2e8f0;font-family:monospace;letter-spacing:.5px">'+escHtml((s.visitorId||'').slice(-8))+'</span>'
+    +(s.country?'<span style="font-size:10px;background:rgba(255,255,255,.07);padding:1px 6px;border-radius:8px;color:rgba(255,255,255,.55)">'+escHtml(s.country)+'</span>':'')
+    +'<span style="font-size:10px;color:rgba(255,255,255,.25);margin-left:auto">'+ago+'</span>'
     +'</div>'
-    +'<div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px">'
-    +(s.firstPage||'/') +'</div>'
-    +'<div style="display:flex;gap:10px;margin-top:5px;flex-wrap:wrap">'
-    +'<span style="font-size:10px;color:rgba(255,255,255,.4)"><i class="fas fa-file-alt" style="color:rgba(255,255,255,.25);margin-right:3px"></i>'+pgCount+'p</span>'
-    +'<span style="font-size:10px;color:rgba(255,255,255,.4)"><i class="fas fa-clock" style="color:rgba(255,255,255,.25);margin-right:3px"></i>'+dur+'</span>'
-    +'<span style="font-size:10px;color:rgba(255,255,255,.4)"><i class="fas fa-arrows-alt-v" style="color:rgba(255,255,255,.25);margin-right:3px"></i>'+maxScroll+'%</span>'
-    +(s.country?'<span style="font-size:10px;color:rgba(255,255,255,.4)"><i class="fas fa-map-marker-alt" style="color:rgba(255,255,255,.25);margin-right:3px"></i>'+escHtml(s.country)+'</span>':'')
+    // 2\uD589: \uCCAB \uBC29\uBB38 \uD398\uC774\uC9C0
+    +'<div style="font-size:10px;color:'+fpColor+';margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(fpLabel)+'</div>'
+    // 3\uD589: \uD1B5\uACC4 (\uD398\uC774\uC9C0\uC218 / \uCCB4\uB958\uC2DC\uAC04 \uBC14 / \uC2A4\uD06C\uB864)
+    +'<div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap">'
+    +'<span style="font-size:10px;color:rgba(255,255,255,.4)"><i class="fas fa-file-alt" style="color:rgba(255,255,255,.2);margin-right:3px"></i>'+pgCount+'p</span>'
+    +'<span style="font-size:10px;color:rgba(255,255,255,.4)"><i class="fas fa-clock" style="color:rgba(255,255,255,.2);margin-right:3px"></i>'+dur+'</span>'
+    // \uCCB4\uB958 \uC2DC\uAC04 \uBC14
+    +'<div style="flex:1;min-width:40px;max-width:80px;height:4px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden">'
+    +'<div style="width:'+durPct+'%;height:100%;background:'+durBarColor+';border-radius:2px;transition:width .5s"></div>'
     +'</div>'
-    +'<div class="vs-row-badges" style="margin-top:6px">'+badges+'</div>'
+    +'<span style="font-size:10px;color:rgba(255,255,255,.3)">\u2195'+maxScroll+'%</span>'
     +'</div>'
-    +'<i class="fas fa-chevron-down vs-row-chevron" style="margin-left:auto;color:rgba(255,255,255,.25);font-size:11px;flex-shrink:0;transition:transform .2s"></i>'
+    // 4\uD589: \uBC30\uC9C0
+    +(badges?'<div class="vs-row-badges" style="margin-top:5px">'+badges+'</div>':'')
     +'</div>'
-    +'<div class="vs-timeline" id="vstl-'+s.sessionId+'" style="display:none;padding:12px 0 4px 24px;border-top:1px solid rgba(255,255,255,.05);margin-top:8px">'
+    +'<i class="fas fa-chevron-down vs-row-chevron" style="margin-left:8px;color:rgba(255,255,255,.2);font-size:10px;flex-shrink:0;transition:transform .2s"></i>'
+    +'</div>'
+    // \uD0C0\uC784\uB77C\uC778 (\uD074\uB9AD \uC2DC \uD3BC\uCCD0\uC9D0)
+    +'<div class="vs-timeline" id="vstl-'+s.sessionId+'" style="display:none;padding:10px 0 4px 26px;border-top:1px solid rgba(255,255,255,.05);margin-top:8px">'
     +'<div style="text-align:center;padding:10px;color:rgba(255,255,255,.25);font-size:11px"><i class="fas fa-circle-notch fa-spin"></i> \uB85C\uB529...</div>'
     +'</div>'
     +'</div>';
