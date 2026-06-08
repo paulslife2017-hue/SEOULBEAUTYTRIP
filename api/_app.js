@@ -3094,24 +3094,27 @@ async function autoGenSeo(body, apiKey, googleKey) {
       dental: 'H2-1: "[Name] \u2014 Dental Clinic in [area], Seoul". H2-2: "Dental Procedures at [Name]". H2-3: "Foreign Patients at [Name]: English Support & Pricing". Reference specific treatments and pain-free feedback.'
     };
     const seoHint = seoStructureHints[cat] || "Three H2 sections: intro, services, and foreigner guide. Each cites real shop data.";
-    const prompt = `Write unique copy for "${body.name}" (${cat} in ${area}, Seoul) using ONLY the data below.
+    const areaDisplay = area.toLowerCase() === "seoul" ? "Seoul" : area;
+    const locationHint = area.toLowerCase() === "seoul" ? "Location: Seoul" : `Location: ${area}, Seoul \u2014 write "${area}" or "${area}, Seoul" but NEVER "${area}, Seoul, Seoul"`;
+    const prompt = `Write unique copy for "${body.name}" (${cat} in ${areaDisplay}) using ONLY the data below.
 Category hint: ${hint}
+IMPORTANT location rule: ${locationHint}
 
 DATA:
 ${context}
 
 Return ONLY a single valid JSON object \u2014 no markdown, no explanation:
 {
-  "description": "<2\u20133 sentence paragraph, 80\u2013140 words. Must mention: exact neighborhood (${area}), rating+review count, 1\u20132 specific details from reviews (treatment name, reviewer quote fragment, unique feature). No generic filler.>",
+  "description": "<2\u20133 sentence paragraph, 80\u2013140 words. Must mention: exact neighborhood (${areaDisplay}), rating+review count, 1\u20132 specific details from reviews. NEVER write '${areaDisplay}, Seoul, Seoul'. No generic filler.>",
   "whyChoose": [
     "<emoji + specific treatment/service highlight unique to THIS shop. 55\u201385 chars>",
     "<emoji + standout staff, atmosphere or result detail from actual reviews. 55\u201385 chars>",
     "<emoji + foreigner accessibility specific to this shop's location/situation. 55\u201385 chars>"
   ],
-  "metaDescription": "<145\u2013158 chars. Include shop name, ${area}, ${cat}, and a specific hook from reviews.>",
-  "titleSuffix": "<max 45 chars: ${body.name} | ${area} ${cat}>",
-  "keywords": ["<brand+area>","<brand booking>","<brand review>","<brand foreigner>","<best ${cat} ${area} Seoul 2026>","<${cat} Seoul English 2026>","<${area} ${cat} foreigner>","<${cat} Seoul 2026>","<${area} beauty Seoul 2026>","<${cat} Seoul English speaking>","<book ${cat} Seoul foreigners>","<${area} ${cat} foreigners review>"],
-  "seoText": "<EXACTLY 3 sections, each with one H2 then one P. Structure: ${seoHint}. Rules: (1) Every P must be 70-110 words. (2) Each H2 must contain the shop name OR area OR Seoul. (3) Mention the year 2026 at least once naturally. (4) NO phone/URL/exact address. (5) Use ONLY: <h2 class=\\"sp-seo-h2\\"> and <p class=\\"sp-seo-p\\"> tags. (6) Must be 100% unique \u2014 cite real rating, review count, or a real reviewer phrase. (7) End with a sentence about English-friendly booking. Output ONLY the raw HTML string, NOT an array, NOT markdown.>"
+  "metaDescription": "<145\u2013158 chars. Include shop name, ${areaDisplay}, ${cat}, and a specific hook from reviews.>",
+  "titleSuffix": "<max 45 chars: ${body.name} | ${areaDisplay} ${cat}>",
+  "keywords": ["<brand+area>","<brand booking>","<brand review>","<brand foreigner>","<best ${cat} ${areaDisplay} Seoul 2026>","<${cat} Seoul English 2026>","<${areaDisplay} ${cat} foreigner>","<${cat} Seoul 2026>","<${areaDisplay} beauty Seoul 2026>","<${cat} Seoul English speaking>","<book ${cat} Seoul foreigners>","<${areaDisplay} ${cat} foreigners review>"],
+  "seoText": "<EXACTLY 3 sections, each with one H2 then one P. Structure: ${seoHint}. Rules: (1) Every P must be 70-110 words. (2) Each H2 must contain shop name OR area OR Seoul. (3) Mention year 2026 at least once. (4) NO phone/URL/exact address. (5) Use ONLY: <h2 class=\\"sp-seo-h2\\"> and <p class=\\"sp-seo-p\\"> tags. (6) Cite real rating, review count, or reviewer phrase. (7) NEVER write '${areaDisplay}, Seoul, Seoul'. (8) End with English-friendly booking sentence. Output ONLY raw HTML string.>"
 }`;
     const res = await fetch("https://www.genspark.ai/api/llm_proxy/v1/chat/completions", {
       method: "POST",
@@ -4739,8 +4742,9 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 .sp-hours-time.closed{color:rgba(255,80,80,.6)}
 .sp-hours-today .sp-hours-day,.sp-hours-today .sp-hours-time{color:#fff;font-weight:800}
 /* SERVICES */
-.sp-svc-tags{display:flex;flex-wrap:wrap;gap:7px}
-.sp-svc-tag{padding:6px 13px;background:rgba(232,65,122,.08);border:1px solid rgba(232,65,122,.2);border-radius:20px;font-size:12px;color:var(--pk3);font-weight:600}
+.sp-svc-tags{display:flex;flex-wrap:wrap;gap:6px}
+.sp-svc-tag{padding:5px 11px;background:linear-gradient(135deg,rgba(232,65,122,.1),rgba(232,65,122,.04));border:1px solid rgba(232,65,122,.22);border-radius:20px;font-size:11.5px;color:var(--pk3);font-weight:700;display:flex;align-items:center;gap:4px;transition:background .2s}
+.sp-svc-tag i{font-size:9px;opacity:.8}
 /* PRICE LIST */
 .sp-price-list{display:flex;flex-direction:column;gap:0}
 .sp-price-item{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.05)}
@@ -4780,12 +4784,33 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 .sp-review-text{font-size:12px;color:rgba(255,255,255,.55);line-height:1.6}
 .sp-review-time{font-size:10px;color:rgba(255,255,255,.28);margin-top:4px}
 /* WHY CHOOSE */
-.sp-why-list{display:flex;flex-direction:column;gap:8px}
-.sp-why-item{font-size:13px;color:rgba(255,255,255,.75);line-height:1.6;padding:10px 14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;border-left:3px solid var(--pk2)}
+.sp-why-list{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media(max-width:380px){.sp-why-list{grid-template-columns:1fr}}
+.sp-why-item{font-size:12px;color:rgba(255,255,255,.8);line-height:1.55;padding:11px 12px 11px 14px;background:linear-gradient(135deg,rgba(232,65,122,.07),rgba(232,65,122,.02));border:1px solid rgba(232,65,122,.18);border-radius:13px;display:flex;align-items:flex-start;gap:8px}
+.sp-why-icon{color:var(--pk2);font-size:11px;margin-top:2px;flex-shrink:0}
+.sp-why-text{flex:1}
+/* About \uC139\uC158 \uAC15\uD654 */
+.sp-about-box{margin-bottom:14px;background:linear-gradient(135deg,rgba(255,255,255,.04),rgba(255,255,255,.01));border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:16px;position:relative;overflow:hidden}
+.sp-about-box::before{content:'';position:absolute;top:-30px;right:-30px;width:100px;height:100px;background:radial-gradient(circle,rgba(232,65,122,.12),transparent 70%);pointer-events:none}
+.sp-about-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.sp-about-icon{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,rgba(232,65,122,.25),rgba(232,65,122,.1));display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sp-about-icon i{color:var(--pk);font-size:11px}
+.sp-about-title{font-size:11px;font-weight:800;color:var(--gold);letter-spacing:1.5px;text-transform:uppercase}
+.sp-about-text{font-size:13px;color:rgba(255,255,255,.7);line-height:1.85;letter-spacing:.1px}
+.sp-about-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.sp-about-tag{font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;letter-spacing:.5px}
+.sp-about-tag.tag-en{background:rgba(99,179,237,.12);border:1px solid rgba(99,179,237,.25);color:rgba(99,179,237,.9)}
+.sp-about-tag.tag-trust{background:rgba(72,187,120,.12);border:1px solid rgba(72,187,120,.25);color:rgba(72,187,120,.9)}
+.sp-about-tag.tag-intl{background:rgba(232,65,122,.12);border:1px solid rgba(232,65,122,.25);color:rgba(232,65,122,.9)}
 /* SEO \uD14D\uC2A4\uD2B8 \uBE14\uB85D */
-.sp-seo-block{margin-bottom:14px;padding:18px 16px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:14px}
-.sp-seo-h2{font-size:14px;font-weight:700;color:rgba(255,255,255,.75);margin:0 0 8px 0;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.06);line-height:1.4}
-.sp-seo-p{font-size:12.5px;color:rgba(255,255,255,.55);line-height:1.8;margin:0 0 14px}
+.sp-seo-block{margin-bottom:14px;padding:18px 16px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:14px;border-top:2px solid rgba(232,65,122,.25)}
+.sp-seo-block-head{display:flex;align-items:center;gap:6px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.06)}
+.sp-seo-block-head i{color:rgba(232,65,122,.7);font-size:12px}
+.sp-seo-block-head span{font-size:10px;font-weight:800;color:rgba(255,255,255,.35);letter-spacing:1.5px;text-transform:uppercase}
+.sp-seo-h2{font-size:13.5px;font-weight:700;color:rgba(255,255,255,.8);margin:0 0 7px 0;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.05);line-height:1.4;display:flex;align-items:center;gap:6px}
+.sp-seo-h2::before{content:'';display:block;width:3px;height:14px;background:var(--pk2);border-radius:2px;flex-shrink:0}
+.sp-seo-p{font-size:12.5px;color:rgba(255,255,255,.52);line-height:1.85;margin:0 0 16px}
+.sp-seo-p:last-child{margin-bottom:0}
 .sp-seo-p:last-child{margin-bottom:0}
 /* \u2500\u2500 \uBE44\uC2B7\uD55C \uC5C5\uCCB4 \uCD94\uCC9C \u2500\u2500 */
 .sp-related{padding:0 20px 0;margin-bottom:0}
@@ -4868,7 +4893,15 @@ ${(() => {
       infoCards2 += `<div class="sp-ig-card"><div class="sp-ig-label">Rating</div><div class="sp-ig-val"><span class="sp-ig-stars">${starsHtml2}</span>&nbsp;${shop.rating}</div></div>`;
     }
     const infoGridHtml2 = infoCards2 ? `<div class="sp-info-grid">${infoCards2}</div>` : "";
-    const descHtml2 = shop.description ? `<div class="sp-sec"><div class="sp-sec-title">About</div><div class="sp-sec-body" itemprop="description">${shop.description}</div></div>` : "";
+    const descHtml2 = shop.description ? (() => {
+      const _rating2 = shop.rating ? Number(shop.rating).toFixed(1) : "";
+      const _reviews2 = shop.reviewCount ? Number(shop.reviewCount).toLocaleString() : "";
+      const _tags = [];
+      _tags.push(`<span class="sp-about-tag tag-en"><i class="fas fa-comments" style="margin-right:3px"></i>English OK</span>`);
+      _tags.push(`<span class="sp-about-tag tag-intl"><i class="fas fa-globe" style="margin-right:3px"></i>Foreigner Friendly</span>`);
+      if (_rating2) _tags.push(`<span class="sp-about-tag tag-trust"><i class="fas fa-star" style="margin-right:3px"></i>${_rating2}\u2605${_reviews2 ? " \xB7 " + _reviews2 + " reviews" : ""}</span>`);
+      return `<div class="sp-about-box"><div class="sp-about-head"><div class="sp-about-icon"><i class="fas fa-store"></i></div><div class="sp-about-title">About</div></div><div class="sp-about-text" itemprop="description">${shop.description}</div><div class="sp-about-tags">${_tags.join("")}</div></div>`;
+    })() : "";
     let hoursHtml2 = "";
     if (shop.hours) {
       const days2 = shop.hours.split(/\s*[\/|]\s*/).map((s) => s.trim()).filter(Boolean);
@@ -4895,7 +4928,12 @@ ${(() => {
     } else {
       priceHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-won-sign" style="color:var(--gold);margin-right:4px"></i>Pricing</div><div class="sp-sec-body">Prices vary by treatment &amp; consultation. <span style="color:rgba(255,255,255,.35)">Contact us via WhatsApp below for a free quote.</span></div></div>`;
     }
-    const svcHtml2 = shop.services && shop.services.length > 0 ? `<div class="sp-sec"><div class="sp-sec-title">Services</div><div class="sp-svc-tags">${shop.services.map((s) => `<span class="sp-svc-tag">${s}</span>`).join("")}</div></div>` : "";
+    const svcHtml2 = shop.services && shop.services.length > 0 ? (() => {
+      const svcIcoMap = { clinic: "fa-syringe", headspa: "fa-spa", hair: "fa-scissors", tattoo: "fa-pen-nib", makeup: "fa-wand-magic-sparkles", skincare: "fa-droplet", dental: "fa-tooth", plastic_surgery: "fa-star-of-life" };
+      const svcIco = svcIcoMap[shop.category] || "fa-sparkles";
+      const tags = shop.services.map((s) => `<span class="sp-svc-tag"><i class="fas ${svcIco}"></i>${s}</span>`).join("");
+      return `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-list-check" style="color:var(--gold);margin-right:5px"></i>Services</div><div class="sp-svc-tags">${tags}</div></div>`;
+    })() : "";
     const mapHtml2 = (() => {
       if (!shop.lat || !shop.lng) return shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : "";
       const mlat2 = parseFloat(shop.lat), mlng2 = parseFloat(shop.lng), z = 16;
@@ -4943,8 +4981,12 @@ ${(() => {
   ${(() => {
     const wc = shop.whyChoose || [];
     if (!wc.length) return "";
-    const items = wc.map((b) => `<div class="sp-why-item">${b}</div>`).join("");
-    return `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-check-circle" style="color:var(--pk);margin-right:4px"></i>Why Choose ${shop.name}</div><div class="sp-why-list">${items}</div></div>`;
+    const wcIcons = ["fa-star", "fa-shield-halved", "fa-language", "fa-calendar-check", "fa-syringe", "fa-award", "fa-heart", "fa-clock"];
+    const items = wc.map((b, bi) => {
+      const ico = wcIcons[bi % wcIcons.length];
+      return `<div class="sp-why-item"><i class="fas ${ico} sp-why-icon"></i><span class="sp-why-text">${b}</span></div>`;
+    }).join("");
+    return `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-trophy" style="color:var(--gold);margin-right:5px"></i>Why Choose ${shop.name}</div><div class="sp-why-list">${items}</div></div>`;
   })()}
 
   ${(() => {
@@ -4970,18 +5012,20 @@ ${(() => {
           cleanSeo = '<h2 class="sp-seo-h2">' + _h2titles[0] + "</h2>" + cleanSeo;
         }
       }
-      return '<div class="sp-seo-block">' + cleanSeo + "</div>";
+      const _seoHead = '<div class="sp-seo-block-head"><i class="fas fa-magnifying-glass"></i><span>Travel Guide</span></div>';
+      return '<div class="sp-seo-block">' + _seoHead + cleanSeo + "</div>";
     }
     const area3 = (shop.location || "Seoul").split(",")[0].trim();
     const cat3 = shop.category.charAt(0).toUpperCase() + shop.category.slice(1);
     const svcList = shop.services && shop.services.length > 0 ? shop.services.slice(0, 4).join(", ") : cat3 + " treatments";
     const areaGn = area3.toLowerCase().includes("cheongdam") || area3.toLowerCase().includes("apgujeong") ? "Gangnam" : area3;
     const revTxt = shop.reviewCount > 10 ? " With " + shop.reviewCount + "+ verified reviews and a " + shop.rating + "-star rating, it" : " It";
+    const _fbHead = '<div class="sp-seo-block-head"><i class="fas fa-magnifying-glass"></i><span>Travel Guide</span></div>';
     if (shop.category === "clinic") {
       const treatments = shop.services && shop.services.length > 0 ? shop.services.slice(0, 6).join(", ") : "laser toning, skin booster injections, RF lifting, acne treatment, chemical peels";
-      return '<div class="sp-seo-block"><h2 class="sp-seo-h2">' + shop.name + " \u2014 Dermatology Clinic in " + areaGn + ', Seoul for Foreigners</h2><p class="sp-seo-p">' + shop.name + " is a foreigner-friendly dermatology clinic located in " + area3 + ", Seoul." + revTxt + " is consistently rated as one of the top aesthetic clinics in " + areaGn + ' by international patients. The clinic offers English-language consultations, transparent pricing, and easy WhatsApp booking \u2014 everything a foreign visitor needs to get world-class Korean dermatology treatments without the language barrier.</p><h2 class="sp-seo-h2">Treatments Available at ' + shop.name + '</h2><p class="sp-seo-p">As a full-service ' + areaGn + " dermatology clinic, " + shop.name + " provides a comprehensive range of medical aesthetic treatments popular among foreign patients: " + treatments + ". Korean dermatology clinics like " + shop.name + ' use the latest FDA-approved and KFDA-approved equipment, offering results that are often 40\u201360% more affordable than equivalent treatments in the US, UK, or Australia.</p><h2 class="sp-seo-h2">Why Foreign Patients Choose ' + shop.name + '</h2><p class="sp-seo-p">For foreigners visiting Seoul, finding a dermatology clinic with English-speaking staff and no hidden fees is the biggest challenge. ' + shop.name + " solves this with dedicated English-speaking coordinators, a clear treatment menu with prices listed in advance, and a seamless booking experience via WhatsApp. Whether you are a first-time medical tourist or a returning patient, the team at " + shop.name + ' ensures your comfort from initial consultation through aftercare.</p><h2 class="sp-seo-h2">How to Book ' + shop.name + ' as a Foreigner</h2><p class="sp-seo-p">Booking ' + shop.name + " through Seoul Beauty Trip takes under 2 minutes. Simply tap the WhatsApp button above, describe your desired treatment, and our English-speaking team will confirm your appointment, explain pricing, and prepare the clinic for your visit. No Korean language skills needed. Same-day and advance bookings both available.</p></div>";
+      return '<div class="sp-seo-block">' + _fbHead + '<h2 class="sp-seo-h2">' + shop.name + " \u2014 Dermatology Clinic in " + areaGn + ', Seoul for Foreigners</h2><p class="sp-seo-p">' + shop.name + " is a foreigner-friendly dermatology clinic located in " + area3 + ", Seoul." + revTxt + " is consistently rated as one of the top aesthetic clinics in " + areaGn + ' by international patients. The clinic offers English-language consultations, transparent pricing, and easy WhatsApp booking \u2014 everything a foreign visitor needs to get world-class Korean dermatology treatments without the language barrier.</p><h2 class="sp-seo-h2">Treatments Available at ' + shop.name + '</h2><p class="sp-seo-p">As a full-service ' + areaGn + " dermatology clinic, " + shop.name + " provides a comprehensive range of medical aesthetic treatments popular among foreign patients: " + treatments + ". Korean dermatology clinics like " + shop.name + ' use the latest KFDA-approved equipment, offering results that are often 40\u201360% more affordable than equivalent treatments in the US, UK, or Australia.</p><h2 class="sp-seo-h2">Why Foreign Patients Choose ' + shop.name + '</h2><p class="sp-seo-p">For foreigners visiting Seoul, finding a clinic with English-speaking staff and transparent fees is the biggest challenge. ' + shop.name + ' solves this with dedicated English-speaking coordinators, clear pricing, and seamless WhatsApp booking. Whether you are a first-time medical tourist or a returning patient, the team ensures your comfort from initial consultation through aftercare.</p><h2 class="sp-seo-h2">How to Book ' + shop.name + ' as a Foreigner</h2><p class="sp-seo-p">Booking through Seoul Beauty Trip takes under 2 minutes. Tap the WhatsApp button above, describe your desired treatment, and our English-speaking team will confirm your appointment, explain pricing, and prepare the clinic for your visit. No Korean needed. Same-day and advance bookings available.</p></div>';
     }
-    return '<div class="sp-seo-block"><h2 class="sp-seo-h2">' + shop.name + " \u2014 " + cat3 + " in " + area3 + ', Seoul</h2><p class="sp-seo-p">Looking for the best ' + shop.category + " experience in " + area3 + ", Seoul? " + shop.name + " is a top-rated " + shop.category + " destination welcoming foreign visitors with English-friendly service and easy WhatsApp booking." + revTxt + ' offers an authentic Korean beauty experience tailored for international guests.</p><h2 class="sp-seo-h2">Foreigner-Friendly ' + cat3 + " in " + area3 + '</h2><p class="sp-seo-p">Located in ' + area3 + ", one of the top beauty districts in Seoul, " + shop.name + " specializes in " + svcList + ". The team provides English support throughout your visit \u2014 from consultation to aftercare \u2014 so you can relax and enjoy your treatment without language barriers. Book easily via WhatsApp through Seoul Beauty Trip.</p></div>";
+    return '<div class="sp-seo-block">' + _fbHead + '<h2 class="sp-seo-h2">' + shop.name + " \u2014 " + cat3 + " in " + area3 + ', Seoul</h2><p class="sp-seo-p">Looking for the best ' + shop.category + " experience in " + area3 + ", Seoul? " + shop.name + " welcomes foreign visitors with English-friendly service and easy WhatsApp booking." + revTxt + ' offers an authentic Korean beauty experience tailored for international guests.</p><h2 class="sp-seo-h2">Foreigner-Friendly ' + cat3 + " in " + area3 + '</h2><p class="sp-seo-p">Located in ' + area3 + ", one of the top beauty districts in Seoul, " + shop.name + " specializes in " + svcList + ". The team provides English support throughout your visit \u2014 from consultation to aftercare \u2014 so you can relax and enjoy your treatment without language barriers. Book easily via WhatsApp through Seoul Beauty Trip.</p></div>";
   })()}
 
   ${relatedShops.length > 0 ? `
