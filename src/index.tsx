@@ -509,6 +509,48 @@ async function initDb(env: any) {
       viewed_at TEXT NOT NULL
     )`
     try { await sql`CREATE UNIQUE INDEX IF NOT EXISTS uq_video_ip ON video_views_log(video_id, viewer_ip)` } catch(e) {}
+
+    // ── 방문자 행동 이벤트 테이블 ──
+    await sql`CREATE TABLE IF NOT EXISTS visitor_events (
+      id TEXT PRIMARY KEY,
+      session_id TEXT NOT NULL,
+      visitor_id TEXT NOT NULL,
+      event TEXT NOT NULL,
+      page TEXT DEFAULT '',
+      target TEXT DEFAULT '',
+      value TEXT DEFAULT '',
+      shop_id TEXT DEFAULT '',
+      shop_name TEXT DEFAULT '',
+      duration INTEGER DEFAULT 0,
+      scroll_pct INTEGER DEFAULT 0,
+      referrer TEXT DEFAULT '',
+      ua TEXT DEFAULT '',
+      country TEXT DEFAULT '',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`
+    try { await sql`CREATE INDEX IF NOT EXISTS idx_ve_session ON visitor_events(session_id)` } catch(e) {}
+    try { await sql`CREATE INDEX IF NOT EXISTS idx_ve_visitor ON visitor_events(visitor_id)` } catch(e) {}
+    try { await sql`CREATE INDEX IF NOT EXISTS idx_ve_created ON visitor_events(created_at DESC)` } catch(e) {}
+
+    // ── 방문자 세션 요약 테이블 ──
+    await sql`CREATE TABLE IF NOT EXISTS visitor_sessions (
+      session_id TEXT PRIMARY KEY,
+      visitor_id TEXT NOT NULL,
+      first_page TEXT DEFAULT '',
+      referrer TEXT DEFAULT '',
+      ua TEXT DEFAULT '',
+      country TEXT DEFAULT '',
+      device TEXT DEFAULT '',
+      started_at TIMESTAMPTZ DEFAULT NOW(),
+      last_active TIMESTAMPTZ DEFAULT NOW(),
+      page_count INTEGER DEFAULT 0,
+      event_count INTEGER DEFAULT 0,
+      wa_clicked BOOLEAN DEFAULT false,
+      max_scroll INTEGER DEFAULT 0
+    )`
+    try { await sql`CREATE INDEX IF NOT EXISTS idx_vs_visitor ON visitor_sessions(visitor_id)` } catch(e) {}
+    try { await sql`CREATE INDEX IF NOT EXISTS idx_vs_started ON visitor_sessions(started_at DESC)` } catch(e) {}
+
     // 샘플 데이터 삽입 (비어있을 때만)
     const cnt = await sql`SELECT COUNT(*) as c FROM shops`
     if (Number(cnt[0].c) === 0) {
@@ -2175,6 +2217,169 @@ app.post('/api/quick-register', async (c) => {
 })
 
 // ══════════════════════════════════════════
+// ── 방문자 행동 트래킹 API ──
+// ══════════════════════════════════════════
+
+// POST /api/track — 이벤트 수집
+app.post('/api/track', async (c) => {
+  try {
+    const sql = getDb(c.env)
+    const body: any = await c.req.json()
+    const { session_id, visitor_id, event, page, target, value, shop_id, shop_name, duration, scroll_pct } = body
+    if (!session_id || !visitor_id || !event) return c.json({ ok: false }, 400)
+
+    const id = 've_' + Date.now() + '_' + Math.random().toString(36).slice(2,7)
+    const ua = c.req.header('user-agent') || ''
+    const ref = body.referrer || ''
+
+    // 디바이스 감지
+    const device = /mobile|android|iphone|ipad/i.test(ua) ? 'mobile' : 'desktop'
+
+    // 이벤트 저장
+    await sql`
+      INSERT INTO visitor_events (id, session_id, visitor_id, event, page, target, value, shop_id, shop_name, duration, scroll_pct, referrer, ua, created_at)
+      VALUES (${id}, ${session_id}, ${visitor_id}, ${event}, ${page||''}, ${target||''}, ${value||''}, ${shop_id||''}, ${shop_name||''}, ${duration||0}, ${scroll_pct||0}, ${ref}, ${ua.slice(0,200)}, NOW())
+    `
+
+    // 세션 upsert
+    if (event === 'page_view') {
+      await sql`
+        INSERT INTO visitor_sessions (session_id, visitor_id, first_page, referrer, ua, device, started_at, last_active, page_count, event_count)
+        VALUES (${session_id}, ${visitor_id}, ${page||''}, ${ref}, ${ua.slice(0,200)}, ${device}, NOW(), NOW(), 1, 1)
+        ON CONFLICT (session_id) DO UPDATE SET
+          last_active = NOW(),
+          page_count = visitor_sessions.page_count + 1,
+          event_count = visitor_sessions.event_count + 1
+      `
+    } else {
+      await sql`
+        UPDATE visitor_sessions SET
+          last_active = NOW(),
+          event_count = event_count + 1,
+          wa_clicked = CASE WHEN ${event} = 'wa_click' THEN true ELSE wa_clicked END,
+          max_scroll = CASE WHEN ${scroll_pct||0} > max_scroll THEN ${scroll_pct||0} ELSE max_scroll END
+        WHERE session_id = ${session_id}
+      `
+    }
+
+    return c.json({ ok: true })
+  } catch(e: any) {
+    return c.json({ ok: false, error: e.message }, 500)
+  }
+})
+
+// GET /api/visitors — 방문자 세션 목록 (어드민)
+app.get('/api/visitors', async (c) => {
+  const auth = c.req.header('x-admin-token') || c.req.query('token') || ''
+  const token = c.env?.GSK_TOKEN || c.env?.gsk_token || ''
+  if (auth !== token) return c.json({ error: 'Unauthorized' }, 401)
+
+  try {
+    const sql = getDb(c.env)
+    const limit = parseInt(c.req.query('limit') || '50')
+    const offset = parseInt(c.req.query('offset') || '0')
+
+    const sessions = await sql`
+      SELECT
+        vs.*,
+        COUNT(ve.id) AS total_events,
+        MAX(CASE WHEN ve.event = 'wa_click' THEN 1 ELSE 0 END)::int AS did_wa,
+        MAX(CASE WHEN ve.event = 'video_play' THEN 1 ELSE 0 END)::int AS did_video,
+        MAX(CASE WHEN ve.event = 'shop_view' THEN 1 ELSE 0 END)::int AS did_shop,
+        ARRAY_AGG(DISTINCT ve.shop_name) FILTER (WHERE ve.shop_name != '') AS shops_viewed,
+        EXTRACT(EPOCH FROM (vs.last_active - vs.started_at))::int AS duration_sec
+      FROM visitor_sessions vs
+      LEFT JOIN visitor_events ve ON ve.session_id = vs.session_id
+      GROUP BY vs.session_id
+      ORDER BY vs.started_at DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `
+
+    const total = await sql`SELECT COUNT(*) AS c FROM visitor_sessions`
+
+    return c.json({ sessions, total: Number(total[0]?.c || 0) })
+  } catch(e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+})
+
+// GET /api/visitors/:sessionId — 세션별 이벤트 타임라인 (어드민)
+app.get('/api/visitors/:sessionId', async (c) => {
+  const auth = c.req.header('x-admin-token') || c.req.query('token') || ''
+  const token = c.env?.GSK_TOKEN || c.env?.gsk_token || ''
+  if (auth !== token) return c.json({ error: 'Unauthorized' }, 401)
+
+  try {
+    const sql = getDb(c.env)
+    const sid = c.req.param('sessionId')
+    const events = await sql`
+      SELECT * FROM visitor_events
+      WHERE session_id = ${sid}
+      ORDER BY created_at ASC
+    `
+    const session = await sql`SELECT * FROM visitor_sessions WHERE session_id = ${sid}`
+    return c.json({ session: session[0] || null, events })
+  } catch(e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+})
+
+// GET /api/visitors-stats — 요약 통계 (어드민)
+app.get('/api/visitors-stats', async (c) => {
+  const auth = c.req.header('x-admin-token') || c.req.query('token') || ''
+  const token = c.env?.GSK_TOKEN || c.env?.gsk_token || ''
+  if (auth !== token) return c.json({ error: 'Unauthorized' }, 401)
+
+  try {
+    const sql = getDb(c.env)
+    const days = parseInt(c.req.query('days') || '7')
+
+    const [totals, byDevice, byPage, topShops, hourly, waFunnel] = await Promise.all([
+      sql`SELECT
+        COUNT(DISTINCT visitor_id) AS unique_visitors,
+        COUNT(*) AS total_sessions,
+        ROUND(AVG(EXTRACT(EPOCH FROM (last_active - started_at)))::numeric, 0)::int AS avg_duration_sec,
+        SUM(CASE WHEN wa_clicked THEN 1 ELSE 0 END) AS wa_clicks,
+        ROUND(AVG(max_scroll)::numeric, 0)::int AS avg_scroll,
+        ROUND(AVG(page_count)::numeric, 1)::float AS avg_pages
+        FROM visitor_sessions
+        WHERE started_at > NOW() - (${days} || ' days')::interval`,
+      sql`SELECT device, COUNT(*) AS cnt FROM visitor_sessions
+        WHERE started_at > NOW() - (${days} || ' days')::interval
+        GROUP BY device ORDER BY cnt DESC`,
+      sql`SELECT page, COUNT(*) AS cnt FROM visitor_events
+        WHERE event = 'page_view' AND created_at > NOW() - (${days} || ' days')::interval
+        GROUP BY page ORDER BY cnt DESC LIMIT 10`,
+      sql`SELECT shop_name, COUNT(*) AS views,
+        SUM(CASE WHEN event = 'wa_click' THEN 1 ELSE 0 END) AS wa
+        FROM visitor_events
+        WHERE shop_name != '' AND created_at > NOW() - (${days} || ' days')::interval
+        GROUP BY shop_name ORDER BY views DESC LIMIT 8`,
+      sql`SELECT EXTRACT(HOUR FROM created_at)::int AS hour, COUNT(DISTINCT session_id) AS sessions
+        FROM visitor_events WHERE event = 'page_view'
+        AND created_at > NOW() - (${days} || ' days')::interval
+        GROUP BY hour ORDER BY hour`,
+      sql`SELECT
+        COUNT(DISTINCT session_id) AS total_sessions,
+        SUM(CASE WHEN did_shop > 0 THEN 1 ELSE 0 END) AS viewed_shop,
+        SUM(CASE WHEN wa_clicked THEN 1 ELSE 0 END) AS clicked_wa
+        FROM (
+          SELECT vs.session_id, vs.wa_clicked,
+            MAX(CASE WHEN ve.event = 'shop_view' THEN 1 ELSE 0 END) AS did_shop
+          FROM visitor_sessions vs
+          LEFT JOIN visitor_events ve ON ve.session_id = vs.session_id
+          WHERE vs.started_at > NOW() - (${days} || ' days')::interval
+          GROUP BY vs.session_id, vs.wa_clicked
+        ) t`
+    ])
+
+    return c.json({ totals: totals[0], byDevice, byPage, topShops, hourly, waFunnel: waFunnel[0] })
+  } catch(e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+})
+
+// ══════════════════════════════════════════
 // ── 일괄 SEO 재생성 API ──
 // ── POST /api/admin/reset-video-views — 영상 조회수 초기화 ──
 app.post('/api/admin/reset-video-views', async (c) => {
@@ -2675,6 +2880,7 @@ app.get('/shop/:slug', async (c) => {
   gtag('js', new Date());
   gtag('config', 'G-1N9ZQRHLJ0');
 </script>
+${SB_TRACKER_SCRIPT}
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${_pageTitle}</title>
 <meta name="description" content="${_metaDesc}">
@@ -3657,6 +3863,7 @@ app.get('/video/:id', async (c) => {
   gtag('js', new Date());
   gtag('config', 'G-1N9ZQRHLJ0');
 </script>
+${SB_TRACKER_SCRIPT}
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${title} | Seoul Beauty Trip</title>
 <meta name="description" content="${desc.slice(0,155)}">
@@ -4039,6 +4246,7 @@ body{background:#0f0f12;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
   gtag('js', new Date());
   gtag('config', 'G-1N9ZQRHLJ0');
 </script>
+${SB_TRACKER_SCRIPT}
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${titleMain} | Seoul Beauty Trip</title>
 <meta name="description" content="${metaDesc}">
@@ -4544,6 +4752,7 @@ app.get('/shops', async (c) => {
   gtag('js', new Date());
   gtag('config', 'G-1N9ZQRHLJ0');
 </script>
+${SB_TRACKER_SCRIPT}
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Seoul Beauty Catalog \u2014 All K-Beauty Shops | Seoul Beauty Trip</title>
 <meta name="description" content="Browse all Korean beauty salons in Seoul \u2014 foreigner-friendly with English support.">
@@ -8437,6 +8646,47 @@ function renderShopPanel(cat) {
 </html>`
 
 // ════════════════════════════════════════════
+// ── SB 방문자 트래커 스니펫 ──
+const SB_TRACKER_SCRIPT = `<script>
+(function(){
+  function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+  var vid=localStorage.getItem('_sb_vid');if(!vid){vid=uid();localStorage.setItem('_sb_vid',vid);}
+  var sid=sessionStorage.getItem('_sb_sid');if(!sid){sid=uid();sessionStorage.setItem('_sb_sid',sid);}
+  window._sbVid=vid;window._sbSid=sid;
+  function send(ev,ex){
+    var d=Object.assign({session_id:sid,visitor_id:vid,event:ev,page:location.pathname,referrer:document.referrer},ex||{});
+    var b=JSON.stringify(d);
+    navigator.sendBeacon?navigator.sendBeacon('/api/track',b):fetch('/api/track',{method:'POST',body:b,headers:{'Content-Type':'application/json'},keepalive:true}).catch(function(){});
+  }
+  send('page_view');
+  var _t=Date.now();
+  window.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden')send('page_exit',{duration:Math.round((Date.now()-_t)/1000)});});
+  var _ms=0,_st;
+  window.addEventListener('scroll',function(){clearTimeout(_st);_st=setTimeout(function(){
+    var p=Math.round((window.scrollY+window.innerHeight)/Math.max(document.body.scrollHeight,1)*100);
+    if(p>_ms){_ms=p;if(p>=25&&p%25===0)send('scroll_depth',{scroll_pct:p});}
+  },400);},{passive:true});
+  document.addEventListener('click',function(e){
+    var el=e.target.closest('a,button,[data-track]');if(!el)return;
+    var h=el.href||'';
+    if(h.includes('wa.me')||h.includes('whatsapp')){
+      var sn=el.dataset.shopName||el.closest('[data-shop-name]')?.dataset.shopName||'';
+      var si=el.dataset.shopId||el.closest('[data-shop-id]')?.dataset.shopId||'';
+      send('wa_click',{target:h.slice(0,120),shop_name:sn,shop_id:si});
+    }else if(el.dataset.track==='shop'||el.closest('[data-track="shop"]')){
+      var c=el.closest('[data-shop-name]');send('shop_click',{target:el.href||'',shop_name:c?.dataset.shopName||''});
+    }else if(el.dataset.track==='video'){send('video_click',{target:el.dataset.vidId||''});}
+  },true);
+  window._sbTrackVideo=function(id,sn){send('video_play',{target:id,shop_name:sn||''});};
+  if(location.pathname.startsWith('/shop/')){
+    setTimeout(function(){var sn=document.querySelector('.sp-name')?.textContent?.trim()||document.title.split('|')[0].trim();send('shop_view',{target:location.pathname.replace('/shop/',''),shop_name:sn});},300);
+  }
+  window._sbSearch=function(q){send('search',{value:q});};
+  window._sbFilter=function(v){send('filter_click',{value:v});};
+})();
+<\/script>`
+
+// ════════════════════════════════════════════
 const ADMIN_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8503,6 +8753,77 @@ textarea{height:80px;resize:none}
 .bdg-completed{background:rgba(139,92,246,.2);color:#a78bfa}
 .bdg-cancelled{background:rgba(239,68,68,.2);color:#ef4444}
 .bdg-cat{background:rgba(255,77,141,.15);color:var(--pk)}
+/* ── VISITORS TAB ── */
+.vs-stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.vs-stat{background:var(--cd);border:1px solid rgba(255,255,255,.07);border-radius:13px;padding:14px 12px;text-align:center}
+.vs-stat-val{font-size:22px;font-weight:900;margin-bottom:3px}
+.vs-stat-lbl{font-size:10px;color:rgba(255,255,255,.4);font-weight:600;letter-spacing:.5px;text-transform:uppercase}
+.vs-funnel{display:flex;gap:0;margin-bottom:16px;border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.08)}
+.vs-funnel-step{flex:1;padding:12px 8px;text-align:center;background:var(--cd);border-right:1px solid rgba(255,255,255,.06)}
+.vs-funnel-step:last-child{border-right:none}
+.vs-funnel-n{font-size:20px;font-weight:900;color:#fff}
+.vs-funnel-l{font-size:9px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+.vs-funnel-pct{font-size:11px;font-weight:700;margin-top:4px}
+.vs-filters{display:flex;gap:8px;margin-bottom:14px;align-items:center;flex-wrap:wrap}
+.vs-filter-btn{padding:6px 14px;border-radius:20px;border:1px solid rgba(255,255,255,.12);background:transparent;color:rgba(255,255,255,.55);font-size:11px;font-weight:700;cursor:pointer;transition:all .2s}
+.vs-filter-btn.on{background:var(--pk);border-color:var(--pk);color:#fff}
+.vs-list{display:flex;flex-direction:column;gap:8px}
+.vs-row{background:var(--cd);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:13px 14px;cursor:pointer;transition:border-color .2s;display:flex;align-items:flex-start;gap:12px}
+.vs-row:hover{border-color:rgba(255,77,141,.4)}
+.vs-row.expanded{border-color:rgba(255,77,141,.5)}
+.vs-row-left{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,rgba(255,77,141,.3),rgba(155,89,182,.3));display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px}
+.vs-row-body{flex:1;min-width:0}
+.vs-row-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;gap:8px}
+.vs-row-id{font-size:12px;font-weight:700;color:#fff}
+.vs-row-time{font-size:10px;color:rgba(255,255,255,.35)}
+.vs-row-badges{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:5px}
+.vs-badge{padding:2px 7px;border-radius:6px;font-size:9.5px;font-weight:800;letter-spacing:.3px}
+.vs-badge-wa{background:rgba(37,211,102,.18);color:#34d399}
+.vs-badge-shop{background:rgba(255,77,141,.15);color:var(--pk)}
+.vs-badge-vid{background:rgba(139,92,246,.18);color:#a78bfa}
+.vs-badge-mobile{background:rgba(59,130,246,.15);color:#60a5fa}
+.vs-badge-new{background:rgba(251,191,36,.15);color:#fbbf24}
+.vs-row-meta{font-size:10.5px;color:rgba(255,255,255,.4);display:flex;gap:10px;flex-wrap:wrap}
+.vs-row-meta span{display:flex;align-items:center;gap:3px}
+/* 타임라인 */
+.vs-timeline{padding:14px 0 4px;border-top:1px solid rgba(255,255,255,.06);margin-top:10px;display:none}
+.vs-timeline.open{display:block}
+.vs-tl-item{display:flex;gap:10px;margin-bottom:8px;align-items:flex-start}
+.vs-tl-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.vs-tl-dot.ev-page_view{background:#3b82f6}
+.vs-tl-dot.ev-shop_view{background:var(--pk)}
+.vs-tl-dot.ev-wa_click{background:#34d399}
+.vs-tl-dot.ev-video_play{background:#a78bfa}
+.vs-tl-dot.ev-scroll_depth{background:#f59e0b}
+.vs-tl-dot.ev-page_exit{background:#6b7280}
+.vs-tl-dot.ev-shop_click{background:#fb923c}
+.vs-tl-dot.ev-search{background:#67e8f9}
+.vs-tl-dot.ev-filter_click{background:#86efac}
+.vs-tl-line{width:1px;background:rgba(255,255,255,.08);margin-left:3.5px;flex-shrink:0;align-self:stretch}
+.vs-tl-content{flex:1;min-width:0}
+.vs-tl-ev{font-size:11px;font-weight:700;color:#fff;margin-bottom:1px}
+.vs-tl-detail{font-size:10px;color:rgba(255,255,255,.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vs-tl-time{font-size:9.5px;color:rgba(255,255,255,.25);flex-shrink:0;margin-top:2px}
+/* 인기 업체 리스트 */
+.vs-top-shop{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.vs-top-shop:last-child{border:none}
+.vs-top-shop-rank{width:20px;font-size:12px;font-weight:900;color:rgba(255,255,255,.3);flex-shrink:0;text-align:center}
+.vs-top-shop-bar{flex:1;background:rgba(255,77,141,.1);border-radius:4px;height:5px;overflow:hidden}
+.vs-top-shop-fill{height:100%;background:linear-gradient(90deg,var(--pk),var(--pu));border-radius:4px;transition:width .5s}
+/* 시간대 차트 */
+.vs-hour-bars{display:flex;gap:3px;align-items:flex-end;height:60px;padding-bottom:4px}
+.vs-hour-bar{flex:1;background:rgba(255,77,141,.25);border-radius:3px 3px 0 0;min-height:3px;transition:height .3s;cursor:default}
+.vs-hour-bar:hover{background:var(--pk)}
+.vs-hour-labels{display:flex;gap:3px;margin-top:2px}
+.vs-hour-label{flex:1;font-size:8px;color:rgba(255,255,255,.25);text-align:center}
+/* VS day / filter buttons */
+.vs-day-btn{padding:5px 14px;border-radius:20px;border:1px solid rgba(255,255,255,.14);background:transparent;color:rgba(255,255,255,.45);font-size:11px;font-weight:700;cursor:pointer;transition:all .2s}
+.vs-day-btn-active,.vs-day-btn.active{background:rgba(99,102,241,.35);border-color:rgba(99,102,241,.6);color:#c7d2fe}
+.vs-filter-btn-active,.vs-filter-btn.active{background:var(--pk);border-color:var(--pk);color:#fff}
+/* VS funnel arrow */
+.vs-funnel-arrow{display:flex;align-items:center;color:rgba(255,255,255,.2);font-size:14px;padding:0 4px}
+.vs-funnel-num{font-size:20px;font-weight:900;color:#fff}
+.vs-funnel-lbl{font-size:10px;color:rgba(255,255,255,.4);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
 /* SHOP CARD */
 .shop-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px;display:flex;gap:14px;align-items:flex-start;transition:border-color .2s}
 .shop-card:hover{border-color:rgba(255,77,141,.4)}
@@ -8546,7 +8867,8 @@ textarea{height:80px;resize:none}
 
 <div class="tabs">
   <div class="tab on" data-tab="dashboard"><i class="fas fa-chart-bar"></i> 대시보드</div>
-  <div class="tab" data-tab="analytics"><i class="fas fa-chart-line"></i> 방문자 분석</div>
+  <div class="tab" data-tab="visitors"><i class="fas fa-users"></i> 방문자 행동 <span id="vs-live-dot" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#34d399;vertical-align:middle;margin-left:2px;animation:pulse 1.5s infinite"></span></div>
+  <div class="tab" data-tab="analytics"><i class="fas fa-chart-line"></i> 트래픽 분석</div>
   <div class="tab" data-tab="bookings"><i class="fas fa-calendar-check"></i> 예약관리 <span style="font-size:9px;background:rgba(251,191,36,.2);color:#fbbf24;border-radius:10px;padding:1px 5px;vertical-align:middle">준비중</span></div>
   <div class="tab" data-tab="shops"><i class="fas fa-store"></i> 업체 · 영상</div>
   <div class="tab" data-tab="blog"><i class="fas fa-blog"></i> 블로그</div>
@@ -9363,6 +9685,129 @@ textarea{height:80px;resize:none}
   </div>
 </div>
 
+<!-- ══════════════════════════════════════════
+     방문자 행동 분석 탭
+══════════════════════════════════════════ -->
+<div class="tab-content" id="tab-visitors">
+
+  <!-- 상단: 날짜 필터 + 새로고침 -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+    <div style="display:flex;gap:6px">
+      <button onclick="setVsDays(1)"  id="vs-d1"  class="vs-day-btn vs-day-btn-active">오늘</button>
+      <button onclick="setVsDays(7)"  id="vs-d7"  class="vs-day-btn">7일</button>
+      <button onclick="setVsDays(30)" id="vs-d30" class="vs-day-btn">30일</button>
+    </div>
+    <button onclick="refreshVisitors()" style="padding:6px 14px;background:rgba(99,102,241,.18);border:1px solid rgba(99,102,241,.35);border-radius:8px;color:#a5b4fc;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px">
+      <i class="fas fa-sync-alt" id="vs-refresh-icon"></i> 새로고침
+    </button>
+  </div>
+
+  <!-- 통계 카드 6개 -->
+  <div class="vs-stat-grid">
+    <div class="vs-stat">
+      <div class="vs-stat-val" id="vs-s-visitors">—</div>
+      <div class="vs-stat-lbl"><i class="fas fa-users"></i> 순방문자</div>
+    </div>
+    <div class="vs-stat">
+      <div class="vs-stat-val" id="vs-s-sessions">—</div>
+      <div class="vs-stat-lbl"><i class="fas fa-layer-group"></i> 세션</div>
+    </div>
+    <div class="vs-stat">
+      <div class="vs-stat-val" id="vs-s-avgtime">—</div>
+      <div class="vs-stat-lbl"><i class="fas fa-clock"></i> 평균 체류</div>
+    </div>
+    <div class="vs-stat">
+      <div class="vs-stat-val" id="vs-s-wa">—</div>
+      <div class="vs-stat-lbl"><i class="fab fa-whatsapp" style="color:#25d366"></i> WA 클릭</div>
+    </div>
+    <div class="vs-stat">
+      <div class="vs-stat-val" id="vs-s-scroll">—</div>
+      <div class="vs-stat-lbl"><i class="fas fa-arrows-alt-v"></i> 평균 스크롤</div>
+    </div>
+    <div class="vs-stat">
+      <div class="vs-stat-val" id="vs-s-pps">—</div>
+      <div class="vs-stat-lbl"><i class="fas fa-file-alt"></i> 페이지/세션</div>
+    </div>
+  </div>
+
+  <!-- 전환 퍼널 -->
+  <div class="card" style="margin-bottom:14px">
+    <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px">
+      <i class="fas fa-filter" style="margin-right:6px;color:#a78bfa"></i>전환 퍼널
+    </div>
+    <div class="vs-funnel" id="vs-funnel">
+      <div class="vs-funnel-step" id="vsf-visit">
+        <div class="vs-funnel-num">—</div>
+        <div class="vs-funnel-lbl">방문</div>
+        <div class="vs-funnel-pct"></div>
+      </div>
+      <div class="vs-funnel-arrow"><i class="fas fa-chevron-right"></i></div>
+      <div class="vs-funnel-step" id="vsf-shop">
+        <div class="vs-funnel-num">—</div>
+        <div class="vs-funnel-lbl">업체 조회</div>
+        <div class="vs-funnel-pct" id="vsf-shop-pct"></div>
+      </div>
+      <div class="vs-funnel-arrow"><i class="fas fa-chevron-right"></i></div>
+      <div class="vs-funnel-step" id="vsf-wa">
+        <div class="vs-funnel-num">—</div>
+        <div class="vs-funnel-lbl">WA 클릭</div>
+        <div class="vs-funnel-pct" id="vsf-wa-pct"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 디바이스 + 인기 업체 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+    <!-- 디바이스 분포 -->
+    <div class="card">
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px">
+        <i class="fas fa-mobile-alt" style="margin-right:6px;color:#60a5fa"></i>디바이스
+      </div>
+      <div id="vs-devices" style="display:flex;flex-direction:column;gap:7px"></div>
+    </div>
+    <!-- 인기 업체 TOP5 -->
+    <div class="card">
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px">
+        <i class="fas fa-store" style="margin-right:6px;color:#f472b6"></i>인기 업체 TOP5
+      </div>
+      <div id="vs-top-shops" style="display:flex;flex-direction:column;gap:6px"></div>
+    </div>
+  </div>
+
+  <!-- 시간대별 방문 바 차트 -->
+  <div class="card" style="margin-bottom:14px">
+    <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px">
+      <i class="fas fa-chart-bar" style="margin-right:6px;color:#34d399"></i>시간대별 방문 (0~23시)
+    </div>
+    <div class="vs-hour-bars" id="vs-hour-bars"></div>
+    <div class="vs-hour-labels" id="vs-hour-labels"></div>
+  </div>
+
+  <!-- 방문자 리스트 필터 -->
+  <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+    <button onclick="vsSetFilter('all')"    id="vsf-all"    class="vs-filter-btn vs-filter-btn-active">전체</button>
+    <button onclick="vsSetFilter('wa')"     id="vsf-wa-btn" class="vs-filter-btn"><i class="fab fa-whatsapp"></i> WA 클릭</button>
+    <button onclick="vsSetFilter('shop')"   id="vsf-shop-btn" class="vs-filter-btn"><i class="fas fa-store"></i> 업체 조회</button>
+    <button onclick="vsSetFilter('video')"  id="vsf-vid-btn" class="vs-filter-btn"><i class="fas fa-play"></i> 영상 시청</button>
+    <button onclick="vsSetFilter('mobile')" id="vsf-mob-btn" class="vs-filter-btn"><i class="fas fa-mobile-alt"></i> 모바일</button>
+  </div>
+
+  <!-- 방문자 리스트 -->
+  <div id="vs-list">
+    <div style="text-align:center;padding:30px;color:rgba(255,255,255,.25);font-size:13px">
+      <i class="fas fa-circle-notch fa-spin" style="font-size:20px;margin-bottom:8px;display:block"></i>
+      데이터 로딩 중...
+    </div>
+  </div>
+
+  <!-- 더보기 버튼 -->
+  <div style="text-align:center;margin-top:10px">
+    <button id="vs-more-btn" onclick="vsLoadMore()" style="display:none;padding:8px 24px;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);border-radius:10px;color:#a5b4fc;font-size:12px;cursor:pointer">
+      더 보기 <i class="fas fa-chevron-down"></i>
+    </button>
+  </div>
+</div>
+
 <script>
 var shops=[], videos=[], bookings=[];
 
@@ -9415,6 +9860,7 @@ document.querySelectorAll('.tab').forEach(function(t){
     document.getElementById('tab-' + tabId).classList.add('on');
     if(tabId === 'blog') loadBlogList();
     if(tabId === 'analytics') loadAnalytics(7);
+    if(tabId === 'visitors'){ loadVisitorStats(_vsDays); loadVisitors(); }
   });
 });
 
@@ -9427,6 +9873,334 @@ document.querySelectorAll('.quick-topic-btn').forEach(function(btn){
     document.getElementById('bl-kw').value = btn.getAttribute('data-kw') || '';
   });
 });
+
+// ══════════════════════════════════════════════════════
+// 방문자 행동 분석 탭 — JavaScript
+// ══════════════════════════════════════════════════════
+var _vsDays = 1;
+var _vsFilter = 'all';
+var _vsOffset = 0;
+var _vsAllSessions = [];
+var _vsFiltered = [];
+
+// 날짜 버튼 전환
+window.setVsDays = function(d){
+  _vsDays = d;
+  ['1','7','30'].forEach(function(n){
+    var btn = document.getElementById('vs-d'+n);
+    if(!btn) return;
+    if(+n === d){ btn.classList.add('vs-day-btn-active'); btn.classList.add('active'); }
+    else { btn.classList.remove('vs-day-btn-active'); btn.classList.remove('active'); }
+  });
+  loadVisitorStats(d);
+  loadVisitors();
+};
+
+// 필터 버튼 전환
+window.vsSetFilter = function(f){
+  _vsFilter = f;
+  _vsOffset = 0;
+  var btnMap = { all:'vsf-all', wa:'vsf-wa-btn', shop:'vsf-shop-btn', video:'vsf-vid-btn', mobile:'vsf-mob-btn' };
+  Object.keys(btnMap).forEach(function(k){
+    var btn = document.getElementById(btnMap[k]);
+    if(!btn) return;
+    if(k === f){ btn.classList.add('vs-filter-btn-active'); btn.classList.add('active'); }
+    else { btn.classList.remove('vs-filter-btn-active'); btn.classList.remove('active'); }
+  });
+  renderVsList();
+};
+
+window.refreshVisitors = function(){
+  var ic = document.getElementById('vs-refresh-icon');
+  if(ic){ ic.classList.add('fa-spin'); }
+  loadVisitorStats(_vsDays);
+  loadVisitors().then(function(){
+    if(ic){ ic.classList.remove('fa-spin'); }
+  });
+};
+
+// ── 통계 로드 ──
+window.loadVisitorStats = async function(days){
+  try {
+    var tk = _GSK_TOKEN || localStorage.getItem('_gsk_token') || '';
+    var res = await fetch('/api/visitors-stats?days='+(days||1), {
+      headers: { 'x-admin-token': tk }
+    });
+    if(!res.ok) return;
+    var d = await res.json();
+    // 통계 카드
+    function setText(id, v){ var el=document.getElementById(id); if(el) el.textContent=v; }
+    setText('vs-s-visitors', (d.totals&&d.totals.uniqueVisitors!=null)?d.totals.uniqueVisitors:'—');
+    setText('vs-s-sessions', (d.totals&&d.totals.sessions!=null)?d.totals.sessions:'—');
+    var avgT = (d.totals&&d.totals.avgDuration!=null) ? fmtDur(d.totals.avgDuration) : '—';
+    setText('vs-s-avgtime', avgT);
+    setText('vs-s-wa', (d.totals&&d.totals.waClicks!=null)?d.totals.waClicks:'—');
+    var avgScroll = (d.totals&&d.totals.avgScroll!=null) ? d.totals.avgScroll+'%' : '—';
+    setText('vs-s-scroll', avgScroll);
+    var pps = (d.totals&&d.totals.pagesPerSession!=null) ? (+d.totals.pagesPerSession).toFixed(1) : '—';
+    setText('vs-s-pps', pps);
+
+    // 퍼널
+    var fv = (d.waFunnel&&d.waFunnel.visits)||0;
+    var fs = (d.waFunnel&&d.waFunnel.shopViews)||0;
+    var fw = (d.waFunnel&&d.waFunnel.waClicks)||0;
+    var vsVisit=document.getElementById('vsf-visit');
+    if(vsVisit) vsVisit.querySelector('.vs-funnel-num').textContent=fv;
+    var vsShop=document.getElementById('vsf-shop');
+    if(vsShop){
+      vsShop.querySelector('.vs-funnel-num').textContent=fs;
+      document.getElementById('vsf-shop-pct').textContent = fv>0 ? Math.round(fs/fv*100)+'%' : '—';
+      document.getElementById('vsf-shop-pct').style.color = '#a78bfa';
+    }
+    var vsWa=document.getElementById('vsf-wa');
+    if(vsWa){
+      vsWa.querySelector('.vs-funnel-num').textContent=fw;
+      document.getElementById('vsf-wa-pct').textContent = fv>0 ? Math.round(fw/fv*100)+'%' : '—';
+      document.getElementById('vsf-wa-pct').style.color = '#34d399';
+    }
+
+    // 디바이스 분포
+    var devEl = document.getElementById('vs-devices');
+    if(devEl && d.byDevice){
+      var total = d.byDevice.reduce(function(s,x){return s+(x.count||0);},0);
+      devEl.innerHTML = d.byDevice.map(function(dv){
+        var pct = total>0 ? Math.round(dv.count/total*100) : 0;
+        var ico = dv.device==='mobile'?'fa-mobile-alt':dv.device==='tablet'?'fa-tablet-alt':'fa-desktop';
+        var color = dv.device==='mobile'?'#f472b6':dv.device==='tablet'?'#fb923c':'#60a5fa';
+        return '<div style="display:flex;align-items:center;gap:8px">'
+          +'<i class="fas '+ico+'" style="color:'+color+';width:14px;font-size:12px"></i>'
+          +'<div style="flex:1">'
+          +'<div style="display:flex;justify-content:space-between;margin-bottom:3px">'
+          +'<span style="font-size:11px;color:rgba(255,255,255,.65);text-transform:capitalize">'+dv.device+'</span>'
+          +'<span style="font-size:11px;font-weight:700;color:#fff">'+dv.count+' <span style="color:rgba(255,255,255,.35);font-weight:400">('+pct+'%)</span></span>'
+          +'</div>'
+          +'<div style="height:4px;background:rgba(255,255,255,.08);border-radius:2px">'
+          +'<div style="height:4px;background:'+color+';border-radius:2px;width:'+pct+'%;transition:width .4s"></div>'
+          +'</div></div></div>';
+      }).join('');
+    }
+
+    // 인기 업체 TOP5
+    var tsEl = document.getElementById('vs-top-shops');
+    if(tsEl && d.topShops && d.topShops.length){
+      var maxV = d.topShops[0].views||1;
+      tsEl.innerHTML = d.topShops.slice(0,5).map(function(s,i){
+        var bar = Math.round((s.views/maxV)*100);
+        return '<div class="vs-top-shop">'
+          +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">'
+          +'<span style="font-size:11px;color:rgba(255,255,255,.7);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:130px">'
+          +'<span style="color:#f472b6;margin-right:5px;font-weight:900">#'+(i+1)+'</span>'
+          +escHtml(s.shopName||s.shopId||'?')+'</span>'
+          +'<span style="font-size:11px;font-weight:700;color:#fff;flex-shrink:0;margin-left:4px">'+s.views+'</span>'
+          +'</div>'
+          +'<div style="height:4px;background:rgba(255,255,255,.08);border-radius:2px">'
+          +'<div style="height:4px;background:linear-gradient(90deg,#f472b6,#a78bfa);border-radius:2px;width:'+bar+'%;transition:width .4s"></div>'
+          +'</div></div>';
+      }).join('');
+    } else if(tsEl){
+      tsEl.innerHTML='<div style="font-size:11px;color:rgba(255,255,255,.25);text-align:center;padding:10px">데이터 없음</div>';
+    }
+
+    // 시간대별 바 차트
+    var hbEl = document.getElementById('vs-hour-bars');
+    var hlEl = document.getElementById('vs-hour-labels');
+    if(hbEl && d.hourly){
+      var maxH = Math.max.apply(null, d.hourly.map(function(x){return x.count||0;}))||1;
+      hbEl.innerHTML = d.hourly.map(function(h){
+        var ht = Math.max(3, Math.round((h.count/maxH)*60));
+        return '<div class="vs-hour-bar" style="height:'+ht+'px" title="'+h.hour+'시 '+h.count+'명"></div>';
+      }).join('');
+      if(hlEl) hlEl.innerHTML = d.hourly.map(function(h){
+        return '<div class="vs-hour-label">'+(h.hour%6===0?h.hour:'')+'</div>';
+      }).join('');
+    }
+  } catch(e){ console.warn('visitors-stats err',e); }
+};
+
+// ── 방문자 세션 리스트 로드 ──
+window.loadVisitors = async function(){
+  var tk = _GSK_TOKEN || localStorage.getItem('_gsk_token') || '';
+  var listEl = document.getElementById('vs-list');
+  if(listEl) listEl.innerHTML = '<div style="text-align:center;padding:30px;color:rgba(255,255,255,.25);font-size:13px"><i class="fas fa-circle-notch fa-spin" style="font-size:20px;margin-bottom:8px;display:block"></i>로딩 중...</div>';
+  try {
+    var res = await fetch('/api/visitors?limit=200&days='+_vsDays, { headers:{'x-admin-token':tk} });
+    if(!res.ok){ if(listEl) listEl.innerHTML='<div style="padding:20px;text-align:center;color:#f87171;font-size:13px">인증 실패 — 토큰 확인</div>'; return; }
+    var data = await res.json();
+    _vsAllSessions = data.sessions || [];
+    _vsOffset = 0;
+    renderVsList();
+  } catch(e){
+    if(listEl) listEl.innerHTML='<div style="padding:20px;text-align:center;color:#f87171;font-size:13px">오류: '+escHtml(e.message)+'</div>';
+  }
+};
+
+// 필터 적용 후 렌더링
+function renderVsList(){
+  _vsFiltered = _vsAllSessions.filter(function(s){
+    if(_vsFilter==='wa') return s.waClicked;
+    if(_vsFilter==='shop') return s.shopViews>0;
+    if(_vsFilter==='video') return s.videoPlays>0;
+    if(_vsFilter==='mobile') return s.device==='mobile';
+    return true;
+  });
+  var listEl = document.getElementById('vs-list');
+  if(!listEl) return;
+  if(!_vsFiltered.length){
+    listEl.innerHTML='<div style="text-align:center;padding:30px;color:rgba(255,255,255,.25);font-size:13px"><i class="fas fa-inbox" style="font-size:24px;display:block;margin-bottom:8px"></i>해당 조건의 방문자 없음</div>';
+    var mb = document.getElementById('vs-more-btn'); if(mb) mb.style.display='none';
+    return;
+  }
+  var PAGE=20;
+  var chunk = _vsFiltered.slice(0, _vsOffset+PAGE);
+  listEl.innerHTML = chunk.map(function(s){ return buildVsRow(s); }).join('');
+  var mb = document.getElementById('vs-more-btn');
+  if(mb) mb.style.display = (_vsFiltered.length > _vsOffset+PAGE) ? 'inline-flex' : 'none';
+}
+
+window.vsLoadMore = function(){
+  _vsOffset += 20;
+  var PAGE=20;
+  var chunk = _vsFiltered.slice(0, _vsOffset+PAGE);
+  var listEl = document.getElementById('vs-list');
+  if(listEl) listEl.innerHTML = chunk.map(function(s){ return buildVsRow(s); }).join('');
+  var mb = document.getElementById('vs-more-btn');
+  if(mb) mb.style.display = (_vsFiltered.length > _vsOffset+PAGE) ? 'inline-flex' : 'none';
+};
+
+// 방문자 행 HTML 생성
+function buildVsRow(s){
+  var badges = '';
+  if(s.waClicked) badges += '<span class="vs-badge vs-badge-wa"><i class="fab fa-whatsapp"></i> WA</span>';
+  if(s.shopViews>0) badges += '<span class="vs-badge vs-badge-shop"><i class="fas fa-store"></i> '+s.shopViews+'</span>';
+  if(s.videoPlays>0) badges += '<span class="vs-badge vs-badge-vid"><i class="fas fa-play"></i> '+s.videoPlays+'</span>';
+  if(s.device==='mobile') badges += '<span class="vs-badge vs-badge-mobile"><i class="fas fa-mobile-alt"></i></span>';
+
+  var devIco = s.device==='mobile'?'fa-mobile-alt':s.device==='tablet'?'fa-tablet-alt':'fa-desktop';
+  var devColor = s.device==='mobile'?'#f472b6':s.device==='tablet'?'#fb923c':'#60a5fa';
+  var dur = s.avgDuration!=null ? fmtDur(s.avgDuration) : '—';
+  var ago = timeAgo(s.startedAt);
+  var pgCount = s.pageCount||0;
+  var maxScroll = s.maxScroll||0;
+
+  return '<div class="vs-row" id="vsr-'+s.sessionId+'">'
+    +'<div class="vs-row-left" onclick="toggleVsTimeline(\''+s.sessionId+'\')" style="cursor:pointer">'
+    +'<i class="fas '+devIco+'" style="color:'+devColor+';font-size:16px;margin-right:8px;flex-shrink:0"></i>'
+    +'<div class="vs-row-body">'
+    +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+    +'<span style="font-size:12px;font-weight:700;color:#e2e8f0;font-family:monospace">'+s.visitorId.slice(-8)+'</span>'
+    +'<span style="font-size:10px;color:rgba(255,255,255,.3)">'+ago+'</span>'
+    +'</div>'
+    +'<div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px">'
+    +(s.firstPage||'/') +'</div>'
+    +'<div style="display:flex;gap:10px;margin-top:5px;flex-wrap:wrap">'
+    +'<span style="font-size:10px;color:rgba(255,255,255,.4)"><i class="fas fa-file-alt" style="color:rgba(255,255,255,.25);margin-right:3px"></i>'+pgCount+'p</span>'
+    +'<span style="font-size:10px;color:rgba(255,255,255,.4)"><i class="fas fa-clock" style="color:rgba(255,255,255,.25);margin-right:3px"></i>'+dur+'</span>'
+    +'<span style="font-size:10px;color:rgba(255,255,255,.4)"><i class="fas fa-arrows-alt-v" style="color:rgba(255,255,255,.25);margin-right:3px"></i>'+maxScroll+'%</span>'
+    +(s.country?'<span style="font-size:10px;color:rgba(255,255,255,.4)"><i class="fas fa-map-marker-alt" style="color:rgba(255,255,255,.25);margin-right:3px"></i>'+escHtml(s.country)+'</span>':'')
+    +'</div>'
+    +'<div class="vs-row-badges" style="margin-top:6px">'+badges+'</div>'
+    +'</div>'
+    +'<i class="fas fa-chevron-down vs-row-chevron" style="margin-left:auto;color:rgba(255,255,255,.25);font-size:11px;flex-shrink:0;transition:transform .2s"></i>'
+    +'</div>'
+    +'<div class="vs-timeline" id="vstl-'+s.sessionId+'" style="display:none;padding:12px 0 4px 24px;border-top:1px solid rgba(255,255,255,.05);margin-top:8px">'
+    +'<div style="text-align:center;padding:10px;color:rgba(255,255,255,.25);font-size:11px"><i class="fas fa-circle-notch fa-spin"></i> 로딩...</div>'
+    +'</div>'
+    +'</div>';
+}
+
+// 타임라인 토글
+window.toggleVsTimeline = async function(sid){
+  var row = document.getElementById('vsr-'+sid);
+  var tl = document.getElementById('vstl-'+sid);
+  var chev = row ? row.querySelector('.vs-row-chevron') : null;
+  if(!tl) return;
+  var isOpen = tl.style.display !== 'none';
+  if(isOpen){
+    tl.style.display='none';
+    if(chev) chev.style.transform='';
+    return;
+  }
+  tl.style.display='block';
+  if(chev) chev.style.transform='rotate(180deg)';
+  if(tl.dataset.loaded) return; // 이미 로드됨
+  tl.dataset.loaded = '1';
+  var tk = _GSK_TOKEN || localStorage.getItem('_gsk_token') || '';
+  try {
+    var res = await fetch('/api/visitors/'+sid, { headers:{'x-admin-token':tk} });
+    if(!res.ok){ tl.innerHTML='<div style="color:#f87171;font-size:11px;padding:8px">인증 실패</div>'; return; }
+    var data = await res.json();
+    var evs = data.events || [];
+    if(!evs.length){ tl.innerHTML='<div style="color:rgba(255,255,255,.25);font-size:11px;padding:8px">이벤트 없음</div>'; return; }
+    tl.innerHTML = '<div class="vs-tl-list">'+evs.map(function(ev,i){
+      return buildTlItem(ev, i===0 ? null : evs[i-1]);
+    }).join('')+'</div>';
+  } catch(e){
+    tl.innerHTML='<div style="color:#f87171;font-size:11px;padding:8px">오류: '+escHtml(e.message)+'</div>';
+  }
+};
+
+// 타임라인 아이템 HTML
+function buildTlItem(ev, prev){
+  var cfg = {
+    page_view:    { ico:'fa-eye',            color:'#60a5fa', label:'페이지 진입' },
+    page_exit:    { ico:'fa-door-open',      color:'#94a3b8', label:'페이지 이탈' },
+    scroll_depth: { ico:'fa-arrows-alt-v',   color:'#4ade80', label:'스크롤' },
+    wa_click:     { ico:'fa-whatsapp fab',   color:'#25d366', label:'WA 클릭' },
+    shop_view:    { ico:'fa-store',          color:'#f472b6', label:'업체 조회' },
+    shop_click:   { ico:'fa-hand-pointer',   color:'#fb923c', label:'업체 클릭' },
+    video_play:   { ico:'fa-play',           color:'#a78bfa', label:'영상 시청' },
+    search:       { ico:'fa-search',         color:'#fbbf24', label:'검색' },
+    filter_click: { ico:'fa-filter',         color:'#e879f9', label:'필터' }
+  };
+  var c = cfg[ev.event] || { ico:'fa-circle', color:'rgba(255,255,255,.3)', label:ev.event };
+  var iconClass = (ev.event==='wa_click') ? 'fab fa-whatsapp' : 'fas '+c.ico;
+  var ts = ev.createdAt ? new Date(ev.createdAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
+
+  // 경과시간 (이전 이벤트 대비)
+  var gap = '';
+  if(prev && ev.createdAt && prev.createdAt){
+    var diff = Math.round((new Date(ev.createdAt)-new Date(prev.createdAt))/1000);
+    if(diff>0) gap='<span style="font-size:9px;color:rgba(255,255,255,.2);margin-left:6px">+'+fmtDur(diff)+'</span>';
+  }
+
+  var detail = '';
+  if(ev.page && ev.event==='page_view') detail='<span style="font-size:10px;color:rgba(255,255,255,.45);margin-left:4px">'+escHtml(ev.page)+'</span>';
+  if(ev.event==='scroll_depth') detail='<span style="font-size:10px;color:'+c.color+';margin-left:4px;font-weight:700">'+ev.scrollPct+'%</span>';
+  if(ev.event==='page_exit' && ev.duration) detail='<span style="font-size:10px;color:rgba(255,255,255,.4);margin-left:4px">'+fmtDur(ev.duration)+'</span>';
+  if(ev.shopName) detail='<span style="font-size:10px;color:'+c.color+';margin-left:4px">'+escHtml(ev.shopName)+'</span>';
+  if(ev.value && ev.event==='search') detail='<span style="font-size:10px;color:#fbbf24;margin-left:4px">"'+escHtml(ev.value)+'"</span>';
+  if(ev.value && ev.event==='filter_click') detail='<span style="font-size:10px;color:#e879f9;margin-left:4px">'+escHtml(ev.value)+'</span>';
+
+  return '<div class="vs-tl-item">'
+    +'<div class="vs-tl-dot" style="background:'+c.color+'"><i class="'+iconClass+'" style="font-size:8px;color:#111"></i></div>'
+    +'<div class="vs-tl-content">'
+    +'<div style="display:flex;align-items:center;gap:0;flex-wrap:wrap">'
+    +'<span style="font-size:11px;font-weight:700;color:'+c.color+'">'+c.label+'</span>'
+    +detail+gap
+    +'</div>'
+    +'<div style="font-size:9px;color:rgba(255,255,255,.2);margin-top:2px">'+ts+'</div>'
+    +'</div></div>';
+}
+
+// ── 유틸 ──
+function fmtDur(sec){
+  sec = +sec||0;
+  if(sec<60) return sec+'초';
+  if(sec<3600) return Math.floor(sec/60)+'분 '+(sec%60)+'초';
+  return Math.floor(sec/3600)+'시간 '+Math.floor((sec%3600)/60)+'분';
+}
+function timeAgo(ts){
+  if(!ts) return '';
+  var diff = Math.floor((Date.now()-new Date(ts))/1000);
+  if(diff<60) return diff+'초 전';
+  if(diff<3600) return Math.floor(diff/60)+'분 전';
+  if(diff<86400) return Math.floor(diff/3600)+'시간 전';
+  return Math.floor(diff/86400)+'일 전';
+}
+function escHtml(s){
+  if(!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
 // ── 블로그 생성 ──
 window.genBlog = async function genBlog(){
