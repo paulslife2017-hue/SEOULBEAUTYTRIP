@@ -2375,6 +2375,63 @@ app.get('/api/visitors/:sessionId', async (c) => {
   }
 })
 
+// GET /api/visitors-live — 실시간 접속자 (최근 3분 내 active 세션)
+app.get('/api/visitors-live', async (c) => {
+  const auth = c.req.header('x-admin-token') || c.req.query('token') || ''
+  const token = c.env?.GSK_TOKEN || c.env?.gsk_token || ''
+  if (token && auth !== token) return c.json({ error: 'Unauthorized' }, 401)
+
+  try {
+    const sql = getDb(c.env)
+
+    // 최근 3분 이내 last_active인 세션 = 실시간 접속자
+    const liveSessions = await sql`
+      SELECT session_id, visitor_id, device,
+             (SELECT page FROM visitor_events WHERE session_id=vs.session_id ORDER BY created_at DESC LIMIT 1) AS current_page
+      FROM visitor_sessions vs
+      WHERE last_active >= NOW() - INTERVAL '3 minutes'
+      ORDER BY last_active DESC
+    `
+
+    // 현재 보고 있는 페이지별 집계
+    const pageMap: Record<string, number> = {}
+    let lastExitPage = ''
+    let lastExitDevice = ''
+    for (const s of liveSessions as any[]) {
+      const pg = s.current_page || '/'
+      pageMap[pg] = (pageMap[pg] || 0) + 1
+    }
+    const activePages = Object.entries(pageMap)
+      .map(([page, count]) => ({ page, count }))
+      .sort((a, b) => b.count - a.count)
+
+    // 최근 나가기 이벤트 (page_exit, 최근 10개)
+    const recentExits = await sql`
+      SELECT ve.id, ve.page, ve.duration, ve.created_at,
+             vs.device
+      FROM visitor_events ve
+      LEFT JOIN visitor_sessions vs ON vs.session_id = ve.session_id
+      WHERE ve.event = 'page_exit'
+      ORDER BY ve.created_at DESC
+      LIMIT 10
+    `
+    if ((recentExits as any[]).length > 0) {
+      lastExitPage = (recentExits as any[])[0]?.page || ''
+      lastExitDevice = (recentExits as any[])[0]?.device || ''
+    }
+
+    return c.json({
+      activeCount: liveSessions.length,
+      activePages,
+      lastExitPage,
+      lastExitDevice,
+      recentExits
+    })
+  } catch(e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+})
+
 // GET /api/visitors-stats — 요약 통계 (어드민)
 app.get('/api/visitors-stats', async (c) => {
   const auth = c.req.header('x-admin-token') || c.req.query('token') || ''
@@ -9834,6 +9891,30 @@ textarea{height:80px;resize:none}
     <div class="vs-hour-labels" id="vs-hour-labels"></div>
   </div>
 
+  <!-- 실시간 접속자 카드 -->
+  <div class="card" style="margin-bottom:14px;border-color:rgba(52,211,153,.2)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.08em;text-transform:uppercase">
+        <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#34d399;margin-right:6px;animation:pulse 1.5s infinite"></span>실시간 접속자
+      </div>
+      <div style="font-size:11px;color:rgba(255,255,255,.3)" id="vs-live-updated"></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <div style="text-align:center">
+        <div style="font-size:32px;font-weight:900;color:#34d399;line-height:1" id="vs-live-count">—</div>
+        <div style="font-size:10px;color:rgba(255,255,255,.35);margin-top:2px">현재 접속중</div>
+      </div>
+      <div id="vs-live-pages" style="flex:1;display:flex;flex-direction:column;gap:4px;min-width:0"></div>
+    </div>
+    <!-- 나가기 로그 -->
+    <div style="margin-top:10px;border-top:1px solid rgba(255,255,255,.06);padding-top:10px">
+      <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">
+        <i class="fas fa-door-open" style="color:#94a3b8;margin-right:4px"></i>최근 나가기 로그
+      </div>
+      <div id="vs-exit-log" style="display:flex;flex-direction:column;gap:3px;max-height:120px;overflow-y:auto"></div>
+    </div>
+  </div>
+
   <!-- 방문자 리스트 필터 -->
   <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
     <button onclick="vsSetFilter('all')"    id="vsf-all"    class="vs-filter-btn vs-filter-btn-active">전체</button>
@@ -9911,7 +9992,7 @@ document.querySelectorAll('.tab').forEach(function(t){
     document.getElementById('tab-' + tabId).classList.add('on');
     if(tabId === 'blog') loadBlogList();
     if(tabId === 'analytics') loadAnalytics(7);
-    if(tabId === 'visitors'){ loadVisitorStats(_vsDays); loadVisitors(); }
+    if(tabId === 'visitors'){ loadVisitorStats(_vsDays); loadVisitors(); startLivePolling(); }
   });
 });
 
@@ -10068,6 +10149,96 @@ window.loadVisitorStats = async function(days){
   } catch(e){ console.warn('visitors-stats err',e); }
 };
 
+// ══════════════════════════════════════════════════════
+// 실시간 접속자 + 나가기 로그
+// ══════════════════════════════════════════════════════
+var _vsExitLog = [];   // 최근 나가기 로그 (최대 30개)
+var _vsLiveTimer = null;
+
+async function loadLiveVisitors(){
+  var tk = _GSK_TOKEN || localStorage.getItem('_gsk_token') || '';
+  try {
+    // 최근 3분 이내 active 세션 = 실시간 접속자
+    var res = await fetch('/api/visitors-live', { headers:{'x-admin-token':tk} });
+    if(!res.ok) return;
+    var d = await res.json();
+
+    // 숫자 업데이트
+    var countEl = document.getElementById('vs-live-count');
+    if(countEl){
+      var prev = parseInt(countEl.textContent) || 0;
+      var next = d.activeCount || 0;
+      countEl.textContent = next;
+      countEl.style.color = next > 0 ? '#34d399' : 'rgba(255,255,255,.3)';
+      // 나가기 감지: 이전보다 줄었으면 exit 로그에 추가
+      if(prev > next && prev > 0){
+        var exitTime = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+        _vsExitLog.unshift({ time: exitTime, page: d.lastExitPage || '—', device: d.lastExitDevice || '—' });
+        if(_vsExitLog.length > 30) _vsExitLog.pop();
+        renderExitLog();
+      }
+    }
+
+    // 현재 보고 있는 페이지 목록
+    var pagesEl = document.getElementById('vs-live-pages');
+    if(pagesEl && d.activePages && d.activePages.length){
+      pagesEl.innerHTML = d.activePages.slice(0,5).map(function(p){
+        var pageName = (p.page||'/').replace('/shop/','shop/ ').replace('/best/','best/ ');
+        return '<div style="display:flex;align-items:center;gap:6px;font-size:11px">'
+          +'<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#34d399;flex-shrink:0"></span>'
+          +'<span style="color:rgba(255,255,255,.55);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">'+escHtml(pageName)+'</span>'
+          +'<span style="color:rgba(255,255,255,.25);flex-shrink:0">'+p.count+'명</span>'
+          +'</div>';
+      }).join('');
+    } else if(pagesEl){
+      pagesEl.innerHTML = '<span style="font-size:11px;color:rgba(255,255,255,.2)">현재 접속자 없음</span>';
+    }
+
+    // 업데이트 시각
+    var updEl = document.getElementById('vs-live-updated');
+    if(updEl) updEl.textContent = '갱신: '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+
+    // exit_log API에서 실제 나가기 이벤트도 반영
+    if(d.recentExits && d.recentExits.length){
+      d.recentExits.forEach(function(ex){
+        var already = _vsExitLog.some(function(l){ return l._id === ex.id; });
+        if(!already){
+          var exitTime = ex.created_at ? new Date(ex.created_at).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '—';
+          _vsExitLog.unshift({ _id: ex.id, time: exitTime, page: ex.page||'—', device: ex.device||'—', dur: ex.duration||0 });
+        }
+      });
+      _vsExitLog = _vsExitLog.slice(0,30);
+      renderExitLog();
+    }
+  } catch(e){ /* silent */ }
+}
+
+function renderExitLog(){
+  var el = document.getElementById('vs-exit-log');
+  if(!el) return;
+  if(!_vsExitLog.length){
+    el.innerHTML='<div style="font-size:10px;color:rgba(255,255,255,.2)">아직 나가기 이벤트 없음</div>';
+    return;
+  }
+  el.innerHTML = _vsExitLog.map(function(l){
+    var durStr = l.dur ? ' · '+fmtDur(l.dur) : '';
+    var devIco = l.device==='mobile'?'fa-mobile-alt':l.device==='tablet'?'fa-tablet-alt':'fa-desktop';
+    return '<div style="display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.04)">'
+      +'<i class="fas fa-door-open" style="color:#94a3b8;font-size:9px;flex-shrink:0"></i>'
+      +'<span style="font-size:9px;color:rgba(255,255,255,.25);flex-shrink:0">'+l.time+'</span>'
+      +'<i class="fas '+devIco+'" style="color:rgba(255,255,255,.2);font-size:9px;flex-shrink:0"></i>'
+      +'<span style="font-size:10px;color:rgba(255,255,255,.45);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">'+escHtml((l.page||'—').replace('/shop/','shop/ '))+'</span>'
+      +(durStr ? '<span style="font-size:9px;color:rgba(255,255,255,.25);flex-shrink:0">'+durStr+'</span>' : '')
+      +'</div>';
+  }).join('');
+}
+
+function startLivePolling(){
+  if(_vsLiveTimer) clearInterval(_vsLiveTimer);
+  loadLiveVisitors();
+  _vsLiveTimer = setInterval(loadLiveVisitors, 15000); // 15초마다 갱신
+}
+
 // ── 방문자 세션 리스트 로드 ──
 window.loadVisitors = async function(){
   var tk = _GSK_TOKEN || localStorage.getItem('_gsk_token') || '';
@@ -10082,7 +10253,26 @@ window.loadVisitors = async function(){
       return;
     }
     var data = await res.json();
-    _vsAllSessions = data.sessions || [];
+    // snake_case → camelCase 정규화 (Neon DB가 snake_case 반환)
+    _vsAllSessions = (data.sessions || []).map(function(s){
+      return {
+        sessionId:   s.session_id   || s.sessionId   || '',
+        visitorId:   s.visitor_id   || s.visitorId   || '',
+        firstPage:   s.first_page   || s.firstPage   || '/',
+        device:      s.device       || 'desktop',
+        country:     s.country      || '',
+        referrer:    s.referrer     || '',
+        ua:          s.ua           || '',
+        startedAt:   s.started_at   || s.startedAt   || '',
+        lastActive:  s.last_active  || s.lastActive  || '',
+        pageCount:   +(s.page_count  || s.pageCount  || 0),
+        maxScroll:   +(s.max_scroll  || s.maxScroll  || 0),
+        avgDuration: +(s.duration_sec|| s.avgDuration|| 0),
+        waClicked:   !!(s.did_wa     || s.waClicked),
+        shopViews:   +(s.did_shop    || s.shopViews  || 0),
+        videoPlays:  +(s.did_video   || s.videoPlays || 0),
+      };
+    });
     _vsOffset = 0;
     renderVsList();
   } catch(e){
