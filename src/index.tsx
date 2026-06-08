@@ -1267,6 +1267,13 @@ app.delete('/api/shops/:id', async (c) => {
   return c.json({ ok: true })
 })
 
+// 빈 레코드(name='') 일괄 삭제
+app.delete('/api/admin/cleanup-empty-shops', async (c) => {
+  const sql = getDb(c.env)
+  const result = await sql`DELETE FROM shops WHERE (name IS NULL OR TRIM(name) = '') RETURNING id`
+  return c.json({ ok: true, deleted: result.length, ids: result.map((r: any) => r.id) })
+})
+
 app.post('/api/videos', async (c) => {
   const sql = getDb(c.env)
   const body = await c.req.json()
@@ -11331,8 +11338,8 @@ function renderShops(){
   var catColors = {skincare:'#f472b6',makeup:'#c084fc',hair:'#60a5fa',headspa:'#67e8f9',nail:'#34d399',clinic:'#fb923c',spa:'#a78bfa'};
   var catLabels  = {skincare:'스킨케어',makeup:'메이크업',hair:'헤어',headspa:'헤드스파',nail:'네일',clinic:'클리닉',spa:'스파'};
 
-  // 업체명 알파벳 오름차순 정렬
-  var sortedShops = shops.slice().sort(function(a, b){
+  // 빈 레코드 필터링 + 업체명 알파벳 오름차순 정렬
+  var sortedShops = shops.filter(function(s){ return s.name && s.name.trim(); }).sort(function(a, b){
     return (a.name||'').toLowerCase().localeCompare((b.name||'').toLowerCase());
   });
   el.innerHTML = '<div style="display:grid;gap:10px">' + sortedShops.map(function(s){

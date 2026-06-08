@@ -3301,6 +3301,11 @@ app.delete("/api/shops/:id", async (c) => {
   await sql`DELETE FROM shops WHERE id=${c.req.param("id")}`;
   return c.json({ ok: true });
 });
+app.delete("/api/admin/cleanup-empty-shops", async (c) => {
+  const sql = getDb(c.env);
+  const result = await sql`DELETE FROM shops WHERE (name IS NULL OR TRIM(name) = '') RETURNING id`;
+  return c.json({ ok: true, deleted: result.length, ids: result.map((r) => r.id) });
+});
 app.post("/api/videos", async (c) => {
   const sql = getDb(c.env);
   const body = await c.req.json();
@@ -12921,8 +12926,8 @@ function renderShops(){
   var catColors = {skincare:'#f472b6',makeup:'#c084fc',hair:'#60a5fa',headspa:'#67e8f9',nail:'#34d399',clinic:'#fb923c',spa:'#a78bfa'};
   var catLabels  = {skincare:'\uC2A4\uD0A8\uCF00\uC5B4',makeup:'\uBA54\uC774\uD06C\uC5C5',hair:'\uD5E4\uC5B4',headspa:'\uD5E4\uB4DC\uC2A4\uD30C',nail:'\uB124\uC77C',clinic:'\uD074\uB9AC\uB2C9',spa:'\uC2A4\uD30C'};
 
-  // \uC5C5\uCCB4\uBA85 \uC54C\uD30C\uBCB3 \uC624\uB984\uCC28\uC21C \uC815\uB82C
-  var sortedShops = shops.slice().sort(function(a, b){
+  // \uBE48 \uB808\uCF54\uB4DC \uD544\uD130\uB9C1 + \uC5C5\uCCB4\uBA85 \uC54C\uD30C\uBCB3 \uC624\uB984\uCC28\uC21C \uC815\uB82C
+  var sortedShops = shops.filter(function(s){ return s.name && s.name.trim(); }).sort(function(a, b){
     return (a.name||'').toLowerCase().localeCompare((b.name||'').toLowerCase());
   });
   el.innerHTML = '<div style="display:grid;gap:10px">' + sortedShops.map(function(s){
