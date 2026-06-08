@@ -4368,6 +4368,20 @@ app.get("/shop/:slug", async (c) => {
     ORDER BY rating DESC NULLS LAST, review_count DESC NULLS LAST
     LIMIT 6`, 15e3, []);
   const relatedShops = relatedRows.map((r) => rowToShop(r));
+  const _shopAreaRaw = shop.location ? shop.location.split(",")[0].trim() : "";
+  const _otherCats = ["clinic", "hair", "headspa", "skincare", "nail", "makeup", "tattoo"].filter((c2) => c2 !== shop.category);
+  const nearbyCrossRows = await withTimeout(sql`
+    SELECT id, name, slug, category, location, thumbnail, rating, review_count
+    FROM shops
+    WHERE location ILIKE ${"%" + _shopAreaRaw + "%"} AND id != ${shop.id} AND slug IS NOT NULL
+      AND category = ANY(${_otherCats}::text[])
+    ORDER BY rating DESC NULLS LAST
+    LIMIT 8`, 8e3, []);
+  const _crossMap = {};
+  for (const r of nearbyCrossRows) {
+    if (!_crossMap[r.category]) _crossMap[r.category] = r;
+  }
+  const nearbyCrossShops = Object.values(_crossMap).slice(0, 4);
   const shopArea = shop.location ? ` (${shop.location.split(",")[0].trim()})` : "";
   const shopAddrLine = shop.address ? `
 Address: ${shop.address}` : "";
@@ -4822,11 +4836,21 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 ${(() => {
     const allP = [shop.thumbnail, ...(shop.photos || []).filter((p) => p && p !== shop.thumbnail)];
     if (allP.length < 2) return "";
-    const _altL = ["interior and atmosphere", "treatment room setup", "service area for foreigners", "professional staff", "entrance and facade", "treatment detail shot", "relaxing ambiance", "reception and waiting area"];
+    const _catAltMap = {
+      clinic: ["skin booster treatment room", "laser toning procedure at clinic", "RF lifting facial treatment", "dermatology consultation room", "skin analysis & treatment area", "micro-needling procedure", "Shurink HIFU lifting session", "reception & waiting lounge"],
+      hair: ["hair coloring & bleaching station", "Korean perm treatment styling", "hair cut & styling chair", "scalp treatment & hair care", "balayage color highlight session", "hair styling result showcase", "hair wash & conditioning area", "consultation & color mixing zone"],
+      headspa: ["18-step Korean head spa treatment", "scalp massage & oil treatment", "head spa relaxation room", "hair & scalp analysis station", "deep cleansing scalp scrub", "hair mask & steam treatment", "premium scalp care station", "head spa treatment setup"],
+      skincare: ["Korean facial treatment room", "hydrating skin care session", "glass skin facial treatment", "pore cleansing & exfoliation", "LED light therapy session", "oxygen facial treatment room", "Korean skincare consultation", "moisturizing mask & treatment"],
+      nail: ["Korean nail art design studio", "gel nail application & art", "3D nail art detail work", "nail care & manicure station", "luxury nail treatment chair", "nail art showcase & gallery", "pedicure & nail care room", "nail color & design consultation"],
+      makeup: ["Korean makeup studio & transformation", "K-beauty makeup application", "color analysis consultation room", "bridal & special occasion makeup", "contouring & highlighting session", "K-pop inspired makeup look", "makeup tools & product display", "before-after Korean makeup result"],
+      tattoo: ["eyebrow microblading procedure", "semi-permanent eyebrow tattoo", "brow design & mapping session", "eyebrow tattoo healing result", "nano-brow treatment close-up", "eyebrow shape consultation", "lip tint semi-permanent treatment", "eyeliner tattoo procedure"],
+      spa: ["luxury spa treatment room", "body massage & relaxation", "aromatherapy spa session", "hot stone massage therapy", "deep tissue body treatment", "spa lounge & ambiance", "foot spa & reflexology", "premium body wrap treatment"]
+    };
+    const _altL = _catAltMap[shop.category] || ["interior and atmosphere", "treatment room", "service area for foreigners", "professional staff and setup", "entrance and reception", "treatment in progress", "relaxing ambiance", "reception and booking area"];
     const thumbs = allP.map((url, i) => {
       const _cls = "sp-gthumb" + (i === 0 ? " active" : "");
-      const _lbl = _altL[i] || "photo " + (i + 1);
-      const _alt = shop.name + " " + _catLabel + " " + _areaFinal + " Seoul \u2014 " + _lbl;
+      const _lbl = _altL[i] || _altL[i % _altL.length] || "beauty treatment";
+      const _alt = shop.name + " \u2014 " + _lbl + " | " + _catLabel + " in " + _areaFinal + ", Seoul (foreigner-friendly)";
       return '<div class="' + _cls + `" onclick="setHero('` + url + `',this)"><img src="` + url + '" alt="' + _alt + '" loading="lazy" width="120" height="160"></div>';
     }).join("");
     return '<div class="sp-gallery">' + thumbs + "</div>";
@@ -4985,6 +5009,34 @@ ${(() => {
     </div>
   </div>` : ""}
 
+  <!-- \uAD50\uCC28 \uCE74\uD14C\uACE0\uB9AC \uB0B4\uBD80 \uB9C1\uD06C: \uAC19\uC740 \uC9C0\uC5ED\uC758 \uB2E4\uB978 \uCE74\uD14C\uACE0\uB9AC \uCD94\uCC9C \uC5C5\uCCB4 -->
+  ${nearbyCrossShops.length > 0 ? `
+  <div style="padding:0 20px 20px">
+    <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.35);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:6px">
+      <i class="fas fa-map-marker-alt" style="color:var(--pk2);font-size:10px"></i>
+      Also in ${_shopAreaRaw || _areaFinal}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${nearbyCrossShops.map((r) => {
+    const _rArea = (r.location || "").split(",")[0].trim();
+    const _rCatLabels = { clinic: "Derma Clinic", hair: "Hair Salon", headspa: "Head Spa", skincare: "Skincare", makeup: "Makeup", nail: "Nail Art", tattoo: "Eyebrow Tattoo" };
+    const _rCatLabel = _rCatLabels[r.category] || r.category;
+    const _rCatIcons = { clinic: "fa-briefcase-medical", hair: "fa-cut", headspa: "fa-spa", skincare: "fa-leaf", makeup: "fa-magic", nail: "fa-hand-sparkles", tattoo: "fa-pen-nib" };
+    const _rIcon = _rCatIcons[r.category] || "fa-star";
+    const _rRating = r.rating ? Number(r.rating).toFixed(1) : "";
+    const _rThumb = r.thumbnail || "";
+    return `<a href="/shop/${r.slug}" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:12px;text-decoration:none;transition:background .15s" onmouseover="this.style.background='rgba(255,255,255,.06)'" onmouseout="this.style.background='rgba(255,255,255,.03)'" title="${r.name} ${_rCatLabel} in ${_rArea} Seoul">
+          ${_rThumb ? `<img src="${_rThumb}" alt="${r.name} ${_rCatLabel} ${_rArea} Seoul" style="width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0" loading="lazy">` : `<div style="width:40px;height:40px;border-radius:8px;background:rgba(255,255,255,.06);flex-shrink:0;display:flex;align-items:center;justify-content:center"><i class="fas ${_rIcon}" style="color:var(--pk2);font-size:14px"></i></div>`}
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12.5px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.name}</div>
+            <div style="font-size:10.5px;color:rgba(255,255,255,.45);margin-top:2px"><i class="fas ${_rIcon}" style="color:var(--pk2);font-size:8px;margin-right:3px"></i>${_rCatLabel}${_rRating ? ` \xB7 \u2605${_rRating}` : ""}</div>
+          </div>
+          <i class="fas fa-chevron-right" style="color:rgba(255,255,255,.2);font-size:10px;flex-shrink:0"></i>
+        </a>`;
+  }).join("")}
+    </div>
+  </div>` : ""}
+
   <!-- \uB0B4\uBD80 SEO \uB9C1\uD06C \uC138\uC158: \uAD6C\uAE00\uC774 \uD398\uC774\uC9C0 \uC8FC\uC81C\uC640 \uC0AC\uC774\uD2B8 \uAD6C\uC870\uB97C \uD30C\uC545\uD558\uB3C4\uB85D \uB3D5\uB294 \uB2E4\uCC28\uC6D0 \uB9C1\uD06C -->
   <div class="sp-seo-links" style="padding:0 20px 16px;margin-bottom:0">
     <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.3);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:10px">Explore More in Seoul</div>
@@ -4993,6 +5045,7 @@ ${(() => {
       ${_areaFinal !== "Seoul" ? `<a href="/best/${shop.category}/${_areaFinal.toLowerCase()}" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.65);font-size:11.5px;text-decoration:none" title="Best ${_catLabel} in ${_areaFinal} Seoul"><i class="fas fa-map-marker-alt" style="color:var(--pk2);font-size:9px"></i>Best ${_catLabel} in ${_areaFinal}</a>` : ""}
       <a href="/blog" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.65);font-size:11.5px;text-decoration:none" title="Seoul Beauty Blog for Foreigners"><i class="fas fa-book-open" style="color:var(--pk);font-size:9px"></i>Seoul Beauty Guide</a>
       <a href="/blog/category/${shop.category}" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.65);font-size:11.5px;text-decoration:none" title="${_catLabel} Tips for Foreigners in Seoul"><i class="fas fa-feather-alt" style="color:var(--pk2);font-size:9px"></i>${_catLabel} Tips</a>
+      <a href="/" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.65);font-size:11.5px;text-decoration:none" title="Browse All Seoul Beauty Salons"><i class="fas fa-th-large" style="color:var(--pk2);font-size:9px"></i>All Beauty Salons</a>
     </div>
   </div>
 
@@ -7296,7 +7349,7 @@ var MAIN_HTML = `<!DOCTYPE html>
   gtag('js', new Date());
   gtag('config', 'G-1N9ZQRHLJ0');
 </script>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Seoul Beauty Trip \u2014 Book Korean Beauty in Seoul | Skincare, Hair, Nail, Clinic</title>
 <meta name="description" content="Discover and book the best Korean beauty salons in Seoul. Skincare, makeup, hair, nail art and derma clinics \u2014 foreign-friendly with WhatsApp booking. K-beauty at its finest.">
 <meta name="keywords" content="Seoul beauty salon, Korean skincare, K-beauty booking, Seoul hair salon, Seoul nail art, Korean makeup, Seoul derma clinic, beauty travel Korea">
@@ -7332,21 +7385,98 @@ var MAIN_HTML = `<!DOCTYPE html>
       "@id":"https://seoulbeautytrip.com/#website",
       "url":"https://seoulbeautytrip.com/",
       "name":"Seoul Beauty Trip",
-      "description":"Discover and book the best Korean beauty salons in Seoul.",
+      "alternateName":"Seoul Beauty Trip \u2014 K-Beauty Booking for Foreigners",
+      "description":"Discover and book the best Korean beauty salons in Seoul. Skincare, hair, nail, derma clinics \u2014 foreigner-friendly with English WhatsApp booking.",
       "inLanguage":"en",
-      "potentialAction":{
-        "@type":"SearchAction",
-        "target":{"@type":"EntryPoint","urlTemplate":"https://seoulbeautytrip.com/?cat={search_term_string}"},
-        "query-input":"required name=search_term_string"
-      }
+      "potentialAction":[
+        {
+          "@type":"SearchAction",
+          "target":{"@type":"EntryPoint","urlTemplate":"https://seoulbeautytrip.com/?q={search_term_string}"},
+          "query-input":"required name=search_term_string"
+        },
+        {
+          "@type":"SearchAction",
+          "target":{"@type":"EntryPoint","urlTemplate":"https://seoulbeautytrip.com/?cat={search_term_string}"},
+          "query-input":"required name=search_term_string"
+        }
+      ]
     },
     {
       "@type":"Organization",
       "@id":"https://seoulbeautytrip.com/#organization",
       "name":"Seoul Beauty Trip",
+      "legalName":"Seoul Beauty Trip",
       "url":"https://seoulbeautytrip.com/",
-      "logo":"https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg",
-      "sameAs":["https://instagram.com/seoulbeautytrip"]
+      "logo":{
+        "@type":"ImageObject",
+        "url":"https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg",
+        "width":1200,
+        "height":630
+      },
+      "description":"Seoul Beauty Trip is the #1 K-beauty booking platform for foreign tourists in Seoul. We connect international visitors with vetted, English-friendly Korean beauty salons \u2014 skincare clinics, hair salons, nail studios, head spas, and dermatology clinics \u2014 across Gangnam, Hongdae, Myeongdong, Itaewon, and Apgujeong.",
+      "foundingDate":"2024",
+      "areaServed":{
+        "@type":"City",
+        "name":"Seoul",
+        "sameAs":"https://www.wikidata.org/wiki/Q8684"
+      },
+      "knowsAbout":["Korean skincare","K-beauty","Seoul beauty salons","Dermatology clinics Seoul","Korean hair salons","K-beauty booking"],
+      "contactPoint":{
+        "@type":"ContactPoint",
+        "contactType":"customer support",
+        "availableLanguage":["English","Korean"],
+        "contactOption":"TollFree"
+      },
+      "aggregateRating":{
+        "@type":"AggregateRating",
+        "ratingValue":"4.9",
+        "bestRating":"5",
+        "worstRating":"1",
+        "reviewCount":"480"
+      },
+      "sameAs":[
+        "https://instagram.com/seoulbeautytrip",
+        "https://www.tiktok.com/@seoulbeautytrip"
+      ]
+    },
+    {
+      "@type":"ItemList",
+      "@id":"https://seoulbeautytrip.com/#featured-salons",
+      "name":"Top K-Beauty Salons in Seoul for Foreigners",
+      "description":"Hand-verified Korean beauty salons in Seoul with English-friendly booking via WhatsApp. Covers skincare, dermatology, hair, nail, head spa, and more.",
+      "url":"https://seoulbeautytrip.com/",
+      "numberOfItems":48,
+      "itemListOrder":"https://schema.org/ItemListOrderDescending"
+    },
+    {
+      "@type":"FAQPage",
+      "mainEntity":[
+        {
+          "@type":"Question",
+          "name":"How do I book a Korean beauty salon as a foreigner in Seoul?",
+          "acceptedAnswer":{"@type":"Answer","text":"Simply browse Seoul Beauty Trip, choose your preferred salon, and tap the 'Book via WhatsApp' button. Our team handles all communication in English \u2014 no Korean required. Same-day and advance bookings are both available."}
+        },
+        {
+          "@type":"Question",
+          "name":"Are the salons on Seoul Beauty Trip foreigner-friendly?",
+          "acceptedAnswer":{"@type":"Answer","text":"Yes. Every salon listed on Seoul Beauty Trip is manually verified for foreigner-friendliness. They either have English-speaking staff, offer English menus, or are managed through Seoul Beauty Trip's English WhatsApp concierge service."}
+        },
+        {
+          "@type":"Question",
+          "name":"What types of Korean beauty services can I book in Seoul?",
+          "acceptedAnswer":{"@type":"Answer","text":"Seoul Beauty Trip covers the full spectrum of K-beauty: skincare facials, dermatology clinics (laser, skin booster, Shurink lifting), Korean hair salons (perms, color, cuts), nail art studios, head spa (18-step scalp treatments), eyebrow tattoo/microblading, and makeup studios. All services available in Gangnam, Hongdae, Myeongdong, Itaewon, and Apgujeong."}
+        },
+        {
+          "@type":"Question",
+          "name":"Is Korean skincare cheaper for tourists visiting Seoul?",
+          "acceptedAnswer":{"@type":"Answer","text":"Yes \u2014 Korean beauty treatments are typically 30\u201360% less expensive than equivalent services in the US, UK, or Australia. Dermatology treatments like Shurink HIFU lifting, laser toning, and skin boosters are particularly popular among medical tourists visiting Seoul for their quality-to-price ratio."}
+        },
+        {
+          "@type":"Question",
+          "name":"Which area of Seoul is best for K-beauty?",
+          "acceptedAnswer":{"@type":"Answer","text":"Gangnam (including Cheongdam and Apgujeong) is Seoul's luxury beauty district, ideal for premium derma clinics and high-end hair salons. Hongdae is the trendiest area for creative nail art and indie beauty studios. Myeongdong is the most tourist-accessible, with makeup stores and skincare experiences. Itaewon has the most multilingual staff for all beauty types."}
+        }
+      ]
     }
   ]
 }
@@ -9704,38 +9834,78 @@ function renderShopPanel(cat) {
   </div>
 </nav>
 
-<!-- \u2605 SEO \uCF58\uD150\uCE20 \uC139\uC158 \u2014 \uAD6C\uAE00 \uAC80\uC0C9 \uC0C1\uC704 \uB178\uCD9C\uC6A9 \uB871\uD3FC \uD14D\uC2A4\uD2B8 -->
-<section aria-label="About Seoul Beauty Trip" style="background:#fff;padding:40px 16px 48px;border-top:1px solid #f0f0f0">
+<!-- \u2605 SEO \uCF58\uD150\uCE20 \uC139\uC158 \u2014 \uAD6C\uAE00 \uAC80\uC0C9 \uC0C1\uC704 \uB178\uCD9C\uC6A9 \uB871\uD3FC \uD14D\uC2A4\uD2B8 (\uBCF4\uAC15 \uBC84\uC804) -->
+<section aria-label="About Seoul Beauty Trip \u2014 K-Beauty Booking Platform for Foreigners" style="background:#fff;padding:40px 16px 48px;border-top:1px solid #f0f0f0">
   <div style="max-width:700px;margin:0 auto">
 
     <h2 style="font-size:1.25rem;font-weight:800;color:#1a1a2e;margin-bottom:12px;text-align:center">
-      Your Ultimate Guide to K-Beauty in Seoul
+      Seoul Beauty Booking for Foreigners \u2014 Your Complete K-Beauty Guide
     </h2>
-    <p style="font-size:.92rem;color:#374151;line-height:1.9;margin-bottom:20px;text-align:center;max-width:580px;margin-left:auto;margin-right:auto">
-      Seoul Beauty Trip is the #1 curated directory for foreigners seeking authentic Korean beauty experiences in Seoul.
-      Every salon is hand-verified for English support, transparent pricing, and quality service.
+    <p style="font-size:.92rem;color:#374151;line-height:1.9;margin-bottom:12px;text-align:center;max-width:600px;margin-left:auto;margin-right:auto">
+      <strong>Seoul Beauty Trip</strong> is the #1 curated K-beauty booking platform for international visitors in Seoul.
+      We connect foreign tourists directly with <strong>48+ hand-verified Korean beauty salons</strong> \u2014 from skincare clinics and dermatology centers in Gangnam to head spas in Hongdae and nail studios across the city.
+      Every booking is handled in <strong>English via WhatsApp</strong>. No Korean required.
+    </p>
+    <p style="font-size:.88rem;color:#555;line-height:1.8;margin-bottom:24px;text-align:center">
+      Whether you're searching for a <a href="/best/clinic/gangnam" style="color:#e91e8c;font-weight:600;text-decoration:none">Gangnam derma clinic</a>,
+      a <a href="/best/headspa/seoul" style="color:#e91e8c;font-weight:600;text-decoration:none">Korean 18-step head spa</a>,
+      glass-skin facials, <a href="/best/hair/hongdae" style="color:#e91e8c;font-weight:600;text-decoration:none">K-pop hair salon in Hongdae</a>,
+      or intricate Korean nail art \u2014 Seoul Beauty Trip has it all, bookable in seconds.
     </p>
 
-    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:32px">
-      <div style="background:#fdf2f8;border-radius:16px;padding:20px">
-        <div style="font-size:1.5rem;margin-bottom:6px">\u{1F9D6}</div>
-        <div style="font-weight:700;color:#1a1a2e;font-size:.95rem;margin-bottom:6px">Head Spa</div>
-        <div style="font-size:.82rem;color:#555;line-height:1.6">Experience Seoul's viral 18-step scalp ritual. Deep cleanse, scalp analysis, and total relaxation \u2014 perfect for every hair type.</div>
+    <!-- \uC11C\uBE44\uC2A4 \uCE74\uD14C\uACE0\uB9AC \uADF8\uB9AC\uB4DC -->
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:28px">
+      <a href="/best/headspa/seoul" style="background:#fdf2f8;border-radius:16px;padding:18px;text-decoration:none;display:block;transition:box-shadow .2s" title="Best Head Spa in Seoul for Foreigners">
+        <div style="font-size:1.4rem;margin-bottom:5px">\u{1F9D6}</div>
+        <div style="font-weight:700;color:#1a1a2e;font-size:.93rem;margin-bottom:5px">Head Spa</div>
+        <div style="font-size:.81rem;color:#555;line-height:1.6">Seoul's viral 18-step scalp ritual. Deep cleanse, scalp analysis & total relaxation. Prices from \u20A940,000 \u2014 perfect for all hair types.</div>
+        <div style="font-size:.78rem;color:#e91e8c;margin-top:6px;font-weight:600">View Head Spas \u2192</div>
+      </a>
+      <a href="/best/skincare/seoul" style="background:#f0fdf4;border-radius:16px;padding:18px;text-decoration:none;display:block" title="Best Korean Skincare Clinics in Seoul">
+        <div style="font-size:1.4rem;margin-bottom:5px">\u{1F33F}</div>
+        <div style="font-weight:700;color:#1a1a2e;font-size:.93rem;margin-bottom:5px">Skincare</div>
+        <div style="font-size:.81rem;color:#555;line-height:1.6">Glass-skin facials, LED therapy & prescription skincare. Korean beauty routines with visible results \u2014 from \u20A960,000 per session.</div>
+        <div style="font-size:.78rem;color:#16a34a;margin-top:6px;font-weight:600">View Skincare \u2192</div>
+      </a>
+      <a href="/best/clinic/gangnam" style="background:#fff7ed;border-radius:16px;padding:18px;text-decoration:none;display:block" title="Best Dermatology Clinics in Gangnam Seoul">
+        <div style="font-size:1.4rem;margin-bottom:5px">\u{1F3E5}</div>
+        <div style="font-weight:700;color:#1a1a2e;font-size:.93rem;margin-bottom:5px">Derma Clinic</div>
+        <div style="font-size:.81rem;color:#555;line-height:1.6">Shurink HIFU lifting, laser toning, skin boosters, Botox \u2014 30\u201350% less than US/UK prices. English-speaking consultants available.</div>
+        <div style="font-size:.78rem;color:#ea580c;margin-top:6px;font-weight:600">View Clinics \u2192</div>
+      </a>
+      <a href="/best/hair/seoul" style="background:#eff6ff;border-radius:16px;padding:18px;text-decoration:none;display:block" title="Best Korean Hair Salons Seoul Foreigners">
+        <div style="font-size:1.4rem;margin-bottom:5px">\u{1F487}</div>
+        <div style="font-weight:700;color:#1a1a2e;font-size:.93rem;margin-bottom:5px">Hair Salon</div>
+        <div style="font-size:.81rem;color:#555;line-height:1.6">K-pop cuts, balayage, Korean perms & color treatments. Stylists experienced with all hair textures. English menu available.</div>
+        <div style="font-size:.78rem;color:#2563eb;margin-top:6px;font-weight:600">View Hair Salons \u2192</div>
+      </a>
+      <a href="/best/nail/seoul" style="background:#fdf4ff;border-radius:16px;padding:18px;text-decoration:none;display:block" title="Best Korean Nail Art Studios Seoul">
+        <div style="font-size:1.4rem;margin-bottom:5px">\u{1F485}</div>
+        <div style="font-weight:700;color:#1a1a2e;font-size:.93rem;margin-bottom:5px">Nail Art</div>
+        <div style="font-size:.81rem;color:#555;line-height:1.6">Intricate K-beauty nail designs, gel art & 3D nail creations. World-class nail artistry in Hongdae, Gangnam & Itaewon.</div>
+        <div style="font-size:.78rem;color:#a21caf;margin-top:6px;font-weight:600">View Nail Studios \u2192</div>
+      </a>
+      <a href="/best/tattoo/seoul" style="background:#f7f7f7;border-radius:16px;padding:18px;text-decoration:none;display:block" title="Best Eyebrow Tattoo Microblading Seoul Foreigners">
+        <div style="font-size:1.4rem;margin-bottom:5px">\u2712\uFE0F</div>
+        <div style="font-weight:700;color:#1a1a2e;font-size:.93rem;margin-bottom:5px">Eyebrow Tattoo</div>
+        <div style="font-size:.81rem;color:#555;line-height:1.6">Semi-permanent eyebrow microblading, nano-brows & lip tint. Korean precision technique for natural, long-lasting results.</div>
+        <div style="font-size:.78rem;color:#374151;margin-top:6px;font-weight:600">View Studios \u2192</div>
+      </a>
+    </div>
+
+    <!-- \uC2E0\uB8B0 \uC9C0\uD45C -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:28px;text-align:center">
+      <div style="background:#fdf2f8;border-radius:12px;padding:14px 8px">
+        <div style="font-size:1.4rem;font-weight:800;color:#e91e8c">48+</div>
+        <div style="font-size:.75rem;color:#555;margin-top:3px;line-height:1.4">Verified Korean<br>Beauty Salons</div>
       </div>
-      <div style="background:#f0fdf4;border-radius:16px;padding:20px">
-        <div style="font-size:1.5rem;margin-bottom:6px">\u{1F33F}</div>
-        <div style="font-weight:700;color:#1a1a2e;font-size:.95rem;margin-bottom:6px">Skincare</div>
-        <div style="font-size:.82rem;color:#555;line-height:1.6">Korean glass-skin facials, LED therapy, and customized prescription care. World-renowned K-beauty results you won't find at home.</div>
+      <div style="background:#f0fdf4;border-radius:12px;padding:14px 8px">
+        <div style="font-size:1.4rem;font-weight:800;color:#16a34a">4.9\u2605</div>
+        <div style="font-size:.75rem;color:#555;margin-top:3px;line-height:1.4">Average Rating<br>Across All Salons</div>
       </div>
-      <div style="background:#eff6ff;border-radius:16px;padding:20px">
-        <div style="font-size:1.5rem;margin-bottom:6px">\u{1F487}</div>
-        <div style="font-weight:700;color:#1a1a2e;font-size:.95rem;margin-bottom:6px">Hair Salon</div>
-        <div style="font-size:.82rem;color:#555;line-height:1.6">K-pop inspired cuts, balayage, and Korean perms from English-friendly stylists experienced with all hair textures.</div>
-      </div>
-      <div style="background:#fff7ed;border-radius:16px;padding:20px">
-        <div style="font-size:1.5rem;margin-bottom:6px">\u{1F3E5}</div>
-        <div style="font-weight:700;color:#1a1a2e;font-size:.95rem;margin-bottom:6px">Derma Clinic</div>
-        <div style="font-size:.82rem;color:#555;line-height:1.6">Laser toning, skin boosters, and RF lifting \u2014 30-50% less than Western prices with English-speaking consultants.</div>
+      <div style="background:#eff6ff;border-radius:12px;padding:14px 8px">
+        <div style="font-size:1.4rem;font-weight:800;color:#2563eb">100%</div>
+        <div style="font-size:.75rem;color:#555;margin-top:3px;line-height:1.4">English Booking<br>via WhatsApp</div>
       </div>
     </div>
 
@@ -9745,43 +9915,76 @@ function renderShopPanel(cat) {
     <ul style="list-style:none;padding:0;margin:0 0 28px;display:flex;flex-direction:column;gap:8px">
       <li style="display:flex;align-items:flex-start;gap:10px;font-size:.88rem;color:#374151;line-height:1.7">
         <span style="color:#e91e8c;font-size:1rem;flex-shrink:0;margin-top:2px">\u2713</span>
-        <span><strong>100% English booking via WhatsApp</strong> \u2014 No Korean needed. Our team and partner salons speak English fluently.</span>
+        <span><strong>100% English booking via WhatsApp</strong> \u2014 No Korean needed. Our concierge handles all salon communication, appointment confirmation, and pricing questions in English.</span>
       </li>
       <li style="display:flex;align-items:flex-start;gap:10px;font-size:.88rem;color:#374151;line-height:1.7">
         <span style="color:#e91e8c;font-size:1rem;flex-shrink:0;margin-top:2px">\u2713</span>
-        <span><strong>Real customer reviews</strong> from international visitors \u2014 honest ratings from travelers like you.</span>
+        <span><strong>Hand-verified salons only</strong> \u2014 Every listing is personally visited or thoroughly vetted for foreigner-friendliness, English menu availability, and service quality.</span>
       </li>
       <li style="display:flex;align-items:flex-start;gap:10px;font-size:.88rem;color:#374151;line-height:1.7">
         <span style="color:#e91e8c;font-size:1rem;flex-shrink:0;margin-top:2px">\u2713</span>
-        <span><strong>Transparent pricing</strong> \u2014 Know exactly what you'll pay before you arrive. No hidden fees.</span>
+        <span><strong>Real international reviews</strong> \u2014 Ratings from verified foreign visitors (US, UK, Australia, Japan, SEA) who have experienced the services firsthand.</span>
       </li>
       <li style="display:flex;align-items:flex-start;gap:10px;font-size:.88rem;color:#374151;line-height:1.7">
         <span style="color:#e91e8c;font-size:1rem;flex-shrink:0;margin-top:2px">\u2713</span>
-        <span><strong>Hand-verified salons</strong> \u2014 Every listing is manually checked for foreigner-friendliness and service quality.</span>
+        <span><strong>Transparent pricing in English</strong> \u2014 Know the exact cost of every treatment before you walk through the door. No surprise charges.</span>
       </li>
       <li style="display:flex;align-items:flex-start;gap:10px;font-size:.88rem;color:#374151;line-height:1.7">
         <span style="color:#e91e8c;font-size:1rem;flex-shrink:0;margin-top:2px">\u2713</span>
-        <span><strong>Salons across all major areas</strong> \u2014 Gangnam, Hongdae, Itaewon, Myeongdong, Apgujeong &amp; more.</span>
+        <span><strong>Coverage across all major Seoul districts</strong> \u2014 <a href="/best/clinic/gangnam" style="color:#e91e8c;font-weight:600;text-decoration:none">Gangnam</a>, <a href="/best/hair/hongdae" style="color:#e91e8c;font-weight:600;text-decoration:none">Hongdae</a>, Itaewon, Myeongdong, Apgujeong &amp; more. Over 10 neighborhoods covered.</span>
+      </li>
+      <li style="display:flex;align-items:flex-start;gap:10px;font-size:.88rem;color:#374151;line-height:1.7">
+        <span style="color:#e91e8c;font-size:1rem;flex-shrink:0;margin-top:2px">\u2713</span>
+        <span><strong>Short video previews</strong> \u2014 Watch real treatment footage before booking so you know exactly what to expect at each salon.</span>
       </li>
     </ul>
 
     <h2 style="font-size:1.1rem;font-weight:700;color:#1a1a2e;margin-bottom:10px">
-      Popular Areas for K-Beauty
+      Seoul's Best K-Beauty Districts for Foreign Visitors
     </h2>
-    <p style="font-size:.88rem;color:#374151;line-height:1.8;margin-bottom:16px">
-      <strong>Gangnam</strong> is Seoul's luxury beauty district, home to premium skincare clinics and dermatology centers.
-      <strong>Hongdae</strong> is the trendy hub for unique nail art, creative hair styling, and indie beauty salons.
-      <strong>Itaewon</strong> is the most foreigner-friendly neighborhood, with multilingual staff and international menus.
-      <strong>Myeongdong</strong> is perfect for tourists \u2014 centrally located with makeup studios, skincare shops, and spa experiences.
-      <strong>Apgujeong</strong> (Rodeo Street) is Seoul's fashion and beauty elite zone, known for cutting-edge aesthetic clinics and luxury head spas.
-    </p>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px">
+      <div style="padding:12px 14px;background:#f9fafb;border-radius:12px;border-left:3px solid #e91e8c">
+        <div style="font-size:.88rem;font-weight:700;color:#1a1a2e;margin-bottom:4px">\u{1F3C6} <a href="/best/clinic/gangnam" style="color:#1a1a2e;text-decoration:none">Gangnam &amp; Cheongdam</a> \u2014 Premium K-Beauty Hub</div>
+        <div style="font-size:.82rem;color:#555;line-height:1.7">Home to Seoul's top-tier dermatology clinics, luxury skincare studios, and high-end hair salons. Known globally for medical beauty tourism \u2014 Shurink HIFU, PRP, laser skin resurfacing, and skin booster treatments are all available at 40\u201360% less than Western prices. Recommended for first-time K-beauty tourists who want results-driven treatments.</div>
+      </div>
+      <div style="padding:12px 14px;background:#f9fafb;border-radius:12px;border-left:3px solid #9c27b0">
+        <div style="font-size:.88rem;font-weight:700;color:#1a1a2e;margin-bottom:4px">\u{1F3A8} <a href="/best/nail/hongdae" style="color:#1a1a2e;text-decoration:none">Hongdae</a> \u2014 Creative &amp; Trendy</div>
+        <div style="font-size:.82rem;color:#555;line-height:1.7">Seoul's most artistic beauty district \u2014 indie nail studios with 3D art, head spas with scalp detox rituals, and K-pop inspired hair salons. Popular with younger travelers and creative types who want unique, Instagrammable beauty experiences at accessible prices.</div>
+      </div>
+      <div style="padding:12px 14px;background:#f9fafb;border-radius:12px;border-left:3px solid #2196f3">
+        <div style="font-size:.88rem;font-weight:700;color:#1a1a2e;margin-bottom:4px">\u{1F30D} Itaewon &amp; Myeongdong \u2014 Most Foreigner-Friendly</div>
+        <div style="font-size:.82rem;color:#555;line-height:1.7">The most accessible areas for first-time visitors to Korea. Salons here have multilingual staff, English-language menus, and experience with all skin tones and hair textures. Ideal for tourists staying near central Seoul who want convenient, English-friendly beauty experiences.</div>
+      </div>
+      <div style="padding:12px 14px;background:#f9fafb;border-radius:12px;border-left:3px solid #ff9800">
+        <div style="font-size:.88rem;font-weight:700;color:#1a1a2e;margin-bottom:4px">\u{1F48E} <a href="/best/headspa/apgujeong" style="color:#1a1a2e;text-decoration:none">Apgujeong (Rodeo Street)</a> \u2014 Luxury Beauty Elite</div>
+        <div style="font-size:.82rem;color:#555;line-height:1.7">Seoul's most exclusive beauty zone, adjacent to Gangnam. Home to celebrity-frequented spas, luxury eyebrow tattoo studios, and premium anti-aging clinics. The area where Korean entertainment industry professionals get their beauty treatments.</div>
+      </div>
+    </div>
 
-    <div style="background:linear-gradient(135deg,#e91e8c15,#9c27b015);border-radius:16px;padding:20px;text-align:center">
-      <div style="font-size:.95rem;font-weight:700;color:#1a1a2e;margin-bottom:6px">Ready to book your K-beauty experience?</div>
-      <div style="font-size:.85rem;color:#555;margin-bottom:14px">Browse salons above and contact any shop directly via WhatsApp in English.</div>
-      <a href="/shops" style="display:inline-block;background:linear-gradient(135deg,#e91e8c,#9c27b0);color:#fff;padding:10px 28px;border-radius:24px;font-size:.88rem;font-weight:700;text-decoration:none">
-        View All Salons \u2192
-      </a>
+    <h2 style="font-size:1.1rem;font-weight:700;color:#1a1a2e;margin-bottom:10px">
+      How to Book a Korean Beauty Salon as a Foreigner
+    </h2>
+    <ol style="padding-left:18px;margin:0 0 24px;display:flex;flex-direction:column;gap:8px">
+      <li style="font-size:.88rem;color:#374151;line-height:1.7"><strong>Browse &amp; choose</strong> \u2014 Explore 48+ verified salons using the video feed or catalog above. Filter by category (clinic, hair, head spa, nail, etc.) or search by name.</li>
+      <li style="font-size:.88rem;color:#374151;line-height:1.7"><strong>Check the salon page</strong> \u2014 Each salon page shows real photos, service prices in English, Google ratings, customer reviews, and available treatments.</li>
+      <li style="font-size:.88rem;color:#374151;line-height:1.7"><strong>Tap "Book via WhatsApp"</strong> \u2014 A pre-filled booking message is sent to Seoul Beauty Trip's English concierge. We confirm your appointment, explain pricing, and answer any questions.</li>
+      <li style="font-size:.88rem;color:#374151;line-height:1.7"><strong>Visit &amp; enjoy</strong> \u2014 Walk in on your confirmed date. The salon is briefed in advance on your service needs. Same-day bookings are often available.</li>
+    </ol>
+
+    <h2 style="font-size:1.1rem;font-weight:700;color:#1a1a2e;margin-bottom:10px">
+      Popular K-Beauty Treatments for Tourists in Seoul
+    </h2>
+    <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:24px">
+      ${["Shurink HIFU Lifting", "Korean Head Spa 18-Step", "Glass Skin Facial", "Laser Toning", "Skin Booster Injection", "Korean Perm", "Scalp Detox Treatment", "Microblading Eyebrow Tattoo", "3D Nail Art", "LED Skin Therapy", "Balayage & Color", "Color Analysis (\uD37C\uC2A4\uB110\uCEEC\uB7EC)"].map((t) => `<span style="display:inline-block;padding:5px 11px;background:#fdf2f8;border:1px solid #fce7f3;border-radius:20px;font-size:.8rem;color:#be185d;font-weight:500">${t}</span>`).join("")}
+    </div>
+
+    <div style="background:linear-gradient(135deg,#e91e8c12,#9c27b012);border-radius:16px;padding:20px;text-align:center;border:1px solid #e91e8c20">
+      <div style="font-size:.95rem;font-weight:700;color:#1a1a2e;margin-bottom:6px">Ready to experience authentic K-beauty in Seoul?</div>
+      <div style="font-size:.85rem;color:#555;margin-bottom:14px">Join thousands of foreign visitors who have booked through Seoul Beauty Trip. Browse 48+ verified salons and book in English via WhatsApp \u2014 no Korean required.</div>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+        <a href="/best/clinic/gangnam" style="display:inline-block;background:linear-gradient(135deg,#e91e8c,#9c27b0);color:#fff;padding:9px 22px;border-radius:24px;font-size:.85rem;font-weight:700;text-decoration:none">Best Clinics in Gangnam \u2192</a>
+        <a href="/best/headspa/seoul" style="display:inline-block;background:#1a1a2e;color:#fff;padding:9px 22px;border-radius:24px;font-size:.85rem;font-weight:700;text-decoration:none">Top Head Spas \u2192</a>
+      </div>
     </div>
 
   </div>
