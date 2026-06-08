@@ -1274,6 +1274,29 @@ app.delete('/api/admin/cleanup-empty-shops', async (c) => {
   return c.json({ ok: true, deleted: result.length, ids: result.map((r: any) => r.id) })
 })
 
+// 업체 복구용 — 지정 ID로 INSERT (복구 전용, 기존 ID 유지)
+app.post('/api/admin/restore-shop', async (c) => {
+  const sql = getDb(c.env)
+  const body = await c.req.json()
+  if (!body.id || !body.name) return c.json({ ok: false, error: 'id and name required' }, 400)
+  const today = new Date().toISOString().split('T')[0]
+  const slug = await makeShopSlug(sql, body.name, body.location||'')
+  const cleanPhotos = sanitizePhotos(body.photos||[])
+  const cleanThumb  = sanitizeThumb(body.thumbnail||'', cleanPhotos)
+  await sql`INSERT INTO shops (id,name,slug,category,location,address,google_map_url,google_map_embed,lat,lng,price_range,hours,services,service_prices,description,meta_description,seo_keywords,seo_text,why_choose,rating,review_count,thumbnail,photos,commission,active,created_at,place_id,whatsapp) VALUES (
+    ${body.id},${body.name},${slug},${body.category||'clinic'},${body.location||'Seoul'},${body.address||''},
+    ${body.googleMapUrl||''},${body.googleMapEmbed||''},${body.lat||''},${body.lng||''},
+    ${body.priceRange||''},${body.hours||''},
+    ${JSON.stringify(body.services||[])},${JSON.stringify(body.servicePrices||[])},
+    ${body.description||''},${body.metaDescription||''},${body.seoKeywords||''},${body.seoText||''},
+    ${JSON.stringify(body.whyChoose||[])},
+    ${body.rating||5.0},${body.reviewCount||0},${cleanThumb},
+    ${JSON.stringify(cleanPhotos)},${body.commission||15},true,${today},
+    ${body.placeId||''},${body.whatsapp||''}
+  ) ON CONFLICT (id) DO NOTHING`
+  return c.json({ ok: true, id: body.id, slug })
+})
+
 app.post('/api/videos', async (c) => {
   const sql = getDb(c.env)
   const body = await c.req.json()
