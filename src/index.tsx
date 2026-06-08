@@ -10225,7 +10225,7 @@ window.toggleVsTimeline = async function(sid){
         + pages.map(function(p, pi){
             var scrollBar = Math.min(100, p.maxScroll||p.max_scroll||0);
             var stayS = p.staySec||p.stay_sec||0;
-            var pageName = (p.page||'/').replace(/^\/shop\//,'/shop/ ').replace(/^\/best\//,'/best/ ');
+            var pageName = (p.page||'/').replace('/shop/','shop/ ').replace('/best/','best/ ');
             return '<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:rgba(255,255,255,.03);border-radius:6px;border:1px solid rgba(255,255,255,.05)">'
               +'<span style="font-size:9px;color:rgba(255,255,255,.25);min-width:14px;text-align:right">'+(pi+1)+'</span>'
               +'<div style="flex:1;min-width:0">'
