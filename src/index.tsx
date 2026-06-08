@@ -2388,20 +2388,47 @@ app.get('/api/visitors/:sessionId', async (c) => {
       ORDER BY ve.created_at ASC
     `
     const session = await sql`SELECT * FROM visitor_sessions WHERE session_id = ${sid}`
-    // 페이지별 요약 (체류시간, 스크롤, 클릭수)
+    // 페이지별 요약 (체류시간, 스크롤, 클릭수, shop_name JOIN)
     const pageSummary = await sql`
       SELECT
-        page,
-        COUNT(*) FILTER (WHERE event = 'page_view') AS views,
-        MAX(scroll_pct) AS max_scroll,
-        COUNT(*) FILTER (WHERE event = 'shop_click' OR event = 'wa_click') AS clicks,
-        MAX(duration) AS stay_sec
-      FROM visitor_events
-      WHERE session_id = ${sid} AND page != ''
-      GROUP BY page
-      ORDER BY MIN(created_at)
+        ve.page,
+        COUNT(*) FILTER (WHERE ve.event = 'page_view') AS views,
+        MAX(ve.scroll_pct) AS max_scroll,
+        COUNT(*) FILTER (WHERE ve.event = 'shop_click' OR ve.event = 'wa_click') AS clicks,
+        MAX(ve.duration) AS stay_sec,
+        MAX(sh.name) AS shop_name
+      FROM visitor_events ve
+      LEFT JOIN shops sh ON sh.slug = REGEXP_REPLACE(ve.page, '^/shop/', '')
+                            AND ve.page LIKE '/shop/%'
+      WHERE ve.session_id = ${sid} AND ve.page != ''
+      GROUP BY ve.page
+      ORDER BY MIN(ve.created_at)
     `
-    return c.json({ session: session[0] || null, events, pageSummary })
+    // session camelCase 정규화
+    const sessionNorm = session[0] ? {
+      sessionId:   (session[0] as any).session_id   || (session[0] as any).sessionId   || '',
+      visitorId:   (session[0] as any).visitor_id   || (session[0] as any).visitorId   || '',
+      device:      (session[0] as any).device       || 'desktop',
+      country:     (session[0] as any).country      || '',
+      referrer:    (session[0] as any).referrer     || '',
+      ua:          (session[0] as any).ua           || '',
+      startedAt:   (session[0] as any).started_at   || (session[0] as any).startedAt   || '',
+      lastActive:  (session[0] as any).last_active  || (session[0] as any).lastActive  || '',
+      pageCount:   +((session[0] as any).page_count  || (session[0] as any).pageCount  || 0),
+      maxScroll:   +((session[0] as any).max_scroll  || (session[0] as any).maxScroll  || 0),
+      durationSec: +((session[0] as any).duration_sec || 0),
+      waClicked:   !!((session[0] as any).wa_clicked || (session[0] as any).waClicked),
+    } : null
+    // pageSummary camelCase 정규화
+    const pageSummaryNorm = (pageSummary as any[]).map(p => ({
+      page:      p.page      || '/',
+      views:     +(p.views   || 0),
+      maxScroll: +(p.max_scroll || p.maxScroll || 0),
+      clicks:    +(p.clicks  || 0),
+      staySec:   +(p.stay_sec || p.staySec || 0),
+      shopName:  p.shop_name || p.shopName || null,
+    }))
+    return c.json({ session: sessionNorm, events, pageSummary: pageSummaryNorm })
   } catch(e: any) {
     return c.json({ error: e.message }, 500)
   }
@@ -2493,35 +2520,39 @@ app.get('/api/visitors-stats', async (c) => {
     const sql = getDb(c.env)
     const days = parseInt(c.req.query('days') || '7')
 
-    const [totals, byDevice, byPage, topShops, hourly, waFunnel] = await Promise.all([
+    const [totalsRaw, byDeviceRaw, byPageRaw, topShopsRaw, hourlyRaw, waFunnelRaw] = await Promise.all([
       sql`SELECT
-        COUNT(DISTINCT visitor_id) AS unique_visitors,
-        COUNT(*) AS total_sessions,
+        COUNT(DISTINCT visitor_id)::int AS unique_visitors,
+        COUNT(*)::int AS total_sessions,
         ROUND(AVG(EXTRACT(EPOCH FROM (last_active - started_at)))::numeric, 0)::int AS avg_duration_sec,
-        SUM(CASE WHEN wa_clicked THEN 1 ELSE 0 END) AS wa_clicks,
+        SUM(CASE WHEN wa_clicked THEN 1 ELSE 0 END)::int AS wa_clicks,
         ROUND(AVG(max_scroll)::numeric, 0)::int AS avg_scroll,
         ROUND(AVG(page_count)::numeric, 1)::float AS avg_pages
         FROM visitor_sessions
         WHERE started_at > NOW() - (${days} || ' days')::interval`,
-      sql`SELECT device, COUNT(*) AS cnt FROM visitor_sessions
+      sql`SELECT device, COUNT(*)::int AS cnt FROM visitor_sessions
         WHERE started_at > NOW() - (${days} || ' days')::interval
         GROUP BY device ORDER BY cnt DESC`,
-      sql`SELECT page, COUNT(*) AS cnt FROM visitor_events
+      sql`SELECT page, COUNT(*)::int AS cnt FROM visitor_events
         WHERE event = 'page_view' AND created_at > NOW() - (${days} || ' days')::interval
         GROUP BY page ORDER BY cnt DESC LIMIT 10`,
-      sql`SELECT shop_name, COUNT(*) AS views,
-        SUM(CASE WHEN event = 'wa_click' THEN 1 ELSE 0 END) AS wa
-        FROM visitor_events
-        WHERE shop_name != '' AND created_at > NOW() - (${days} || ' days')::interval
-        GROUP BY shop_name ORDER BY views DESC LIMIT 8`,
-      sql`SELECT EXTRACT(HOUR FROM created_at)::int AS hour, COUNT(DISTINCT session_id) AS sessions
+      sql`SELECT sh.name AS shop_name,
+        COUNT(DISTINCT ve.session_id)::int AS views,
+        SUM(CASE WHEN ve.event = 'wa_click' THEN 1 ELSE 0 END)::int AS wa
+        FROM visitor_events ve
+        JOIN shops sh ON sh.slug = REGEXP_REPLACE(ve.page, '^/shop/', '')
+                         AND ve.page LIKE '/shop/%'
+        WHERE ve.event IN ('page_view','page_exit','shop_view','wa_click')
+          AND ve.created_at > NOW() - (${days} || ' days')::interval
+        GROUP BY sh.name ORDER BY views DESC LIMIT 8`,
+      sql`SELECT EXTRACT(HOUR FROM created_at)::int AS hour, COUNT(DISTINCT session_id)::int AS cnt
         FROM visitor_events WHERE event = 'page_view'
         AND created_at > NOW() - (${days} || ' days')::interval
         GROUP BY hour ORDER BY hour`,
       sql`SELECT
-        COUNT(DISTINCT session_id) AS total_sessions,
-        SUM(CASE WHEN did_shop > 0 THEN 1 ELSE 0 END) AS viewed_shop,
-        SUM(CASE WHEN wa_clicked THEN 1 ELSE 0 END) AS clicked_wa
+        COUNT(DISTINCT session_id)::int AS total_sessions,
+        SUM(CASE WHEN did_shop > 0 THEN 1 ELSE 0 END)::int AS viewed_shop,
+        SUM(CASE WHEN wa_clicked THEN 1 ELSE 0 END)::int AS clicked_wa
         FROM (
           SELECT vs.session_id, vs.wa_clicked,
             MAX(CASE WHEN ve.event = 'shop_view' THEN 1 ELSE 0 END) AS did_shop
@@ -2532,7 +2563,46 @@ app.get('/api/visitors-stats', async (c) => {
         ) t`
     ])
 
-    return c.json({ totals: totals[0], byDevice, byPage, topShops, hourly, waFunnel: waFunnel[0] })
+    // snake_case → camelCase 정규화
+    const t = totalsRaw[0] as any || {}
+    const totalsNorm = {
+      uniqueVisitors:   +(t.unique_visitors   ?? t.uniqueVisitors   ?? 0),
+      sessions:         +(t.total_sessions    ?? t.sessions         ?? 0),
+      avgDuration:      +(t.avg_duration_sec  ?? t.avgDuration      ?? 0),
+      waClicks:         +(t.wa_clicks         ?? t.waClicks         ?? 0),
+      avgScroll:        +(t.avg_scroll        ?? t.avgScroll        ?? 0),
+      pagesPerSession:  +(t.avg_pages         ?? t.pagesPerSession  ?? 0),
+    }
+
+    const byDevice = (byDeviceRaw as any[]).map(r => ({
+      device: r.device,
+      count:  +(r.cnt ?? r.count ?? 0),
+    }))
+
+    const byPage = (byPageRaw as any[]).map(r => ({
+      page:  r.page,
+      count: +(r.cnt ?? r.count ?? 0),
+    }))
+
+    const topShops = (topShopsRaw as any[]).map(r => ({
+      shopName: r.shop_name ?? r.shopName ?? '',
+      views:    +(r.views ?? 0),
+      wa:       +(r.wa ?? 0),
+    }))
+
+    const hourly = (hourlyRaw as any[]).map(r => ({
+      hour:  +(r.hour ?? 0),
+      count: +(r.cnt ?? r.sessions ?? r.count ?? 0),
+    }))
+
+    const wf = waFunnelRaw[0] as any || {}
+    const waFunnel = {
+      visits:    +(wf.total_sessions ?? wf.visits    ?? 0),
+      shopViews: +(wf.viewed_shop    ?? wf.shopViews ?? 0),
+      waClicks:  +(wf.clicked_wa     ?? wf.waClicks  ?? 0),
+    }
+
+    return c.json({ totals: totalsNorm, byDevice, byPage, topShops, hourly, waFunnel })
   } catch(e: any) {
     return c.json({ error: e.message }, 500)
   }
@@ -10492,52 +10562,123 @@ window.toggleVsTimeline = async function(sid){
     var pages = data.pageSummary || [];
     if(!evs.length){ tl.innerHTML='<div style="color:rgba(255,255,255,.25);font-size:11px;padding:12px">이벤트 없음</div>'; return; }
 
-    // ── 세션 요약 헤더 ────────────────────────────────
+    // ── ① 세션 스코어카드 ────────────────────────────────────
     var totalSec = sess.durationSec || sess.duration_sec || 0;
     var waClicked = sess.waClicked || sess.wa_clicked;
-    var refStr = sess.referrer ? '<span style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:bottom">'+escHtml(sess.referrer)+'</span>' : '직접 방문';
-    var uaStr  = sess.ua ? escHtml(sess.ua.substring(0,60)) : '';
+    var pgCount  = sess.pageCount  || sess.page_count  || 0;
+    var maxScr   = sess.maxScroll  || sess.max_scroll  || 0;
+    var refHost  = '';
+    if(sess.referrer){
+      try { refHost = new URL(sess.referrer).hostname.replace('www.',''); } catch(e2){ refHost = sess.referrer.slice(0,30); }
+    }
+    var shopViews  = evs.filter(function(e){return e.event==='shop_view';}).length;
+    var videoPlays = evs.filter(function(e){return e.event==='video_play';}).length;
+
+    // 인게이지먼트 스코어 (0~100)
+    var score = Math.min(100,
+      Math.round(
+        Math.min(totalSec,300)/300*40 +
+        Math.min(pgCount,5)/5*20 +
+        (waClicked?25:0) +
+        Math.min(shopViews,3)/3*10 +
+        Math.min(maxScr,80)/80*5
+      )
+    );
+    var scoreColor = score>=70?'#34d399':score>=40?'#fbbf24':'#f472b6';
+
     var summaryHtml =
-      '<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:10px 12px;margin-bottom:12px">'
-      +'<div style="display:flex;flex-wrap:wrap;gap:10px 18px;font-size:10px;color:rgba(255,255,255,.5)">'
-      +'<span><i class="fas fa-clock" style="color:#60a5fa;margin-right:4px"></i>총 '+fmtDur(totalSec)+'</span>'
-      +'<span><i class="fas fa-file-alt" style="color:#a78bfa;margin-right:4px"></i>'+( sess.pageCount||sess.page_count||0)+'페이지</span>'
-      +'<span><i class="fas fa-arrows-alt-v" style="color:#4ade80;margin-right:4px"></i>최대 '+(sess.maxScroll||sess.max_scroll||0)+'% 스크롤</span>'
-      +(waClicked ? '<span style="color:#25d366"><i class="fab fa-whatsapp" style="margin-right:4px"></i>WA 클릭 ✅</span>' : '')
-      +'<span><i class="fas fa-sign-in-alt" style="color:#fbbf24;margin-right:4px"></i>'+refStr+'</span>'
+      // 스코어카드
+      '<div style="background:linear-gradient(135deg,rgba(255,255,255,.04),rgba(255,255,255,.01));border:1px solid rgba(255,255,255,.09);border-radius:12px;padding:12px;margin-bottom:10px">'
+      // 상단: 인게이지먼트 점수 + 핵심 지표
+      +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
+      // 점수 원
+      +'<div style="flex-shrink:0;width:52px;height:52px;border-radius:50%;border:2px solid '+scoreColor+';display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(255,255,255,.02)">'
+      +'<span style="font-size:16px;font-weight:900;color:'+scoreColor+'">'+score+'</span>'
+      +'<span style="font-size:7px;color:rgba(255,255,255,.3);letter-spacing:.05em">SCORE</span>'
       +'</div>'
-      +(uaStr ? '<div style="font-size:9px;color:rgba(255,255,255,.2);margin-top:5px;word-break:break-all">'+uaStr+'</div>' : '')
+      // 지표 그리드
+      +'<div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:4px 12px">'
+      +'<div><span style="font-size:9px;color:rgba(255,255,255,.3)">⏱ 체류</span><span style="font-size:12px;font-weight:700;color:#e2e8f0;margin-left:5px">'+fmtDur(totalSec)+'</span></div>'
+      +'<div><span style="font-size:9px;color:rgba(255,255,255,.3)">📄 페이지</span><span style="font-size:12px;font-weight:700;color:#e2e8f0;margin-left:5px">'+pgCount+'개</span></div>'
+      +'<div><span style="font-size:9px;color:rgba(255,255,255,.3)">↕ 스크롤</span><span style="font-size:12px;font-weight:700;color:#e2e8f0;margin-left:5px">'+maxScr+'%</span></div>'
+      +'<div><span style="font-size:9px;color:rgba(255,255,255,.3)">🏪 업체</span><span style="font-size:12px;font-weight:700;color:#e2e8f0;margin-left:5px">'+shopViews+'회</span></div>'
+      +'</div></div>'
+      // 하단: 배지 행
+      +'<div style="display:flex;flex-wrap:wrap;gap:5px">'
+      +(waClicked?'<span style="background:rgba(37,211,102,.15);color:#34d399;border:1px solid rgba(37,211,102,.25);padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600"><i class="fab fa-whatsapp" style="margin-right:3px"></i>WA 문의 완료</span>':'')
+      +(videoPlays>0?'<span style="background:rgba(167,139,250,.15);color:#a78bfa;border:1px solid rgba(167,139,250,.25);padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600"><i class="fas fa-play" style="margin-right:3px"></i>영상 '+videoPlays+'개</span>':'')
+      +(sess.referrer?'<span style="background:rgba(251,191,36,.1);color:#fbbf24;border:1px solid rgba(251,191,36,.2);padding:2px 8px;border-radius:20px;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px"><i class="fas fa-external-link-alt" style="margin-right:3px"></i>'+escHtml(refHost)+'</span>'
+       :'<span style="background:rgba(255,255,255,.05);color:rgba(255,255,255,.35);border:1px solid rgba(255,255,255,.1);padding:2px 8px;border-radius:20px;font-size:10px">직접 방문</span>')
+      +(sess.ua?'<span style="background:rgba(255,255,255,.04);color:rgba(255,255,255,.25);padding:2px 8px;border-radius:20px;font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px">'+escHtml(sess.ua.substring(0,40))+'</span>':'')
+      +'</div>'
       +'</div>';
 
-    // ── 페이지별 여정 요약 (방문한 순서) ─────────────────
+    // ── ② 페이지 여정 (Flow 시각화) ────────────────────────────
     var journeyHtml = '';
     if(pages.length){
       journeyHtml = '<div style="margin-bottom:12px">'
-        +'<div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.35);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">📍 페이지 여정</div>'
-        +'<div style="display:flex;flex-direction:column;gap:4px">'
+        +'<div style="font-size:9px;font-weight:800;color:rgba(255,255,255,.3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:5px">'
+        +'<i class="fas fa-route" style="color:#60a5fa;font-size:10px"></i>페이지 여정 — '+pages.length+'곳 방문</div>'
+        +'<div>'
         + pages.map(function(p, pi){
-            var scrollBar = Math.min(100, p.maxScroll||p.max_scroll||0);
-            var stayS = p.staySec||p.stay_sec||0;
-            var pageName = (p.page||'/').replace('/shop/','shop/ ').replace('/best/','best/ ');
-            return '<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:rgba(255,255,255,.03);border-radius:6px;border:1px solid rgba(255,255,255,.05)">'
-              +'<span style="font-size:9px;color:rgba(255,255,255,.25);min-width:14px;text-align:right">'+(pi+1)+'</span>'
-              +'<div style="flex:1;min-width:0">'
-              +'<div style="font-size:10px;color:rgba(255,255,255,.65);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(pageName)+'</div>'
-              +'<div style="display:flex;align-items:center;gap:6px;margin-top:3px">'
-              +'<div style="flex:1;height:3px;background:rgba(255,255,255,.07);border-radius:2px">'
-              +'<div style="height:3px;background:linear-gradient(90deg,#60a5fa,#a78bfa);border-radius:2px;width:'+scrollBar+'%;transition:width .4s"></div>'
+            var scrollBar = Math.min(100, p.maxScroll || 0);
+            var stayS = p.staySec || 0;
+            var pg = p.page || '/';
+            var shopN = p.shopName || null;
+            var pageLabel, pageColor, pageIco, pageBg;
+            if(pg === '/') {
+              pageLabel='홈'; pageColor='rgba(255,255,255,.75)'; pageIco='fa-home'; pageBg='rgba(255,255,255,.05)';
+            } else if(pg.startsWith('/shop/')) {
+              pageLabel = shopN || pg.replace('/shop/','').split('-').map(function(w){return w.charAt(0).toUpperCase()+w.slice(1);}).join(' ');
+              pageColor='#f9a8d4'; pageIco='fa-store'; pageBg='rgba(244,114,182,.08)';
+            } else if(pg.startsWith('/best/')) {
+              pageLabel='Best: '+pg.replace('/best/',''); pageColor='#fbbf24'; pageIco='fa-trophy'; pageBg='rgba(251,191,36,.07)';
+            } else {
+              pageLabel=pg; pageColor='rgba(255,255,255,.45)'; pageIco='fa-file-alt'; pageBg='rgba(255,255,255,.03)';
+            }
+            var stayColor = stayS>60?'#34d399':stayS>20?'#fbbf24':'#64748b';
+            var isLast = pi===pages.length-1;
+            // 스크롤 아이콘 색
+            var scrIco = scrollBar>=80?'<i class="fas fa-fire" style="color:#f97316;font-size:8px"></i>':
+                         scrollBar>=50?'<i class="fas fa-arrows-alt-v" style="color:#60a5fa;font-size:8px"></i>':
+                         '<i class="fas fa-arrow-down" style="color:#64748b;font-size:8px"></i>';
+            return ''
+              // 스텝 카드
+              +'<div style="display:flex;gap:6px;margin-bottom:'+(isLast?'0':'4px')+'">'
+              // 번호 + 연결선
+              +'<div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0">'
+              +'<div style="width:24px;height:24px;border-radius:50%;background:'+pageColor.replace('rgba','rgba').replace(',1)',',')+';border:1.5px solid '+pageColor+';display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#0d0d18;background:'+pageColor+'20">'
+              +'<span style="color:'+pageColor+';font-weight:800;font-size:9px">'+(pi+1)+'</span>'
               +'</div>'
-              +'<span style="font-size:9px;color:rgba(255,255,255,.3);flex-shrink:0">'+scrollBar+'%</span>'
-              +(stayS ? '<span style="font-size:9px;color:rgba(255,255,255,.25);flex-shrink:0">'+fmtDur(stayS)+'</span>' : '')
-              +(p.clicks>0 ? '<span style="font-size:9px;color:#fb923c;flex-shrink:0"><i class="fas fa-hand-pointer"></i> '+p.clicks+'</span>' : '')
-              +'</div></div></div>';
+              +(!isLast?'<div style="width:1px;flex:1;min-height:8px;background:linear-gradient(to bottom,'+pageColor+'40,rgba(255,255,255,.05));margin:1px 0"></div>':'')
+              +'</div>'
+              // 카드
+              +'<div style="flex:1;min-width:0;background:'+pageBg+';border:1px solid '+pageColor+'20;border-radius:8px;padding:6px 8px;margin-bottom:'+(isLast?'0':'2px')+'">'
+              // 페이지명 + 체류시간
+              +'<div style="display:flex;align-items:center;gap:5px;margin-bottom:4px">'
+              +'<i class="fas '+pageIco+'" style="color:'+pageColor+';font-size:9px;flex-shrink:0"></i>'
+              +'<span style="font-size:11px;color:'+pageColor+';font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">'+escHtml(pageLabel)+'</span>'
+              +(stayS?'<span style="font-size:10px;font-weight:800;color:'+stayColor+';flex-shrink:0;background:'+stayColor+'18;padding:1px 6px;border-radius:5px">'+fmtDur(stayS)+'</span>':'')
+              +'</div>'
+              // 스크롤 바 + 클릭
+              +'<div style="display:flex;align-items:center;gap:6px">'
+              +scrIco
+              +'<div style="flex:1;height:3px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden">'
+              +'<div style="height:3px;background:linear-gradient(90deg,#60a5fa,#a78bfa);border-radius:3px;width:'+scrollBar+'%;transition:width .4s"></div>'
+              +'</div>'
+              +'<span style="font-size:9px;color:rgba(255,255,255,.25);flex-shrink:0">'+scrollBar+'%</span>'
+              +(p.clicks>0?'<span style="font-size:9px;color:#fb923c;flex-shrink:0;background:rgba(251,146,60,.1);padding:1px 5px;border-radius:4px"><i class="fas fa-hand-pointer" style="font-size:8px"></i> '+p.clicks+'</span>':'')
+              +'</div>'
+              +'</div></div>';
           }).join('')
         +'</div></div>';
     }
 
-    // ── 상세 이벤트 타임라인 ──────────────────────────────
-    var tlHtml = '<div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.35);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">⏱ 상세 이벤트 로그</div>'
-      +'<div class="vs-tl-list">'
+    // ── ③ 상세 이벤트 로그 ──────────────────────────────────
+    var tlHtml =
+      '<div style="font-size:9px;font-weight:800;color:rgba(255,255,255,.3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:5px">'
+      +'<i class="fas fa-list" style="color:#a78bfa;font-size:10px"></i>이벤트 로그 — '+evs.length+'개</div>'
+      +'<div class="vs-tl-list" style="display:flex;flex-direction:column;gap:2px">'
       + evs.map(function(ev,i){ return buildTlItem(ev, i===0?null:evs[i-1]); }).join('')
       +'</div>';
 
@@ -10547,90 +10688,107 @@ window.toggleVsTimeline = async function(sid){
   }
 };
 
-// 타임라인 아이템 HTML — 상세 버전
+// 타임라인 아이템 HTML — 상세 버전 (카드 스타일)
 function buildTlItem(ev, prev){
   var cfg = {
-    page_view:    { ico:'fa-eye',           color:'#60a5fa', label:'페이지 진입' },
-    page_exit:    { ico:'fa-door-open',     color:'#94a3b8', label:'페이지 이탈' },
-    scroll_depth: { ico:'fa-arrows-alt-v',  color:'#4ade80', label:'스크롤 도달' },
-    wa_click:     { ico:'fa-whatsapp',      color:'#25d366', label:'WhatsApp 클릭' },
-    shop_view:    { ico:'fa-store',         color:'#f472b6', label:'업체 상세 조회' },
-    shop_click:   { ico:'fa-hand-pointer',  color:'#fb923c', label:'업체 클릭' },
-    video_play:   { ico:'fa-play-circle',   color:'#a78bfa', label:'영상 시청' },
-    search:       { ico:'fa-search',        color:'#fbbf24', label:'검색' },
-    filter_click: { ico:'fa-filter',        color:'#e879f9', label:'필터 선택' }
+    page_view:    { ico:'fa-eye',           color:'#60a5fa', label:'페이지 진입',      bg:'rgba(96,165,250,.08)' },
+    page_exit:    { ico:'fa-sign-out-alt',  color:'#94a3b8', label:'이탈',             bg:'rgba(148,163,184,.06)' },
+    scroll_depth: { ico:'fa-arrows-alt-v',  color:'#4ade80', label:'스크롤 도달',      bg:'rgba(74,222,128,.08)' },
+    wa_click:     { ico:'fa-whatsapp',      color:'#25d366', label:'💬 WhatsApp 문의', bg:'rgba(37,211,102,.12)' },
+    shop_view:    { ico:'fa-store',         color:'#f472b6', label:'업체 상세 조회',   bg:'rgba(244,114,182,.09)' },
+    shop_click:   { ico:'fa-hand-pointer',  color:'#fb923c', label:'업체 클릭',        bg:'rgba(251,146,60,.08)' },
+    video_play:   { ico:'fa-play-circle',   color:'#a78bfa', label:'🎬 영상 시청',     bg:'rgba(167,139,250,.09)' },
+    search:       { ico:'fa-search',        color:'#fbbf24', label:'검색',             bg:'rgba(251,191,36,.08)' },
+    filter_click: { ico:'fa-filter',        color:'#e879f9', label:'필터 선택',        bg:'rgba(232,121,249,.08)' }
   };
-  var c = cfg[ev.event] || { ico:'fa-circle-dot', color:'rgba(255,255,255,.3)', label:ev.event };
+  var c = cfg[ev.event] || { ico:'fa-circle-dot', color:'rgba(255,255,255,.3)', label:ev.event, bg:'rgba(255,255,255,.03)' };
   var iconClass = (ev.event==='wa_click') ? 'fab fa-whatsapp' : 'fas '+c.ico;
-  var ts = ev.created_at||ev.createdAt
+  var ts = (ev.created_at||ev.createdAt)
     ? new Date(ev.created_at||ev.createdAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})
     : '';
 
-  // 이전 이벤트와의 경과시간
+  // 이전 이벤트와의 경과시간 표시
   var gapHtml = '';
   if(prev){
     var prevTs = prev.created_at||prev.createdAt;
     var curTs  = ev.created_at||ev.createdAt;
     if(prevTs && curTs){
       var diff = Math.round((new Date(curTs)-new Date(prevTs))/1000);
-      if(diff >= 3){
-        gapHtml = '<div style="display:flex;align-items:center;gap:4px;padding:2px 0 2px 26px;color:rgba(255,255,255,.18);font-size:9px">'
-          +'<div style="flex:1;height:1px;background:rgba(255,255,255,.06)"></div>'
-          +'<span>+'+fmtDur(diff)+'</span>'
-          +'<div style="flex:1;height:1px;background:rgba(255,255,255,.06)"></div>'
+      if(diff >= 5){
+        gapHtml = '<div style="display:flex;align-items:center;gap:4px;margin:2px 0;color:rgba(255,255,255,.2);font-size:9px">'
+          +'<div style="flex:1;height:1px;background:rgba(255,255,255,.05)"></div>'
+          +'<span style="background:rgba(255,255,255,.04);padding:1px 7px;border-radius:3px;flex-shrink:0">+'+fmtDur(diff)+'</span>'
+          +'<div style="flex:1;height:1px;background:rgba(255,255,255,.05)"></div>'
           +'</div>';
       }
     }
   }
 
-  // 이벤트별 상세 정보
-  var details = [];
-  var page = ev.page||'';
-  var shopN = ev.shop_name||ev.shopName||'';
-  var val   = ev.value||'';
-  var scrollP = ev.scroll_pct||ev.scrollPct||0;
-  var dur   = ev.duration||0;
-  var gap2  = ev.next_event_gap_sec||0;
+  var page    = ev.page  || '';
+  var shopN   = ev.shop_name || ev.shopName || '';
+  var val     = ev.value || '';
+  var scrollP = +(ev.scroll_pct || ev.scrollPct || 0);
+  var dur     = +(ev.duration   || 0);
+  var gap2    = +(ev.next_event_gap_sec || 0);
 
-  if(page && ev.event==='page_view'){
-    details.push('<span style="color:rgba(255,255,255,.5)">'+escHtml(page)+'</span>');
+  function pgLabel(pg){
+    if(!pg||pg==='/') return '홈';
+    if(pg.startsWith('/shop/')){
+      return shopN || pg.replace('/shop/','').split('-').map(function(w){return w.charAt(0).toUpperCase()+w.slice(1);}).join(' ');
+    }
+    if(pg.startsWith('/best/')) return 'Best: '+pg.replace('/best/','');
+    return pg;
+  }
+
+  var chips = [];
+  if(ev.event==='page_view'){
+    var isShopPage = page.startsWith('/shop/');
+    chips.push('<span style="background:'+(isShopPage?'rgba(244,114,182,.15)':'rgba(96,165,250,.12)')+';color:'+(isShopPage?'#f9a8d4':'#93c5fd')+';padding:2px 8px;border-radius:8px;font-size:10px;font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle">'+(isShopPage?'<i class="fas fa-store" style="font-size:8px;margin-right:3px"></i>':'')+escHtml(pgLabel(page))+'</span>');
+    if(gap2 && gap2<3600) chips.push('<span style="color:rgba(255,255,255,.2);font-size:9px">→ '+fmtDur(gap2)+' 후 이동</span>');
   }
   if(ev.event==='scroll_depth'){
-    var scrollColor = scrollP>=75?'#34d399':scrollP>=50?'#60a5fa':'#94a3b8';
-    details.push('<span style="color:'+scrollColor+';font-weight:700">'+scrollP+'% 도달</span>');
+    var sc = scrollP>=75?'#34d399':scrollP>=50?'#fbbf24':'#64748b';
+    chips.push('<span style="display:inline-flex;align-items:center;gap:4px;vertical-align:middle">'
+      +'<span style="display:inline-block;width:55px;height:5px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden;vertical-align:middle">'
+      +'<span style="display:block;height:5px;background:'+sc+';width:'+Math.min(100,scrollP)+'%"></span></span>'
+      +'<span style="color:'+sc+';font-size:11px;font-weight:800">'+scrollP+'%</span></span>');
   }
   if(ev.event==='page_exit'){
-    if(dur) details.push('<span style="color:rgba(255,255,255,.4)">체류 '+fmtDur(dur)+'</span>');
-    if(page) details.push('<span style="color:rgba(255,255,255,.35)">'+escHtml(page)+'</span>');
+    if(page) chips.push('<span style="background:rgba(255,255,255,.05);color:rgba(255,255,255,.4);padding:2px 7px;border-radius:8px;font-size:10px">'+escHtml(pgLabel(page))+'</span>');
+    if(dur)  chips.push('<span style="background:rgba(255,255,255,.04);color:rgba(255,255,255,.3);padding:2px 7px;border-radius:8px;font-size:10px">⏱ '+fmtDur(dur)+'</span>');
   }
-  if(shopN){
-    details.push('<span style="color:'+c.color+';font-weight:600">'+escHtml(shopN)+'</span>');
+  if((ev.event==='shop_view'||ev.event==='shop_click') && shopN){
+    chips.push('<span style="background:rgba(244,114,182,.15);color:#f9a8d4;border:1px solid rgba(244,114,182,.2);padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700"><i class="fas fa-store" style="font-size:8px;margin-right:3px"></i>'+escHtml(shopN)+'</span>');
   }
-  if(val && ev.event==='search'){
-    details.push('<span style="color:#fbbf24">"'+escHtml(val)+'"</span>');
+  if(ev.event==='wa_click'){
+    if(shopN) chips.push('<span style="background:rgba(37,211,102,.15);color:#34d399;border:1px solid rgba(37,211,102,.2);padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700">'+escHtml(shopN)+'</span>');
   }
-  if(val && ev.event==='filter_click'){
-    details.push('<span style="color:#e879f9">'+escHtml(val)+'</span>');
+  if(ev.event==='search' && val){
+    chips.push('<span style="background:rgba(251,191,36,.1);color:#fbbf24;border:1px solid rgba(251,191,36,.15);padding:2px 8px;border-radius:8px;font-size:10px">"'+escHtml(val)+'"</span>');
+  }
+  if(ev.event==='filter_click' && val){
+    chips.push('<span style="background:rgba(232,121,249,.1);color:#e879f9;padding:2px 8px;border-radius:8px;font-size:10px">'+escHtml(val)+'</span>');
   }
   if(ev.event==='video_play' && val){
-    details.push('<span style="color:#a78bfa">'+escHtml(val)+'</span>');
-  }
-  // 다음 이벤트까지 체류시간 (page_view에만)
-  if(ev.event==='page_view' && gap2 && gap2 < 3600){
-    details.push('<span style="color:rgba(255,255,255,.25);font-size:9px">→ '+fmtDur(gap2)+'후 다음 행동</span>');
+    chips.push('<span style="background:rgba(167,139,250,.1);color:#a78bfa;padding:2px 8px;border-radius:8px;font-size:10px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle">'+escHtml(val)+'</span>');
   }
 
-  var detailHtml = details.length ? '<div style="margin-top:2px;display:flex;flex-wrap:wrap;gap:4px 8px">'+details.map(function(d){ return '<span style="font-size:10px">'+d+'</span>'; }).join('')+'</div>' : '';
+  var chipsHtml = chips.length
+    ? '<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px;align-items:center">'+chips.join('')+'</div>'
+    : '';
 
+  var isHighlight = (ev.event==='wa_click'||ev.event==='shop_view'||ev.event==='video_play');
   return gapHtml
-    +'<div class="vs-tl-item">'
-    +'<div class="vs-tl-dot" style="background:'+c.color+';flex-shrink:0"><i class="'+iconClass+'" style="font-size:8px;color:#0d0d18"></i></div>'
-    +'<div class="vs-tl-content" style="flex:1">'
-    +'<div style="display:flex;align-items:center;justify-content:space-between">'
-    +'<span style="font-size:11px;font-weight:700;color:'+c.color+'">'+c.label+'</span>'
-    +'<span style="font-size:9px;color:rgba(255,255,255,.2)">'+ts+'</span>'
+    +'<div style="background:'+c.bg+';border:1px solid '+(isHighlight?c.color+'30':'rgba(255,255,255,.06)')+';border-radius:8px;padding:6px 8px;display:flex;gap:8px;align-items:flex-start">'
+    +'<div style="width:26px;height:26px;border-radius:50%;background:'+c.color+'18;border:1.5px solid '+c.color+'45;display:flex;align-items:center;justify-content:center;flex-shrink:0'+(isHighlight?';box-shadow:0 0 8px '+c.color+'35':'')+'">'
+    +'<i class="'+iconClass+'" style="font-size:9px;color:'+c.color+'"></i>'
     +'</div>'
-    +detailHtml
+    +'<div style="flex:1;min-width:0">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;gap:4px">'
+    +'<span style="font-size:11px;font-weight:700;color:'+c.color+'">'+c.label+'</span>'
+    +'<span style="font-size:9px;color:rgba(255,255,255,.2);flex-shrink:0">'+ts+'</span>'
+    +'</div>'
+    +chipsHtml
     +'</div></div>';
 }
 
