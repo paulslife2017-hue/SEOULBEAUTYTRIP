@@ -11672,8 +11672,8 @@ function buildVsRow(s){
   var pgCount = s.pageCount||0;
   var maxScroll = s.maxScroll||0;
 
-  return '<div class="vs-row" id="vsr-'+s.sessionId+'">'
-    +'<div class="vs-row-left" onclick="toggleVsTimeline(''+s.sessionId+'')" style="cursor:pointer">'
+  return '<div class="vs-row" id="vsr-'+s.sessionId+'" data-sid="'+s.sessionId+'">'
+    +'<div class="vs-row-left vs-row-clickable" style="cursor:pointer">'
     +'<i class="fas '+devIco+'" style="color:'+devColor+';font-size:16px;margin-right:8px;flex-shrink:0"></i>'
     +'<div class="vs-row-body">'
     +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
@@ -11697,6 +11697,16 @@ function buildVsRow(s){
     +'</div>'
     +'</div>';
 }
+
+// vs-row \uD074\uB9AD \uC774\uBCA4\uD2B8 \uC704\uC784 (\uB530\uC634\uD45C \uCDA9\uB3CC \uBC29\uC9C0)
+document.addEventListener('click', function(e){
+  var clickable = e.target.closest ? e.target.closest('.vs-row-clickable') : null;
+  if(!clickable) return;
+  var row = clickable.closest('.vs-row');
+  if(!row) return;
+  var sid = row.dataset ? row.dataset.sid : row.getAttribute('data-sid');
+  if(sid) window.toggleVsTimeline(sid);
+});
 
 // \uD0C0\uC784\uB77C\uC778 \uD1A0\uAE00
 window.toggleVsTimeline = async function(sid){

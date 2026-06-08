@@ -10082,8 +10082,8 @@ function buildVsRow(s){
   var pgCount = s.pageCount||0;
   var maxScroll = s.maxScroll||0;
 
-  return '<div class="vs-row" id="vsr-'+s.sessionId+'">'
-    +'<div class="vs-row-left" onclick="toggleVsTimeline(\''+s.sessionId+'\')" style="cursor:pointer">'
+  return '<div class="vs-row" id="vsr-'+s.sessionId+'" data-sid="'+s.sessionId+'">'
+    +'<div class="vs-row-left vs-row-clickable" style="cursor:pointer">'
     +'<i class="fas '+devIco+'" style="color:'+devColor+';font-size:16px;margin-right:8px;flex-shrink:0"></i>'
     +'<div class="vs-row-body">'
     +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
@@ -10107,6 +10107,16 @@ function buildVsRow(s){
     +'</div>'
     +'</div>';
 }
+
+// vs-row 클릭 이벤트 위임 (따옴표 충돌 방지)
+document.addEventListener('click', function(e){
+  var clickable = e.target.closest ? e.target.closest('.vs-row-clickable') : null;
+  if(!clickable) return;
+  var row = clickable.closest('.vs-row');
+  if(!row) return;
+  var sid = row.dataset ? row.dataset.sid : row.getAttribute('data-sid');
+  if(sid) window.toggleVsTimeline(sid);
+});
 
 // 타임라인 토글
 window.toggleVsTimeline = async function(sid){
