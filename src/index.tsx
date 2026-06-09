@@ -3485,6 +3485,23 @@ ${SB_TRACKER_SCRIPT}
       "primaryImageOfPage":{"@type":"ImageObject","url":"${shop.thumbnail}","thumbnailUrl":"${shop.thumbnail}"},
       "speakable":{"@type":"SpeakableSpecification","cssSelector":".sp-title,.sp-desc-text,.sp-seo-block"}
     }
+    ${shopVideos.length > 0 ? ','+shopVideos.map((v:any) => {
+      const vUrl = v.videoUrl || ''
+      const thumb = v.thumbnail || shop.thumbnail || ''
+      const vTitle = (v.title && !/^[a-zA-Z0-9_.~-]{8,}$/.test(v.title)) ? v.title : shop.name + ' — Seoul Beauty'
+      const uploadDate = v.createdAt ? new Date(v.createdAt).toISOString().slice(0,10) : new Date().toISOString().slice(0,10)
+      return JSON.stringify({
+        '@type': 'VideoObject',
+        'name': vTitle,
+        'description': (shop.description||vTitle).slice(0,300),
+        'thumbnailUrl': thumb,
+        'uploadDate': uploadDate,
+        'contentUrl': vUrl,
+        'embedUrl': `${base}/video/${v.id}`,
+        'publisher': {'@type':'Organization','name':'Seoul Beauty Trip','url':base},
+        'inLanguage': 'en'
+      })
+    }).join(',') : ''}
   ]
 }
 </script>
