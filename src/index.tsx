@@ -3173,7 +3173,7 @@ app.get('/shop/:slug', async (c) => {
   const _catLabel  = _catTitleLabels[_shopCat] || (_shopCat.charAt(0).toUpperCase()+_shopCat.slice(1))
   const _areaFinal = _shopArea.toLowerCase().replace('cheongdam','Gangnam').replace('apgujeong','Gangnam') !== _shopArea ? 'Gangnam' : _shopArea
   // title: 업체명 + 지역 + 카테고리 + Seoul + 연도 (구글 검색 키워드 최적화)
-  const _pageTitle = shop.name+' '+_areaFinal+' '+_catLabel+' Seoul 2026 | Foreigners Guide'
+  const _pageTitle = shop.name+' — '+_areaFinal+' '+_catLabel+' Seoul | Seoul Beauty Trip'
 
   const _metaDescLabels: Record<string,string> = {
     clinic:'dermatology clinic', hair:'hair salon', headspa:'head spa & scalp clinic',
@@ -4539,21 +4539,21 @@ body{background:#0f0f12;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
   const isHairGangnam      = catSlug === 'hair'      && areaSlug === 'gangnam'
   const isSkincareGangnam  = catSlug === 'skincare'  && areaSlug === 'gangnam'
   const titleMain   = isClinicGangnam
-    ? `Best Gangnam Dermatology Clinic for Foreigners ${yr} | Seoul Beauty Trip`
+    ? `Gangnam Skin Clinic for Foreigners ${yr} — Best English-Speaking Dermatology in Seoul`
     : isHeadSpaMyeongdong
-    ? `Best Korean Head Spa in Myeongdong Seoul ${yr} | Seoul Beauty Trip`
+    ? `Best Korean Head Spa in Myeongdong Seoul ${yr} — Foreigner Guide`
     : isClinicItaewon
-    ? `Best Skin Clinic in Itaewon Seoul ${yr} — English-Speaking & Tourist-Friendly | Seoul Beauty Trip`
+    ? `Best Skin Clinic in Itaewon Seoul ${yr} — English-Speaking & Tourist-Friendly`
     : isClinicMyeongdong
-    ? `Best Skin Clinic in Myeongdong Seoul ${yr} — Walk-in Dermatology for Tourists | Seoul Beauty Trip`
+    ? `Best Skin Clinic in Myeongdong Seoul ${yr} — Walk-in Dermatology for Tourists`
     : isHeadspaGangnam
-    ? `Best Head Spa in Gangnam Seoul ${yr} — Prices, Tips & Booking Guide | Seoul Beauty Trip`
+    ? `Best Head Spa in Gangnam Seoul ${yr} — Prices, Tips & Booking Guide`
     : isHeadspaHongdae
-    ? `Best Head Spa in Hongdae Seoul ${yr} — Budget-Friendly Korean Scalp Treatment | Seoul Beauty Trip`
+    ? `Best Head Spa in Hongdae Seoul ${yr} — Budget-Friendly Korean Scalp Treatment`
     : isHairGangnam
-    ? `Best Hair Salon in Gangnam for Foreigners ${yr} — Price & Booking Guide | Seoul Beauty Trip`
+    ? `Best Hair Salon in Gangnam for Foreigners ${yr} — Price & Booking Guide`
     : isSkincareGangnam
-    ? `Best Skincare Clinic in Gangnam Seoul ${yr} — Clinic vs Dermatology Guide | Seoul Beauty Trip`
+    ? `Best Skincare Clinic in Gangnam Seoul ${yr} — Clinic vs Dermatology Guide`
     : `Best ${catLabel} in ${areaLabel} Seoul for Foreigners ${yr}`
   const metaDesc    = isClinicGangnam
     ? `Top-rated Gangnam dermatology clinic guide for foreigners ${yr}. English-speaking dermatologists, transparent pricing, WhatsApp booking. Laser, RF, skin booster & more.`
@@ -4668,7 +4668,7 @@ body{background:#0f0f12;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
         '@type':'ListItem',
         'position':i+1,
         'item':{
-          '@type':['LocalBusiness','BeautySalon'],
+          '@type': catSlug === 'clinic' ? ['MedicalClinic','HealthAndBeautyBusiness','LocalBusiness'] : catSlug === 'headspa' ? ['HealthClub','BeautySalon','LocalBusiness'] : ['BeautySalon','LocalBusiness'],
           '@id':`${base}/shop/${s.slug}`,
           'name':s.name,
           'url':`${base}/shop/${s.slug}`,
@@ -7217,7 +7217,6 @@ app.get('/api/search-console', async (c) => {
     const startDate = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10)
     const siteUrl = 'https://seoulbeautytrip.com'
 
-    // Search Console은 webmasters.readonly scope 필요 (GA4의 analytics.readonly와 다름)
     const token = await getGa4Token(saKey, 'https://www.googleapis.com/auth/webmasters.readonly')
 
     const scFetch = (body: object) => fetch(
@@ -7226,17 +7225,53 @@ app.get('/api/search-console', async (c) => {
     ).then(r => r.json())
 
     const [keywords, pages, countries, devices] = await Promise.all([
-      // 검색어 Top 20
       scFetch({ startDate, endDate, dimensions: ['query'], rowLimit: 20, dataState: 'all' }),
-      // 페이지별 Top 15
       scFetch({ startDate, endDate, dimensions: ['page'], rowLimit: 15, dataState: 'all' }),
-      // 국가별
       scFetch({ startDate, endDate, dimensions: ['country'], rowLimit: 10, dataState: 'all' }),
-      // 디바이스별
       scFetch({ startDate, endDate, dimensions: ['device'], rowLimit: 5, dataState: 'all' })
     ])
 
     return c.json({ keywords, pages, countries, devices, startDate, endDate })
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+})
+
+// ── 페이지별 키워드 드릴다운 API ──
+app.get('/api/search-console/page-keywords', async (c) => {
+  try {
+    const saKey = (c.env as any)?.GA4_SERVICE_ACCOUNT_KEY
+      || (typeof process !== 'undefined' ? process.env.GA4_SERVICE_ACCOUNT_KEY : undefined)
+      || GA4_SA_KEY_DEFAULT
+
+    const pageUrl = c.req.query('page') // e.g. https://seoulbeautytrip.com/best/clinic/gangnam
+    if (!pageUrl) return c.json({ error: 'page param required' }, 400)
+
+    const days = parseInt(c.req.query('days') || '28')
+    const endDate = new Date().toISOString().slice(0, 10)
+    const startDate = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10)
+    const siteUrl = 'https://seoulbeautytrip.com'
+
+    const token = await getGa4Token(saKey, 'https://www.googleapis.com/auth/webmasters.readonly')
+
+    const res = await fetch(
+      `https://searchconsole.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          startDate, endDate,
+          dimensions: ['query'],
+          dimensionFilterGroups: [{
+            filters: [{ dimension: 'page', operator: 'equals', expression: pageUrl }]
+          }],
+          rowLimit: 25,
+          dataState: 'all'
+        })
+      }
+    ).then(r => r.json())
+
+    return c.json({ page: pageUrl, keywords: res, startDate, endDate })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
   }
@@ -10537,8 +10572,22 @@ textarea{height:80px;resize:none}
     </div>
     <!-- 페이지별 노출 -->
     <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px">
-      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:8px"><i class="fas fa-file-alt" style="color:#60a5fa;margin-right:5px"></i> 페이지별 검색 유입</div>
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:8px"><i class="fas fa-file-alt" style="color:#60a5fa;margin-right:5px"></i> 페이지별 검색 유입 <span style="font-size:10px;color:rgba(255,255,255,.3);font-weight:400">클릭하면 키워드 확인</span></div>
       <div id="sc-pages" style="display:flex;flex-direction:column;gap:5px;font-size:11px;color:rgba(255,255,255,.2)">로딩 중...</div>
+    </div>
+  </div>
+
+  <!-- 페이지 키워드 드릴다운 패널 -->
+  <div id="sc-page-drill" style="display:none;margin:0 20px 14px;background:rgba(96,165,250,.06);border:1px solid rgba(96,165,250,.25);border-radius:14px;padding:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div>
+        <div style="font-size:12px;font-weight:700;color:#60a5fa;margin-bottom:2px"><i class="fas fa-key" style="margin-right:5px"></i> 이 페이지의 검색 키워드</div>
+        <div id="sc-drill-page" style="font-size:10px;color:rgba(255,255,255,.4)"></div>
+      </div>
+      <button onclick="document.getElementById('sc-page-drill').style.display='none'" style="background:none;border:none;color:rgba(255,255,255,.4);cursor:pointer;font-size:16px;padding:4px">✕</button>
+    </div>
+    <div id="sc-drill-keywords" style="display:flex;flex-direction:column;gap:5px;font-size:11px">
+      <div style="color:rgba(255,255,255,.3);text-align:center;padding:10px">로딩 중...</div>
     </div>
   </div>
 
@@ -12734,27 +12783,33 @@ window.loadAnalytics = async function loadAnalytics(days) {
       }
     }
 
-    // 페이지별 검색 유입
+    // 페이지별 검색 유입 (클릭시 키워드 드릴다운)
     var scPgEl = document.getElementById('sc-pages');
     if(scPgEl) {
       var pgRows = (scData.pages && scData.pages.rows) || [];
       if(pgRows.length === 0) {
         scPgEl.innerHTML = NO_DATA;
       } else {
-        var pgMax2 = pgRows[0].clicks || 1;
+        var pgMax2 = Math.max(pgRows[0].impressions || 1, 1);
         scPgEl.innerHTML = pgRows.map(function(r){
-          var page = r.keys[0].replace('https://seoulbeautytrip.com','') || '/';
+          var fullUrl = r.keys[0];
+          var page = fullUrl.replace('https://seoulbeautytrip.com','') || '/';
           var clicks = r.clicks, impr = r.impressions, pos = r.position.toFixed(1);
-          var pct3 = Math.round(clicks/Math.max(pgMax2,1)*100);
-          var shortPage = page.length > 30 ? page.slice(0,30)+'…' : page;
-          return '<div style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,.04)">'
-            +'<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px">'
-            +'<span style="flex:1;color:rgba(255,255,255,.8);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+page+'">'+shortPage+'</span>'
-            +'<span style="font-size:10px;color:#60a5fa;font-weight:700">'+clicks+'클릭</span>'
+          var ctr = (r.ctr*100).toFixed(1);
+          var pct3 = Math.round(impr/pgMax2*100);
+          var shortPage = page.length > 32 ? page.slice(0,32)+'…' : page;
+          // 순위 색상
+          var posNum = parseFloat(pos);
+          var posColor = posNum <= 3 ? '#34d399' : posNum <= 10 ? '#fbbf24' : posNum <= 20 ? '#f97316' : 'rgba(255,255,255,.3)';
+          return '<div onclick="scDrillPage(\''+fullUrl+'\')" style="padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer;border-radius:6px;transition:background .15s" onmouseover="this.style.background=\'rgba(96,165,250,.08)\'" onmouseout="this.style.background=\'transparent\'">'
+            +'<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">'
+            +'<span style="flex:1;color:rgba(255,255,255,.85);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+page+'">'+shortPage+'</span>'
+            +'<span style="font-size:10px;color:#60a5fa;font-weight:700;min-width:28px;text-align:right">'+clicks+'클릭</span>'
             +'</div>'
-            +'<div style="display:flex;align-items:center;gap:5px">'
-            +'<div style="flex:1;height:3px;background:rgba(255,255,255,.06);border-radius:2px"><div style="height:100%;width:'+pct3+'%;background:#60a5fa;border-radius:2px"></div></div>'
-            +'<span style="font-size:9px;color:rgba(255,255,255,.3)">노출 '+impr+' · '+pos+'위</span>'
+            +'<div style="display:flex;align-items:center;gap:6px">'
+            +'<div style="flex:1;height:3px;background:rgba(255,255,255,.06);border-radius:2px"><div style="height:100%;width:'+pct3+'%;background:linear-gradient(90deg,#60a5fa,#818cf8);border-radius:2px"></div></div>'
+            +'<span style="font-size:9px;font-weight:700;color:'+posColor+'">'+pos+'위</span>'
+            +'<span style="font-size:9px;color:rgba(255,255,255,.25)">노출'+impr+' CTR'+ctr+'%</span>'
             +'</div>'
             +'</div>';
         }).join('');
@@ -12814,6 +12869,62 @@ window.loadAnalytics = async function loadAnalytics(days) {
       var el = document.getElementById(id);
       if(el) el.innerHTML = '<div style="color:rgba(255,255,255,.2);font-size:10px">서치콘솔 데이터 없음</div>';
     });
+  }
+};
+
+// ── 페이지 키워드 드릴다운 ──
+window.scDrillPage = async function(fullUrl) {
+  var panel = document.getElementById('sc-page-drill');
+  var pageLabel = document.getElementById('sc-drill-page');
+  var kwEl = document.getElementById('sc-drill-keywords');
+  if(!panel || !kwEl) return;
+
+  var shortPath = fullUrl.replace('https://seoulbeautytrip.com','') || '/';
+  panel.style.display = 'block';
+  if(pageLabel) pageLabel.textContent = shortPath;
+  kwEl.innerHTML = '<div style="color:rgba(255,255,255,.3);text-align:center;padding:10px"><i class="fas fa-spinner fa-spin"></i> 키워드 불러오는 중...</div>';
+
+  // 패널로 스크롤
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  try {
+    var days = document.getElementById('sc-days') ? document.getElementById('sc-days').value : '28';
+    var res = await fetch('/api/search-console/page-keywords?page=' + encodeURIComponent(fullUrl) + '&days=' + days);
+    var data = await res.json();
+    if(data.error) throw new Error(data.error);
+
+    var rows = (data.keywords && data.keywords.rows) || [];
+    if(rows.length === 0) {
+      kwEl.innerHTML = '<div style="color:rgba(255,255,255,.3);text-align:center;padding:12px;font-size:11px">이 페이지의 검색 데이터가 없습니다<br><span style="font-size:10px;opacity:.6">기간 내 노출이 없거나 아직 인덱싱 전입니다</span></div>';
+      return;
+    }
+
+    var maxImpr = Math.max(rows[0].impressions || 1, 1);
+    kwEl.innerHTML = rows.map(function(r, i) {
+      var q = r.keys[0];
+      var clicks = r.clicks, impr = r.impressions;
+      var ctr = (r.ctr * 100).toFixed(1);
+      var pos = r.position.toFixed(1);
+      var posNum = parseFloat(pos);
+      // 순위별 색상 + 기회 레이블
+      var posColor = posNum <= 3 ? '#34d399' : posNum <= 10 ? '#fbbf24' : posNum <= 20 ? '#f97316' : 'rgba(255,255,255,.3)';
+      var opp = posNum >= 4 && posNum <= 15 && clicks === 0 ? '<span style="background:rgba(251,191,36,.15);border:1px solid rgba(251,191,36,.3);color:#fbbf24;font-size:9px;padding:1px 5px;border-radius:4px;margin-left:4px">⚡ 기회</span>' : '';
+      var pct = Math.round(impr / maxImpr * 100);
+      return '<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05)">'
+        + '<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">'
+        + '<span style="font-size:9px;font-weight:900;color:' + posColor + ';min-width:28px;text-align:right;padding-right:4px">' + pos + '위</span>'
+        + '<span style="flex:1;color:rgba(255,255,255,.85);font-size:11px">' + q + '</span>'
+        + opp
+        + '<span style="font-size:10px;color:#34d399;font-weight:700;min-width:28px;text-align:right">' + clicks + '클릭</span>'
+        + '</div>'
+        + '<div style="display:flex;align-items:center;gap:5px;padding-left:32px">'
+        + '<div style="flex:1;height:2px;background:rgba(255,255,255,.06);border-radius:2px"><div style="height:100%;width:' + pct + '%;background:linear-gradient(90deg,#818cf8,#60a5fa);border-radius:2px"></div></div>'
+        + '<span style="font-size:9px;color:rgba(255,255,255,.25)">노출 ' + impr + ' · CTR ' + ctr + '%</span>'
+        + '</div>'
+        + '</div>';
+    }).join('');
+  } catch(e) {
+    kwEl.innerHTML = '<div style="color:#f87171;text-align:center;padding:10px;font-size:11px">오류: ' + e.message + '</div>';
   }
 };
 
