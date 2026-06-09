@@ -9007,38 +9007,35 @@ textarea{height:80px;resize:none}
 .vs-filters{display:flex;gap:8px;margin-bottom:14px;align-items:center;flex-wrap:wrap}
 .vs-filter-btn{padding:6px 14px;border-radius:20px;border:1px solid rgba(255,255,255,.12);background:transparent;color:rgba(255,255,255,.55);font-size:11px;font-weight:700;cursor:pointer;transition:all .2s}
 .vs-filter-btn.on{background:var(--pk);border-color:var(--pk);color:#fff}
-.vs-list{display:flex;flex-direction:column;gap:8px}
-.vs-row{background:var(--cd);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:13px 14px;cursor:pointer;transition:border-color .2s;display:flex;align-items:flex-start;gap:12px}
-.vs-row:hover{border-color:rgba(255,77,141,.4)}
-.vs-row.expanded{border-color:rgba(255,77,141,.5)}
-.vs-row-left{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,rgba(255,77,141,.3),rgba(155,89,182,.3));display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px}
+/* ── 방문자 목록 ── */
+.vs-list{display:flex;flex-direction:column;gap:6px}
+.vs-row{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:16px;overflow:hidden;transition:border-color .2s,box-shadow .2s}
+.vs-row:hover{border-color:rgba(255,77,141,.35);box-shadow:0 2px 16px rgba(255,77,141,.08)}
+.vs-row.expanded{border-color:rgba(255,77,141,.5);box-shadow:0 2px 20px rgba(255,77,141,.1)}
+/* 방문자 카드 헤더 (클릭 영역) */
+.vs-row-head{display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;user-select:none}
+.vs-row-head:hover{background:rgba(255,255,255,.02)}
+.vs-row-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px}
 .vs-row-body{flex:1;min-width:0}
-.vs-row-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;gap:8px}
-.vs-row-id{font-size:12px;font-weight:700;color:#fff}
-.vs-row-time{font-size:10px;color:rgba(255,255,255,.35)}
-.vs-row-badges{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:5px}
-.vs-badge{padding:2px 7px;border-radius:6px;font-size:9.5px;font-weight:800;letter-spacing:.3px}
-.vs-badge-wa{background:rgba(37,211,102,.18);color:#34d399}
-.vs-badge-shop{background:rgba(255,77,141,.15);color:var(--pk)}
-.vs-badge-vid{background:rgba(139,92,246,.18);color:#a78bfa}
-.vs-badge-mobile{background:rgba(59,130,246,.15);color:#60a5fa}
-.vs-badge-new{background:rgba(251,191,36,.15);color:#fbbf24}
-.vs-row-meta{font-size:10.5px;color:rgba(255,255,255,.4);display:flex;gap:10px;flex-wrap:wrap}
-.vs-row-meta span{display:flex;align-items:center;gap:3px}
-/* 타임라인 */
-.vs-timeline{padding:14px 0 4px;border-top:1px solid rgba(255,255,255,.06);margin-top:10px;display:none}
+.vs-row-top{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:3px}
+.vs-row-id{font-size:11px;font-weight:800;color:#e2e8f0;font-family:monospace;letter-spacing:.5px}
+.vs-row-time{font-size:10px;color:rgba(255,255,255,.28)}
+.vs-row-sub{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.vs-row-fp{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px}
+.vs-row-stat{font-size:10px;color:rgba(255,255,255,.35);display:flex;align-items:center;gap:3px}
+.vs-row-badges{display:flex;gap:3px;flex-wrap:wrap;margin-top:4px}
+.vs-badge{padding:2px 7px;border-radius:10px;font-size:9px;font-weight:800;letter-spacing:.3px;display:inline-flex;align-items:center;gap:3px}
+.vs-badge-wa{background:rgba(37,211,102,.18);color:#34d399;border:1px solid rgba(37,211,102,.2)}
+.vs-badge-shop{background:rgba(255,77,141,.15);color:var(--pk);border:1px solid rgba(255,77,141,.2)}
+.vs-badge-vid{background:rgba(139,92,246,.18);color:#a78bfa;border:1px solid rgba(139,92,246,.2)}
+.vs-badge-mobile{background:rgba(59,130,246,.12);color:#93c5fd;border:1px solid rgba(59,130,246,.15)}
+.vs-badge-new{background:rgba(251,191,36,.12);color:#fcd34d;border:1px solid rgba(251,191,36,.18)}
+.vs-row-chevron{color:rgba(255,255,255,.2);font-size:10px;flex-shrink:0;transition:transform .25s;margin-left:4px}
+/* 타임라인 (펼침 영역) */
+.vs-timeline{display:none;border-top:1px solid rgba(255,255,255,.06);padding:12px 14px 14px}
 .vs-timeline.open{display:block}
 .vs-tl-item{display:flex;gap:10px;margin-bottom:8px;align-items:flex-start}
 .vs-tl-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px}
-.vs-tl-dot.ev-page_view{background:#3b82f6}
-.vs-tl-dot.ev-shop_view{background:var(--pk)}
-.vs-tl-dot.ev-wa_click{background:#34d399}
-.vs-tl-dot.ev-video_play{background:#a78bfa}
-.vs-tl-dot.ev-scroll_depth{background:#f59e0b}
-.vs-tl-dot.ev-page_exit{background:#6b7280}
-.vs-tl-dot.ev-shop_click{background:#fb923c}
-.vs-tl-dot.ev-search{background:#67e8f9}
-.vs-tl-dot.ev-filter_click{background:#86efac}
 .vs-tl-line{width:1px;background:rgba(255,255,255,.08);margin-left:3.5px;flex-shrink:0;align-self:stretch}
 .vs-tl-content{flex:1;min-width:0}
 .vs-tl-ev{font-size:11px;font-weight:700;color:#fff;margin-bottom:1px}
@@ -10463,71 +10460,87 @@ window.vsLoadMore = function(){
 // 방문자 행 HTML 생성
 function buildVsRow(s){
   var badges = '';
-  if(s.waClicked)    badges += '<span class="vs-badge vs-badge-wa"><i class="fab fa-whatsapp"></i> WA클릭</span>';
-  if(s.shopViews>0)  badges += '<span class="vs-badge vs-badge-shop"><i class="fas fa-store"></i> 업체 '+s.shopViews+'</span>';
-  if(s.videoPlays>0) badges += '<span class="vs-badge vs-badge-vid"><i class="fas fa-play"></i> 영상 '+s.videoPlays+'</span>';
-  if(s.device==='mobile') badges += '<span class="vs-badge vs-badge-mobile"><i class="fas fa-mobile-alt"></i> 모바일</span>';
+  if(s.waClicked)    badges += '<span class="vs-badge vs-badge-wa"><i class="fab fa-whatsapp"></i>WA</span>';
+  if(s.shopViews>0)  badges += '<span class="vs-badge vs-badge-shop"><i class="fas fa-store"></i>'+s.shopViews+'</span>';
+  if(s.videoPlays>0) badges += '<span class="vs-badge vs-badge-vid"><i class="fas fa-play"></i>'+s.videoPlays+'</span>';
+  if(s.device==='mobile') badges += '<span class="vs-badge vs-badge-mobile"><i class="fas fa-mobile-alt"></i></span>';
 
   var devIco   = s.device==='mobile'?'fa-mobile-alt':s.device==='tablet'?'fa-tablet-alt':'fa-desktop';
   var devColor = s.device==='mobile'?'#f472b6':s.device==='tablet'?'#fb923c':'#60a5fa';
+  var devBg    = s.device==='mobile'?'rgba(244,114,182,.15)':s.device==='tablet'?'rgba(251,146,60,.15)':'rgba(96,165,250,.15)';
   var dur  = s.avgDuration!=null ? fmtDur(s.avgDuration) : '—';
   var ago  = timeAgo(s.startedAt);
   var pgCount   = s.pageCount||0;
   var maxScroll = s.maxScroll||0;
 
-  // 첫 페이지 라벨: /shop/slug → 업체명 스타일
+  // 첫 페이지 라벨
   var fp = s.firstPage || '/';
   var fpLabel = fp;
-  var fpColor = 'rgba(255,255,255,.4)';
-  if(fp === '/') { fpLabel = '🏠 홈'; }
+  var fpColor = 'rgba(255,255,255,.38)';
+  if(fp === '/') { fpLabel = '🏠 홈'; fpColor='rgba(255,255,255,.5)'; }
   else if(fp.startsWith('/shop/')) {
     fpLabel = '🏪 ' + fp.replace('/shop/','').replace(/-/g,' ');
     fpColor = '#f9a8d4';
   } else if(fp.startsWith('/best/')) {
-    fpLabel = '⭐ Best: ' + fp.replace('/best/','');
+    fpLabel = '⭐ ' + fp.replace('/best/','');
+    fpColor = '#fbbf24';
   }
 
-  // 체류시간 바 (0~300초 기준)
+  // 체류시간 색상
   var durSec = s.avgDuration||0;
-  var durPct = Math.min(100, Math.round(durSec/300*100));
-  var durBarColor = durPct>60?'#34d399':durPct>20?'#fbbf24':'#94a3b8';
+  var durColor = durSec>120?'#34d399':durSec>30?'#fbbf24':'#94a3b8';
+
+  // 인게이지먼트 스코어 미리 계산 (카드에 작게 표시)
+  var quickScore = Math.min(100, Math.round(
+    Math.min(durSec,300)/300*40 +
+    Math.min(pgCount,5)/5*20 +
+    (s.waClicked?25:0) +
+    Math.min(s.shopViews||0,3)/3*10 +
+    Math.min(maxScroll,80)/80*5
+  ));
+  var scoreColor = quickScore>=70?'#34d399':quickScore>=40?'#fbbf24':'#94a3b8';
 
   return '<div class="vs-row" id="vsr-'+s.sessionId+'" data-sid="'+s.sessionId+'">'
-    +'<div class="vs-row-left vs-row-clickable" style="cursor:pointer">'
-    // 디바이스 아이콘
-    +'<i class="fas '+devIco+'" style="color:'+devColor+';font-size:16px;margin-right:10px;flex-shrink:0"></i>'
-    +'<div class="vs-row-body" style="flex:1;min-width:0">'
-    // 1행: visitor ID + 시간
-    +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
-    +'<span style="font-size:11px;font-weight:700;color:#e2e8f0;font-family:monospace;letter-spacing:.5px">'+escHtml((s.visitorId||'').slice(-8))+'</span>'
-    +(s.country?'<span style="font-size:10px;background:rgba(255,255,255,.07);padding:1px 6px;border-radius:8px;color:rgba(255,255,255,.55)">'+escHtml(s.country)+'</span>':'')
-    +'<span style="font-size:10px;color:rgba(255,255,255,.25);margin-left:auto">'+ago+'</span>'
+    // ── 헤더 (클릭 시 펼침) ──
+    +'<div class="vs-row-head vs-row-clickable">'
+    // 아바타 (디바이스 아이콘)
+    +'<div class="vs-row-avatar" style="background:'+devBg+'">'
+    +'<i class="fas '+devIco+'" style="color:'+devColor+';font-size:14px"></i>'
     +'</div>'
-    // 2행: 첫 방문 페이지
-    +'<div style="font-size:10px;color:'+fpColor+';margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(fpLabel)+'</div>'
-    // 3행: 통계 (페이지수 / 체류시간 바 / 스크롤)
-    +'<div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap">'
-    +'<span style="font-size:10px;color:rgba(255,255,255,.4)"><i class="fas fa-file-alt" style="color:rgba(255,255,255,.2);margin-right:3px"></i>'+pgCount+'p</span>'
-    +'<span style="font-size:10px;color:rgba(255,255,255,.4)"><i class="fas fa-clock" style="color:rgba(255,255,255,.2);margin-right:3px"></i>'+dur+'</span>'
-    // 체류 시간 바
-    +'<div style="flex:1;min-width:40px;max-width:80px;height:4px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden">'
-    +'<div style="width:'+durPct+'%;height:100%;background:'+durBarColor+';border-radius:2px;transition:width .5s"></div>'
+    // 본문
+    +'<div class="vs-row-body">'
+    // 1행: ID + 국가 + 시간 + 스코어
+    +'<div class="vs-row-top">'
+    +'<div style="display:flex;align-items:center;gap:6px;min-width:0">'
+    +'<span class="vs-row-id">'+escHtml((s.visitorId||'').slice(-8))+'</span>'
+    +(s.country?'<span style="font-size:9px;background:rgba(255,255,255,.08);padding:1px 5px;border-radius:6px;color:rgba(255,255,255,.5)">'+escHtml(s.country)+'</span>':'')
     +'</div>'
-    +'<span style="font-size:10px;color:rgba(255,255,255,.3)">↕'+maxScroll+'%</span>'
+    +'<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">'
+    +'<span style="font-size:10px;font-weight:900;color:'+scoreColor+'">'+quickScore+'pt</span>'
+    +'<span class="vs-row-time">'+ago+'</span>'
     +'</div>'
-    // 4행: 배지
-    +(badges?'<div class="vs-row-badges" style="margin-top:5px">'+badges+'</div>':'')
     +'</div>'
-    +'<i class="fas fa-chevron-down vs-row-chevron" style="margin-left:8px;color:rgba(255,255,255,.2);font-size:10px;flex-shrink:0;transition:transform .2s"></i>'
+    // 2행: 첫 페이지 + 통계
+    +'<div class="vs-row-sub">'
+    +'<span class="vs-row-fp" style="color:'+fpColor+'">'+escHtml(fpLabel)+'</span>'
+    +'<span style="color:rgba(255,255,255,.2)">·</span>'
+    +'<span class="vs-row-stat"><i class="fas fa-file-alt" style="font-size:8px"></i>'+pgCount+'p</span>'
+    +'<span class="vs-row-stat" style="color:'+durColor+';font-weight:700"><i class="fas fa-clock" style="font-size:8px;color:rgba(255,255,255,.25)"></i>'+dur+'</span>'
+    +'<span class="vs-row-stat">↕'+maxScroll+'%</span>'
     +'</div>'
-    // 타임라인 (클릭 시 펼쳐짐)
-    +'<div class="vs-timeline" id="vstl-'+s.sessionId+'" style="display:none;padding:10px 0 4px 26px;border-top:1px solid rgba(255,255,255,.05);margin-top:8px">'
-    +'<div style="text-align:center;padding:10px;color:rgba(255,255,255,.25);font-size:11px"><i class="fas fa-circle-notch fa-spin"></i> 로딩...</div>'
+    // 3행: 배지
+    +(badges?'<div class="vs-row-badges">'+badges+'</div>':'')
+    +'</div>'
+    +'<i class="fas fa-chevron-right vs-row-chevron"></i>'
+    +'</div>'
+    // 타임라인 (펼침 영역)
+    +'<div class="vs-timeline" id="vstl-'+s.sessionId+'">'
+    +'<div style="text-align:center;padding:16px;color:rgba(255,255,255,.22);font-size:11px"><i class="fas fa-circle-notch fa-spin" style="margin-right:6px"></i>로딩 중...</div>'
     +'</div>'
     +'</div>';
 }
 
-// vs-row 클릭 이벤트 위임 (따옴표 충돌 방지)
+// vs-row 클릭 이벤트 위임
 document.addEventListener('click', function(e){
   var clickable = e.target.closest ? e.target.closest('.vs-row-clickable') : null;
   if(!clickable) return;
@@ -10543,10 +10556,16 @@ window.toggleVsTimeline = async function(sid){
   var tl  = document.getElementById('vstl-'+sid);
   var chev = row ? row.querySelector('.vs-row-chevron') : null;
   if(!tl) return;
-  var isOpen = tl.style.display !== 'none';
-  if(isOpen){ tl.style.display='none'; if(chev) chev.style.transform=''; return; }
-  tl.style.display='block';
-  if(chev) chev.style.transform='rotate(180deg)';
+  var isOpen = tl.classList.contains('open');
+  if(isOpen){
+    tl.classList.remove('open'); tl.style.display='none';
+    row.classList.remove('expanded');
+    if(chev){ chev.style.transform=''; chev.className='fas fa-chevron-right vs-row-chevron'; }
+    return;
+  }
+  tl.style.display='block'; tl.classList.add('open');
+  row.classList.add('expanded');
+  if(chev){ chev.style.transform='rotate(90deg)'; chev.className='fas fa-chevron-right vs-row-chevron'; }
   if(tl.dataset.loaded) return;
   tl.dataset.loaded = '1';
   var tk = _GSK_TOKEN || localStorage.getItem('_gsk_token') || '';
@@ -10586,99 +10605,94 @@ window.toggleVsTimeline = async function(sid){
     );
     var scoreColor = score>=70?'#34d399':score>=40?'#fbbf24':'#f472b6';
 
+    // ── 세션 요약 카드 ──
     var summaryHtml =
-      // 스코어카드
-      '<div style="background:linear-gradient(135deg,rgba(255,255,255,.04),rgba(255,255,255,.01));border:1px solid rgba(255,255,255,.09);border-radius:12px;padding:12px;margin-bottom:10px">'
-      // 상단: 인게이지먼트 점수 + 핵심 지표
+      '<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px;margin-bottom:12px">'
+      // 상단: 점수 + 4개 지표
       +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
       // 점수 원
-      +'<div style="flex-shrink:0;width:52px;height:52px;border-radius:50%;border:2px solid '+scoreColor+';display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(255,255,255,.02)">'
-      +'<span style="font-size:16px;font-weight:900;color:'+scoreColor+'">'+score+'</span>'
-      +'<span style="font-size:7px;color:rgba(255,255,255,.3);letter-spacing:.05em">SCORE</span>'
+      +'<div style="flex-shrink:0;width:48px;height:48px;border-radius:50%;border:2px solid '+scoreColor+';display:flex;flex-direction:column;align-items:center;justify-content:center">'
+      +'<span style="font-size:15px;font-weight:900;color:'+scoreColor+';line-height:1">'+score+'</span>'
+      +'<span style="font-size:7px;color:rgba(255,255,255,.3);letter-spacing:.05em;margin-top:1px">PT</span>'
       +'</div>'
-      // 지표 그리드
-      +'<div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:4px 12px">'
-      +'<div><span style="font-size:9px;color:rgba(255,255,255,.3)">⏱ 체류</span><span style="font-size:12px;font-weight:700;color:#e2e8f0;margin-left:5px">'+fmtDur(totalSec)+'</span></div>'
-      +'<div><span style="font-size:9px;color:rgba(255,255,255,.3)">📄 페이지</span><span style="font-size:12px;font-weight:700;color:#e2e8f0;margin-left:5px">'+pgCount+'개</span></div>'
-      +'<div><span style="font-size:9px;color:rgba(255,255,255,.3)">↕ 스크롤</span><span style="font-size:12px;font-weight:700;color:#e2e8f0;margin-left:5px">'+maxScr+'%</span></div>'
-      +'<div><span style="font-size:9px;color:rgba(255,255,255,.3)">🏪 업체</span><span style="font-size:12px;font-weight:700;color:#e2e8f0;margin-left:5px">'+shopViews+'회</span></div>'
+      // 4개 지표
+      +'<div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:3px 10px">'
+      +'<div style="font-size:10px"><span style="color:rgba(255,255,255,.3);font-size:9px">⏱ </span><span style="color:#e2e8f0;font-weight:700">'+fmtDur(totalSec)+'</span></div>'
+      +'<div style="font-size:10px"><span style="color:rgba(255,255,255,.3);font-size:9px">📄 </span><span style="color:#e2e8f0;font-weight:700">'+pgCount+'페이지</span></div>'
+      +'<div style="font-size:10px"><span style="color:rgba(255,255,255,.3);font-size:9px">↕ </span><span style="color:#e2e8f0;font-weight:700">'+maxScr+'%</span></div>'
+      +'<div style="font-size:10px"><span style="color:rgba(255,255,255,.3);font-size:9px">🏪 </span><span style="color:#e2e8f0;font-weight:700">'+shopViews+'회 조회</span></div>'
       +'</div></div>'
-      // 하단: 배지 행
-      +'<div style="display:flex;flex-wrap:wrap;gap:5px">'
-      +(waClicked?'<span style="background:rgba(37,211,102,.15);color:#34d399;border:1px solid rgba(37,211,102,.25);padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600"><i class="fab fa-whatsapp" style="margin-right:3px"></i>WA 문의 완료</span>':'')
-      +(videoPlays>0?'<span style="background:rgba(167,139,250,.15);color:#a78bfa;border:1px solid rgba(167,139,250,.25);padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600"><i class="fas fa-play" style="margin-right:3px"></i>영상 '+videoPlays+'개</span>':'')
-      +(sess.referrer?'<span style="background:rgba(251,191,36,.1);color:#fbbf24;border:1px solid rgba(251,191,36,.2);padding:2px 8px;border-radius:20px;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px"><i class="fas fa-external-link-alt" style="margin-right:3px"></i>'+escHtml(refHost)+'</span>'
-       :'<span style="background:rgba(255,255,255,.05);color:rgba(255,255,255,.35);border:1px solid rgba(255,255,255,.1);padding:2px 8px;border-radius:20px;font-size:10px">직접 방문</span>')
-      +(sess.ua?'<span style="background:rgba(255,255,255,.04);color:rgba(255,255,255,.25);padding:2px 8px;border-radius:20px;font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px">'+escHtml(sess.ua.substring(0,40))+'</span>':'')
+      // 하단: 태그 행
+      +'<div style="display:flex;flex-wrap:wrap;gap:4px">'
+      +(waClicked?'<span style="background:rgba(37,211,102,.15);color:#34d399;border:1px solid rgba(37,211,102,.25);padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700"><i class="fab fa-whatsapp" style="margin-right:3px"></i>WA 문의</span>':'')
+      +(videoPlays>0?'<span style="background:rgba(167,139,250,.12);color:#a78bfa;border:1px solid rgba(167,139,250,.2);padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700"><i class="fas fa-play" style="margin-right:3px"></i>영상 '+videoPlays+'개</span>':'')
+      +(sess.device==='mobile'?'<span style="background:rgba(244,114,182,.1);color:#f9a8d4;border:1px solid rgba(244,114,182,.2);padding:2px 8px;border-radius:20px;font-size:9px"><i class="fas fa-mobile-alt" style="margin-right:3px"></i>모바일</span>':'')
+      +(sess.referrer
+        ?'<span style="background:rgba(251,191,36,.1);color:#fbbf24;border:1px solid rgba(251,191,36,.2);padding:2px 8px;border-radius:20px;font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:130px"><i class="fas fa-external-link-alt" style="margin-right:3px"></i>'+escHtml(refHost)+'</span>'
+        :'<span style="background:rgba(255,255,255,.05);color:rgba(255,255,255,.3);border:1px solid rgba(255,255,255,.08);padding:2px 8px;border-radius:20px;font-size:9px">직접 방문</span>')
+      +(sess.country?'<span style="background:rgba(255,255,255,.06);color:rgba(255,255,255,.45);padding:2px 8px;border-radius:20px;font-size:9px">'+escHtml(sess.country)+'</span>':'')
       +'</div>'
       +'</div>';
 
-    // ── ② 페이지 여정 (Flow 시각화) ────────────────────────────
+    // ── 페이지 여정 ──
     var journeyHtml = '';
     if(pages.length){
       journeyHtml = '<div style="margin-bottom:12px">'
-        +'<div style="font-size:9px;font-weight:800;color:rgba(255,255,255,.3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:5px">'
-        +'<i class="fas fa-route" style="color:#60a5fa;font-size:10px"></i>페이지 여정 — '+pages.length+'곳 방문</div>'
-        +'<div>'
+        +'<div style="font-size:9px;font-weight:800;color:rgba(255,255,255,.3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:5px">'
+        +'<i class="fas fa-route" style="color:#60a5fa;font-size:9px"></i>페이지 여정 <span style="color:rgba(255,255,255,.18);font-weight:400">'+pages.length+'곳</span></div>'
         + pages.map(function(p, pi){
             var scrollBar = Math.min(100, p.maxScroll || 0);
             var stayS = p.staySec || 0;
             var pg = p.page || '/';
             var shopN = p.shopName || null;
             var pageLabel, pageColor, pageIco, pageBg;
-            if(pg === '/') {
-              pageLabel='홈'; pageColor='rgba(255,255,255,.75)'; pageIco='fa-home'; pageBg='rgba(255,255,255,.05)';
-            } else if(pg.startsWith('/shop/')) {
+            if(pg === '/'){
+              pageLabel='홈'; pageColor='#93c5fd'; pageIco='fa-home'; pageBg='rgba(96,165,250,.07)';
+            } else if(pg.startsWith('/shop/')){
               pageLabel = shopN || pg.replace('/shop/','').split('-').map(function(w){return w.charAt(0).toUpperCase()+w.slice(1);}).join(' ');
-              pageColor='#f9a8d4'; pageIco='fa-store'; pageBg='rgba(244,114,182,.08)';
-            } else if(pg.startsWith('/best/')) {
-              pageLabel='Best: '+pg.replace('/best/',''); pageColor='#fbbf24'; pageIco='fa-trophy'; pageBg='rgba(251,191,36,.07)';
+              pageColor='#f9a8d4'; pageIco='fa-store'; pageBg='rgba(244,114,182,.07)';
+            } else if(pg.startsWith('/best/')){
+              pageLabel=pg.replace('/best/',''); pageColor='#fcd34d'; pageIco='fa-trophy'; pageBg='rgba(251,191,36,.06)';
             } else {
-              pageLabel=pg; pageColor='rgba(255,255,255,.45)'; pageIco='fa-file-alt'; pageBg='rgba(255,255,255,.03)';
+              pageLabel=pg; pageColor='rgba(255,255,255,.4)'; pageIco='fa-file-alt'; pageBg='rgba(255,255,255,.03)';
             }
-            var stayColor = stayS>60?'#34d399':stayS>20?'#fbbf24':'#64748b';
+            var stayColor = stayS>60?'#34d399':stayS>15?'#fbbf24':'#64748b';
             var isLast = pi===pages.length-1;
-            // 스크롤 아이콘 색
-            var scrIco = scrollBar>=80?'<i class="fas fa-fire" style="color:#f97316;font-size:8px"></i>':
-                         scrollBar>=50?'<i class="fas fa-arrows-alt-v" style="color:#60a5fa;font-size:8px"></i>':
-                         '<i class="fas fa-arrow-down" style="color:#64748b;font-size:8px"></i>';
             return ''
-              // 스텝 카드
-              +'<div style="display:flex;gap:6px;margin-bottom:'+(isLast?'0':'4px')+'">'
-              // 번호 + 연결선
-              +'<div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0">'
-              +'<div style="width:24px;height:24px;border-radius:50%;background:'+pageColor.replace('rgba','rgba').replace(',1)',',')+';border:1.5px solid '+pageColor+';display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#0d0d18;background:'+pageColor+'20">'
-              +'<span style="color:'+pageColor+';font-weight:800;font-size:9px">'+(pi+1)+'</span>'
+              +'<div style="display:flex;gap:8px;margin-bottom:'+(isLast?'0':'4px')+'">'
+              // 번호 원 + 연결선
+              +'<div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:22px">'
+              +'<div style="width:22px;height:22px;border-radius:50%;border:1.5px solid '+pageColor+';background:'+pageColor+'18;display:flex;align-items:center;justify-content:center">'
+              +'<span style="font-size:9px;font-weight:900;color:'+pageColor+'">'+(pi+1)+'</span>'
               +'</div>'
-              +(!isLast?'<div style="width:1px;flex:1;min-height:8px;background:linear-gradient(to bottom,'+pageColor+'40,rgba(255,255,255,.05));margin:1px 0"></div>':'')
+              +(!isLast?'<div style="width:1px;flex:1;min-height:6px;background:linear-gradient(to bottom,'+pageColor+'30,rgba(255,255,255,.04));margin-top:2px"></div>':'')
               +'</div>'
-              // 카드
-              +'<div style="flex:1;min-width:0;background:'+pageBg+';border:1px solid '+pageColor+'20;border-radius:8px;padding:6px 8px;margin-bottom:'+(isLast?'0':'2px')+'">'
+              // 내용 카드
+              +'<div style="flex:1;min-width:0;background:'+pageBg+';border:1px solid '+pageColor+'18;border-radius:8px;padding:6px 8px;margin-bottom:'+(isLast?'0':'2px')+'">'
               // 페이지명 + 체류시간
-              +'<div style="display:flex;align-items:center;gap:5px;margin-bottom:4px">'
+              +'<div style="display:flex;align-items:center;gap:5px">'
               +'<i class="fas '+pageIco+'" style="color:'+pageColor+';font-size:9px;flex-shrink:0"></i>'
-              +'<span style="font-size:11px;color:'+pageColor+';font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">'+escHtml(pageLabel)+'</span>'
-              +(stayS?'<span style="font-size:10px;font-weight:800;color:'+stayColor+';flex-shrink:0;background:'+stayColor+'18;padding:1px 6px;border-radius:5px">'+fmtDur(stayS)+'</span>':'')
+              +'<span style="font-size:11px;color:'+pageColor+';font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(pageLabel)+'</span>'
+              +(stayS?'<span style="font-size:9px;font-weight:800;color:'+stayColor+';flex-shrink:0;padding:1px 5px;border-radius:4px;background:'+stayColor+'14">'+fmtDur(stayS)+'</span>':'')
               +'</div>'
-              // 스크롤 바 + 클릭
-              +'<div style="display:flex;align-items:center;gap:6px">'
-              +scrIco
-              +'<div style="flex:1;height:3px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden">'
-              +'<div style="height:3px;background:linear-gradient(90deg,#60a5fa,#a78bfa);border-radius:3px;width:'+scrollBar+'%;transition:width .4s"></div>'
+              // 스크롤 바
+              +(scrollBar>0?'<div style="display:flex;align-items:center;gap:5px;margin-top:4px">'
+              +'<div style="flex:1;height:2px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden">'
+              +'<div style="height:2px;background:linear-gradient(90deg,'+pageColor+','+pageColor+'80);border-radius:2px;width:'+scrollBar+'%"></div>'
               +'</div>'
-              +'<span style="font-size:9px;color:rgba(255,255,255,.25);flex-shrink:0">'+scrollBar+'%</span>'
-              +(p.clicks>0?'<span style="font-size:9px;color:#fb923c;flex-shrink:0;background:rgba(251,146,60,.1);padding:1px 5px;border-radius:4px"><i class="fas fa-hand-pointer" style="font-size:8px"></i> '+p.clicks+'</span>':'')
-              +'</div>'
+              +'<span style="font-size:8px;color:rgba(255,255,255,.2);flex-shrink:0">'+scrollBar+'%</span>'
+              +(p.clicks>0?'<span style="font-size:8px;color:#fb923c;background:rgba(251,146,60,.1);padding:1px 4px;border-radius:3px;flex-shrink:0"><i class="fas fa-hand-pointer" style="font-size:7px"></i>'+p.clicks+'</span>':'')
+              +'</div>':'')
               +'</div></div>';
           }).join('')
-        +'</div></div>';
+        +'</div>';
     }
 
-    // ── ③ 상세 이벤트 로그 ──────────────────────────────────
+    // ── 이벤트 로그 ──
     var tlHtml =
-      '<div style="font-size:9px;font-weight:800;color:rgba(255,255,255,.3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:5px">'
-      +'<i class="fas fa-list" style="color:#a78bfa;font-size:10px"></i>이벤트 로그 — '+evs.length+'개</div>'
-      +'<div class="vs-tl-list" style="display:flex;flex-direction:column;gap:2px">'
+      '<div style="font-size:9px;font-weight:800;color:rgba(255,255,255,.3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:5px">'
+      +'<i class="fas fa-list-ul" style="color:#a78bfa;font-size:9px"></i>이벤트 로그 <span style="color:rgba(255,255,255,.18);font-weight:400">'+evs.length+'개</span></div>'
+      +'<div style="display:flex;flex-direction:column;gap:3px">'
       + evs.map(function(ev,i){ return buildTlItem(ev, i===0?null:evs[i-1]); }).join('')
       +'</div>';
 
