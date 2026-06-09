@@ -9876,10 +9876,15 @@ function cdnImg(url, w, h) {
   return url.replace('/image/upload/', '/image/upload/'+transform+'/');
 }
 
-function cdnVideo(url) {
-  // Cloudinary \uC601\uC0C1 \uC2A4\uD2B8\uB9AC\uBC0D \uCD5C\uC801\uD654: \uD654\uC9C8 \uC790\uB3D9, \uC2A4\uD2B8\uB9AC\uBC0D \uD78C\uD2B8
+function cdnVideo(url, isFirst) {
+  // Cloudinary \uC601\uC0C1 \uC2A4\uD2B8\uB9AC\uBC0D \uCD5C\uC801\uD654
+  // \uCCAB \uC601\uC0C1: 360p + 400kbps \u2192 \uBE60\uB978 \uCCAB \uD654\uBA74 (\uBAA8\uBC14\uC77C \uAD11\uACE0 \uC720\uC785 \uCD5C\uC801\uD654)
+  // \uB098\uBA38\uC9C0: 480p + 600kbps
   if(!url || url.indexOf('res.cloudinary.com') === -1) return url;
-  return url.replace('/video/upload/', '/video/upload/q_auto:low,vc_auto,br_800k/');
+  var transform = isFirst
+    ? 'q_auto:low,w_360,vc_h264,br_400k,f_mp4'
+    : 'q_auto:low,w_480,vc_h264,br_600k,f_mp4';
+  return url.replace('/video/upload/', '/video/upload/' + transform + '/');
 }
 
 function buildSlide(v, idx) {
@@ -9929,7 +9934,7 @@ function buildSlide(v, idx) {
     var bufIc  = document.getElementById('bufic'+vidIdx);
 
     if(ve) {
-      ve.setAttribute('data-src', esc(cdnVideo(v.videoUrl)));
+      ve.setAttribute('data-src', esc(cdnVideo(v.videoUrl, vidIdx === 0)));
 
       // \u2500\u2500 \uBC84\uD37C\uB9C1 \uC2A4\uD53C\uB108 \uC81C\uC5B4 \u2500\u2500
       function showBuf(){ if(bufIc) bufIc.style.display='flex'; }

@@ -8530,10 +8530,15 @@ function cdnImg(url, w, h) {
   return url.replace('/image/upload/', '/image/upload/'+transform+'/');
 }
 
-function cdnVideo(url) {
-  // Cloudinary 영상 스트리밍 최적화: 화질 자동, 스트리밍 힌트
+function cdnVideo(url, isFirst) {
+  // Cloudinary 영상 스트리밍 최적화
+  // 첫 영상: 360p + 400kbps → 빠른 첫 화면 (모바일 광고 유입 최적화)
+  // 나머지: 480p + 600kbps
   if(!url || url.indexOf('res.cloudinary.com') === -1) return url;
-  return url.replace('/video/upload/', '/video/upload/q_auto:low,vc_auto,br_800k/');
+  var transform = isFirst
+    ? 'q_auto:low,w_360,vc_h264,br_400k,f_mp4'
+    : 'q_auto:low,w_480,vc_h264,br_600k,f_mp4';
+  return url.replace('/video/upload/', '/video/upload/' + transform + '/');
 }
 
 function buildSlide(v, idx) {
@@ -8583,7 +8588,7 @@ function buildSlide(v, idx) {
     var bufIc  = document.getElementById('bufic'+vidIdx);
 
     if(ve) {
-      ve.setAttribute('data-src', esc(cdnVideo(v.videoUrl)));
+      ve.setAttribute('data-src', esc(cdnVideo(v.videoUrl, vidIdx === 0)));
 
       // ── 버퍼링 스피너 제어 ──
       function showBuf(){ if(bufIc) bufIc.style.display='flex'; }
