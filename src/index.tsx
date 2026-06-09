@@ -7799,7 +7799,7 @@ function renderShopModal(shop) {
         +'<h2 class="sp-seo-h2">'+esc(shop.name)+' \u2014 '+esc(cat3)+' in '+esc(area3)+', Seoul</h2>'
         +'<p class="sp-seo-p">Looking for the best '+esc(shop.category)+' experience in '+esc(area3)+', Seoul? '+esc(shop.name)+' is a top-rated destination welcoming foreign visitors with English-friendly service and easy WhatsApp booking.'+revTxt+' offers an authentic Korean beauty experience tailored for international guests.</p>'
         +'<h2 class="sp-seo-h2">Foreigner-Friendly '+esc(cat3)+' in '+esc(areaGn)+'</h2>'
-        +'<p class="sp-seo-p">Located in '+esc(area3)+', one of Seoul\'s top beauty districts, '+esc(shop.name)+' specializes in '+esc(svcList)+'. English support from consultation to aftercare \u2014 book easily via WhatsApp through Seoul Beauty Trip.</p>'
+        +'<p class="sp-seo-p">Located in '+esc(area3)+', one of the top beauty districts in Seoul, '+esc(shop.name)+' specializes in '+esc(svcList)+'. English support from consultation to aftercare \u2014 book easily via WhatsApp through Seoul Beauty Trip.</p>'
         +'</div>';
     }
   })();
