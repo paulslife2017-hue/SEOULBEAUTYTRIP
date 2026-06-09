@@ -3409,15 +3409,31 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 /* FLOAT BTN */
 .sp-float{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:100;white-space:nowrap}
 .sp-float a{display:flex;align-items:center;gap:9px;padding:15px 36px;background:linear-gradient(135deg,#25D366,#0EA855);border-radius:30px;color:#fff;font-size:15px;font-weight:800;text-decoration:none;box-shadow:0 6px 28px rgba(37,211,102,.45)}
-/* REVIEWS */
-.sp-reviews-wrap{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:4px 14px}
-.sp-review-card{padding:12px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+/* REVIEWS — 상세페이지 & 모달 공통 */
+.sp-reviews-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.sp-reviews-score{display:flex;align-items:center;gap:10px}
+.sp-reviews-big-num{font-size:36px;font-weight:900;color:#fbbf24;line-height:1;letter-spacing:-1px}
+.sp-reviews-score-right{display:flex;flex-direction:column;gap:3px}
+.sp-reviews-stars-row{display:flex;gap:2px}
+.sp-reviews-star{width:14px;height:14px;position:relative;flex-shrink:0}
+.sp-reviews-star svg{width:14px;height:14px}
+.sp-reviews-total{font-size:11px;color:rgba(255,255,255,.38);font-weight:500}
+.sp-reviews-wrap{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:16px;overflow:hidden}
+.sp-review-card{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.05);display:flex;gap:10px;align-items:flex-start}
 .sp-review-card:last-child{border-bottom:none}
-.sp-review-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
-.sp-review-author{font-size:12px;font-weight:700;color:rgba(255,255,255,.85)}
-.sp-review-stars{font-size:11px;color:#fbbf24;letter-spacing:1px}
-.sp-review-text{font-size:12px;color:rgba(255,255,255,.55);line-height:1.6}
-.sp-review-time{font-size:10px;color:rgba(255,255,255,.28);margin-top:4px}
+.sp-review-avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff;flex-shrink:0;margin-top:1px}
+.sp-review-body{flex:1;min-width:0}
+.sp-review-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;gap:6px}
+.sp-review-author{font-size:12px;font-weight:700;color:rgba(255,255,255,.88);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sp-review-stars{font-size:11px;color:#fbbf24;letter-spacing:.5px;flex-shrink:0}
+.sp-review-text{font-size:12.5px;color:rgba(255,255,255,.62);line-height:1.72}
+.sp-review-time{font-size:10px;color:rgba(255,255,255,.26);margin-top:5px}
+/* 더보기 토글 */
+.sp-reviews-toggle{width:100%;padding:11px 16px;background:rgba(255,255,255,.03);border:none;border-top:1px solid rgba(255,255,255,.06);color:rgba(255,255,255,.5);font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;letter-spacing:.3px;transition:background .15s}
+.sp-reviews-toggle:hover{background:rgba(255,255,255,.06);color:rgba(255,255,255,.8)}
+.sp-reviews-toggle i{font-size:10px;transition:transform .2s}
+.sp-review-card.sp-rv-hidden{display:none}
+.sp-review-card.sp-rv-hidden.sp-rv-show{display:flex}
 /* WHY CHOOSE */
 .sp-why-list{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 @media(max-width:380px){.sp-why-list{grid-template-columns:1fr}}
@@ -3622,8 +3638,58 @@ ${(()=>{
       return `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map" style="cursor:pointer;overflow:hidden;position:relative" data-map-url="${gLink}" onclick="openMapUrl(this)"><div style="display:flex;height:100%;filter:saturate(0.8) brightness(0.75)"><img src="${t1}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"><img src="${t2}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"></div><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none"><i class="fas fa-map-marker-alt" style="font-size:32px;color:#e8414a;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6))"></i></div>${(shop.address||shop.location)?`<div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);backdrop-filter:blur(4px);color:#fff;font-size:11px;padding:4px 10px;border-radius:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:88%;pointer-events:none"><i class="fas fa-map-marker-alt" style="margin-right:4px;color:#FF4D8D"></i>${(shop.address||shop.location).trim()}</div>`:""}</div></div>`;
     })();
 
+    // ── 리뷰 블록 — 아바타 + 별점 + 더보기 토글 ──
+    const avatarColors = ['#e8414a','#e87b41','#c9a84c','#41a8e8','#7b41e8','#41e87b','#e841c9','#41e8c9'];
+    const reviewCardsEnhanced = shopReviews2.map((rv:any, ri:number)=>{
+      const rvR = Math.min(5, Math.max(1, Number(rv.rating)||5));
+      const rvStars = '★'.repeat(rvR) + (rvR < 5 ? '☆'.repeat(5-rvR) : '');
+      const initials = (rv.author||'G').trim().split(' ').map((w:string)=>w[0]||'').slice(0,2).join('').toUpperCase() || 'G';
+      const avColor = avatarColors[ri % avatarColors.length];
+      const hiddenClass = ri >= 3 ? ' sp-rv-hidden' : '';
+      return `<div class="sp-review-card${hiddenClass}">`
+        +`<div class="sp-review-avatar" style="background:${avColor}">${initials}</div>`
+        +`<div class="sp-review-body">`
+          +`<div class="sp-review-top">`
+            +`<span class="sp-review-author">${rv.author||'Guest'}</span>`
+            +`<span class="sp-review-stars">${rvStars}</span>`
+          +`</div>`
+          +`<div class="sp-review-text">${rv.text||''}</div>`
+          +(rv.time?`<div class="sp-review-time">${rv.time}</div>`:'')
+        +`</div>`
+      +`</div>`;
+    }).join('');
+
+    const hasMore2 = shopReviews2.length > 3;
+    const bigRating = Number(shop.rating||0).toFixed(1);
+    const totalCnt = shop.reviewCount ? Number(shop.reviewCount).toLocaleString() : '';
+    // 별 SVG (채움/빈칸 혼합)
+    const starFull = `<svg viewBox="0 0 24 24" fill="#fbbf24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`;
+    const ratingNum = parseFloat(String(shop.rating||0));
+    let starsBarHtml = '';
+    for(let si=0;si<5;si++){
+      const fill = Math.max(0,Math.min(1,ratingNum-si));
+      if(fill>=1) starsBarHtml+=`<span class="sp-reviews-star">${starFull}</span>`;
+      else if(fill>0) starsBarHtml+=`<span class="sp-reviews-star"><svg viewBox="0 0 24 24"><defs><linearGradient id="sg${si}"><stop offset="${Math.round(fill*100)}%" stop-color="#fbbf24"/><stop offset="${Math.round(fill*100)}%" stop-color="rgba(255,255,255,.18)"/></linearGradient></defs><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="url(#sg${si})"/></svg></span>`;
+      else starsBarHtml+=`<span class="sp-reviews-star"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="rgba(255,255,255,.18)"/></svg></span>`;
+    }
+
     const reviewsBlock = shopReviews2.length
-      ? `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-star" style="color:var(--gold);margin-right:4px"></i>Google Reviews${shop.reviewCount?` <span style="font-size:10px;color:rgba(255,255,255,.35);font-weight:400">(${shop.rating}★ · ${Number(shop.reviewCount).toLocaleString()} reviews)</span>`:''}</div><div class="sp-reviews-wrap">${reviewCards2}</div></div>`
+      ? `<div class="sp-sec">`
+          +`<div class="sp-sec-title"><i class="fas fa-star" style="color:var(--gold);margin-right:4px"></i>Google Reviews</div>`
+          +(bigRating!=='0.0'?`<div class="sp-reviews-header">`
+            +`<div class="sp-reviews-score">`
+              +`<div class="sp-reviews-big-num">${bigRating}</div>`
+              +`<div class="sp-reviews-score-right">`
+                +`<div class="sp-reviews-stars-row">${starsBarHtml}</div>`
+                +(totalCnt?`<div class="sp-reviews-total">${totalCnt} Google reviews</div>`:'')
+              +`</div>`
+            +`</div>`
+          +`</div>`:'')
+          +`<div class="sp-reviews-wrap">`
+            +reviewCardsEnhanced
+            +(hasMore2?`<button class="sp-reviews-toggle" onclick="spToggleReviews(this)"><i class="fas fa-chevron-down"></i> Show all ${shopReviews2.length} reviews</button>`:'')
+          +`</div>`
+        +`</div>`
       : '';
 
     return reviewsBlock + mapHtml3;
@@ -3860,6 +3926,24 @@ function setHero(url, el) {
     initVidCards();
   }
 })();
+
+// 상세페이지 리뷰 더보기 토글
+function spToggleReviews(btn){
+  var wrap = btn.parentElement;
+  if(!wrap) return;
+  var hidden = wrap.querySelectorAll('.sp-rv-hidden');
+  var isExpanded = btn.getAttribute('data-expanded')==='1';
+  if(isExpanded){
+    hidden.forEach(function(c){ c.classList.remove('sp-rv-show'); });
+    btn.innerHTML='<i class="fas fa-chevron-down"></i> Show all reviews';
+    btn.setAttribute('data-expanded','0');
+    btn.previousElementSibling && btn.previousElementSibling.scrollIntoView&&btn.previousElementSibling.scrollIntoView({behavior:'smooth',block:'nearest'});
+  } else {
+    wrap.querySelectorAll('.sp-rv-hidden').forEach(function(c){ c.classList.add('sp-rv-show'); });
+    btn.innerHTML='<i class="fas fa-chevron-up"></i> Show less';
+    btn.setAttribute('data-expanded','1');
+  }
+}
 
 // 영상 카드 클릭 → 중앙 모달 (로딩 스피너 + 소리 토글)
 var _spVidMuted = false;
@@ -6667,14 +6751,28 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .m-hours-td-today{background:rgba(201,168,76,.07);border-radius:6px}
 .m-hours-td-today .m-hours-td-day{color:var(--gold)}
 .m-hours-td-today .m-hours-td-time{color:var(--gold);font-weight:700}
-/* 리뷰 카드 */
-.m-review-card{padding:14px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+/* 리뷰 카드 — 모달 */
+.m-reviews-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.m-reviews-score{display:flex;align-items:center;gap:8px}
+.m-reviews-big-num{font-size:32px;font-weight:900;color:#fbbf24;line-height:1;letter-spacing:-1px}
+.m-reviews-score-right{display:flex;flex-direction:column;gap:3px}
+.m-reviews-stars-row{display:flex;gap:2px}
+.m-reviews-total{font-size:10px;color:rgba(255,255,255,.38);font-weight:500}
+.m-reviews-wrap{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:14px;overflow:hidden}
+.m-review-card{padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.05);display:flex;gap:9px;align-items:flex-start}
 .m-review-card:last-child{border-bottom:none}
-.m-review-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
-.m-review-author{font-size:12px;font-weight:700;color:rgba(255,255,255,.85)}
-.m-review-stars{font-size:12px;color:var(--gold);letter-spacing:1px}
-.m-review-text{font-size:12.5px;color:rgba(255,255,255,.62);line-height:1.75}
-.m-review-time{font-size:10px;color:rgba(255,255,255,.28);margin-top:5px}
+.m-review-avatar{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;flex-shrink:0;margin-top:1px}
+.m-review-body{flex:1;min-width:0}
+.m-review-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;gap:6px}
+.m-review-author{font-size:12px;font-weight:700;color:rgba(255,255,255,.88);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m-review-stars{font-size:11px;color:var(--gold);letter-spacing:.5px;flex-shrink:0}
+.m-review-text{font-size:12px;color:rgba(255,255,255,.62);line-height:1.72}
+.m-review-time{font-size:10px;color:rgba(255,255,255,.28);margin-top:4px}
+/* 모달 리뷰 더보기 */
+.m-reviews-toggle{width:100%;padding:10px 14px;background:rgba(255,255,255,.03);border:none;border-top:1px solid rgba(255,255,255,.06);color:rgba(255,255,255,.5);font-size:11.5px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;letter-spacing:.3px;transition:background .15s}
+.m-reviews-toggle:hover{background:rgba(255,255,255,.06);color:rgba(255,255,255,.8)}
+.m-review-card.m-rv-hidden{display:none}
+.m-review-card.m-rv-hidden.m-rv-show{display:flex}
 /* 모달 WHY CHOOSE */
 .m-why-list{display:flex;flex-direction:column;gap:8px}
 .m-why-item{font-size:13px;color:rgba(255,255,255,.75);line-height:1.6;padding:10px 14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;border-left:3px solid var(--pk2)}
@@ -7914,27 +8012,58 @@ function renderShopModal(shop) {
     +'</div>';
   }
 
-  /* ── 구글 리뷰 섹션 ── */
+  /* ── 구글 리뷰 섹션 — 아바타 + 별점 + 더보기 토글 ── */
   var reviewsHtml = '';
   var shopReviews = shop.reviews || [];
   if (shopReviews.length > 0) {
-    var reviewCards = shopReviews.map(function(rv) {
-      var rvRating = Number(rv.rating) || 5;
-      var rvStars = '★'.repeat(Math.min(5,Math.max(0,rvRating))) + '☆'.repeat(Math.max(0,5-rvRating));
-      return '<div class="m-review-card">'
-        +'<div class="m-review-top">'
-          +'<span class="m-review-author">'+esc(rv.author||'Guest')+'</span>'
-          +'<span class="m-review-stars">'+rvStars+'</span>'
+    var mAvColors = ['#e8414a','#e87b41','#c9a84c','#41a8e8','#7b41e8','#41e87b','#e841c9','#41e8c9'];
+    var reviewCards = shopReviews.map(function(rv, ri) {
+      var rvR = Math.min(5, Math.max(1, Number(rv.rating)||5));
+      var rvStars = '★'.repeat(rvR) + (rvR<5?'☆'.repeat(5-rvR):'');
+      var initials = (rv.author||'G').trim().split(' ').map(function(w){ return w[0]||''; }).slice(0,2).join('').toUpperCase() || 'G';
+      var avColor = mAvColors[ri % mAvColors.length];
+      var hiddenCls = ri >= 3 ? ' m-rv-hidden' : '';
+      return '<div class="m-review-card'+hiddenCls+'">'
+        +'<div class="m-review-avatar" style="background:'+avColor+'">'+initials+'</div>'
+        +'<div class="m-review-body">'
+          +'<div class="m-review-top">'
+            +'<span class="m-review-author">'+esc(rv.author||'Guest')+'</span>'
+            +'<span class="m-review-stars">'+rvStars+'</span>'
+          +'</div>'
+          +'<div class="m-review-text">'+esc(rv.text||'')+'</div>'
+          +(rv.time?'<div class="m-review-time">'+esc(rv.time)+'</div>':'')
         +'</div>'
-        +'<div class="m-review-text">'+esc(rv.text||'')+'</div>'
-        +(rv.time?'<div class="m-review-time">'+esc(rv.time)+'</div>':'')
       +'</div>';
     }).join('');
+    // 별점 헤더 (큰 숫자 + 별 바)
+    var mBigRating = parseFloat(String(rating||0)).toFixed(1);
+    var mTotalCnt  = reviewCount ? reviewCount.toLocaleString() : '';
+    var mStarsHtml = '';
+    for(var msi=0; msi<5; msi++){
+      var mFill = Math.max(0,Math.min(1,parseFloat(String(rating||0))-msi));
+      if(mFill>=1)      mStarsHtml+='<span style="color:#fbbf24;font-size:13px">★</span>';
+      else if(mFill>0)  mStarsHtml+='<span style="color:#fbbf24;font-size:13px">★</span>';
+      else              mStarsHtml+='<span style="color:rgba(255,255,255,.2);font-size:13px">★</span>';
+    }
+    var mHasMore = shopReviews.length > 3;
+    var mRatingHeader = (parseFloat(String(rating||0))>0)
+      ? '<div class="m-reviews-header">'
+          +'<div class="m-reviews-score">'
+            +'<div class="m-reviews-big-num">'+mBigRating+'</div>'
+            +'<div class="m-reviews-score-right">'
+              +'<div class="m-reviews-stars-row">'+mStarsHtml+'</div>'
+              +(mTotalCnt?'<div class="m-reviews-total">'+mTotalCnt+' Google reviews</div>':'')
+            +'</div>'
+          +'</div>'
+        +'</div>'
+      : '';
     reviewsHtml = '<div class="m-sec">'
-      +'<div class="m-sec-title"><i class="fas fa-star" style="color:var(--gold);margin-right:4px"></i>Google Reviews'
-        +(reviewCount?' <span style="font-size:10px;color:rgba(255,255,255,.35);font-weight:400">('+rating+'★ &nbsp;·&nbsp; '+reviewCount.toLocaleString()+' reviews)</span>':'')
+      +'<div class="m-sec-title"><i class="fas fa-star" style="color:var(--gold);margin-right:4px"></i>Google Reviews</div>'
+      +mRatingHeader
+      +'<div class="m-reviews-wrap">'
+        +reviewCards
+        +(mHasMore?'<button class="m-reviews-toggle" onclick="mToggleReviews(this)"><i class="fas fa-chevron-down"></i> Show all '+shopReviews.length+' reviews</button>':'')
       +'</div>'
-      +'<div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:4px 14px">'+reviewCards+'</div>'
     +'</div>';
   }
 
@@ -7989,13 +8118,14 @@ function renderShopModal(shop) {
     + addrHtml
     + infoGridHtml
     + descHtml
-    + whyHtml
     + priceHtml
     + svcHtml
-    + reviewsHtml
     + hoursHtml
+    + reviewsHtml
     + mapHtml
-    + videosHtml;
+    + videosHtml
+    + whyHtml
+    + seoHtml;
 
   /* ── 버튼 영역 ── */
   var shopSlug = shop.slug || '';
@@ -8059,6 +8189,22 @@ function renderShopModal(shop) {
         page_location: window.location.href
       });
     });
+  }
+}
+
+/* ── 모달 리뷰 더보기 토글 ── */
+function mToggleReviews(btn){
+  var wrap = btn.parentElement;
+  if(!wrap) return;
+  var isExpanded = btn.getAttribute('data-expanded')==='1';
+  if(isExpanded){
+    wrap.querySelectorAll('.m-rv-hidden').forEach(function(c){ c.classList.remove('m-rv-show'); });
+    btn.innerHTML='<i class="fas fa-chevron-down"></i> Show all reviews';
+    btn.setAttribute('data-expanded','0');
+  } else {
+    wrap.querySelectorAll('.m-rv-hidden').forEach(function(c){ c.classList.add('m-rv-show'); });
+    btn.innerHTML='<i class="fas fa-chevron-up"></i> Show less';
+    btn.setAttribute('data-expanded','1');
   }
 }
 

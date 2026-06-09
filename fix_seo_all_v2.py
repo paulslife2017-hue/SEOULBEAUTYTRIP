@@ -49,33 +49,26 @@ def make_seo(name, cat, loc, rating, rcnt, why_list, rev_list, desc=""):
         f'<ul class="sp-seo-ul">\n{why_items}\n</ul>'
     )
 
-    # 섹션3 — Guest Reviews
-    rev_items = "\n".join(
-        f'<li><strong>{r.get("author","Guest")}</strong> — &ldquo;{r.get("text","")[:160]}&rdquo;</li>'
-        for r in (rev_list[:3] if isinstance(rev_list, list) else [])
-    )
+    # 섹션3 — Treatments
     sec3 = (
-        f'<h2 class="sp-seo-h2">What Guests Are Saying</h2>\n'
-        f'<ul class="sp-seo-ul">\n{rev_items}\n</ul>'
-    )
-
-    # 섹션4 — Treatments
-    sec4 = (
-        f'<h2 class="sp-seo-h2">Treatments &amp; Services</h2>\n'
+        f'<h2 class="sp-seo-h2">Treatments &amp; Services at {name}</h2>\n'
         f'<p class="sp-seo-p">{name} offers a comprehensive range of {cat_label} services, '
         f'making it a top destination for travelers seeking expert beauty and wellness '
-        f'treatments in {loc}, South Korea.</p>'
+        f'treatments in {loc}, South Korea. From first consultation to aftercare, '
+        f'the team ensures every international guest feels comfortable and informed.</p>'
     )
 
-    # 섹션5 — Location & Booking
-    sec5 = (
-        f'<h2 class="sp-seo-h2">Location &amp; Booking</h2>\n'
+    # 섹션4 — Location & Booking
+    sec4 = (
+        f'<h2 class="sp-seo-h2">How to Book {name} as a Foreign Visitor</h2>\n'
         f'<p class="sp-seo-p">Located in {loc}, {name} is easily accessible from major '
         f'transit hubs. International guests can book via WhatsApp or the online form — '
-        f'English consultations are available for foreign visitors.</p>'
+        f'English consultations are available. Booking takes under 2 minutes: '
+        f'tap the WhatsApp button, describe your desired treatment, and our team '
+        f'will confirm your appointment and explain pricing in English. No Korean needed.</p>'
     )
 
-    return f"{sec1}\n\n{sec2}\n\n{sec3}\n\n{sec4}\n\n{sec5}"
+    return f"{sec1}\n\n{sec2}\n\n{sec3}\n\n{sec4}"
 
 
 # ──────────────────────────────────────────────
