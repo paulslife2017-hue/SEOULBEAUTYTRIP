@@ -1122,16 +1122,18 @@ async function autoGenSeo(body: any, apiKey: string, googleKey?: string): Promis
     const hint = catHints[cat] || 'Focus on standout features and unique aspects mentioned in reviews.'
 
     // SEO longform 카테고리별 구조 힌트
+    // 4섹션 구조: Overview / Why Choose / Treatments / How to Book
+    // 리뷰 섹션(What Guests Are Saying)은 DB reviews 필드에서 별도 렌더링되므로 GPT seoText에서 제외
     const seoStructureHints: Record<string,string> = {
-      clinic:  'H2-1: "[Name] — [specific treatment type] Clinic in [area], Seoul". H2-2: "Treatments at [Name]: [list 2-3 specific procedure names]". H2-3: "Why Foreigners Choose [Name] for Korean Dermatology". Each paragraph cites actual rating, review count, or a real reviewer phrase.',
-      hair:    'H2-1: "[Name] — Hair Salon in [area] Seoul". H2-2: "What [Name] Does Differently: [color/cut specialty]". H2-3: "Booking [Name] as a Foreigner in Seoul". Each paragraph references specific stylist skills or before-after results from reviews.',
-      headspa: 'H2-1: "[Name] — Head Spa in [area], Seoul". H2-2: "The [Name] Scalp Treatment Experience". H2-3: "Visiting [Name] as a Foreign Guest in Seoul". Each paragraph describes a specific step or sensory detail from reviews.',
-      skincare:'H2-1: "[Name] — Skincare Studio in [area], Seoul". H2-2: "Facial Treatments at [Name]". H2-3: "Why Foreign Skin-Care Lovers Visit [Name]". Reference skin concerns, product brands, or glow results from reviews.',
-      nail:    'H2-1: "[Name] — Nail Art Studio in [area], Seoul". H2-2: "Nail Designs and Services at [Name]". H2-3: "Getting Nails Done at [Name] as a Foreigner". Cite design styles, longevity, or reviewer compliments.',
-      makeup:  'H2-1: "[Name] — Makeup & Color Analysis in [area], Seoul". H2-2: "What Happens at a [Name] Session". H2-3: "Foreigners and [Name]: English-Friendly Beauty Consultation". Reference personal color types, cosmetics used, or client transformations.',
-      dental:  'H2-1: "[Name] — Dental Clinic in [area], Seoul". H2-2: "Dental Procedures at [Name]". H2-3: "Foreign Patients at [Name]: English Support & Pricing". Reference specific treatments and pain-free feedback.',
+      clinic:  'H2-1: "[Name] — [specific treatment] Clinic in [area], Seoul 2026". H2-2: "Why Foreigners Choose [Name] for Korean Dermatology" (UL with 3-4 specific bullets: treatment names, doctor credentials, English support, results from reviews). H2-3: "Treatments & Services at [Name]" (paragraph citing 2-3 specific procedures). H2-4: "How to Book [Name] as a Foreign Visitor" (paragraph: WhatsApp, English consultation, same-day available).',
+      hair:    'H2-1: "[Name] — Hair Salon in [area], Seoul 2026". H2-2: "Why Travelers Choose [Name]" (UL with 3-4 specific bullets: color specialty, stylist skill, English service, review highlight). H2-3: "Hair Services at [Name]" (paragraph citing 2-3 specific services). H2-4: "Booking [Name] as a Foreigner in Seoul" (paragraph: WhatsApp booking, consultation, results guarantee).',
+      headspa: 'H2-1: "[Name] — Head Spa in [area], Seoul 2026". H2-2: "Why Guests Love [Name]" (UL with 3-4 specific bullets: scalp treatment method, relaxation, therapist skill, review phrases). H2-3: "The [Name] Treatment Experience" (paragraph: step-by-step sensory detail). H2-4: "Visiting [Name] as a Foreign Guest" (paragraph: English support, WhatsApp booking, location access).',
+      skincare:'H2-1: "[Name] — Skincare Studio in [area], Seoul 2026". H2-2: "Why Foreigners Visit [Name]" (UL: skin analysis, glow results, product brands, English care). H2-3: "Facial Treatments at [Name]" (paragraph citing specific facial types). H2-4: "Book a Skincare Session at [Name]" (paragraph: WhatsApp, English, consultation process).',
+      nail:    'H2-1: "[Name] — Nail Studio in [area], Seoul 2026". H2-2: "Why Visitors Choose [Name] for K-Nails" (UL: design variety, precision, longevity, English friendly). H2-3: "Nail Services at [Name]" (paragraph: art styles, gel/acryl options). H2-4: "Getting Nails Done at [Name] as a Foreigner" (paragraph: walk-in or booking via WhatsApp).',
+      makeup:  'H2-1: "[Name] — Color Analysis Studio in [area], Seoul 2026". H2-2: "Why Foreign Guests Choose [Name]" (UL: personal color process, English consultation, cosmetics used, transformation results). H2-3: "What Happens at a [Name] Session" (paragraph: step-by-step color analysis). H2-4: "Booking [Name] as a Foreign Visitor" (paragraph: WhatsApp, English, what to prepare).',
+      dental:  'H2-1: "[Name] — Dental Clinic in [area], Seoul 2026". H2-2: "Why Foreign Patients Choose [Name]" (UL: procedures, pain-free, English, pricing transparency). H2-3: "Dental Procedures at [Name]" (paragraph: implants, whitening, orthodontics etc). H2-4: "Foreign Patients at [Name]: Booking & English Support" (paragraph: WhatsApp, English coordinator, insurance info).',
     }
-    const seoHint = seoStructureHints[cat] || 'Three H2 sections: intro, services, and foreigner guide. Each cites real shop data.'
+    const seoHint = seoStructureHints[cat] || 'Four H2 sections: (1) intro with rating+area+2026, (2) Why Choose UL bullets, (3) Treatments paragraph, (4) How to Book paragraph. Each cites real shop data. No review quotes section.'
 
     // location 중복 방지: "Gangnam, Seoul" → area는 "Gangnam", 표시는 "Gangnam" (Seoul 붙이지 않음)
     // 단, area가 이미 "Seoul"이면 그냥 "Seoul" 사용
@@ -1159,7 +1161,7 @@ Return ONLY a single valid JSON object — no markdown, no explanation:
   "metaDescription": "<145–158 chars. Include shop name, ${areaDisplay}, ${cat}, and a specific hook from reviews.>",
   "titleSuffix": "<max 45 chars: ${body.name} | ${areaDisplay} ${cat}>",
   "keywords": ["<brand+area>","<brand booking>","<brand review>","<brand foreigner>","<best ${cat} ${areaDisplay} Seoul 2026>","<${cat} Seoul English 2026>","<${areaDisplay} ${cat} foreigner>","<${cat} Seoul 2026>","<${areaDisplay} beauty Seoul 2026>","<${cat} Seoul English speaking>","<book ${cat} Seoul foreigners>","<${areaDisplay} ${cat} foreigners review>"],
-  "seoText": "<EXACTLY 3 sections, each with one H2 then one P. Structure: ${seoHint}. Rules: (1) Every P must be 70-110 words. (2) Each H2 must contain shop name OR area OR Seoul. (3) Mention year 2026 at least once. (4) NO phone/URL/exact address. (5) Use ONLY: <h2 class=\\"sp-seo-h2\\"> and <p class=\\"sp-seo-p\\"> tags. (6) Cite real rating, review count, or reviewer phrase. (7) NEVER write '${areaDisplay}, Seoul, Seoul'. (8) End with English-friendly booking sentence. Output ONLY raw HTML string.>"
+  "seoText": "<EXACTLY 4 sections. Structure: ${seoHint}. CRITICAL RULES: (1) Section 1: H2 + P (70-100 words, cite rating+review count). (2) Section 2: H2 + UL (3-4 LI items, each 50-80 chars, emoji prefix OK). (3) Section 3: H2 + P (60-90 words, cite specific services/treatments). (4) Section 4: H2 + P (50-70 words, end with WhatsApp booking info). (5) ONLY allowed tags: <h2 class=\\"sp-seo-h2\\">, <p class=\\"sp-seo-p\\">, <ul class=\\"sp-seo-ul\\">, <li>. (6) NEVER include a 'What Guests Are Saying' or review-quote section — reviews are shown separately. (7) Each H2 must contain shop name OR area OR Seoul. (8) Mention 2026 at least once. (9) NO phone/URL/exact address. (10) NEVER write '${areaDisplay}, Seoul, Seoul'. Output ONLY raw HTML string.>"
 }`
 
     const res = await fetch('https://www.genspark.ai/api/llm_proxy/v1/chat/completions', {
@@ -1211,12 +1213,11 @@ app.post('/api/shops', async (c) => {
   const newId = 's' + Date.now()
   const today = new Date().toISOString().split('T')[0]
 
-  // AI SEO 자동 생성 — 항상 실행 (seoText 없거나 description 없으면)
-  // 이미 완전한 SEO가 있으면 그대로 사용, 불완전하면 AI로 보완
+  // AI SEO 자동 생성 — description/why/seoText 셋 다 있으면 GPT 완전 스킵 (크레딧 0)
   let description    = body.description    || ''
   let metaDescription = body.metaDescription || ''
   let seoKeywords    = body.seoKeywords    || ''
-  let whyChoose: string[] = body.whyChoose || []
+  let whyChoose: string[] = Array.isArray(body.whyChoose) ? body.whyChoose : []
   let seoText        = body.seoText        || ''
   const needsSeo = !description || !seoText || !whyChoose.length
   if (needsSeo) {
@@ -1228,6 +1229,41 @@ app.post('/api/shops', async (c) => {
       seoKeywords    = seoKeywords    || (Array.isArray(seo.keywords) ? seo.keywords.join(', ') : '')
       if (!whyChoose.length) whyChoose = Array.isArray(seo.whyChoose) ? seo.whyChoose : []
       seoText        = seoText        || seo.seoText        || ''
+    }
+    // GPT 실패 시 4섹션 fallback (크레딧 0)
+    if (!whyChoose.length) {
+      const _area = (body.location||'Seoul').split(',')[0].trim()
+      const _cat = body.category||'beauty'
+      whyChoose = [
+        `🌐 English-friendly service and easy WhatsApp booking for international visitors`,
+        `⭐ Rated ${body.rating||5}/5 with ${body.reviewCount||0}+ verified Google reviews`,
+        `👨‍⚕️ Expert team with proven experience serving international patients`,
+        `📍 Conveniently located in ${_area}, Seoul — easily accessible from major transit hubs`,
+        `💬 Dedicated English support from first consultation through aftercare`
+      ]
+    }
+    if (!description) {
+      const _cat2 = body.category||'beauty', _loc2 = body.location||'Seoul'
+      description = `${body.name||'This shop'} is a highly rated ${_cat2} in ${_loc2}, Seoul. Rated ${body.rating||5}/5 with ${body.reviewCount||0}+ verified reviews. English consultations available. Book via WhatsApp with Seoul Beauty Trip.`
+    }
+    if (!metaDescription)
+      metaDescription = `${body.name||''} ${body.location||''} Seoul — Premium ${body.category||'beauty'} for foreigners. English-speaking staff. Book via WhatsApp.`
+    if (!seoKeywords)
+      seoKeywords = `${body.name||''} Seoul, best ${body.category||'beauty'} ${(body.location||'Seoul').split(',')[0]} Seoul, ${body.category||'beauty'} Seoul English speaking`
+    if (!seoText) {
+      const _catLbl: Record<string,string> = {clinic:'aesthetic & skin clinic',skincare:'skincare clinic',hair:'hair salon',headspa:'head spa',tattoo:'permanent makeup studio',makeup:'color analysis studio',dental:'dental clinic'}
+      const _cl3 = _catLbl[body.category||''] || (body.category||'beauty')
+      const _ll3 = (body.location||'Seoul').includes('Seoul') ? (body.location||'Seoul') : `${body.location||'Seoul'}, Seoul`
+      const _rt3 = String(body.rating||5.0), _rc3 = Number(body.reviewCount||0).toLocaleString()
+      seoText =
+        `<h2 class="sp-seo-h2">${body.name||''} — ${_cl3.charAt(0).toUpperCase()+_cl3.slice(1)} in ${_ll3}</h2>`+
+        `<p class="sp-seo-p">${body.name||''} is a highly rated ${_cl3} in ${_ll3}, holding a <strong>${_rt3}/5.0 rating</strong> from over <strong>${_rc3} verified reviews</strong>. Consistently recommended by international visitors to Seoul in 2026 for its quality treatments and English-friendly service.</p>`+
+        `<h2 class="sp-seo-h2">Why Travelers Choose ${body.name||''}</h2>`+
+        `<ul class="sp-seo-ul">${whyChoose.slice(0,5).map((w:string)=>`<li>${w}</li>`).join('')}</ul>`+
+        `<h2 class="sp-seo-h2">Treatments &amp; Services at ${body.name||''}</h2>`+
+        `<p class="sp-seo-p">${body.name||''} offers a comprehensive range of ${_cl3} services, making it a top destination for travelers seeking expert beauty and wellness treatments in ${_ll3}, South Korea.</p>`+
+        `<h2 class="sp-seo-h2">How to Book ${body.name||''} as a Foreign Visitor</h2>`+
+        `<p class="sp-seo-p">Booking takes under 2 minutes — tap the WhatsApp button, describe your desired treatment, and our English-speaking team confirms your appointment and explains pricing. Located in ${_ll3}, easily accessible by subway. No Korean needed.</p>`
     }
   }
 
@@ -1254,21 +1290,52 @@ app.put('/api/shops/:id', async (c) => {
   const sql = getDb(c.env)
   const body = await c.req.json()
 
-  // description이 변경됐거나 없으면 AI SEO 재생성
+  // SEO 재생성 조건: regenerateSeo 플래그 OR (description/why/seoText 셋 중 하나라도 없을 때)
+  // 셋 다 있으면 GPT 완전 스킵 → 크레딧 0
   let description = body.description || ''
   let metaDescription = body.metaDescription || ''
   let seoKeywords = body.seoKeywords || ''
   let whyChoose: string[] = Array.isArray(body.whyChoose) ? body.whyChoose : []
   let seoTextPut = body.seoText || ''
-  if (!description || body.regenerateSeo) {
+  const _putNeedsSeo = body.regenerateSeo || !description || !whyChoose.length || !seoTextPut
+  if (_putNeedsSeo) {
     const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
     const seo = await autoGenSeo(body, apiKey)
     if (seo) {
-      description = description || seo.description || ''
+      description    = description    || seo.description    || ''
       metaDescription = metaDescription || seo.metaDescription || ''
-      seoKeywords = seoKeywords || (Array.isArray(seo.keywords) ? seo.keywords.join(', ') : '')
+      seoKeywords    = seoKeywords    || (Array.isArray(seo.keywords) ? seo.keywords.join(', ') : '')
       if (!whyChoose.length) whyChoose = Array.isArray(seo.whyChoose) ? seo.whyChoose : []
       if (!seoTextPut) seoTextPut = seo.seoText || ''
+    }
+    // GPT 실패 시 4섹션 fallback (크레딧 0)
+    if (!whyChoose.length) {
+      const _area = (body.location||'Seoul').split(',')[0].trim()
+      whyChoose = [
+        `🌐 English-friendly service and easy WhatsApp booking for international visitors`,
+        `⭐ Rated ${body.rating||5}/5 with ${body.reviewCount||0}+ verified Google reviews`,
+        `👨‍⚕️ Expert team with proven experience serving international patients`,
+        `📍 Conveniently located in ${_area}, Seoul — easily accessible from major transit hubs`,
+        `💬 Dedicated English support from first consultation through aftercare`
+      ]
+    }
+    if (!description) {
+      description = `${body.name||''} is a highly rated ${body.category||'beauty'} in ${body.location||'Seoul'}. Rated ${body.rating||5}/5 with ${body.reviewCount||0}+ verified reviews. English consultations available. Book via WhatsApp with Seoul Beauty Trip.`
+    }
+    if (!seoTextPut) {
+      const _catLbl2: Record<string,string> = {clinic:'aesthetic & skin clinic',skincare:'skincare clinic',hair:'hair salon',headspa:'head spa',tattoo:'permanent makeup studio',makeup:'color analysis studio',dental:'dental clinic'}
+      const _cl4 = _catLbl2[body.category||''] || (body.category||'beauty')
+      const _ll4 = (body.location||'Seoul').includes('Seoul') ? (body.location||'Seoul') : `${body.location||'Seoul'}, Seoul`
+      const _rt4 = String(body.rating||5.0), _rc4 = Number(body.reviewCount||0).toLocaleString()
+      seoTextPut =
+        `<h2 class="sp-seo-h2">${body.name||''} — ${_cl4.charAt(0).toUpperCase()+_cl4.slice(1)} in ${_ll4}</h2>`+
+        `<p class="sp-seo-p">${body.name||''} is a highly rated ${_cl4} in ${_ll4}, holding a <strong>${_rt4}/5.0 rating</strong> from over <strong>${_rc4} verified reviews</strong>. Consistently recommended by international visitors to Seoul in 2026 for its quality treatments and English-friendly service.</p>`+
+        `<h2 class="sp-seo-h2">Why Travelers Choose ${body.name||''}</h2>`+
+        `<ul class="sp-seo-ul">${whyChoose.slice(0,5).map((w:string)=>`<li>${w}</li>`).join('')}</ul>`+
+        `<h2 class="sp-seo-h2">Treatments &amp; Services at ${body.name||''}</h2>`+
+        `<p class="sp-seo-p">${body.name||''} offers a comprehensive range of ${_cl4} services, making it a top destination for travelers seeking expert beauty and wellness treatments in ${_ll4}, South Korea.</p>`+
+        `<h2 class="sp-seo-h2">How to Book ${body.name||''} as a Foreign Visitor</h2>`+
+        `<p class="sp-seo-p">Booking takes under 2 minutes — tap the WhatsApp button, describe your desired treatment, and our English-speaking team confirms your appointment and explains pricing. Located in ${_ll4}, easily accessible by subway. No Korean needed.</p>`
     }
   }
 
@@ -1525,15 +1592,36 @@ app.post('/api/shops/fill-seo-bulk', async (c) => {
     }
     try {
       const seo = await autoGenSeo(shopBody, apiKey)
-      if (!seo) { failed++; continue }
+      // GPT 실패해도 fallback으로 저장 (크레딧 0)
+      const _area5 = (row.location||'Seoul').split(',')[0].trim()
+      const _catLbl5: Record<string,string> = {clinic:'aesthetic & skin clinic',skincare:'skincare clinic',hair:'hair salon',headspa:'head spa',tattoo:'permanent makeup studio',makeup:'color analysis studio',dental:'dental clinic'}
+      const _cl5 = _catLbl5[row.category||''] || (row.category||'beauty')
+      const _ll5 = (row.location||'Seoul').includes('Seoul') ? row.location : `${_area5}, Seoul`
+      const _rt5 = String(row.rating||5.0), _rc5 = Number(row.review_count||0).toLocaleString()
+      const _fallbackWhy = [
+        `🌐 English-friendly service and easy WhatsApp booking`,
+        `⭐ Rated ${row.rating||5}/5 with ${row.review_count||0}+ verified reviews`,
+        `👨‍⚕️ Expert team experienced with international patients`,
+        `📍 Located in ${_area5}, Seoul — easily accessible by subway`,
+        `💬 English support from consultation through aftercare`
+      ]
 
-      const newDesc = row.description || seo.description || ''
-      const newMeta = row.meta_description || seo.metaDescription || ''
-      const newKw   = row.seo_keywords   || (Array.isArray(seo.keywords) ? seo.keywords.join(', ') : '')
-      const newSeoT = row.seo_text       || seo.seoText || ''
-      const newWhy  = row.why_choose && row.why_choose !== '[]'
+      const newDesc = row.description || (seo?.description) || `${row.name} is a highly rated ${_cl5} in ${_ll5}. Rated ${_rt5}/5 from ${_rc5}+ reviews. English-friendly service. Book via WhatsApp.`
+      const newMeta = row.meta_description || (seo?.metaDescription) || `${row.name} ${_area5} Seoul — ${_cl5} for foreigners. English staff. Book via WhatsApp.`
+      const newKw   = row.seo_keywords || (seo && Array.isArray(seo.keywords) ? seo.keywords.join(', ') : `${row.name} Seoul, best ${row.category} ${_area5} Seoul`)
+      const newWhy  = (row.why_choose && row.why_choose !== '[]')
         ? row.why_choose
-        : JSON.stringify(Array.isArray(seo.whyChoose) ? seo.whyChoose : [])
+        : JSON.stringify(seo && Array.isArray(seo.whyChoose) ? seo.whyChoose : _fallbackWhy)
+      const _parsedWhy = JSON.parse(newWhy)
+      const newSeoT = row.seo_text || (seo?.seoText) ||
+        `<h2 class="sp-seo-h2">${row.name} — ${_cl5.charAt(0).toUpperCase()+_cl5.slice(1)} in ${_ll5}</h2>`+
+        `<p class="sp-seo-p">${row.name} is a highly rated ${_cl5} in ${_ll5}, holding a <strong>${_rt5}/5.0 rating</strong> from over <strong>${_rc5} verified reviews</strong>. Consistently recommended by international visitors to Seoul in 2026.</p>`+
+        `<h2 class="sp-seo-h2">Why Travelers Choose ${row.name}</h2>`+
+        `<ul class="sp-seo-ul">${_parsedWhy.slice(0,5).map((w:string)=>`<li>${w}</li>`).join('')}</ul>`+
+        `<h2 class="sp-seo-h2">Treatments &amp; Services at ${row.name}</h2>`+
+        `<p class="sp-seo-p">${row.name} offers a comprehensive range of ${_cl5} services in ${_ll5}, South Korea. English consultations available.</p>`+
+        `<h2 class="sp-seo-h2">How to Book ${row.name} as a Foreign Visitor</h2>`+
+        `<p class="sp-seo-p">Tap the WhatsApp button to book in under 2 minutes. Our English-speaking team confirms your appointment and explains all pricing. Located in ${_ll5}, easily accessible by subway. No Korean needed.</p>`
 
       await sql`UPDATE shops SET
         description=${newDesc},
@@ -2225,7 +2313,8 @@ app.post('/api/quick-register', async (c) => {
     if (!seoKeywords)
       seoKeywords = `${engName} Seoul, ${engName} ${loc}, best ${cat} ${loc} Seoul, ${cat} Seoul English speaking`
 
-    // fallback seo_text: GPT 실패 시 5섹션 sp-seo-h2 구조 자동 생성
+    // fallback seo_text: GPT 실패 시 4섹션 sp-seo-h2 구조 자동 생성
+    // (리뷰 섹션 제외 — DB reviews 필드에서 별도 렌더링됨)
     if (!seoTextVal) {
       const _catLabel: Record<string,string> = {
         clinic:'aesthetic & skin clinic', skincare:'skincare & dermatology clinic',
@@ -2233,20 +2322,20 @@ app.post('/api/quick-register', async (c) => {
         tattoo:'permanent makeup & tattoo studio', makeup:'personal color & makeup studio', dental:'dental clinic'
       }
       const _cl = _catLabel[cat] || cat
+      const _clTitle = _cl.charAt(0).toUpperCase()+_cl.slice(1)
       const _rt = String(resolvedData.rating || 5.0)
-      const _rc = String(resolvedData.reviewCount || 0)
+      const _rc = Number(resolvedData.reviewCount || 0).toLocaleString()
       const _locLabel = loc.includes('Seoul') ? loc : `${loc}, Seoul`
+      const _whyItems = whyChoose.slice(0,5).map((w:string)=>`<li>${w}</li>`).join('')
       seoTextVal =
-        `<h2 class="sp-seo-h2">${engName} — ${_cl.charAt(0).toUpperCase()+_cl.slice(1)} in ${_locLabel}</h2>`+
-        `<p class="sp-seo-p">${engName} is a highly rated ${_cl} in ${_locLabel}, holding a <strong>${_rt}/5.0 rating</strong> from over <strong>${_rc} verified reviews</strong>. Consistently recommended by international visitors to Seoul for its quality treatments and English-friendly service.</p>`+
+        `<h2 class="sp-seo-h2">${engName} — ${_clTitle} in ${_locLabel}</h2>`+
+        `<p class="sp-seo-p">${engName} is a highly rated ${_cl} in ${_locLabel}, holding a <strong>${_rt}/5.0 rating</strong> from over <strong>${_rc} verified reviews</strong>. Consistently recommended by international visitors to Seoul in 2026 for its quality treatments and English-friendly service.</p>`+
         `<h2 class="sp-seo-h2">Why Travelers Choose ${engName}</h2>`+
-        `<ul class="sp-seo-ul">${whyChoose.slice(0,5).map((w:string)=>`<li>${w}</li>`).join('')}</ul>`+
-        `<h2 class="sp-seo-h2">What Guests Are Saying</h2>`+
-        `<ul class="sp-seo-ul">${(resolvedData.reviews||[]).slice(0,3).map((r:any)=>`<li><strong>${r.author||'Guest'}</strong> — &ldquo;${(r.text||'').slice(0,160)}&rdquo;</li>`).join('') || '<li>Highly rated by international visitors for exceptional service and results.</li>'}</ul>`+
-        `<h2 class="sp-seo-h2">Treatments &amp; Services</h2>`+
-        `<p class="sp-seo-p">${engName} offers a comprehensive range of ${_cl} services, making it a top destination for travelers seeking expert beauty and wellness treatments in ${_locLabel}, South Korea.</p>`+
-        `<h2 class="sp-seo-h2">Location &amp; Booking</h2>`+
-        `<p class="sp-seo-p">Located in ${_locLabel}, ${engName} is easily accessible from major transit hubs. International guests can book via WhatsApp or the online form — English consultations are available for foreign visitors.</p>`
+        `<ul class="sp-seo-ul">${_whyItems}</ul>`+
+        `<h2 class="sp-seo-h2">Treatments &amp; Services at ${engName}</h2>`+
+        `<p class="sp-seo-p">${engName} offers a comprehensive range of ${_cl} services, making it a top destination for travelers seeking expert beauty and wellness treatments in ${_locLabel}, South Korea. From first consultation to aftercare, the team ensures every international guest feels comfortable and informed.</p>`+
+        `<h2 class="sp-seo-h2">How to Book ${engName} as a Foreign Visitor</h2>`+
+        `<p class="sp-seo-p">Booking takes under 2 minutes — tap the WhatsApp button, describe your desired treatment, and our English-speaking team will confirm your appointment and explain pricing. Located in ${_locLabel}, easily accessible from major transit hubs. No Korean needed.</p>`
     }
 
     // ── STEP 7: photos 처리 — Schema.org thumbnailUrl 에러 방지 (https:// 절대 URL만 허용) ──
