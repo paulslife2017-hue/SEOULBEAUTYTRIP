@@ -8853,22 +8853,24 @@ function loadVidSrc(vid){
 }
 function preloadNext(idx){
   // 릴스 방식: 다음 2개 미리로드
-  // +1: 즉시 로드 시작 (스와이프 시 바로 재생)
-  // +2: 백그라운드 로드 (대역폭 여유 있을 때)
-  [idx+1, idx+2].forEach(function(ni, i){
-    var next = document.getElementById('vid'+ni);
-    if(next && !next.src && next.dataset.src){
-      next.preload = 'auto';
-      next.src = next.dataset.src;
-      // load()로 명시적으로 다운로드 시작 (src만 세팅하면 안 되는 브라우저 있음)
-      // +2는 약간 지연해서 +1 우선순위 보장
-      if(i === 0) {
-        next.load();
-      } else {
-        setTimeout(function(){ if(!next.readyState) next.load(); }, 800);
+  // +1: 즉시 src + load() (스와이프 시 이미 버퍼링 완료 상태)
+  // +2: 800ms 후 (대역폭 경쟁 방지)
+  var ni1 = document.getElementById('vid'+(idx+1));
+  var ni2 = document.getElementById('vid'+(idx+2));
+  if(ni1 && !ni1.src && ni1.dataset.src){
+    ni1.preload = 'auto';
+    ni1.src = ni1.dataset.src;
+    ni1.load();
+  }
+  if(ni2 && !ni2.src && ni2.dataset.src){
+    setTimeout(function(){
+      if(ni2 && !ni2.src && ni2.dataset.src){ // 800ms 사이 스와이프로 src 세팅됐을 수 있음
+        ni2.preload = 'auto';
+        ni2.src = ni2.dataset.src;
+        ni2.load();
       }
-    }
-  });
+    }, 800);
+  }
 }
 
 function _playVid(vid, bufIc){
@@ -8879,38 +8881,56 @@ function _playVid(vid, bufIc){
   if(!vid.src && vid.dataset.src){
     vid.preload = 'auto';
     vid.src = vid.dataset.src;
-    vid.load(); // 브라우저에게 명시적으로 다운로드 시작 지시
+    vid.load();
   }
 
-  // HAVE_FUTURE_DATA(3) 이상이면 스피너 없이 바로 재생
-  // readyState 1(HAVE_METADATA) 이하면 스피너 표시
+  // readyState 체크: HAVE_FUTURE_DATA(3) 이상이면 바로 재생, 아니면 스피너
   if(vid.readyState >= 3){
     if(bufIc) bufIc.style.display = 'none';
   } else {
     if(bufIc) bufIc.style.display = 'flex';
   }
 
-  var _retried = false;
-  var p = vid.play();
-  if(!p) return;
-  p.then(function(){
-    if(bufIc) bufIc.style.display = 'none';
-    vid.muted = isMuted; // 재생 직후 mute 상태 재확인
-  }).catch(function(err){
-    // NotAllowedError: unmuted autoplay 차단 → muted 강제 후 재시도
-    if(!_retried){
-      _retried = true;
-      vid.muted = true;
-      if(isMuted === false){ isMuted = true; _syncMuteUI(); }
-      vid.play().then(function(){
-        if(bufIc) bufIc.style.display = 'none';
-      }).catch(function(){
-        if(bufIc) bufIc.style.display = 'none';
-      });
-    } else {
+  // 이미 재생 중이면 중복 play() 호출 방지
+  if(!vid.paused && vid.readyState >= 2) return;
+
+  function _doPlay(){
+    var p = vid.play();
+    if(!p || typeof p.then !== 'function') return;
+    p.then(function(){
       if(bufIc) bufIc.style.display = 'none';
-    }
-  });
+      vid.muted = isMuted;
+    }).catch(function(err){
+      var name = err && err.name ? err.name : '';
+      if(name === 'AbortError'){
+        // AbortError: 이전 load()가 play()를 중단 → 100ms 후 재시도
+        setTimeout(function(){
+          if(!vid.paused) return; // 이미 재생 중
+          vid.play().then(function(){ if(bufIc) bufIc.style.display='none'; })
+                    .catch(function(){});
+        }, 100);
+      } else if(name === 'NotAllowedError'){
+        // 자동재생 정책 차단 → muted로 강제 재시도
+        vid.muted = true;
+        if(!isMuted){ isMuted = true; _syncMuteUI(); }
+        vid.play().then(function(){ if(bufIc) bufIc.style.display='none'; })
+                  .catch(function(){ if(bufIc) bufIc.style.display='none'; });
+      } else {
+        // NotSupportedError 등 나머지: 스피너만 제거
+        if(bufIc) bufIc.style.display = 'none';
+      }
+    });
+  }
+
+  // src가 방금 세팅됐으면(readyState===0) loadedmetadata 후 play
+  if(vid.readyState === 0 && vid.src){
+    vid.addEventListener('loadedmetadata', function _onMeta(){
+      vid.removeEventListener('loadedmetadata', _onMeta);
+      _doPlay();
+    });
+    return;
+  }
+  _doPlay();
 }
 
 // ── GA4 세션당 영상 행동 추적 변수 ──
@@ -8918,10 +8938,10 @@ var _sessionVideosSeen = [];   // 이번 세션에 본 영상 id 목록
 var _sessionVideosCount = 0;   // 이번 세션에 넘긴 영상 수
 
 function setupObs(){
-  // _obsReady: observe() 직후 즉시 fire되는 콜백을 무시하기 위한 플래그
-  var _obsReady = false;
-  // 현재 재생 중인 슬라이드 인덱스 추적 (중복 play 방지)
-  var _curIdx = 0;
+  // 현재 화면에 있는 슬라이드 인덱스 (중복 play/pause 방지)
+  var _curIdx = -1;
+  // obs 초기화 직후 즉시 fire되는 콜백 무시용 (첫 슬라이드는 직접 _playVid)
+  var _initialized = false;
 
   var obs = new IntersectionObserver(function(entries){
     entries.forEach(function(e){
@@ -8930,74 +8950,112 @@ function setupObs(){
       var bufIc = document.getElementById('bufic'+idx);
 
       if(e.isIntersecting){
-        // 인디케이터 도트 업데이트
         document.querySelectorAll('.dot').forEach(function(d,i){ d.classList.toggle('on',i===idx); });
 
-        if(_obsReady && idx !== _curIdx){
-          // 이전 슬라이드 정지 (currentTime 유지 — 루프 영상은 위치 보존이 낫다)
+        if(idx === _curIdx) return; // 이미 재생 중인 슬라이드 → 무시
+
+        // 이전 슬라이드 정지
+        if(_curIdx >= 0){
           var prevVid = document.getElementById('vid'+_curIdx);
           if(prevVid && !prevVid.paused){ prevVid.pause(); }
+        }
 
-          // ── GA4: 영상 스와이프/넘김 추적 ──
-          var direction = idx > _curIdx ? 'next' : 'prev';
-          var slideEl = document.getElementById('sl'+idx);
-          var vidId = slideEl ? slideEl.getAttribute('data-vid-id') || ('video_'+idx) : ('video_'+idx);
-          var vidTitle = slideEl ? slideEl.getAttribute('data-vid-title') || '' : '';
-          var shopName = slideEl ? slideEl.getAttribute('data-shop-name') || '' : '';
+        // GA4 추적
+        var slideEl = document.getElementById('sl'+idx);
+        var vidId   = slideEl ? (slideEl.getAttribute('data-vid-id') || ('video_'+idx)) : ('video_'+idx);
+        var vidTitle= slideEl ? (slideEl.getAttribute('data-vid-title') || '') : '';
+        var shopName= slideEl ? (slideEl.getAttribute('data-shop-name') || '') : '';
+        var direction = idx > _curIdx ? 'next' : 'prev';
 
-          // 세션 영상 목록에 추가 (중복 제거)
-          if(_sessionVideosSeen.indexOf(vidId) === -1){
-            _sessionVideosSeen.push(vidId);
-            _sessionVideosCount++;
-          }
+        if(_sessionVideosSeen.indexOf(vidId) === -1){
+          _sessionVideosSeen.push(vidId);
+          _sessionVideosCount++;
+        }
+        if(_initialized && typeof gtag==='function'){
+          gtag('event','video_swipe',{
+            event_category:'video_behavior', video_index:idx,
+            video_id:vidId, video_title:vidTitle, shop_name:shopName,
+            direction:direction, from_index:_curIdx,
+            session_videos_seen:_sessionVideosCount, page_location:window.location.href
+          });
+        }
 
-          if(typeof gtag==='function'){
-            gtag('event','video_swipe',{
-              event_category: 'video_behavior',
-              video_index: idx,
-              video_id: vidId,
-              video_title: vidTitle,
-              shop_name: shopName,
-              direction: direction,
-              from_index: _curIdx,
-              session_videos_seen: _sessionVideosCount,
-              page_location: window.location.href
-            });
-          }
-
-          _curIdx = idx;
+        _curIdx = idx;
+        if(_initialized){
           _playVid(vid, bufIc);
           preloadNext(idx);
-        } else if(!_obsReady){
-          // 첫 영상 세션 추적 시작
-          var slideEl0 = document.getElementById('sl'+idx);
-          var vidId0 = slideEl0 ? slideEl0.getAttribute('data-vid-id') || ('video_'+idx) : ('video_'+idx);
-          if(_sessionVideosSeen.indexOf(vidId0) === -1){
-            _sessionVideosSeen.push(vidId0);
-            _sessionVideosCount = 1;
-          }
-          preloadNext(idx); // 초기화 중 → preload만
         }
+
       } else {
-        // 화면 밖으로 완전히 벗어나면 정지 + 스피너 제거
+        // 화면 밖 → 정지 + 스피너 제거
         if(vid && !vid.paused){ vid.pause(); }
         if(bufIc) bufIc.style.display = 'none';
       }
     });
-  // threshold를 낮춰 스와이프 중 경계에서 이벤트 이중 발생 방지
-  },{threshold: 0.8});
+  // threshold 0.55: 절반 이상 보이면 전환 (0.8은 너무 높아서 스와이프 중 놓침)
+  },{threshold: 0.55});
 
   document.querySelectorAll('.slide').forEach(function(s){ obs.observe(s); });
 
-  // 첫 슬라이드 직접 재생 → 이후 obs에 제어권 넘김
-  var v0 = document.getElementById('vid0');
+  // 첫 슬라이드 직접 재생 (obs 콜백은 초기화 완료 후 활성화)
+  var v0   = document.getElementById('vid0');
   var buf0 = document.getElementById('bufic0');
-  var dot0 = document.getElementById('dot0');
-  if(dot0) dot0.classList.add('on');
+  if(document.getElementById('dot0')) document.getElementById('dot0').classList.add('on');
+  _curIdx = 0;
   _playVid(v0, buf0);
   preloadNext(0);
-  setTimeout(function(){ _obsReady = true; }, 600);
+
+  // 첫 렌더 콜백 처리 후 obs 활성화
+  setTimeout(function(){ _initialized = true; }, 300);
 }
+
+// ── [M1] 모바일 백그라운드 복귀 시 재생 복구 ──
+// 카카오/인스타 인앱브라우저, 홈버튼 후 복귀 등에서 영상이 멈추는 문제 해결
+(function(){
+  var _lastActiveVidIdx = -1; // setupObs 외부에서 현재 idx 추적
+
+  // visibilitychange: 탭 전환/홈버튼 후 복귀
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState !== 'visible') return;
+    // 현재 화면에 있는 .slide 찾기
+    var slides = document.querySelectorAll('.slide');
+    var found = null;
+    slides.forEach(function(sl){
+      var r = sl.getBoundingClientRect();
+      var ratio = Math.min(r.bottom, window.innerHeight) - Math.max(r.top, 0);
+      if(ratio / window.innerHeight > 0.5) found = sl;
+    });
+    if(!found) return;
+    var idx = parseInt(found.id.replace('sl',''));
+    var vid = document.getElementById('vid'+idx);
+    var buf = document.getElementById('bufic'+idx);
+    if(vid && vid.paused && vid.src){
+      vid.muted = isMuted;
+      vid.play().catch(function(err){
+        if(err.name === 'NotAllowedError'){ vid.muted=true; vid.play().catch(function(){}); }
+      });
+      if(buf) buf.style.display = 'none';
+    }
+  });
+
+  // pageshow: iOS Safari BFCache(뒤로가기 캐시)에서 복원될 때
+  window.addEventListener('pageshow', function(e){
+    if(!e.persisted) return; // BFCache 복원이 아니면 무시
+    var slides = document.querySelectorAll('.slide');
+    slides.forEach(function(sl){
+      var r = sl.getBoundingClientRect();
+      var ratio = Math.min(r.bottom, window.innerHeight) - Math.max(r.top, 0);
+      if(ratio / window.innerHeight > 0.5){
+        var idx = parseInt(sl.id.replace('sl',''));
+        var vid = document.getElementById('vid'+idx);
+        if(vid && vid.paused && vid.src){
+          vid.muted = true; // BFCache 복원 후엔 muted만 허용
+          vid.play().catch(function(){});
+        }
+      }
+    });
+  });
+})();
 
 // ── GA4: 페이지 이탈 시 세션 영상 총 시청 개수 전송 ──
 window.addEventListener('beforeunload', function(){
