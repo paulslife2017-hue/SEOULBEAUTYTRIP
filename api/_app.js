@@ -8930,7 +8930,7 @@ var MAIN_HTML = `<!DOCTYPE html>
   gtag('js', new Date());
   gtag('config', 'G-1N9ZQRHLJ0');
 </script>
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Seoul Skin Clinic & Beauty Salon for Foreigners | Seoul Beauty Trip</title>
 <meta name="description" content="Best skin clinics, dermatology & beauty salons in Seoul for foreigners. English-speaking staff, easy WhatsApp booking. Trusted by tourists visiting Seoul.">
 <meta name="keywords" content="Seoul beauty salon, Korean skincare, K-beauty booking, Seoul hair salon, Seoul nail art, Korean makeup, Seoul derma clinic, beauty travel Korea">
@@ -9189,7 +9189,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .slide video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;background:#000}
 .ov{position:absolute;inset:0;z-index:2;background:linear-gradient(to bottom,rgba(0,0,0,.08) 0%,transparent 25%,transparent 40%,rgba(0,0,0,.2) 60%,rgba(0,0,0,.7) 80%,rgba(0,0,0,.92) 100%);cursor:pointer}
 /* \u2500\u2500 \uC2AC\uB77C\uC774\uB4DC \uC815\uBCF4 \uC601\uC5ED \u2500\u2500 */
-.info{position:absolute;bottom:0;left:0;right:0;padding:16px 18px 26px;z-index:3;display:flex;flex-direction:column;gap:0}
+.info{position:absolute;bottom:0;left:0;right:0;padding:16px 18px calc(26px + env(safe-area-inset-bottom, 0px));z-index:3;display:flex;flex-direction:column;gap:0}
 .slide-cat-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:20px;background:linear-gradient(135deg,rgba(232,65,122,.25),rgba(124,58,237,.2));backdrop-filter:blur(12px);border:1px solid rgba(232,65,122,.3);font-size:9px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;color:rgba(255,255,255,.95);margin-bottom:6px;align-self:flex-start;box-shadow:0 2px 8px rgba(232,65,122,.15)}
 .slide-cat-badge i{font-size:9px;color:var(--pk3)}
 .shop-info-block{flex:1;overflow:hidden;min-width:0;margin-right:10px}
