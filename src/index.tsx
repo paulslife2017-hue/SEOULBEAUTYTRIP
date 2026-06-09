@@ -12801,7 +12801,7 @@ window.loadAnalytics = async function loadAnalytics(days) {
           // 순위 색상
           var posNum = parseFloat(pos);
           var posColor = posNum <= 3 ? '#34d399' : posNum <= 10 ? '#fbbf24' : posNum <= 20 ? '#f97316' : 'rgba(255,255,255,.3)';
-          return '<div onclick="scDrillPage(\''+fullUrl+'\')" style="padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer;border-radius:6px;transition:background .15s" onmouseover="this.style.background=\'rgba(96,165,250,.08)\'" onmouseout="this.style.background=\'transparent\'">'
+          return '<div data-url="'+fullUrl+'" onclick="scDrillPage(this.dataset.url)" style="padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer;border-radius:6px;transition:background .15s" onmouseover="this.style.background=\'rgba(96,165,250,.08)\'" onmouseout="this.style.background=\'transparent\'">'
             +'<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">'
             +'<span style="flex:1;color:rgba(255,255,255,.85);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+page+'">'+shortPage+'</span>'
             +'<span style="font-size:10px;color:#60a5fa;font-weight:700;min-width:28px;text-align:right">'+clicks+'클릭</span>'

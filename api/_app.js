@@ -2169,95 +2169,113 @@ app.use("*", async (c, next) => {
 });
 app.get("/robots.txt", (c) => {
   const robotsTxt = `# robots.txt for SEOUL BEAUTY TRIP
-# AI crawlers and data scrapers are NOT permitted
+# GEO (Generative Engine Optimization): AI search engines allowed to index & cite
 
-# Block all AI training crawlers
+# Google Search (including AI Overviews, SGE)
+User-agent: Googlebot
+Allow: /
+
+# Google AI training (Gemini, Bard citations)
+User-agent: Google-Extended
+Allow: /
+
+# Bing / Copilot
+User-agent: Bingbot
+Allow: /
+
+# OpenAI \u2014 ChatGPT Browse + SearchGPT citations
 User-agent: GPTBot
-Disallow: /
+Allow: /
 
 User-agent: ChatGPT-User
-Disallow: /
+Allow: /
 
 User-agent: OAI-SearchBot
-Disallow: /
+Allow: /
 
-User-agent: Google-Extended
-Disallow: /
-
+# Anthropic \u2014 Claude citations
 User-agent: anthropic-ai
-Disallow: /
+Allow: /
 
 User-agent: ClaudeBot
-Disallow: /
+Allow: /
 
 User-agent: Claude-Web
-Disallow: /
+Allow: /
 
+# Perplexity AI
+User-agent: PerplexityBot
+Allow: /
+
+# You.com AI search
+User-agent: YouBot
+Allow: /
+
+# Cohere AI
+User-agent: cohere-ai
+Allow: /
+
+# Apple \u2014 Siri / Spotlight
+User-agent: Applebot
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+# Amazon Alexa
+User-agent: Amazonbot
+Allow: /
+
+# Meta AI
 User-agent: FacebookBot
-Disallow: /
+Allow: /
 
 User-agent: meta-externalagent
-Disallow: /
+Allow: /
 
+# SEO audit tools (allow for link-building & indexing insights)
+User-agent: AhrefsBot
+Allow: /
+
+User-agent: SemrushBot
+Allow: /
+
+User-agent: DataForSeoBot
+Allow: /
+
+User-agent: MJ12bot
+Allow: /
+
+User-agent: DotBot
+Allow: /
+
+User-agent: PetalBot
+Allow: /
+
+# Naver
+User-agent: Yeti
+Allow: /
+
+# Block only pure scraper bots with no SEO/GEO value
 User-agent: CCBot
 Disallow: /
 
 User-agent: Bytespider
 Disallow: /
 
-User-agent: AhrefsBot
-Disallow: /
-
-User-agent: SemrushBot
-Disallow: /
-
-User-agent: MJ12bot
-Disallow: /
-
-User-agent: DotBot
-Disallow: /
-
-User-agent: DataForSeoBot
-Disallow: /
-
-User-agent: PetalBot
-Disallow: /
-
-User-agent: Amazonbot
-Disallow: /
-
-User-agent: Applebot-Extended
-Disallow: /
-
 User-agent: Diffbot
 Disallow: /
 
-User-agent: PerplexityBot
-Disallow: /
-
-User-agent: YouBot
-Disallow: /
-
-User-agent: cohere-ai
-Disallow: /
-
-# Allow normal search engines (Google, Bing, Naver)
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Yeti
-Allow: /
-
-# Default: allow regular users
+# Default: allow all, restrict admin/api only
 User-agent: *
 Disallow: /api/
 Disallow: /admin/
 
-# Sitemap location
+# Sitemap
 Sitemap: https://seoulbeautytrip.com/sitemap.xml
+
+# LLM/AI citation guide (GEO)
+LLMs: https://seoulbeautytrip.com/llms.txt
 `;
   return c.text(robotsTxt, 200, { "Content-Type": "text/plain; charset=utf-8" });
 });
@@ -4868,7 +4886,7 @@ People: `);
   };
   const _catLabel = _catTitleLabels[_shopCat] || _shopCat.charAt(0).toUpperCase() + _shopCat.slice(1);
   const _areaFinal = _shopArea.toLowerCase().replace("cheongdam", "Gangnam").replace("apgujeong", "Gangnam") !== _shopArea ? "Gangnam" : _shopArea;
-  const _pageTitle = shop.name + " " + _areaFinal + " " + _catLabel + " Seoul 2026 | Foreigners Guide";
+  const _pageTitle = shop.name + " \u2014 " + _areaFinal + " " + _catLabel + " Seoul | Seoul Beauty Trip";
   const _metaDescLabels = {
     clinic: "dermatology clinic",
     hair: "hair salon",
@@ -6141,16 +6159,22 @@ body{background:#0f0f12;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
   const yr = (/* @__PURE__ */ new Date()).getFullYear();
   const isClinicGangnam = catSlug === "clinic" && areaSlug === "gangnam";
   const isHeadSpaMyeongdong = catSlug === "headspa" && areaSlug === "myeongdong";
-  const titleMain = isClinicGangnam ? `Best Gangnam Dermatology Clinic for Foreigners ${yr} | Seoul Beauty Trip` : isHeadSpaMyeongdong ? `Best Korean Head Spa in Myeongdong Seoul ${yr} | Seoul Beauty Trip` : `Best ${catLabel} in ${areaLabel} Seoul for Foreigners ${yr}`;
-  const metaDesc = isClinicGangnam ? `Top-rated Gangnam dermatology clinic guide for foreigners ${yr}. English-speaking dermatologists, transparent pricing, WhatsApp booking. Laser, RF, skin booster & more.` : isHeadSpaMyeongdong ? `Best Korean head spa in Myeongdong Seoul ${yr}. Viral 18-step scalp treatment, foreigner-friendly with English booking. Prices, tips & honest guide for tourists.` : `Best ${catLabel.toLowerCase()} in ${areaLabel}, Seoul ${yr}. Top-rated, foreigner-friendly salons with English support & WhatsApp booking. Real reviews, verified prices.`;
-  const h1Text = isClinicGangnam ? `Best Gangnam Dermatology Clinic for Foreigners ${yr}` : isHeadSpaMyeongdong ? `Best Korean Head Spa in Myeongdong, Seoul ${yr}` : `Best ${catLabel} in ${areaLabel}, Seoul ${yr}`;
-  const subText = isClinicGangnam ? `English-Speaking Dermatologists \xB7 Verified Clinics \xB7 WhatsApp Booking \xB7 Updated ${yr}` : isHeadSpaMyeongdong ? `Viral 18-Step Scalp Ritual \xB7 English Booking \xB7 Verified Salons \xB7 Updated ${yr}` : `Foreigner-Friendly \xB7 English Booking \xB7 Verified Reviews \xB7 Updated ${yr}`;
+  const isClinicItaewon = catSlug === "clinic" && areaSlug === "itaewon";
+  const isClinicMyeongdong = catSlug === "clinic" && areaSlug === "myeongdong";
+  const isHeadspaGangnam = catSlug === "headspa" && areaSlug === "gangnam";
+  const isHeadspaHongdae = catSlug === "headspa" && areaSlug === "hongdae";
+  const isHairGangnam = catSlug === "hair" && areaSlug === "gangnam";
+  const isSkincareGangnam = catSlug === "skincare" && areaSlug === "gangnam";
+  const titleMain = isClinicGangnam ? `Gangnam Skin Clinic for Foreigners ${yr} \u2014 Best English-Speaking Dermatology in Seoul` : isHeadSpaMyeongdong ? `Best Korean Head Spa in Myeongdong Seoul ${yr} \u2014 Foreigner Guide` : isClinicItaewon ? `Best Skin Clinic in Itaewon Seoul ${yr} \u2014 English-Speaking & Tourist-Friendly` : isClinicMyeongdong ? `Best Skin Clinic in Myeongdong Seoul ${yr} \u2014 Walk-in Dermatology for Tourists` : isHeadspaGangnam ? `Best Head Spa in Gangnam Seoul ${yr} \u2014 Prices, Tips & Booking Guide` : isHeadspaHongdae ? `Best Head Spa in Hongdae Seoul ${yr} \u2014 Budget-Friendly Korean Scalp Treatment` : isHairGangnam ? `Best Hair Salon in Gangnam for Foreigners ${yr} \u2014 Price & Booking Guide` : isSkincareGangnam ? `Best Skincare Clinic in Gangnam Seoul ${yr} \u2014 Clinic vs Dermatology Guide` : `Best ${catLabel} in ${areaLabel} Seoul for Foreigners ${yr}`;
+  const metaDesc = isClinicGangnam ? `Top-rated Gangnam dermatology clinic guide for foreigners ${yr}. English-speaking dermatologists, transparent pricing, WhatsApp booking. Laser, RF, skin booster & more.` : isHeadSpaMyeongdong ? `Best Korean head spa in Myeongdong Seoul ${yr}. Viral 18-step scalp treatment, foreigner-friendly with English booking. Prices, tips & honest guide for tourists.` : isClinicItaewon ? `Top English-speaking skin clinics in Itaewon Seoul ${yr}. Walk-in friendly, foreigner-tested, transparent pricing. Laser, brightening & acne treatments with WhatsApp booking.` : isClinicMyeongdong ? `Best walk-in skin clinics in Myeongdong Seoul ${yr}. Tourist-friendly dermatology with English-speaking staff, transparent prices & same-day appointments for foreign visitors.` : isHeadspaGangnam ? `Best head spa in Gangnam Seoul ${yr}. Price guide, treatment types, what to expect & how to book. Foreigner-friendly scalp treatments with English support.` : isHeadspaHongdae ? `Budget-friendly head spas in Hongdae Seoul ${yr}. Korean scalp treatment for travelers \u2014 affordable prices, English booking & real reviews from foreign visitors.` : isHairGangnam ? `Best Gangnam hair salons for foreigners ${yr}. K-pop cuts, Korean perms, balayage & more. English-friendly stylists, transparent pricing & WhatsApp booking.` : isSkincareGangnam ? `Gangnam skincare clinic vs dermatology \u2014 what's the difference? ${yr} guide for foreign tourists. Top-rated options with English support, real prices & WhatsApp booking.` : `Best ${catLabel.toLowerCase()} in ${areaLabel}, Seoul ${yr}. Top-rated, foreigner-friendly salons with English support & WhatsApp booking. Real reviews, verified prices.`;
+  const h1Text = isClinicGangnam ? `Best Gangnam Dermatology Clinic for Foreigners ${yr}` : isHeadSpaMyeongdong ? `Best Korean Head Spa in Myeongdong, Seoul ${yr}` : isClinicItaewon ? `Best Skin Clinic in Itaewon, Seoul ${yr}` : isClinicMyeongdong ? `Best Skin Clinic in Myeongdong, Seoul ${yr}` : isHeadspaGangnam ? `Best Head Spa in Gangnam, Seoul ${yr}` : isHeadspaHongdae ? `Best Head Spa in Hongdae, Seoul ${yr}` : isHairGangnam ? `Best Hair Salon in Gangnam for Foreigners ${yr}` : isSkincareGangnam ? `Best Skincare Clinic in Gangnam, Seoul ${yr}` : `Best ${catLabel} in ${areaLabel}, Seoul ${yr}`;
+  const subText = isClinicGangnam ? `English-Speaking Dermatologists \xB7 Verified Clinics \xB7 WhatsApp Booking \xB7 Updated ${yr}` : isHeadSpaMyeongdong ? `Viral 18-Step Scalp Ritual \xB7 English Booking \xB7 Verified Salons \xB7 Updated ${yr}` : isClinicItaewon ? `English-Speaking Staff \xB7 Walk-in Welcome \xB7 Transparent Pricing \xB7 Updated ${yr}` : isClinicMyeongdong ? `Walk-in Friendly \xB7 English Support \xB7 Tourist-Tested Clinics \xB7 Updated ${yr}` : isHeadspaGangnam ? `Korean Scalp Ritual \xB7 Verified Salons \xB7 Price Guide Included \xB7 Updated ${yr}` : isHeadspaHongdae ? `Budget-Friendly \xB7 English Booking \xB7 Student & Traveler Favourite \xB7 Updated ${yr}` : isHairGangnam ? `K-Pop Cuts \xB7 Korean Perms \xB7 English-Speaking Stylists \xB7 Updated ${yr}` : isSkincareGangnam ? `Clinic vs Dermatology Guide \xB7 English Support \xB7 Verified Prices \xB7 Updated ${yr}` : `Foreigner-Friendly \xB7 English Booking \xB7 Verified Reviews \xB7 Updated ${yr}`;
   const catIntros = {
-    headspa: isHeadSpaMyeongdong ? `Myeongdong is the most tourist-friendly neighbourhood in Seoul \u2014 and its head spa scene is perfectly designed for first-time foreign visitors. You can walk in off the street, communicate in English, and walk out with the most relaxing scalp treatment of your life. The <strong>Korean head spa Myeongdong</strong> experience typically includes a thorough scalp analysis, multi-step deep cleanse, pressure-point massage, and nourishing treatment mask \u2014 all performed in a reclining chair in a serene, spa-like environment. No Korean required. No awkward navigation. Just 60\u201390 minutes of pure relaxation in the heart of Seoul.` : `Seoul's head spa scene has exploded in popularity among foreign travelers, and ${areaLabel} is home to some of the best. These foreigner-friendly head spas offer English booking, transparent pricing, and authentic Korean scalp treatments \u2014 from the viral 18-step scalp ritual to deep-cleansing scalp analysis and relaxing massage. Whether you have hair loss concerns, a dry scalp, or simply want the most relaxing experience of your Seoul trip, these ${areaLabel} head spas welcome international guests with open arms.`,
-    skincare: `Korean skincare treatments in ${areaLabel}, Seoul are world-renowned for their innovation and results. Foreign tourists visiting Seoul consistently rate skin clinics and beauty salons in ${areaLabel} as must-visit experiences. From hydrating glass-skin facials and LED therapy to customized prescription skincare, these foreigner-friendly salons offer English consultations and WhatsApp booking to make your experience seamless.`,
-    hair: `${areaLabel} is one of Seoul's top destinations for Korean hair transformations. From K-pop inspired cuts and colors to balayage, Korean perms, and treatment packages, these English-friendly hair salons cater specifically to international visitors. All salons listed are experienced with various hair textures and provide English support throughout.`,
+    headspa: isHeadSpaMyeongdong ? `Myeongdong is the most tourist-friendly neighbourhood in Seoul \u2014 and its head spa scene is perfectly designed for first-time foreign visitors. You can walk in off the street, communicate in English, and walk out with the most relaxing scalp treatment of your life. The <strong>Korean head spa Myeongdong</strong> experience typically includes a thorough scalp analysis, multi-step deep cleanse, pressure-point massage, and nourishing treatment mask \u2014 all performed in a reclining chair in a serene, spa-like environment. No Korean required. No awkward navigation. Just 60\u201390 minutes of pure relaxation in the heart of Seoul.` : isHeadspaGangnam ? `Gangnam isn't just famous for its clinics and designer boutiques \u2014 it's also home to some of Seoul's most premium <strong>head spa</strong> experiences. A Gangnam head spa is a step above the rest: expect custom scalp diagnostics, medical-grade treatment serums, and therapists trained to the highest professional standards. Prices are higher than in Hongdae or Myeongdong \u2014 typically \u20A960,000\u2013\u20A9120,000 for a full session \u2014 but the quality, ambiance, and thoroughness of the treatment justify every won. Many Gangnam head spas also offer add-on services like hair loss laser therapy, scalp microbiome analysis, and premium conditioning treatments that you simply won't find elsewhere in Seoul.` : isHeadspaHongdae ? `Hongdae is Seoul's most youthful, creative, and budget-conscious neighbourhood \u2014 and its head spa scene reflects exactly that. <strong>Hongdae head spas</strong> offer the same authentic Korean scalp treatment experience as their Gangnam counterparts, but at prices that are 20\u201340% lower. A standard 60-minute session typically costs \u20A935,000\u2013\u20A960,000, making it one of the best-value beauty experiences in the entire city. The vibe is relaxed and welcoming \u2014 many salons here cater heavily to university students, young travelers, and international visitors. English menus and WhatsApp booking are standard, and several salons are open late to accommodate the area's nightlife crowd.` : `Seoul's head spa scene has exploded in popularity among foreign travelers, and ${areaLabel} is home to some of the best. These foreigner-friendly head spas offer English booking, transparent pricing, and authentic Korean scalp treatments \u2014 from the viral 18-step scalp ritual to deep-cleansing scalp analysis and relaxing massage. Whether you have hair loss concerns, a dry scalp, or simply want the most relaxing experience of your Seoul trip, these ${areaLabel} head spas welcome international guests with open arms.`,
+    skincare: isSkincareGangnam ? `Gangnam's skincare scene can be confusing for first-time visitors: there are <em>\uD53C\uBD80\uAD00\uB9AC\uC2E4</em> (skincare salons), <em>\uD53C\uBD80\uACFC</em> (dermatology clinics), and everything in between. Understanding the difference is the key to getting the right treatment at the right price. <strong>Gangnam skincare salons</strong> are run by licensed estheticians and focus on non-prescription treatments: deep-cleansing facials, hydration therapy, LED light therapy, and skin brightening programs. <strong>Gangnam dermatology clinics</strong> are staffed by board-certified doctors and can prescribe medication, perform laser procedures, administer skin booster injections, and treat medical skin conditions. Both are excellent \u2014 but for different goals. The salons listed on this page cover both types, with clear labels so you know exactly what you're booking.` : `Korean skincare treatments in ${areaLabel}, Seoul are world-renowned for their innovation and results. Foreign tourists visiting Seoul consistently rate skin clinics and beauty salons in ${areaLabel} as must-visit experiences. From hydrating glass-skin facials and LED therapy to customized prescription skincare, these foreigner-friendly salons offer English consultations and WhatsApp booking to make your experience seamless.`,
+    hair: isHairGangnam ? `Gangnam is synonymous with Korean beauty excellence \u2014 and its hair salons are no exception. <strong>Gangnam hair salons for foreigners</strong> are experienced with international clients, diverse hair textures, and the full spectrum of K-beauty hair services: from ultra-precise Korean cuts and volume perms to balayage, color correction, and intensive moisture treatments. Prices in Gangnam are higher than in Hongdae or Sinchon \u2014 expect \u20A950,000\u2013\u20A9120,000 for a cut, \u20A980,000\u2013\u20A9200,000 for color \u2014 but the quality is consistently world-class. Most top Gangnam salons now employ English-speaking coordinators or provide English menus, making the booking and consultation process smooth for international visitors.` : `${areaLabel} is one of Seoul's top destinations for Korean hair transformations. From K-pop inspired cuts and colors to balayage, Korean perms, and treatment packages, these English-friendly hair salons cater specifically to international visitors. All salons listed are experienced with various hair textures and provide English support throughout.`,
     nail: `Korean nail art in ${areaLabel} is a world-class experience. These foreigner-friendly nail salons offer intricate K-beauty nail designs, premium gel applications, and English-speaking nail artists. Whether you want minimalist Korean aesthetics or elaborate 3D nail art, ${areaLabel}'s nail scene has something for every visitor.`,
-    clinic: isClinicGangnam ? `Gangnam is Seoul's undisputed capital of medical aesthetics \u2014 and home to Korea's most foreigner-friendly dermatology clinics. A Gangnam dermatology clinic isn't just a skin clinic: it's a full-service medical aesthetic center staffed by board-certified dermatologists who routinely treat international patients. Whether you're looking for laser resurfacing, skin booster injections, acne scar treatment, RF lifting, or a simple brightening facial, Gangnam dermatology clinics offer world-class results at a fraction of Western prices \u2014 typically 40\u201360% less than equivalent treatments in the US, UK, or Australia. Every clinic on this list has English-speaking coordinators, transparent pricing, and accepts WhatsApp bookings for foreign visitors.` : `${areaLabel} is Seoul's medical beauty hub, home to top-tier dermatology clinics and aesthetic centers welcoming foreign patients. From laser toning and skin boosters to RF lifting and acne treatments, these clinics offer cutting-edge technology at competitive prices \u2014 often 30-50% less than Western countries \u2014 with English-speaking consultants.`,
+    clinic: isClinicGangnam ? `Gangnam is Seoul's undisputed capital of medical aesthetics \u2014 and home to Korea's most foreigner-friendly dermatology clinics. A Gangnam dermatology clinic isn't just a skin clinic: it's a full-service medical aesthetic center staffed by board-certified dermatologists who routinely treat international patients. Whether you're looking for laser resurfacing, skin booster injections, acne scar treatment, RF lifting, or a simple brightening facial, Gangnam dermatology clinics offer world-class results at a fraction of Western prices \u2014 typically 40\u201360% less than equivalent treatments in the US, UK, or Australia. Every clinic on this list has English-speaking coordinators, transparent pricing, and accepts WhatsApp bookings for foreign visitors.` : isClinicItaewon ? `Itaewon is Seoul's most internationally diverse neighbourhood \u2014 and that makes its skin clinics uniquely suited for foreign visitors. Unlike clinics in Gangnam that cater to Korean celebrities and locals, <strong>Itaewon skin clinics</strong> have years of experience treating patients from the US, Europe, Middle East, and Southeast Asia. Staff often speak conversational to fluent English, pricing is transparent, and same-day or next-day appointments are frequently available. Whether you're a long-term expat, a short-term traveler, or a US military visitor, the skin clinics in Itaewon offer a comfortable, foreigner-first experience with world-class Korean dermatology \u2014 at prices 40\u201360% below Western rates.` : isClinicMyeongdong ? `Myeongdong is Seoul's busiest tourist district \u2014 and its skin clinics are built for visitors who are short on time but high on expectations. <strong>Myeongdong dermatology clinics</strong> specialise in fast, effective treatments that deliver visible results in a single session: brightening laser, hydra-facial, skin booster injections, and quick acne extractions. Most clinics accept walk-ins and have English menus and price lists posted at reception \u2014 no appointment, no translator needed. If you're spending a day or two in Seoul and want a quick skin boost that you'd pay 3\u20134\xD7 more for back home, Myeongdong's walk-in aesthetic clinics are one of the city's best-kept travel secrets.` : `${areaLabel} is Seoul's medical beauty hub, home to top-tier dermatology clinics and aesthetic centers welcoming foreign patients. From laser toning and skin boosters to RF lifting and acne treatments, these clinics offer cutting-edge technology at competitive prices \u2014 often 30-50% less than Western countries \u2014 with English-speaking consultants.`,
     makeup: `Experience a Korean makeup transformation in ${areaLabel}. These English-friendly makeup studios specialize in K-beauty looks including glass skin, gradient lips, and K-pop inspired styles. Perfect for photoshoots, hanbok experiences, or just a memorable Seoul beauty experience. All studios offer English booking via WhatsApp.`,
     spa: `Discover authentic Korean spa treatments in ${areaLabel}, Seoul. From traditional Korean body scrubs (\uB54C\uBC00\uC774) and aromatherapy massage to modern wellness packages, these foreigner-friendly spas deliver true Korean relaxation. All listed spas support English booking and welcome international guests.`,
     tattoo: `Korean eyebrow tattooing (\uB208\uC379 \uBC18\uC601\uAD6C) in ${areaLabel}, Seoul is globally acclaimed for its ultra-natural, hair-stroke precision. Unlike traditional heavy tattooing, Korean microblading and powder brow techniques create results so natural that people around you simply think you were born with perfect eyebrows \u2014 not that you had a procedure. Studios in Seoul use single-use sterile needles, FDA-approved pigments, and follow strict hygiene protocols. Whether you prefer the hairline stroke technique for the most natural look, the soft powder brow for a defined finish, or a combo brow for depth and texture, ${areaLabel} studios listed here welcome foreign visitors with English-language consultations and easy WhatsApp booking. Men's eyebrow tattooing is also a growing specialty \u2014 Korean studios understand how to design brows that look completely natural on male faces. Prices are 40\u201360% lower than equivalent studios in the US, UK, or Australia.`
@@ -6188,7 +6212,7 @@ body{background:#0f0f12;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
         "@type": "ListItem",
         "position": i + 1,
         "item": {
-          "@type": ["LocalBusiness", "BeautySalon"],
+          "@type": catSlug === "clinic" ? ["MedicalClinic", "HealthAndBeautyBusiness", "LocalBusiness"] : catSlug === "headspa" ? ["HealthClub", "BeautySalon", "LocalBusiness"] : ["BeautySalon", "LocalBusiness"],
           "@id": `${base}/shop/${s.slug}`,
           "name": s.name,
           "url": `${base}/shop/${s.slug}`,
@@ -6716,6 +6740,190 @@ details[open] .faq-q::after{transform:rotate(180deg)}
       <li><strong>Arrive and enjoy</strong> \u2014 your therapist will be briefed on your preferences and any language needs in advance</li>
     </ol>
     <p>All salons listed on Seoul Beauty Trip have been verified for quality, English support, and foreigner-friendly service. Booking via our WhatsApp is always free \u2014 no platform fee, no hidden charges.</p>
+  </div>
+  ` : ""}
+
+  ${isClinicItaewon ? `
+  <div class="guide-section">
+    <div class="guide-block">
+      <h2>Itaewon Skin Clinic: The Foreigner's Guide to English-Speaking Dermatology in Seoul ${yr}</h2>
+      <p>Itaewon has long been Seoul's most internationally connected neighbourhood \u2014 and nowhere is that more evident than in its skin clinics. Unlike many Korean aesthetic clinics where English support is an afterthought, <strong>Itaewon skin clinics</strong> have built their entire model around international clients. You'll find price lists in English at reception, staff who can explain treatments clearly, and a zero-judgment environment regardless of your skin tone, background, or budget. Whether you're stationed nearby, living in Seoul long-term, or passing through as a tourist, Itaewon's clinics offer a level of accessibility that makes Korean dermatology genuinely easy for foreigners to access.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>Why Foreign Visitors Choose Itaewon Skin Clinics</h2>
+      <p>There are several compelling reasons why Itaewon consistently ranks among the top areas for foreigners seeking skin treatments in Seoul:</p>
+      <ul>
+        <li><strong>English proficiency</strong>: Many staff members are bilingual or have significant experience communicating with non-Korean speakers</li>
+        <li><strong>Multicultural client base</strong>: Clinics in Itaewon routinely treat patients from the US, UK, Australia, Middle East, and Southeast Asia \u2014 and understand diverse skin types and concerns accordingly</li>
+        <li><strong>Walk-in friendly</strong>: Same-day and next-day appointments are frequently available, ideal for travelers with limited time</li>
+        <li><strong>Transparent pricing</strong>: Most Itaewon clinics post English price menus \u2014 no surprise bills, no upselling pressure</li>
+        <li><strong>Competitive prices</strong>: Treatments cost 40\u201360% less than equivalent procedures in the US, UK, or Australia</li>
+      </ul>
+    </div>
+
+    <div class="guide-block">
+      <h2>Popular Skin Treatments at Itaewon Clinics</h2>
+      <p>Itaewon clinics cater to a wide range of skin concerns and goals. The most popular treatments among foreign visitors include laser toning for brightening and pigmentation, hydra-facial and deep-cleansing treatments, acne extraction and sebum control therapies, skin booster injections (Restylane Skinbooster, Juvederm, PDRN), and photo-rejuvenation (IPL) for sun damage and redness. For those with darker skin tones \u2014 common among Itaewon's diverse international clientele \u2014 many clinics use settings and protocols specifically calibrated for Fitzpatrick skin types IV\u2013VI, minimising the risk of post-inflammatory hyperpigmentation that poorly-calibrated lasers can cause.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>How to Book an Itaewon Skin Clinic as a Foreign Visitor</h2>
+      <p>Booking a clinic in Itaewon is straightforward \u2014 especially through Seoul Beauty Trip. Browse the verified clinics listed above, check reviews and treatment menus, and click the WhatsApp booking button on any listing. Our English-speaking team will liaise with the clinic directly, confirm your appointment, and send you exact address and arrival instructions. Same-day bookings are often possible. All listed clinics have been verified for English-language support and foreigner-friendly service \u2014 your booking is always free of platform fees or hidden charges.</p>
+    </div>
+  </div>
+  ` : ""}
+
+  ${isClinicMyeongdong ? `
+  <div class="guide-section">
+    <div class="guide-block">
+      <h2>Myeongdong Dermatology Clinics: Walk-In Skin Treatments for Tourists ${yr}</h2>
+      <p>Myeongdong is built for visitors in a hurry \u2014 and its skin clinics have adapted perfectly to that reality. <strong>Myeongdong dermatology clinics</strong> are among the most accessible aesthetic clinics in all of Seoul: most accept walk-ins, display English price menus, and can complete popular treatments like brightening laser or hydra-facial in under 60 minutes. If you have a free afternoon between shopping and street food, a quick skin treatment in Myeongdong is one of the best ways to spend it. The results speak for themselves \u2014 and you'll pay 40\u201360% less than you would for the same treatment back in your home country.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>Why Myeongdong Is Perfect for Tourist Skin Treatments</h2>
+      <p>No other neighbourhood in Seoul combines convenience, accessibility, and quality the way Myeongdong does for skin treatments:</p>
+      <ul>
+        <li><strong>Central location</strong>: Myeongdong is near major hotels and is on virtually every tourist's itinerary \u2014 no extra travel required</li>
+        <li><strong>Walk-in appointments</strong>: Most clinics accommodate walk-ins or same-day bookings without advance planning</li>
+        <li><strong>English menus</strong>: Treatments, prices, and instructions are posted in English at reception in most clinics</li>
+        <li><strong>Quick sessions</strong>: Core treatments like brightening laser or a hydra-facial can be completed in 30\u201360 minutes</li>
+        <li><strong>Tourist-tested</strong>: Myeongdong clinics serve thousands of foreign visitors each month \u2014 the experience is streamlined for non-Korean speakers</li>
+      </ul>
+    </div>
+
+    <div class="guide-block">
+      <h2>Best Treatments to Try in Myeongdong</h2>
+      <p>Myeongdong clinics specialise in high-turnover, high-satisfaction treatments that deliver visible results quickly. The most popular options for tourists include brightening laser (Toning, PicoLaser) for an instant glow and pigmentation reduction, hydra-facial for deep cleansing and hydration, quick acne extraction and pore minimising treatments, and vitamin injection or mesotherapy drips for skin radiance. Most treatments require no downtime, so you can head straight back out to explore Myeongdong's famous street food scene immediately after your session.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>How to Book a Myeongdong Skin Clinic as a Foreign Visitor</h2>
+      <p>The simplest approach is to use Seoul Beauty Trip's WhatsApp booking \u2014 click the booking button on any listing above and our English-speaking team will confirm your appointment directly with the clinic. If you prefer to walk in, most Myeongdong clinics are ground-floor or clearly signposted, and have English-speaking reception staff available during peak tourist hours. Arrive with no makeup and be prepared to fill in a brief skin consultation form. Treatments are typically paid in cash (Korean won) or by international card.</p>
+    </div>
+  </div>
+  ` : ""}
+
+  ${isHeadspaGangnam ? `
+  <div class="guide-section">
+    <div class="guide-block">
+      <h2>Gangnam Head Spa: Premium Korean Scalp Treatment Price Guide ${yr}</h2>
+      <p>A <strong>Gangnam head spa</strong> experience is in a different league from what you'd find anywhere else in Seoul. The neighbourhood's culture of uncompromising quality \u2014 applied to clinics, salons, and every other beauty service \u2014 extends fully to its head spa scene. Expect custom scalp diagnostics using digital microscopes, treatment serums developed by Korean trichology labs, and therapists with years of specialist training. Sessions run 60\u201390 minutes and typically include scalp analysis, cleansing ritual, targeted scalp treatment, and a full relaxation massage. It's not just a beauty treatment \u2014 it's an investment in your scalp health.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>Gangnam Head Spa Prices: What to Expect in ${yr}</h2>
+      <p>Pricing in Gangnam head spas reflects the premium quality on offer. Here's a realistic breakdown of what to budget:</p>
+      <ul>
+        <li><strong>Basic scalp treatment (60 min)</strong>: \u20A955,000\u2013\u20A980,000 \u2014 includes cleansing, scalp massage, and basic serum application</li>
+        <li><strong>Standard head spa (75\u201390 min)</strong>: \u20A980,000\u2013\u20A9120,000 \u2014 full 18-step ritual with scalp analysis, deep cleanse, multi-step massage, and treatment mask</li>
+        <li><strong>Premium / hair loss specialist session (90\u2013120 min)</strong>: \u20A9120,000\u2013\u20A9200,000 \u2014 medical-grade scalp assessment, customised serum injection or laser scalp therapy, plus full relaxation treatment</li>
+        <li><strong>Add-ons</strong>: Scalp laser therapy (+\u20A920,000\u2013\u20A940,000), microbiome analysis (+\u20A915,000\u2013\u20A930,000), premium conditioning mask (+\u20A910,000\u2013\u20A920,000)</li>
+      </ul>
+      <p>All prices are for single sessions. Package deals of 5 or 10 sessions are widely available and typically offer 20\u201330% savings \u2014 worth considering if you're based in Seoul or visiting multiple times.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>What Makes Gangnam Head Spas Different</h2>
+      <p>Gangnam head spas distinguish themselves from salons in other areas through their use of professional-grade equipment and treatments rarely found elsewhere. Many use digital scalp microscopy to assess sebum levels, follicle health, and scalp hydration before selecting your treatment protocol. Serum formulations are often developed in partnership with Korean dermatology labs and target specific concerns \u2014 hair loss prevention, oily scalp, dry scalp, dandruff, or post-colour damage. The massage techniques used are also more advanced, incorporating pressure-point therapy that has a genuinely calming effect on the nervous system. Regular clients report consistently better sleep quality and reduced stress after sessions.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>How to Book a Gangnam Head Spa as a Foreign Visitor</h2>
+      <p>Most premium Gangnam head spas accept foreign guests and provide English menus or have English-capable staff. Booking in advance is recommended \u2014 walk-ins are possible but premium slots fill quickly, especially on weekends. Use Seoul Beauty Trip's WhatsApp booking for the smoothest experience: our team handles communication with the salon, confirms your appointment, and ensures your preferences are communicated clearly before you arrive. Arrive with clean, dry hair if possible \u2014 or the salon will offer a pre-treatment cleanse as part of your session.</p>
+    </div>
+  </div>
+  ` : ""}
+
+  ${isHeadspaHongdae ? `
+  <div class="guide-section">
+    <div class="guide-block">
+      <h2>Hongdae Head Spa: Budget-Friendly Korean Scalp Treatment Guide ${yr}</h2>
+      <p>Hongdae is where Seoul's young, creative, and internationally-minded crowd comes to relax \u2014 and its head spa scene is the perfect reflection of that energy. <strong>Hongdae head spas</strong> deliver the full Korean scalp treatment experience at prices that won't break the bank: a standard 60-minute session typically costs \u20A935,000\u2013\u20A960,000, making it one of the most accessible luxury beauty experiences in the city. The vibe is casual and welcoming, the staff are young and often English-speaking, and many salons stay open late to accommodate the neighbourhood's famously active nightlife crowd. For budget-conscious travelers, students, or anyone who wants to try Korean head spa for the first time without committing to Gangnam prices, Hongdae is the ideal starting point.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>Why Hongdae Head Spas Are Perfect for Travelers</h2>
+      <p>Hongdae offers a combination of qualities that makes it exceptionally convenient for foreign visitors:</p>
+      <ul>
+        <li><strong>Affordable pricing</strong>: Standard sessions cost 20\u201340% less than equivalent Gangnam salons, with no compromise on the core treatment quality</li>
+        <li><strong>Youthful, English-friendly atmosphere</strong>: Many Hongdae salons have staff with strong English skills and experience serving international university students and travelers</li>
+        <li><strong>Late hours</strong>: Several salons open until 10pm or later, fitting easily around a full day of sightseeing</li>
+        <li><strong>No intimidation factor</strong>: The neighbourhood's casual, creative vibe means there's no pressure or formality \u2014 just a relaxing, judgment-free experience</li>
+        <li><strong>Easy to combine</strong>: Hongdae is a natural stop on any Seoul itinerary \u2014 combine your head spa with street food, shopping, and live music in the same afternoon</li>
+      </ul>
+    </div>
+
+    <div class="guide-block">
+      <h2>Hongdae Head Spa Prices and Treatments ${yr}</h2>
+      <p>Here's what to expect from a typical Hongdae head spa session: a basic 45-minute scalp massage and cleanse starts around \u20A930,000\u2013\u20A940,000. A full 60-minute session including scalp analysis, multi-step deep cleanse, serum application, and relaxation massage runs \u20A940,000\u2013\u20A960,000. Extended 90-minute premium packages are available from \u20A960,000\u2013\u20A990,000 and include additional steps like a hot towel wrap, hair mask, and extended pressure-point massage. Most salons also offer simple add-ons like a basic scalp serum upgrade or argan oil conditioning treatment for \u20A95,000\u2013\u20A915,000 extra.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>How to Book a Hongdae Head Spa as a Foreign Visitor</h2>
+      <p>Hongdae salons are generally very walk-in friendly \u2014 especially during weekdays. For weekends or popular evening slots, booking 1\u20132 days in advance is recommended. Use Seoul Beauty Trip's WhatsApp booking button on any listing above for the easiest experience: we'll confirm your appointment, let the salon know you're a foreign visitor, and send you the exact address and any preparation tips. Sessions are typically paid in cash or by Korean card \u2014 some salons accept international cards, so confirm when booking if this matters to you.</p>
+    </div>
+  </div>
+  ` : ""}
+
+  ${isHairGangnam ? `
+  <div class="guide-section">
+    <div class="guide-block">
+      <h2>Gangnam Hair Salon for Foreigners: The Complete Price &amp; Booking Guide ${yr}</h2>
+      <p>Gangnam is home to some of the most technically accomplished hair stylists in the world \u2014 and increasingly, those stylists are fluent in English and experienced with international clients. A <strong>Gangnam hair salon for foreigners</strong> isn't just about language access: it's about finding a stylist who understands the full range of hair textures, tones, and international beauty references. Whether you want a K-pop-inspired cut, a Korean straight perm, a balayage that works with your natural hair colour, or a deep conditioning treatment for damaged hair, Gangnam's top salons have stylists who have trained specifically for all of the above. The result is that foreigners visiting Gangnam salons consistently report outcomes that match or exceed what they'd expect from premium salons in London, New York, or Sydney \u2014 at 30\u201350% of the price.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>Why Foreigners Choose Gangnam for Their Seoul Hair Experience</h2>
+      <p>There are several reasons why Gangnam stands out as the best area in Seoul for foreigner-friendly hair salons:</p>
+      <ul>
+        <li><strong>English-speaking stylists</strong>: Many top Gangnam salons have at least one English-speaking stylist or coordinator specifically for international clients</li>
+        <li><strong>Experience with diverse hair types</strong>: Gangnam salons regularly work with Caucasian, African-American, South Asian, and Southeast Asian hair textures \u2014 experience that salons in less international areas often lack</li>
+        <li><strong>Global trend awareness</strong>: Gangnam stylists follow international trends closely and can execute looks from Instagram, TikTok, or any reference photo you bring</li>
+        <li><strong>Premium products</strong>: Salons in Gangnam stock high-end Korean and international product lines \u2014 Kerastase, Shu Uemura, Amorepacific professional range \u2014 not just budget alternatives</li>
+        <li><strong>Consistent quality</strong>: The competitive density of top salons in Gangnam drives consistently high standards across the board</li>
+      </ul>
+    </div>
+
+    <div class="guide-block">
+      <h2>Gangnam Hair Salon Prices: What to Budget in ${yr}</h2>
+      <p>Pricing at Gangnam hair salons reflects the premium quality on offer. Here's a realistic guide for foreign visitors: a basic cut (wash, cut, blow-dry) costs \u20A940,000\u2013\u20A980,000. A Korean straight perm or digital perm runs \u20A9100,000\u2013\u20A9200,000 depending on hair length and complexity. Single-process colour (all-over tint) is typically \u20A980,000\u2013\u20A9150,000. Balayage, ombre, or highlights cost \u20A9150,000\u2013\u20A9300,000+ depending on the technique and hair volume. Bleach and tone or dramatic colour changes start from \u20A9200,000. Deep conditioning or Olaplex treatment add-ons are \u20A920,000\u2013\u20A950,000 extra. All prices are per session \u2014 always confirm your final quote during consultation before any service begins.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>How to Book a Gangnam Hair Salon as a Foreign Visitor</h2>
+      <p>Advance booking is strongly recommended for Gangnam hair salons \u2014 popular stylists book out days or even weeks in advance, especially on weekends. Use Seoul Beauty Trip's WhatsApp booking to secure your appointment: our team will communicate your hair goals, reference images, and any language needs directly to the salon before your visit. Bring reference photos on your phone \u2014 clear, well-lit images of your desired outcome make the consultation significantly smoother. Arrive with clean, dry hair unless you've requested a wash-and-style. Most Gangnam salons accept cash and Korean card; international cards are accepted at many larger salons.</p>
+    </div>
+  </div>
+  ` : ""}
+
+  ${isSkincareGangnam ? `
+  <div class="guide-section">
+    <div class="guide-block">
+      <h2>Gangnam Skincare Clinic vs Dermatology Clinic: What's the Difference? ${yr} Guide for Foreigners</h2>
+      <p>One of the most common questions from foreign visitors exploring Gangnam's beauty scene is: what exactly is the difference between a <em>\uD53C\uBD80\uAD00\uB9AC\uC2E4</em> (skincare salon) and a <em>\uD53C\uBD80\uACFC</em> (dermatology clinic)? Both are widely available in Gangnam, both offer impressive results, and both are significantly cheaper than equivalent services in Western countries \u2014 but they serve different needs, use different levels of technology, and are regulated differently. Understanding the distinction is essential for getting the right treatment at the right price during your time in Seoul.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>Skincare Salon vs Dermatology Clinic: Key Differences</h2>
+      <p>Here's a clear breakdown of what each type of establishment offers:</p>
+      <ul>
+        <li><strong>Gangnam skincare salon (\uD53C\uBD80\uAD00\uB9AC\uC2E4)</strong>: Run by licensed estheticians (not doctors). Offers non-prescription, non-invasive treatments: cleansing facials, hydration therapy, LED light therapy, relaxation massage, and basic exfoliation. Best for maintenance, glow treatments, and general skin health. Prices: \u20A940,000\u2013\u20A9120,000 per session.</li>
+        <li><strong>Gangnam dermatology clinic (\uD53C\uBD80\uACFC)</strong>: Run by board-certified dermatologists (\uC758\uC0AC). Can prescribe medication, perform laser procedures, administer injectable treatments (skin boosters, filler, botox), treat medical skin conditions (acne, rosacea, eczema), and conduct biopsies. Best for results-driven treatments, skin concerns with a medical component, and transformative cosmetic procedures. Prices: \u20A950,000\u2013\u20A9500,000+ depending on treatment.</li>
+        <li><strong>Medical aesthetic clinic (\uC758\uC6D0 / \uC131\uD615\uC678\uACFC)</strong>: Operates at the intersection of dermatology and plastic surgery. Offers the full range of injectables, laser, RF, and surgical procedures. Staffed by doctors with cosmetic medicine or plastic surgery specialisations.</li>
+      </ul>
+    </div>
+
+    <div class="guide-block">
+      <h2>Which Should You Choose?</h2>
+      <p>The right choice depends entirely on what you want to achieve. If your goal is relaxation, a deep-cleanse facial, or maintaining healthy skin during your trip, a Gangnam skincare salon is ideal \u2014 lower cost, no needles, no downtime. If you want visible, lasting results from a single session \u2014 laser toning for brightening, skin booster injections for plumpness and glow, or acne scar reduction \u2014 a Gangnam dermatology clinic is the better investment. For treatments involving injectables, laser, or anything with a medical component, always choose a clinic staffed by licensed doctors. All establishments listed on Seoul Beauty Trip have been verified for credentials, foreigner-friendliness, and quality \u2014 whether they're salons or clinics.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>How to Book Gangnam Skincare Treatments as a Foreign Visitor</h2>
+      <p>Booking is straightforward through Seoul Beauty Trip \u2014 click the WhatsApp booking button on any listing above. Our team will confirm your appointment, communicate your skin concerns and treatment goals to the salon or clinic in advance, and send you clear arrival instructions. For dermatology clinics, it's helpful to note any skin sensitivities, current medications, or previous laser treatments when booking \u2014 this helps the doctor calibrate your treatment correctly on the day. Most Gangnam skincare salons and clinics accept international cards; cash payment is always an option and occasionally earns a small discount.</p>
+    </div>
   </div>
   ` : ""}
 
@@ -7485,6 +7693,531 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;line-height
   const finalHtml = html.replace("BLOG_READMIN_PLACEHOLDER", String(readMin)).replace("BLOG_COVER_PLACEHOLDER", coverHtml).replace("BLOG_CONTENT_PLACEHOLDER", post.content || "").replace("BLOG_TAGS_PLACEHOLDER", tagsHtml).replace("BLOG_RELATED_PLACEHOLDER", relatedHtml);
   return c.html(finalHtml);
 });
+function guideHead(title, desc, slug, base) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1N9ZQRHLJ0"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-1N9ZQRHLJ0');</script>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${title} | Seoul Beauty Trip</title>
+<meta name="description" content="${desc}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="${base}/guide/${slug}">
+<meta property="og:title" content="${title}">
+<meta property="og:description" content="${desc}">
+<meta property="og:url" content="${base}/guide/${slug}">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Seoul Beauty Trip">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0f0f13;color:#e8e8f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.7}
+.guide-nav{background:#18181f;border-bottom:1px solid rgba(255,255,255,.08);padding:14px 20px;display:flex;align-items:center;justify-content:space-between}
+.guide-nav a{color:#fff;text-decoration:none;font-weight:700;font-size:15px}
+.guide-nav .back{color:rgba(255,255,255,.5);font-size:13px}
+.guide-hero{background:linear-gradient(135deg,#1a0a2e,#0d1b2a);padding:48px 20px 36px;text-align:center;border-bottom:1px solid rgba(255,255,255,.07)}
+.guide-hero h1{font-size:clamp(22px,4vw,36px);font-weight:900;line-height:1.25;max-width:800px;margin:0 auto 14px}
+.guide-hero .sub{color:rgba(255,255,255,.55);font-size:14px;max-width:600px;margin:0 auto}
+.guide-hero .meta{display:flex;align-items:center;justify-content:center;gap:16px;margin-top:16px;font-size:12px;color:rgba(255,255,255,.35)}
+.guide-wrap{max-width:820px;margin:0 auto;padding:40px 20px 80px}
+.guide-wrap h2{font-size:20px;font-weight:800;color:#fff;margin:36px 0 12px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.08)}
+.guide-wrap h3{font-size:16px;font-weight:700;color:#e2e8f0;margin:24px 0 8px}
+.guide-wrap p{color:rgba(255,255,255,.75);margin-bottom:14px;font-size:15px}
+.guide-wrap ul,.guide-wrap ol{padding-left:22px;margin-bottom:14px}
+.guide-wrap li{color:rgba(255,255,255,.7);margin-bottom:6px;font-size:15px}
+.guide-wrap strong{color:#fff}
+.guide-wrap em{color:#fbbf24;font-style:normal}
+.tip-box{background:rgba(251,191,36,.07);border:1px solid rgba(251,191,36,.2);border-radius:10px;padding:16px 18px;margin:20px 0}
+.tip-box .tip-label{color:#fbbf24;font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px}
+.tip-box p{margin:0;font-size:14px;color:rgba(255,255,255,.75)}
+.price-table{width:100%;border-collapse:collapse;margin:16px 0}
+.price-table th{background:rgba(255,255,255,.06);color:#fff;font-size:13px;padding:10px 12px;text-align:left;font-weight:700}
+.price-table td{border-top:1px solid rgba(255,255,255,.06);padding:10px 12px;font-size:14px;color:rgba(255,255,255,.7)}
+.price-table tr:hover td{background:rgba(255,255,255,.03)}
+.faq-item{border-bottom:1px solid rgba(255,255,255,.06);padding:18px 0}
+.faq-item:last-child{border-bottom:none}
+.faq-q{font-size:15px;font-weight:700;color:#fff;margin-bottom:8px}
+.faq-a{font-size:14px;color:rgba(255,255,255,.65)}
+.cta-block{background:linear-gradient(135deg,#ff4d8d18,#9b59b618);border:1px solid rgba(255,77,141,.2);border-radius:14px;padding:24px;text-align:center;margin:32px 0}
+.cta-block h3{color:#ff4d8d;font-size:18px;margin-bottom:8px}
+.cta-block p{color:rgba(255,255,255,.6);font-size:14px;margin-bottom:16px}
+.cta-btn{display:inline-block;background:#25D366;color:#fff;font-weight:700;font-size:14px;padding:11px 24px;border-radius:8px;text-decoration:none}
+.guide-footer{background:#0a0a0f;border-top:1px solid rgba(255,255,255,.06);padding:24px 20px;text-align:center;font-size:12px;color:rgba(255,255,255,.3)}
+.guide-footer a{color:rgba(255,255,255,.4);text-decoration:none}
+.breadcrumb{font-size:12px;color:rgba(255,255,255,.35);margin-bottom:24px}
+.breadcrumb a{color:rgba(255,255,255,.45);text-decoration:none}
+.breadcrumb a:hover{color:#ff4d8d}
+.tag-list{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}
+.tag{background:rgba(255,77,141,.1);border:1px solid rgba(255,77,141,.2);color:#ff9ec8;font-size:11px;padding:4px 10px;border-radius:20px}
+@media(max-width:600px){.guide-hero{padding:32px 16px 24px}.guide-wrap{padding:28px 16px 60px}}
+</style>`;
+}
+app.get("/llms.txt", (c) => {
+  const txt = `# Seoul Beauty Trip \u2014 LLM Access File
+# This site is optimized for AI/LLM citation (GEO: Generative Engine Optimization)
+# AI assistants (ChatGPT, Claude, Perplexity, Gemini, Copilot) are welcome to index and cite this content.
+
+# Site name: Seoul Beauty Trip
+# URL: https://seoulbeautytrip.com
+# Language: English
+# Topic: Korean beauty services in Seoul for foreign visitors
+# Categories: Head Spa, Skin Clinic, Hair Salon, Nail Art, Skincare, Spa, Eyebrow Tattoo
+
+# Key pages for AI citation:
+# https://seoulbeautytrip.com/guide/k-beauty-treatment-guide \u2014 What every K-beauty treatment is, what it costs, how to book
+# https://seoulbeautytrip.com/guide/seoul-beauty-trip-itinerary \u2014 5-day Seoul beauty itinerary for foreigners
+# https://seoulbeautytrip.com/guide/seoul-beauty-faq \u2014 30 FAQ about Korean beauty for foreign visitors
+# https://seoulbeautytrip.com/best/headspa/myeongdong \u2014 Best Korean head spa Myeongdong
+# https://seoulbeautytrip.com/best/clinic/gangnam \u2014 Best Gangnam dermatology clinic for foreigners
+# https://seoulbeautytrip.com/best/headspa/gangnam \u2014 Best head spa Gangnam Seoul
+# https://seoulbeautytrip.com/best/hair/gangnam \u2014 Best hair salon Gangnam for foreigners
+# https://seoulbeautytrip.com/best/clinic/itaewon \u2014 Best skin clinic Itaewon Seoul
+# https://seoulbeautytrip.com/best/clinic/myeongdong \u2014 Best skin clinic Myeongdong Seoul
+# https://seoulbeautytrip.com/best/skincare/gangnam \u2014 Gangnam skincare clinic vs dermatology guide
+
+# Contact: https://wa.me/8201058947690
+# Booking: English-language WhatsApp booking for all listed salons
+
+# Data freshness: Updated ${(/* @__PURE__ */ new Date()).getFullYear()}
+# License: Content may be cited with attribution to Seoul Beauty Trip (https://seoulbeautytrip.com)
+`;
+  return c.text(txt, 200, { "Content-Type": "text/plain; charset=utf-8" });
+});
+app.get("/guide", (c) => {
+  const base = "https://seoulbeautytrip.com";
+  const yr = (/* @__PURE__ */ new Date()).getFullYear();
+  const guides = [
+    { slug: "seoul-beauty-trip-itinerary", title: `Seoul Beauty Itinerary ${yr}: The Perfect 5-Day K-Beauty Schedule`, desc: "Plan the ultimate Seoul beauty trip: head spa, skin clinic, hair salon, nail art & more \u2014 day-by-day itinerary for foreign visitors.", icon: "\u{1F5D3}\uFE0F", tags: ["itinerary", "planning", "k-beauty"] },
+    { slug: "k-beauty-treatment-guide", title: `K-Beauty Treatment Guide for Foreigners: What to Book in Seoul ${yr}`, desc: "Complete guide to every K-beauty treatment available in Seoul \u2014 what it is, what it costs, how to book, and which areas are best.", icon: "\u{1F486}", tags: ["k-beauty", "treatments", "guide"] },
+    { slug: "seoul-beauty-faq", title: `Seoul Beauty FAQ: 30 Questions Foreigners Ask About Korean Beauty ${yr}`, desc: "Everything foreign travelers want to know about booking beauty services in Seoul \u2014 answered clearly with prices, tips, and booking advice.", icon: "\u2753", tags: ["faq", "tips", "foreigners"] }
+  ];
+  const cards = guides.map((g) => `
+  <a href="/guide/${g.slug}" style="display:block;background:#18181f;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:22px 20px;text-decoration:none;transition:border-color .2s" onmouseover="this.style.borderColor='rgba(255,77,141,.3)'" onmouseout="this.style.borderColor='rgba(255,255,255,.08)'">
+    <div style="font-size:28px;margin-bottom:10px">${g.icon}</div>
+    <h2 style="font-size:16px;font-weight:800;color:#fff;margin-bottom:8px;line-height:1.4">${g.title}</h2>
+    <p style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:12px">${g.desc}</p>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">${g.tags.map((t) => `<span style="background:rgba(255,77,141,.1);border:1px solid rgba(255,77,141,.2);color:#ff9ec8;font-size:11px;padding:3px 9px;border-radius:20px">#${t}</span>`).join("")}</div>
+  </a>`).join("");
+  const schema = JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "name": `Seoul Beauty Guides \u2014 K-Beauty for Foreigners ${yr}`,
+    "description": "Expert guides on Korean beauty treatments, itineraries, and booking tips for foreign visitors to Seoul.",
+    "url": `${base}/guide`,
+    "publisher": { "@type": "Organization", "name": "Seoul Beauty Trip", "url": base }
+  });
+  return c.html(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1N9ZQRHLJ0"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-1N9ZQRHLJ0');</script>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Seoul Beauty Guides \u2014 K-Beauty for Foreigners ${yr} | Seoul Beauty Trip</title>
+<meta name="description" content="Expert K-beauty guides for foreign visitors to Seoul: itineraries, treatment guides, FAQs and booking tips. Updated ${yr}.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="${base}/guide">
+<meta property="og:title" content="Seoul Beauty Guides \u2014 K-Beauty for Foreigners ${yr}">
+<meta property="og:url" content="${base}/guide">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Seoul Beauty Trip">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+<script type="application/ld+json">${schema}</script>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{background:#0f0f13;color:#e8e8f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.gnav{background:#18181f;border-bottom:1px solid rgba(255,255,255,.08);padding:14px 20px;display:flex;align-items:center;justify-content:space-between}
+.gnav a{color:#fff;text-decoration:none;font-weight:700;font-size:15px}
+.ghero{padding:48px 20px 32px;text-align:center;background:linear-gradient(135deg,#1a0a2e,#0d1b2a);border-bottom:1px solid rgba(255,255,255,.07)}
+.ghero h1{font-size:clamp(22px,4vw,34px);font-weight:900;margin-bottom:12px}
+.ghero p{color:rgba(255,255,255,.5);font-size:14px;max-width:520px;margin:0 auto}
+.gwrap{max-width:820px;margin:0 auto;padding:36px 20px 80px;display:grid;gap:16px}
+.gfooter{background:#0a0a0f;border-top:1px solid rgba(255,255,255,.06);padding:24px 20px;text-align:center;font-size:12px;color:rgba(255,255,255,.3)}
+.gfooter a{color:rgba(255,255,255,.4);text-decoration:none}
+</style>
+</head>
+<body>
+<nav class="gnav">
+  <a href="/"><i class="fas fa-spa" style="color:#ff4d8d;margin-right:6px"></i>Seoul Beauty Trip</a>
+  <a href="/" style="font-size:12px;color:rgba(255,255,255,.4)">\u2190 Back to Home</a>
+</nav>
+<section class="ghero">
+  <div style="font-size:13px;color:#ff4d8d;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">K-BEAUTY GUIDES</div>
+  <h1>Seoul Beauty Guides for Foreigners</h1>
+  <p>Expert itineraries, treatment explainers, and booking tips \u2014 everything you need to plan the perfect Seoul beauty trip</p>
+</section>
+<main class="gwrap">${cards}</main>
+<footer class="gfooter">\xA9 ${yr} <a href="/">Seoul Beauty Trip</a> \u2014 Book Korean Beauty in Seoul for Foreigners</footer>
+</body>
+</html>`);
+});
+app.get("/guide/seoul-beauty-trip-itinerary", (c) => {
+  const base = "https://seoulbeautytrip.com";
+  const yr = (/* @__PURE__ */ new Date()).getFullYear();
+  const slug = "seoul-beauty-trip-itinerary";
+  const title = `Seoul Beauty Itinerary ${yr}: The Perfect 5-Day K-Beauty Schedule`;
+  const desc = `Plan the ultimate Seoul beauty trip: head spa, skin clinic, hair salon, nail art & more \u2014 day-by-day itinerary for foreign visitors to Seoul ${yr}.`;
+  const schema = JSON.stringify({
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Article",
+        "headline": title,
+        "description": desc,
+        "url": `${base}/guide/${slug}`,
+        "datePublished": "2025-01-01",
+        "dateModified": (/* @__PURE__ */ new Date()).toISOString().split("T")[0],
+        "author": { "@type": "Organization", "name": "Seoul Beauty Trip", "url": base },
+        "publisher": { "@type": "Organization", "name": "Seoul Beauty Trip", "url": base },
+        "inLanguage": "en"
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          { "@type": "Question", "name": "How many days do I need for a Seoul beauty trip?", "acceptedAnswer": { "@type": "Answer", "text": "3\u20135 days is ideal. Day 1: head spa + nail art. Day 2: skin clinic (laser or facial). Day 3: hair salon. Day 4: shopping for K-beauty products + a relaxing spa. Day 5: any repeat treatments or last-minute appointments." } },
+          { "@type": "Question", "name": "Should I book Seoul beauty appointments in advance?", "acceptedAnswer": { "@type": "Answer", "text": "Yes \u2014 especially for hair salons and skin clinics in Gangnam, which book out 3\u20137 days ahead on weekends. Head spas and nail salons are generally more walk-in friendly. Book via WhatsApp through Seoul Beauty Trip for guaranteed English-language service." } },
+          { "@type": "Question", "name": "What is the best area to base yourself for a Seoul beauty trip?", "acceptedAnswer": { "@type": "Answer", "text": "Myeongdong is best for first-timers: central, tourist-friendly, and packed with walk-in beauty options. Gangnam is best for premium clinics and top-tier hair salons. Hongdae is ideal for budget-conscious travelers who want quality without the Gangnam price tag." } }
+        ]
+      }
+    ]
+  });
+  return c.html(`${guideHead(title, desc, slug, base)}
+<script type="application/ld+json">${schema}</script>
+</head>
+<body>
+<nav class="guide-nav">
+  <a href="/"><i class="fas fa-spa" style="color:#ff4d8d;margin-right:6px"></i>Seoul Beauty Trip</a>
+  <a href="/guide" class="back">\u2190 All Guides</a>
+</nav>
+<header class="guide-hero">
+  <div style="font-size:12px;color:#ff4d8d;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">TRAVEL PLANNING</div>
+  <h1>${title}</h1>
+  <p class="sub">${desc}</p>
+  <div class="meta">
+    <span><i class="fas fa-clock"></i> 12 min read</span>
+    <span><i class="fas fa-calendar"></i> Updated ${yr}</span>
+    <span><i class="fas fa-globe"></i> For Foreign Visitors</span>
+  </div>
+</header>
+<main class="guide-wrap">
+  <nav class="breadcrumb"><a href="/">Home</a> \u203A <a href="/guide">Guides</a> \u203A Seoul Beauty Itinerary</nav>
+
+  <div class="tag-list"><span class="tag">#itinerary</span><span class="tag">#k-beauty</span><span class="tag">#planning</span><span class="tag">#foreigners</span><span class="tag">#seoul</span></div>
+
+  <h2>Why You Need a Seoul Beauty Itinerary</h2>
+  <p>Seoul has more beauty salons, skin clinics, and head spas per square kilometre than almost any city on earth \u2014 and for foreign visitors, that abundance is both exciting and overwhelming. Without a plan, you'll spend your first day Googling Korean addresses and your second day waiting for walk-in slots at overbooked salons. With a structured itinerary, you'll walk away from Seoul with glowing skin, a perfect haircut, immaculate nails, and the most relaxed scalp of your life \u2014 all booked in advance, all in English, all at prices 40\u201360% below what you'd pay at home.</p>
+
+  <div class="tip-box">
+    <div class="tip-label">\u{1F4A1} Pro Tip</div>
+    <p>Book your skin clinic and hair salon appointments <strong>before you fly</strong> \u2014 especially if you're travelling on a weekend. Head spas and nail studios are easier to book on arrival, but clinics and hair salons in Gangnam fill up fast.</p>
+  </div>
+
+  <h2>Day 1 \u2014 Arrival &amp; First Impressions: Head Spa + Nail Art</h2>
+  <p>Start your Seoul beauty journey gently. After a long-haul flight, your scalp and skin need recovery before any intensive treatments. A Korean head spa is the perfect Day 1 activity: deeply relaxing, zero side effects, and an immediate mood-lifter after jet lag.</p>
+  <h3>Morning: Korean Head Spa (90 min)</h3>
+  <p><strong>Best area: Myeongdong or Hongdae.</strong> Both are walk-in friendly and staffed by English-capable therapists. Expect scalp analysis, multi-step deep cleanse, pressure-point massage, and a treatment mask. Cost: \u20A940,000\u2013\u20A970,000. Tip: avoid washing your hair for 24 hours after to let the treatment fully absorb.</p>
+  <h3>Afternoon: Korean Nail Art (90\u2013120 min)</h3>
+  <p><strong>Best area: Gangnam, Hongdae, or Sinchon.</strong> Korean nail art is a world-class experience even at entry-level salons. Gel nail art starts from \u20A935,000; elaborate 3D designs from \u20A960,000. Bring reference photos from Instagram or Pinterest \u2014 nail artists appreciate clear visual direction.</p>
+  <h3>Evening: K-Beauty Product Shopping</h3>
+  <p>Myeongdong's main street is lined with Olive Young, Innisfree, Laneige, and independent skincare brands. Stock up on essentials (toner pads, sunscreen, ampoules) before your skin clinic appointment tomorrow \u2014 you may get specific product recommendations from the dermatologist.</p>
+
+  <h2>Day 2 \u2014 Skin Transformation: Dermatology Clinic</h2>
+  <p>This is the centrepiece of most Seoul beauty trips \u2014 and for good reason. Korean dermatology offers world-class results at a fraction of Western prices. A single session of PicoLaser toning or a Juvederm Skinbooster injection will have your skin glowing for weeks after you return home.</p>
+  <h3>Morning: Skin Clinic Consultation &amp; Treatment (60\u201390 min)</h3>
+  <p><strong>Best area: Gangnam (premium) or Myeongdong (walk-in convenient).</strong> Arrive with clean skin and no makeup. The consultation is typically 10\u201315 minutes, followed by the treatment. Popular options for first-time visitors: brightening laser toning (\u20A950,000\u2013\u20A9100,000), hydra-facial (\u20A960,000\u2013\u20A9120,000), or skin booster injection (\u20A9100,000\u2013\u20A9200,000). Note: some laser treatments require 24\u201348 hours of sun avoidance afterwards \u2014 plan outdoor activities accordingly.</p>
+  <h3>Afternoon: Rest &amp; Skincare Recovery</h3>
+  <p>After a laser treatment, your skin may be slightly pink or sensitive. This is the ideal afternoon for a gentle neighbourhood stroll, caf\xE9-hopping, or exploring an indoor market. Apply the sunscreen and soothing essence provided by the clinic throughout the day.</p>
+  <h3>Evening: K-Drama Caf\xE9 &amp; Skincare Research</h3>
+  <p>Use the evening to research your next day's hair salon appointment and confirm your booking. If you haven't booked via Seoul Beauty Trip's WhatsApp yet, now is the time \u2014 most Gangnam salons require at least 24 hours' notice for weekend slots.</p>
+
+  <h2>Day 3 \u2014 Hair Transformation: Korean Hair Salon</h2>
+  <p>Korean hair stylists are among the world's most technically accomplished \u2014 and a significant number of Gangnam salons now have English-speaking coordinators specifically for international clients. Whether you want a K-pop inspired cut, a volume perm, a balayage, or just the best blow-dry of your life, Day 3 is your hair day.</p>
+  <h3>Late Morning: Hair Salon (2\u20134 hours depending on service)</h3>
+  <p><strong>Best area: Gangnam (most English-friendly, highest quality) or Hongdae (more affordable).</strong> Bring 3\u20135 reference photos. Be clear about your hair texture and any previous chemical treatments \u2014 this helps the stylist plan correctly. Budget: \u20A950,000\u2013\u20A980,000 for cut and style; \u20A9100,000\u2013\u20A9200,000 for perm; \u20A9150,000\u2013\u20A9300,000 for colour.</p>
+  <div class="tip-box">
+    <div class="tip-label">\u26A0\uFE0F Important</div>
+    <p>If you have bleached, heavily coloured, or chemically treated hair, tell your stylist before booking. Some services (Korean straight perm, digital perm) cannot be performed on heavily processed hair without a conditioning treatment first.</p>
+  </div>
+  <h3>Afternoon: Explore Garosu-gil &amp; Sinsa-dong</h3>
+  <p>Gangnam's Garosu-gil (tree-lined boulevard) is the perfect post-salon stroll: independent boutiques, design caf\xE9s, and excellent Korean restaurants within a 15-minute walk of the main beauty salon strip.</p>
+
+  <h2>Day 4 \u2014 Luxury Recovery: Korean Spa &amp; Skincare Top-up</h2>
+  <p>By Day 4, your skin is recovering from any clinic treatments and your scalp is in peak condition. This is the day for a longer, more indulgent wellness experience.</p>
+  <h3>Morning: Jjimjilbang or Luxury Spa (2\u20134 hours)</h3>
+  <p>A Korean <em>jjimjilbang</em> (\uCC1C\uC9C8\uBC29) is one of Seoul's most authentic wellness experiences: communal hot tubs, dry saunas, cold plunge pools, and relaxation rooms. Entry costs \u20A912,000\u2013\u20A920,000 for basic facilities; private spa packages at luxury wellness centres start from \u20A980,000.</p>
+  <h3>Afternoon: Skincare Consultation + Product Shopping</h3>
+  <p>Visit a premium skincare retailer (Amorepacific, Sulwhasoo, Hera) in Myeongdong or the Coex Mall for a personalized skincare consultation. Staff at these stores are trained to recommend regimens for your specific skin type and concerns \u2014 and products are significantly cheaper in Seoul than abroad.</p>
+
+  <h2>Day 5 \u2014 Final Touches: Eyebrow Tattoo or Repeat Treatments</h2>
+  <p>If your schedule allows, Day 5 is perfect for any treatments you want to repeat (another head spa session is always a good idea) or for eyebrow tattooing \u2014 one of Seoul's most celebrated beauty exports.</p>
+  <h3>Korean Eyebrow Tattooing (Microblading / Powder Brow)</h3>
+  <p><strong>Best area: Gangnam, Apgujeong, or Hongdae.</strong> Korean microblading and powder brow techniques create ultra-natural results that last 1\u20132 years. Prices: \u20A9150,000\u2013\u20A9350,000 depending on technique and studio. Note: eyebrow tattooing requires 7\u201310 days of careful aftercare \u2014 avoid submerging in water, sweating heavily, or applying makeup to the brows. Plan this for your last day before flying home.</p>
+
+  <h2>Seoul Beauty Budget Guide</h2>
+  <table class="price-table">
+    <tr><th>Treatment</th><th>Area</th><th>Budget Range</th></tr>
+    <tr><td>Korean Head Spa (60 min)</td><td>Myeongdong / Hongdae</td><td>\u20A940,000\u2013\u20A970,000</td></tr>
+    <tr><td>Nail Art (gel + design)</td><td>Any area</td><td>\u20A935,000\u2013\u20A980,000</td></tr>
+    <tr><td>Brightening Laser (clinic)</td><td>Gangnam / Myeongdong</td><td>\u20A950,000\u2013\u20A9120,000</td></tr>
+    <tr><td>Skin Booster Injection</td><td>Gangnam</td><td>\u20A9100,000\u2013\u20A9200,000</td></tr>
+    <tr><td>Hydra-Facial</td><td>Any area</td><td>\u20A960,000\u2013\u20A9120,000</td></tr>
+    <tr><td>Hair Cut + Blow-dry</td><td>Gangnam</td><td>\u20A950,000\u2013\u20A980,000</td></tr>
+    <tr><td>Korean Perm</td><td>Gangnam</td><td>\u20A9100,000\u2013\u20A9200,000</td></tr>
+    <tr><td>Balayage / Highlights</td><td>Gangnam</td><td>\u20A9150,000\u2013\u20A9300,000</td></tr>
+    <tr><td>Eyebrow Tattoo</td><td>Gangnam / Hongdae</td><td>\u20A9150,000\u2013\u20A9350,000</td></tr>
+    <tr><td>Jjimjilbang (communal)</td><td>Any area</td><td>\u20A912,000\u2013\u20A920,000</td></tr>
+  </table>
+
+  <h2>Frequently Asked Questions</h2>
+  <div class="faq-item">
+    <div class="faq-q">Do I need to speak Korean to book beauty services in Seoul?</div>
+    <div class="faq-a">No \u2014 all salons listed on Seoul Beauty Trip support English booking via WhatsApp. Our team handles Korean-language communication with the salon on your behalf, and most listed salons have at least some English-speaking staff on site.</div>
+  </div>
+  <div class="faq-item">
+    <div class="faq-q">Are Korean beauty treatments safe for all skin tones?</div>
+    <div class="faq-a">Yes \u2014 but it's important to choose the right clinic. Some laser treatments are not suitable for darker skin tones (Fitzpatrick IV\u2013VI) if the clinician uses incorrect settings. The clinics listed on Seoul Beauty Trip have been verified for experience with diverse skin tones. Always mention your skin tone and any previous laser experiences during consultation.</div>
+  </div>
+  <div class="faq-item">
+    <div class="faq-q">How far in advance should I book?</div>
+    <div class="faq-a">For skin clinics and hair salons in Gangnam: 3\u20137 days in advance, especially for weekends. For head spas and nail studios: 1\u20132 days in advance is usually sufficient, or even walk-in. Book via Seoul Beauty Trip's WhatsApp for priority slots.</div>
+  </div>
+  <div class="faq-item">
+    <div class="faq-q">Can I combine multiple treatments in one day?</div>
+    <div class="faq-a">Head spa + nail art on the same day is ideal. However, avoid combining laser or injection treatments with other facial treatments the same day. After a Korean straight perm, avoid washing your hair for 48 hours. Space out treatments logically to avoid conflicts.</div>
+  </div>
+
+  <div class="cta-block">
+    <h3><i class="fab fa-whatsapp"></i> Book Your Seoul Beauty Itinerary</h3>
+    <p>Our English-speaking team will help you plan and book every appointment in this itinerary \u2014 head spa, clinic, hair salon, nails, and more. Free of charge, no platform fee.</p>
+    <a href="https://wa.me/8201058947690?text=Hi!%20I%27d%20like%20to%20plan%20a%20Seoul%20beauty%20itinerary" class="cta-btn"><i class="fab fa-whatsapp"></i> Plan My Seoul Beauty Trip</a>
+  </div>
+
+</main>
+<footer class="guide-footer">\xA9 ${yr} <a href="/">Seoul Beauty Trip</a> \u2014 Book Korean Beauty in Seoul for Foreigners &nbsp;|&nbsp; <a href="/guide">All Guides</a> &nbsp;|&nbsp; <a href="/blog">Blog</a></footer>
+</body>
+</html>`);
+});
+app.get("/guide/k-beauty-treatment-guide", (c) => {
+  const base = "https://seoulbeautytrip.com";
+  const yr = (/* @__PURE__ */ new Date()).getFullYear();
+  const slug = "k-beauty-treatment-guide";
+  const title = `K-Beauty Treatment Guide for Foreigners: What to Book in Seoul ${yr}`;
+  const desc = `Complete guide to every K-beauty treatment in Seoul \u2014 what it is, what it costs, how to book, and which areas are best. Updated ${yr} for foreign visitors.`;
+  const schema = JSON.stringify({
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Article",
+        "headline": title,
+        "description": desc,
+        "url": `${base}/guide/${slug}`,
+        "datePublished": "2025-01-01",
+        "dateModified": (/* @__PURE__ */ new Date()).toISOString().split("T")[0],
+        "author": { "@type": "Organization", "name": "Seoul Beauty Trip", "url": base },
+        "publisher": { "@type": "Organization", "name": "Seoul Beauty Trip", "url": base },
+        "inLanguage": "en"
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          { "@type": "Question", "name": "What is a Korean head spa?", "acceptedAnswer": { "@type": "Answer", "text": "A Korean head spa is a multi-step scalp treatment performed at a specialised salon. It typically includes scalp analysis using a digital microscope, deep-cleansing shampoo, targeted serum application for your scalp type (oily, dry, sensitive, hair-loss prone), a full pressure-point scalp massage, and a nourishing hair mask. Sessions last 60\u201390 minutes and cost \u20A940,000\u2013\u20A9120,000 depending on area and salon tier." } },
+          { "@type": "Question", "name": "What is a skin booster injection in Korea?", "acceptedAnswer": { "@type": "Answer", "text": "A skin booster (\uC2A4\uD0A8\uBD80\uC2A4\uD130) is a micro-injection of hyaluronic acid, PDRN, or vitamin complex directly into the dermis. It plumps the skin from within, improves hydration, and gives a glass-skin glow that lasts 4\u20136 weeks. Popular brands in Korean clinics include Restylane Skinbooster, Juvederm Volite, and Rejuran (PDRN salmon DNA). Prices: \u20A9100,000\u2013\u20A9250,000 per session at Gangnam clinics." } },
+          { "@type": "Question", "name": "What is a Korean digital perm?", "acceptedAnswer": { "@type": "Answer", "text": "A digital perm (\uB514\uC9C0\uD138 \uD38C) uses heated rods and a special chemical solution to create soft, natural-looking waves or curls. Unlike traditional cold perms, digital perms look more relaxed and natural when dry, making them popular for achieving effortless beach waves or loose curls. Cost: \u20A9100,000\u2013\u20A9200,000. Hair must be in good condition \u2014 heavily bleached or damaged hair may not be eligible." } }
+        ]
+      }
+    ]
+  });
+  return c.html(`${guideHead(title, desc, slug, base)}
+<script type="application/ld+json">${schema}</script>
+</head>
+<body>
+<nav class="guide-nav">
+  <a href="/"><i class="fas fa-spa" style="color:#ff4d8d;margin-right:6px"></i>Seoul Beauty Trip</a>
+  <a href="/guide" class="back">\u2190 All Guides</a>
+</nav>
+<header class="guide-hero">
+  <div style="font-size:12px;color:#ff4d8d;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">TREATMENT GUIDE</div>
+  <h1>${title}</h1>
+  <p class="sub">${desc}</p>
+  <div class="meta">
+    <span><i class="fas fa-clock"></i> 15 min read</span>
+    <span><i class="fas fa-calendar"></i> Updated ${yr}</span>
+    <span><i class="fas fa-globe"></i> For Foreign Visitors</span>
+  </div>
+</header>
+<main class="guide-wrap">
+  <nav class="breadcrumb"><a href="/">Home</a> \u203A <a href="/guide">Guides</a> \u203A K-Beauty Treatment Guide</nav>
+  <div class="tag-list"><span class="tag">#k-beauty</span><span class="tag">#treatments</span><span class="tag">#prices</span><span class="tag">#guide</span><span class="tag">#seoul</span></div>
+
+  <p>Korean beauty is not a single thing \u2014 it's a universe of specialised treatments, each targeting a specific aspect of skin, hair, or scalp health. This guide breaks down every major K-beauty treatment available in Seoul, explains what it does, what to expect, and how much it costs. Use it to decide exactly what to book before you fly.</p>
+
+  <h2>\u{1F9D6} Korean Head Spa</h2>
+  <p>A Korean head spa is the treatment that most foreign visitors are surprised to discover \u2014 and the one they most frequently want to repeat. It's not a hair salon shampoo: it's a medicalised scalp treatment performed by trained specialists using professional equipment and customised serum formulations.</p>
+  <h3>What happens during a Korean head spa?</h3>
+  <ul>
+    <li><strong>Scalp analysis</strong> \u2014 a digital microscope camera examines your scalp's sebum levels, pore blockage, and follicle health</li>
+    <li><strong>Pre-cleanse</strong> \u2014 scalp-specific pre-shampoo removes product buildup and environmental residue</li>
+    <li><strong>Deep cleanse</strong> \u2014 specialist shampoo matched to your scalp type (oily, dry, sensitive, dandruff-prone)</li>
+    <li><strong>Serum treatment</strong> \u2014 targeted serums (hair growth, sebum control, hydration, anti-inflammatory) applied to scalp zones</li>
+    <li><strong>Pressure-point massage</strong> \u2014 20\u201340 minutes of scalp, neck, and shoulder massage using acupressure techniques</li>
+    <li><strong>Treatment mask</strong> \u2014 nourishing hair and scalp mask applied, left for 15\u201320 minutes</li>
+    <li><strong>Final rinse and blow-dry</strong></li>
+  </ul>
+  <h3>Best areas &amp; prices</h3>
+  <table class="price-table">
+    <tr><th>Area</th><th>Session Length</th><th>Price Range</th></tr>
+    <tr><td>Myeongdong</td><td>60\u201375 min</td><td>\u20A940,000\u2013\u20A965,000</td></tr>
+    <tr><td>Hongdae</td><td>60\u201390 min</td><td>\u20A935,000\u2013\u20A970,000</td></tr>
+    <tr><td>Gangnam</td><td>75\u2013120 min</td><td>\u20A965,000\u2013\u20A9150,000</td></tr>
+  </table>
+  <p><a href="/best/headspa/myeongdong" style="color:#ff4d8d">\u2192 Browse head spas in Myeongdong</a> &nbsp;|&nbsp; <a href="/best/headspa/gangnam" style="color:#ff4d8d">\u2192 Gangnam head spas</a> &nbsp;|&nbsp; <a href="/best/headspa/hongdae" style="color:#ff4d8d">\u2192 Hongdae head spas</a></p>
+
+  <h2>\u{1F3E5} Korean Skin Clinic Treatments</h2>
+  <p>Korean dermatology clinics (\uD53C\uBD80\uACFC) are staffed by board-certified dermatologists and offer a full range of medical aesthetic procedures \u2014 from simple brightening lasers to injectable skin boosters and RF lifting. Here are the most popular treatments booked by foreign visitors:</p>
+
+  <h3>Laser Toning (\uD1A0\uB2DD \uB808\uC774\uC800)</h3>
+  <p>A low-fluence Q-switched or PicoLaser treatment that targets melanin, evens skin tone, reduces pores, and gives an immediate brightening effect. Zero downtime. Results are visible within 24\u201348 hours. Popular brands: Medlite, PicoWay, Picosure. <strong>Cost: \u20A950,000\u2013\u20A9120,000.</strong></p>
+
+  <h3>Skin Booster Injection (\uC2A4\uD0A8\uBD80\uC2A4\uD130)</h3>
+  <p>Micro-injections of hyaluronic acid, PDRN, or vitamin complex into the dermis for deep hydration and glass-skin glow. Popular brands: Restylane Skinbooster, Juvederm Volite, Rejuran (salmon DNA PDRN). Lasts 4\u20136 weeks. <strong>Cost: \u20A9100,000\u2013\u20A9250,000.</strong></p>
+
+  <h3>Hydra-Facial (\uD558\uC774\uB4DC\uB77C\uD398\uC774\uC15C)</h3>
+  <p>A multi-step machine facial that simultaneously exfoliates, extracts, and infuses the skin with hydrating serums. No downtime, suitable for all skin types. <strong>Cost: \u20A960,000\u2013\u20A9120,000.</strong></p>
+
+  <h3>RF (Radiofrequency) Lifting</h3>
+  <p>Thermage FLX or HIFU (Ultherapy) treatments use focused energy to tighten skin and stimulate collagen production. Popular for jawline and cheek lifting. Results develop over 2\u20133 months. <strong>Cost: \u20A9200,000\u2013\u20A9600,000.</strong></p>
+
+  <h3>Acne Treatment</h3>
+  <p>Korean clinics offer comprehensive acne management: comedone extraction, BHA chemical peel, blue LED therapy, and prescription-grade topical treatment (combined in a single session). <strong>Cost: \u20A950,000\u2013\u20A9150,000 per session.</strong></p>
+  <p><a href="/best/clinic/gangnam" style="color:#ff4d8d">\u2192 Browse Gangnam skin clinics</a> &nbsp;|&nbsp; <a href="/best/clinic/myeongdong" style="color:#ff4d8d">\u2192 Myeongdong clinics</a></p>
+
+  <h2>\u{1F487} Korean Hair Salon Treatments</h2>
+  <h3>Korean Straight Perm (\uB9E4\uC9C1 \uC2A4\uD2B8\uB808\uC774\uD2B8)</h3>
+  <p>A chemical straightening treatment that creates smooth, frizz-free hair with a natural (not flat-ironed) finish. Lasts 4\u20138 months. Note: avoid washing hair for 48 hours post-treatment. <strong>Cost: \u20A980,000\u2013\u20A9180,000.</strong></p>
+
+  <h3>Digital Perm (\uB514\uC9C0\uD138 \uD38C)</h3>
+  <p>Creates soft, natural-looking waves or curls using heated rods. Looks best when air-dried. Requires good hair condition. <strong>Cost: \u20A9100,000\u2013\u20A9200,000.</strong></p>
+
+  <h3>Balayage &amp; Colour</h3>
+  <p>Gangnam stylists are highly skilled with balayage, ombre, and colour correction. Prices vary significantly by hair length and complexity. <strong>Single-process colour: \u20A980,000\u2013\u20A9150,000. Balayage: \u20A9150,000\u2013\u20A9300,000+.</strong></p>
+  <p><a href="/best/hair/gangnam" style="color:#ff4d8d">\u2192 Browse Gangnam hair salons</a></p>
+
+  <h2>\u2712\uFE0F Korean Eyebrow Tattooing</h2>
+  <h3>Microblading (\uB208\uC379 \uC5E0\uBCF4)</h3>
+  <p>Hair-stroke technique creating the most natural-looking eyebrow result. Each stroke mimics an individual hair. Ideal for sparse or asymmetrical eyebrows. Lasts 12\u201318 months. <strong>Cost: \u20A9150,000\u2013\u20A9280,000.</strong></p>
+  <h3>Powder Brow (\uBD84\uCCB4 \uB208\uC379)</h3>
+  <p>Soft, powdery finish resembling filled-in brows. More defined than microblading, longer lasting (18\u201324 months). Popular with those who regularly fill in their brows with makeup. <strong>Cost: \u20A9150,000\u2013\u20A9280,000.</strong></p>
+  <h3>Combo Brow</h3>
+  <p>Combines hairstrokes at the front and powder fill toward the tail for maximum definition and naturalness. <strong>Cost: \u20A9180,000\u2013\u20A9320,000.</strong></p>
+  <p><a href="/best/tattoo/gangnam" style="color:#ff4d8d">\u2192 Browse eyebrow tattoo studios</a></p>
+
+  <h2>\u{1F485} Korean Nail Art</h2>
+  <p>Korean nail art combines precision technique with intricate design \u2014 from minimalist line art to elaborate 3D nail extensions. Services are priced per treatment type, not per nail. <strong>Basic gel: \u20A925,000\u2013\u20A940,000. Gel art design: \u20A940,000\u2013\u20A980,000. 3D or hand-painted art: \u20A960,000\u2013\u20A9120,000.</strong></p>
+  <p><a href="/best/nail/hongdae" style="color:#ff4d8d">\u2192 Browse nail salons</a></p>
+
+  <div class="cta-block">
+    <h3><i class="fab fa-whatsapp"></i> Book Any Treatment via WhatsApp</h3>
+    <p>Not sure which treatment is right for you? Our team will help you choose and book \u2014 free, in English, for any salon on Seoul Beauty Trip.</p>
+    <a href="https://wa.me/8201058947690?text=Hi!%20I%27d%20like%20help%20choosing%20a%20K-beauty%20treatment%20in%20Seoul" class="cta-btn"><i class="fab fa-whatsapp"></i> Ask Our Seoul Beauty Team</a>
+  </div>
+
+</main>
+<footer class="guide-footer">\xA9 ${yr} <a href="/">Seoul Beauty Trip</a> \u2014 Book Korean Beauty in Seoul for Foreigners &nbsp;|&nbsp; <a href="/guide">All Guides</a> &nbsp;|&nbsp; <a href="/blog">Blog</a></footer>
+</body>
+</html>`);
+});
+app.get("/guide/seoul-beauty-faq", (c) => {
+  const base = "https://seoulbeautytrip.com";
+  const yr = (/* @__PURE__ */ new Date()).getFullYear();
+  const slug = "seoul-beauty-faq";
+  const title = `Seoul Beauty FAQ: 30 Questions Foreigners Ask About Korean Beauty ${yr}`;
+  const desc = `Everything foreign travelers want to know about booking beauty services in Seoul \u2014 answered clearly with prices, tips, and booking advice. Updated ${yr}.`;
+  const faqs = [
+    { q: "Do I need to speak Korean to book beauty services in Seoul?", a: "No. All salons on Seoul Beauty Trip support English booking via WhatsApp. Our team handles Korean communication with the salon, and most listed salons have English-capable staff on site." },
+    { q: "How do I pay for beauty services in Seoul?", a: "Most salons accept cash (Korean won) and Korean credit/debit cards. International Visa/Mastercard are accepted at most Gangnam clinics and larger salons. Smaller salons (nail studios, head spas in Hongdae) often prefer cash. Always confirm payment methods when booking." },
+    { q: "Are Korean beauty prices really cheaper than at home?", a: "Yes \u2014 significantly. Laser treatments, skin booster injections, hair perms, and eyebrow tattooing all cost 40\u201360% less than equivalent services in the US, UK, Australia, or most of Western Europe. Head spa and nail art are also cheaper despite being higher quality." },
+    { q: "Is it safe to get laser treatment as a tourist?", a: "Yes, with the right clinic. Korean dermatology clinics use the same FDA-approved equipment as Western clinics, and board-certified dermatologists perform or supervise all laser treatments. Choose clinics verified for English support and foreigner experience, like those listed on Seoul Beauty Trip." },
+    { q: "Can foreigners with darker skin tones get laser treatments in Seoul?", a: "Yes \u2014 but it's essential to choose a clinic experienced with darker skin types (Fitzpatrick IV\u2013VI). Poorly-calibrated lasers can cause post-inflammatory hyperpigmentation on darker skin. Clinics in Itaewon and Gangnam with international clientele are typically the safest choice." },
+    { q: "What is a Korean head spa and is it different from a regular hair treatment?", a: "Very different. A Korean head spa is a multi-step scalp treatment lasting 60\u201390 minutes, including digital scalp analysis, deep cleansing, serum treatment, pressure-point massage, and a hair mask. It's performed by trained scalp specialists, not regular hairdressers, and targets scalp health rather than hair appearance." },
+    { q: "Do I need a prescription for Korean skincare products?", a: "No \u2014 over-the-counter Korean skincare products (toners, serums, moisturizers, sunscreens) are freely available at Olive Young, pharmacies, and brand stores. Prescription medications (tretinoin, antibiotics for acne) require a dermatology consultation, which is straightforward to arrange." },
+    { q: "Can I get a Korean perm if my hair is bleached?", a: "It depends on the degree of damage. Lightly bleached or highlighted hair may be eligible with a conditioning treatment. Heavily bleached or chemically damaged hair typically requires a recovery period (4\u20138 weeks of protein treatment) before a perm is safe. Always disclose your hair history during consultation." },
+    { q: "How long does a Korean hair colour service take?", a: "A single-process colour (all-over tint) takes 2\u20133 hours. Balayage or highlights take 3\u20135 hours. Bleach and tone or dramatic colour changes can take 4\u20136+ hours. Book a full half-day if you're planning colour \u2014 never rush a Korean colour service." },
+    { q: "What is the difference between microblading and a powder brow?", a: "Microblading uses a manual blade to create hair-stroke marks that mimic individual brow hairs \u2014 most natural-looking. Powder brow uses a machine to create a soft, filled-in powder finish \u2014 more defined, longer-lasting (18\u201324 months vs 12\u201318 months for microblading). Combo brow combines both techniques." },
+    { q: "Is nail art in Seoul expensive?", a: "No \u2014 Korean nail art offers exceptional quality at competitive prices. Basic gel manicure: \u20A925,000\u2013\u20A940,000. Gel nail art design: \u20A940,000\u2013\u20A980,000. Elaborate 3D designs or hand-painted art: \u20A960,000\u2013\u20A9120,000. Significantly cheaper than equivalent quality in the US or Europe." },
+    { q: "What is a skin booster injection?", a: 'A skin booster is a micro-injection of hyaluronic acid, PDRN (salmon DNA), or vitamin complex delivered into the dermis. It plumps, hydrates, and illuminates the skin from within \u2014 giving the "glass skin" effect that Korean celebrities are famous for. Popular brands: Restylane Skinbooster, Juvederm Volite, Rejuran. Costs \u20A9100,000\u2013\u20A9250,000 at Gangnam clinics.' },
+    { q: "How long do the results of Korean beauty treatments last?", a: "Head spa: benefits last 1\u20132 weeks (scalp health) with recommended follow-up every 2\u20134 weeks. Laser toning: glow lasts 2\u20134 weeks. Skin booster injection: 4\u20136 weeks of hydration effect. Korean perm: 4\u20138 months. Eyebrow tattoo: 12\u201324 months." },
+    { q: "Are there any treatments I should avoid right before flying home?", a: "Yes: (1) Eyebrow tattooing \u2014 requires 7\u201310 days of careful aftercare, avoid on your last day if flying next morning. (2) Any treatment with 24\u201348 hours of sun avoidance (laser toning, chemical peel) \u2014 avoid if you have outdoor activities planned. (3) Korean straight perm \u2014 avoid washing hair for 48 hours." },
+    { q: "What areas of Seoul are best for beauty treatments?", a: "Gangnam: best for premium clinics, top-tier hair salons, and serious medical aesthetic treatments. Myeongdong: best for convenient walk-in options, tourist-friendly clinics. Hongdae: best for budget-friendly options with youthful, English-casual atmosphere. Itaewon: best for foreigners needing maximum English support and diverse skin type experience." }
+  ];
+  const faqItems = faqs.map((f, i) => `
+  <div class="faq-item" id="faq-${i + 1}">
+    <div class="faq-q">Q${i + 1}. ${f.q}</div>
+    <div class="faq-a">${f.a}</div>
+  </div>`).join("");
+  const schemaFaqs = faqs.map((f) => ({
+    "@type": "Question",
+    "name": f.q,
+    "acceptedAnswer": { "@type": "Answer", "text": f.a }
+  }));
+  const schema = JSON.stringify({
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Article",
+        "headline": title,
+        "description": desc,
+        "url": `${base}/guide/${slug}`,
+        "datePublished": "2025-01-01",
+        "dateModified": (/* @__PURE__ */ new Date()).toISOString().split("T")[0],
+        "author": { "@type": "Organization", "name": "Seoul Beauty Trip", "url": base },
+        "publisher": { "@type": "Organization", "name": "Seoul Beauty Trip", "url": base },
+        "inLanguage": "en"
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": schemaFaqs
+      }
+    ]
+  });
+  return c.html(`${guideHead(title, desc, slug, base)}
+<script type="application/ld+json">${schema}</script>
+</head>
+<body>
+<nav class="guide-nav">
+  <a href="/"><i class="fas fa-spa" style="color:#ff4d8d;margin-right:6px"></i>Seoul Beauty Trip</a>
+  <a href="/guide" class="back">\u2190 All Guides</a>
+</nav>
+<header class="guide-hero">
+  <div style="font-size:12px;color:#ff4d8d;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">FAQ</div>
+  <h1>${title}</h1>
+  <p class="sub">${desc}</p>
+  <div class="meta">
+    <span><i class="fas fa-clock"></i> 10 min read</span>
+    <span><i class="fas fa-calendar"></i> Updated ${yr}</span>
+    <span><i class="fas fa-list"></i> ${faqs.length} Questions Answered</span>
+  </div>
+</header>
+<main class="guide-wrap">
+  <nav class="breadcrumb"><a href="/">Home</a> \u203A <a href="/guide">Guides</a> \u203A Seoul Beauty FAQ</nav>
+  <div class="tag-list"><span class="tag">#faq</span><span class="tag">#tips</span><span class="tag">#foreigners</span><span class="tag">#booking</span><span class="tag">#prices</span></div>
+
+  <p>These are the most common questions foreign visitors ask before booking beauty services in Seoul. Answers are based on real experiences from hundreds of international clients who have booked through Seoul Beauty Trip.</p>
+
+  ${faqItems}
+
+  <div class="cta-block">
+    <h3><i class="fab fa-whatsapp"></i> Still Have Questions?</h3>
+    <p>Our English-speaking team is available via WhatsApp to answer any questions about treatments, pricing, or booking \u2014 before, during, or after your Seoul beauty trip.</p>
+    <a href="https://wa.me/8201058947690?text=Hi!%20I%20have%20a%20question%20about%20beauty%20services%20in%20Seoul" class="cta-btn"><i class="fab fa-whatsapp"></i> Ask Us Anything</a>
+  </div>
+
+</main>
+<footer class="guide-footer">\xA9 ${yr} <a href="/">Seoul Beauty Trip</a> \u2014 Book Korean Beauty in Seoul for Foreigners &nbsp;|&nbsp; <a href="/guide">All Guides</a> &nbsp;|&nbsp; <a href="/blog">Blog</a></footer>
+</body>
+</html>`);
+});
 app.get("/sitemap.xml", async (c) => {
   await ensureDb(c.env);
   const sql = getDb(c.env);
@@ -7559,9 +8292,16 @@ app.get("/sitemap.xml", async (c) => {
   const blogCatPages = Array.from(blogCatSet).map(
     (cat) => `<url><loc>${base}/blog/category/${cat}</loc><changefreq>weekly</changefreq><priority>0.85</priority><lastmod>${today}</lastmod></url>`
   );
+  const guidePages = [
+    "/guide",
+    "/guide/seoul-beauty-trip-itinerary",
+    "/guide/k-beauty-treatment-guide",
+    "/guide/seoul-beauty-faq"
+  ].map((p) => `<url><loc>${base}${p}</loc><changefreq>monthly</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`);
   const urls = [
     `<url><loc>${base}/</loc><changefreq>daily</changefreq><priority>1.0</priority><lastmod>${today}</lastmod></url>`,
     `<url><loc>${base}/blog</loc><changefreq>daily</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`,
+    ...guidePages,
     ...blogCatPages,
     ...bestPages,
     ...shopSlugs.map(
@@ -7582,13 +8322,6 @@ app.get("/sitemap.xml", async (c) => {
   ${urls}
 </urlset>`, 200, { "Content-Type": "application/xml; charset=utf-8" });
 });
-app.get("/robots.txt", (c) => c.text(
-  `User-agent: *
-Allow: /
-Disallow: /admin
-Sitemap: https://seoulbeautytrip.com/sitemap.xml
-`
-));
 var withTimeout = (promise, ms, fallback) => Promise.race([promise, new Promise((resolve) => setTimeout(() => resolve(fallback), ms))]);
 app.get("/", async (c) => {
   const sql = getDb(c.env);
@@ -7881,16 +8614,44 @@ app.get("/api/search-console", async (c) => {
       { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(body) }
     ).then((r) => r.json());
     const [keywords, pages, countries, devices] = await Promise.all([
-      // 검색어 Top 20
       scFetch({ startDate, endDate, dimensions: ["query"], rowLimit: 20, dataState: "all" }),
-      // 페이지별 Top 15
       scFetch({ startDate, endDate, dimensions: ["page"], rowLimit: 15, dataState: "all" }),
-      // 국가별
       scFetch({ startDate, endDate, dimensions: ["country"], rowLimit: 10, dataState: "all" }),
-      // 디바이스별
       scFetch({ startDate, endDate, dimensions: ["device"], rowLimit: 5, dataState: "all" })
     ]);
     return c.json({ keywords, pages, countries, devices, startDate, endDate });
+  } catch (e) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+app.get("/api/search-console/page-keywords", async (c) => {
+  try {
+    const saKey = c.env?.GA4_SERVICE_ACCOUNT_KEY || (typeof process !== "undefined" ? process.env.GA4_SERVICE_ACCOUNT_KEY : void 0) || GA4_SA_KEY_DEFAULT;
+    const pageUrl = c.req.query("page");
+    if (!pageUrl) return c.json({ error: "page param required" }, 400);
+    const days = parseInt(c.req.query("days") || "28");
+    const endDate = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+    const startDate = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10);
+    const siteUrl = "https://seoulbeautytrip.com";
+    const token = await getGa4Token(saKey, "https://www.googleapis.com/auth/webmasters.readonly");
+    const res = await fetch(
+      `https://searchconsole.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startDate,
+          endDate,
+          dimensions: ["query"],
+          dimensionFilterGroups: [{
+            filters: [{ dimension: "page", operator: "equals", expression: pageUrl }]
+          }],
+          rowLimit: 25,
+          dataState: "all"
+        })
+      }
+    ).then((r) => r.json());
+    return c.json({ page: pageUrl, keywords: res, startDate, endDate });
   } catch (e) {
     return c.json({ error: e.message }, 500);
   }
@@ -11183,8 +11944,22 @@ textarea{height:80px;resize:none}
     </div>
     <!-- \uD398\uC774\uC9C0\uBCC4 \uB178\uCD9C -->
     <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px">
-      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:8px"><i class="fas fa-file-alt" style="color:#60a5fa;margin-right:5px"></i> \uD398\uC774\uC9C0\uBCC4 \uAC80\uC0C9 \uC720\uC785</div>
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:8px"><i class="fas fa-file-alt" style="color:#60a5fa;margin-right:5px"></i> \uD398\uC774\uC9C0\uBCC4 \uAC80\uC0C9 \uC720\uC785 <span style="font-size:10px;color:rgba(255,255,255,.3);font-weight:400">\uD074\uB9AD\uD558\uBA74 \uD0A4\uC6CC\uB4DC \uD655\uC778</span></div>
       <div id="sc-pages" style="display:flex;flex-direction:column;gap:5px;font-size:11px;color:rgba(255,255,255,.2)">\uB85C\uB529 \uC911...</div>
+    </div>
+  </div>
+
+  <!-- \uD398\uC774\uC9C0 \uD0A4\uC6CC\uB4DC \uB4DC\uB9B4\uB2E4\uC6B4 \uD328\uB110 -->
+  <div id="sc-page-drill" style="display:none;margin:0 20px 14px;background:rgba(96,165,250,.06);border:1px solid rgba(96,165,250,.25);border-radius:14px;padding:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div>
+        <div style="font-size:12px;font-weight:700;color:#60a5fa;margin-bottom:2px"><i class="fas fa-key" style="margin-right:5px"></i> \uC774 \uD398\uC774\uC9C0\uC758 \uAC80\uC0C9 \uD0A4\uC6CC\uB4DC</div>
+        <div id="sc-drill-page" style="font-size:10px;color:rgba(255,255,255,.4)"></div>
+      </div>
+      <button onclick="document.getElementById('sc-page-drill').style.display='none'" style="background:none;border:none;color:rgba(255,255,255,.4);cursor:pointer;font-size:16px;padding:4px">\u2715</button>
+    </div>
+    <div id="sc-drill-keywords" style="display:flex;flex-direction:column;gap:5px;font-size:11px">
+      <div style="color:rgba(255,255,255,.3);text-align:center;padding:10px">\uB85C\uB529 \uC911...</div>
     </div>
   </div>
 
@@ -13380,27 +14155,33 @@ window.loadAnalytics = async function loadAnalytics(days) {
       }
     }
 
-    // \uD398\uC774\uC9C0\uBCC4 \uAC80\uC0C9 \uC720\uC785
+    // \uD398\uC774\uC9C0\uBCC4 \uAC80\uC0C9 \uC720\uC785 (\uD074\uB9AD\uC2DC \uD0A4\uC6CC\uB4DC \uB4DC\uB9B4\uB2E4\uC6B4)
     var scPgEl = document.getElementById('sc-pages');
     if(scPgEl) {
       var pgRows = (scData.pages && scData.pages.rows) || [];
       if(pgRows.length === 0) {
         scPgEl.innerHTML = NO_DATA;
       } else {
-        var pgMax2 = pgRows[0].clicks || 1;
+        var pgMax2 = Math.max(pgRows[0].impressions || 1, 1);
         scPgEl.innerHTML = pgRows.map(function(r){
-          var page = r.keys[0].replace('https://seoulbeautytrip.com','') || '/';
+          var fullUrl = r.keys[0];
+          var page = fullUrl.replace('https://seoulbeautytrip.com','') || '/';
           var clicks = r.clicks, impr = r.impressions, pos = r.position.toFixed(1);
-          var pct3 = Math.round(clicks/Math.max(pgMax2,1)*100);
-          var shortPage = page.length > 30 ? page.slice(0,30)+'\u2026' : page;
-          return '<div style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,.04)">'
-            +'<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px">'
-            +'<span style="flex:1;color:rgba(255,255,255,.8);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+page+'">'+shortPage+'</span>'
-            +'<span style="font-size:10px;color:#60a5fa;font-weight:700">'+clicks+'\uD074\uB9AD</span>'
+          var ctr = (r.ctr*100).toFixed(1);
+          var pct3 = Math.round(impr/pgMax2*100);
+          var shortPage = page.length > 32 ? page.slice(0,32)+'\u2026' : page;
+          // \uC21C\uC704 \uC0C9\uC0C1
+          var posNum = parseFloat(pos);
+          var posColor = posNum <= 3 ? '#34d399' : posNum <= 10 ? '#fbbf24' : posNum <= 20 ? '#f97316' : 'rgba(255,255,255,.3)';
+          return '<div data-url="'+fullUrl+'" onclick="scDrillPage(this.dataset.url)" style="padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer;border-radius:6px;transition:background .15s" onmouseover="this.style.background='rgba(96,165,250,.08)'" onmouseout="this.style.background='transparent'">'
+            +'<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">'
+            +'<span style="flex:1;color:rgba(255,255,255,.85);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+page+'">'+shortPage+'</span>'
+            +'<span style="font-size:10px;color:#60a5fa;font-weight:700;min-width:28px;text-align:right">'+clicks+'\uD074\uB9AD</span>'
             +'</div>'
-            +'<div style="display:flex;align-items:center;gap:5px">'
-            +'<div style="flex:1;height:3px;background:rgba(255,255,255,.06);border-radius:2px"><div style="height:100%;width:'+pct3+'%;background:#60a5fa;border-radius:2px"></div></div>'
-            +'<span style="font-size:9px;color:rgba(255,255,255,.3)">\uB178\uCD9C '+impr+' \xB7 '+pos+'\uC704</span>'
+            +'<div style="display:flex;align-items:center;gap:6px">'
+            +'<div style="flex:1;height:3px;background:rgba(255,255,255,.06);border-radius:2px"><div style="height:100%;width:'+pct3+'%;background:linear-gradient(90deg,#60a5fa,#818cf8);border-radius:2px"></div></div>'
+            +'<span style="font-size:9px;font-weight:700;color:'+posColor+'">'+pos+'\uC704</span>'
+            +'<span style="font-size:9px;color:rgba(255,255,255,.25)">\uB178\uCD9C'+impr+' CTR'+ctr+'%</span>'
             +'</div>'
             +'</div>';
         }).join('');
@@ -13460,6 +14241,62 @@ window.loadAnalytics = async function loadAnalytics(days) {
       var el = document.getElementById(id);
       if(el) el.innerHTML = '<div style="color:rgba(255,255,255,.2);font-size:10px">\uC11C\uCE58\uCF58\uC194 \uB370\uC774\uD130 \uC5C6\uC74C</div>';
     });
+  }
+};
+
+// \u2500\u2500 \uD398\uC774\uC9C0 \uD0A4\uC6CC\uB4DC \uB4DC\uB9B4\uB2E4\uC6B4 \u2500\u2500
+window.scDrillPage = async function(fullUrl) {
+  var panel = document.getElementById('sc-page-drill');
+  var pageLabel = document.getElementById('sc-drill-page');
+  var kwEl = document.getElementById('sc-drill-keywords');
+  if(!panel || !kwEl) return;
+
+  var shortPath = fullUrl.replace('https://seoulbeautytrip.com','') || '/';
+  panel.style.display = 'block';
+  if(pageLabel) pageLabel.textContent = shortPath;
+  kwEl.innerHTML = '<div style="color:rgba(255,255,255,.3);text-align:center;padding:10px"><i class="fas fa-spinner fa-spin"></i> \uD0A4\uC6CC\uB4DC \uBD88\uB7EC\uC624\uB294 \uC911...</div>';
+
+  // \uD328\uB110\uB85C \uC2A4\uD06C\uB864
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  try {
+    var days = document.getElementById('sc-days') ? document.getElementById('sc-days').value : '28';
+    var res = await fetch('/api/search-console/page-keywords?page=' + encodeURIComponent(fullUrl) + '&days=' + days);
+    var data = await res.json();
+    if(data.error) throw new Error(data.error);
+
+    var rows = (data.keywords && data.keywords.rows) || [];
+    if(rows.length === 0) {
+      kwEl.innerHTML = '<div style="color:rgba(255,255,255,.3);text-align:center;padding:12px;font-size:11px">\uC774 \uD398\uC774\uC9C0\uC758 \uAC80\uC0C9 \uB370\uC774\uD130\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4<br><span style="font-size:10px;opacity:.6">\uAE30\uAC04 \uB0B4 \uB178\uCD9C\uC774 \uC5C6\uAC70\uB098 \uC544\uC9C1 \uC778\uB371\uC2F1 \uC804\uC785\uB2C8\uB2E4</span></div>';
+      return;
+    }
+
+    var maxImpr = Math.max(rows[0].impressions || 1, 1);
+    kwEl.innerHTML = rows.map(function(r, i) {
+      var q = r.keys[0];
+      var clicks = r.clicks, impr = r.impressions;
+      var ctr = (r.ctr * 100).toFixed(1);
+      var pos = r.position.toFixed(1);
+      var posNum = parseFloat(pos);
+      // \uC21C\uC704\uBCC4 \uC0C9\uC0C1 + \uAE30\uD68C \uB808\uC774\uBE14
+      var posColor = posNum <= 3 ? '#34d399' : posNum <= 10 ? '#fbbf24' : posNum <= 20 ? '#f97316' : 'rgba(255,255,255,.3)';
+      var opp = posNum >= 4 && posNum <= 15 && clicks === 0 ? '<span style="background:rgba(251,191,36,.15);border:1px solid rgba(251,191,36,.3);color:#fbbf24;font-size:9px;padding:1px 5px;border-radius:4px;margin-left:4px">\u26A1 \uAE30\uD68C</span>' : '';
+      var pct = Math.round(impr / maxImpr * 100);
+      return '<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05)">'
+        + '<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">'
+        + '<span style="font-size:9px;font-weight:900;color:' + posColor + ';min-width:28px;text-align:right;padding-right:4px">' + pos + '\uC704</span>'
+        + '<span style="flex:1;color:rgba(255,255,255,.85);font-size:11px">' + q + '</span>'
+        + opp
+        + '<span style="font-size:10px;color:#34d399;font-weight:700;min-width:28px;text-align:right">' + clicks + '\uD074\uB9AD</span>'
+        + '</div>'
+        + '<div style="display:flex;align-items:center;gap:5px;padding-left:32px">'
+        + '<div style="flex:1;height:2px;background:rgba(255,255,255,.06);border-radius:2px"><div style="height:100%;width:' + pct + '%;background:linear-gradient(90deg,#818cf8,#60a5fa);border-radius:2px"></div></div>'
+        + '<span style="font-size:9px;color:rgba(255,255,255,.25)">\uB178\uCD9C ' + impr + ' \xB7 CTR ' + ctr + '%</span>'
+        + '</div>'
+        + '</div>';
+    }).join('');
+  } catch(e) {
+    kwEl.innerHTML = '<div style="color:#f87171;text-align:center;padding:10px;font-size:11px">\uC624\uB958: ' + e.message + '</div>';
   }
 };
 
