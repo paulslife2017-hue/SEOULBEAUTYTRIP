@@ -8090,14 +8090,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 </style>
 </head>
 <body>
-<div id="ld">
-  <div class="ld-pre">Welcome to</div>
-  <div class="ld-logo">Seoul Beauty Trip</div>
-  <div class="ld-sub">Korean Beauty Experience</div>
-  <div class="ld-line"></div>
-  <div class="ld-bar"><div class="ld-prog"></div></div>
-  <div class="ld-tips" id="ldTips"></div>
-</div>
+<div id="ld" style="display:none"></div>
 
 <header id="hd">
   <div class="hd-top">
@@ -8279,9 +8272,11 @@ function thumbImgLoaded(el){ el.classList.add('img-loaded'); if(el.parentElement
    4) 페이드 끝 → setupObs() → play()
    최대 fallback: 5초 */
 var _ldStartTime = Date.now();
-var _MIN_SPLASH_MS = 0; // 스플래시 최소 대기 제거 → 데이터 준비되는 즉시 표시
+var _MIN_SPLASH_MS = 0;
 var _ldReadyFlags = { shops: false, videos: false };
 var _ldFallbackTimer = null;
+// 스플래시 완전 비활성화 - 콘텐츠 즉시 표시
+var _ldHidden = true;
 
 /* 프로그레스 바 단계 제어 */
 function setLdProgress(pct) {
@@ -8293,7 +8288,6 @@ function setLdProgress(pct) {
 }
 
 /* loading hide */
-var _ldHidden = false;
 function hideLd(){
   if(_ldHidden) return;
   _ldHidden = true;

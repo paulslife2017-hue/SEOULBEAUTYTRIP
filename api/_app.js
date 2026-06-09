@@ -9436,14 +9436,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 </style>
 </head>
 <body>
-<div id="ld">
-  <div class="ld-pre">Welcome to</div>
-  <div class="ld-logo">Seoul Beauty Trip</div>
-  <div class="ld-sub">Korean Beauty Experience</div>
-  <div class="ld-line"></div>
-  <div class="ld-bar"><div class="ld-prog"></div></div>
-  <div class="ld-tips" id="ldTips"></div>
-</div>
+<div id="ld" style="display:none"></div>
 
 <header id="hd">
   <div class="hd-top">
@@ -9625,9 +9618,11 @@ function thumbImgLoaded(el){ el.classList.add('img-loaded'); if(el.parentElement
    4) \uD398\uC774\uB4DC \uB05D \u2192 setupObs() \u2192 play()
    \uCD5C\uB300 fallback: 5\uCD08 */
 var _ldStartTime = Date.now();
-var _MIN_SPLASH_MS = 0; // \uC2A4\uD50C\uB798\uC2DC \uCD5C\uC18C \uB300\uAE30 \uC81C\uAC70 \u2192 \uB370\uC774\uD130 \uC900\uBE44\uB418\uB294 \uC989\uC2DC \uD45C\uC2DC
+var _MIN_SPLASH_MS = 0;
 var _ldReadyFlags = { shops: false, videos: false };
 var _ldFallbackTimer = null;
+// \uC2A4\uD50C\uB798\uC2DC \uC644\uC804 \uBE44\uD65C\uC131\uD654 - \uCF58\uD150\uCE20 \uC989\uC2DC \uD45C\uC2DC
+var _ldHidden = true;
 
 /* \uD504\uB85C\uADF8\uB808\uC2A4 \uBC14 \uB2E8\uACC4 \uC81C\uC5B4 */
 function setLdProgress(pct) {
@@ -9639,7 +9634,6 @@ function setLdProgress(pct) {
 }
 
 /* loading hide */
-var _ldHidden = false;
 function hideLd(){
   if(_ldHidden) return;
   _ldHidden = true;
