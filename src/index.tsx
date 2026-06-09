@@ -10153,6 +10153,7 @@ if(_GSK_TOKEN) localStorage.setItem('_gsk_token', _GSK_TOKEN);
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--pk:#FF4D8D;--pl:#FF85B3;--pu:#9B59B6;--bg:#0d0d18;--bg2:#13132a;--cd:#1c1c30;--green:#10b981;--yellow:#f59e0b;--red:#ef4444;--blue:#3b82f6}
 @keyframes pulse{0%,100%{opacity:.4;transform:scale(1)}50%{opacity:1;transform:scale(1.1)}}
+.sc-page-row:hover{background:rgba(96,165,250,.08)!important}
 body{background:var(--bg);color:#fff;font-family:"Segoe UI",sans-serif;min-height:100vh}
 /* NAV */
 .nav{background:var(--bg2);border-bottom:1px solid rgba(255,77,141,.18);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
@@ -12801,7 +12802,7 @@ window.loadAnalytics = async function loadAnalytics(days) {
           // 순위 색상
           var posNum = parseFloat(pos);
           var posColor = posNum <= 3 ? '#34d399' : posNum <= 10 ? '#fbbf24' : posNum <= 20 ? '#f97316' : 'rgba(255,255,255,.3)';
-          return '<div data-url="'+fullUrl+'" onclick="scDrillPage(this.dataset.url)" style="padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer;border-radius:6px;transition:background .15s" onmouseover="this.style.background=\'rgba(96,165,250,.08)\'" onmouseout="this.style.background=\'transparent\'">'
+          return '<div data-url="'+fullUrl+'" onclick="scDrillPage(this.dataset.url)" class="sc-page-row" style="padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer;border-radius:6px;transition:background .15s">'
             +'<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">'
             +'<span style="flex:1;color:rgba(255,255,255,.85);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+page+'">'+shortPage+'</span>'
             +'<span style="font-size:10px;color:#60a5fa;font-weight:700;min-width:28px;text-align:right">'+clicks+'클릭</span>'
