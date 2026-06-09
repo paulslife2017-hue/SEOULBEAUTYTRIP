@@ -7254,24 +7254,43 @@ app.get('/api/search-console/page-keywords', async (c) => {
 
     const token = await getGa4Token(saKey, 'https://www.googleapis.com/auth/webmasters.readonly')
 
-    const res = await fetch(
+    const gscQuery = (body: object) => fetch(
       `https://searchconsole.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`,
-      {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          startDate, endDate,
-          dimensions: ['query'],
-          dimensionFilterGroups: [{
-            filters: [{ dimension: 'page', operator: 'equals', expression: pageUrl }]
-          }],
-          rowLimit: 25,
-          dataState: 'all'
-        })
-      }
+      { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
     ).then(r => r.json())
 
-    return c.json({ page: pageUrl, keywords: res, startDate, endDate })
+    // ① 먼저 query+page 전체 1000행으로 해당 페이지 필터링 시도
+    //    → GSC 프라이버시 임계값 우회 (노출 적은 페이지도 query+page 집계에는 포함됨)
+    const resQP = await gscQuery({ startDate, endDate, dimensions: ['query', 'page'], rowLimit: 1000, dataState: 'all' })
+    const allRows: any[] = resQP.rows || []
+    const filtered = allRows.filter((r: any) => r.keys[1] === pageUrl)
+
+    let rows: any[]
+
+    if (filtered.length > 0) {
+      // query+page에서 해당 페이지 키워드 발견 → 집계
+      const queryMap = new Map<string, { clicks: number; impressions: number; position: number; count: number }>()
+      for (const r of filtered) {
+        const q = r.keys[0]
+        const ex = queryMap.get(q)
+        if (ex) { ex.clicks += r.clicks; ex.impressions += r.impressions; ex.position += r.position; ex.count++ }
+        else { queryMap.set(q, { clicks: r.clicks, impressions: r.impressions, position: r.position, count: 1 }) }
+      }
+      rows = Array.from(queryMap.entries())
+        .map(([q, v]) => ({ keys: [q], clicks: v.clicks, impressions: v.impressions, ctr: v.impressions > 0 ? v.clicks / v.impressions : 0, position: v.position / v.count }))
+        .sort((a, b) => b.impressions - a.impressions).slice(0, 25)
+    } else {
+      // ② fallback: dimensionFilterGroups 방식 (노출 충분한 페이지용)
+      const resFB = await gscQuery({
+        startDate, endDate,
+        dimensions: ['query'],
+        dimensionFilterGroups: [{ filters: [{ dimension: 'page', operator: 'equals', expression: pageUrl }] }],
+        rowLimit: 25, dataState: 'all'
+      })
+      rows = resFB.rows || []
+    }
+
+    return c.json({ page: pageUrl, keywords: { rows, responseAggregationType: 'byPage' }, startDate, endDate })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
   }
@@ -12896,7 +12915,11 @@ window.scDrillPage = async function(fullUrl) {
 
     var rows = (data.keywords && data.keywords.rows) || [];
     if(rows.length === 0) {
-      kwEl.innerHTML = '<div style="color:rgba(255,255,255,.3);text-align:center;padding:12px;font-size:11px">이 페이지의 검색 데이터가 없습니다<br><span style="font-size:10px;opacity:.6">기간 내 노출이 없거나 아직 인덱싱 전입니다</span></div>';
+      kwEl.innerHTML = '<div style="color:rgba(255,255,255,.35);text-align:center;padding:14px 10px;font-size:11px;line-height:1.6">'
+        + '<div style="font-size:18px;margin-bottom:6px">📊</div>'
+        + '키워드 세부 데이터가 없습니다<br>'
+        + '<span style="font-size:10px;opacity:.7">GSC는 노출 횟수가 적은 페이지의<br>키워드별 데이터를 제공하지 않습니다<br>(프라이버시 임계값 정책)</span>'
+        + '</div>';
       return;
     }
 
@@ -12907,20 +12930,31 @@ window.scDrillPage = async function(fullUrl) {
       var ctr = (r.ctr * 100).toFixed(1);
       var pos = r.position.toFixed(1);
       var posNum = parseFloat(pos);
-      // 순위별 색상 + 기회 레이블
-      var posColor = posNum <= 3 ? '#34d399' : posNum <= 10 ? '#fbbf24' : posNum <= 20 ? '#f97316' : 'rgba(255,255,255,.3)';
-      var opp = posNum >= 4 && posNum <= 15 && clicks === 0 ? '<span style="background:rgba(251,191,36,.15);border:1px solid rgba(251,191,36,.3);color:#fbbf24;font-size:9px;padding:1px 5px;border-radius:4px;margin-left:4px">⚡ 기회</span>' : '';
+      // 순위별 색상 + 배지
+      var posColor = posNum <= 3 ? '#34d399' : posNum <= 10 ? '#fbbf24' : posNum <= 20 ? '#f97316' : 'rgba(255,255,255,.35)';
+      var posBg   = posNum <= 3 ? 'rgba(52,211,153,.12)' : posNum <= 10 ? 'rgba(251,191,36,.12)' : posNum <= 20 ? 'rgba(249,115,22,.12)' : 'rgba(255,255,255,.06)';
+      var opp = posNum >= 4 && posNum <= 15 && clicks === 0 ? '<span style="background:rgba(251,191,36,.15);border:1px solid rgba(251,191,36,.3);color:#fbbf24;font-size:9px;padding:1px 5px;border-radius:4px">⚡ 기회</span>' : '';
       var pct = Math.round(impr / maxImpr * 100);
-      return '<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05)">'
-        + '<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">'
-        + '<span style="font-size:9px;font-weight:900;color:' + posColor + ';min-width:28px;text-align:right;padding-right:4px">' + pos + '위</span>'
-        + '<span style="flex:1;color:rgba(255,255,255,.85);font-size:11px">' + q + '</span>'
-        + opp
-        + '<span style="font-size:10px;color:#34d399;font-weight:700;min-width:28px;text-align:right">' + clicks + '클릭</span>'
+      return '<div style="padding:7px 6px;border-bottom:1px solid rgba(255,255,255,.05);display:flex;align-items:flex-start;gap:7px">'
+        // 순위 배지 (왼쪽 고정)
+        + '<div style="min-width:34px;text-align:center;background:' + posBg + ';border:1px solid ' + posColor + '44;border-radius:6px;padding:3px 2px;flex-shrink:0">'
+        +   '<div style="font-size:11px;font-weight:900;color:' + posColor + ';line-height:1">' + pos + '</div>'
+        +   '<div style="font-size:8px;color:' + posColor + ';opacity:.7;line-height:1;margin-top:1px">위</div>'
         + '</div>'
-        + '<div style="display:flex;align-items:center;gap:5px;padding-left:32px">'
-        + '<div style="flex:1;height:2px;background:rgba(255,255,255,.06);border-radius:2px"><div style="height:100%;width:' + pct + '%;background:linear-gradient(90deg,#818cf8,#60a5fa);border-radius:2px"></div></div>'
-        + '<span style="font-size:9px;color:rgba(255,255,255,.25)">노출 ' + impr + ' · CTR ' + ctr + '%</span>'
+        // 키워드 + 지표
+        + '<div style="flex:1;min-width:0">'
+        +   '<div style="display:flex;align-items:center;gap:5px;margin-bottom:4px;flex-wrap:wrap">'
+        +     '<span style="flex:1;color:rgba(255,255,255,.9);font-size:11px;font-weight:600;word-break:break-all">' + q + '</span>'
+        +     opp
+        +   '</div>'
+        +   '<div style="display:flex;align-items:center;gap:8px;font-size:10px;color:rgba(255,255,255,.4)">'
+        +     '<span><span style="color:#34d399;font-weight:700">' + clicks + '</span> 클릭</span>'
+        +     '<span><span style="color:rgba(255,255,255,.6)">' + impr + '</span> 노출</span>'
+        +     '<span>CTR <span style="color:#60a5fa">' + ctr + '%</span></span>'
+        +   '</div>'
+        +   '<div style="margin-top:4px;height:2px;background:rgba(255,255,255,.06);border-radius:2px">'
+        +     '<div style="height:100%;width:' + pct + '%;background:linear-gradient(90deg,#818cf8,#60a5fa);border-radius:2px"></div>'
+        +   '</div>'
         + '</div>'
         + '</div>';
     }).join('');
