@@ -10680,9 +10680,13 @@ window.toggleVsTimeline = async function(sid){
       +(sess.device==='mobile'?'<span style="background:rgba(244,114,182,.1);color:#f9a8d4;border:1px solid rgba(244,114,182,.2);padding:2px 8px;border-radius:20px;font-size:9px"><i class="fas fa-mobile-alt" style="margin-right:3px"></i>모바일</span>':'')
       +(sess.country?'<span style="background:rgba(255,255,255,.06);color:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.08);padding:2px 8px;border-radius:20px;font-size:9px">'+escHtml(sess.country)+'</span>':'')
       // referrer 전체 URL (알 수 없는 소스는 원본 표시)
-      +(sess.referrer && !sess.referrer.match(/seoulbeautytrip/i)
-        ?'<span style="background:rgba(255,255,255,.04);color:rgba(255,255,255,.2);padding:2px 8px;border-radius:20px;font-size:8px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(sess.referrer.replace(/^https?:\/\/(www\.)?/,'').slice(0,50))+'</span>'
-        :'')
+      +(function(){
+        var rv = sess.referrer||'';
+        if(!rv || rv.indexOf('seoulbeautytrip')>=0) return '';
+        // https?://(www.) 제거 — 정규식 // 충돌 방지를 위해 문자열로 처리
+        var short = rv.replace('https://www.','').replace('http://www.','').replace('https://','').replace('http://').slice(0,50);
+        return '<span style="background:rgba(255,255,255,.04);color:rgba(255,255,255,.2);padding:2px 8px;border-radius:20px;font-size:8px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(short)+'</span>';
+      })()
       +'</div>'
       +'</div>';
 

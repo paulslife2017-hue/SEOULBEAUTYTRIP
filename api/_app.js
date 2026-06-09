@@ -12217,9 +12217,13 @@ window.toggleVsTimeline = async function(sid){
       +(sess.device==='mobile'?'<span style="background:rgba(244,114,182,.1);color:#f9a8d4;border:1px solid rgba(244,114,182,.2);padding:2px 8px;border-radius:20px;font-size:9px"><i class="fas fa-mobile-alt" style="margin-right:3px"></i>\uBAA8\uBC14\uC77C</span>':'')
       +(sess.country?'<span style="background:rgba(255,255,255,.06);color:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.08);padding:2px 8px;border-radius:20px;font-size:9px">'+escHtml(sess.country)+'</span>':'')
       // referrer \uC804\uCCB4 URL (\uC54C \uC218 \uC5C6\uB294 \uC18C\uC2A4\uB294 \uC6D0\uBCF8 \uD45C\uC2DC)
-      +(sess.referrer && !sess.referrer.match(/seoulbeautytrip/i)
-        ?'<span style="background:rgba(255,255,255,.04);color:rgba(255,255,255,.2);padding:2px 8px;border-radius:20px;font-size:8px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(sess.referrer.replace(/^https?://(www.)?/,'').slice(0,50))+'</span>'
-        :'')
+      +(function(){
+        var rv = sess.referrer||'';
+        if(!rv || rv.indexOf('seoulbeautytrip')>=0) return '';
+        // https?://(www.) \uC81C\uAC70 \u2014 \uC815\uADDC\uC2DD // \uCDA9\uB3CC \uBC29\uC9C0\uB97C \uC704\uD574 \uBB38\uC790\uC5F4\uB85C \uCC98\uB9AC
+        var short = rv.replace('https://www.','').replace('http://www.','').replace('https://','').replace('http://').slice(0,50);
+        return '<span style="background:rgba(255,255,255,.04);color:rgba(255,255,255,.2);padding:2px 8px;border-radius:20px;font-size:8px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(short)+'</span>';
+      })()
       +'</div>'
       +'</div>';
 
