@@ -11131,21 +11131,32 @@ textarea{height:80px;resize:none}
       <div class="card-title"><i class="fas fa-film" style="color:#FF4D8D"></i> 영상 추가 — <span id="vd-shop-name" style="color:#FF85B3"></span></div>
       <button style="background:none;border:none;color:rgba(255,255,255,.4);font-size:18px;cursor:pointer" id="vd-panel-close">✕</button>
     </div>
-    <div class="form-grid">
-      <div class="full">
-        <label>영상 URL *</label>
-        <div style="background:rgba(255,77,141,.06);border:1px solid rgba(255,77,141,.15);border-radius:10px;padding:10px;margin-bottom:8px;font-size:12px;color:rgba(255,255,255,.6)">
-          구글 드라이브 공유 링크를 그대로 붙여넣으면 자동 변환됩니다 ✨
-        </div>
-        <div style="position:relative">
-          <input id="vd-url" placeholder="영상 URL 또는 구글 드라이브 링크" oninput="handleVideoUrlInput(this.value)" style="padding-right:100px">
-          <div id="vd-url-badge" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);padding:2px 8px;border-radius:6px;font-size:10px;font-weight:800"></div>
-        </div>
-        <div id="vd-url-hint" style="display:none;margin-top:6px;padding:8px 10px;background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.25);border-radius:8px;font-size:12px;color:#4ade80"></div>
-        <div id="vd-url-preview" style="display:none;margin-top:8px"></div>
+    <!-- 파일 업로드 영역 -->
+    <div id="vd-drop-zone" onclick="document.getElementById('vd-file-input').click()"
+      style="border:2px dashed rgba(255,77,141,.4);border-radius:14px;padding:32px 20px;text-align:center;cursor:pointer;transition:all .2s;background:rgba(255,77,141,.03)">
+      <i class="fas fa-cloud-upload-alt" style="font-size:32px;color:rgba(255,77,141,.6);margin-bottom:10px;display:block"></i>
+      <div style="font-size:14px;font-weight:700;color:rgba(255,255,255,.8);margin-bottom:4px">영상 파일을 클릭하거나 드래그해서 올리세요</div>
+      <div style="font-size:12px;color:rgba(255,255,255,.35)">MP4, MOV, AVI 등 · 최대 500MB</div>
+    </div>
+    <input type="file" id="vd-file-input" accept="video/*" style="display:none" onchange="handleVideoFileSelect(this)">
+
+    <!-- 업로드 진행 상태 -->
+    <div id="vd-progress-wrap" style="display:none;margin-top:12px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:rgba(255,255,255,.5);margin-bottom:6px">
+        <span id="vd-progress-label">업로드 중...</span>
+        <span id="vd-progress-pct">0%</span>
+      </div>
+      <div style="height:6px;background:rgba(255,255,255,.08);border-radius:6px;overflow:hidden">
+        <div id="vd-progress-bar" style="height:100%;background:linear-gradient(90deg,#FF4D8D,#FF85B3);border-radius:6px;width:0%;transition:width .3s"></div>
       </div>
     </div>
-    <button class="btn-pk" style="margin-top:12px" id="vd-submit-btn"><i class="fas fa-plus"></i> 영상 등록</button>
+
+    <!-- 미리보기 -->
+    <div id="vd-preview-wrap" style="display:none;margin-top:12px;border-radius:12px;overflow:hidden;background:#000;aspect-ratio:9/16;max-width:180px">
+      <video id="vd-preview-video" style="width:100%;height:100%;object-fit:cover" muted playsinline controls></video>
+    </div>
+
+    <button class="btn-pk" style="margin-top:12px;opacity:.4;pointer-events:none" id="vd-submit-btn"><i class="fas fa-plus"></i> 영상 등록</button>
   </div>
 
 </div>
@@ -14974,28 +14985,127 @@ function showVideoPreview(url, container){
   container.appendChild(wrap);
 }
 
-// ── 영상 등록 ──
-window.addVideo = function addVideo(){
+// ── 영상 파일 선택 처리 ──
+var _selectedVideoFile = null;
+window.handleVideoFileSelect = function(input) {
+  var file = input.files[0];
+  if(!file) return;
+  _selectedVideoFile = file;
+
+  // 미리보기
+  var previewWrap = document.getElementById('vd-preview-wrap');
+  var previewVideo = document.getElementById('vd-preview-video');
+  var objectUrl = URL.createObjectURL(file);
+  previewVideo.src = objectUrl;
+  previewWrap.style.display = 'block';
+
+  // 드롭존 텍스트 변경
+  var dropZone = document.getElementById('vd-drop-zone');
+  dropZone.innerHTML = '<i class="fas fa-check-circle" style="font-size:28px;color:#4ade80;margin-bottom:8px;display:block"></i>'
+    + '<div style="font-size:13px;font-weight:700;color:#4ade80">' + file.name + '</div>'
+    + '<div style="font-size:11px;color:rgba(255,255,255,.35);margin-top:4px">' + (file.size/1024/1024).toFixed(1) + 'MB · 클릭하면 다시 선택</div>';
+
+  // 등록 버튼 활성화
+  var btn = document.getElementById('vd-submit-btn');
+  btn.style.opacity = '1';
+  btn.style.pointerEvents = 'auto';
+}
+
+// 드래그앤드롭
+document.addEventListener('DOMContentLoaded', function(){
+  var dz = document.getElementById('vd-drop-zone');
+  if(!dz) return;
+  dz.addEventListener('dragover', function(e){ e.preventDefault(); dz.style.borderColor='#FF4D8D'; dz.style.background='rgba(255,77,141,.08)'; });
+  dz.addEventListener('dragleave', function(){ dz.style.borderColor='rgba(255,77,141,.4)'; dz.style.background='rgba(255,77,141,.03)'; });
+  dz.addEventListener('drop', function(e){
+    e.preventDefault();
+    dz.style.borderColor='rgba(255,77,141,.4)'; dz.style.background='rgba(255,77,141,.03)';
+    var file = e.dataTransfer.files[0];
+    if(file && file.type.startsWith('video/')){
+      var input = document.getElementById('vd-file-input');
+      var dt = new DataTransfer(); dt.items.add(file); input.files = dt.files;
+      window.handleVideoFileSelect(input);
+    }
+  });
+});
+
+// ── 영상 등록 (Cloudinary 업로드 후 DB 저장) ──
+window.addVideo = async function addVideo(){
   if(!currentShopId){ alert('업체를 먼저 선택해주세요!'); return; }
-  var url = document.getElementById('vd-url').value.trim();
-  if(!url){ alert('영상 URL을 입력해주세요!'); return; }
+  if(!_selectedVideoFile){ alert('영상 파일을 선택해주세요!'); return; }
+
   var shop = shops.find(function(s){return s.id===currentShopId;})||{};
   var savedShopId = currentShopId;
   var btn = document.getElementById('vd-submit-btn');
-  if(btn){ btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> 등록 중...'; }
-  fetch('/api/videos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-    shopId:currentShopId,
-    title:'', videoUrl:url,
-    thumbnail: shop.thumbnail || '',
-    description:'',
-    tags:[]
-  })}).then(function(){
+  var progressWrap = document.getElementById('vd-progress-wrap');
+  var progressBar = document.getElementById('vd-progress-bar');
+  var progressPct = document.getElementById('vd-progress-pct');
+  var progressLabel = document.getElementById('vd-progress-label');
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 업로드 중...';
+  progressWrap.style.display = 'block';
+
+  try {
+    // 1. 서명 발급
+    progressLabel.textContent = '업로드 준비 중...';
+    var signRes = await fetch('/api/upload-sign');
+    var sign = await signRes.json();
+
+    // 2. Cloudinary에 XHR로 업로드 (진행률 표시)
+    progressLabel.textContent = 'Cloudinary에 업로드 중...';
+    var fd = new FormData();
+    fd.append('file', _selectedVideoFile);
+    fd.append('api_key', sign.apiKey);
+    fd.append('timestamp', sign.timestamp);
+    fd.append('signature', sign.signature);
+    fd.append('folder', sign.folder);
+
+    var videoUrl = await new Promise(function(resolve, reject){
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', 'https://api.cloudinary.com/v1_1/' + sign.cloudName + '/video/upload');
+      xhr.upload.onprogress = function(e){
+        if(e.lengthComputable){
+          var pct = Math.round(e.loaded/e.total*100);
+          progressBar.style.width = pct + '%';
+          progressPct.textContent = pct + '%';
+        }
+      };
+      xhr.onload = function(){
+        if(xhr.status === 200){
+          var res = JSON.parse(xhr.responseText);
+          resolve(res.secure_url);
+        } else { reject(new Error('업로드 실패: ' + xhr.status)); }
+      };
+      xhr.onerror = function(){ reject(new Error('네트워크 오류')); };
+      xhr.send(fd);
+    });
+
+    // 3. DB 저장
+    progressLabel.textContent = '등록 중...';
+    progressBar.style.width = '100%';
+    progressPct.textContent = '100%';
+
+    await fetch('/api/videos', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({
+      shopId: currentShopId,
+      title: '',
+      videoUrl: videoUrl,
+      thumbnail: shop.thumbnail || '',
+      description: '',
+      tags: []
+    })});
+
+    _selectedVideoFile = null;
     closeVideoPanel();
-    _shopExpanded[String(savedShopId)] = true; // 등록 후 해당 업체 아코디언 열어두기
+    _shopExpanded[String(savedShopId)] = true;
     loadAll();
-  }).finally(function(){
-    if(btn){ btn.disabled=false; btn.innerHTML='<i class="fas fa-plus-circle"></i> 영상 등록'; }
-  });
+
+  } catch(e) {
+    alert('업로드 실패: ' + e.message);
+    progressWrap.style.display = 'none';
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-plus"></i> 영상 등록';
+  }
 }
 
 window.delVideo = function delVideo(id){
