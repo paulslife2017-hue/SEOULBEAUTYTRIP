@@ -3039,7 +3039,7 @@ app.post("/api/resolve-gmap", async (c) => {
   }
 });
 var CLD = { KEY: "221647295675392", SECRET: "g10Q4wv2UzDEAGV35QluPCYz4Ms", NAME: "dc0ouozcd" };
-var VIDEO_EAGER = "q_auto:low,w_360,h_640,c_fill,vc_h264,br_350k,f_mp4|q_auto:good,w_480,h_854,c_fill,vc_h264,br_700k,f_mp4|q_auto:good,w_720,h_1280,c_fill,vc_h264,br_1500k,f_mp4";
+var VIDEO_EAGER = "fl_progressive:steep,q_auto:low,w_360,h_640,c_fill,vc_h264,br_300k,f_mp4|fl_progressive:steep,q_auto:good,w_480,h_854,c_fill,vc_h264,br_600k,f_mp4|fl_progressive:steep,q_auto:good,w_720,h_1280,c_fill,vc_h264,br_1200k,f_mp4";
 async function makeSign(folder, isVideo = false) {
   const timestamp = Math.floor(Date.now() / 1e3).toString();
   const paramStr = isVideo ? "eager=" + VIDEO_EAGER + "&folder=" + folder + "&timestamp=" + timestamp : "folder=" + folder + "&timestamp=" + timestamp;
@@ -4614,27 +4614,29 @@ app.post("/api/admin/fix-video-thumbnails", async (c) => {
 });
 app.post("/api/admin/migrate-video-urls", async (c) => {
   const sql = getDb(c.env);
+  const body = await c.req.json().catch(() => ({}));
+  const force = body?.force === true;
   const rows = await sql`
-    SELECT id, video_url FROM videos
+    SELECT id, video_url, video_url_low FROM videos
     WHERE video_url IS NOT NULL AND video_url != ''
       AND video_url LIKE '%res.cloudinary.com%'
-      AND (video_url_low IS NULL OR video_url_low = '')
   `;
+  const targets = force ? rows : rows.filter((r) => !r.video_url_low || !r.video_url_low.includes("fl_progressive"));
   let migrated = 0;
-  for (const r of rows) {
+  for (const r of targets) {
     const base = r.video_url;
     const makeCldUrl = (transform) => base.replace("/video/upload/", "/video/upload/" + transform + "/");
-    const urlLow = makeCldUrl("q_auto:low,w_360,h_640,c_fill,vc_h264,br_350k,f_mp4");
-    const urlMid = makeCldUrl("q_auto:good,w_480,h_854,c_fill,vc_h264,br_700k,f_mp4");
-    const urlHigh = makeCldUrl("q_auto:good,w_720,h_1280,c_fill,vc_h264,br_1500k,f_mp4");
+    const urlLow = makeCldUrl("fl_progressive:steep,q_auto:low,w_360,h_640,c_fill,vc_h264,br_300k,f_mp4");
+    const urlMid = makeCldUrl("fl_progressive:steep,q_auto:good,w_480,h_854,c_fill,vc_h264,br_600k,f_mp4");
+    const urlHigh = makeCldUrl("fl_progressive:steep,q_auto:good,w_720,h_1280,c_fill,vc_h264,br_1200k,f_mp4");
     await sql`UPDATE videos SET video_url_low=${urlLow}, video_url_mid=${urlMid}, video_url_high=${urlHigh} WHERE id=${r.id}`;
     migrated++;
   }
   return c.json({
     ok: true,
     migrated,
-    total: rows.length,
-    note: "DB\uC5D0 URL\uB9CC \uC800\uC7A5\uB428. \uC2E4\uC81C Cloudinary \uBCC0\uD658\uC740 \uCCAB \uC7AC\uC0DD \uC2DC 1\uD68C \uBC1C\uC0DD\uD569\uB2C8\uB2E4."
+    total: targets.length,
+    note: force ? "\uC804\uCCB4 \uAC15\uC81C \uC7AC\uB9C8\uC774\uADF8\uB808\uC774\uC158 \uC644\uB8CC (fl_progressive:steep + \uBE44\uD2B8\uB808\uC774\uD2B8 \uCD5C\uC801\uD654)" : `fl_progressive \uBBF8\uC801\uC6A9 ${migrated}\uAC1C \uC601\uC0C1 \uB9C8\uC774\uADF8\uB808\uC774\uC158 \uC644\uB8CC`
   });
 });
 app.post("/api/admin/fix-slugs", async (c) => {
@@ -10034,9 +10036,19 @@ function buildSlide(v, idx) {
   var imgLoading = idx === 0 ? 'eager' : 'lazy';
   var imgPriority = idx === 0 ? ' fetchpriority="high"' : '';
 
+  // \uC601\uC0C1 preload \uC804\uB7B5:
+  // idx=0: src \uC989\uC2DC + preload=auto (\uCCAB \uD654\uBA74 \uC989\uC2DC \uC7AC\uC0DD)
+  // idx=1: src \uC989\uC2DC + preload=metadata (moov atom \uBBF8\uB9AC \uCDE8\uB4DD, \uBC84\uD37C\uB9C1\uC740 preloadNext\uAC00 \uC81C\uC5B4)
+  // idx>=2: data-src\uB9CC (lazy, preloadNext\uAC00 \uD0C0\uC774\uBC0D \uC81C\uC5B4)
+  var vidSrc = cdnVideo(v.videoUrl, idx === 0, v);
+  var vidPreload = idx === 0 ? 'auto' : (idx === 1 ? 'metadata' : 'none');
+  var vidSrcAttr = idx <= 1
+    ? 'src="'+esc(vidSrc)+'"'
+    : 'data-src="'+esc(vidSrc)+'"';
+
   s.innerHTML =
     (thumb ? '<img class="bg-img" src="'+esc(thumb)+'" alt="'+esc(v.title||shop.name||'')+'" loading="'+imgLoading+'" decoding="async"'+imgPriority+' onload="imgLoaded(this)" onerror="imgLoaded(this)">' : '<div class="bg-img loaded" style="background:linear-gradient(135deg,#1a0a14 0%,#1c0e22 40%,#0f0816 100%)"></div>') +
-    '<video id="vid'+idx+'" loop muted playsinline preload="'+(idx===0?'auto':'none')+'" poster="'+esc(thumb)+'"></video>' +
+    '<video id="vid'+idx+'" loop muted playsinline preload="'+vidPreload+'" poster="'+esc(thumb)+'" '+vidSrcAttr+'></video>' +
     '<div id="playic'+idx+'" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:4;width:56px;height:56px;border-radius:50%;background:rgba(0,0,0,.55);align-items:center;justify-content:center;pointer-events:none;backdrop-filter:blur(4px)"><i class="fas fa-pause" style="font-size:20px;color:#fff"></i></div>' +
     '<div id="bufic'+idx+'" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:5;pointer-events:none"><div style="width:40px;height:40px;border:3px solid rgba(255,255,255,.15);border-top-color:rgba(255,255,255,.8);border-radius:50%;animation:spin .7s linear infinite"></div></div>' +
     '<div class="ov"></div>' +
@@ -10063,7 +10075,10 @@ function buildSlide(v, idx) {
     var bufIc  = document.getElementById('bufic'+vidIdx);
 
     if(ve) {
-      ve.setAttribute('data-src', esc(cdnVideo(v.videoUrl, vidIdx === 0, v)));
+      // idx<=1\uC740 \uC774\uBBF8 src\uAC00 \uC138\uD305\uB428. data-src\uB294 \uD56D\uC0C1 \uC138\uD305 (\uC624\uB958 \uC2DC \uC7AC\uC2DC\uB3C4 \uCC38\uC870\uC6A9)
+      var _vidUrl = esc(cdnVideo(v.videoUrl, vidIdx === 0, v));
+      ve.setAttribute('data-src', _vidUrl);
+      // idx<=1: src \uC774\uBBF8 \uC788\uC74C. idx>=2: src \uC5C6\uACE0 data-src\uB9CC \uC788\uC74C (_playVid\uC5D0\uC11C lazy \uC138\uD305)
 
       // \u2500\u2500 \uBC84\uD37C\uB9C1 \uC2A4\uD53C\uB108 \uC81C\uC5B4 \u2500\u2500
       function showBuf(){ if(bufIc) bufIc.style.display='flex'; }
@@ -10204,26 +10219,50 @@ function loadVidSrc(vid){
     vid.src = vid.dataset.src;
   }
 }
+
+// \u2500\u2500 preloadNext: \uB9B4\uC2A4/\uC1FC\uCE20 \uBC29\uC2DD \uBC84\uD37C\uB9C1 \uC804\uB7B5 \u2500\u2500
+// \uD575\uC2EC: \uD604\uC7AC \uC601\uC0C1\uC774 \uC7AC\uC0DD \uC548\uC815\uD654\uB41C \uD6C4\uC5D0 \uB2E4\uC74C \uC601\uC0C1 \uB85C\uB4DC (\uB300\uC5ED\uD3ED \uACBD\uC7C1 \uBC29\uC9C0)
+// - \uC989\uC2DC: +1 src \uC138\uD305\uB9CC (\uBE0C\uB77C\uC6B0\uC800\uAC00 metadata \uAC00\uC838\uC634, \uC2E4\uC81C \uBC84\uD37C\uB9C1\uC740 \uC9C0\uC5F0)
+// - 2\uCD08 \uD6C4: +1 load() \uC2DC\uC791 (\uD604\uC7AC \uC601\uC0C1\uC774 \uC5B4\uB290\uC815\uB3C4 \uBC84\uD37C\uB9C1 \uB41C \uD6C4)
+// - 4\uCD08 \uD6C4: +2 load() (\uC5EC\uC720 \uC788\uC744 \uB54C \uBBF8\uB9AC \uC900\uBE44)
+var _preloadTimers = [];
 function preloadNext(idx){
-  // \uB9B4\uC2A4 \uBC29\uC2DD: \uB2E4\uC74C 2\uAC1C \uBBF8\uB9AC\uB85C\uB4DC
-  // +1: \uC989\uC2DC src + load() (\uC2A4\uC640\uC774\uD504 \uC2DC \uC774\uBBF8 \uBC84\uD37C\uB9C1 \uC644\uB8CC \uC0C1\uD0DC)
-  // +2: 800ms \uD6C4 (\uB300\uC5ED\uD3ED \uACBD\uC7C1 \uBC29\uC9C0)
+  // \uC774\uC804 \uC608\uC57D\uB41C preload \uD0C0\uC774\uBA38 \uC804\uBD80 \uCDE8\uC18C (\uC2A4\uC640\uC774\uD504 \uC5F0\uC18D \uC2DC \uB204\uC801 \uBC29\uC9C0)
+  _preloadTimers.forEach(function(t){ clearTimeout(t); });
+  _preloadTimers = [];
+
   var ni1 = document.getElementById('vid'+(idx+1));
   var ni2 = document.getElementById('vid'+(idx+2));
+
+  // +1 \uC601\uC0C1: src \uC989\uC2DC \uC138\uD305 (metadata \uCDE8\uB4DD \uC2DC\uC791), \uC2E4\uC81C \uBC84\uD37C\uB9C1\uC740 2\uCD08 \uB4A4
   if(ni1 && !ni1.src && ni1.dataset.src){
-    ni1.preload = 'auto';
+    ni1.preload = 'metadata'; // metadata\uB9CC \uBA3C\uC800 (moov atom \uCDE8\uB4DD)
     ni1.src = ni1.dataset.src;
-    ni1.load();
-  }
-  if(ni2 && !ni2.src && ni2.dataset.src){
-    setTimeout(function(){
-      if(ni2 && !ni2.src && ni2.dataset.src){ // 800ms \uC0AC\uC774 \uC2A4\uC640\uC774\uD504\uB85C src \uC138\uD305\uB410\uC744 \uC218 \uC788\uC74C
-        ni2.preload = 'auto';
-        ni2.src = ni2.dataset.src;
-        ni2.load();
+    // 2\uCD08 \uD6C4: \uD604\uC7AC \uC601\uC0C1 \uC548\uC815\uD654 \uC644\uB8CC \uC608\uC0C1 \u2192 \uBCF8\uACA9 \uBC84\uD37C\uB9C1
+    _preloadTimers.push(setTimeout(function(){
+      if(ni1 && ni1.src && ni1.readyState < 3){
+        ni1.preload = 'auto';
+        ni1.load();
       }
-    }, 800);
+    }, 2000));
+  } else if(ni1 && ni1.src && ni1.readyState < 2){
+    // src\uB294 \uC788\uC9C0\uB9CC \uBC84\uD37C\uB9C1 \uBD80\uC871 \u2192 2\uCD08 \uD6C4 load() \uCD94\uAC00
+    _preloadTimers.push(setTimeout(function(){
+      if(ni1 && ni1.src && ni1.readyState < 3){
+        ni1.preload = 'auto';
+        ni1.load();
+      }
+    }, 2000));
   }
+
+  // +2 \uC601\uC0C1: 4\uCD08 \uB4A4 metadata\uB9CC
+  _preloadTimers.push(setTimeout(function(){
+    var ni2 = document.getElementById('vid'+(idx+2));
+    if(ni2 && !ni2.src && ni2.dataset.src){
+      ni2.preload = 'metadata';
+      ni2.src = ni2.dataset.src;
+    }
+  }, 4000));
 }
 
 function _playVid(vid, bufIc){
@@ -10239,8 +10278,11 @@ function _playVid(vid, bufIc){
     _srcJustSet = true;
   }
 
-  // readyState \uCCB4\uD06C: HAVE_FUTURE_DATA(3) \uC774\uC0C1\uC774\uBA74 \uBC14\uB85C \uC7AC\uC0DD, \uC544\uB2C8\uBA74 \uC2A4\uD53C\uB108
-  if(vid.readyState >= 3){
+  // readyState \uCCB4\uD06C:
+  // 0=HAVE_NOTHING, 1=HAVE_METADATA, 2=HAVE_CURRENT_DATA, 3=HAVE_FUTURE_DATA, 4=HAVE_ENOUGH_DATA
+  // 2 \uC774\uC0C1\uC774\uBA74 \uD604\uC7AC \uD504\uB808\uC784\uC740 \uC788\uC74C \u2192 \uC2A4\uD53C\uB108 \uC5C6\uC774 \uBC14\uB85C \uC7AC\uC0DD \uC2DC\uB3C4 (\uB9B4\uC2A4 \uBC29\uC2DD)
+  // 1 \uC774\uD558\uBA74 \uC544\uC9C1 \uBA54\uD0C0\uB3C4 \uC5C6\uC74C \u2192 \uC2A4\uD53C\uB108 \uD45C\uC2DC
+  if(vid.readyState >= 2){
     if(bufIc) bufIc.style.display = 'none';
   } else {
     if(bufIc) bufIc.style.display = 'flex';

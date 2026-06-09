@@ -958,7 +958,9 @@ const CLD = { KEY: '221647295675392', SECRET: 'g10Q4wv2UzDEAGV35QluPCYz4Ms', NAM
 // low:  360p 350kbps  — 저속 네트워크 / 첫 번째 영상 preload
 // mid:  480p 700kbps  — 일반 (기본값)
 // high: 720p 1500kbps — 고속 네트워크
-const VIDEO_EAGER = 'q_auto:low,w_360,h_640,c_fill,vc_h264,br_350k,f_mp4|q_auto:good,w_480,h_854,c_fill,vc_h264,br_700k,f_mp4|q_auto:good,w_720,h_1280,c_fill,vc_h264,br_1500k,f_mp4'
+// fl_progressive:steep: moov atom을 파일 맨 앞으로 이동 → 첫 바이트부터 재생 가능 (릴스 방식)
+// so_0: 0초 시점 썸네일 자동 생성
+const VIDEO_EAGER = 'fl_progressive:steep,q_auto:low,w_360,h_640,c_fill,vc_h264,br_300k,f_mp4|fl_progressive:steep,q_auto:good,w_480,h_854,c_fill,vc_h264,br_600k,f_mp4|fl_progressive:steep,q_auto:good,w_720,h_1280,c_fill,vc_h264,br_1200k,f_mp4'
 
 async function makeSign(folder: string, isVideo = false) {
   const timestamp = Math.floor(Date.now() / 1000).toString()
@@ -2874,30 +2876,40 @@ app.post('/api/admin/fix-video-thumbnails', async (c) => {
 // 단, 이후 재생 시에는 DB URL 그대로 사용 → 추가 크래딧 없음
 app.post('/api/admin/migrate-video-urls', async (c) => {
   const sql = getDb(c.env)
-  // video_url_low가 없는 Cloudinary 영상만 처리
+  // force=true: fl_progressive 미적용 영상 포함 전체 재변환
+  const body = await c.req.json().catch(() => ({})) as any
+  const force = body?.force === true
+
   const rows = await sql`
-    SELECT id, video_url FROM videos
+    SELECT id, video_url, video_url_low FROM videos
     WHERE video_url IS NOT NULL AND video_url != ''
       AND video_url LIKE '%res.cloudinary.com%'
-      AND (video_url_low IS NULL OR video_url_low = '')
   ` as any[]
 
+  // force=false: fl_progressive 미적용이거나 아직 없는 영상만 처리
+  const targets = force
+    ? rows
+    : rows.filter((r: any) => !r.video_url_low || !r.video_url_low.includes('fl_progressive'))
+
   let migrated = 0
-  for (const r of rows) {
+  for (const r of targets) {
     const base = r.video_url as string
-    // Cloudinary URL 구조 변환: /video/upload/ → /video/upload/<transform>/
     const makeCldUrl = (transform: string) =>
       base.replace('/video/upload/', '/video/upload/' + transform + '/')
 
-    const urlLow  = makeCldUrl('q_auto:low,w_360,h_640,c_fill,vc_h264,br_350k,f_mp4')
-    const urlMid  = makeCldUrl('q_auto:good,w_480,h_854,c_fill,vc_h264,br_700k,f_mp4')
-    const urlHigh = makeCldUrl('q_auto:good,w_720,h_1280,c_fill,vc_h264,br_1500k,f_mp4')
+    // fl_progressive:steep: moov atom을 파일 맨 앞으로 이동 → 첫 바이트부터 재생 가능
+    // 비트레이트: 300k(low)/600k(mid)/1200k(high) - 릴스 수준 즉시 재생 달성
+    const urlLow  = makeCldUrl('fl_progressive:steep,q_auto:low,w_360,h_640,c_fill,vc_h264,br_300k,f_mp4')
+    const urlMid  = makeCldUrl('fl_progressive:steep,q_auto:good,w_480,h_854,c_fill,vc_h264,br_600k,f_mp4')
+    const urlHigh = makeCldUrl('fl_progressive:steep,q_auto:good,w_720,h_1280,c_fill,vc_h264,br_1200k,f_mp4')
 
     await sql`UPDATE videos SET video_url_low=${urlLow}, video_url_mid=${urlMid}, video_url_high=${urlHigh} WHERE id=${r.id}`
     migrated++
   }
-  return c.json({ ok: true, migrated, total: rows.length,
-    note: 'DB에 URL만 저장됨. 실제 Cloudinary 변환은 첫 재생 시 1회 발생합니다.' })
+  return c.json({ ok: true, migrated, total: targets.length,
+    note: force
+      ? '전체 강제 재마이그레이션 완료 (fl_progressive:steep + 비트레이트 최적화)'
+      : `fl_progressive 미적용 ${migrated}개 영상 마이그레이션 완료` })
 })
 
 // POST /api/admin/fix-slugs
@@ -8703,9 +8715,19 @@ function buildSlide(v, idx) {
   var imgLoading = idx === 0 ? 'eager' : 'lazy';
   var imgPriority = idx === 0 ? ' fetchpriority="high"' : '';
 
+  // 영상 preload 전략:
+  // idx=0: src 즉시 + preload=auto (첫 화면 즉시 재생)
+  // idx=1: src 즉시 + preload=metadata (moov atom 미리 취득, 버퍼링은 preloadNext가 제어)
+  // idx>=2: data-src만 (lazy, preloadNext가 타이밍 제어)
+  var vidSrc = cdnVideo(v.videoUrl, idx === 0, v);
+  var vidPreload = idx === 0 ? 'auto' : (idx === 1 ? 'metadata' : 'none');
+  var vidSrcAttr = idx <= 1
+    ? 'src="'+esc(vidSrc)+'"'
+    : 'data-src="'+esc(vidSrc)+'"';
+
   s.innerHTML =
     (thumb ? '<img class="bg-img" src="'+esc(thumb)+'" alt="'+esc(v.title||shop.name||'')+'" loading="'+imgLoading+'" decoding="async"'+imgPriority+' onload="imgLoaded(this)" onerror="imgLoaded(this)">' : '<div class="bg-img loaded" style="background:linear-gradient(135deg,#1a0a14 0%,#1c0e22 40%,#0f0816 100%)"></div>') +
-    '<video id="vid'+idx+'" loop muted playsinline preload="'+(idx===0?'auto':'none')+'" poster="'+esc(thumb)+'"></video>' +
+    '<video id="vid'+idx+'" loop muted playsinline preload="'+vidPreload+'" poster="'+esc(thumb)+'" '+vidSrcAttr+'></video>' +
     '<div id="playic'+idx+'" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:4;width:56px;height:56px;border-radius:50%;background:rgba(0,0,0,.55);align-items:center;justify-content:center;pointer-events:none;backdrop-filter:blur(4px)"><i class="fas fa-pause" style="font-size:20px;color:#fff"></i></div>' +
     '<div id="bufic'+idx+'" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:5;pointer-events:none"><div style="width:40px;height:40px;border:3px solid rgba(255,255,255,.15);border-top-color:rgba(255,255,255,.8);border-radius:50%;animation:spin .7s linear infinite"></div></div>' +
     '<div class="ov"></div>' +
@@ -8732,7 +8754,10 @@ function buildSlide(v, idx) {
     var bufIc  = document.getElementById('bufic'+vidIdx);
 
     if(ve) {
-      ve.setAttribute('data-src', esc(cdnVideo(v.videoUrl, vidIdx === 0, v)));
+      // idx<=1은 이미 src가 세팅됨. data-src는 항상 세팅 (오류 시 재시도 참조용)
+      var _vidUrl = esc(cdnVideo(v.videoUrl, vidIdx === 0, v));
+      ve.setAttribute('data-src', _vidUrl);
+      // idx<=1: src 이미 있음. idx>=2: src 없고 data-src만 있음 (_playVid에서 lazy 세팅)
 
       // ── 버퍼링 스피너 제어 ──
       function showBuf(){ if(bufIc) bufIc.style.display='flex'; }
@@ -8873,26 +8898,50 @@ function loadVidSrc(vid){
     vid.src = vid.dataset.src;
   }
 }
+
+// ── preloadNext: 릴스/쇼츠 방식 버퍼링 전략 ──
+// 핵심: 현재 영상이 재생 안정화된 후에 다음 영상 로드 (대역폭 경쟁 방지)
+// - 즉시: +1 src 세팅만 (브라우저가 metadata 가져옴, 실제 버퍼링은 지연)
+// - 2초 후: +1 load() 시작 (현재 영상이 어느정도 버퍼링 된 후)
+// - 4초 후: +2 load() (여유 있을 때 미리 준비)
+var _preloadTimers = [];
 function preloadNext(idx){
-  // 릴스 방식: 다음 2개 미리로드
-  // +1: 즉시 src + load() (스와이프 시 이미 버퍼링 완료 상태)
-  // +2: 800ms 후 (대역폭 경쟁 방지)
+  // 이전 예약된 preload 타이머 전부 취소 (스와이프 연속 시 누적 방지)
+  _preloadTimers.forEach(function(t){ clearTimeout(t); });
+  _preloadTimers = [];
+
   var ni1 = document.getElementById('vid'+(idx+1));
   var ni2 = document.getElementById('vid'+(idx+2));
+
+  // +1 영상: src 즉시 세팅 (metadata 취득 시작), 실제 버퍼링은 2초 뒤
   if(ni1 && !ni1.src && ni1.dataset.src){
-    ni1.preload = 'auto';
+    ni1.preload = 'metadata'; // metadata만 먼저 (moov atom 취득)
     ni1.src = ni1.dataset.src;
-    ni1.load();
-  }
-  if(ni2 && !ni2.src && ni2.dataset.src){
-    setTimeout(function(){
-      if(ni2 && !ni2.src && ni2.dataset.src){ // 800ms 사이 스와이프로 src 세팅됐을 수 있음
-        ni2.preload = 'auto';
-        ni2.src = ni2.dataset.src;
-        ni2.load();
+    // 2초 후: 현재 영상 안정화 완료 예상 → 본격 버퍼링
+    _preloadTimers.push(setTimeout(function(){
+      if(ni1 && ni1.src && ni1.readyState < 3){
+        ni1.preload = 'auto';
+        ni1.load();
       }
-    }, 800);
+    }, 2000));
+  } else if(ni1 && ni1.src && ni1.readyState < 2){
+    // src는 있지만 버퍼링 부족 → 2초 후 load() 추가
+    _preloadTimers.push(setTimeout(function(){
+      if(ni1 && ni1.src && ni1.readyState < 3){
+        ni1.preload = 'auto';
+        ni1.load();
+      }
+    }, 2000));
   }
+
+  // +2 영상: 4초 뒤 metadata만
+  _preloadTimers.push(setTimeout(function(){
+    var ni2 = document.getElementById('vid'+(idx+2));
+    if(ni2 && !ni2.src && ni2.dataset.src){
+      ni2.preload = 'metadata';
+      ni2.src = ni2.dataset.src;
+    }
+  }, 4000));
 }
 
 function _playVid(vid, bufIc){
@@ -8908,8 +8957,11 @@ function _playVid(vid, bufIc){
     _srcJustSet = true;
   }
 
-  // readyState 체크: HAVE_FUTURE_DATA(3) 이상이면 바로 재생, 아니면 스피너
-  if(vid.readyState >= 3){
+  // readyState 체크:
+  // 0=HAVE_NOTHING, 1=HAVE_METADATA, 2=HAVE_CURRENT_DATA, 3=HAVE_FUTURE_DATA, 4=HAVE_ENOUGH_DATA
+  // 2 이상이면 현재 프레임은 있음 → 스피너 없이 바로 재생 시도 (릴스 방식)
+  // 1 이하면 아직 메타도 없음 → 스피너 표시
+  if(vid.readyState >= 2){
     if(bufIc) bufIc.style.display = 'none';
   } else {
     if(bufIc) bufIc.style.display = 'flex';
