@@ -4102,16 +4102,34 @@ app.post("/api/quick-register", async (c) => {
       seoTextVal = seoResult.seoText || "";
     }
     if (!description)
-      description = `${engName} is a ${cat} destination in ${loc}, Seoul. Rated ${resolvedData.rating || 5}/5 with ${resolvedData.reviewCount || 0}+ reviews. Book via WhatsApp with Seoul Beauty Trip.`;
+      description = `${engName} is a highly rated ${cat} in ${loc}, Seoul. Rated ${resolvedData.rating || 5}/5 with ${resolvedData.reviewCount || 0}+ verified reviews. English consultations available. Book via WhatsApp with Seoul Beauty Trip.`;
     if (!whyChoose.length) whyChoose = [
       `\u{1F310} English-friendly service and easy WhatsApp booking for international visitors`,
       `\u2B50 Rated ${resolvedData.rating || 5}/5 with ${resolvedData.reviewCount || 0}+ verified reviews`,
-      `\u{1F4CD} Conveniently located in ${loc}, perfect for tourists exploring Seoul`
+      `\u{1F468}\u200D\u2695\uFE0F Expert team with experience serving international patients`,
+      `\u{1F4CD} Conveniently located in ${loc}, Seoul \u2014 easily accessible from major transit hubs`,
+      `\u{1F4AC} Dedicated support for overseas visitors from consultation to aftercare`
     ];
     if (!metaDescription)
       metaDescription = `${engName} ${loc} Seoul \u2014 Premium ${cat} for foreigners. English-speaking staff. Book via WhatsApp with Seoul Beauty Trip.`;
     if (!seoKeywords)
       seoKeywords = `${engName} Seoul, ${engName} ${loc}, best ${cat} ${loc} Seoul, ${cat} Seoul English speaking`;
+    if (!seoTextVal) {
+      const _catLabel = {
+        clinic: "aesthetic & skin clinic",
+        skincare: "skincare & dermatology clinic",
+        hair: "hair salon",
+        headspa: "head spa & beauty salon",
+        tattoo: "permanent makeup & tattoo studio",
+        makeup: "personal color & makeup studio",
+        dental: "dental clinic"
+      };
+      const _cl = _catLabel[cat] || cat;
+      const _rt = String(resolvedData.rating || 5);
+      const _rc = String(resolvedData.reviewCount || 0);
+      const _locLabel = loc.includes("Seoul") ? loc : `${loc}, Seoul`;
+      seoTextVal = `<h2 class="sp-seo-h2">${engName} \u2014 ${_cl.charAt(0).toUpperCase() + _cl.slice(1)} in ${_locLabel}</h2><p class="sp-seo-p">${engName} is a highly rated ${_cl} in ${_locLabel}, holding a <strong>${_rt}/5.0 rating</strong> from over <strong>${_rc} verified reviews</strong>. Consistently recommended by international visitors to Seoul for its quality treatments and English-friendly service.</p><h2 class="sp-seo-h2">Why Travelers Choose ${engName}</h2><ul class="sp-seo-ul">${whyChoose.slice(0, 5).map((w) => `<li>${w}</li>`).join("")}</ul><h2 class="sp-seo-h2">What Guests Are Saying</h2><ul class="sp-seo-ul">${(resolvedData.reviews || []).slice(0, 3).map((r) => `<li><strong>${r.author || "Guest"}</strong> \u2014 &ldquo;${(r.text || "").slice(0, 160)}&rdquo;</li>`).join("") || "<li>Highly rated by international visitors for exceptional service and results.</li>"}</ul><h2 class="sp-seo-h2">Treatments &amp; Services</h2><p class="sp-seo-p">${engName} offers a comprehensive range of ${_cl} services, making it a top destination for travelers seeking expert beauty and wellness treatments in ${_locLabel}, South Korea.</p><h2 class="sp-seo-h2">Location &amp; Booking</h2><p class="sp-seo-p">Located in ${_locLabel}, ${engName} is easily accessible from major transit hubs. International guests can book via WhatsApp or the online form \u2014 English consultations are available for foreign visitors.</p>`;
+    }
     const photos = sanitizePhotos(resolvedData.photos || []);
     const thumbnail = sanitizeThumb(resolvedData.thumbnail || "", photos);
     const reviews = resolvedData.reviews || [];
@@ -10451,26 +10469,86 @@ function renderShopPanel(cat) {
 var SB_TRACKER_SCRIPT = `<script>
 (function(){
   function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+
+  // \u2500\u2500 \uBC29\uBB38\uC790 ID (\uC601\uAD6C) + \uC138\uC158 ID \u2500\u2500
   var vid=localStorage.getItem('_sb_vid');if(!vid){vid=uid();localStorage.setItem('_sb_vid',vid);}
   var sid=sessionStorage.getItem('_sb_sid');if(!sid){sid=uid();sessionStorage.setItem('_sb_sid',sid);}
   window._sbVid=vid;window._sbSid=sid;
+
+  // \u2500\u2500 \uC7AC\uBC29\uBB38 \uC5EC\uBD80 \uAC10\uC9C0 \u2500\u2500
+  var prevVisit=localStorage.getItem('_sb_last');
+  var isReturn=!!prevVisit;
+  var returnGap=prevVisit?Math.round((Date.now()-parseInt(prevVisit))/60000):0; // \uBD84 \uB2E8\uC704
+  localStorage.setItem('_sb_last',String(Date.now()));
+
+  // \u2500\u2500 \uC774\uC804 \uD398\uC774\uC9C0 \uD788\uC2A4\uD1A0\uB9AC (\uC571 \uB0B4 \uC774\uB3D9 \uAC10\uC9C0\uC6A9) \u2500\u2500
+  var _prevPage=sessionStorage.getItem('_sb_prev')||'';
+  var _curPage=location.pathname;
+
   function send(ev,ex){
-    var d=Object.assign({session_id:sid,visitor_id:vid,event:ev,page:location.pathname,referrer:document.referrer},ex||{});
+    var d=Object.assign({
+      session_id:sid,visitor_id:vid,event:ev,
+      page:location.pathname,referrer:document.referrer
+    },ex||{});
     var b=JSON.stringify(d);
     navigator.sendBeacon?navigator.sendBeacon('/api/track',b):fetch('/api/track',{method:'POST',body:b,headers:{'Content-Type':'application/json'},keepalive:true}).catch(function(){});
   }
-  send('page_view');
+
+  // \u2500\u2500 page_view: \uC7AC\uBC29\uBB38/\uB0B4\uBD80\uC774\uB3D9 \uC815\uBCF4 \uD3EC\uD568 \u2500\u2500
+  send('page_view',{
+    value: JSON.stringify({
+      is_return: isReturn,
+      return_gap_min: returnGap,
+      from_page: _prevPage,
+      visit_count: parseInt(localStorage.getItem('_sb_vc')||'0')+1
+    })
+  });
+  localStorage.setItem('_sb_vc',String(parseInt(localStorage.getItem('_sb_vc')||'0')+1));
+  sessionStorage.setItem('_sb_prev',_curPage);
+
+  // \u2500\u2500 \uC774\uD0C8 \uAC10\uC9C0: \uC720\uD615 \uBD84\uB958 \u2500\u2500
+  // exit_type: 'internal'(\uC571 \uB0B4 \uC774\uB3D9) | 'external'(\uC678\uBD80\uC0AC\uC774\uD2B8) | 'wa'(WA\uD074\uB9AD) | 'close'(\uD0ED\uB2EB\uAE30)
   var _t=Date.now();
-  window.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden')send('page_exit',{duration:Math.round((Date.now()-_t)/1000)});});
+  var _waClicked=false;
+  var _lastClickHref='';
+
+  document.addEventListener('click',function(e){
+    var el=e.target.closest('a,button,[data-track]');
+    if(el&&el.href) _lastClickHref=el.href;
+  },true);
+
+  window.addEventListener('visibilitychange',function(){
+    if(document.visibilityState!=='hidden') return;
+    var dur=Math.round((Date.now()-_t)/1000);
+    var exitType='close';
+    if(_waClicked) exitType='wa';
+    else if(_lastClickHref){
+      var isSameSite=_lastClickHref.includes(location.hostname)||_lastClickHref.startsWith('/');
+      exitType=isSameSite?'internal':'external';
+    }
+    send('page_exit',{
+      duration:dur,
+      scroll_pct:_ms,
+      value:JSON.stringify({
+        exit_type: exitType,
+        last_href: _lastClickHref.slice(0,100)
+      })
+    });
+  });
+
+  // \u2500\u2500 \uC2A4\uD06C\uB864 \uAE4A\uC774 \u2500\u2500
   var _ms=0,_st;
   window.addEventListener('scroll',function(){clearTimeout(_st);_st=setTimeout(function(){
     var p=Math.round((window.scrollY+window.innerHeight)/Math.max(document.body.scrollHeight,1)*100);
     if(p>_ms){_ms=p;if(p>=25&&p%25===0)send('scroll_depth',{scroll_pct:p});}
   },400);},{passive:true});
+
+  // \u2500\u2500 \uD074\uB9AD \uC774\uBCA4\uD2B8 \u2500\u2500
   document.addEventListener('click',function(e){
     var el=e.target.closest('a,button,[data-track]');if(!el)return;
     var h=el.href||'';
     if(h.includes('wa.me')||h.includes('whatsapp')){
+      _waClicked=true;
       var sn=el.dataset.shopName||el.closest('[data-shop-name]')?.dataset.shopName||'';
       var si=el.dataset.shopId||el.closest('[data-shop-id]')?.dataset.shopId||'';
       send('wa_click',{target:h.slice(0,120),shop_name:sn,shop_id:si});
@@ -10478,10 +10556,17 @@ var SB_TRACKER_SCRIPT = `<script>
       var c=el.closest('[data-shop-name]');send('shop_click',{target:el.href||'',shop_name:c?.dataset.shopName||''});
     }else if(el.dataset.track==='video'){send('video_click',{target:el.dataset.vidId||''});}
   },true);
+
+  // \u2500\u2500 \uC5C5\uCCB4 \uD398\uC774\uC9C0 \uC790\uB3D9 \uAC10\uC9C0 \u2500\u2500
   window._sbTrackVideo=function(id,sn){send('video_play',{target:id,shop_name:sn||''});};
   if(location.pathname.startsWith('/shop/')){
-    setTimeout(function(){var sn=document.querySelector('.sp-name')?.textContent?.trim()||document.title.split('|')[0].trim();send('shop_view',{target:location.pathname.replace('/shop/',''),shop_name:sn});},300);
+    setTimeout(function(){
+      var sn=document.querySelector('.sp-name')?.textContent?.trim()||document.title.split('|')[0].trim();
+      send('shop_view',{target:location.pathname.replace('/shop/',''),shop_name:sn});
+    },300);
   }
+
+  // \u2500\u2500 \uAC80\uC0C9/\uD544\uD130 \u2500\u2500
   window._sbSearch=function(q){send('search',{value:q});};
   window._sbFilter=function(v){send('filter_click',{value:v});};
 })();
@@ -11552,6 +11637,65 @@ textarea{height:80px;resize:none}
     </div>
   </div>
 
+  <!-- \uC774\uD0C8 \uD589\uB3D9 \uBD84\uC11D -->
+  <div class="card" style="margin-bottom:14px">
+    <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.08em;text-transform:uppercase;margin-bottom:14px">
+      <i class="fas fa-sign-out-alt" style="margin-right:6px;color:#f87171"></i>\uC774\uD0C8 \uD589\uB3D9 \uBD84\uC11D
+      <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,.25);margin-left:6px;text-transform:none">\xB7 \uB098\uAC04 \uD6C4 \uC5B4\uB514\uB85C \uAC14\uB294\uC9C0</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <!-- \uC774\uD0C8 \uC720\uD615 -->
+      <div>
+        <div style="font-size:10px;color:rgba(255,255,255,.35);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">\uC774\uD0C8 \uC720\uD615</div>
+        <div id="vs-exit-types" style="display:flex;flex-direction:column;gap:5px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:12px;color:rgba(255,255,255,.55)"><i class="fas fa-home" style="color:#60a5fa;width:14px"></i> \uD0ED \uB2EB\uAE30</span>
+            <span id="exit-close" style="font-size:13px;font-weight:700;color:#fff">\u2014</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:12px;color:rgba(255,255,255,.55)"><i class="fas fa-arrow-right" style="color:#34d399;width:14px"></i> \uC571 \uB0B4 \uC774\uB3D9</span>
+            <span id="exit-internal" style="font-size:13px;font-weight:700;color:#34d399">\u2014</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:12px;color:rgba(255,255,255,.55)"><i class="fas fa-external-link-alt" style="color:#f59e0b;width:14px"></i> \uC678\uBD80\uB85C \uC774\uB3D9</span>
+            <span id="exit-external" style="font-size:13px;font-weight:700;color:#f59e0b">\u2014</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:12px;color:rgba(255,255,255,.55)"><i class="fab fa-whatsapp" style="color:#25D366;width:14px"></i> WA \uD6C4 \uC774\uD0C8</span>
+            <span id="exit-wa" style="font-size:13px;font-weight:700;color:#25D366">\u2014</span>
+          </div>
+        </div>
+      </div>
+      <!-- \uC7AC\uBC29\uBB38 \uD604\uD669 -->
+      <div>
+        <div style="font-size:10px;color:rgba(255,255,255,.35);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">\uC7AC\uBC29\uBB38 \uD604\uD669</div>
+        <div style="text-align:center;padding:8px 0">
+          <div style="font-size:28px;font-weight:900;color:#a78bfa;line-height:1" id="return-rate">\u2014</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:3px">\uC7AC\uBC29\uBB38\uC728</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px;margin-top:6px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:11px;color:rgba(255,255,255,.45)">\uC2E0\uADDC \uBC29\uBB38\uC790</span>
+            <span id="visit-new" style="font-size:12px;font-weight:700;color:#fff">\u2014</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:11px;color:rgba(255,255,255,.45)">\uC7AC\uBC29\uBB38\uC790</span>
+            <span id="visit-return" style="font-size:12px;font-weight:700;color:#a78bfa">\u2014</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:11px;color:rgba(255,255,255,.45)">\uD3C9\uADE0 \uBC29\uBB38\uAC04\uACA9</span>
+            <span id="visit-gap" style="font-size:12px;font-weight:700;color:#fff">\u2014</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- \uD589\uB3D9 \uD328\uD134 \uC694\uC57D \uBC14 -->
+    <div style="border-top:1px solid rgba(255,255,255,.06);padding-top:12px">
+      <div style="font-size:10px;color:rgba(255,255,255,.3);margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">\uC774\uD0C8 \uC804 \uB9C8\uC9C0\uB9C9 \uD589\uB3D9</div>
+      <div id="vs-last-actions" style="display:flex;flex-direction:column;gap:4px;max-height:100px;overflow-y:auto"></div>
+    </div>
+  </div>
+
   <!-- \uB514\uBC14\uC774\uC2A4 + \uC778\uAE30 \uC5C5\uCCB4 -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
     <!-- \uB514\uBC14\uC774\uC2A4 \uBD84\uD3EC -->
@@ -11834,7 +11978,114 @@ window.loadVisitorStats = async function(days){
         return '<div class="vs-hour-label">'+(h.hour%6===0?h.hour:'')+'</div>';
       }).join('');
     }
+
+    // \u2500\u2500 \uC774\uD0C8 \uD589\uB3D9 \uBD84\uC11D \u2500\u2500
+    loadExitAnalysis(days);
+
   } catch(e){ console.warn('visitors-stats err',e); }
+};
+
+// \u2500\u2500 \uC774\uD0C8 \uD589\uB3D9 \uBD84\uC11D \uB85C\uB4DC \u2500\u2500
+window.loadExitAnalysis = async function(days){
+  try {
+    var tk = _GSK_TOKEN || localStorage.getItem('_gsk_token') || '';
+    // page_exit \uC774\uBCA4\uD2B8\uC5D0\uC11C exit_type \uC9D1\uACC4
+    var res = await fetch('/api/exit-analysis?days='+(days||7), {
+      headers: { 'x-admin-token': tk }
+    });
+    if(!res.ok){
+      // API \uC5C6\uC73C\uBA74 visitor_events\uC5D0\uC11C \uC9C1\uC811 \uACC4\uC0B0
+      loadExitFromVisitorStats();
+      return;
+    }
+    var d = await res.json();
+    renderExitAnalysis(d);
+  } catch(e){
+    loadExitFromVisitorStats();
+  }
+};
+
+// fallback: \uAE30\uC874 sessions \uB370\uC774\uD130\uC5D0\uC11C \uC7AC\uBC29\uBB38\uC728\uB9CC \uACC4\uC0B0
+window.loadExitFromVisitorStats = async function(){
+  try {
+    var tk = _GSK_TOKEN || localStorage.getItem('_gsk_token') || '';
+    var res = await fetch('/api/visitors?limit=200&days=30', { headers:{'x-admin-token':tk} });
+    if(!res.ok) return;
+    var d = await res.json();
+    var sessions = d.sessions || [];
+
+    // exit_type \uC9D1\uACC4 \u2014 value \uD544\uB4DC \uD30C\uC2F1
+    var exitCounts = {close:0, internal:0, external:0, wa:0};
+    var returnCount=0, newCount=0, gapTotal=0, gapN=0;
+
+    sessions.forEach(function(s){
+      // \uC7AC\uBC29\uBB38 \uAC10\uC9C0: events\uC5D0\uC11C page_view value \uD30C\uC2F1
+      var evs = s.events || [];
+      evs.forEach(function(ev){
+        if(ev.event === 'page_exit' && ev.value){
+          try {
+            var v = JSON.parse(ev.value);
+            var et = v.exit_type || 'close';
+            if(exitCounts[et]!==undefined) exitCounts[et]++;
+          } catch(e){}
+        }
+        if(ev.event === 'page_view' && ev.value){
+          try {
+            var v = JSON.parse(ev.value);
+            if(v.is_return){ returnCount++; if(v.return_gap_min>0){gapTotal+=v.return_gap_min;gapN++;} }
+            else newCount++;
+          } catch(e){}
+        }
+      });
+    });
+
+    var total = exitCounts.close+exitCounts.internal+exitCounts.external+exitCounts.wa;
+    var totalVisits = returnCount+newCount;
+    var returnRate = totalVisits>0 ? Math.round(returnCount/totalVisits*100) : 0;
+
+    // \uB80C\uB354\uB9C1
+    function setTxt(id,v){ var el=document.getElementById(id); if(el) el.textContent=v; }
+    setTxt('exit-close',    exitCounts.close    +(total>0?' ('+Math.round(exitCounts.close/total*100)+'%)':''));
+    setTxt('exit-internal', exitCounts.internal +(total>0?' ('+Math.round(exitCounts.internal/total*100)+'%)':''));
+    setTxt('exit-external', exitCounts.external +(total>0?' ('+Math.round(exitCounts.external/total*100)+'%)':''));
+    setTxt('exit-wa',       exitCounts.wa       +(total>0?' ('+Math.round(exitCounts.wa/total*100)+'%)':''));
+    setTxt('return-rate',   returnRate+'%');
+    setTxt('visit-new',     newCount+'\uBA85');
+    setTxt('visit-return',  returnCount+'\uBA85');
+    setTxt('visit-gap',     gapN>0 ? Math.round(gapTotal/gapN)+'\uBD84' : '\u2014');
+
+    // \uCD5C\uADFC \uC774\uD0C8 \uC804 \uD589\uB3D9 \uBAA9\uB85D
+    var laEl = document.getElementById('vs-last-actions');
+    if(laEl){
+      var exitEvs = [];
+      sessions.forEach(function(s){
+        (s.events||[]).forEach(function(ev){
+          if(ev.event==='page_exit') exitEvs.push({s:s, ev:ev});
+        });
+      });
+      exitEvs.sort(function(a,b){return new Date(b.ev.created_at)-new Date(a.ev.created_at);});
+      if(exitEvs.length===0){
+        laEl.innerHTML='<div style="font-size:11px;color:rgba(255,255,255,.25);text-align:center">\uC774\uD0C8 \uB370\uC774\uD130 \uC218\uC9D1 \uC911...</div>';
+      } else {
+        laEl.innerHTML = exitEvs.slice(0,8).map(function(x){
+          var v={}; try{v=JSON.parse(x.ev.value||'{}');}catch(e){}
+          var et=v.exit_type||'close';
+          var etColor={'close':'#94a3b8','internal':'#34d399','external':'#f59e0b','wa':'#25D366'}[et]||'#94a3b8';
+          var etIcon={'close':'fa-times','internal':'fa-arrow-right','external':'fa-external-link-alt','wa':'fab fa-whatsapp'}[et]||'fa-times';
+          var etLabel={'close':'\uD0ED\uB2EB\uAE30','internal':'\uB0B4\uBD80\uC774\uB3D9','external':'\uC678\uBD80\uC774\uB3D9','wa':'WA\uD074\uB9AD'}[et]||et;
+          var page=x.ev.page||'/';
+          var pageLabel=page==='/'?'\uD648':page.replace('/shop/','').replace(/-/g,' ').slice(0,20);
+          var dur=x.ev.duration?x.ev.duration+'\uCD08':'';
+          return '<div style="display:flex;align-items:center;gap:8px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.04)">'
+            +'<i class="'+(et==='wa'?'fab':'fas')+' '+etIcon+'" style="color:'+etColor+';font-size:11px;width:12px"></i>'
+            +'<span style="font-size:11px;color:rgba(255,255,255,.55);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(pageLabel)+'</span>'
+            +(dur?'<span style="font-size:10px;color:rgba(255,255,255,.3)">'+dur+'</span>':'')
+            +'<span style="font-size:10px;font-weight:600;color:'+etColor+'">'+etLabel+'</span>'
+            +'</div>';
+        }).join('');
+      }
+    }
+  } catch(e){ console.warn('exit analysis err',e); }
 };
 
 // \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550

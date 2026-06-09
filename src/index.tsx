@@ -2211,17 +2211,43 @@ app.post('/api/quick-register', async (c) => {
 
     // fallback: GPT 실패 시 기본 템플릿
     if (!description)
-      description = `${engName} is a ${cat} destination in ${loc}, Seoul. ` +
-        `Rated ${resolvedData.rating || 5}/5 with ${resolvedData.reviewCount || 0}+ reviews. Book via WhatsApp with Seoul Beauty Trip.`
+      description = `${engName} is a highly rated ${cat} in ${loc}, Seoul. ` +
+        `Rated ${resolvedData.rating || 5}/5 with ${resolvedData.reviewCount || 0}+ verified reviews. English consultations available. Book via WhatsApp with Seoul Beauty Trip.`
     if (!whyChoose.length) whyChoose = [
       `🌐 English-friendly service and easy WhatsApp booking for international visitors`,
       `⭐ Rated ${resolvedData.rating || 5}/5 with ${resolvedData.reviewCount || 0}+ verified reviews`,
-      `📍 Conveniently located in ${loc}, perfect for tourists exploring Seoul`
+      `👨‍⚕️ Expert team with experience serving international patients`,
+      `📍 Conveniently located in ${loc}, Seoul — easily accessible from major transit hubs`,
+      `💬 Dedicated support for overseas visitors from consultation to aftercare`
     ]
     if (!metaDescription)
       metaDescription = `${engName} ${loc} Seoul — Premium ${cat} for foreigners. English-speaking staff. Book via WhatsApp with Seoul Beauty Trip.`
     if (!seoKeywords)
       seoKeywords = `${engName} Seoul, ${engName} ${loc}, best ${cat} ${loc} Seoul, ${cat} Seoul English speaking`
+
+    // fallback seo_text: GPT 실패 시 5섹션 sp-seo-h2 구조 자동 생성
+    if (!seoTextVal) {
+      const _catLabel: Record<string,string> = {
+        clinic:'aesthetic & skin clinic', skincare:'skincare & dermatology clinic',
+        hair:'hair salon', headspa:'head spa & beauty salon',
+        tattoo:'permanent makeup & tattoo studio', makeup:'personal color & makeup studio', dental:'dental clinic'
+      }
+      const _cl = _catLabel[cat] || cat
+      const _rt = String(resolvedData.rating || 5.0)
+      const _rc = String(resolvedData.reviewCount || 0)
+      const _locLabel = loc.includes('Seoul') ? loc : `${loc}, Seoul`
+      seoTextVal =
+        `<h2 class="sp-seo-h2">${engName} — ${_cl.charAt(0).toUpperCase()+_cl.slice(1)} in ${_locLabel}</h2>`+
+        `<p class="sp-seo-p">${engName} is a highly rated ${_cl} in ${_locLabel}, holding a <strong>${_rt}/5.0 rating</strong> from over <strong>${_rc} verified reviews</strong>. Consistently recommended by international visitors to Seoul for its quality treatments and English-friendly service.</p>`+
+        `<h2 class="sp-seo-h2">Why Travelers Choose ${engName}</h2>`+
+        `<ul class="sp-seo-ul">${whyChoose.slice(0,5).map((w:string)=>`<li>${w}</li>`).join('')}</ul>`+
+        `<h2 class="sp-seo-h2">What Guests Are Saying</h2>`+
+        `<ul class="sp-seo-ul">${(resolvedData.reviews||[]).slice(0,3).map((r:any)=>`<li><strong>${r.author||'Guest'}</strong> — &ldquo;${(r.text||'').slice(0,160)}&rdquo;</li>`).join('') || '<li>Highly rated by international visitors for exceptional service and results.</li>'}</ul>`+
+        `<h2 class="sp-seo-h2">Treatments &amp; Services</h2>`+
+        `<p class="sp-seo-p">${engName} offers a comprehensive range of ${_cl} services, making it a top destination for travelers seeking expert beauty and wellness treatments in ${_locLabel}, South Korea.</p>`+
+        `<h2 class="sp-seo-h2">Location &amp; Booking</h2>`+
+        `<p class="sp-seo-p">Located in ${_locLabel}, ${engName} is easily accessible from major transit hubs. International guests can book via WhatsApp or the online form — English consultations are available for foreign visitors.</p>`
+    }
 
     // ── STEP 7: photos 처리 — Schema.org thumbnailUrl 에러 방지 (https:// 절대 URL만 허용) ──
     const photos: string[] = sanitizePhotos(resolvedData.photos || [])
@@ -8912,26 +8938,86 @@ function renderShopPanel(cat) {
 const SB_TRACKER_SCRIPT = `<script>
 (function(){
   function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+
+  // ── 방문자 ID (영구) + 세션 ID ──
   var vid=localStorage.getItem('_sb_vid');if(!vid){vid=uid();localStorage.setItem('_sb_vid',vid);}
   var sid=sessionStorage.getItem('_sb_sid');if(!sid){sid=uid();sessionStorage.setItem('_sb_sid',sid);}
   window._sbVid=vid;window._sbSid=sid;
+
+  // ── 재방문 여부 감지 ──
+  var prevVisit=localStorage.getItem('_sb_last');
+  var isReturn=!!prevVisit;
+  var returnGap=prevVisit?Math.round((Date.now()-parseInt(prevVisit))/60000):0; // 분 단위
+  localStorage.setItem('_sb_last',String(Date.now()));
+
+  // ── 이전 페이지 히스토리 (앱 내 이동 감지용) ──
+  var _prevPage=sessionStorage.getItem('_sb_prev')||'';
+  var _curPage=location.pathname;
+
   function send(ev,ex){
-    var d=Object.assign({session_id:sid,visitor_id:vid,event:ev,page:location.pathname,referrer:document.referrer},ex||{});
+    var d=Object.assign({
+      session_id:sid,visitor_id:vid,event:ev,
+      page:location.pathname,referrer:document.referrer
+    },ex||{});
     var b=JSON.stringify(d);
     navigator.sendBeacon?navigator.sendBeacon('/api/track',b):fetch('/api/track',{method:'POST',body:b,headers:{'Content-Type':'application/json'},keepalive:true}).catch(function(){});
   }
-  send('page_view');
+
+  // ── page_view: 재방문/내부이동 정보 포함 ──
+  send('page_view',{
+    value: JSON.stringify({
+      is_return: isReturn,
+      return_gap_min: returnGap,
+      from_page: _prevPage,
+      visit_count: parseInt(localStorage.getItem('_sb_vc')||'0')+1
+    })
+  });
+  localStorage.setItem('_sb_vc',String(parseInt(localStorage.getItem('_sb_vc')||'0')+1));
+  sessionStorage.setItem('_sb_prev',_curPage);
+
+  // ── 이탈 감지: 유형 분류 ──
+  // exit_type: 'internal'(앱 내 이동) | 'external'(외부사이트) | 'wa'(WA클릭) | 'close'(탭닫기)
   var _t=Date.now();
-  window.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden')send('page_exit',{duration:Math.round((Date.now()-_t)/1000)});});
+  var _waClicked=false;
+  var _lastClickHref='';
+
+  document.addEventListener('click',function(e){
+    var el=e.target.closest('a,button,[data-track]');
+    if(el&&el.href) _lastClickHref=el.href;
+  },true);
+
+  window.addEventListener('visibilitychange',function(){
+    if(document.visibilityState!=='hidden') return;
+    var dur=Math.round((Date.now()-_t)/1000);
+    var exitType='close';
+    if(_waClicked) exitType='wa';
+    else if(_lastClickHref){
+      var isSameSite=_lastClickHref.includes(location.hostname)||_lastClickHref.startsWith('/');
+      exitType=isSameSite?'internal':'external';
+    }
+    send('page_exit',{
+      duration:dur,
+      scroll_pct:_ms,
+      value:JSON.stringify({
+        exit_type: exitType,
+        last_href: _lastClickHref.slice(0,100)
+      })
+    });
+  });
+
+  // ── 스크롤 깊이 ──
   var _ms=0,_st;
   window.addEventListener('scroll',function(){clearTimeout(_st);_st=setTimeout(function(){
     var p=Math.round((window.scrollY+window.innerHeight)/Math.max(document.body.scrollHeight,1)*100);
     if(p>_ms){_ms=p;if(p>=25&&p%25===0)send('scroll_depth',{scroll_pct:p});}
   },400);},{passive:true});
+
+  // ── 클릭 이벤트 ──
   document.addEventListener('click',function(e){
     var el=e.target.closest('a,button,[data-track]');if(!el)return;
     var h=el.href||'';
     if(h.includes('wa.me')||h.includes('whatsapp')){
+      _waClicked=true;
       var sn=el.dataset.shopName||el.closest('[data-shop-name]')?.dataset.shopName||'';
       var si=el.dataset.shopId||el.closest('[data-shop-id]')?.dataset.shopId||'';
       send('wa_click',{target:h.slice(0,120),shop_name:sn,shop_id:si});
@@ -8939,10 +9025,17 @@ const SB_TRACKER_SCRIPT = `<script>
       var c=el.closest('[data-shop-name]');send('shop_click',{target:el.href||'',shop_name:c?.dataset.shopName||''});
     }else if(el.dataset.track==='video'){send('video_click',{target:el.dataset.vidId||''});}
   },true);
+
+  // ── 업체 페이지 자동 감지 ──
   window._sbTrackVideo=function(id,sn){send('video_play',{target:id,shop_name:sn||''});};
   if(location.pathname.startsWith('/shop/')){
-    setTimeout(function(){var sn=document.querySelector('.sp-name')?.textContent?.trim()||document.title.split('|')[0].trim();send('shop_view',{target:location.pathname.replace('/shop/',''),shop_name:sn});},300);
+    setTimeout(function(){
+      var sn=document.querySelector('.sp-name')?.textContent?.trim()||document.title.split('|')[0].trim();
+      send('shop_view',{target:location.pathname.replace('/shop/',''),shop_name:sn});
+    },300);
   }
+
+  // ── 검색/필터 ──
   window._sbSearch=function(q){send('search',{value:q});};
   window._sbFilter=function(v){send('filter_click',{value:v});};
 })();
@@ -10015,6 +10108,65 @@ textarea{height:80px;resize:none}
     </div>
   </div>
 
+  <!-- 이탈 행동 분석 -->
+  <div class="card" style="margin-bottom:14px">
+    <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.08em;text-transform:uppercase;margin-bottom:14px">
+      <i class="fas fa-sign-out-alt" style="margin-right:6px;color:#f87171"></i>이탈 행동 분석
+      <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,.25);margin-left:6px;text-transform:none">· 나간 후 어디로 갔는지</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <!-- 이탈 유형 -->
+      <div>
+        <div style="font-size:10px;color:rgba(255,255,255,.35);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">이탈 유형</div>
+        <div id="vs-exit-types" style="display:flex;flex-direction:column;gap:5px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:12px;color:rgba(255,255,255,.55)"><i class="fas fa-home" style="color:#60a5fa;width:14px"></i> 탭 닫기</span>
+            <span id="exit-close" style="font-size:13px;font-weight:700;color:#fff">—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:12px;color:rgba(255,255,255,.55)"><i class="fas fa-arrow-right" style="color:#34d399;width:14px"></i> 앱 내 이동</span>
+            <span id="exit-internal" style="font-size:13px;font-weight:700;color:#34d399">—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:12px;color:rgba(255,255,255,.55)"><i class="fas fa-external-link-alt" style="color:#f59e0b;width:14px"></i> 외부로 이동</span>
+            <span id="exit-external" style="font-size:13px;font-weight:700;color:#f59e0b">—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:12px;color:rgba(255,255,255,.55)"><i class="fab fa-whatsapp" style="color:#25D366;width:14px"></i> WA 후 이탈</span>
+            <span id="exit-wa" style="font-size:13px;font-weight:700;color:#25D366">—</span>
+          </div>
+        </div>
+      </div>
+      <!-- 재방문 현황 -->
+      <div>
+        <div style="font-size:10px;color:rgba(255,255,255,.35);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">재방문 현황</div>
+        <div style="text-align:center;padding:8px 0">
+          <div style="font-size:28px;font-weight:900;color:#a78bfa;line-height:1" id="return-rate">—</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:3px">재방문율</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px;margin-top:6px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:11px;color:rgba(255,255,255,.45)">신규 방문자</span>
+            <span id="visit-new" style="font-size:12px;font-weight:700;color:#fff">—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:11px;color:rgba(255,255,255,.45)">재방문자</span>
+            <span id="visit-return" style="font-size:12px;font-weight:700;color:#a78bfa">—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:11px;color:rgba(255,255,255,.45)">평균 방문간격</span>
+            <span id="visit-gap" style="font-size:12px;font-weight:700;color:#fff">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- 행동 패턴 요약 바 -->
+    <div style="border-top:1px solid rgba(255,255,255,.06);padding-top:12px">
+      <div style="font-size:10px;color:rgba(255,255,255,.3);margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">이탈 전 마지막 행동</div>
+      <div id="vs-last-actions" style="display:flex;flex-direction:column;gap:4px;max-height:100px;overflow-y:auto"></div>
+    </div>
+  </div>
+
   <!-- 디바이스 + 인기 업체 -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
     <!-- 디바이스 분포 -->
@@ -10297,7 +10449,114 @@ window.loadVisitorStats = async function(days){
         return '<div class="vs-hour-label">'+(h.hour%6===0?h.hour:'')+'</div>';
       }).join('');
     }
+
+    // ── 이탈 행동 분석 ──
+    loadExitAnalysis(days);
+
   } catch(e){ console.warn('visitors-stats err',e); }
+};
+
+// ── 이탈 행동 분석 로드 ──
+window.loadExitAnalysis = async function(days){
+  try {
+    var tk = _GSK_TOKEN || localStorage.getItem('_gsk_token') || '';
+    // page_exit 이벤트에서 exit_type 집계
+    var res = await fetch('/api/exit-analysis?days='+(days||7), {
+      headers: { 'x-admin-token': tk }
+    });
+    if(!res.ok){
+      // API 없으면 visitor_events에서 직접 계산
+      loadExitFromVisitorStats();
+      return;
+    }
+    var d = await res.json();
+    renderExitAnalysis(d);
+  } catch(e){
+    loadExitFromVisitorStats();
+  }
+};
+
+// fallback: 기존 sessions 데이터에서 재방문율만 계산
+window.loadExitFromVisitorStats = async function(){
+  try {
+    var tk = _GSK_TOKEN || localStorage.getItem('_gsk_token') || '';
+    var res = await fetch('/api/visitors?limit=200&days=30', { headers:{'x-admin-token':tk} });
+    if(!res.ok) return;
+    var d = await res.json();
+    var sessions = d.sessions || [];
+
+    // exit_type 집계 — value 필드 파싱
+    var exitCounts = {close:0, internal:0, external:0, wa:0};
+    var returnCount=0, newCount=0, gapTotal=0, gapN=0;
+
+    sessions.forEach(function(s){
+      // 재방문 감지: events에서 page_view value 파싱
+      var evs = s.events || [];
+      evs.forEach(function(ev){
+        if(ev.event === 'page_exit' && ev.value){
+          try {
+            var v = JSON.parse(ev.value);
+            var et = v.exit_type || 'close';
+            if(exitCounts[et]!==undefined) exitCounts[et]++;
+          } catch(e){}
+        }
+        if(ev.event === 'page_view' && ev.value){
+          try {
+            var v = JSON.parse(ev.value);
+            if(v.is_return){ returnCount++; if(v.return_gap_min>0){gapTotal+=v.return_gap_min;gapN++;} }
+            else newCount++;
+          } catch(e){}
+        }
+      });
+    });
+
+    var total = exitCounts.close+exitCounts.internal+exitCounts.external+exitCounts.wa;
+    var totalVisits = returnCount+newCount;
+    var returnRate = totalVisits>0 ? Math.round(returnCount/totalVisits*100) : 0;
+
+    // 렌더링
+    function setTxt(id,v){ var el=document.getElementById(id); if(el) el.textContent=v; }
+    setTxt('exit-close',    exitCounts.close    +(total>0?' ('+Math.round(exitCounts.close/total*100)+'%)':''));
+    setTxt('exit-internal', exitCounts.internal +(total>0?' ('+Math.round(exitCounts.internal/total*100)+'%)':''));
+    setTxt('exit-external', exitCounts.external +(total>0?' ('+Math.round(exitCounts.external/total*100)+'%)':''));
+    setTxt('exit-wa',       exitCounts.wa       +(total>0?' ('+Math.round(exitCounts.wa/total*100)+'%)':''));
+    setTxt('return-rate',   returnRate+'%');
+    setTxt('visit-new',     newCount+'명');
+    setTxt('visit-return',  returnCount+'명');
+    setTxt('visit-gap',     gapN>0 ? Math.round(gapTotal/gapN)+'분' : '—');
+
+    // 최근 이탈 전 행동 목록
+    var laEl = document.getElementById('vs-last-actions');
+    if(laEl){
+      var exitEvs = [];
+      sessions.forEach(function(s){
+        (s.events||[]).forEach(function(ev){
+          if(ev.event==='page_exit') exitEvs.push({s:s, ev:ev});
+        });
+      });
+      exitEvs.sort(function(a,b){return new Date(b.ev.created_at)-new Date(a.ev.created_at);});
+      if(exitEvs.length===0){
+        laEl.innerHTML='<div style="font-size:11px;color:rgba(255,255,255,.25);text-align:center">이탈 데이터 수집 중...</div>';
+      } else {
+        laEl.innerHTML = exitEvs.slice(0,8).map(function(x){
+          var v={}; try{v=JSON.parse(x.ev.value||'{}');}catch(e){}
+          var et=v.exit_type||'close';
+          var etColor={'close':'#94a3b8','internal':'#34d399','external':'#f59e0b','wa':'#25D366'}[et]||'#94a3b8';
+          var etIcon={'close':'fa-times','internal':'fa-arrow-right','external':'fa-external-link-alt','wa':'fab fa-whatsapp'}[et]||'fa-times';
+          var etLabel={'close':'탭닫기','internal':'내부이동','external':'외부이동','wa':'WA클릭'}[et]||et;
+          var page=x.ev.page||'/';
+          var pageLabel=page==='/'?'홈':page.replace('/shop/','').replace(/-/g,' ').slice(0,20);
+          var dur=x.ev.duration?x.ev.duration+'초':'';
+          return '<div style="display:flex;align-items:center;gap:8px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.04)">'
+            +'<i class="'+(et==='wa'?'fab':'fas')+' '+etIcon+'" style="color:'+etColor+';font-size:11px;width:12px"></i>'
+            +'<span style="font-size:11px;color:rgba(255,255,255,.55);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(pageLabel)+'</span>'
+            +(dur?'<span style="font-size:10px;color:rgba(255,255,255,.3)">'+dur+'</span>':'')
+            +'<span style="font-size:10px;font-weight:600;color:'+etColor+'">'+etLabel+'</span>'
+            +'</div>';
+        }).join('');
+      }
+    }
+  } catch(e){ console.warn('exit analysis err',e); }
 };
 
 // ══════════════════════════════════════════════════════
