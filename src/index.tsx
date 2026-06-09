@@ -2415,6 +2415,20 @@ app.post('/api/quick-register', async (c) => {
 // ── 방문자 행동 트래킹 API ──
 // ══════════════════════════════════════════
 
+// 봇 UA 감지 함수
+function isBotUa(ua: string): boolean {
+  if (!ua) return true
+  const u = ua.toLowerCase()
+  // 알려진 봇/크롤러 키워드
+  if (/bot|crawl|spider|slurp|facebookexternalhit|pinterest|linkedinbot|twitterbot|whatsapp|telegram|slack|discord|semrush|ahrefs|mj12|dotbot|bingpreview|google-inspectiontool|chrome-lighthouse|headlesschrome|puppeteer|playwright|selenium/i.test(u)) return true
+  // Chrome 버전 이상치 감지: Chrome/1xx~2xx (현재 최신 Chrome ~136, 140 이상은 봇)
+  const chromeVer = ua.match(/Chrome\/(\d+)/)
+  if (chromeVer && parseInt(chromeVer[1]) >= 140) return true
+  // UA가 너무 짧거나 비정상
+  if (ua.length < 20) return true
+  return false
+}
+
 // POST /api/track — 이벤트 수집
 app.post('/api/track', async (c) => {
   try {
@@ -2426,6 +2440,9 @@ app.post('/api/track', async (c) => {
     const id = 've_' + Date.now() + '_' + Math.random().toString(36).slice(2,7)
     const ua = c.req.header('user-agent') || ''
     const ref = body.referrer || ''
+
+    // 봇 UA 필터링 — 저장 차단 (200 반환으로 재시도 방지)
+    if (isBotUa(ua)) return c.json({ ok: true, bot: true })
 
     // 디바이스 감지
     const device = /mobile|android|iphone|ipad/i.test(ua) ? 'mobile' : 'desktop'
@@ -2499,12 +2516,27 @@ app.get('/api/visitors', async (c) => {
         ) AS entry_page
       FROM visitor_sessions vs
       LEFT JOIN visitor_events ve ON ve.session_id = vs.session_id
+      WHERE
+        -- 봇 UA 필터링
+        vs.ua NOT SIMILAR TO '%(bot|crawl|spider|headless|puppet|selenium|lighthouse)%'
+        AND (
+          -- Chrome 버전 140 이상은 봇 (현재 최신 ~136)
+          vs.ua !~ 'Chrome/1[4-9][0-9]'
+          AND vs.ua !~ 'Chrome/[2-9][0-9][0-9]'
+        )
+        AND LENGTH(vs.ua) >= 20
       GROUP BY vs.session_id
       ORDER BY vs.started_at DESC
       LIMIT ${limit} OFFSET ${offset}
     `
 
-    const total = await sql`SELECT COUNT(*) AS c FROM visitor_sessions`
+    const total = await sql`
+      SELECT COUNT(*) AS c FROM visitor_sessions
+      WHERE
+        ua NOT SIMILAR TO '%(bot|crawl|spider|headless|puppet|selenium|lighthouse)%'
+        AND (ua !~ 'Chrome/1[4-9][0-9]' AND ua !~ 'Chrome/[2-9][0-9][0-9]')
+        AND LENGTH(ua) >= 20
+    `
 
     return c.json({ sessions, total: Number(total[0]?.c || 0) })
   } catch(e: any) {
@@ -2589,12 +2621,15 @@ app.get('/api/visitors-live', async (c) => {
   try {
     const sql = getDb(c.env)
 
-    // 최근 3분 이내 last_active인 세션 = 실시간 접속자
+    // 최근 3분 이내 last_active인 세션 = 실시간 접속자 (봇 제외)
     const liveSessions = await sql`
       SELECT vs.session_id, vs.visitor_id, vs.device,
              (SELECT page FROM visitor_events WHERE session_id=vs.session_id ORDER BY created_at DESC LIMIT 1) AS current_page
       FROM visitor_sessions vs
       WHERE last_active >= NOW() - INTERVAL '3 minutes'
+        AND vs.ua NOT SIMILAR TO '%(bot|crawl|spider|headless|puppet|selenium|lighthouse)%'
+        AND (vs.ua !~ 'Chrome/1[4-9][0-9]' AND vs.ua !~ 'Chrome/[2-9][0-9][0-9]')
+        AND LENGTH(vs.ua) >= 20
       ORDER BY last_active DESC
     `
 

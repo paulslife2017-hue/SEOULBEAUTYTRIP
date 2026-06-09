@@ -4250,6 +4250,15 @@ app.post("/api/quick-register", async (c) => {
     return c.json({ error: e.message || "\uB4F1\uB85D \uC911 \uC624\uB958\uAC00 \uBC1C\uC0DD\uD588\uC2B5\uB2C8\uB2E4" }, 500);
   }
 });
+function isBotUa(ua) {
+  if (!ua) return true;
+  const u = ua.toLowerCase();
+  if (/bot|crawl|spider|slurp|facebookexternalhit|pinterest|linkedinbot|twitterbot|whatsapp|telegram|slack|discord|semrush|ahrefs|mj12|dotbot|bingpreview|google-inspectiontool|chrome-lighthouse|headlesschrome|puppeteer|playwright|selenium/i.test(u)) return true;
+  const chromeVer = ua.match(/Chrome\/(\d+)/);
+  if (chromeVer && parseInt(chromeVer[1]) >= 140) return true;
+  if (ua.length < 20) return true;
+  return false;
+}
 app.post("/api/track", async (c) => {
   try {
     const sql = getDb(c.env);
@@ -4259,6 +4268,7 @@ app.post("/api/track", async (c) => {
     const id = "ve_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
     const ua = c.req.header("user-agent") || "";
     const ref = body.referrer || "";
+    if (isBotUa(ua)) return c.json({ ok: true, bot: true });
     const device = /mobile|android|iphone|ipad/i.test(ua) ? "mobile" : "desktop";
     await sql`
       INSERT INTO visitor_events (id, session_id, visitor_id, event, page, target, value, shop_id, shop_name, duration, scroll_pct, referrer, ua, created_at)
@@ -4320,11 +4330,26 @@ app.get("/api/visitors", async (c) => {
         ) AS entry_page
       FROM visitor_sessions vs
       LEFT JOIN visitor_events ve ON ve.session_id = vs.session_id
+      WHERE
+        -- 봇 UA 필터링
+        vs.ua NOT SIMILAR TO '%(bot|crawl|spider|headless|puppet|selenium|lighthouse)%'
+        AND (
+          -- Chrome 버전 140 이상은 봇 (현재 최신 ~136)
+          vs.ua !~ 'Chrome/1[4-9][0-9]'
+          AND vs.ua !~ 'Chrome/[2-9][0-9][0-9]'
+        )
+        AND LENGTH(vs.ua) >= 20
       GROUP BY vs.session_id
       ORDER BY vs.started_at DESC
       LIMIT ${limit} OFFSET ${offset}
     `;
-    const total = await sql`SELECT COUNT(*) AS c FROM visitor_sessions`;
+    const total = await sql`
+      SELECT COUNT(*) AS c FROM visitor_sessions
+      WHERE
+        ua NOT SIMILAR TO '%(bot|crawl|spider|headless|puppet|selenium|lighthouse)%'
+        AND (ua !~ 'Chrome/1[4-9][0-9]' AND ua !~ 'Chrome/[2-9][0-9][0-9]')
+        AND LENGTH(ua) >= 20
+    `;
     return c.json({ sessions, total: Number(total[0]?.c || 0) });
   } catch (e) {
     return c.json({ error: e.message }, 500);
@@ -4402,6 +4427,9 @@ app.get("/api/visitors-live", async (c) => {
              (SELECT page FROM visitor_events WHERE session_id=vs.session_id ORDER BY created_at DESC LIMIT 1) AS current_page
       FROM visitor_sessions vs
       WHERE last_active >= NOW() - INTERVAL '3 minutes'
+        AND vs.ua NOT SIMILAR TO '%(bot|crawl|spider|headless|puppet|selenium|lighthouse)%'
+        AND (vs.ua !~ 'Chrome/1[4-9][0-9]' AND vs.ua !~ 'Chrome/[2-9][0-9][0-9]')
+        AND LENGTH(vs.ua) >= 20
       ORDER BY last_active DESC
     `;
     const slugSet = /* @__PURE__ */ new Set();
