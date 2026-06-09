@@ -6984,10 +6984,23 @@ const withTimeout = (promise: Promise<any>, ms: number, fallback: any): Promise<
 app.get('/', async (c) => {
   const sql = getDb(c.env)
   try {
-    const vidRows = await withTimeout(
-      sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.active=true ORDER BY v.views DESC, v.created_at DESC`,
-      15000, []
-    )
+    // ── 병렬로 두 쿼리 동시 실행 (순차→병렬: ~2x 속도 향상) ──
+    // 영상은 필요한 컬럼만 SELECT (SELECT * 제거로 전송량 감소)
+    const [vidRows, shopRows] = await Promise.all([
+      withTimeout(
+        sql`SELECT v.id, v.shop_id, v.title, v.description, v.video_url, v.thumbnail, v.tags, v.views, v.likes, v.created_at,
+               s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb
+            FROM videos v
+            LEFT JOIN shops s ON v.shop_id=s.id
+            WHERE s.active=true
+            ORDER BY v.views DESC, v.created_at DESC`,
+        10000, []
+      ),
+      withTimeout(
+        sql`SELECT id, name, slug, category, location, thumbnail, rating, review_count FROM shops WHERE active=true ORDER BY rating DESC, review_count DESC`,
+        10000, []
+      )
+    ])
     const initVideos = vidRows.map((r: any) => {
       // thumbnail: DB 저장값 → Cloudinary 자동 생성 (so_0 첫프레임 JPG) 순서로 fallback
       const vUrl = r.video_url || ''
@@ -7052,11 +7065,7 @@ app.get('/', async (c) => {
       ? `<script type="application/ld+json">${safeJson(videoJsonLd)}<\/script>`
       : ''
 
-    // ── SSR: shops 데이터 서버에서 함께 가져오기 (카탈로그 Loading... 제거)
-    const shopRows = await withTimeout(
-      sql`SELECT id, name, slug, category, location, thumbnail, rating, review_count FROM shops WHERE active=true ORDER BY rating DESC, review_count DESC`,
-      10000, []
-    )
+    // ── SSR: shops 데이터 (이미 병렬로 가져옴)
     const initShops = shopRows.map((r: any) => ({
       id: r.id, name: r.name, slug: r.slug || '',
       category: r.category || 'beauty', location: r.location || 'Seoul',
@@ -8270,7 +8279,7 @@ function thumbImgLoaded(el){ el.classList.add('img-loaded'); if(el.parentElement
    4) 페이드 끝 → setupObs() → play()
    최대 fallback: 5초 */
 var _ldStartTime = Date.now();
-var _MIN_SPLASH_MS = 600;
+var _MIN_SPLASH_MS = 0; // 스플래시 최소 대기 제거 → 데이터 준비되는 즉시 표시
 var _ldReadyFlags = { shops: false, videos: false };
 var _ldFallbackTimer = null;
 
@@ -8409,7 +8418,7 @@ function loadVideos(cat) {
     // [버그 수정] 인라인 데이터로 즉시 완료해도 fallback timer는 반드시 세팅
     // prefetchShops가 느릴 경우 shops 플래그를 기다리다 무한 대기하는 것 방지
     if(!_ldFallbackTimer) {
-      _ldFallbackTimer = setTimeout(function(){ hideLd(); hideCatLoading(); }, 5000);
+      _ldFallbackTimer = setTimeout(function(){ hideLd(); hideCatLoading(); }, 2000);
     }
     _checkLdReady();
     return;
@@ -8445,8 +8454,8 @@ function loadVideos(cat) {
       if(_ldHidden) { setupObs(); }
       if(!_ldHidden){ hideLd(); }
     });
-  // 최대 8초 fallback (Neon DB cold start 대응)
-  _ldFallbackTimer = setTimeout(function(){ hideLd(); hideCatLoading(); }, 8000);
+  // 최대 3초 fallback
+  _ldFallbackTimer = setTimeout(function(){ hideLd(); hideCatLoading(); }, 3000);
 }
 
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }

@@ -8399,11 +8399,23 @@ var withTimeout = (promise, ms, fallback) => Promise.race([promise, new Promise(
 app.get("/", async (c) => {
   const sql = getDb(c.env);
   try {
-    const vidRows = await withTimeout(
-      sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.active=true ORDER BY v.views DESC, v.created_at DESC`,
-      15e3,
-      []
-    );
+    const [vidRows, shopRows] = await Promise.all([
+      withTimeout(
+        sql`SELECT v.id, v.shop_id, v.title, v.description, v.video_url, v.thumbnail, v.tags, v.views, v.likes, v.created_at,
+               s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb
+            FROM videos v
+            LEFT JOIN shops s ON v.shop_id=s.id
+            WHERE s.active=true
+            ORDER BY v.views DESC, v.created_at DESC`,
+        1e4,
+        []
+      ),
+      withTimeout(
+        sql`SELECT id, name, slug, category, location, thumbnail, rating, review_count FROM shops WHERE active=true ORDER BY rating DESC, review_count DESC`,
+        1e4,
+        []
+      )
+    ]);
     const initVideos = vidRows.map((r) => {
       const vUrl = r.video_url || "";
       const dbThumb = r.thumbnail || "";
@@ -8453,11 +8465,6 @@ app.get("/", async (c) => {
       };
     });
     const videoLdScript = videoJsonLd.length ? `<script type="application/ld+json">${safeJson(videoJsonLd)}</script>` : "";
-    const shopRows = await withTimeout(
-      sql`SELECT id, name, slug, category, location, thumbnail, rating, review_count FROM shops WHERE active=true ORDER BY rating DESC, review_count DESC`,
-      1e4,
-      []
-    );
     const initShops = shopRows.map((r) => ({
       id: r.id,
       name: r.name,
@@ -9618,7 +9625,7 @@ function thumbImgLoaded(el){ el.classList.add('img-loaded'); if(el.parentElement
    4) \uD398\uC774\uB4DC \uB05D \u2192 setupObs() \u2192 play()
    \uCD5C\uB300 fallback: 5\uCD08 */
 var _ldStartTime = Date.now();
-var _MIN_SPLASH_MS = 600;
+var _MIN_SPLASH_MS = 0; // \uC2A4\uD50C\uB798\uC2DC \uCD5C\uC18C \uB300\uAE30 \uC81C\uAC70 \u2192 \uB370\uC774\uD130 \uC900\uBE44\uB418\uB294 \uC989\uC2DC \uD45C\uC2DC
 var _ldReadyFlags = { shops: false, videos: false };
 var _ldFallbackTimer = null;
 
@@ -9757,7 +9764,7 @@ function loadVideos(cat) {
     // [\uBC84\uADF8 \uC218\uC815] \uC778\uB77C\uC778 \uB370\uC774\uD130\uB85C \uC989\uC2DC \uC644\uB8CC\uD574\uB3C4 fallback timer\uB294 \uBC18\uB4DC\uC2DC \uC138\uD305
     // prefetchShops\uAC00 \uB290\uB9B4 \uACBD\uC6B0 shops \uD50C\uB798\uADF8\uB97C \uAE30\uB2E4\uB9AC\uB2E4 \uBB34\uD55C \uB300\uAE30\uD558\uB294 \uAC83 \uBC29\uC9C0
     if(!_ldFallbackTimer) {
-      _ldFallbackTimer = setTimeout(function(){ hideLd(); hideCatLoading(); }, 5000);
+      _ldFallbackTimer = setTimeout(function(){ hideLd(); hideCatLoading(); }, 2000);
     }
     _checkLdReady();
     return;
@@ -9793,8 +9800,8 @@ function loadVideos(cat) {
       if(_ldHidden) { setupObs(); }
       if(!_ldHidden){ hideLd(); }
     });
-  // \uCD5C\uB300 8\uCD08 fallback (Neon DB cold start \uB300\uC751)
-  _ldFallbackTimer = setTimeout(function(){ hideLd(); hideCatLoading(); }, 8000);
+  // \uCD5C\uB300 3\uCD08 fallback
+  _ldFallbackTimer = setTimeout(function(){ hideLd(); hideCatLoading(); }, 3000);
 }
 
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
