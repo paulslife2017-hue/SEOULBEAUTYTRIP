@@ -2427,6 +2427,27 @@ function isBotUa(ua: string): boolean {
   return false
 }
 
+// 자사/내부 트래픽 제외 판단
+// OWNER_IPS: 환경변수에 콤마 구분으로 설정 (예: "1.2.3.4,5.6.7.8")
+function isInternalTraffic(ip: string, ref: string, page: string, env?: Env): boolean {
+  // 1. 관리자 페이지 접근
+  if (page && page.startsWith('/admin')) return true
+  // 2. 자사 도메인 referrer (관리자/자체 테스트)
+  if (ref && (
+    ref.includes('seoulbeautytrip.vercel.app') ||
+    ref.includes('localhost') ||
+    ref.includes('127.0.0.1') ||
+    ref.includes('.sandbox.gensparksite.com')
+  )) return true
+  // 3. 운영자 IP 차단 (환경변수 OWNER_IPS에 콤마 구분으로 설정)
+  const ownerIps = (env as any)?.OWNER_IPS || (typeof process !== 'undefined' ? process.env.OWNER_IPS : '') || ''
+  if (ownerIps && ip) {
+    const ipList = ownerIps.split(',').map((s: string) => s.trim()).filter(Boolean)
+    if (ipList.includes(ip)) return true
+  }
+  return false
+}
+
 // POST /api/track — 이벤트 수집
 app.post('/api/track', async (c) => {
   try {
@@ -2438,9 +2459,13 @@ app.post('/api/track', async (c) => {
     const id = 've_' + Date.now() + '_' + Math.random().toString(36).slice(2,7)
     const ua = c.req.header('user-agent') || ''
     const ref = body.referrer || ''
+    // 방문자 실제 IP (Cloudflare/Vercel 헤더 우선)
+    const ip = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for')?.split(',')[0].trim() || c.req.header('x-real-ip') || ''
 
-    // 봇 UA 필터링 — 저장 차단 (200 반환으로 재시도 방지)
+    // 봇 UA 필터링
     if (isBotUa(ua)) return c.json({ ok: true, bot: true })
+    // 내부/운영자 트래픽 필터링
+    if (isInternalTraffic(ip, ref, page||'', c.env)) return c.json({ ok: true, internal: true })
 
     // 디바이스 감지
     const device = /mobile|android|iphone|ipad/i.test(ua) ? 'mobile' : 'desktop'

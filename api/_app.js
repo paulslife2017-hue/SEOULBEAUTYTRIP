@@ -4257,6 +4257,16 @@ function isBotUa(ua) {
   if (ua.length < 20) return true;
   return false;
 }
+function isInternalTraffic(ip, ref, page, env) {
+  if (page && page.startsWith("/admin")) return true;
+  if (ref && (ref.includes("seoulbeautytrip.vercel.app") || ref.includes("localhost") || ref.includes("127.0.0.1") || ref.includes(".sandbox.gensparksite.com"))) return true;
+  const ownerIps = env?.OWNER_IPS || (typeof process !== "undefined" ? process.env.OWNER_IPS : "") || "";
+  if (ownerIps && ip) {
+    const ipList = ownerIps.split(",").map((s) => s.trim()).filter(Boolean);
+    if (ipList.includes(ip)) return true;
+  }
+  return false;
+}
 app.post("/api/track", async (c) => {
   try {
     const sql = getDb(c.env);
@@ -4266,7 +4276,9 @@ app.post("/api/track", async (c) => {
     const id = "ve_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
     const ua = c.req.header("user-agent") || "";
     const ref = body.referrer || "";
+    const ip = c.req.header("cf-connecting-ip") || c.req.header("x-forwarded-for")?.split(",")[0].trim() || c.req.header("x-real-ip") || "";
     if (isBotUa(ua)) return c.json({ ok: true, bot: true });
+    if (isInternalTraffic(ip, ref, page || "", c.env)) return c.json({ ok: true, internal: true });
     const device = /mobile|android|iphone|ipad/i.test(ua) ? "mobile" : "desktop";
     await sql`
       INSERT INTO visitor_events (id, session_id, visitor_id, event, page, target, value, shop_id, shop_name, duration, scroll_pct, referrer, ua, created_at)
