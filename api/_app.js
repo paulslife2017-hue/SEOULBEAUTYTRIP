@@ -12478,7 +12478,6 @@ textarea{height:80px;resize:none}
       <button style="background:none;border:none;color:rgba(255,255,255,.4);font-size:18px;cursor:pointer" id="vd-panel-close">\u2715</button>
     </div>
     <div class="form-grid">
-      <div class="full"><label>\uC601\uC0C1 \uC81C\uBAA9 *</label><input id="vd-title" placeholder="\uC608: \uAC15\uB0A8 \uB7ED\uC154\uB9AC \uD398\uC774\uC15C 60\uBD84 \uD480\uCF54\uC2A4"></div>
       <div class="full">
         <label>\uC601\uC0C1 URL *</label>
         <div style="background:rgba(255,77,141,.06);border:1px solid rgba(255,77,141,.15);border-radius:10px;padding:10px;margin-bottom:8px;font-size:12px;color:rgba(255,255,255,.6)">
@@ -12491,9 +12490,6 @@ textarea{height:80px;resize:none}
         <div id="vd-url-hint" style="display:none;margin-top:6px;padding:8px 10px;background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.25);border-radius:8px;font-size:12px;color:#4ade80"></div>
         <div id="vd-url-preview" style="display:none;margin-top:8px"></div>
       </div>
-      <div class="full"><label>\uC378\uB124\uC77C URL <span style="font-size:11px;color:rgba(255,255,255,.4)">(\uC120\uD0DD)</span></label><input id="vd-thumb" placeholder="https://...image.jpg (\uBE44\uC6CC\uB450\uBA74 \uC5C5\uCCB4 \uC378\uB124\uC77C \uC0AC\uC6A9)"></div>
-      <div class="full"><label>\uC601\uC0C1 \uC124\uBA85 <span style="font-size:11px;color:rgba(255,255,255,.4)">(\uC120\uD0DD)</span></label><input id="vd-desc" placeholder="\uC9E7\uC740 \uC124\uBA85..."></div>
-      <div class="full"><label>\uD0DC\uADF8 <span style="font-size:11px;color:rgba(255,255,255,.4)">(\uC120\uD0DD, \uC27C\uD45C \uAD6C\uBD84)</span></label><input id="vd-tags" placeholder="#KBeauty, #\uAC15\uB0A8, #\uC2A4\uD0A8\uCF00\uC5B4"></div>
     </div>
     <button class="btn-pk" style="margin-top:12px" id="vd-submit-btn"><i class="fas fa-plus"></i> \uC601\uC0C1 \uB4F1\uB85D</button>
   </div>
@@ -15155,26 +15151,22 @@ function openVideoPanel(shopId){
   document.getElementById('videoAddPanel').style.display = 'block';
 
   // \uD3FC \uCD08\uAE30\uD654
-  ['vd-title','vd-url','vd-thumb','vd-desc','vd-tags'].forEach(function(id){
-    var el = document.getElementById(id); if(el) el.value='';
-  });
+  var urlEl = document.getElementById('vd-url'); if(urlEl) urlEl.value='';
   var badge = document.getElementById('vd-url-badge');   if(badge)  badge.style.display='none';
   var hint  = document.getElementById('vd-url-hint');    if(hint)   hint.style.display='none';
   var prev  = document.getElementById('vd-url-preview'); if(prev)   prev.style.display='none';
 
   setTimeout(function(){
     document.getElementById('videoAddPanel').scrollIntoView({behavior:'smooth', block:'start'});
-    var titleEl = document.getElementById('vd-title');
-    if(titleEl) titleEl.focus();
+    var urlEl2 = document.getElementById('vd-url');
+    if(urlEl2) urlEl2.focus();
   }, 80);
 }
 
 function closeVideoPanel(){
   document.getElementById('videoAddPanel').style.display = 'none';
   currentShopId = null;
-  ['vd-title','vd-url','vd-thumb','vd-desc','vd-tags'].forEach(function(id){
-    var el = document.getElementById(id); if(el) el.value='';
-  });
+  var urlEl = document.getElementById('vd-url'); if(urlEl) urlEl.value='';
   var badge = document.getElementById('vd-url-badge');   if(badge)  badge.style.display='none';
   var hint  = document.getElementById('vd-url-hint');    if(hint)   hint.style.display='none';
   var prev  = document.getElementById('vd-url-preview'); if(prev)   prev.style.display='none';
@@ -16331,21 +16323,18 @@ function showVideoPreview(url, container){
 // \u2500\u2500 \uC601\uC0C1 \uB4F1\uB85D \u2500\u2500
 window.addVideo = function addVideo(){
   if(!currentShopId){ alert('\uC5C5\uCCB4\uB97C \uBA3C\uC800 \uC120\uD0DD\uD574\uC8FC\uC138\uC694!'); return; }
-  var title = document.getElementById('vd-title').value.trim();
-  var url   = document.getElementById('vd-url').value.trim();
-  if(!title){ alert('\uC601\uC0C1 \uC81C\uBAA9\uC744 \uC785\uB825\uD574\uC8FC\uC138\uC694!'); return; }
-  if(!url){   alert('\uC601\uC0C1 URL\uC744 \uC785\uB825\uD574\uC8FC\uC138\uC694!'); return; }
+  var url = document.getElementById('vd-url').value.trim();
+  if(!url){ alert('\uC601\uC0C1 URL\uC744 \uC785\uB825\uD574\uC8FC\uC138\uC694!'); return; }
   var shop = shops.find(function(s){return s.id===currentShopId;})||{};
-  var tags = document.getElementById('vd-tags').value.split(',').map(function(t){return t.trim();}).filter(Boolean);
-  var savedShopId = currentShopId; // \uC800\uC7A5 \uD6C4\uC5D0\uB3C4 \uC720\uC9C0
+  var savedShopId = currentShopId;
   var btn = document.getElementById('vd-submit-btn');
   if(btn){ btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> \uB4F1\uB85D \uC911...'; }
   fetch('/api/videos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
     shopId:currentShopId,
-    title:title, videoUrl:url,
-    thumbnail:document.getElementById('vd-thumb').value || shop.thumbnail || '',
-    description:document.getElementById('vd-desc').value||'',
-    tags:tags
+    title:'', videoUrl:url,
+    thumbnail: shop.thumbnail || '',
+    description:'',
+    tags:[]
   })}).then(function(){
     closeVideoPanel();
     _shopExpanded[String(savedShopId)] = true; // \uB4F1\uB85D \uD6C4 \uD574\uB2F9 \uC5C5\uCCB4 \uC544\uCF54\uB514\uC5B8 \uC5F4\uC5B4\uB450\uAE30

@@ -11132,7 +11132,6 @@ textarea{height:80px;resize:none}
       <button style="background:none;border:none;color:rgba(255,255,255,.4);font-size:18px;cursor:pointer" id="vd-panel-close">✕</button>
     </div>
     <div class="form-grid">
-      <div class="full"><label>영상 제목 *</label><input id="vd-title" placeholder="예: 강남 럭셔리 페이셜 60분 풀코스"></div>
       <div class="full">
         <label>영상 URL *</label>
         <div style="background:rgba(255,77,141,.06);border:1px solid rgba(255,77,141,.15);border-radius:10px;padding:10px;margin-bottom:8px;font-size:12px;color:rgba(255,255,255,.6)">
@@ -11145,9 +11144,6 @@ textarea{height:80px;resize:none}
         <div id="vd-url-hint" style="display:none;margin-top:6px;padding:8px 10px;background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.25);border-radius:8px;font-size:12px;color:#4ade80"></div>
         <div id="vd-url-preview" style="display:none;margin-top:8px"></div>
       </div>
-      <div class="full"><label>썸네일 URL <span style="font-size:11px;color:rgba(255,255,255,.4)">(선택)</span></label><input id="vd-thumb" placeholder="https://...image.jpg (비워두면 업체 썸네일 사용)"></div>
-      <div class="full"><label>영상 설명 <span style="font-size:11px;color:rgba(255,255,255,.4)">(선택)</span></label><input id="vd-desc" placeholder="짧은 설명..."></div>
-      <div class="full"><label>태그 <span style="font-size:11px;color:rgba(255,255,255,.4)">(선택, 쉼표 구분)</span></label><input id="vd-tags" placeholder="#KBeauty, #강남, #스킨케어"></div>
     </div>
     <button class="btn-pk" style="margin-top:12px" id="vd-submit-btn"><i class="fas fa-plus"></i> 영상 등록</button>
   </div>
@@ -13809,26 +13805,22 @@ function openVideoPanel(shopId){
   document.getElementById('videoAddPanel').style.display = 'block';
 
   // 폼 초기화
-  ['vd-title','vd-url','vd-thumb','vd-desc','vd-tags'].forEach(function(id){
-    var el = document.getElementById(id); if(el) el.value='';
-  });
+  var urlEl = document.getElementById('vd-url'); if(urlEl) urlEl.value='';
   var badge = document.getElementById('vd-url-badge');   if(badge)  badge.style.display='none';
   var hint  = document.getElementById('vd-url-hint');    if(hint)   hint.style.display='none';
   var prev  = document.getElementById('vd-url-preview'); if(prev)   prev.style.display='none';
 
   setTimeout(function(){
     document.getElementById('videoAddPanel').scrollIntoView({behavior:'smooth', block:'start'});
-    var titleEl = document.getElementById('vd-title');
-    if(titleEl) titleEl.focus();
+    var urlEl2 = document.getElementById('vd-url');
+    if(urlEl2) urlEl2.focus();
   }, 80);
 }
 
 function closeVideoPanel(){
   document.getElementById('videoAddPanel').style.display = 'none';
   currentShopId = null;
-  ['vd-title','vd-url','vd-thumb','vd-desc','vd-tags'].forEach(function(id){
-    var el = document.getElementById(id); if(el) el.value='';
-  });
+  var urlEl = document.getElementById('vd-url'); if(urlEl) urlEl.value='';
   var badge = document.getElementById('vd-url-badge');   if(badge)  badge.style.display='none';
   var hint  = document.getElementById('vd-url-hint');    if(hint)   hint.style.display='none';
   var prev  = document.getElementById('vd-url-preview'); if(prev)   prev.style.display='none';
@@ -14985,21 +14977,18 @@ function showVideoPreview(url, container){
 // ── 영상 등록 ──
 window.addVideo = function addVideo(){
   if(!currentShopId){ alert('업체를 먼저 선택해주세요!'); return; }
-  var title = document.getElementById('vd-title').value.trim();
-  var url   = document.getElementById('vd-url').value.trim();
-  if(!title){ alert('영상 제목을 입력해주세요!'); return; }
-  if(!url){   alert('영상 URL을 입력해주세요!'); return; }
+  var url = document.getElementById('vd-url').value.trim();
+  if(!url){ alert('영상 URL을 입력해주세요!'); return; }
   var shop = shops.find(function(s){return s.id===currentShopId;})||{};
-  var tags = document.getElementById('vd-tags').value.split(',').map(function(t){return t.trim();}).filter(Boolean);
-  var savedShopId = currentShopId; // 저장 후에도 유지
+  var savedShopId = currentShopId;
   var btn = document.getElementById('vd-submit-btn');
   if(btn){ btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> 등록 중...'; }
   fetch('/api/videos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
     shopId:currentShopId,
-    title:title, videoUrl:url,
-    thumbnail:document.getElementById('vd-thumb').value || shop.thumbnail || '',
-    description:document.getElementById('vd-desc').value||'',
-    tags:tags
+    title:'', videoUrl:url,
+    thumbnail: shop.thumbnail || '',
+    description:'',
+    tags:[]
   })}).then(function(){
     closeVideoPanel();
     _shopExpanded[String(savedShopId)] = true; // 등록 후 해당 업체 아코디언 열어두기
