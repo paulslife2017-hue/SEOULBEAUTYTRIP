@@ -4210,7 +4210,20 @@ app.get("/api/visitors", async (c) => {
         MAX(CASE WHEN ve.event = 'video_play' THEN 1 ELSE 0 END)::int AS did_video,
         MAX(CASE WHEN ve.event = 'shop_view' THEN 1 ELSE 0 END)::int AS did_shop,
         ARRAY_AGG(DISTINCT ve.shop_name) FILTER (WHERE ve.shop_name != '') AS shops_viewed,
-        EXTRACT(EPOCH FROM (vs.last_active - vs.started_at))::int AS duration_sec
+        EXTRACT(EPOCH FROM (vs.last_active - vs.started_at))::int AS duration_sec,
+        -- 첫 이벤트의 referrer (vs.referrer가 없을 때 보완)
+        COALESCE(
+          NULLIF(vs.referrer, ''),
+          (SELECT referrer FROM visitor_events
+           WHERE session_id = vs.session_id AND referrer IS NOT NULL AND referrer != ''
+             AND referrer NOT LIKE '%seoulbeautytrip%'
+           ORDER BY created_at ASC LIMIT 1)
+        ) AS first_referrer,
+        -- 첫 진입 페이지 (vs.first_page 보완)
+        COALESCE(
+          NULLIF(vs.first_page, ''),
+          (SELECT page FROM visitor_events WHERE session_id = vs.session_id ORDER BY created_at ASC LIMIT 1)
+        ) AS entry_page
       FROM visitor_sessions vs
       LEFT JOIN visitor_events ve ON ve.session_id = vs.session_id
       GROUP BY vs.session_id
@@ -11937,21 +11950,22 @@ window.loadVisitors = async function(){
     // snake_case \u2192 camelCase \uC815\uADDC\uD654 (Neon DB\uAC00 snake_case \uBC18\uD658)
     _vsAllSessions = (data.sessions || []).map(function(s){
       return {
-        sessionId:   s.session_id   || s.sessionId   || '',
-        visitorId:   s.visitor_id   || s.visitorId   || '',
-        firstPage:   s.first_page   || s.firstPage   || '/',
-        device:      s.device       || 'desktop',
-        country:     s.country      || '',
-        referrer:    s.referrer     || '',
-        ua:          s.ua           || '',
-        startedAt:   s.started_at   || s.startedAt   || '',
-        lastActive:  s.last_active  || s.lastActive  || '',
-        pageCount:   +(s.page_count  || s.pageCount  || 0),
-        maxScroll:   +(s.max_scroll  || s.maxScroll  || 0),
-        avgDuration: +(s.duration_sec|| s.avgDuration|| 0),
-        waClicked:   !!(s.did_wa     || s.waClicked),
-        shopViews:   +(s.did_shop    || s.shopViews  || 0),
-        videoPlays:  +(s.did_video   || s.videoPlays || 0),
+        sessionId:     s.session_id    || s.sessionId    || '',
+        visitorId:     s.visitor_id    || s.visitorId    || '',
+        firstPage:     s.entry_page    || s.first_page   || s.firstPage || '/',
+        device:        s.device        || 'desktop',
+        country:       s.country       || '',
+        referrer:      s.first_referrer|| s.referrer     || '',
+        ua:            s.ua            || '',
+        startedAt:     s.started_at    || s.startedAt    || '',
+        lastActive:    s.last_active   || s.lastActive   || '',
+        pageCount:     +(s.page_count  || s.pageCount    || 0),
+        maxScroll:     +(s.max_scroll  || s.maxScroll    || 0),
+        avgDuration:   +(s.duration_sec|| s.avgDuration  || 0),
+        waClicked:     !!(s.did_wa     || s.waClicked),
+        shopViews:     +(s.did_shop    || s.shopViews    || 0),
+        videoPlays:    +(s.did_video   || s.videoPlays   || 0),
+        shopsViewed:   s.shops_viewed  || [],
       };
     });
     _vsOffset = 0;
@@ -11994,6 +12008,27 @@ window.vsLoadMore = function(){
   if(mb) mb.style.display = (_vsFiltered.length > _vsOffset+PAGE) ? 'inline-flex' : 'none';
 };
 
+// \uC720\uC785 \uACBD\uB85C \uD30C\uC2F1 \uD568\uC218
+function parseRefSource(ref){
+  if(!ref) return {label:'\uC9C1\uC811', icon:'fa-home', color:'rgba(255,255,255,.3)', bg:'rgba(255,255,255,.05)', isKnown:false};
+  var url = ref;
+  try { url = new URL(ref).hostname.replace('www.',''); } catch(e){}
+  if(ref.match(/google./i))    return {label:'Google',    icon:'fab fa-google',    color:'#60a5fa', bg:'rgba(96,165,250,.12)',   isKnown:true};
+  if(ref.match(/instagram|ig./i)) return {label:'Instagram', icon:'fab fa-instagram', color:'#e879f9', bg:'rgba(232,121,249,.12)',  isKnown:true};
+  if(ref.match(/facebook|fb./i))  return {label:'Facebook',  icon:'fab fa-facebook',  color:'#60a5fa', bg:'rgba(96,165,250,.12)',   isKnown:true};
+  if(ref.match(/tiktok/i))      return {label:'TikTok',    icon:'fab fa-tiktok',    color:'#e2e8f0', bg:'rgba(255,255,255,.08)',  isKnown:true};
+  if(ref.match(/youtube|youtu.be/i)) return {label:'YouTube', icon:'fab fa-youtube', color:'#f87171', bg:'rgba(248,113,113,.12)',  isKnown:true};
+  if(ref.match(/twitter|t.co/i))  return {label:'X(Twitter)',icon:'fab fa-twitter',  color:'#60a5fa', bg:'rgba(96,165,250,.12)',   isKnown:true};
+  if(ref.match(/naver/i))       return {label:'Naver',     icon:'fas fa-search',    color:'#4ade80', bg:'rgba(74,222,128,.10)',   isKnown:true};
+  if(ref.match(/reddit/i))      return {label:'Reddit',    icon:'fab fa-reddit',    color:'#fb923c', bg:'rgba(251,146,60,.12)',   isKnown:true};
+  if(ref.match(/pinterest/i))   return {label:'Pinterest', icon:'fab fa-pinterest', color:'#f472b6', bg:'rgba(244,114,182,.12)',  isKnown:true};
+  if(ref.match(/tripadvisor/i)) return {label:'TripAdvisor',icon:'fas fa-suitcase', color:'#4ade80', bg:'rgba(74,222,128,.10)',  isKnown:true};
+  if(ref.match(/seoulbeautytrip/i)) return {label:'\uC790\uC0AC',   icon:'fas fa-globe',    color:'rgba(255,255,255,.25)', bg:'rgba(255,255,255,.04)', isKnown:false};
+  // \uADF8 \uC678 \uB3C4\uBA54\uC778
+  var short = url.length>22 ? url.slice(0,22)+'\u2026' : url;
+  return {label:short, icon:'fas fa-external-link-alt', color:'#fbbf24', bg:'rgba(251,191,36,.10)', isKnown:true};
+}
+
 // \uBC29\uBB38\uC790 \uD589 HTML \uC0DD\uC131
 function buildVsRow(s){
   var badges = '';
@@ -12001,6 +12036,9 @@ function buildVsRow(s){
   if(s.shopViews>0)  badges += '<span class="vs-badge vs-badge-shop"><i class="fas fa-store"></i>'+s.shopViews+'</span>';
   if(s.videoPlays>0) badges += '<span class="vs-badge vs-badge-vid"><i class="fas fa-play"></i>'+s.videoPlays+'</span>';
   if(s.device==='mobile') badges += '<span class="vs-badge vs-badge-mobile"><i class="fas fa-mobile-alt"></i></span>';
+
+  // \uC720\uC785 \uACBD\uB85C \uD30C\uC2F1
+  var src = parseRefSource(s.referrer);
 
   var devIco   = s.device==='mobile'?'fa-mobile-alt':s.device==='tablet'?'fa-tablet-alt':'fa-desktop';
   var devColor = s.device==='mobile'?'#f472b6':s.device==='tablet'?'#fb923c':'#60a5fa';
@@ -12037,6 +12075,11 @@ function buildVsRow(s){
   ));
   var scoreColor = quickScore>=70?'#34d399':quickScore>=40?'#fbbf24':'#94a3b8';
 
+  // \uC720\uC785 \uACBD\uB85C \uD0DC\uADF8 HTML
+  var srcTag = '<span style="display:inline-flex;align-items:center;gap:3px;background:'+src.bg+';color:'+src.color
+    +';border:1px solid '+src.color+'25;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:700;flex-shrink:0">'
+    +'<i class="'+src.icon+'" style="font-size:8px"></i>'+escHtml(src.label)+'</span>';
+
   return '<div class="vs-row" id="vsr-'+s.sessionId+'" data-sid="'+s.sessionId+'">'
     // \u2500\u2500 \uD5E4\uB354 (\uD074\uB9AD \uC2DC \uD3BC\uCE68) \u2500\u2500
     +'<div class="vs-row-head vs-row-clickable">'
@@ -12046,23 +12089,24 @@ function buildVsRow(s){
     +'</div>'
     // \uBCF8\uBB38
     +'<div class="vs-row-body">'
-    // 1\uD589: ID + \uAD6D\uAC00 + \uC2DC\uAC04 + \uC2A4\uCF54\uC5B4
+    // 1\uD589: ID + \uAD6D\uAC00 + \uC720\uC785\uACBD\uB85C \uD0DC\uADF8 | \uC2A4\uCF54\uC5B4 + \uC2DC\uAC04
     +'<div class="vs-row-top">'
-    +'<div style="display:flex;align-items:center;gap:6px;min-width:0">'
+    +'<div style="display:flex;align-items:center;gap:5px;min-width:0;flex:1;overflow:hidden">'
     +'<span class="vs-row-id">'+escHtml((s.visitorId||'').slice(-8))+'</span>'
-    +(s.country?'<span style="font-size:9px;background:rgba(255,255,255,.08);padding:1px 5px;border-radius:6px;color:rgba(255,255,255,.5)">'+escHtml(s.country)+'</span>':'')
+    +(s.country?'<span style="font-size:9px;background:rgba(255,255,255,.07);padding:1px 5px;border-radius:6px;color:rgba(255,255,255,.45);flex-shrink:0">'+escHtml(s.country)+'</span>':'')
+    +srcTag
     +'</div>'
-    +'<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">'
+    +'<div style="display:flex;align-items:center;gap:5px;flex-shrink:0;margin-left:6px">'
     +'<span style="font-size:10px;font-weight:900;color:'+scoreColor+'">'+quickScore+'pt</span>'
     +'<span class="vs-row-time">'+ago+'</span>'
     +'</div>'
     +'</div>'
-    // 2\uD589: \uCCAB \uD398\uC774\uC9C0 + \uD1B5\uACC4
+    // 2\uD589: \uCCAB \uC9C4\uC785 \uD398\uC774\uC9C0 + \uD1B5\uACC4
     +'<div class="vs-row-sub">'
     +'<span class="vs-row-fp" style="color:'+fpColor+'">'+escHtml(fpLabel)+'</span>'
-    +'<span style="color:rgba(255,255,255,.2)">\xB7</span>'
+    +'<span style="color:rgba(255,255,255,.15)">\xB7</span>'
     +'<span class="vs-row-stat"><i class="fas fa-file-alt" style="font-size:8px"></i>'+pgCount+'p</span>'
-    +'<span class="vs-row-stat" style="color:'+durColor+';font-weight:700"><i class="fas fa-clock" style="font-size:8px;color:rgba(255,255,255,.25)"></i>'+dur+'</span>'
+    +'<span class="vs-row-stat" style="color:'+durColor+';font-weight:700"><i class="fas fa-clock" style="font-size:8px;color:rgba(255,255,255,.2)"></i>'+dur+'</span>'
     +'<span class="vs-row-stat">\u2195'+maxScroll+'%</span>'
     +'</div>'
     // 3\uD589: \uBC30\uC9C0
@@ -12159,15 +12203,23 @@ window.toggleVsTimeline = async function(sid){
       +'<div style="font-size:10px"><span style="color:rgba(255,255,255,.3);font-size:9px">\u2195 </span><span style="color:#e2e8f0;font-weight:700">'+maxScr+'%</span></div>'
       +'<div style="font-size:10px"><span style="color:rgba(255,255,255,.3);font-size:9px">\u{1F3EA} </span><span style="color:#e2e8f0;font-weight:700">'+shopViews+'\uD68C \uC870\uD68C</span></div>'
       +'</div></div>'
-      // \uD558\uB2E8: \uD0DC\uADF8 \uD589
+      // \uD558\uB2E8: \uD0DC\uADF8 \uD589 (\uC720\uC785\uACBD\uB85C \uD3EC\uD568)
       +'<div style="display:flex;flex-wrap:wrap;gap:4px">'
+      // \uC720\uC785 \uACBD\uB85C (parseRefSource \uC0AC\uC6A9)
+      +(function(){
+        var sr = parseRefSource(sess.referrer||'');
+        return '<span style="display:inline-flex;align-items:center;gap:4px;background:'+sr.bg
+          +';color:'+sr.color+';border:1px solid '+sr.color+'30;padding:2px 9px;border-radius:20px;font-size:9px;font-weight:700">'
+          +'<i class="'+sr.icon+'" style="font-size:9px"></i>\uC720\uC785: '+escHtml(sr.label)+'</span>';
+      })()
       +(waClicked?'<span style="background:rgba(37,211,102,.15);color:#34d399;border:1px solid rgba(37,211,102,.25);padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700"><i class="fab fa-whatsapp" style="margin-right:3px"></i>WA \uBB38\uC758</span>':'')
       +(videoPlays>0?'<span style="background:rgba(167,139,250,.12);color:#a78bfa;border:1px solid rgba(167,139,250,.2);padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700"><i class="fas fa-play" style="margin-right:3px"></i>\uC601\uC0C1 '+videoPlays+'\uAC1C</span>':'')
       +(sess.device==='mobile'?'<span style="background:rgba(244,114,182,.1);color:#f9a8d4;border:1px solid rgba(244,114,182,.2);padding:2px 8px;border-radius:20px;font-size:9px"><i class="fas fa-mobile-alt" style="margin-right:3px"></i>\uBAA8\uBC14\uC77C</span>':'')
-      +(sess.referrer
-        ?'<span style="background:rgba(251,191,36,.1);color:#fbbf24;border:1px solid rgba(251,191,36,.2);padding:2px 8px;border-radius:20px;font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:130px"><i class="fas fa-external-link-alt" style="margin-right:3px"></i>'+escHtml(refHost)+'</span>'
-        :'<span style="background:rgba(255,255,255,.05);color:rgba(255,255,255,.3);border:1px solid rgba(255,255,255,.08);padding:2px 8px;border-radius:20px;font-size:9px">\uC9C1\uC811 \uBC29\uBB38</span>')
-      +(sess.country?'<span style="background:rgba(255,255,255,.06);color:rgba(255,255,255,.45);padding:2px 8px;border-radius:20px;font-size:9px">'+escHtml(sess.country)+'</span>':'')
+      +(sess.country?'<span style="background:rgba(255,255,255,.06);color:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.08);padding:2px 8px;border-radius:20px;font-size:9px">'+escHtml(sess.country)+'</span>':'')
+      // referrer \uC804\uCCB4 URL (\uC54C \uC218 \uC5C6\uB294 \uC18C\uC2A4\uB294 \uC6D0\uBCF8 \uD45C\uC2DC)
+      +(sess.referrer && !sess.referrer.match(/seoulbeautytrip/i)
+        ?'<span style="background:rgba(255,255,255,.04);color:rgba(255,255,255,.2);padding:2px 8px;border-radius:20px;font-size:8px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(sess.referrer.replace(/^https?://(www.)?/,'').slice(0,50))+'</span>'
+        :'')
       +'</div>'
       +'</div>';
 
