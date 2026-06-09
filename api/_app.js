@@ -4260,11 +4260,10 @@ function isBotUa(ua) {
 function isInternalTraffic(ip, ref, page, env) {
   if (page && page.startsWith("/admin")) return true;
   if (ref && (ref.includes("seoulbeautytrip.vercel.app") || ref.includes("localhost") || ref.includes("127.0.0.1") || ref.includes(".sandbox.gensparksite.com"))) return true;
+  const hardcodedOwnerIps = ["112.186.180.168"];
   const ownerIps = env?.OWNER_IPS || (typeof process !== "undefined" ? process.env.OWNER_IPS : "") || "";
-  if (ownerIps && ip) {
-    const ipList = ownerIps.split(",").map((s) => s.trim()).filter(Boolean);
-    if (ipList.includes(ip)) return true;
-  }
+  const ipList = [...hardcodedOwnerIps, ...ownerIps.split(",").map((s) => s.trim())].filter(Boolean);
+  if (ip && ipList.includes(ip)) return true;
   return false;
 }
 app.post("/api/track", async (c) => {

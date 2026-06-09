@@ -2439,12 +2439,11 @@ function isInternalTraffic(ip: string, ref: string, page: string, env?: Env): bo
     ref.includes('127.0.0.1') ||
     ref.includes('.sandbox.gensparksite.com')
   )) return true
-  // 3. 운영자 IP 차단 (환경변수 OWNER_IPS에 콤마 구분으로 설정)
+  // 3. 운영자 IP 차단 (하드코딩 + 환경변수 OWNER_IPS 콤마 구분 병합)
+  const hardcodedOwnerIps = ['112.186.180.168']
   const ownerIps = (env as any)?.OWNER_IPS || (typeof process !== 'undefined' ? process.env.OWNER_IPS : '') || ''
-  if (ownerIps && ip) {
-    const ipList = ownerIps.split(',').map((s: string) => s.trim()).filter(Boolean)
-    if (ipList.includes(ip)) return true
-  }
+  const ipList = [...hardcodedOwnerIps, ...ownerIps.split(',').map((s: string) => s.trim())].filter(Boolean)
+  if (ip && ipList.includes(ip)) return true
   return false
 }
 
