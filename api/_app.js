@@ -8747,6 +8747,114 @@ app.get("/api/search-console/page-keywords", async (c) => {
   }
 });
 var index_default = app;
+var SB_TRACKER_SCRIPT = `<script>
+(function(){
+  function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+
+  // \u2500\u2500 \uBC29\uBB38\uC790 ID (\uC601\uAD6C) + \uC138\uC158 ID \u2500\u2500
+  var vid=localStorage.getItem('_sb_vid');if(!vid){vid=uid();localStorage.setItem('_sb_vid',vid);}
+  var sid=sessionStorage.getItem('_sb_sid');if(!sid){sid=uid();sessionStorage.setItem('_sb_sid',sid);}
+  window._sbVid=vid;window._sbSid=sid;
+
+  // \u2500\u2500 \uC7AC\uBC29\uBB38 \uC5EC\uBD80 \uAC10\uC9C0 \u2500\u2500
+  var prevVisit=localStorage.getItem('_sb_last');
+  var isReturn=!!prevVisit;
+  var returnGap=prevVisit?Math.round((Date.now()-parseInt(prevVisit))/60000):0; // \uBD84 \uB2E8\uC704
+  localStorage.setItem('_sb_last',String(Date.now()));
+
+  // \u2500\u2500 \uC774\uC804 \uD398\uC774\uC9C0 \uD788\uC2A4\uD1A0\uB9AC (\uC571 \uB0B4 \uC774\uB3D9 \uAC10\uC9C0\uC6A9) \u2500\u2500
+  var _prevPage=sessionStorage.getItem('_sb_prev')||'';
+  var _curPage=location.pathname;
+
+  function send(ev,ex){
+    var d=Object.assign({
+      session_id:sid,visitor_id:vid,event:ev,
+      page:location.pathname,referrer:document.referrer
+    },ex||{});
+    var b=JSON.stringify(d);
+    navigator.sendBeacon?navigator.sendBeacon('/api/track',b):fetch('/api/track',{method:'POST',body:b,headers:{'Content-Type':'application/json'},keepalive:true}).catch(function(){});
+  }
+  // \uC5C5\uCCB4 \uD398\uC774\uC9C0 \uB4F1 \uC678\uBD80 \uC778\uB77C\uC778 onclick\uC5D0\uC11C \uD638\uCD9C \uAC00\uB2A5\uD558\uB3C4\uB85D \uC804\uC5ED \uB178\uCD9C
+  window._sbSend = send;
+
+  // \u2500\u2500 page_view: \uC7AC\uBC29\uBB38/\uB0B4\uBD80\uC774\uB3D9 \uC815\uBCF4 \uD3EC\uD568 \u2500\u2500
+  send('page_view',{
+    value: JSON.stringify({
+      is_return: isReturn,
+      return_gap_min: returnGap,
+      from_page: _prevPage,
+      visit_count: parseInt(localStorage.getItem('_sb_vc')||'0')+1
+    })
+  });
+  localStorage.setItem('_sb_vc',String(parseInt(localStorage.getItem('_sb_vc')||'0')+1));
+  sessionStorage.setItem('_sb_prev',_curPage);
+
+  // \u2500\u2500 \uC774\uD0C8 \uAC10\uC9C0: \uC720\uD615 \uBD84\uB958 \u2500\u2500
+  // exit_type: 'internal'(\uC571 \uB0B4 \uC774\uB3D9) | 'external'(\uC678\uBD80\uC0AC\uC774\uD2B8) | 'wa'(WA\uD074\uB9AD) | 'close'(\uD0ED\uB2EB\uAE30)
+  var _t=Date.now();
+  var _waClicked=false;
+  var _lastClickHref='';
+
+  document.addEventListener('click',function(e){
+    var el=e.target.closest('a,button,[data-track]');
+    if(el&&el.href) _lastClickHref=el.href;
+  },true);
+
+  window.addEventListener('visibilitychange',function(){
+    if(document.visibilityState!=='hidden') return;
+    var dur=Math.round((Date.now()-_t)/1000);
+    var exitType='close';
+    if(_waClicked) exitType='wa';
+    else if(_lastClickHref){
+      var isSameSite=_lastClickHref.includes(location.hostname)||_lastClickHref.startsWith('/');
+      exitType=isSameSite?'internal':'external';
+    }
+    send('page_exit',{
+      duration:dur,
+      scroll_pct:_ms,
+      value:JSON.stringify({
+        exit_type: exitType,
+        last_href: _lastClickHref.slice(0,100)
+      })
+    });
+  });
+
+  // \u2500\u2500 \uC2A4\uD06C\uB864 \uAE4A\uC774 \u2500\u2500
+  var _ms=0,_st;
+  window.addEventListener('scroll',function(){clearTimeout(_st);_st=setTimeout(function(){
+    var p=Math.round((window.scrollY+window.innerHeight)/Math.max(document.body.scrollHeight,1)*100);
+    if(p>_ms){_ms=p;if(p>=25&&p%25===0)send('scroll_depth',{scroll_pct:p});}
+  },400);},{passive:true});
+
+  // \u2500\u2500 \uD074\uB9AD \uC774\uBCA4\uD2B8 \u2500\u2500
+  document.addEventListener('click',function(e){
+    var el=e.target.closest('a,button,[data-track]');if(!el)return;
+    var h=el.href||'';
+    if(h.includes('wa.me')||h.includes('whatsapp')){
+      _waClicked=true;
+      var sn=el.dataset.shopName||el.closest('[data-shop-name]')?.dataset.shopName||'';
+      var si=el.dataset.shopId||el.closest('[data-shop-id]')?.dataset.shopId||'';
+      send('wa_click',{target:h.slice(0,120),shop_name:sn,shop_id:si});
+    }else if(el.dataset.track==='shop'||el.closest('[data-track="shop"]')){
+      var c=el.closest('[data-shop-name]');send('shop_click',{target:el.href||'',shop_name:c?.dataset.shopName||''});
+    }else if(el.dataset.track==='video'){send('video_click',{target:el.dataset.vidId||''});}
+  },true);
+
+  // \u2500\u2500 \uC5C5\uCCB4 \uD398\uC774\uC9C0 \uC790\uB3D9 \uAC10\uC9C0 \u2500\u2500
+  window._sbTrackVideo=function(id,sn){send('video_play',{target:id,shop_name:sn||''});};
+  if(location.pathname.startsWith('/shop/')){
+    setTimeout(function(){
+      // .sp-title h1\uC5D0\uC11C \uC5C5\uCCB4\uBA85 \uCD94\uCD9C, \uC5C6\uC73C\uBA74 title\uC758 '\u2014' \uC55E\uBD80\uBD84\uB9CC \uC0AC\uC6A9
+      var sn=document.querySelector('h1.sp-title')?.textContent?.trim()||document.title.split('\u2014')[0].split('|')[0].trim();
+      send('shop_view',{target:location.pathname.replace('/shop/',''),shop_name:sn});
+    },300);
+  }
+
+  // \u2500\u2500 \uAC80\uC0C9/\uD544\uD130 \u2500\u2500
+  window._sbSearch=function(q){send('search',{value:q});};
+  window._sbFilter=function(v){send('filter_click',{value:v});};
+})();
+</script>`;
 var MAIN_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -11493,114 +11601,6 @@ function renderShopPanel(cat) {
 ${SB_TRACKER_SCRIPT}
 </body>
 </html>`;
-var SB_TRACKER_SCRIPT = `<script>
-(function(){
-  function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
-
-  // \u2500\u2500 \uBC29\uBB38\uC790 ID (\uC601\uAD6C) + \uC138\uC158 ID \u2500\u2500
-  var vid=localStorage.getItem('_sb_vid');if(!vid){vid=uid();localStorage.setItem('_sb_vid',vid);}
-  var sid=sessionStorage.getItem('_sb_sid');if(!sid){sid=uid();sessionStorage.setItem('_sb_sid',sid);}
-  window._sbVid=vid;window._sbSid=sid;
-
-  // \u2500\u2500 \uC7AC\uBC29\uBB38 \uC5EC\uBD80 \uAC10\uC9C0 \u2500\u2500
-  var prevVisit=localStorage.getItem('_sb_last');
-  var isReturn=!!prevVisit;
-  var returnGap=prevVisit?Math.round((Date.now()-parseInt(prevVisit))/60000):0; // \uBD84 \uB2E8\uC704
-  localStorage.setItem('_sb_last',String(Date.now()));
-
-  // \u2500\u2500 \uC774\uC804 \uD398\uC774\uC9C0 \uD788\uC2A4\uD1A0\uB9AC (\uC571 \uB0B4 \uC774\uB3D9 \uAC10\uC9C0\uC6A9) \u2500\u2500
-  var _prevPage=sessionStorage.getItem('_sb_prev')||'';
-  var _curPage=location.pathname;
-
-  function send(ev,ex){
-    var d=Object.assign({
-      session_id:sid,visitor_id:vid,event:ev,
-      page:location.pathname,referrer:document.referrer
-    },ex||{});
-    var b=JSON.stringify(d);
-    navigator.sendBeacon?navigator.sendBeacon('/api/track',b):fetch('/api/track',{method:'POST',body:b,headers:{'Content-Type':'application/json'},keepalive:true}).catch(function(){});
-  }
-  // \uC5C5\uCCB4 \uD398\uC774\uC9C0 \uB4F1 \uC678\uBD80 \uC778\uB77C\uC778 onclick\uC5D0\uC11C \uD638\uCD9C \uAC00\uB2A5\uD558\uB3C4\uB85D \uC804\uC5ED \uB178\uCD9C
-  window._sbSend = send;
-
-  // \u2500\u2500 page_view: \uC7AC\uBC29\uBB38/\uB0B4\uBD80\uC774\uB3D9 \uC815\uBCF4 \uD3EC\uD568 \u2500\u2500
-  send('page_view',{
-    value: JSON.stringify({
-      is_return: isReturn,
-      return_gap_min: returnGap,
-      from_page: _prevPage,
-      visit_count: parseInt(localStorage.getItem('_sb_vc')||'0')+1
-    })
-  });
-  localStorage.setItem('_sb_vc',String(parseInt(localStorage.getItem('_sb_vc')||'0')+1));
-  sessionStorage.setItem('_sb_prev',_curPage);
-
-  // \u2500\u2500 \uC774\uD0C8 \uAC10\uC9C0: \uC720\uD615 \uBD84\uB958 \u2500\u2500
-  // exit_type: 'internal'(\uC571 \uB0B4 \uC774\uB3D9) | 'external'(\uC678\uBD80\uC0AC\uC774\uD2B8) | 'wa'(WA\uD074\uB9AD) | 'close'(\uD0ED\uB2EB\uAE30)
-  var _t=Date.now();
-  var _waClicked=false;
-  var _lastClickHref='';
-
-  document.addEventListener('click',function(e){
-    var el=e.target.closest('a,button,[data-track]');
-    if(el&&el.href) _lastClickHref=el.href;
-  },true);
-
-  window.addEventListener('visibilitychange',function(){
-    if(document.visibilityState!=='hidden') return;
-    var dur=Math.round((Date.now()-_t)/1000);
-    var exitType='close';
-    if(_waClicked) exitType='wa';
-    else if(_lastClickHref){
-      var isSameSite=_lastClickHref.includes(location.hostname)||_lastClickHref.startsWith('/');
-      exitType=isSameSite?'internal':'external';
-    }
-    send('page_exit',{
-      duration:dur,
-      scroll_pct:_ms,
-      value:JSON.stringify({
-        exit_type: exitType,
-        last_href: _lastClickHref.slice(0,100)
-      })
-    });
-  });
-
-  // \u2500\u2500 \uC2A4\uD06C\uB864 \uAE4A\uC774 \u2500\u2500
-  var _ms=0,_st;
-  window.addEventListener('scroll',function(){clearTimeout(_st);_st=setTimeout(function(){
-    var p=Math.round((window.scrollY+window.innerHeight)/Math.max(document.body.scrollHeight,1)*100);
-    if(p>_ms){_ms=p;if(p>=25&&p%25===0)send('scroll_depth',{scroll_pct:p});}
-  },400);},{passive:true});
-
-  // \u2500\u2500 \uD074\uB9AD \uC774\uBCA4\uD2B8 \u2500\u2500
-  document.addEventListener('click',function(e){
-    var el=e.target.closest('a,button,[data-track]');if(!el)return;
-    var h=el.href||'';
-    if(h.includes('wa.me')||h.includes('whatsapp')){
-      _waClicked=true;
-      var sn=el.dataset.shopName||el.closest('[data-shop-name]')?.dataset.shopName||'';
-      var si=el.dataset.shopId||el.closest('[data-shop-id]')?.dataset.shopId||'';
-      send('wa_click',{target:h.slice(0,120),shop_name:sn,shop_id:si});
-    }else if(el.dataset.track==='shop'||el.closest('[data-track="shop"]')){
-      var c=el.closest('[data-shop-name]');send('shop_click',{target:el.href||'',shop_name:c?.dataset.shopName||''});
-    }else if(el.dataset.track==='video'){send('video_click',{target:el.dataset.vidId||''});}
-  },true);
-
-  // \u2500\u2500 \uC5C5\uCCB4 \uD398\uC774\uC9C0 \uC790\uB3D9 \uAC10\uC9C0 \u2500\u2500
-  window._sbTrackVideo=function(id,sn){send('video_play',{target:id,shop_name:sn||''});};
-  if(location.pathname.startsWith('/shop/')){
-    setTimeout(function(){
-      // .sp-title h1\uC5D0\uC11C \uC5C5\uCCB4\uBA85 \uCD94\uCD9C, \uC5C6\uC73C\uBA74 title\uC758 '\u2014' \uC55E\uBD80\uBD84\uB9CC \uC0AC\uC6A9
-      var sn=document.querySelector('h1.sp-title')?.textContent?.trim()||document.title.split('\u2014')[0].split('|')[0].trim();
-      send('shop_view',{target:location.pathname.replace('/shop/',''),shop_name:sn});
-    },300);
-  }
-
-  // \u2500\u2500 \uAC80\uC0C9/\uD544\uD130 \u2500\u2500
-  window._sbSearch=function(q){send('search',{value:q});};
-  window._sbFilter=function(v){send('filter_click',{value:v});};
-})();
-</script>`;
 var ADMIN_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>

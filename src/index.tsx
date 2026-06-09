@@ -7396,6 +7396,117 @@ app.get('/api/search-console/page-keywords', async (c) => {
 export default app
 
 // ════════════════════════════════════════════
+// ── SB 방문자 트래커 스니펫 ──
+const SB_TRACKER_SCRIPT = `<script>
+(function(){
+  function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+
+  // ── 방문자 ID (영구) + 세션 ID ──
+  var vid=localStorage.getItem('_sb_vid');if(!vid){vid=uid();localStorage.setItem('_sb_vid',vid);}
+  var sid=sessionStorage.getItem('_sb_sid');if(!sid){sid=uid();sessionStorage.setItem('_sb_sid',sid);}
+  window._sbVid=vid;window._sbSid=sid;
+
+  // ── 재방문 여부 감지 ──
+  var prevVisit=localStorage.getItem('_sb_last');
+  var isReturn=!!prevVisit;
+  var returnGap=prevVisit?Math.round((Date.now()-parseInt(prevVisit))/60000):0; // 분 단위
+  localStorage.setItem('_sb_last',String(Date.now()));
+
+  // ── 이전 페이지 히스토리 (앱 내 이동 감지용) ──
+  var _prevPage=sessionStorage.getItem('_sb_prev')||'';
+  var _curPage=location.pathname;
+
+  function send(ev,ex){
+    var d=Object.assign({
+      session_id:sid,visitor_id:vid,event:ev,
+      page:location.pathname,referrer:document.referrer
+    },ex||{});
+    var b=JSON.stringify(d);
+    navigator.sendBeacon?navigator.sendBeacon('/api/track',b):fetch('/api/track',{method:'POST',body:b,headers:{'Content-Type':'application/json'},keepalive:true}).catch(function(){});
+  }
+  // 업체 페이지 등 외부 인라인 onclick에서 호출 가능하도록 전역 노출
+  window._sbSend = send;
+
+  // ── page_view: 재방문/내부이동 정보 포함 ──
+  send('page_view',{
+    value: JSON.stringify({
+      is_return: isReturn,
+      return_gap_min: returnGap,
+      from_page: _prevPage,
+      visit_count: parseInt(localStorage.getItem('_sb_vc')||'0')+1
+    })
+  });
+  localStorage.setItem('_sb_vc',String(parseInt(localStorage.getItem('_sb_vc')||'0')+1));
+  sessionStorage.setItem('_sb_prev',_curPage);
+
+  // ── 이탈 감지: 유형 분류 ──
+  // exit_type: 'internal'(앱 내 이동) | 'external'(외부사이트) | 'wa'(WA클릭) | 'close'(탭닫기)
+  var _t=Date.now();
+  var _waClicked=false;
+  var _lastClickHref='';
+
+  document.addEventListener('click',function(e){
+    var el=e.target.closest('a,button,[data-track]');
+    if(el&&el.href) _lastClickHref=el.href;
+  },true);
+
+  window.addEventListener('visibilitychange',function(){
+    if(document.visibilityState!=='hidden') return;
+    var dur=Math.round((Date.now()-_t)/1000);
+    var exitType='close';
+    if(_waClicked) exitType='wa';
+    else if(_lastClickHref){
+      var isSameSite=_lastClickHref.includes(location.hostname)||_lastClickHref.startsWith('/');
+      exitType=isSameSite?'internal':'external';
+    }
+    send('page_exit',{
+      duration:dur,
+      scroll_pct:_ms,
+      value:JSON.stringify({
+        exit_type: exitType,
+        last_href: _lastClickHref.slice(0,100)
+      })
+    });
+  });
+
+  // ── 스크롤 깊이 ──
+  var _ms=0,_st;
+  window.addEventListener('scroll',function(){clearTimeout(_st);_st=setTimeout(function(){
+    var p=Math.round((window.scrollY+window.innerHeight)/Math.max(document.body.scrollHeight,1)*100);
+    if(p>_ms){_ms=p;if(p>=25&&p%25===0)send('scroll_depth',{scroll_pct:p});}
+  },400);},{passive:true});
+
+  // ── 클릭 이벤트 ──
+  document.addEventListener('click',function(e){
+    var el=e.target.closest('a,button,[data-track]');if(!el)return;
+    var h=el.href||'';
+    if(h.includes('wa.me')||h.includes('whatsapp')){
+      _waClicked=true;
+      var sn=el.dataset.shopName||el.closest('[data-shop-name]')?.dataset.shopName||'';
+      var si=el.dataset.shopId||el.closest('[data-shop-id]')?.dataset.shopId||'';
+      send('wa_click',{target:h.slice(0,120),shop_name:sn,shop_id:si});
+    }else if(el.dataset.track==='shop'||el.closest('[data-track="shop"]')){
+      var c=el.closest('[data-shop-name]');send('shop_click',{target:el.href||'',shop_name:c?.dataset.shopName||''});
+    }else if(el.dataset.track==='video'){send('video_click',{target:el.dataset.vidId||''});}
+  },true);
+
+  // ── 업체 페이지 자동 감지 ──
+  window._sbTrackVideo=function(id,sn){send('video_play',{target:id,shop_name:sn||''});};
+  if(location.pathname.startsWith('/shop/')){
+    setTimeout(function(){
+      // .sp-title h1에서 업체명 추출, 없으면 title의 '—' 앞부분만 사용
+      var sn=document.querySelector('h1.sp-title')?.textContent?.trim()||document.title.split('—')[0].split('|')[0].trim();
+      send('shop_view',{target:location.pathname.replace('/shop/',''),shop_name:sn});
+    },300);
+  }
+
+  // ── 검색/필터 ──
+  window._sbSearch=function(q){send('search',{value:q});};
+  window._sbFilter=function(v){send('filter_click',{value:v});};
+})();
+<\/script>`
+
+// ════════════════════════════════════════════
 const MAIN_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -10143,116 +10254,7 @@ ${SB_TRACKER_SCRIPT}
 </body>
 </html>`
 
-// ════════════════════════════════════════════
-// ── SB 방문자 트래커 스니펫 ──
-const SB_TRACKER_SCRIPT = `<script>
-(function(){
-  function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
 
-  // ── 방문자 ID (영구) + 세션 ID ──
-  var vid=localStorage.getItem('_sb_vid');if(!vid){vid=uid();localStorage.setItem('_sb_vid',vid);}
-  var sid=sessionStorage.getItem('_sb_sid');if(!sid){sid=uid();sessionStorage.setItem('_sb_sid',sid);}
-  window._sbVid=vid;window._sbSid=sid;
-
-  // ── 재방문 여부 감지 ──
-  var prevVisit=localStorage.getItem('_sb_last');
-  var isReturn=!!prevVisit;
-  var returnGap=prevVisit?Math.round((Date.now()-parseInt(prevVisit))/60000):0; // 분 단위
-  localStorage.setItem('_sb_last',String(Date.now()));
-
-  // ── 이전 페이지 히스토리 (앱 내 이동 감지용) ──
-  var _prevPage=sessionStorage.getItem('_sb_prev')||'';
-  var _curPage=location.pathname;
-
-  function send(ev,ex){
-    var d=Object.assign({
-      session_id:sid,visitor_id:vid,event:ev,
-      page:location.pathname,referrer:document.referrer
-    },ex||{});
-    var b=JSON.stringify(d);
-    navigator.sendBeacon?navigator.sendBeacon('/api/track',b):fetch('/api/track',{method:'POST',body:b,headers:{'Content-Type':'application/json'},keepalive:true}).catch(function(){});
-  }
-  // 업체 페이지 등 외부 인라인 onclick에서 호출 가능하도록 전역 노출
-  window._sbSend = send;
-
-  // ── page_view: 재방문/내부이동 정보 포함 ──
-  send('page_view',{
-    value: JSON.stringify({
-      is_return: isReturn,
-      return_gap_min: returnGap,
-      from_page: _prevPage,
-      visit_count: parseInt(localStorage.getItem('_sb_vc')||'0')+1
-    })
-  });
-  localStorage.setItem('_sb_vc',String(parseInt(localStorage.getItem('_sb_vc')||'0')+1));
-  sessionStorage.setItem('_sb_prev',_curPage);
-
-  // ── 이탈 감지: 유형 분류 ──
-  // exit_type: 'internal'(앱 내 이동) | 'external'(외부사이트) | 'wa'(WA클릭) | 'close'(탭닫기)
-  var _t=Date.now();
-  var _waClicked=false;
-  var _lastClickHref='';
-
-  document.addEventListener('click',function(e){
-    var el=e.target.closest('a,button,[data-track]');
-    if(el&&el.href) _lastClickHref=el.href;
-  },true);
-
-  window.addEventListener('visibilitychange',function(){
-    if(document.visibilityState!=='hidden') return;
-    var dur=Math.round((Date.now()-_t)/1000);
-    var exitType='close';
-    if(_waClicked) exitType='wa';
-    else if(_lastClickHref){
-      var isSameSite=_lastClickHref.includes(location.hostname)||_lastClickHref.startsWith('/');
-      exitType=isSameSite?'internal':'external';
-    }
-    send('page_exit',{
-      duration:dur,
-      scroll_pct:_ms,
-      value:JSON.stringify({
-        exit_type: exitType,
-        last_href: _lastClickHref.slice(0,100)
-      })
-    });
-  });
-
-  // ── 스크롤 깊이 ──
-  var _ms=0,_st;
-  window.addEventListener('scroll',function(){clearTimeout(_st);_st=setTimeout(function(){
-    var p=Math.round((window.scrollY+window.innerHeight)/Math.max(document.body.scrollHeight,1)*100);
-    if(p>_ms){_ms=p;if(p>=25&&p%25===0)send('scroll_depth',{scroll_pct:p});}
-  },400);},{passive:true});
-
-  // ── 클릭 이벤트 ──
-  document.addEventListener('click',function(e){
-    var el=e.target.closest('a,button,[data-track]');if(!el)return;
-    var h=el.href||'';
-    if(h.includes('wa.me')||h.includes('whatsapp')){
-      _waClicked=true;
-      var sn=el.dataset.shopName||el.closest('[data-shop-name]')?.dataset.shopName||'';
-      var si=el.dataset.shopId||el.closest('[data-shop-id]')?.dataset.shopId||'';
-      send('wa_click',{target:h.slice(0,120),shop_name:sn,shop_id:si});
-    }else if(el.dataset.track==='shop'||el.closest('[data-track="shop"]')){
-      var c=el.closest('[data-shop-name]');send('shop_click',{target:el.href||'',shop_name:c?.dataset.shopName||''});
-    }else if(el.dataset.track==='video'){send('video_click',{target:el.dataset.vidId||''});}
-  },true);
-
-  // ── 업체 페이지 자동 감지 ──
-  window._sbTrackVideo=function(id,sn){send('video_play',{target:id,shop_name:sn||''});};
-  if(location.pathname.startsWith('/shop/')){
-    setTimeout(function(){
-      // .sp-title h1에서 업체명 추출, 없으면 title의 '—' 앞부분만 사용
-      var sn=document.querySelector('h1.sp-title')?.textContent?.trim()||document.title.split('—')[0].split('|')[0].trim();
-      send('shop_view',{target:location.pathname.replace('/shop/',''),shop_name:sn});
-    },300);
-  }
-
-  // ── 검색/필터 ──
-  window._sbSearch=function(q){send('search',{value:q});};
-  window._sbFilter=function(v){send('filter_click',{value:v});};
-})();
-<\/script>`
 
 // ════════════════════════════════════════════
 const ADMIN_HTML = `<!DOCTYPE html>
