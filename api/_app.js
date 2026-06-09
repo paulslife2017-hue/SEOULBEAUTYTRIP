@@ -4827,9 +4827,28 @@ app.post("/api/admin/generate-blog", async (c) => {
   }
   return c.json({ total: topics.length, results });
 });
+var SLUG_REDIRECTS = {
+  // 2025-06 단축 (너무 길거나 의미없는 단어 제거)
+  "mood-collect-color-analysis-gangnam": "mood-collect-gangnam",
+  "wonderful-plastic-surgery-gangnam": "wonderful-clinic-gangnam",
+  "cinderella-plastic-surgery-seocho": "cinderella-clinic-seocho",
+  "seoul-i-plastic-surgery-gangnam": "seoul-i-clinic-gangnam",
+  "glovi-anti-aging-clinic-gangnam": "glovi-antiaging-gangnam",
+  "cheongdam-dear-clinic-cheongdam": "dear-clinic-cheongdam",
+  "d-a-dermatology-clinic-gangnam": "da-derm-gangnam",
+  "sugar-plastic-surgery-gangnam": "sugar-clinic-gangnam",
+  "leekaja-hair-salon-myeongdong": "leekaja-myeongdong",
+  "leebeauty-head-spa-myeongdong": "leebeauty-myeongdong",
+  // GSC에서 발견된 초장기 구 slug (업체명 풀네임이 들어간 것)
+  "leebeauty-myeongdong-spa-lee-hea-kyung-aesthetics-head-spa-myeongdong": "leebeauty-myeongdong",
+  "glovi-plastic-surgery-gangnam": "glovi-clinic-gangnam",
+  "braun-plastic-surgery-gangnam": "braun-clinic-gangnam"
+};
 app.get("/shop/:slug", async (c) => {
+  const slug = c.req.param("slug");
+  if (SLUG_REDIRECTS[slug]) return c.redirect("/shop/" + SLUG_REDIRECTS[slug], 301);
   const sql = getDb(c.env);
-  const shopRows = await withTimeout(sql`SELECT * FROM shops WHERE slug=${c.req.param("slug")}`, 15e3, []);
+  const shopRows = await withTimeout(sql`SELECT * FROM shops WHERE slug=${slug}`, 15e3, []);
   if (!shopRows.length) return c.notFound();
   const shop = rowToShop(shopRows[0]);
   const vidRows = await withTimeout(sql`SELECT * FROM videos WHERE shop_id=${shop.id} ORDER BY views DESC`, 15e3, []);
@@ -11543,6 +11562,10 @@ if(_GSK_TOKEN) localStorage.setItem('_gsk_token', _GSK_TOKEN);
 :root{--pk:#FF4D8D;--pl:#FF85B3;--pu:#9B59B6;--bg:#0d0d18;--bg2:#13132a;--cd:#1c1c30;--green:#10b981;--yellow:#f59e0b;--red:#ef4444;--blue:#3b82f6}
 @keyframes pulse{0%,100%{opacity:.4;transform:scale(1)}50%{opacity:1;transform:scale(1.1)}}
 .sc-page-row:hover{background:rgba(96,165,250,.08)!important}
+.sc-collapsed{display:none!important}
+.sc-scroll-body::-webkit-scrollbar{width:4px}
+.sc-scroll-body::-webkit-scrollbar-track{background:transparent}
+.sc-scroll-body::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:4px}
 body{background:var(--bg);color:#fff;font-family:"Segoe UI",sans-serif;min-height:100vh}
 /* NAV */
 .nav{background:var(--bg2);border-bottom:1px solid rgba(255,77,141,.18);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
@@ -11956,14 +11979,24 @@ textarea{height:80px;resize:none}
   <!-- \uAC80\uC0C9\uC5B4 + \uD398\uC774\uC9C0\uBCC4 \uB178\uCD9C -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 20px 14px">
     <!-- \uAC80\uC0C9\uC5B4 Top 20 -->
-    <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px">
-      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:8px"><i class="fas fa-search" style="color:#34d399;margin-right:5px"></i> \uAC80\uC0C9 \uD0A4\uC6CC\uB4DC Top 20</div>
-      <div id="sc-keywords" style="display:flex;flex-direction:column;gap:5px;font-size:11px;color:rgba(255,255,255,.2)">\uB85C\uB529 \uC911...</div>
+    <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px;display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span style="font-size:12px;font-weight:700;color:rgba(255,255,255,.6)"><i class="fas fa-search" style="color:#34d399;margin-right:5px"></i> \uAC80\uC0C9 \uD0A4\uC6CC\uB4DC Top 20</span>
+        <button onclick="this.closest('div').querySelector('.sc-scroll-body').classList.toggle('sc-collapsed')" style="background:none;border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.4);font-size:10px;padding:2px 8px;border-radius:8px;cursor:pointer">\uC811\uAE30/\uD3BC\uCE58\uAE30</button>
+      </div>
+      <div class="sc-scroll-body" style="overflow-y:auto;max-height:320px;display:flex;flex-direction:column;gap:4px;font-size:11px;color:rgba(255,255,255,.2);scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.1) transparent">
+        <div id="sc-keywords">\uB85C\uB529 \uC911...</div>
+      </div>
     </div>
     <!-- \uD398\uC774\uC9C0\uBCC4 \uB178\uCD9C -->
-    <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px">
-      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:8px"><i class="fas fa-file-alt" style="color:#60a5fa;margin-right:5px"></i> \uD398\uC774\uC9C0\uBCC4 \uAC80\uC0C9 \uC720\uC785 <span style="font-size:10px;color:rgba(255,255,255,.3);font-weight:400">\uD074\uB9AD\uD558\uBA74 \uD0A4\uC6CC\uB4DC \uD655\uC778</span></div>
-      <div id="sc-pages" style="display:flex;flex-direction:column;gap:5px;font-size:11px;color:rgba(255,255,255,.2)">\uB85C\uB529 \uC911...</div>
+    <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px;display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span style="font-size:12px;font-weight:700;color:rgba(255,255,255,.6)"><i class="fas fa-file-alt" style="color:#60a5fa;margin-right:5px"></i> \uD398\uC774\uC9C0\uBCC4 \uC720\uC785 <span style="font-size:10px;color:rgba(255,255,255,.3);font-weight:400">\uD074\uB9AD\u2192\uD0A4\uC6CC\uB4DC</span></span>
+        <button onclick="this.closest('div').querySelector('.sc-scroll-body').classList.toggle('sc-collapsed')" style="background:none;border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.4);font-size:10px;padding:2px 8px;border-radius:8px;cursor:pointer">\uC811\uAE30/\uD3BC\uCE58\uAE30</button>
+      </div>
+      <div class="sc-scroll-body" style="overflow-y:auto;max-height:320px;display:flex;flex-direction:column;gap:4px;font-size:11px;color:rgba(255,255,255,.2);scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.1) transparent">
+        <div id="sc-pages">\uB85C\uB529 \uC911...</div>
+      </div>
     </div>
   </div>
 
@@ -14150,23 +14183,30 @@ window.loadAnalytics = async function loadAnalytics(days) {
       if(kwRows.length === 0) {
         kwEl.innerHTML = NO_DATA;
       } else {
-        var kwMax = kwRows[0].clicks || 1;
+        var kwImprMax = Math.max.apply(null, kwRows.map(function(r){ return r.impressions||0; }));
         kwEl.innerHTML = kwRows.map(function(r, i){
           var q = r.keys[0];
           var clicks = r.clicks, impr = r.impressions;
-          var ctr = (r.ctr*100).toFixed(1);
-          var pos = r.position.toFixed(1);
-          var pct = Math.round(clicks/Math.max(kwMax,1)*100);
+          var ctr = (r.ctr*100).toFixed(0);
+          var pos = parseFloat(r.position.toFixed(1));
+          var pct = Math.round(impr/Math.max(kwImprMax,1)*100);
+          var posColor = pos<=3?'#34d399':pos<=10?'#fbbf24':pos<=20?'#f97316':'rgba(255,255,255,.3)';
           var rankColors = ['#fbbf24','#94a3b8','#b45309'];
-          return '<div style="padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04)">'
-            +'<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">'
-            +'<span style="font-size:10px;font-weight:900;color:'+(rankColors[i]||'rgba(255,255,255,.25)')+';min-width:14px">'+(i+1)+'</span>'
-            +'<span style="flex:1;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+q+'</span>'
-            +'<span style="font-size:10px;color:#34d399;font-weight:700">'+clicks+'\uD074\uB9AD</span>'
+          var opp = pos>=4&&pos<=15&&clicks===0?'<span style="background:rgba(251,191,36,.15);border:1px solid rgba(251,191,36,.3);color:#fbbf24;font-size:8px;padding:1px 4px;border-radius:3px">\u26A1</span>':'';
+          return '<div style="padding:5px 4px;border-bottom:1px solid rgba(255,255,255,.04);display:flex;align-items:center;gap:5px">'
+            +'<span style="font-size:10px;font-weight:900;color:'+(rankColors[i]||'rgba(255,255,255,.25)')+';min-width:14px;flex-shrink:0">'+(i+1)+'</span>'
+            +'<div style="flex:1;min-width:0">'
+            +'<div style="display:flex;align-items:center;gap:3px;margin-bottom:2px">'
+            +'<span style="flex:1;color:rgba(255,255,255,.85);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+q+'">'+q+'</span>'
+            +opp
             +'</div>'
-            +'<div style="display:flex;align-items:center;gap:5px;padding-left:19px">'
-            +'<div style="flex:1;height:3px;background:rgba(255,255,255,.06);border-radius:2px"><div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,#34d399,#60a5fa);border-radius:2px"></div></div>'
-            +'<span style="font-size:9px;color:rgba(255,255,255,.3)">\uB178\uCD9C '+impr+' \xB7 CTR '+ctr+'% \xB7 \uD3C9\uADE0\uC21C\uC704 '+pos+'\uC704</span>'
+            +'<div style="height:2px;background:rgba(255,255,255,.06);border-radius:2px;margin-bottom:2px"><div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,#34d399,#60a5fa);border-radius:2px"></div></div>'
+            +'<div style="display:flex;gap:6px;font-size:9px;color:rgba(255,255,255,.3)">'
+            +'<span style="color:'+posColor+';font-weight:700">'+pos+'\uC704</span>'
+            +'<span>'+impr+'\uB178\uCD9C</span>'
+            +'<span style="color:'+(clicks>0?'#34d399':'rgba(255,255,255,.3)')+';font-weight:'+(clicks>0?'700':'400')+'">'+clicks+'\uD074\uB9AD</span>'
+            +'<span>CTR '+ctr+'%</span>'
+            +'</div>'
             +'</div>'
             +'</div>';
         }).join('');
@@ -14187,19 +14227,22 @@ window.loadAnalytics = async function loadAnalytics(days) {
           var clicks = r.clicks, impr = r.impressions, pos = r.position.toFixed(1);
           var ctr = (r.ctr*100).toFixed(1);
           var pct3 = Math.round(impr/pgMax2*100);
-          var shortPage = page.length > 32 ? page.slice(0,32)+'\u2026' : page;
-          // \uC21C\uC704 \uC0C9\uC0C1
+          var shortPage = page.length > 28 ? page.slice(0,28)+'\u2026' : page;
           var posNum = parseFloat(pos);
-          var posColor = posNum <= 3 ? '#34d399' : posNum <= 10 ? '#fbbf24' : posNum <= 20 ? '#f97316' : 'rgba(255,255,255,.3)';
-          return '<div data-url="'+fullUrl+'" onclick="scDrillPage(this.dataset.url)" class="sc-page-row" style="padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer;border-radius:6px;transition:background .15s">'
-            +'<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">'
-            +'<span style="flex:1;color:rgba(255,255,255,.85);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+page+'">'+shortPage+'</span>'
-            +'<span style="font-size:10px;color:#60a5fa;font-weight:700;min-width:28px;text-align:right">'+clicks+'\uD074\uB9AD</span>'
+          var posColor = posNum<=3?'#34d399':posNum<=10?'#fbbf24':posNum<=20?'#f97316':'rgba(255,255,255,.35)';
+          var posBg = posNum<=3?'rgba(52,211,153,.1)':posNum<=10?'rgba(251,191,36,.1)':posNum<=20?'rgba(249,115,22,.1)':'rgba(255,255,255,.04)';
+          return '<div data-url="'+fullUrl+'" onclick="scDrillPage(this.dataset.url)" class="sc-page-row" style="padding:5px 6px;border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer;border-radius:6px;transition:background .15s;display:flex;align-items:center;gap:5px">'
+            +'<div style="min-width:30px;text-align:center;background:'+posBg+';border:1px solid '+posColor+'44;border-radius:5px;padding:2px 1px;flex-shrink:0">'
+            +'<div style="font-size:10px;font-weight:900;color:'+posColor+';line-height:1">'+pos+'</div>'
+            +'<div style="font-size:7px;color:'+posColor+';opacity:.7">\uC704</div>'
             +'</div>'
-            +'<div style="display:flex;align-items:center;gap:6px">'
-            +'<div style="flex:1;height:3px;background:rgba(255,255,255,.06);border-radius:2px"><div style="height:100%;width:'+pct3+'%;background:linear-gradient(90deg,#60a5fa,#818cf8);border-radius:2px"></div></div>'
-            +'<span style="font-size:9px;font-weight:700;color:'+posColor+'">'+pos+'\uC704</span>'
-            +'<span style="font-size:9px;color:rgba(255,255,255,.25)">\uB178\uCD9C'+impr+' CTR'+ctr+'%</span>'
+            +'<div style="flex:1;min-width:0">'
+            +'<div style="font-size:10px;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:1px" title="'+page+'">'+shortPage+'</div>'
+            +'<div style="display:flex;gap:6px;font-size:9px;color:rgba(255,255,255,.3)">'
+            +'<span style="color:'+(clicks>0?'#60a5fa':'rgba(255,255,255,.3)')+';font-weight:'+(clicks>0?'700':'400')+'">'+clicks+'\uD074\uB9AD</span>'
+            +'<span>'+impr+'\uB178\uCD9C</span>'
+            +'<span>CTR '+ctr+'%</span>'
+            +'</div>'
             +'</div>'
             +'</div>';
         }).join('');
