@@ -2379,7 +2379,10 @@ function rowToVideo(r) {
     tags: r.tags || [],
     views: r.views || 0,
     likes: r.likes || 0,
-    createdAt: r.created_at || ""
+    createdAt: r.created_at || "",
+    videoUrlLow: r.video_url_low || "",
+    videoUrlMid: r.video_url_mid || "",
+    videoUrlHigh: r.video_url_high || ""
   };
 }
 function rowToBooking(r) {
@@ -2584,8 +2587,21 @@ async function initDb(env) {
       id TEXT PRIMARY KEY, shop_id TEXT REFERENCES shops(id) ON DELETE CASCADE,
       title TEXT, description TEXT, video_url TEXT, thumbnail TEXT,
       tags JSONB DEFAULT '[]', views INTEGER DEFAULT 0,
-      likes INTEGER DEFAULT 0, created_at TEXT
+      likes INTEGER DEFAULT 0, created_at TEXT,
+      video_url_low TEXT, video_url_mid TEXT, video_url_high TEXT
     )`;
+    try {
+      await sql`ALTER TABLE videos ADD COLUMN IF NOT EXISTS video_url_low TEXT`;
+    } catch (e) {
+    }
+    try {
+      await sql`ALTER TABLE videos ADD COLUMN IF NOT EXISTS video_url_mid TEXT`;
+    } catch (e) {
+    }
+    try {
+      await sql`ALTER TABLE videos ADD COLUMN IF NOT EXISTS video_url_high TEXT`;
+    } catch (e) {
+    }
     await sql`CREATE TABLE IF NOT EXISTS bookings (
       id TEXT PRIMARY KEY, shop_id TEXT, shop_name TEXT, name TEXT,
       email TEXT, phone TEXT, service TEXT, people TEXT DEFAULT '1',
@@ -3023,24 +3039,28 @@ app.post("/api/resolve-gmap", async (c) => {
   }
 });
 var CLD = { KEY: "221647295675392", SECRET: "g10Q4wv2UzDEAGV35QluPCYz4Ms", NAME: "dc0ouozcd" };
-async function makeSign(folder) {
+var VIDEO_EAGER = "q_auto:low,w_360,h_640,c_fill,vc_h264,br_350k,f_mp4|q_auto:good,w_480,h_854,c_fill,vc_h264,br_700k,f_mp4|q_auto:good,w_720,h_1280,c_fill,vc_h264,br_1500k,f_mp4";
+async function makeSign(folder, isVideo = false) {
   const timestamp = Math.floor(Date.now() / 1e3).toString();
-  const strToSign = "folder=" + folder + "&timestamp=" + timestamp + CLD.SECRET;
+  const paramStr = isVideo ? "eager=" + VIDEO_EAGER + "&folder=" + folder + "&timestamp=" + timestamp : "folder=" + folder + "&timestamp=" + timestamp;
+  const strToSign = paramStr + CLD.SECRET;
   const enc = new TextEncoder();
   const hashBuf = await crypto.subtle.digest("SHA-1", enc.encode(strToSign));
   const signature = Array.from(new Uint8Array(hashBuf)).map((b) => b.toString(16).padStart(2, "0")).join("");
-  return { cloudName: CLD.NAME, apiKey: CLD.KEY, timestamp, signature, folder };
+  const result = { cloudName: CLD.NAME, apiKey: CLD.KEY, timestamp, signature, folder };
+  if (isVideo) result.eager = VIDEO_EAGER;
+  return result;
 }
 app.get("/api/upload-sign", async (c) => {
   try {
-    return c.json(await makeSign("seoul-beauty"));
+    return c.json(await makeSign("seoul-beauty", true));
   } catch (e) {
     return c.json({ error: e.message || "Sign failed" }, 500);
   }
 });
 app.get("/api/upload-sign-image", async (c) => {
   try {
-    return c.json(await makeSign("seoul-beauty-photos"));
+    return c.json(await makeSign("seoul-beauty-photos", false));
   } catch (e) {
     return c.json({ error: e.message || "Sign failed" }, 500);
   }
@@ -3444,9 +3464,13 @@ app.post("/api/videos", async (c) => {
   const vUrl = body.videoUrl || "";
   const autoThumb = !body.thumbnail && vUrl && vUrl.includes("cloudinary.com") ? vUrl.replace("/video/upload/", "/video/upload/so_0,w_600,h_1066,c_fill,q_auto/").replace(/\.mp4$/, ".jpg") : "";
   const finalThumb = body.thumbnail || autoThumb;
-  await sql`INSERT INTO videos (id,shop_id,title,description,video_url,thumbnail,tags,views,likes,created_at) VALUES (
+  const urlLow = body.videoUrlLow || null;
+  const urlMid = body.videoUrlMid || null;
+  const urlHigh = body.videoUrlHigh || null;
+  await sql`INSERT INTO videos (id,shop_id,title,description,video_url,thumbnail,tags,views,likes,created_at,video_url_low,video_url_mid,video_url_high) VALUES (
     ${newId},${body.shopId || ""},${body.title || ""},${description},${vUrl},
-    ${finalThumb},${JSON.stringify(autoTags)},0,0,${today}
+    ${finalThumb},${JSON.stringify(autoTags)},0,0,${today},
+    ${urlLow},${urlMid},${urlHigh}
   )`;
   return c.json({ ok: true, id: newId, descriptionGenerated: !body.description && !!description, tagsGenerated: !body.tags?.length && !!autoTags.length });
 });
@@ -4120,7 +4144,7 @@ app.get("/api/photo", async (c) => {
 app.post("/api/quick-register", async (c) => {
   try {
     const sql = getDb(c.env);
-    const { gmapUrl, videoUrl, category } = await c.req.json();
+    const { gmapUrl, videoUrl, videoUrlLow, videoUrlMid, videoUrlHigh, category } = await c.req.json();
     if (!gmapUrl) return c.json({ error: "\uAD6C\uAE00\uB9F5 URL\uC744 \uC785\uB825\uD574\uC8FC\uC138\uC694" }, 400);
     let resolvedData = null;
     try {
@@ -4233,8 +4257,9 @@ app.post("/api/quick-register", async (c) => {
       const thumb = videoUrl.includes("cloudinary.com") ? videoUrl.replace("/video/upload/", "/video/upload/so_0,w_600,h_1066,c_fill,q_auto/").replace(/\.mp4$/, ".jpg") : "";
       const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
       await sql`
-        INSERT INTO videos (id, shop_id, title, description, video_url, thumbnail, tags, views, likes, created_at)
-        VALUES (${videoId}, ${shopId}, ${engName}, ${""}, ${videoUrl.trim()}, ${thumb}, ${"[]"}, 0, 0, ${today})
+        INSERT INTO videos (id, shop_id, title, description, video_url, thumbnail, tags, views, likes, created_at, video_url_low, video_url_mid, video_url_high)
+        VALUES (${videoId}, ${shopId}, ${engName}, ${""}, ${videoUrl.trim()}, ${thumb}, ${"[]"}, 0, 0, ${today},
+          ${videoUrlLow || null}, ${videoUrlMid || null}, ${videoUrlHigh || null})
       `;
     }
     return c.json({
@@ -4586,6 +4611,31 @@ app.post("/api/admin/fix-video-thumbnails", async (c) => {
     fixed++;
   }
   return c.json({ ok: true, fixed, total: rows.length });
+});
+app.post("/api/admin/migrate-video-urls", async (c) => {
+  const sql = getDb(c.env);
+  const rows = await sql`
+    SELECT id, video_url FROM videos
+    WHERE video_url IS NOT NULL AND video_url != ''
+      AND video_url LIKE '%res.cloudinary.com%'
+      AND (video_url_low IS NULL OR video_url_low = '')
+  `;
+  let migrated = 0;
+  for (const r of rows) {
+    const base = r.video_url;
+    const makeCldUrl = (transform) => base.replace("/video/upload/", "/video/upload/" + transform + "/");
+    const urlLow = makeCldUrl("q_auto:low,w_360,h_640,c_fill,vc_h264,br_350k,f_mp4");
+    const urlMid = makeCldUrl("q_auto:good,w_480,h_854,c_fill,vc_h264,br_700k,f_mp4");
+    const urlHigh = makeCldUrl("q_auto:good,w_720,h_1280,c_fill,vc_h264,br_1500k,f_mp4");
+    await sql`UPDATE videos SET video_url_low=${urlLow}, video_url_mid=${urlMid}, video_url_high=${urlHigh} WHERE id=${r.id}`;
+    migrated++;
+  }
+  return c.json({
+    ok: true,
+    migrated,
+    total: rows.length,
+    note: "DB\uC5D0 URL\uB9CC \uC800\uC7A5\uB428. \uC2E4\uC81C Cloudinary \uBCC0\uD658\uC740 \uCCAB \uC7AC\uC0DD \uC2DC 1\uD68C \uBC1C\uC0DD\uD569\uB2C8\uB2E4."
+  });
 });
 app.post("/api/admin/fix-slugs", async (c) => {
   const sql = getDb(c.env);
@@ -8402,6 +8452,7 @@ app.get("/", async (c) => {
     const [vidRows, shopRows] = await Promise.all([
       withTimeout(
         sql`SELECT v.id, v.shop_id, v.title, v.description, v.video_url, v.thumbnail, v.tags, v.views, v.likes, v.created_at,
+               v.video_url_low, v.video_url_mid, v.video_url_high,
                s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb
             FROM videos v
             LEFT JOIN shops s ON v.shop_id=s.id
@@ -8435,6 +8486,9 @@ app.get("/", async (c) => {
         views: r.views || 0,
         likes: r.likes || 0,
         createdAt: r.created_at || "",
+        videoUrlLow: r.video_url_low || "",
+        videoUrlMid: r.video_url_mid || "",
+        videoUrlHigh: r.video_url_high || "",
         shop: { id: r.shop_id, name: r.shop_name || "", category: r.shop_cat || "", location: r.shop_location || "", thumbnail: shopThumb }
       };
     });
@@ -9027,15 +9081,21 @@ var MAIN_HTML = `<!DOCTYPE html>
 }
 html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-family:var(--ff-sans)}
 /* \u2500\u2500 \uB85C\uB529 \uC2A4\uD50C\uB798\uC2DC \u2500\u2500 */
-#ld{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;transition:opacity .6s}
-.ld-pre{font-size:10px;letter-spacing:5px;color:rgba(255,255,255,.28);text-transform:uppercase;font-family:var(--ff-sans)}
-.ld-logo{font-family:var(--ff-serif);font-size:34px;font-weight:900;background:linear-gradient(135deg,#fff 0%,var(--pk3) 60%,var(--gold2) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:1px;text-align:center;line-height:1.1;animation:ldpulse 2s ease-in-out infinite}
-.ld-sub{font-size:9px;letter-spacing:6px;color:rgba(255,255,255,.25);text-transform:uppercase;margin-top:2px}
-.ld-line{width:1px;height:28px;background:linear-gradient(to bottom,transparent,rgba(201,168,76,.5),transparent);margin:10px 0 6px}
-.ld-bar{width:140px;height:2px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden;margin-top:4px}
-.ld-prog{height:100%;background:linear-gradient(90deg,var(--pk),var(--gold));animation:ldpg 2.2s cubic-bezier(.4,0,.2,1) forwards}
+#ld{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;transition:opacity .4s}
+.ld-pre{font-size:10px;letter-spacing:5px;color:rgba(255,255,255,.28);text-transform:uppercase;font-family:var(--ff-sans);margin-bottom:10px}
+.ld-logo{font-family:var(--ff-serif);font-size:34px;font-weight:900;background:linear-gradient(135deg,#fff 0%,var(--pk3) 60%,var(--gold2) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:1px;text-align:center;line-height:1.1}
+.ld-sub{font-size:9px;letter-spacing:6px;color:rgba(255,255,255,.25);text-transform:uppercase;margin-top:4px}
+.ld-line{width:1px;height:22px;background:linear-gradient(to bottom,transparent,rgba(201,168,76,.4),transparent);margin:14px 0 14px}
+/* \uC2A4\uD53C\uB108 */
+.ld-spinner{width:36px;height:36px;position:relative;margin-top:2px}
+.ld-spinner::before,.ld-spinner::after{content:'';position:absolute;inset:0;border-radius:50%;border:2px solid transparent}
+.ld-spinner::before{border-top-color:var(--pk);border-right-color:var(--pk);animation:ldspin .8s linear infinite}
+.ld-spinner::after{border-bottom-color:var(--gold);border-left-color:var(--gold);animation:ldspin .8s linear infinite reverse;opacity:.5}
 .ld-tips{font-size:10px;color:rgba(255,255,255,.18);margin-top:18px;letter-spacing:.3px;text-align:center;min-height:14px;transition:opacity .4s}
-@keyframes ldpg{from{width:0}to{width:100%}}
+/* \uD504\uB85C\uADF8\uB808\uC2A4\uBC14 \u2014 \uC9C4\uD589 \uD45C\uC2DC\uC6A9\uC73C\uB85C\uB9CC \uC720\uC9C0 (\uAC15\uC81C \uD0C0\uC774\uBA38 \uC5C6\uC74C) */
+.ld-bar{width:120px;height:2px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden;margin-top:14px}
+.ld-prog{height:100%;background:linear-gradient(90deg,var(--pk),var(--gold));width:0%;transition:width .3s ease}
+@keyframes ldspin{to{transform:rotate(360deg)}}
 @keyframes ldpulse{0%,100%{opacity:1}50%{opacity:.75}}
 /* \u2500\u2500 \uBAA8\uB2EC hero \uC774\uBBF8\uC9C0 shimmer + blur-up \u2500\u2500 */
 .m-hero{position:relative}
@@ -9436,7 +9496,14 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 </style>
 </head>
 <body>
-<div id="ld" style="display:none"></div>
+<div id="ld">
+  <div class="ld-pre">Welcome to</div>
+  <div class="ld-logo">Seoul Beauty Trip</div>
+  <div class="ld-sub">Korean Beauty Experience</div>
+  <div class="ld-line"></div>
+  <div class="ld-spinner"></div>
+  <div class="ld-bar"><div class="ld-prog"></div></div>
+</div>
 
 <header id="hd">
   <div class="hd-top">
@@ -9621,8 +9688,12 @@ var _ldStartTime = Date.now();
 var _MIN_SPLASH_MS = 0;
 var _ldReadyFlags = { shops: false, videos: false };
 var _ldFallbackTimer = null;
-// \uC2A4\uD50C\uB798\uC2DC \uC644\uC804 \uBE44\uD65C\uC131\uD654 - \uCF58\uD150\uCE20 \uC989\uC2DC \uD45C\uC2DC
-var _ldHidden = true;
+var _ldHidden = false;
+// \uC2A4\uD50C\uB798\uC2DC: \uCD5C\uC18C \uB300\uAE30 \uC5C6\uC74C \u2014 \uB370\uC774\uD130+\uCCAB\uC601\uC0C1 \uC900\uBE44\uB418\uBA74 \uC989\uC2DC \uD45C\uC2DC (\uB9B4\uC2A4 \uBC29\uC2DD)
+// \uCD5C\uB300 fallback: 3\uCD08 (\uB124\uD2B8\uC6CC\uD06C \uC7A5\uC560 \uB300\uBE44)
+var _SPLASH_DURATION_MS = 0; // \uAC15\uC81C \uB300\uAE30 \uC81C\uAC70
+_preloadFirstVideoEarly(); // \uC2A4\uD50C\uB798\uC2DC \uB728\uC790\uB9C8\uC790 \uC989\uC2DC \uCCAB \uC601\uC0C1 \uB2E4\uC6B4\uB85C\uB4DC \uC2DC\uC791
+// \uAC15\uC81C \uD0C0\uC774\uBA38 \uC81C\uAC70 \u2014 _checkLdReady()\uAC00 \uB370\uC774\uD130 \uC900\uBE44 \uC989\uC2DC hideLd() \uD638\uCD9C
 
 /* \uD504\uB85C\uADF8\uB808\uC2A4 \uBC14 \uB2E8\uACC4 \uC81C\uC5B4 */
 function setLdProgress(pct) {
@@ -9651,28 +9722,66 @@ function hideLd(){
   }, 420);
 }
 
-/* \uC2A4\uD50C\uB798\uC2DC \uD398\uC774\uB4DC \uC911\uC5D0 \uCCAB \uC601\uC0C1 src \uC138\uD305 (\uB2E4\uC6B4\uB85C\uB4DC \uC120\uD589) */
+/* \uC2A4\uD50C\uB798\uC2DC \uC2DC\uC791 \uC989\uC2DC \uCCAB \uC601\uC0C1 \uB2E4\uC6B4\uB85C\uB4DC \uC120\uD589 (data-src\uAC00 \uC544\uC9C1 \uC5C6\uC744 \uC218 \uC788\uC5B4\uC11C DOM ready \uD6C4 \uC7AC\uC2DC\uB3C4) */
+function _preloadFirstVideoEarly(){
+  function _try(){
+    var v0 = document.getElementById('vid0');
+    if(!v0 || !v0.dataset.src) return;
+    if(v0.src) return;
+    v0.preload = 'auto';
+    v0.src = v0.dataset.src;
+    v0.load();
+  }
+  // \uC989\uC2DC \uC2DC\uB3C4 + DOM \uC900\uBE44 \uD6C4 \uD55C \uBC88 \uB354
+  _try();
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', _try, {once:true});
+  } else {
+    setTimeout(_try, 100);
+  }
+}
+/* \uC2A4\uD50C\uB798\uC2DC \uD398\uC774\uB4DC\uC544\uC6C3 \uC2DC \uCCAB \uC601\uC0C1 src \uC7AC\uD655\uC778 */
 function _preloadFirstVideo(){
-  var v0 = document.getElementById('vid0');
-  if(!v0 || v0.src || !v0.dataset.src) return;
-  v0.preload = 'auto';
-  v0.src = v0.dataset.src;
-  v0.load();
+  _preloadFirstVideoEarly();
 }
 
-/* shops + videos \uB458 \uB2E4 \uC900\uBE44\uB418\uBA74 \uCD5C\uC18C\uC2DC\uAC04 \uD6C4 hideLd() */
+/* shops + videos \uB458 \uB2E4 \uC900\uBE44\uB418\uBA74 \u2192 \uCCAB \uC601\uC0C1\uC774 \uC7AC\uC0DD \uAC00\uB2A5\uD558\uBA74 \uC989\uC2DC hideLd (\uB9B4\uC2A4 \uBC29\uC2DD) */
 function _checkLdReady() {
   if(!_ldReadyFlags.shops || !_ldReadyFlags.videos) return;
-  // vids\uC758 shopId \u2192 videoUrl/thumbnail \uC744 allShopsData\uC5D0 \uC8FC\uC785
   _injectVideoIntoShops();
-  var elapsed = Date.now() - _ldStartTime;
-  var delay = Math.max(0, _MIN_SPLASH_MS - elapsed);
-  // DOM\uC774 \uC900\uBE44\uB41C \uD6C4\uC5D0 hideLd \uC2E4\uD589 \uBCF4\uC7A5
-  // (prefetchShops\uAC00 \uC2A4\uD06C\uB9BD\uD2B8 \uD30C\uC2F1 \uC2DC\uC810\uC5D0 \uC989\uC2DC \uC644\uB8CC\uB418\uBA74 DOM\uC774 \uC544\uC9C1 \uC5C6\uC744 \uC218 \uC788\uC74C)
-  if(document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function(){ setTimeout(hideLd, delay); }, {once: true});
-  } else {
-    setTimeout(hideLd, delay);
+
+  var v0 = document.getElementById('vid0');
+
+  // \uCCAB \uC601\uC0C1\uC774 \uC774\uBBF8 \uCDA9\uBD84\uD788 \uBC84\uD37C\uB9C1\uB410\uC73C\uBA74 \uC989\uC2DC \uC228\uAE40
+  if(v0 && v0.readyState >= 3) { // HAVE_FUTURE_DATA \uC774\uC0C1
+    hideLd();
+    return;
+  }
+
+  // \uCCAB \uC601\uC0C1 src \uBA3C\uC800 \uC138\uD305 (\uC544\uC9C1 \uC548 \uB410\uC73C\uBA74)
+  if(v0 && !v0.src && v0.dataset.src) {
+    v0.preload = 'auto';
+    v0.src = v0.dataset.src;
+    v0.load();
+  }
+
+  // canplay \uC774\uBCA4\uD2B8 \uAC10\uC9C0 \u2192 \uC989\uC2DC \uC228\uAE40 (\uC2A4\uD53C\uB108 \uC5C6\uC774 \uBC14\uB85C \uC7AC\uC0DD)
+  if(v0 && v0.src) {
+    var _canPlayFired = false;
+    function _onCanPlay() {
+      if(_canPlayFired) return;
+      _canPlayFired = true;
+      v0.removeEventListener('canplay', _onCanPlay);
+      v0.removeEventListener('canplaythrough', _onCanPlay);
+      hideLd();
+    }
+    v0.addEventListener('canplay', _onCanPlay, {once: true});
+    v0.addEventListener('canplaythrough', _onCanPlay, {once: true});
+  }
+
+  // \uCD5C\uB300 fallback: 3\uCD08 (\uB124\uD2B8\uC6CC\uD06C \uB290\uB9B0 \uACBD\uC6B0 \uC2A4\uD53C\uB108 \uB300\uC2E0 \uC601\uC0C1 \uB85C\uB529 \uC911 \uD45C\uC2DC)
+  if(!_ldFallbackTimer) {
+    _ldFallbackTimer = setTimeout(function(){ hideLd(); }, 3000);
   }
 }
 
@@ -9758,7 +9867,7 @@ function loadVideos(cat) {
     // [\uBC84\uADF8 \uC218\uC815] \uC778\uB77C\uC778 \uB370\uC774\uD130\uB85C \uC989\uC2DC \uC644\uB8CC\uD574\uB3C4 fallback timer\uB294 \uBC18\uB4DC\uC2DC \uC138\uD305
     // prefetchShops\uAC00 \uB290\uB9B4 \uACBD\uC6B0 shops \uD50C\uB798\uADF8\uB97C \uAE30\uB2E4\uB9AC\uB2E4 \uBB34\uD55C \uB300\uAE30\uD558\uB294 \uAC83 \uBC29\uC9C0
     if(!_ldFallbackTimer) {
-      _ldFallbackTimer = setTimeout(function(){ hideLd(); hideCatLoading(); }, 2000);
+      _ldFallbackTimer = setTimeout(function(){ hideLd(); hideCatLoading(); }, 3000);
     }
     _checkLdReady();
     return;
@@ -9794,8 +9903,8 @@ function loadVideos(cat) {
       if(_ldHidden) { setupObs(); }
       if(!_ldHidden){ hideLd(); }
     });
-  // \uCD5C\uB300 3\uCD08 fallback
-  _ldFallbackTimer = setTimeout(function(){ hideLd(); hideCatLoading(); }, 3000);
+  // \uCD5C\uB300 fallback: 3\uCD08
+  if(!_ldFallbackTimer) _ldFallbackTimer = setTimeout(function(){ hideLd(); hideCatLoading(); }, 3000);
 }
 
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -9870,15 +9979,36 @@ function cdnImg(url, w, h) {
   return url.replace('/image/upload/', '/image/upload/'+transform+'/');
 }
 
-function cdnVideo(url, isFirst) {
-  // Cloudinary \uC601\uC0C1 \uC2A4\uD2B8\uB9AC\uBC0D \uCD5C\uC801\uD654
-  // \uCCAB \uC601\uC0C1: 360p + 400kbps \u2192 \uBE60\uB978 \uCCAB \uD654\uBA74 (\uBAA8\uBC14\uC77C \uAD11\uACE0 \uC720\uC785 \uCD5C\uC801\uD654)
-  // \uB098\uBA38\uC9C0: 480p + 600kbps
-  if(!url || url.indexOf('res.cloudinary.com') === -1) return url;
-  var transform = isFirst
-    ? 'q_auto:low,w_360,vc_h264,br_400k,f_mp4'
-    : 'q_auto:low,w_480,vc_h264,br_600k,f_mp4';
-  return url.replace('/video/upload/', '/video/upload/' + transform + '/');
+// \u2500\u2500 \uB124\uD2B8\uC6CC\uD06C \uC18D\uB3C4 \uAC10\uC9C0 \u2192 \uC601\uC0C1 \uD654\uC9C8 \uD2F0\uC5B4 \uACB0\uC815 \u2500\u2500
+// 'low' = 2g/slow-2g (360p 350kbps)
+// 'mid' = 3g / \uBBF8\uC9C0\uC6D0 \uBE0C\uB77C\uC6B0\uC800 (480p 700kbps)
+// 'high' = 4g (720p 1500kbps)
+function getNetworkTier() {
+  try {
+    var conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if(!conn) return 'mid'; // \uBBF8\uC9C0\uC6D0 \u2192 \uC911\uAC04 \uD654\uC9C8
+    var et = conn.effectiveType || '';
+    if(et === '2g' || et === 'slow-2g') return 'low';
+    if(et === '4g') return 'high';
+    return 'mid';
+  } catch(e) { return 'mid'; }
+}
+
+// \u2500\u2500 cdnVideo: DB\uC5D0 \uC800\uC7A5\uB41C eager \uBCC0\uD658 URL \uC0AC\uC6A9 (on-the-fly \uBCC0\uD658 \uC644\uC804 \uC81C\uAC70) \u2500\u2500
+// DB URL\uC774 \uC5C6\uB294 \uAE30\uC874 \uC601\uC0C1\uC740 \uC6D0\uBCF8 URL \uADF8\uB300\uB85C \uBC18\uD658 (\uD06C\uB798\uB527 \uC18C\uBAA8 \uC5C6\uC74C)
+// v \uAC1D\uCCB4\uC5D0 videoUrlLow/Mid/High\uAC00 \uC788\uC73C\uBA74 \uB124\uD2B8\uC6CC\uD06C \uC18D\uB3C4\uC5D0 \uB9DE\uB294 URL \uBC18\uD658
+function cdnVideo(url, isFirst, v) {
+  if(!url) return url;
+  // DB\uC5D0 eager \uBCC0\uD658 URL\uC774 \uC800\uC7A5\uB418\uC5B4 \uC788\uC73C\uBA74 \uB124\uD2B8\uC6CC\uD06C \uC18D\uB3C4\uC5D0 \uB9DE\uAC8C \uC120\uD0DD
+  if(v && (v.videoUrlLow || v.videoUrlMid || v.videoUrlHigh)) {
+    var tier = isFirst ? 'low' : getNetworkTier(); // \uCCAB \uC601\uC0C1\uC740 \uD56D\uC0C1 low (preload \uCD5C\uC6B0\uC120)
+    if(tier === 'low'  && v.videoUrlLow)  return v.videoUrlLow;
+    if(tier === 'high' && v.videoUrlHigh) return v.videoUrlHigh;
+    if(v.videoUrlMid) return v.videoUrlMid;
+    if(v.videoUrlLow) return v.videoUrlLow;  // fallback
+  }
+  // DB URL \uC5C6\uB294 \uAE30\uC874 \uC601\uC0C1 \u2192 \uC6D0\uBCF8 \uADF8\uB300\uB85C (on-the-fly \uBCC0\uD658 \uC5C6\uC74C = \uD06C\uB798\uB527 0)
+  return url;
 }
 
 function buildSlide(v, idx) {
@@ -9928,7 +10058,7 @@ function buildSlide(v, idx) {
     var bufIc  = document.getElementById('bufic'+vidIdx);
 
     if(ve) {
-      ve.setAttribute('data-src', esc(cdnVideo(v.videoUrl, vidIdx === 0)));
+      ve.setAttribute('data-src', esc(cdnVideo(v.videoUrl, vidIdx === 0, v)));
 
       // \u2500\u2500 \uBC84\uD37C\uB9C1 \uC2A4\uD53C\uB108 \uC81C\uC5B4 \u2500\u2500
       function showBuf(){ if(bufIc) bufIc.style.display='flex'; }
@@ -10053,26 +10183,38 @@ function loadVidSrc(vid){
   }
 }
 function preloadNext(idx){
-  // \uB2E4\uC74C 1\uAC1C\uB9CC preload \u2014 2\uAC1C \uB3D9\uC2DC \uB2E4\uC6B4\uB85C\uB4DC\uB294 \uBAA8\uBC14\uC77C \uB300\uC5ED\uD3ED \uACBD\uC7C1 \uC720\uBC1C
-  var next = document.getElementById('vid'+(idx+1));
-  if(next && !next.src && next.dataset.src){
-    next.preload = 'auto';
-    next.src = next.dataset.src;
-    // load()\uB294 \uD638\uCD9C\uD558\uC9C0 \uC54A\uC74C \u2014 src \uC138\uD305\uB9CC\uC73C\uB85C \uBE0C\uB77C\uC6B0\uC800\uAC00 \uC54C\uC544\uC11C \uBC84\uD37C\uB9C1
-  }
+  // \uB9B4\uC2A4 \uBC29\uC2DD: \uB2E4\uC74C 2\uAC1C \uBBF8\uB9AC\uB85C\uB4DC
+  // +1: \uC989\uC2DC \uB85C\uB4DC \uC2DC\uC791 (\uC2A4\uC640\uC774\uD504 \uC2DC \uBC14\uB85C \uC7AC\uC0DD)
+  // +2: \uBC31\uADF8\uB77C\uC6B4\uB4DC \uB85C\uB4DC (\uB300\uC5ED\uD3ED \uC5EC\uC720 \uC788\uC744 \uB54C)
+  [idx+1, idx+2].forEach(function(ni, i){
+    var next = document.getElementById('vid'+ni);
+    if(next && !next.src && next.dataset.src){
+      next.preload = 'auto';
+      next.src = next.dataset.src;
+      // load()\uB85C \uBA85\uC2DC\uC801\uC73C\uB85C \uB2E4\uC6B4\uB85C\uB4DC \uC2DC\uC791 (src\uB9CC \uC138\uD305\uD558\uBA74 \uC548 \uB418\uB294 \uBE0C\uB77C\uC6B0\uC800 \uC788\uC74C)
+      // +2\uB294 \uC57D\uAC04 \uC9C0\uC5F0\uD574\uC11C +1 \uC6B0\uC120\uC21C\uC704 \uBCF4\uC7A5
+      if(i === 0) {
+        next.load();
+      } else {
+        setTimeout(function(){ if(!next.readyState) next.load(); }, 800);
+      }
+    }
+  });
 }
 
 function _playVid(vid, bufIc){
   if(!vid) return;
   vid.muted = isMuted;
 
-  // src \uBBF8\uC138\uD305\uC774\uBA74 \uC9C0\uAE08 \uC138\uD305 (load()\uB294 \uD638\uCD9C \uC548 \uD568 \u2014 play()\uAC00 \uC554\uBB35\uC801\uC73C\uB85C \uD638\uCD9C)
+  // src \uBBF8\uC138\uD305\uC774\uBA74 \uC9C0\uAE08 \uC138\uD305 + \uBA85\uC2DC\uC801 load() \uD638\uCD9C
   if(!vid.src && vid.dataset.src){
     vid.preload = 'auto';
     vid.src = vid.dataset.src;
+    vid.load(); // \uBE0C\uB77C\uC6B0\uC800\uC5D0\uAC8C \uBA85\uC2DC\uC801\uC73C\uB85C \uB2E4\uC6B4\uB85C\uB4DC \uC2DC\uC791 \uC9C0\uC2DC
   }
 
-  // \uC774\uBBF8 \uCDA9\uBD84\uD788 \uBC84\uD37C\uB410\uC73C\uBA74 \uC2A4\uD53C\uB108 \uC5C6\uC774 \uBC14\uB85C \uC7AC\uC0DD
+  // HAVE_FUTURE_DATA(3) \uC774\uC0C1\uC774\uBA74 \uC2A4\uD53C\uB108 \uC5C6\uC774 \uBC14\uB85C \uC7AC\uC0DD
+  // readyState 1(HAVE_METADATA) \uC774\uD558\uBA74 \uC2A4\uD53C\uB108 \uD45C\uC2DC
   if(vid.readyState >= 3){
     if(bufIc) bufIc.style.display = 'none';
   } else {
@@ -12156,8 +12298,11 @@ textarea{height:80px;resize:none}
       <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:5px"><i class="fas fa-video" style="color:#FF4D8D"></i> \uC601\uC0C1 \uD30C\uC77C <span style="color:rgba(255,255,255,.3)">(\uC120\uD0DD \xB7 \uC5C5\uB85C\uB4DC \uD6C4 \uC790\uB3D9 \uB4F1\uB85D)</span></label>
       <!-- \uC228\uACA8\uC9C4 \uD30C\uC77C input -->
       <input type="file" id="qr-video-file" accept="video/*" style="display:none">
-      <!-- hidden: \uC5C5\uB85C\uB4DC \uC644\uB8CC \uD6C4 URL \uC800\uC7A5 -->
+      <!-- hidden: \uC5C5\uB85C\uB4DC \uC644\uB8CC \uD6C4 URL \uC800\uC7A5 (\uC6D0\uBCF8 + eager \uBCC0\uD658 3\uC885) -->
       <input type="hidden" id="qr-video">
+      <input type="hidden" id="qr-video-url-low">
+      <input type="hidden" id="qr-video-url-mid">
+      <input type="hidden" id="qr-video-url-high">
       <!-- \uC5C5\uB85C\uB4DC \uBC84\uD2BC \uC601\uC5ED -->
       <div style="display:flex;align-items:center;gap:8px">
         <button type="button" id="qr-video-btn"
@@ -14511,6 +14656,8 @@ window.qrSetCat = function(cat) {
           fd.append('timestamp', sign.timestamp);
           fd.append('signature', sign.signature);
           fd.append('folder', sign.folder);
+          // eager \uBCC0\uD658 \uD3EC\uD568 (\uC11C\uBC84\uC5D0\uC11C \uBC1B\uC740 \uAC12 \uADF8\uB300\uB85C \uC804\uC1A1)
+          if(sign.eager) fd.append('eager', sign.eager);
 
           var xhr = new XMLHttpRequest();
           xhr.open('POST', 'https://api.cloudinary.com/v1_1/' + sign.cloudName + '/video/upload');
@@ -14536,6 +14683,14 @@ window.qrSetCat = function(cat) {
       .then(function(data){
         if(data.secure_url){
           hiddenUrl.value = data.secure_url;
+          // eager \uBCC0\uD658 URL \uC800\uC7A5 (hidden input\uC5D0 \uBCF4\uAD00 \u2192 quickRegister \uC2DC \uC804\uC1A1)
+          var eagerArr = data.eager || [];
+          var elLow  = document.getElementById('qr-video-url-low');
+          var elMid  = document.getElementById('qr-video-url-mid');
+          var elHigh = document.getElementById('qr-video-url-high');
+          if(elLow)  elLow.value  = (eagerArr[0] && eagerArr[0].secure_url) || '';
+          if(elMid)  elMid.value  = (eagerArr[1] && eagerArr[1].secure_url) || '';
+          if(elHigh) elHigh.value = (eagerArr[2] && eagerArr[2].secure_url) || '';
           progBar.style.width = '100%';
           progText.style.color = '#4ade80';
           progText.textContent = '\u2705 \uC5C5\uB85C\uB4DC \uC644\uB8CC!';
@@ -14682,8 +14837,11 @@ window.checkDuplicates = async function checkDuplicates() {
 };
 
 window.quickRegister = async function quickRegister() {
-  var gmapUrl   = (document.getElementById('qr-gmap').value || '').trim();
-  var videoUrl  = (document.getElementById('qr-video').value || '').trim(); // \uC5C5\uB85C\uB4DC \uC644\uB8CC \uD6C4 \uC790\uB3D9 \uC138\uD305
+  var gmapUrl      = (document.getElementById('qr-gmap').value || '').trim();
+  var videoUrl     = (document.getElementById('qr-video').value || '').trim(); // \uC5C5\uB85C\uB4DC \uC644\uB8CC \uD6C4 \uC790\uB3D9 \uC138\uD305
+  var videoUrlLow  = (document.getElementById('qr-video-url-low')  ? document.getElementById('qr-video-url-low').value  : '') || '';
+  var videoUrlMid  = (document.getElementById('qr-video-url-mid')  ? document.getElementById('qr-video-url-mid').value  : '') || '';
+  var videoUrlHigh = (document.getElementById('qr-video-url-high') ? document.getElementById('qr-video-url-high').value : '') || '';
   var category  = document.getElementById('qr-category').value || 'clinic';
   var btn       = document.getElementById('qr-btn');
   var status    = document.getElementById('qr-status');
@@ -14716,7 +14874,7 @@ window.quickRegister = async function quickRegister() {
     var res = await fetch('/api/quick-register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gmapUrl, videoUrl, category })
+      body: JSON.stringify({ gmapUrl, videoUrl, videoUrlLow, videoUrlMid, videoUrlHigh, category })
     });
     var data = await res.json();
 
@@ -15780,6 +15938,8 @@ function addVidRow(){
         fd.append('timestamp', sign.timestamp);
         fd.append('signature', sign.signature);
         fd.append('folder', sign.folder);
+        // eager \uBCC0\uD658 \uD3EC\uD568 (\uC5C5\uB85C\uB4DC \uC2DC 1\uD68C \uBCC0\uD658 \u2192 \uD06C\uB798\uB527 \uC808\uC57D)
+        if(sign.eager) fd.append('eager', sign.eager);
         return fetch('https://api.cloudinary.com/v1_1/' + sign.cloudName + '/video/upload', {
           method: 'POST', body: fd
         }).then(function(r){ return r.json(); });
@@ -15787,6 +15947,11 @@ function addVidRow(){
       .then(function(data){
         if(data.secure_url){
           urlIn.value = data.secure_url;
+          // eager \uBCC0\uD658 URL\uC744 row\uC5D0 data \uC18D\uC131\uC73C\uB85C \uC800\uC7A5 \u2192 addShop\uC5D0\uC11C \uC218\uC9D1
+          var eagerArr = data.eager || [];
+          row.dataset.videoUrlLow  = (eagerArr[0] && eagerArr[0].secure_url) || '';
+          row.dataset.videoUrlMid  = (eagerArr[1] && eagerArr[1].secure_url) || '';
+          row.dataset.videoUrlHigh = (eagerArr[2] && eagerArr[2].secure_url) || '';
           uploadStatus.style.color = '#4ade80';
           uploadStatus.textContent = '\u2705 \uC5C5\uB85C\uB4DC \uC644\uB8CC!';
           uploadBtn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
@@ -16104,7 +16269,13 @@ window.addShop = function addShop(){
     var t = row.querySelector('.vid-form-title').value.trim();
     var u = row.querySelector('.vid-form-url').value.trim();
     var d = row.querySelector('.vid-form-desc').value.trim();
-    if(t && u) pendingVids.push({title:t, videoUrl:u, description:d});
+    if(t && u) pendingVids.push({
+      title: t, videoUrl: u, description: d,
+      // eager \uBCC0\uD658 URL (row.dataset\uC5D0 \uC800\uC7A5\uB41C \uAC12)
+      videoUrlLow:  row.dataset.videoUrlLow  || '',
+      videoUrlMid:  row.dataset.videoUrlMid  || '',
+      videoUrlHigh: row.dataset.videoUrlHigh || ''
+    });
   });
 
   var btn = document.getElementById('sh-submit-btn');
@@ -16156,6 +16327,9 @@ window.addShop = function addShop(){
             shopId:newShopId,
             title:v.title,
             videoUrl:v.videoUrl,
+            videoUrlLow:v.videoUrlLow||'',
+            videoUrlMid:v.videoUrlMid||'',
+            videoUrlHigh:v.videoUrlHigh||'',
             description:v.description,
             thumbnail:'',
             tags:[],
@@ -16412,8 +16586,10 @@ window.addVideo = async function addVideo(){
     fd.append('timestamp', sign.timestamp);
     fd.append('signature', sign.signature);
     fd.append('folder', sign.folder);
+    // eager \uBCC0\uD658 \uD3EC\uD568 (\uC5C5\uB85C\uB4DC \uC2DC 1\uD68C \uBCC0\uD658 \u2192 \uC774\uD6C4 \uD06C\uB798\uB527 \uC18C\uBAA8 \uC5C6\uC74C)
+    if(sign.eager) fd.append('eager', sign.eager);
 
-    var videoUrl = await new Promise(function(resolve, reject){
+    var uploadResult = await new Promise(function(resolve, reject){
       var xhr = new XMLHttpRequest();
       xhr.open('POST', 'https://api.cloudinary.com/v1_1/' + sign.cloudName + '/video/upload');
       xhr.upload.onprogress = function(e){
@@ -16425,13 +16601,19 @@ window.addVideo = async function addVideo(){
       };
       xhr.onload = function(){
         if(xhr.status === 200){
-          var res = JSON.parse(xhr.responseText);
-          resolve(res.secure_url);
+          resolve(JSON.parse(xhr.responseText));
         } else { reject(new Error('\uC5C5\uB85C\uB4DC \uC2E4\uD328: ' + xhr.status)); }
       };
       xhr.onerror = function(){ reject(new Error('\uB124\uD2B8\uC6CC\uD06C \uC624\uB958')); };
       xhr.send(fd);
     });
+
+    var videoUrl = uploadResult.secure_url;
+    // eager \uBCC0\uD658 URL \uCD94\uCD9C (low=360p, mid=480p, high=720p)
+    var eagerArr = uploadResult.eager || [];
+    var videoUrlLow  = (eagerArr[0] && eagerArr[0].secure_url) || '';
+    var videoUrlMid  = (eagerArr[1] && eagerArr[1].secure_url) || '';
+    var videoUrlHigh = (eagerArr[2] && eagerArr[2].secure_url) || '';
 
     // 3. DB \uC800\uC7A5
     progressLabel.textContent = '\uB4F1\uB85D \uC911...';
@@ -16442,6 +16624,9 @@ window.addVideo = async function addVideo(){
       shopId: currentShopId,
       title: '',
       videoUrl: videoUrl,
+      videoUrlLow: videoUrlLow,
+      videoUrlMid: videoUrlMid,
+      videoUrlHigh: videoUrlHigh,
       thumbnail: shop.thumbnail || '',
       description: '',
       tags: []

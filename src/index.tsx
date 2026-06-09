@@ -270,6 +270,9 @@ interface Video {
   views: number
   likes: number
   createdAt: string
+  videoUrlLow?: string   // 360p 350kbps — Cloudinary eager 변환 (업로드 시 1회)
+  videoUrlMid?: string   // 480p 700kbps
+  videoUrlHigh?: string  // 720p 1500kbps
 }
 
 interface Booking {
@@ -352,7 +355,10 @@ function rowToVideo(r: any): Video {
     title: cleanVideoTitle(r.title || '', shopName),
     description: r.description || '', videoUrl,
     thumbnail: thumb, tags: r.tags || [],
-    views: r.views || 0, likes: r.likes || 0, createdAt: r.created_at || ''
+    views: r.views || 0, likes: r.likes || 0, createdAt: r.created_at || '',
+    videoUrlLow: r.video_url_low || '',
+    videoUrlMid: r.video_url_mid || '',
+    videoUrlHigh: r.video_url_high || ''
   }
 }
 function rowToBooking(r: any): Booking {
@@ -511,8 +517,13 @@ async function initDb(env: any) {
       id TEXT PRIMARY KEY, shop_id TEXT REFERENCES shops(id) ON DELETE CASCADE,
       title TEXT, description TEXT, video_url TEXT, thumbnail TEXT,
       tags JSONB DEFAULT '[]', views INTEGER DEFAULT 0,
-      likes INTEGER DEFAULT 0, created_at TEXT
+      likes INTEGER DEFAULT 0, created_at TEXT,
+      video_url_low TEXT, video_url_mid TEXT, video_url_high TEXT
     )`
+    // 기존 테이블에 컬럼이 없으면 추가 (ALTER TABLE은 이미 있으면 에러 → try/catch)
+    try { await sql`ALTER TABLE videos ADD COLUMN IF NOT EXISTS video_url_low TEXT` } catch(e) {}
+    try { await sql`ALTER TABLE videos ADD COLUMN IF NOT EXISTS video_url_mid TEXT` } catch(e) {}
+    try { await sql`ALTER TABLE videos ADD COLUMN IF NOT EXISTS video_url_high TEXT` } catch(e) {}
     await sql`CREATE TABLE IF NOT EXISTS bookings (
       id TEXT PRIMARY KEY, shop_id TEXT, shop_name TEXT, name TEXT,
       email TEXT, phone TEXT, service TEXT, people TEXT DEFAULT '1',
@@ -942,20 +953,33 @@ app.post('/api/resolve-gmap', async (c) => {
 
 // ── Cloudinary 서명 발급 (영상/이미지 공통) ──
 const CLD = { KEY: '221647295675392', SECRET: 'g10Q4wv2UzDEAGV35QluPCYz4Ms', NAME: 'dc0ouozcd' }
-async function makeSign(folder: string) {
+
+// 영상 eager 변환 정의 (업로드 시 1회만 변환 → 크래딧 절약)
+// low:  360p 350kbps  — 저속 네트워크 / 첫 번째 영상 preload
+// mid:  480p 700kbps  — 일반 (기본값)
+// high: 720p 1500kbps — 고속 네트워크
+const VIDEO_EAGER = 'q_auto:low,w_360,h_640,c_fill,vc_h264,br_350k,f_mp4|q_auto:good,w_480,h_854,c_fill,vc_h264,br_700k,f_mp4|q_auto:good,w_720,h_1280,c_fill,vc_h264,br_1500k,f_mp4'
+
+async function makeSign(folder: string, isVideo = false) {
   const timestamp = Math.floor(Date.now() / 1000).toString()
-  const strToSign = 'folder=' + folder + '&timestamp=' + timestamp + CLD.SECRET
+  // eager 파라미터가 있으면 서명 문자열에 포함해야 함 (알파벳 순서)
+  const paramStr = isVideo
+    ? 'eager=' + VIDEO_EAGER + '&folder=' + folder + '&timestamp=' + timestamp
+    : 'folder=' + folder + '&timestamp=' + timestamp
+  const strToSign = paramStr + CLD.SECRET
   const enc = new TextEncoder()
   const hashBuf = await crypto.subtle.digest('SHA-1', enc.encode(strToSign))
   const signature = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('')
-  return { cloudName: CLD.NAME, apiKey: CLD.KEY, timestamp, signature, folder }
+  const result: any = { cloudName: CLD.NAME, apiKey: CLD.KEY, timestamp, signature, folder }
+  if (isVideo) result.eager = VIDEO_EAGER
+  return result
 }
 app.get('/api/upload-sign', async (c) => {
-  try { return c.json(await makeSign('seoul-beauty')) }
+  try { return c.json(await makeSign('seoul-beauty', true)) }  // isVideo=true → eager 변환 포함
   catch(e: any) { return c.json({ error: e.message || 'Sign failed' }, 500) }
 })
 app.get('/api/upload-sign-image', async (c) => {
-  try { return c.json(await makeSign('seoul-beauty-photos')) }
+  try { return c.json(await makeSign('seoul-beauty-photos', false)) }
   catch(e: any) { return c.json({ error: e.message || 'Sign failed' }, 500) }
 })
 
@@ -1460,9 +1484,16 @@ app.post('/api/videos', async (c) => {
     : ''
   const finalThumb = body.thumbnail || autoThumb
 
-  await sql`INSERT INTO videos (id,shop_id,title,description,video_url,thumbnail,tags,views,likes,created_at) VALUES (
+  // eager 변환 URL (Cloudinary 업로드 시 pre-generated → 크래딧 절약)
+  // 클라이언트가 eager 결과를 보내주면 저장, 없으면 null
+  const urlLow  = body.videoUrlLow  || null
+  const urlMid  = body.videoUrlMid  || null
+  const urlHigh = body.videoUrlHigh || null
+
+  await sql`INSERT INTO videos (id,shop_id,title,description,video_url,thumbnail,tags,views,likes,created_at,video_url_low,video_url_mid,video_url_high) VALUES (
     ${newId},${body.shopId||''},${body.title||''},${description},${vUrl},
-    ${finalThumb},${JSON.stringify(autoTags)},0,0,${today}
+    ${finalThumb},${JSON.stringify(autoTags)},0,0,${today},
+    ${urlLow},${urlMid},${urlHigh}
   )`
   return c.json({ ok: true, id: newId, descriptionGenerated: !body.description && !!description, tagsGenerated: !body.tags?.length && !!autoTags.length })
 })
@@ -2233,13 +2264,13 @@ app.get('/api/photo', async (c) => {
 // ══════════════════════════════════════════
 // ── 원클릭 업체+영상 동시 등록 API ──
 // POST /api/quick-register
-// body: { gmapUrl, videoUrl, category }
+// body: { gmapUrl, videoUrl, videoUrlLow, videoUrlMid, videoUrlHigh, category }
 // → 구글맵 → 업체정보 자동가져오기 + 영상 동시 등록
 // ══════════════════════════════════════════
 app.post('/api/quick-register', async (c) => {
   try {
     const sql = getDb(c.env)
-    const { gmapUrl, videoUrl, category } = await c.req.json() as { gmapUrl: string; videoUrl: string; category: string }
+    const { gmapUrl, videoUrl, videoUrlLow, videoUrlMid, videoUrlHigh, category } = await c.req.json() as { gmapUrl: string; videoUrl: string; videoUrlLow?: string; videoUrlMid?: string; videoUrlHigh?: string; category: string }
 
     if (!gmapUrl) return c.json({ error: '구글맵 URL을 입력해주세요' }, 400)
 
@@ -2391,9 +2422,11 @@ app.post('/api/quick-register', async (c) => {
         ? videoUrl.replace('/video/upload/', '/video/upload/so_0,w_600,h_1066,c_fill,q_auto/').replace(/\.mp4$/, '.jpg')
         : ''
       const today = new Date().toISOString().slice(0, 10)
+      // eager 변환 URL 저장 (업로드 시 1회 변환 → 이후 크래딧 소모 없음)
       await sql`
-        INSERT INTO videos (id, shop_id, title, description, video_url, thumbnail, tags, views, likes, created_at)
-        VALUES (${videoId}, ${shopId}, ${engName}, ${''}, ${videoUrl.trim()}, ${thumb}, ${'[]'}, 0, 0, ${today})
+        INSERT INTO videos (id, shop_id, title, description, video_url, thumbnail, tags, views, likes, created_at, video_url_low, video_url_mid, video_url_high)
+        VALUES (${videoId}, ${shopId}, ${engName}, ${''}, ${videoUrl.trim()}, ${thumb}, ${'[]'}, 0, 0, ${today},
+          ${videoUrlLow||null}, ${videoUrlMid||null}, ${videoUrlHigh||null})
       `
     }
 
@@ -2831,6 +2864,40 @@ app.post('/api/admin/fix-video-thumbnails', async (c) => {
     fixed++
   }
   return c.json({ ok: true, fixed, total: rows.length })
+})
+
+// ── POST /api/admin/migrate-video-urls ──
+// 기존 영상 중 video_url_low/mid/high가 없는 영상에 대해
+// Cloudinary URL 파라미터 변환을 적용한 URL을 DB에 저장
+// (크래딧 절약: on-the-fly 대신 DB에 미리 저장된 URL 사용)
+// ⚠️  이 엔드포인트는 Cloudinary 크래딧을 1회 소모 (마이그레이션 시에만 호출)
+// 단, 이후 재생 시에는 DB URL 그대로 사용 → 추가 크래딧 없음
+app.post('/api/admin/migrate-video-urls', async (c) => {
+  const sql = getDb(c.env)
+  // video_url_low가 없는 Cloudinary 영상만 처리
+  const rows = await sql`
+    SELECT id, video_url FROM videos
+    WHERE video_url IS NOT NULL AND video_url != ''
+      AND video_url LIKE '%res.cloudinary.com%'
+      AND (video_url_low IS NULL OR video_url_low = '')
+  ` as any[]
+
+  let migrated = 0
+  for (const r of rows) {
+    const base = r.video_url as string
+    // Cloudinary URL 구조 변환: /video/upload/ → /video/upload/<transform>/
+    const makeCldUrl = (transform: string) =>
+      base.replace('/video/upload/', '/video/upload/' + transform + '/')
+
+    const urlLow  = makeCldUrl('q_auto:low,w_360,h_640,c_fill,vc_h264,br_350k,f_mp4')
+    const urlMid  = makeCldUrl('q_auto:good,w_480,h_854,c_fill,vc_h264,br_700k,f_mp4')
+    const urlHigh = makeCldUrl('q_auto:good,w_720,h_1280,c_fill,vc_h264,br_1500k,f_mp4')
+
+    await sql`UPDATE videos SET video_url_low=${urlLow}, video_url_mid=${urlMid}, video_url_high=${urlHigh} WHERE id=${r.id}`
+    migrated++
+  }
+  return c.json({ ok: true, migrated, total: rows.length,
+    note: 'DB에 URL만 저장됨. 실제 Cloudinary 변환은 첫 재생 시 1회 발생합니다.' })
 })
 
 // POST /api/admin/fix-slugs
@@ -6989,6 +7056,7 @@ app.get('/', async (c) => {
     const [vidRows, shopRows] = await Promise.all([
       withTimeout(
         sql`SELECT v.id, v.shop_id, v.title, v.description, v.video_url, v.thumbnail, v.tags, v.views, v.likes, v.created_at,
+               v.video_url_low, v.video_url_mid, v.video_url_high,
                s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb
             FROM videos v
             LEFT JOIN shops s ON v.shop_id=s.id
@@ -7019,6 +7087,7 @@ app.get('/', async (c) => {
         description: r.description || '',
         videoUrl: vUrl, thumbnail: finalThumb, tags: r.tags || [],
         views: r.views || 0, likes: r.likes || 0, createdAt: r.created_at || '',
+        videoUrlLow: r.video_url_low || '', videoUrlMid: r.video_url_mid || '', videoUrlHigh: r.video_url_high || '',
         shop: { id: r.shop_id, name: r.shop_name || '', category: r.shop_cat || '', location: r.shop_location || '', thumbnail: shopThumb }
       }
     })
@@ -7681,15 +7750,21 @@ const MAIN_HTML = `<!DOCTYPE html>
 }
 html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-family:var(--ff-sans)}
 /* ── 로딩 스플래시 ── */
-#ld{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;transition:opacity .6s}
-.ld-pre{font-size:10px;letter-spacing:5px;color:rgba(255,255,255,.28);text-transform:uppercase;font-family:var(--ff-sans)}
-.ld-logo{font-family:var(--ff-serif);font-size:34px;font-weight:900;background:linear-gradient(135deg,#fff 0%,var(--pk3) 60%,var(--gold2) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:1px;text-align:center;line-height:1.1;animation:ldpulse 2s ease-in-out infinite}
-.ld-sub{font-size:9px;letter-spacing:6px;color:rgba(255,255,255,.25);text-transform:uppercase;margin-top:2px}
-.ld-line{width:1px;height:28px;background:linear-gradient(to bottom,transparent,rgba(201,168,76,.5),transparent);margin:10px 0 6px}
-.ld-bar{width:140px;height:2px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden;margin-top:4px}
-.ld-prog{height:100%;background:linear-gradient(90deg,var(--pk),var(--gold));animation:ldpg 2.2s cubic-bezier(.4,0,.2,1) forwards}
+#ld{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;transition:opacity .4s}
+.ld-pre{font-size:10px;letter-spacing:5px;color:rgba(255,255,255,.28);text-transform:uppercase;font-family:var(--ff-sans);margin-bottom:10px}
+.ld-logo{font-family:var(--ff-serif);font-size:34px;font-weight:900;background:linear-gradient(135deg,#fff 0%,var(--pk3) 60%,var(--gold2) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:1px;text-align:center;line-height:1.1}
+.ld-sub{font-size:9px;letter-spacing:6px;color:rgba(255,255,255,.25);text-transform:uppercase;margin-top:4px}
+.ld-line{width:1px;height:22px;background:linear-gradient(to bottom,transparent,rgba(201,168,76,.4),transparent);margin:14px 0 14px}
+/* 스피너 */
+.ld-spinner{width:36px;height:36px;position:relative;margin-top:2px}
+.ld-spinner::before,.ld-spinner::after{content:'';position:absolute;inset:0;border-radius:50%;border:2px solid transparent}
+.ld-spinner::before{border-top-color:var(--pk);border-right-color:var(--pk);animation:ldspin .8s linear infinite}
+.ld-spinner::after{border-bottom-color:var(--gold);border-left-color:var(--gold);animation:ldspin .8s linear infinite reverse;opacity:.5}
 .ld-tips{font-size:10px;color:rgba(255,255,255,.18);margin-top:18px;letter-spacing:.3px;text-align:center;min-height:14px;transition:opacity .4s}
-@keyframes ldpg{from{width:0}to{width:100%}}
+/* 프로그레스바 — 진행 표시용으로만 유지 (강제 타이머 없음) */
+.ld-bar{width:120px;height:2px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden;margin-top:14px}
+.ld-prog{height:100%;background:linear-gradient(90deg,var(--pk),var(--gold));width:0%;transition:width .3s ease}
+@keyframes ldspin{to{transform:rotate(360deg)}}
 @keyframes ldpulse{0%,100%{opacity:1}50%{opacity:.75}}
 /* ── 모달 hero 이미지 shimmer + blur-up ── */
 .m-hero{position:relative}
@@ -8090,7 +8165,14 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 </style>
 </head>
 <body>
-<div id="ld" style="display:none"></div>
+<div id="ld">
+  <div class="ld-pre">Welcome to</div>
+  <div class="ld-logo">Seoul Beauty Trip</div>
+  <div class="ld-sub">Korean Beauty Experience</div>
+  <div class="ld-line"></div>
+  <div class="ld-spinner"></div>
+  <div class="ld-bar"><div class="ld-prog"></div></div>
+</div>
 
 <header id="hd">
   <div class="hd-top">
@@ -8275,8 +8357,12 @@ var _ldStartTime = Date.now();
 var _MIN_SPLASH_MS = 0;
 var _ldReadyFlags = { shops: false, videos: false };
 var _ldFallbackTimer = null;
-// 스플래시 완전 비활성화 - 콘텐츠 즉시 표시
-var _ldHidden = true;
+var _ldHidden = false;
+// 스플래시: 최소 대기 없음 — 데이터+첫영상 준비되면 즉시 표시 (릴스 방식)
+// 최대 fallback: 3초 (네트워크 장애 대비)
+var _SPLASH_DURATION_MS = 0; // 강제 대기 제거
+_preloadFirstVideoEarly(); // 스플래시 뜨자마자 즉시 첫 영상 다운로드 시작
+// 강제 타이머 제거 — _checkLdReady()가 데이터 준비 즉시 hideLd() 호출
 
 /* 프로그레스 바 단계 제어 */
 function setLdProgress(pct) {
@@ -8305,28 +8391,66 @@ function hideLd(){
   }, 420);
 }
 
-/* 스플래시 페이드 중에 첫 영상 src 세팅 (다운로드 선행) */
+/* 스플래시 시작 즉시 첫 영상 다운로드 선행 (data-src가 아직 없을 수 있어서 DOM ready 후 재시도) */
+function _preloadFirstVideoEarly(){
+  function _try(){
+    var v0 = document.getElementById('vid0');
+    if(!v0 || !v0.dataset.src) return;
+    if(v0.src) return;
+    v0.preload = 'auto';
+    v0.src = v0.dataset.src;
+    v0.load();
+  }
+  // 즉시 시도 + DOM 준비 후 한 번 더
+  _try();
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', _try, {once:true});
+  } else {
+    setTimeout(_try, 100);
+  }
+}
+/* 스플래시 페이드아웃 시 첫 영상 src 재확인 */
 function _preloadFirstVideo(){
-  var v0 = document.getElementById('vid0');
-  if(!v0 || v0.src || !v0.dataset.src) return;
-  v0.preload = 'auto';
-  v0.src = v0.dataset.src;
-  v0.load();
+  _preloadFirstVideoEarly();
 }
 
-/* shops + videos 둘 다 준비되면 최소시간 후 hideLd() */
+/* shops + videos 둘 다 준비되면 → 첫 영상이 재생 가능하면 즉시 hideLd (릴스 방식) */
 function _checkLdReady() {
   if(!_ldReadyFlags.shops || !_ldReadyFlags.videos) return;
-  // vids의 shopId → videoUrl/thumbnail 을 allShopsData에 주입
   _injectVideoIntoShops();
-  var elapsed = Date.now() - _ldStartTime;
-  var delay = Math.max(0, _MIN_SPLASH_MS - elapsed);
-  // DOM이 준비된 후에 hideLd 실행 보장
-  // (prefetchShops가 스크립트 파싱 시점에 즉시 완료되면 DOM이 아직 없을 수 있음)
-  if(document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function(){ setTimeout(hideLd, delay); }, {once: true});
-  } else {
-    setTimeout(hideLd, delay);
+
+  var v0 = document.getElementById('vid0');
+
+  // 첫 영상이 이미 충분히 버퍼링됐으면 즉시 숨김
+  if(v0 && v0.readyState >= 3) { // HAVE_FUTURE_DATA 이상
+    hideLd();
+    return;
+  }
+
+  // 첫 영상 src 먼저 세팅 (아직 안 됐으면)
+  if(v0 && !v0.src && v0.dataset.src) {
+    v0.preload = 'auto';
+    v0.src = v0.dataset.src;
+    v0.load();
+  }
+
+  // canplay 이벤트 감지 → 즉시 숨김 (스피너 없이 바로 재생)
+  if(v0 && v0.src) {
+    var _canPlayFired = false;
+    function _onCanPlay() {
+      if(_canPlayFired) return;
+      _canPlayFired = true;
+      v0.removeEventListener('canplay', _onCanPlay);
+      v0.removeEventListener('canplaythrough', _onCanPlay);
+      hideLd();
+    }
+    v0.addEventListener('canplay', _onCanPlay, {once: true});
+    v0.addEventListener('canplaythrough', _onCanPlay, {once: true});
+  }
+
+  // 최대 fallback: 3초 (네트워크 느린 경우 스피너 대신 영상 로딩 중 표시)
+  if(!_ldFallbackTimer) {
+    _ldFallbackTimer = setTimeout(function(){ hideLd(); }, 3000);
   }
 }
 
@@ -8412,7 +8536,7 @@ function loadVideos(cat) {
     // [버그 수정] 인라인 데이터로 즉시 완료해도 fallback timer는 반드시 세팅
     // prefetchShops가 느릴 경우 shops 플래그를 기다리다 무한 대기하는 것 방지
     if(!_ldFallbackTimer) {
-      _ldFallbackTimer = setTimeout(function(){ hideLd(); hideCatLoading(); }, 2000);
+      _ldFallbackTimer = setTimeout(function(){ hideLd(); hideCatLoading(); }, 3000);
     }
     _checkLdReady();
     return;
@@ -8448,8 +8572,8 @@ function loadVideos(cat) {
       if(_ldHidden) { setupObs(); }
       if(!_ldHidden){ hideLd(); }
     });
-  // 최대 3초 fallback
-  _ldFallbackTimer = setTimeout(function(){ hideLd(); hideCatLoading(); }, 3000);
+  // 최대 fallback: 3초
+  if(!_ldFallbackTimer) _ldFallbackTimer = setTimeout(function(){ hideLd(); hideCatLoading(); }, 3000);
 }
 
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -8524,15 +8648,36 @@ function cdnImg(url, w, h) {
   return url.replace('/image/upload/', '/image/upload/'+transform+'/');
 }
 
-function cdnVideo(url, isFirst) {
-  // Cloudinary 영상 스트리밍 최적화
-  // 첫 영상: 360p + 400kbps → 빠른 첫 화면 (모바일 광고 유입 최적화)
-  // 나머지: 480p + 600kbps
-  if(!url || url.indexOf('res.cloudinary.com') === -1) return url;
-  var transform = isFirst
-    ? 'q_auto:low,w_360,vc_h264,br_400k,f_mp4'
-    : 'q_auto:low,w_480,vc_h264,br_600k,f_mp4';
-  return url.replace('/video/upload/', '/video/upload/' + transform + '/');
+// ── 네트워크 속도 감지 → 영상 화질 티어 결정 ──
+// 'low' = 2g/slow-2g (360p 350kbps)
+// 'mid' = 3g / 미지원 브라우저 (480p 700kbps)
+// 'high' = 4g (720p 1500kbps)
+function getNetworkTier() {
+  try {
+    var conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if(!conn) return 'mid'; // 미지원 → 중간 화질
+    var et = conn.effectiveType || '';
+    if(et === '2g' || et === 'slow-2g') return 'low';
+    if(et === '4g') return 'high';
+    return 'mid';
+  } catch(e) { return 'mid'; }
+}
+
+// ── cdnVideo: DB에 저장된 eager 변환 URL 사용 (on-the-fly 변환 완전 제거) ──
+// DB URL이 없는 기존 영상은 원본 URL 그대로 반환 (크래딧 소모 없음)
+// v 객체에 videoUrlLow/Mid/High가 있으면 네트워크 속도에 맞는 URL 반환
+function cdnVideo(url, isFirst, v) {
+  if(!url) return url;
+  // DB에 eager 변환 URL이 저장되어 있으면 네트워크 속도에 맞게 선택
+  if(v && (v.videoUrlLow || v.videoUrlMid || v.videoUrlHigh)) {
+    var tier = isFirst ? 'low' : getNetworkTier(); // 첫 영상은 항상 low (preload 최우선)
+    if(tier === 'low'  && v.videoUrlLow)  return v.videoUrlLow;
+    if(tier === 'high' && v.videoUrlHigh) return v.videoUrlHigh;
+    if(v.videoUrlMid) return v.videoUrlMid;
+    if(v.videoUrlLow) return v.videoUrlLow;  // fallback
+  }
+  // DB URL 없는 기존 영상 → 원본 그대로 (on-the-fly 변환 없음 = 크래딧 0)
+  return url;
 }
 
 function buildSlide(v, idx) {
@@ -8582,7 +8727,7 @@ function buildSlide(v, idx) {
     var bufIc  = document.getElementById('bufic'+vidIdx);
 
     if(ve) {
-      ve.setAttribute('data-src', esc(cdnVideo(v.videoUrl, vidIdx === 0)));
+      ve.setAttribute('data-src', esc(cdnVideo(v.videoUrl, vidIdx === 0, v)));
 
       // ── 버퍼링 스피너 제어 ──
       function showBuf(){ if(bufIc) bufIc.style.display='flex'; }
@@ -8707,26 +8852,38 @@ function loadVidSrc(vid){
   }
 }
 function preloadNext(idx){
-  // 다음 1개만 preload — 2개 동시 다운로드는 모바일 대역폭 경쟁 유발
-  var next = document.getElementById('vid'+(idx+1));
-  if(next && !next.src && next.dataset.src){
-    next.preload = 'auto';
-    next.src = next.dataset.src;
-    // load()는 호출하지 않음 — src 세팅만으로 브라우저가 알아서 버퍼링
-  }
+  // 릴스 방식: 다음 2개 미리로드
+  // +1: 즉시 로드 시작 (스와이프 시 바로 재생)
+  // +2: 백그라운드 로드 (대역폭 여유 있을 때)
+  [idx+1, idx+2].forEach(function(ni, i){
+    var next = document.getElementById('vid'+ni);
+    if(next && !next.src && next.dataset.src){
+      next.preload = 'auto';
+      next.src = next.dataset.src;
+      // load()로 명시적으로 다운로드 시작 (src만 세팅하면 안 되는 브라우저 있음)
+      // +2는 약간 지연해서 +1 우선순위 보장
+      if(i === 0) {
+        next.load();
+      } else {
+        setTimeout(function(){ if(!next.readyState) next.load(); }, 800);
+      }
+    }
+  });
 }
 
 function _playVid(vid, bufIc){
   if(!vid) return;
   vid.muted = isMuted;
 
-  // src 미세팅이면 지금 세팅 (load()는 호출 안 함 — play()가 암묵적으로 호출)
+  // src 미세팅이면 지금 세팅 + 명시적 load() 호출
   if(!vid.src && vid.dataset.src){
     vid.preload = 'auto';
     vid.src = vid.dataset.src;
+    vid.load(); // 브라우저에게 명시적으로 다운로드 시작 지시
   }
 
-  // 이미 충분히 버퍼됐으면 스피너 없이 바로 재생
+  // HAVE_FUTURE_DATA(3) 이상이면 스피너 없이 바로 재생
+  // readyState 1(HAVE_METADATA) 이하면 스피너 표시
   if(vid.readyState >= 3){
     if(bufIc) bufIc.style.display = 'none';
   } else {
@@ -10814,8 +10971,11 @@ textarea{height:80px;resize:none}
       <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:5px"><i class="fas fa-video" style="color:#FF4D8D"></i> 영상 파일 <span style="color:rgba(255,255,255,.3)">(선택 · 업로드 후 자동 등록)</span></label>
       <!-- 숨겨진 파일 input -->
       <input type="file" id="qr-video-file" accept="video/*" style="display:none">
-      <!-- hidden: 업로드 완료 후 URL 저장 -->
+      <!-- hidden: 업로드 완료 후 URL 저장 (원본 + eager 변환 3종) -->
       <input type="hidden" id="qr-video">
+      <input type="hidden" id="qr-video-url-low">
+      <input type="hidden" id="qr-video-url-mid">
+      <input type="hidden" id="qr-video-url-high">
       <!-- 업로드 버튼 영역 -->
       <div style="display:flex;align-items:center;gap:8px">
         <button type="button" id="qr-video-btn"
@@ -13169,6 +13329,8 @@ window.qrSetCat = function(cat) {
           fd.append('timestamp', sign.timestamp);
           fd.append('signature', sign.signature);
           fd.append('folder', sign.folder);
+          // eager 변환 포함 (서버에서 받은 값 그대로 전송)
+          if(sign.eager) fd.append('eager', sign.eager);
 
           var xhr = new XMLHttpRequest();
           xhr.open('POST', 'https://api.cloudinary.com/v1_1/' + sign.cloudName + '/video/upload');
@@ -13194,6 +13356,14 @@ window.qrSetCat = function(cat) {
       .then(function(data){
         if(data.secure_url){
           hiddenUrl.value = data.secure_url;
+          // eager 변환 URL 저장 (hidden input에 보관 → quickRegister 시 전송)
+          var eagerArr = data.eager || [];
+          var elLow  = document.getElementById('qr-video-url-low');
+          var elMid  = document.getElementById('qr-video-url-mid');
+          var elHigh = document.getElementById('qr-video-url-high');
+          if(elLow)  elLow.value  = (eagerArr[0] && eagerArr[0].secure_url) || '';
+          if(elMid)  elMid.value  = (eagerArr[1] && eagerArr[1].secure_url) || '';
+          if(elHigh) elHigh.value = (eagerArr[2] && eagerArr[2].secure_url) || '';
           progBar.style.width = '100%';
           progText.style.color = '#4ade80';
           progText.textContent = '✅ 업로드 완료!';
@@ -13340,8 +13510,11 @@ window.checkDuplicates = async function checkDuplicates() {
 };
 
 window.quickRegister = async function quickRegister() {
-  var gmapUrl   = (document.getElementById('qr-gmap').value || '').trim();
-  var videoUrl  = (document.getElementById('qr-video').value || '').trim(); // 업로드 완료 후 자동 세팅
+  var gmapUrl      = (document.getElementById('qr-gmap').value || '').trim();
+  var videoUrl     = (document.getElementById('qr-video').value || '').trim(); // 업로드 완료 후 자동 세팅
+  var videoUrlLow  = (document.getElementById('qr-video-url-low')  ? document.getElementById('qr-video-url-low').value  : '') || '';
+  var videoUrlMid  = (document.getElementById('qr-video-url-mid')  ? document.getElementById('qr-video-url-mid').value  : '') || '';
+  var videoUrlHigh = (document.getElementById('qr-video-url-high') ? document.getElementById('qr-video-url-high').value : '') || '';
   var category  = document.getElementById('qr-category').value || 'clinic';
   var btn       = document.getElementById('qr-btn');
   var status    = document.getElementById('qr-status');
@@ -13374,7 +13547,7 @@ window.quickRegister = async function quickRegister() {
     var res = await fetch('/api/quick-register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gmapUrl, videoUrl, category })
+      body: JSON.stringify({ gmapUrl, videoUrl, videoUrlLow, videoUrlMid, videoUrlHigh, category })
     });
     var data = await res.json();
 
@@ -14438,6 +14611,8 @@ function addVidRow(){
         fd.append('timestamp', sign.timestamp);
         fd.append('signature', sign.signature);
         fd.append('folder', sign.folder);
+        // eager 변환 포함 (업로드 시 1회 변환 → 크래딧 절약)
+        if(sign.eager) fd.append('eager', sign.eager);
         return fetch('https://api.cloudinary.com/v1_1/' + sign.cloudName + '/video/upload', {
           method: 'POST', body: fd
         }).then(function(r){ return r.json(); });
@@ -14445,6 +14620,11 @@ function addVidRow(){
       .then(function(data){
         if(data.secure_url){
           urlIn.value = data.secure_url;
+          // eager 변환 URL을 row에 data 속성으로 저장 → addShop에서 수집
+          var eagerArr = data.eager || [];
+          row.dataset.videoUrlLow  = (eagerArr[0] && eagerArr[0].secure_url) || '';
+          row.dataset.videoUrlMid  = (eagerArr[1] && eagerArr[1].secure_url) || '';
+          row.dataset.videoUrlHigh = (eagerArr[2] && eagerArr[2].secure_url) || '';
           uploadStatus.style.color = '#4ade80';
           uploadStatus.textContent = '✅ 업로드 완료!';
           uploadBtn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
@@ -14762,7 +14942,13 @@ window.addShop = function addShop(){
     var t = row.querySelector('.vid-form-title').value.trim();
     var u = row.querySelector('.vid-form-url').value.trim();
     var d = row.querySelector('.vid-form-desc').value.trim();
-    if(t && u) pendingVids.push({title:t, videoUrl:u, description:d});
+    if(t && u) pendingVids.push({
+      title: t, videoUrl: u, description: d,
+      // eager 변환 URL (row.dataset에 저장된 값)
+      videoUrlLow:  row.dataset.videoUrlLow  || '',
+      videoUrlMid:  row.dataset.videoUrlMid  || '',
+      videoUrlHigh: row.dataset.videoUrlHigh || ''
+    });
   });
 
   var btn = document.getElementById('sh-submit-btn');
@@ -14814,6 +15000,9 @@ window.addShop = function addShop(){
             shopId:newShopId,
             title:v.title,
             videoUrl:v.videoUrl,
+            videoUrlLow:v.videoUrlLow||'',
+            videoUrlMid:v.videoUrlMid||'',
+            videoUrlHigh:v.videoUrlHigh||'',
             description:v.description,
             thumbnail:'',
             tags:[],
@@ -15070,8 +15259,10 @@ window.addVideo = async function addVideo(){
     fd.append('timestamp', sign.timestamp);
     fd.append('signature', sign.signature);
     fd.append('folder', sign.folder);
+    // eager 변환 포함 (업로드 시 1회 변환 → 이후 크래딧 소모 없음)
+    if(sign.eager) fd.append('eager', sign.eager);
 
-    var videoUrl = await new Promise(function(resolve, reject){
+    var uploadResult = await new Promise(function(resolve, reject){
       var xhr = new XMLHttpRequest();
       xhr.open('POST', 'https://api.cloudinary.com/v1_1/' + sign.cloudName + '/video/upload');
       xhr.upload.onprogress = function(e){
@@ -15083,13 +15274,19 @@ window.addVideo = async function addVideo(){
       };
       xhr.onload = function(){
         if(xhr.status === 200){
-          var res = JSON.parse(xhr.responseText);
-          resolve(res.secure_url);
+          resolve(JSON.parse(xhr.responseText));
         } else { reject(new Error('업로드 실패: ' + xhr.status)); }
       };
       xhr.onerror = function(){ reject(new Error('네트워크 오류')); };
       xhr.send(fd);
     });
+
+    var videoUrl = uploadResult.secure_url;
+    // eager 변환 URL 추출 (low=360p, mid=480p, high=720p)
+    var eagerArr = uploadResult.eager || [];
+    var videoUrlLow  = (eagerArr[0] && eagerArr[0].secure_url) || '';
+    var videoUrlMid  = (eagerArr[1] && eagerArr[1].secure_url) || '';
+    var videoUrlHigh = (eagerArr[2] && eagerArr[2].secure_url) || '';
 
     // 3. DB 저장
     progressLabel.textContent = '등록 중...';
@@ -15100,6 +15297,9 @@ window.addVideo = async function addVideo(){
       shopId: currentShopId,
       title: '',
       videoUrl: videoUrl,
+      videoUrlLow: videoUrlLow,
+      videoUrlMid: videoUrlMid,
+      videoUrlHigh: videoUrlHigh,
       thumbnail: shop.thumbnail || '',
       description: '',
       tags: []
