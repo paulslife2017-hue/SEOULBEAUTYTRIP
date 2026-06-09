@@ -4254,8 +4254,6 @@ function isBotUa(ua) {
   if (!ua) return true;
   const u = ua.toLowerCase();
   if (/bot|crawl|spider|slurp|facebookexternalhit|pinterest|linkedinbot|twitterbot|whatsapp|telegram|slack|discord|semrush|ahrefs|mj12|dotbot|bingpreview|google-inspectiontool|chrome-lighthouse|headlesschrome|puppeteer|playwright|selenium/i.test(u)) return true;
-  const chromeVer = ua.match(/Chrome\/(\d+)/);
-  if (chromeVer && parseInt(chromeVer[1]) >= 140) return true;
   if (ua.length < 20) return true;
   return false;
 }
@@ -4331,13 +4329,8 @@ app.get("/api/visitors", async (c) => {
       FROM visitor_sessions vs
       LEFT JOIN visitor_events ve ON ve.session_id = vs.session_id
       WHERE
-        -- 봇 UA 필터링
+        -- 봇 UA 필터링 (Chrome 버전 기반 필터링 제거 - Chrome 149가 2026년 6월 최신버전)
         vs.ua NOT SIMILAR TO '%(bot|crawl|spider|headless|puppet|selenium|lighthouse)%'
-        AND (
-          -- Chrome 버전 140 이상은 봇 (현재 최신 ~136)
-          vs.ua !~ 'Chrome/1[4-9][0-9]'
-          AND vs.ua !~ 'Chrome/[2-9][0-9][0-9]'
-        )
         AND LENGTH(vs.ua) >= 20
       GROUP BY vs.session_id
       ORDER BY vs.started_at DESC
@@ -4347,7 +4340,6 @@ app.get("/api/visitors", async (c) => {
       SELECT COUNT(*) AS c FROM visitor_sessions
       WHERE
         ua NOT SIMILAR TO '%(bot|crawl|spider|headless|puppet|selenium|lighthouse)%'
-        AND (ua !~ 'Chrome/1[4-9][0-9]' AND ua !~ 'Chrome/[2-9][0-9][0-9]')
         AND LENGTH(ua) >= 20
     `;
     return c.json({ sessions, total: Number(total[0]?.c || 0) });
@@ -4428,7 +4420,6 @@ app.get("/api/visitors-live", async (c) => {
       FROM visitor_sessions vs
       WHERE last_active >= NOW() - INTERVAL '3 minutes'
         AND vs.ua NOT SIMILAR TO '%(bot|crawl|spider|headless|puppet|selenium|lighthouse)%'
-        AND (vs.ua !~ 'Chrome/1[4-9][0-9]' AND vs.ua !~ 'Chrome/[2-9][0-9][0-9]')
         AND LENGTH(vs.ua) >= 20
       ORDER BY last_active DESC
     `;
@@ -5656,7 +5647,13 @@ ${(() => {
 </div>
 
 <div class="sp-float">
-  <a href="${waUrl}" target="_blank" rel="noopener" onclick="if(typeof gtag==='function')gtag('event','whatsapp_click',{event_category:'conversion',event_label:'${shop.name.replace(/'/g, "\\'")}',shop_name:'${shop.name.replace(/'/g, "\\'")}',shop_category:'${shop.category}',page_location:window.location.href})">
+  <a href="${waUrl}" target="_blank" rel="noopener" onclick="(function(){
+    var sn='${shop.name.replace(/'/g, "\\'").replace(/"/g, "&quot;")}';
+    var sc='${shop.category}';
+    var si='${shop.id}';
+    if(typeof gtag==='function')gtag('event','whatsapp_click',{event_category:'conversion',event_label:sn,shop_name:sn,shop_category:sc,page_location:window.location.href});
+    if(typeof _sbSend==='function')_sbSend('book_click',{shop_id:si,shop_name:sn,shop_category:sc,target:'whatsapp'});
+  })()">
     <i class="fab fa-whatsapp" style="font-size:20px"></i> Book via WhatsApp
   </a>
 </div>
@@ -7732,6 +7729,7 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;line-height
   });
 })();
 </script>
+${SB_TRACKER_SCRIPT}
 </body>
 </html>`;
   const readMin = Math.ceil((post.content || "").replace(/<[^>]+>/g, "").split(" ").length / 200);
@@ -11464,6 +11462,7 @@ function renderShopPanel(cat) {
   <iframe id="mapOverlayFrame" src="" style="flex:1;border:0;width:100%;display:block" allowfullscreen loading="lazy"></iframe>
 </div>
 
+${SB_TRACKER_SCRIPT}
 </body>
 </html>`;
 var SB_TRACKER_SCRIPT = `<script>
@@ -11493,6 +11492,8 @@ var SB_TRACKER_SCRIPT = `<script>
     var b=JSON.stringify(d);
     navigator.sendBeacon?navigator.sendBeacon('/api/track',b):fetch('/api/track',{method:'POST',body:b,headers:{'Content-Type':'application/json'},keepalive:true}).catch(function(){});
   }
+  // \uC5C5\uCCB4 \uD398\uC774\uC9C0 \uB4F1 \uC678\uBD80 \uC778\uB77C\uC778 onclick\uC5D0\uC11C \uD638\uCD9C \uAC00\uB2A5\uD558\uB3C4\uB85D \uC804\uC5ED \uB178\uCD9C
+  window._sbSend = send;
 
   // \u2500\u2500 page_view: \uC7AC\uBC29\uBB38/\uB0B4\uBD80\uC774\uB3D9 \uC815\uBCF4 \uD3EC\uD568 \u2500\u2500
   send('page_view',{
@@ -11561,7 +11562,8 @@ var SB_TRACKER_SCRIPT = `<script>
   window._sbTrackVideo=function(id,sn){send('video_play',{target:id,shop_name:sn||''});};
   if(location.pathname.startsWith('/shop/')){
     setTimeout(function(){
-      var sn=document.querySelector('.sp-name')?.textContent?.trim()||document.title.split('|')[0].trim();
+      // .sp-title h1\uC5D0\uC11C \uC5C5\uCCB4\uBA85 \uCD94\uCD9C, \uC5C6\uC73C\uBA74 title\uC758 '\u2014' \uC55E\uBD80\uBD84\uB9CC \uC0AC\uC6A9
+      var sn=document.querySelector('h1.sp-title')?.textContent?.trim()||document.title.split('\u2014')[0].split('|')[0].trim();
       send('shop_view',{target:location.pathname.replace('/shop/',''),shop_name:sn});
     },300);
   }
@@ -13591,6 +13593,7 @@ function buildTlItem(ev, prev){
     page_exit:    { ico:'fa-sign-out-alt',  color:'#94a3b8', label:'\uC774\uD0C8',             bg:'rgba(148,163,184,.06)' },
     scroll_depth: { ico:'fa-arrows-alt-v',  color:'#4ade80', label:'\uC2A4\uD06C\uB864 \uB3C4\uB2EC',      bg:'rgba(74,222,128,.08)' },
     wa_click:     { ico:'fa-whatsapp',      color:'#25d366', label:'\u{1F4AC} WhatsApp \uBB38\uC758', bg:'rgba(37,211,102,.12)' },
+    book_click:   { ico:'fa-calendar-check', color:'#22c55e', label:'\u{1F4C5} Book \uBC84\uD2BC \uD074\uB9AD', bg:'rgba(34,197,94,.15)' },
     shop_view:    { ico:'fa-store',         color:'#f472b6', label:'\uC5C5\uCCB4 \uC0C1\uC138 \uC870\uD68C',   bg:'rgba(244,114,182,.09)' },
     shop_click:   { ico:'fa-hand-pointer',  color:'#fb923c', label:'\uC5C5\uCCB4 \uD074\uB9AD',        bg:'rgba(251,146,60,.08)' },
     video_play:   { ico:'fa-play-circle',   color:'#a78bfa', label:'\u{1F3AC} \uC601\uC0C1 \uC2DC\uCCAD',     bg:'rgba(167,139,250,.09)' },

@@ -2421,9 +2421,7 @@ function isBotUa(ua: string): boolean {
   const u = ua.toLowerCase()
   // 알려진 봇/크롤러 키워드
   if (/bot|crawl|spider|slurp|facebookexternalhit|pinterest|linkedinbot|twitterbot|whatsapp|telegram|slack|discord|semrush|ahrefs|mj12|dotbot|bingpreview|google-inspectiontool|chrome-lighthouse|headlesschrome|puppeteer|playwright|selenium/i.test(u)) return true
-  // Chrome 버전 이상치 감지: Chrome/1xx~2xx (현재 최신 Chrome ~136, 140 이상은 봇)
-  const chromeVer = ua.match(/Chrome\/(\d+)/)
-  if (chromeVer && parseInt(chromeVer[1]) >= 140) return true
+  // ⚠️ Chrome 버전 필터링 제거: Chrome 149는 2026년 6월 최신 안정 버전이므로 봇 아님
   // UA가 너무 짧거나 비정상
   if (ua.length < 20) return true
   return false
@@ -2517,13 +2515,8 @@ app.get('/api/visitors', async (c) => {
       FROM visitor_sessions vs
       LEFT JOIN visitor_events ve ON ve.session_id = vs.session_id
       WHERE
-        -- 봇 UA 필터링
+        -- 봇 UA 필터링 (Chrome 버전 기반 필터링 제거 - Chrome 149가 2026년 6월 최신버전)
         vs.ua NOT SIMILAR TO '%(bot|crawl|spider|headless|puppet|selenium|lighthouse)%'
-        AND (
-          -- Chrome 버전 140 이상은 봇 (현재 최신 ~136)
-          vs.ua !~ 'Chrome/1[4-9][0-9]'
-          AND vs.ua !~ 'Chrome/[2-9][0-9][0-9]'
-        )
         AND LENGTH(vs.ua) >= 20
       GROUP BY vs.session_id
       ORDER BY vs.started_at DESC
@@ -2534,7 +2527,6 @@ app.get('/api/visitors', async (c) => {
       SELECT COUNT(*) AS c FROM visitor_sessions
       WHERE
         ua NOT SIMILAR TO '%(bot|crawl|spider|headless|puppet|selenium|lighthouse)%'
-        AND (ua !~ 'Chrome/1[4-9][0-9]' AND ua !~ 'Chrome/[2-9][0-9][0-9]')
         AND LENGTH(ua) >= 20
     `
 
@@ -2628,7 +2620,6 @@ app.get('/api/visitors-live', async (c) => {
       FROM visitor_sessions vs
       WHERE last_active >= NOW() - INTERVAL '3 minutes'
         AND vs.ua NOT SIMILAR TO '%(bot|crawl|spider|headless|puppet|selenium|lighthouse)%'
-        AND (vs.ua !~ 'Chrome/1[4-9][0-9]' AND vs.ua !~ 'Chrome/[2-9][0-9][0-9]')
         AND LENGTH(vs.ua) >= 20
       ORDER BY last_active DESC
     `
@@ -4024,7 +4015,13 @@ ${(()=>{
 </div>
 
 <div class="sp-float">
-  <a href="${waUrl}" target="_blank" rel="noopener" onclick="if(typeof gtag==='function')gtag('event','whatsapp_click',{event_category:'conversion',event_label:'${shop.name.replace(/'/g,"\\'")}',shop_name:'${shop.name.replace(/'/g,"\\'")}',shop_category:'${shop.category}',page_location:window.location.href})">
+  <a href="${waUrl}" target="_blank" rel="noopener" onclick="(function(){
+    var sn='${shop.name.replace(/'/g,"\\'").replace(/"/g,'&quot;')}';
+    var sc='${shop.category}';
+    var si='${shop.id}';
+    if(typeof gtag==='function')gtag('event','whatsapp_click',{event_category:'conversion',event_label:sn,shop_name:sn,shop_category:sc,page_location:window.location.href});
+    if(typeof _sbSend==='function')_sbSend('book_click',{shop_id:si,shop_name:sn,shop_category:sc,target:'whatsapp'});
+  })()">
     <i class="fab fa-whatsapp" style="font-size:20px"></i> Book via WhatsApp
   </a>
 </div>
@@ -6250,6 +6247,7 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;line-height
   });
 })();
 </script>
+${SB_TRACKER_SCRIPT}
 </body>
 </html>`
   // content/tags 등을 별도로 치환 (CF Workers 템플릿 리터럴 CPU 부담 경감)
@@ -10100,6 +10098,7 @@ function renderShopPanel(cat) {
   <iframe id="mapOverlayFrame" src="" style="flex:1;border:0;width:100%;display:block" allowfullscreen loading="lazy"></iframe>
 </div>
 
+${SB_TRACKER_SCRIPT}
 </body>
 </html>`
 
@@ -10132,6 +10131,8 @@ const SB_TRACKER_SCRIPT = `<script>
     var b=JSON.stringify(d);
     navigator.sendBeacon?navigator.sendBeacon('/api/track',b):fetch('/api/track',{method:'POST',body:b,headers:{'Content-Type':'application/json'},keepalive:true}).catch(function(){});
   }
+  // 업체 페이지 등 외부 인라인 onclick에서 호출 가능하도록 전역 노출
+  window._sbSend = send;
 
   // ── page_view: 재방문/내부이동 정보 포함 ──
   send('page_view',{
@@ -10200,7 +10201,8 @@ const SB_TRACKER_SCRIPT = `<script>
   window._sbTrackVideo=function(id,sn){send('video_play',{target:id,shop_name:sn||''});};
   if(location.pathname.startsWith('/shop/')){
     setTimeout(function(){
-      var sn=document.querySelector('.sp-name')?.textContent?.trim()||document.title.split('|')[0].trim();
+      // .sp-title h1에서 업체명 추출, 없으면 title의 '—' 앞부분만 사용
+      var sn=document.querySelector('h1.sp-title')?.textContent?.trim()||document.title.split('—')[0].split('|')[0].trim();
       send('shop_view',{target:location.pathname.replace('/shop/',''),shop_name:sn});
     },300);
   }
@@ -12232,6 +12234,7 @@ function buildTlItem(ev, prev){
     page_exit:    { ico:'fa-sign-out-alt',  color:'#94a3b8', label:'이탈',             bg:'rgba(148,163,184,.06)' },
     scroll_depth: { ico:'fa-arrows-alt-v',  color:'#4ade80', label:'스크롤 도달',      bg:'rgba(74,222,128,.08)' },
     wa_click:     { ico:'fa-whatsapp',      color:'#25d366', label:'💬 WhatsApp 문의', bg:'rgba(37,211,102,.12)' },
+    book_click:   { ico:'fa-calendar-check', color:'#22c55e', label:'📅 Book 버튼 클릭', bg:'rgba(34,197,94,.15)' },
     shop_view:    { ico:'fa-store',         color:'#f472b6', label:'업체 상세 조회',   bg:'rgba(244,114,182,.09)' },
     shop_click:   { ico:'fa-hand-pointer',  color:'#fb923c', label:'업체 클릭',        bg:'rgba(251,146,60,.08)' },
     video_play:   { ico:'fa-play-circle',   color:'#a78bfa', label:'🎬 영상 시청',     bg:'rgba(167,139,250,.09)' },
