@@ -4513,36 +4513,103 @@ body{background:#0f0f12;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
   const isClinicGangnam = catSlug === 'clinic' && areaSlug === 'gangnam'
   // headspa+myeongdong 조합은 "Korean Head Spa Myeongdong" 키워드 타깃
   const isHeadSpaMyeongdong = catSlug === 'headspa' && areaSlug === 'myeongdong'
+  // 신규 6개 고수요 조합 SEO 타깃
+  const isClinicItaewon    = catSlug === 'clinic'    && areaSlug === 'itaewon'
+  const isClinicMyeongdong = catSlug === 'clinic'    && areaSlug === 'myeongdong'
+  const isHeadspaGangnam   = catSlug === 'headspa'   && areaSlug === 'gangnam'
+  const isHeadspaHongdae   = catSlug === 'headspa'   && areaSlug === 'hongdae'
+  const isHairGangnam      = catSlug === 'hair'      && areaSlug === 'gangnam'
+  const isSkincareGangnam  = catSlug === 'skincare'  && areaSlug === 'gangnam'
   const titleMain   = isClinicGangnam
     ? `Best Gangnam Dermatology Clinic for Foreigners ${yr} | Seoul Beauty Trip`
     : isHeadSpaMyeongdong
     ? `Best Korean Head Spa in Myeongdong Seoul ${yr} | Seoul Beauty Trip`
+    : isClinicItaewon
+    ? `Best Skin Clinic in Itaewon Seoul ${yr} — English-Speaking & Tourist-Friendly | Seoul Beauty Trip`
+    : isClinicMyeongdong
+    ? `Best Skin Clinic in Myeongdong Seoul ${yr} — Walk-in Dermatology for Tourists | Seoul Beauty Trip`
+    : isHeadspaGangnam
+    ? `Best Head Spa in Gangnam Seoul ${yr} — Prices, Tips & Booking Guide | Seoul Beauty Trip`
+    : isHeadspaHongdae
+    ? `Best Head Spa in Hongdae Seoul ${yr} — Budget-Friendly Korean Scalp Treatment | Seoul Beauty Trip`
+    : isHairGangnam
+    ? `Best Hair Salon in Gangnam for Foreigners ${yr} — Price & Booking Guide | Seoul Beauty Trip`
+    : isSkincareGangnam
+    ? `Best Skincare Clinic in Gangnam Seoul ${yr} — Clinic vs Dermatology Guide | Seoul Beauty Trip`
     : `Best ${catLabel} in ${areaLabel} Seoul for Foreigners ${yr}`
   const metaDesc    = isClinicGangnam
     ? `Top-rated Gangnam dermatology clinic guide for foreigners ${yr}. English-speaking dermatologists, transparent pricing, WhatsApp booking. Laser, RF, skin booster & more.`
     : isHeadSpaMyeongdong
     ? `Best Korean head spa in Myeongdong Seoul ${yr}. Viral 18-step scalp treatment, foreigner-friendly with English booking. Prices, tips & honest guide for tourists.`
+    : isClinicItaewon
+    ? `Top English-speaking skin clinics in Itaewon Seoul ${yr}. Walk-in friendly, foreigner-tested, transparent pricing. Laser, brightening & acne treatments with WhatsApp booking.`
+    : isClinicMyeongdong
+    ? `Best walk-in skin clinics in Myeongdong Seoul ${yr}. Tourist-friendly dermatology with English-speaking staff, transparent prices & same-day appointments for foreign visitors.`
+    : isHeadspaGangnam
+    ? `Best head spa in Gangnam Seoul ${yr}. Price guide, treatment types, what to expect & how to book. Foreigner-friendly scalp treatments with English support.`
+    : isHeadspaHongdae
+    ? `Budget-friendly head spas in Hongdae Seoul ${yr}. Korean scalp treatment for travelers — affordable prices, English booking & real reviews from foreign visitors.`
+    : isHairGangnam
+    ? `Best Gangnam hair salons for foreigners ${yr}. K-pop cuts, Korean perms, balayage & more. English-friendly stylists, transparent pricing & WhatsApp booking.`
+    : isSkincareGangnam
+    ? `Gangnam skincare clinic vs dermatology — what's the difference? ${yr} guide for foreign tourists. Top-rated options with English support, real prices & WhatsApp booking.`
     : `Best ${catLabel.toLowerCase()} in ${areaLabel}, Seoul ${yr}. Top-rated, foreigner-friendly salons with English support & WhatsApp booking. Real reviews, verified prices.`
   const h1Text      = isClinicGangnam
     ? `Best Gangnam Dermatology Clinic for Foreigners ${yr}`
     : isHeadSpaMyeongdong
     ? `Best Korean Head Spa in Myeongdong, Seoul ${yr}`
+    : isClinicItaewon
+    ? `Best Skin Clinic in Itaewon, Seoul ${yr}`
+    : isClinicMyeongdong
+    ? `Best Skin Clinic in Myeongdong, Seoul ${yr}`
+    : isHeadspaGangnam
+    ? `Best Head Spa in Gangnam, Seoul ${yr}`
+    : isHeadspaHongdae
+    ? `Best Head Spa in Hongdae, Seoul ${yr}`
+    : isHairGangnam
+    ? `Best Hair Salon in Gangnam for Foreigners ${yr}`
+    : isSkincareGangnam
+    ? `Best Skincare Clinic in Gangnam, Seoul ${yr}`
     : `Best ${catLabel} in ${areaLabel}, Seoul ${yr}`
   const subText     = isClinicGangnam
     ? `English-Speaking Dermatologists · Verified Clinics · WhatsApp Booking · Updated ${yr}`
     : isHeadSpaMyeongdong
     ? `Viral 18-Step Scalp Ritual · English Booking · Verified Salons · Updated ${yr}`
+    : isClinicItaewon
+    ? `English-Speaking Staff · Walk-in Welcome · Transparent Pricing · Updated ${yr}`
+    : isClinicMyeongdong
+    ? `Walk-in Friendly · English Support · Tourist-Tested Clinics · Updated ${yr}`
+    : isHeadspaGangnam
+    ? `Korean Scalp Ritual · Verified Salons · Price Guide Included · Updated ${yr}`
+    : isHeadspaHongdae
+    ? `Budget-Friendly · English Booking · Student & Traveler Favourite · Updated ${yr}`
+    : isHairGangnam
+    ? `K-Pop Cuts · Korean Perms · English-Speaking Stylists · Updated ${yr}`
+    : isSkincareGangnam
+    ? `Clinic vs Dermatology Guide · English Support · Verified Prices · Updated ${yr}`
     : `Foreigner-Friendly · English Booking · Verified Reviews · Updated ${yr}`
   // 카테고리별 인트로 텍스트 (SEO 롱폼)
   const catIntros: Record<string,string> = {
     headspa: isHeadSpaMyeongdong
       ? `Myeongdong is the most tourist-friendly neighbourhood in Seoul — and its head spa scene is perfectly designed for first-time foreign visitors. You can walk in off the street, communicate in English, and walk out with the most relaxing scalp treatment of your life. The <strong>Korean head spa Myeongdong</strong> experience typically includes a thorough scalp analysis, multi-step deep cleanse, pressure-point massage, and nourishing treatment mask — all performed in a reclining chair in a serene, spa-like environment. No Korean required. No awkward navigation. Just 60–90 minutes of pure relaxation in the heart of Seoul.`
+      : isHeadspaGangnam
+      ? `Gangnam isn't just famous for its clinics and designer boutiques — it's also home to some of Seoul's most premium <strong>head spa</strong> experiences. A Gangnam head spa is a step above the rest: expect custom scalp diagnostics, medical-grade treatment serums, and therapists trained to the highest professional standards. Prices are higher than in Hongdae or Myeongdong — typically ₩60,000–₩120,000 for a full session — but the quality, ambiance, and thoroughness of the treatment justify every won. Many Gangnam head spas also offer add-on services like hair loss laser therapy, scalp microbiome analysis, and premium conditioning treatments that you simply won't find elsewhere in Seoul.`
+      : isHeadspaHongdae
+      ? `Hongdae is Seoul's most youthful, creative, and budget-conscious neighbourhood — and its head spa scene reflects exactly that. <strong>Hongdae head spas</strong> offer the same authentic Korean scalp treatment experience as their Gangnam counterparts, but at prices that are 20–40% lower. A standard 60-minute session typically costs ₩35,000–₩60,000, making it one of the best-value beauty experiences in the entire city. The vibe is relaxed and welcoming — many salons here cater heavily to university students, young travelers, and international visitors. English menus and WhatsApp booking are standard, and several salons are open late to accommodate the area's nightlife crowd.`
       : `Seoul's head spa scene has exploded in popularity among foreign travelers, and ${areaLabel} is home to some of the best. These foreigner-friendly head spas offer English booking, transparent pricing, and authentic Korean scalp treatments — from the viral 18-step scalp ritual to deep-cleansing scalp analysis and relaxing massage. Whether you have hair loss concerns, a dry scalp, or simply want the most relaxing experience of your Seoul trip, these ${areaLabel} head spas welcome international guests with open arms.`,
-    skincare: `Korean skincare treatments in ${areaLabel}, Seoul are world-renowned for their innovation and results. Foreign tourists visiting Seoul consistently rate skin clinics and beauty salons in ${areaLabel} as must-visit experiences. From hydrating glass-skin facials and LED therapy to customized prescription skincare, these foreigner-friendly salons offer English consultations and WhatsApp booking to make your experience seamless.`,
-    hair: `${areaLabel} is one of Seoul's top destinations for Korean hair transformations. From K-pop inspired cuts and colors to balayage, Korean perms, and treatment packages, these English-friendly hair salons cater specifically to international visitors. All salons listed are experienced with various hair textures and provide English support throughout.`,
+    skincare: isSkincareGangnam
+      ? `Gangnam's skincare scene can be confusing for first-time visitors: there are <em>피부관리실</em> (skincare salons), <em>피부과</em> (dermatology clinics), and everything in between. Understanding the difference is the key to getting the right treatment at the right price. <strong>Gangnam skincare salons</strong> are run by licensed estheticians and focus on non-prescription treatments: deep-cleansing facials, hydration therapy, LED light therapy, and skin brightening programs. <strong>Gangnam dermatology clinics</strong> are staffed by board-certified doctors and can prescribe medication, perform laser procedures, administer skin booster injections, and treat medical skin conditions. Both are excellent — but for different goals. The salons listed on this page cover both types, with clear labels so you know exactly what you're booking.`
+      : `Korean skincare treatments in ${areaLabel}, Seoul are world-renowned for their innovation and results. Foreign tourists visiting Seoul consistently rate skin clinics and beauty salons in ${areaLabel} as must-visit experiences. From hydrating glass-skin facials and LED therapy to customized prescription skincare, these foreigner-friendly salons offer English consultations and WhatsApp booking to make your experience seamless.`,
+    hair: isHairGangnam
+      ? `Gangnam is synonymous with Korean beauty excellence — and its hair salons are no exception. <strong>Gangnam hair salons for foreigners</strong> are experienced with international clients, diverse hair textures, and the full spectrum of K-beauty hair services: from ultra-precise Korean cuts and volume perms to balayage, color correction, and intensive moisture treatments. Prices in Gangnam are higher than in Hongdae or Sinchon — expect ₩50,000–₩120,000 for a cut, ₩80,000–₩200,000 for color — but the quality is consistently world-class. Most top Gangnam salons now employ English-speaking coordinators or provide English menus, making the booking and consultation process smooth for international visitors.`
+      : `${areaLabel} is one of Seoul's top destinations for Korean hair transformations. From K-pop inspired cuts and colors to balayage, Korean perms, and treatment packages, these English-friendly hair salons cater specifically to international visitors. All salons listed are experienced with various hair textures and provide English support throughout.`,
     nail: `Korean nail art in ${areaLabel} is a world-class experience. These foreigner-friendly nail salons offer intricate K-beauty nail designs, premium gel applications, and English-speaking nail artists. Whether you want minimalist Korean aesthetics or elaborate 3D nail art, ${areaLabel}'s nail scene has something for every visitor.`,
     clinic: isClinicGangnam
       ? `Gangnam is Seoul's undisputed capital of medical aesthetics — and home to Korea's most foreigner-friendly dermatology clinics. A Gangnam dermatology clinic isn't just a skin clinic: it's a full-service medical aesthetic center staffed by board-certified dermatologists who routinely treat international patients. Whether you're looking for laser resurfacing, skin booster injections, acne scar treatment, RF lifting, or a simple brightening facial, Gangnam dermatology clinics offer world-class results at a fraction of Western prices — typically 40–60% less than equivalent treatments in the US, UK, or Australia. Every clinic on this list has English-speaking coordinators, transparent pricing, and accepts WhatsApp bookings for foreign visitors.`
+      : isClinicItaewon
+      ? `Itaewon is Seoul's most internationally diverse neighbourhood — and that makes its skin clinics uniquely suited for foreign visitors. Unlike clinics in Gangnam that cater to Korean celebrities and locals, <strong>Itaewon skin clinics</strong> have years of experience treating patients from the US, Europe, Middle East, and Southeast Asia. Staff often speak conversational to fluent English, pricing is transparent, and same-day or next-day appointments are frequently available. Whether you're a long-term expat, a short-term traveler, or a US military visitor, the skin clinics in Itaewon offer a comfortable, foreigner-first experience with world-class Korean dermatology — at prices 40–60% below Western rates.`
+      : isClinicMyeongdong
+      ? `Myeongdong is Seoul's busiest tourist district — and its skin clinics are built for visitors who are short on time but high on expectations. <strong>Myeongdong dermatology clinics</strong> specialise in fast, effective treatments that deliver visible results in a single session: brightening laser, hydra-facial, skin booster injections, and quick acne extractions. Most clinics accept walk-ins and have English menus and price lists posted at reception — no appointment, no translator needed. If you're spending a day or two in Seoul and want a quick skin boost that you'd pay 3–4× more for back home, Myeongdong's walk-in aesthetic clinics are one of the city's best-kept travel secrets.`
       : `${areaLabel} is Seoul's medical beauty hub, home to top-tier dermatology clinics and aesthetic centers welcoming foreign patients. From laser toning and skin boosters to RF lifting and acne treatments, these clinics offer cutting-edge technology at competitive prices — often 30-50% less than Western countries — with English-speaking consultants.`,
     makeup: `Experience a Korean makeup transformation in ${areaLabel}. These English-friendly makeup studios specialize in K-beauty looks including glass skin, gradient lips, and K-pop inspired styles. Perfect for photoshoots, hanbok experiences, or just a memorable Seoul beauty experience. All studios offer English booking via WhatsApp.`,
     spa: `Discover authentic Korean spa treatments in ${areaLabel}, Seoul. From traditional Korean body scrubs (때밀이) and aromatherapy massage to modern wellness packages, these foreigner-friendly spas deliver true Korean relaxation. All listed spas support English booking and welcome international guests.`,
@@ -5134,6 +5201,190 @@ details[open] .faq-q::after{transform:rotate(180deg)}
       <li><strong>Arrive and enjoy</strong> — your therapist will be briefed on your preferences and any language needs in advance</li>
     </ol>
     <p>All salons listed on Seoul Beauty Trip have been verified for quality, English support, and foreigner-friendly service. Booking via our WhatsApp is always free — no platform fee, no hidden charges.</p>
+  </div>
+  ` : ''}
+
+  ${isClinicItaewon ? `
+  <div class="guide-section">
+    <div class="guide-block">
+      <h2>Itaewon Skin Clinic: The Foreigner's Guide to English-Speaking Dermatology in Seoul ${yr}</h2>
+      <p>Itaewon has long been Seoul's most internationally connected neighbourhood — and nowhere is that more evident than in its skin clinics. Unlike many Korean aesthetic clinics where English support is an afterthought, <strong>Itaewon skin clinics</strong> have built their entire model around international clients. You'll find price lists in English at reception, staff who can explain treatments clearly, and a zero-judgment environment regardless of your skin tone, background, or budget. Whether you're stationed nearby, living in Seoul long-term, or passing through as a tourist, Itaewon's clinics offer a level of accessibility that makes Korean dermatology genuinely easy for foreigners to access.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>Why Foreign Visitors Choose Itaewon Skin Clinics</h2>
+      <p>There are several compelling reasons why Itaewon consistently ranks among the top areas for foreigners seeking skin treatments in Seoul:</p>
+      <ul>
+        <li><strong>English proficiency</strong>: Many staff members are bilingual or have significant experience communicating with non-Korean speakers</li>
+        <li><strong>Multicultural client base</strong>: Clinics in Itaewon routinely treat patients from the US, UK, Australia, Middle East, and Southeast Asia — and understand diverse skin types and concerns accordingly</li>
+        <li><strong>Walk-in friendly</strong>: Same-day and next-day appointments are frequently available, ideal for travelers with limited time</li>
+        <li><strong>Transparent pricing</strong>: Most Itaewon clinics post English price menus — no surprise bills, no upselling pressure</li>
+        <li><strong>Competitive prices</strong>: Treatments cost 40–60% less than equivalent procedures in the US, UK, or Australia</li>
+      </ul>
+    </div>
+
+    <div class="guide-block">
+      <h2>Popular Skin Treatments at Itaewon Clinics</h2>
+      <p>Itaewon clinics cater to a wide range of skin concerns and goals. The most popular treatments among foreign visitors include laser toning for brightening and pigmentation, hydra-facial and deep-cleansing treatments, acne extraction and sebum control therapies, skin booster injections (Restylane Skinbooster, Juvederm, PDRN), and photo-rejuvenation (IPL) for sun damage and redness. For those with darker skin tones — common among Itaewon's diverse international clientele — many clinics use settings and protocols specifically calibrated for Fitzpatrick skin types IV–VI, minimising the risk of post-inflammatory hyperpigmentation that poorly-calibrated lasers can cause.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>How to Book an Itaewon Skin Clinic as a Foreign Visitor</h2>
+      <p>Booking a clinic in Itaewon is straightforward — especially through Seoul Beauty Trip. Browse the verified clinics listed above, check reviews and treatment menus, and click the WhatsApp booking button on any listing. Our English-speaking team will liaise with the clinic directly, confirm your appointment, and send you exact address and arrival instructions. Same-day bookings are often possible. All listed clinics have been verified for English-language support and foreigner-friendly service — your booking is always free of platform fees or hidden charges.</p>
+    </div>
+  </div>
+  ` : ''}
+
+  ${isClinicMyeongdong ? `
+  <div class="guide-section">
+    <div class="guide-block">
+      <h2>Myeongdong Dermatology Clinics: Walk-In Skin Treatments for Tourists ${yr}</h2>
+      <p>Myeongdong is built for visitors in a hurry — and its skin clinics have adapted perfectly to that reality. <strong>Myeongdong dermatology clinics</strong> are among the most accessible aesthetic clinics in all of Seoul: most accept walk-ins, display English price menus, and can complete popular treatments like brightening laser or hydra-facial in under 60 minutes. If you have a free afternoon between shopping and street food, a quick skin treatment in Myeongdong is one of the best ways to spend it. The results speak for themselves — and you'll pay 40–60% less than you would for the same treatment back in your home country.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>Why Myeongdong Is Perfect for Tourist Skin Treatments</h2>
+      <p>No other neighbourhood in Seoul combines convenience, accessibility, and quality the way Myeongdong does for skin treatments:</p>
+      <ul>
+        <li><strong>Central location</strong>: Myeongdong is near major hotels and is on virtually every tourist's itinerary — no extra travel required</li>
+        <li><strong>Walk-in appointments</strong>: Most clinics accommodate walk-ins or same-day bookings without advance planning</li>
+        <li><strong>English menus</strong>: Treatments, prices, and instructions are posted in English at reception in most clinics</li>
+        <li><strong>Quick sessions</strong>: Core treatments like brightening laser or a hydra-facial can be completed in 30–60 minutes</li>
+        <li><strong>Tourist-tested</strong>: Myeongdong clinics serve thousands of foreign visitors each month — the experience is streamlined for non-Korean speakers</li>
+      </ul>
+    </div>
+
+    <div class="guide-block">
+      <h2>Best Treatments to Try in Myeongdong</h2>
+      <p>Myeongdong clinics specialise in high-turnover, high-satisfaction treatments that deliver visible results quickly. The most popular options for tourists include brightening laser (Toning, PicoLaser) for an instant glow and pigmentation reduction, hydra-facial for deep cleansing and hydration, quick acne extraction and pore minimising treatments, and vitamin injection or mesotherapy drips for skin radiance. Most treatments require no downtime, so you can head straight back out to explore Myeongdong's famous street food scene immediately after your session.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>How to Book a Myeongdong Skin Clinic as a Foreign Visitor</h2>
+      <p>The simplest approach is to use Seoul Beauty Trip's WhatsApp booking — click the booking button on any listing above and our English-speaking team will confirm your appointment directly with the clinic. If you prefer to walk in, most Myeongdong clinics are ground-floor or clearly signposted, and have English-speaking reception staff available during peak tourist hours. Arrive with no makeup and be prepared to fill in a brief skin consultation form. Treatments are typically paid in cash (Korean won) or by international card.</p>
+    </div>
+  </div>
+  ` : ''}
+
+  ${isHeadspaGangnam ? `
+  <div class="guide-section">
+    <div class="guide-block">
+      <h2>Gangnam Head Spa: Premium Korean Scalp Treatment Price Guide ${yr}</h2>
+      <p>A <strong>Gangnam head spa</strong> experience is in a different league from what you'd find anywhere else in Seoul. The neighbourhood's culture of uncompromising quality — applied to clinics, salons, and every other beauty service — extends fully to its head spa scene. Expect custom scalp diagnostics using digital microscopes, treatment serums developed by Korean trichology labs, and therapists with years of specialist training. Sessions run 60–90 minutes and typically include scalp analysis, cleansing ritual, targeted scalp treatment, and a full relaxation massage. It's not just a beauty treatment — it's an investment in your scalp health.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>Gangnam Head Spa Prices: What to Expect in ${yr}</h2>
+      <p>Pricing in Gangnam head spas reflects the premium quality on offer. Here's a realistic breakdown of what to budget:</p>
+      <ul>
+        <li><strong>Basic scalp treatment (60 min)</strong>: ₩55,000–₩80,000 — includes cleansing, scalp massage, and basic serum application</li>
+        <li><strong>Standard head spa (75–90 min)</strong>: ₩80,000–₩120,000 — full 18-step ritual with scalp analysis, deep cleanse, multi-step massage, and treatment mask</li>
+        <li><strong>Premium / hair loss specialist session (90–120 min)</strong>: ₩120,000–₩200,000 — medical-grade scalp assessment, customised serum injection or laser scalp therapy, plus full relaxation treatment</li>
+        <li><strong>Add-ons</strong>: Scalp laser therapy (+₩20,000–₩40,000), microbiome analysis (+₩15,000–₩30,000), premium conditioning mask (+₩10,000–₩20,000)</li>
+      </ul>
+      <p>All prices are for single sessions. Package deals of 5 or 10 sessions are widely available and typically offer 20–30% savings — worth considering if you're based in Seoul or visiting multiple times.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>What Makes Gangnam Head Spas Different</h2>
+      <p>Gangnam head spas distinguish themselves from salons in other areas through their use of professional-grade equipment and treatments rarely found elsewhere. Many use digital scalp microscopy to assess sebum levels, follicle health, and scalp hydration before selecting your treatment protocol. Serum formulations are often developed in partnership with Korean dermatology labs and target specific concerns — hair loss prevention, oily scalp, dry scalp, dandruff, or post-colour damage. The massage techniques used are also more advanced, incorporating pressure-point therapy that has a genuinely calming effect on the nervous system. Regular clients report consistently better sleep quality and reduced stress after sessions.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>How to Book a Gangnam Head Spa as a Foreign Visitor</h2>
+      <p>Most premium Gangnam head spas accept foreign guests and provide English menus or have English-capable staff. Booking in advance is recommended — walk-ins are possible but premium slots fill quickly, especially on weekends. Use Seoul Beauty Trip's WhatsApp booking for the smoothest experience: our team handles communication with the salon, confirms your appointment, and ensures your preferences are communicated clearly before you arrive. Arrive with clean, dry hair if possible — or the salon will offer a pre-treatment cleanse as part of your session.</p>
+    </div>
+  </div>
+  ` : ''}
+
+  ${isHeadspaHongdae ? `
+  <div class="guide-section">
+    <div class="guide-block">
+      <h2>Hongdae Head Spa: Budget-Friendly Korean Scalp Treatment Guide ${yr}</h2>
+      <p>Hongdae is where Seoul's young, creative, and internationally-minded crowd comes to relax — and its head spa scene is the perfect reflection of that energy. <strong>Hongdae head spas</strong> deliver the full Korean scalp treatment experience at prices that won't break the bank: a standard 60-minute session typically costs ₩35,000–₩60,000, making it one of the most accessible luxury beauty experiences in the city. The vibe is casual and welcoming, the staff are young and often English-speaking, and many salons stay open late to accommodate the neighbourhood's famously active nightlife crowd. For budget-conscious travelers, students, or anyone who wants to try Korean head spa for the first time without committing to Gangnam prices, Hongdae is the ideal starting point.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>Why Hongdae Head Spas Are Perfect for Travelers</h2>
+      <p>Hongdae offers a combination of qualities that makes it exceptionally convenient for foreign visitors:</p>
+      <ul>
+        <li><strong>Affordable pricing</strong>: Standard sessions cost 20–40% less than equivalent Gangnam salons, with no compromise on the core treatment quality</li>
+        <li><strong>Youthful, English-friendly atmosphere</strong>: Many Hongdae salons have staff with strong English skills and experience serving international university students and travelers</li>
+        <li><strong>Late hours</strong>: Several salons open until 10pm or later, fitting easily around a full day of sightseeing</li>
+        <li><strong>No intimidation factor</strong>: The neighbourhood's casual, creative vibe means there's no pressure or formality — just a relaxing, judgment-free experience</li>
+        <li><strong>Easy to combine</strong>: Hongdae is a natural stop on any Seoul itinerary — combine your head spa with street food, shopping, and live music in the same afternoon</li>
+      </ul>
+    </div>
+
+    <div class="guide-block">
+      <h2>Hongdae Head Spa Prices and Treatments ${yr}</h2>
+      <p>Here's what to expect from a typical Hongdae head spa session: a basic 45-minute scalp massage and cleanse starts around ₩30,000–₩40,000. A full 60-minute session including scalp analysis, multi-step deep cleanse, serum application, and relaxation massage runs ₩40,000–₩60,000. Extended 90-minute premium packages are available from ₩60,000–₩90,000 and include additional steps like a hot towel wrap, hair mask, and extended pressure-point massage. Most salons also offer simple add-ons like a basic scalp serum upgrade or argan oil conditioning treatment for ₩5,000–₩15,000 extra.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>How to Book a Hongdae Head Spa as a Foreign Visitor</h2>
+      <p>Hongdae salons are generally very walk-in friendly — especially during weekdays. For weekends or popular evening slots, booking 1–2 days in advance is recommended. Use Seoul Beauty Trip's WhatsApp booking button on any listing above for the easiest experience: we'll confirm your appointment, let the salon know you're a foreign visitor, and send you the exact address and any preparation tips. Sessions are typically paid in cash or by Korean card — some salons accept international cards, so confirm when booking if this matters to you.</p>
+    </div>
+  </div>
+  ` : ''}
+
+  ${isHairGangnam ? `
+  <div class="guide-section">
+    <div class="guide-block">
+      <h2>Gangnam Hair Salon for Foreigners: The Complete Price &amp; Booking Guide ${yr}</h2>
+      <p>Gangnam is home to some of the most technically accomplished hair stylists in the world — and increasingly, those stylists are fluent in English and experienced with international clients. A <strong>Gangnam hair salon for foreigners</strong> isn't just about language access: it's about finding a stylist who understands the full range of hair textures, tones, and international beauty references. Whether you want a K-pop-inspired cut, a Korean straight perm, a balayage that works with your natural hair colour, or a deep conditioning treatment for damaged hair, Gangnam's top salons have stylists who have trained specifically for all of the above. The result is that foreigners visiting Gangnam salons consistently report outcomes that match or exceed what they'd expect from premium salons in London, New York, or Sydney — at 30–50% of the price.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>Why Foreigners Choose Gangnam for Their Seoul Hair Experience</h2>
+      <p>There are several reasons why Gangnam stands out as the best area in Seoul for foreigner-friendly hair salons:</p>
+      <ul>
+        <li><strong>English-speaking stylists</strong>: Many top Gangnam salons have at least one English-speaking stylist or coordinator specifically for international clients</li>
+        <li><strong>Experience with diverse hair types</strong>: Gangnam salons regularly work with Caucasian, African-American, South Asian, and Southeast Asian hair textures — experience that salons in less international areas often lack</li>
+        <li><strong>Global trend awareness</strong>: Gangnam stylists follow international trends closely and can execute looks from Instagram, TikTok, or any reference photo you bring</li>
+        <li><strong>Premium products</strong>: Salons in Gangnam stock high-end Korean and international product lines — Kerastase, Shu Uemura, Amorepacific professional range — not just budget alternatives</li>
+        <li><strong>Consistent quality</strong>: The competitive density of top salons in Gangnam drives consistently high standards across the board</li>
+      </ul>
+    </div>
+
+    <div class="guide-block">
+      <h2>Gangnam Hair Salon Prices: What to Budget in ${yr}</h2>
+      <p>Pricing at Gangnam hair salons reflects the premium quality on offer. Here's a realistic guide for foreign visitors: a basic cut (wash, cut, blow-dry) costs ₩40,000–₩80,000. A Korean straight perm or digital perm runs ₩100,000–₩200,000 depending on hair length and complexity. Single-process colour (all-over tint) is typically ₩80,000–₩150,000. Balayage, ombre, or highlights cost ₩150,000–₩300,000+ depending on the technique and hair volume. Bleach and tone or dramatic colour changes start from ₩200,000. Deep conditioning or Olaplex treatment add-ons are ₩20,000–₩50,000 extra. All prices are per session — always confirm your final quote during consultation before any service begins.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>How to Book a Gangnam Hair Salon as a Foreign Visitor</h2>
+      <p>Advance booking is strongly recommended for Gangnam hair salons — popular stylists book out days or even weeks in advance, especially on weekends. Use Seoul Beauty Trip's WhatsApp booking to secure your appointment: our team will communicate your hair goals, reference images, and any language needs directly to the salon before your visit. Bring reference photos on your phone — clear, well-lit images of your desired outcome make the consultation significantly smoother. Arrive with clean, dry hair unless you've requested a wash-and-style. Most Gangnam salons accept cash and Korean card; international cards are accepted at many larger salons.</p>
+    </div>
+  </div>
+  ` : ''}
+
+  ${isSkincareGangnam ? `
+  <div class="guide-section">
+    <div class="guide-block">
+      <h2>Gangnam Skincare Clinic vs Dermatology Clinic: What's the Difference? ${yr} Guide for Foreigners</h2>
+      <p>One of the most common questions from foreign visitors exploring Gangnam's beauty scene is: what exactly is the difference between a <em>피부관리실</em> (skincare salon) and a <em>피부과</em> (dermatology clinic)? Both are widely available in Gangnam, both offer impressive results, and both are significantly cheaper than equivalent services in Western countries — but they serve different needs, use different levels of technology, and are regulated differently. Understanding the distinction is essential for getting the right treatment at the right price during your time in Seoul.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>Skincare Salon vs Dermatology Clinic: Key Differences</h2>
+      <p>Here's a clear breakdown of what each type of establishment offers:</p>
+      <ul>
+        <li><strong>Gangnam skincare salon (피부관리실)</strong>: Run by licensed estheticians (not doctors). Offers non-prescription, non-invasive treatments: cleansing facials, hydration therapy, LED light therapy, relaxation massage, and basic exfoliation. Best for maintenance, glow treatments, and general skin health. Prices: ₩40,000–₩120,000 per session.</li>
+        <li><strong>Gangnam dermatology clinic (피부과)</strong>: Run by board-certified dermatologists (의사). Can prescribe medication, perform laser procedures, administer injectable treatments (skin boosters, filler, botox), treat medical skin conditions (acne, rosacea, eczema), and conduct biopsies. Best for results-driven treatments, skin concerns with a medical component, and transformative cosmetic procedures. Prices: ₩50,000–₩500,000+ depending on treatment.</li>
+        <li><strong>Medical aesthetic clinic (의원 / 성형외과)</strong>: Operates at the intersection of dermatology and plastic surgery. Offers the full range of injectables, laser, RF, and surgical procedures. Staffed by doctors with cosmetic medicine or plastic surgery specialisations.</li>
+      </ul>
+    </div>
+
+    <div class="guide-block">
+      <h2>Which Should You Choose?</h2>
+      <p>The right choice depends entirely on what you want to achieve. If your goal is relaxation, a deep-cleanse facial, or maintaining healthy skin during your trip, a Gangnam skincare salon is ideal — lower cost, no needles, no downtime. If you want visible, lasting results from a single session — laser toning for brightening, skin booster injections for plumpness and glow, or acne scar reduction — a Gangnam dermatology clinic is the better investment. For treatments involving injectables, laser, or anything with a medical component, always choose a clinic staffed by licensed doctors. All establishments listed on Seoul Beauty Trip have been verified for credentials, foreigner-friendliness, and quality — whether they're salons or clinics.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>How to Book Gangnam Skincare Treatments as a Foreign Visitor</h2>
+      <p>Booking is straightforward through Seoul Beauty Trip — click the WhatsApp booking button on any listing above. Our team will confirm your appointment, communicate your skin concerns and treatment goals to the salon or clinic in advance, and send you clear arrival instructions. For dermatology clinics, it's helpful to note any skin sensitivities, current medications, or previous laser treatments when booking — this helps the doctor calibrate your treatment correctly on the day. Most Gangnam skincare salons and clinics accept international cards; cash payment is always an option and occasionally earns a small discount.</p>
+    </div>
   </div>
   ` : ''}
 
