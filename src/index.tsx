@@ -8830,6 +8830,12 @@ function buildSlide(v, idx) {
       e.stopPropagation();
       // GA4: Book 버튼 클릭 (비디오 피드)
       if(typeof gtag==='function') gtag('event','book_btn_click',{event_category:'conversion',event_label:shopData?shopData.name:'unknown',shop_name:shopData?shopData.name:'',shop_category:shopData?shopData.category:'',video_id:vid.id,page_location:window.location.href});
+      // 관리자 DB 추적
+      if(window._sbSend) window._sbSend('book_click',{
+        shop_id: vid.shopId||(shopData?shopData.id:''),
+        shop_name: shopData?shopData.name:'',
+        target: vid.id
+      });
       // 항상 모달 열기 (상세 페이지와 동일 콘텐츠)
       openShopModal(vid.shopId||shopData.id);
     };
@@ -8851,6 +8857,13 @@ function buildSlide(v, idx) {
             shop_name: shopData?shopData.name:'',
             shop_category: shopData?shopData.category:'',
             page_location: window.location.href
+          });
+          // 관리자 DB 추적
+          if(window._sbSend) window._sbSend('video_play',{
+            target: vid.id,
+            shop_id: vid.shopId||(shopData?shopData.id:''),
+            shop_name: shopData?shopData.name:'',
+            value: vid.title||''
           });
           // DB 조회수 +1 (IP 중복 방지 적용)
           fetch('/api/videos/'+vid.id+'/view',{method:'POST'}).catch(function(){});
@@ -9082,6 +9095,12 @@ function setupObs(){
             session_videos_seen:_sessionVideosCount, page_location:window.location.href
           });
         }
+        // 관리자 DB 추적
+        if(_initialized && window._sbSend) window._sbSend('video_swipe',{
+          target: vidId,
+          shop_name: shopName,
+          value: String(idx)
+        });
 
         _curIdx = idx;
         _globalCurIdx = idx; // 전역 동기화
@@ -9212,6 +9231,18 @@ function openShopModal(shopId) {
   if(typeof gtag==='function'){
     var sc = shopCache[shopId];
     gtag('event','shop_view',{event_category:'engagement',event_label:sc?sc.name:shopId,shop_id:shopId,shop_name:sc?sc.name:'',shop_category:sc?sc.category:'',page_location:window.location.href});
+  }
+  // 관리자 DB 추적 + 모달 체류 시간 기록
+  window._sbModalOpenTime = Date.now();
+  window._sbModalShopId = shopId;
+  if(window._sbSend){
+    var _sc = shopCache[shopId];
+    window._sbSend('shop_view',{
+      shop_id: shopId,
+      shop_name: _sc?_sc.name:shopId,
+      target: shopId,
+      value: _sc?_sc.category:''
+    });
   }
 
   // 1) 캐시에 있고 상세 정보(services 등)도 있으면 → 즉시 렌더, 백그라운드 갱신은 생략
@@ -9857,6 +9888,17 @@ function openPhotoViewer(url) {
 }
 
 function closeModal(){
+  // 관리자 DB: 모달 체류 시간 전송
+  if(window._sbSend && window._sbModalOpenTime && window._sbModalShopId){
+    var _dur = Math.round((Date.now()-window._sbModalOpenTime)/1000);
+    if(_dur>0) window._sbSend('shop_close',{
+      shop_id: window._sbModalShopId,
+      target: window._sbModalShopId,
+      duration: _dur
+    });
+    window._sbModalOpenTime = null;
+    window._sbModalShopId = null;
+  }
   // 모달 내 재생 중인 영상 모두 정지
   document.querySelectorAll('.m-vid-card').forEach(function(c){
     c.classList.remove('vid-on');
@@ -12647,6 +12689,8 @@ function buildTlItem(ev, prev){
     shop_view:    { ico:'fa-store',         color:'#f472b6', label:'업체 상세 조회',   bg:'rgba(244,114,182,.09)' },
     shop_click:   { ico:'fa-hand-pointer',  color:'#fb923c', label:'업체 클릭',        bg:'rgba(251,146,60,.08)' },
     video_play:   { ico:'fa-play-circle',   color:'#a78bfa', label:'🎬 영상 시청',     bg:'rgba(167,139,250,.09)' },
+    video_swipe:  { ico:'fa-hand-point-up', color:'#818cf8', label:'📱 영상 스와이프',  bg:'rgba(129,140,248,.08)' },
+    shop_close:   { ico:'fa-door-open',     color:'#f9a8d4', label:'업체 상세 닫기',   bg:'rgba(249,168,212,.07)' },
     search:       { ico:'fa-search',        color:'#fbbf24', label:'검색',             bg:'rgba(251,191,36,.08)' },
     filter_click: { ico:'fa-filter',        color:'#e879f9', label:'필터 선택',        bg:'rgba(232,121,249,.08)' }
   };
@@ -12721,12 +12765,23 @@ function buildTlItem(ev, prev){
   if(ev.event==='video_play' && val){
     chips.push('<span style="background:rgba(167,139,250,.1);color:#a78bfa;padding:2px 8px;border-radius:8px;font-size:10px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle">'+escHtml(val)+'</span>');
   }
+  if(ev.event==='video_swipe'){
+    if(shopN) chips.push('<span style="background:rgba(129,140,248,.12);color:#818cf8;border:1px solid rgba(129,140,248,.2);padding:2px 8px;border-radius:8px;font-size:10px"><i class="fas fa-store" style="font-size:8px;margin-right:3px"></i>'+escHtml(shopN)+'</span>');
+    if(val) chips.push('<span style="background:rgba(255,255,255,.05);color:rgba(255,255,255,.35);padding:2px 7px;border-radius:8px;font-size:10px">#'+escHtml(val)+'</span>');
+  }
+  if(ev.event==='book_click' && shopN){
+    chips.push('<span style="background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.2);padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700"><i class="fas fa-store" style="font-size:8px;margin-right:3px"></i>'+escHtml(shopN)+'</span>');
+  }
+  if(ev.event==='shop_close'){
+    if(shopN) chips.push('<span style="background:rgba(249,168,212,.1);color:#f9a8d4;border:1px solid rgba(249,168,212,.15);padding:2px 8px;border-radius:8px;font-size:10px"><i class="fas fa-store" style="font-size:8px;margin-right:3px"></i>'+escHtml(shopN)+'</span>');
+    if(dur) chips.push('<span style="background:rgba(255,255,255,.05);color:rgba(255,255,255,.4);padding:2px 8px;border-radius:8px;font-size:10px">⏱ '+fmtDur(dur)+' 체류</span>');
+  }
 
   var chipsHtml = chips.length
     ? '<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px;align-items:center">'+chips.join('')+'</div>'
     : '';
 
-  var isHighlight = (ev.event==='wa_click'||ev.event==='shop_view'||ev.event==='video_play');
+  var isHighlight = (ev.event==='wa_click'||ev.event==='shop_view'||ev.event==='video_play'||ev.event==='book_click');
   return gapHtml
     +'<div style="background:'+c.bg+';border:1px solid '+(isHighlight?c.color+'30':'rgba(255,255,255,.06)')+';border-radius:8px;padding:6px 8px;display:flex;gap:8px;align-items:flex-start">'
     +'<div style="width:26px;height:26px;border-radius:50%;background:'+c.color+'18;border:1.5px solid '+c.color+'45;display:flex;align-items:center;justify-content:center;flex-shrink:0'+(isHighlight?';box-shadow:0 0 8px '+c.color+'35':'')+'">'
