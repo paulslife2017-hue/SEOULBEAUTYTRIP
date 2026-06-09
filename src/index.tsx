@@ -7409,8 +7409,8 @@ const MAIN_HTML = `<!DOCTYPE html>
   gtag('config', 'G-1N9ZQRHLJ0');
 </script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Seoul Beauty Trip — Book Korean Beauty in Seoul | Skincare, Hair, Nail, Clinic</title>
-<meta name="description" content="Discover and book the best Korean beauty salons in Seoul. Skincare, makeup, hair, nail art and derma clinics — foreign-friendly with WhatsApp booking. K-beauty at its finest.">
+<title>Seoul Skin Clinic & Beauty Salon for Foreigners | Seoul Beauty Trip</title>
+<meta name="description" content="Best skin clinics, dermatology & beauty salons in Seoul for foreigners. English-speaking staff, easy WhatsApp booking. Trusted by tourists visiting Seoul.">
 <meta name="keywords" content="Seoul beauty salon, Korean skincare, K-beauty booking, Seoul hair salon, Seoul nail art, Korean makeup, Seoul derma clinic, beauty travel Korea">
 <meta name="robots" content="index, follow">
 <meta name="msvalidate.01" content="DD5A8D9AA094B888C8A409EADE4610E9">
@@ -7419,7 +7419,7 @@ const MAIN_HTML = `<!DOCTYPE html>
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Seoul Beauty Trip">
 <meta property="og:title" content="Seoul Beauty Trip — Book Korean Beauty in Seoul">
-<meta property="og:description" content="Discover and book the best Korean beauty salons in Seoul. Skincare, makeup, hair, nail art and derma clinics — foreign-friendly with WhatsApp booking.">
+<meta property="og:description" content="Best skin clinics & beauty salons in Seoul for foreigners. English-speaking staff, WhatsApp booking. Trusted by tourists.">
 <meta property="og:image" content="https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -7431,7 +7431,7 @@ const MAIN_HTML = `<!DOCTYPE html>
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:site" content="@seoulbeautytrip">
 <meta name="twitter:title" content="Seoul Beauty Trip — Book Korean Beauty in Seoul">
-<meta name="twitter:description" content="Discover and book the best Korean beauty salons in Seoul. WhatsApp booking, foreign-friendly.">
+<meta name="twitter:description" content="Best skin clinics & beauty salons in Seoul for foreigners. English support, WhatsApp booking.">
 <meta name="twitter:image" content="https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg">
 <meta name="twitter:image:alt" content="Seoul Beauty Trip — Book Korean Beauty in Seoul">
 <!-- Schema.org -->
