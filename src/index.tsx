@@ -104,10 +104,10 @@ app.use('*', async (c, next) => {
 })
 
 // ── Admin 인증 미들웨어 (/admin 페이지 + /api/admin/* API 전체 보호) ──
-// Authorization: Bearer <GSK_TOKEN> 헤더 또는 ?token=<GSK_TOKEN> 쿼리 파라미터로 인증
+// 비밀번호: 0907 (고정) 또는 GSK_TOKEN (API 클라이언트용)
+const ADMIN_SECRET = '0907'
 app.use('/admin', async (c, next) => {
   const envToken = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
-  if (!envToken) return await next() // 서버에 토큰 미설정 시 통과 (개발 환경 예외)
 
   // 1) Authorization 헤더 확인
   const authHeader = c.req.header('Authorization') || ''
@@ -121,7 +121,9 @@ app.use('/admin', async (c, next) => {
   const cookieToken = cookieHeader.match(/admin_token=([^;]+)/)?.[1] || ''
 
   const provided = bearerToken || queryToken || cookieToken
-  if (provided !== envToken) {
+  // 0907 고정 비밀번호 또는 GSK_TOKEN 둘 다 허용
+  const isValid = provided === ADMIN_SECRET || (envToken && provided === envToken)
+  if (!isValid) {
     // 브라우저 직접 접근 시 로그인 폼 반환
     return c.html(`<!DOCTYPE html>
 <html lang="en">
@@ -175,20 +177,21 @@ if (params.get('token')) document.getElementById('err').style.display = 'block';
   }
 
   // 인증 성공: 세션 쿠키 발급 (7일, HttpOnly, SameSite=Strict)
-  c.header('Set-Cookie', `admin_token=${envToken}; Path=/admin; Max-Age=604800; HttpOnly; SameSite=Strict`)
+  c.header('Set-Cookie', `admin_token=${ADMIN_SECRET}; Path=/; Max-Age=604800; HttpOnly; SameSite=Strict`)
   await next()
 })
 
 app.use('/api/admin/*', async (c, next) => {
   const envToken = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
-  if (!envToken) return await next()
 
   const authHeader = c.req.header('Authorization') || ''
   const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : ''
   const cookieHeader = c.req.header('Cookie') || ''
   const cookieToken = cookieHeader.match(/admin_token=([^;]+)/)?.[1] || ''
 
-  if (bearerToken !== envToken && cookieToken !== envToken) {
+  const provided = bearerToken || cookieToken
+  const isValid = provided === ADMIN_SECRET || (envToken && provided === envToken)
+  if (!isValid) {
     return c.json({ error: 'Unauthorized' }, 401)
   }
   await next()
@@ -612,9 +615,12 @@ async function initDb(env: any) {
       cover_image TEXT DEFAULT '',
       status TEXT DEFAULT 'draft',
       views INTEGER DEFAULT 0,
+      shop_id TEXT DEFAULT NULL,
       created_at TEXT,
       updated_at TEXT
     )`
+    // blog_posts 기존 테이블에 shop_id 컬럼 없으면 추가
+    try { await sql`ALTER TABLE blog_posts ADD COLUMN IF NOT EXISTS shop_id TEXT DEFAULT NULL` } catch(e) {}
     await sql`CREATE TABLE IF NOT EXISTS videos (
       id TEXT PRIMARY KEY, shop_id TEXT REFERENCES shops(id) ON DELETE CASCADE,
       title TEXT, description TEXT, video_url TEXT, thumbnail TEXT,
@@ -2622,24 +2628,52 @@ app.post('/api/quick-register', async (c) => {
       )
     `
 
-    // ── STEP 9.5: 리뷰 요약 백그라운드 생성 (응답 블로킹 없음, 크레딧 최소) ──
+    // ── STEP 9.5: 백그라운드 작업 (응답 블로킹 없음) ──
     // DB 저장 완료 후 waitUntil로 비동기 실행 → 실패해도 등록 자체는 성공
-    if (reviews.length > 0 && apiKey) {
+    if (apiKey) {
       const _bgSql = sql
       const _bgName = engName
       const _bgId = shopId
       const _bgKey = apiKey
       const _bgReviews = reviews
-      const _summaryTask = (async () => {
+      const _bgCat = cat
+      const _bgLoc = loc
+      const _bgRating = resolvedData.rating || 5.0
+      const _bgReviewCount = resolvedData.reviewCount || 0
+      const _bgDesc = description
+      const _bgWhyChoose = whyChoose
+      const _bgSeoText = seoTextVal
+
+      const _bgTask = (async () => {
+        // ① 리뷰 요약 생성 (리뷰가 있을 때만)
+        if (_bgReviews.length > 0) {
+          try {
+            const summary = await genReviewSummary(_bgName, _bgReviews, _bgKey)
+            if (summary) {
+              await _bgSql`UPDATE shops SET review_summary = ${JSON.stringify(summary)}::jsonb WHERE id = ${_bgId}`
+            }
+          } catch { /* 실패해도 무시 — 관리자 fill-summaries로 나중에 채울 수 있음 */ }
+        }
+
+        // ② 자동 블로그 생성 (업체 페이지 SEO 보완 — "review", "is it worth it" 키워드 커버)
         try {
-          const summary = await genReviewSummary(_bgName, _bgReviews, _bgKey)
-          if (summary) {
-            await _bgSql`UPDATE shops SET review_summary = ${JSON.stringify(summary)}::jsonb WHERE id = ${_bgId}`
-          }
-        } catch { /* 실패해도 무시 — 관리자 fill-summaries로 나중에 채울 수 있음 */ }
+          await autoGenShopBlog({
+            id: _bgId,
+            name: _bgName,
+            category: _bgCat,
+            location: _bgLoc,
+            rating: _bgRating,
+            reviewCount: _bgReviewCount,
+            description: _bgDesc,
+            reviews: _bgReviews,
+            seoText: _bgSeoText,
+            whyChoose: _bgWhyChoose
+          }, _bgKey, _bgSql)
+        } catch { /* 블로그 생성 실패해도 업체 등록에는 영향 없음 */ }
       })()
+
       // Cloudflare Workers: waitUntil로 응답 후에도 백그라운드 실행 보장
-      try { (c.executionCtx as any)?.waitUntil?.(_summaryTask) } catch { /* non-CF 환경 무시 */ }
+      try { (c.executionCtx as any)?.waitUntil?.(_bgTask) } catch { /* non-CF 환경 무시 */ }
     }
 
     // ── STEP 10: 영상 URL이 있으면 같이 등록 ──
@@ -3254,6 +3288,118 @@ function makeBlogSlug(title: string): string {
     .replace(/^-|-$/g, '')
 }
 
+// 업체 등록 시 자동 블로그 글 생성 헬퍼
+// 크레딧 최소화: haiku 모델 + 업체 DB 데이터(리뷰/SEO텍스트/설명)만 활용 → 외부 검색 API 미호출
+async function autoGenShopBlog(shop: {
+  id: string, name: string, category: string, location: string,
+  rating: number, reviewCount: number, description: string,
+  reviews: any[], seoText: string, whyChoose: string[]
+}, apiKey: string, sql: any): Promise<void> {
+  if (!apiKey) return
+
+  const area = (shop.location || 'Seoul').split(',')[0].trim()
+  const catLabel: Record<string,string> = {
+    clinic:'Skin Clinic', hair:'Hair Salon', headspa:'Head Spa',
+    skincare:'Skincare Clinic', makeup:'Personal Color Studio',
+    tattoo:'Eyebrow Tattoo Studio', dental:'Dental Clinic'
+  }
+  const cat = catLabel[shop.category] || shop.category
+
+  // 이미 같은 shop_id로 블로그 글 있으면 스킵 (중복 방지)
+  const existing = await sql`SELECT id FROM blog_posts WHERE shop_id=${shop.id} LIMIT 1`.catch(() => [])
+  if (existing.length > 0) return
+
+  // 리뷰 스니펫 (최대 3개, 각 150자) — 실제 고객 목소리 반영
+  const reviewSnippets = (shop.reviews || [])
+    .slice(0, 3)
+    .map((r: any) => (r.text || '').trim().slice(0, 150))
+    .filter(Boolean)
+    .join('\n- ')
+
+  // SEO텍스트에서 핵심 내용 추출 (태그 제거, 300자)
+  const seoContext = (shop.seoText || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300)
+
+  const title = `${shop.name} Review 2026: Honest Guide for Foreigners in ${area}`
+
+  const prompt = `You are a Seoul K-beauty travel writer for seoulbeautytrip.com.
+Write a helpful, honest blog post for foreign tourists about "${shop.name}", a ${cat} in ${area}, Seoul.
+
+SHOP DATA (use this — do NOT invent):
+- Rating: ${shop.rating}/5 (${shop.reviewCount}+ reviews)
+- Description: ${shop.description || seoContext || 'Premium ' + cat + ' in ' + area}
+- Why visitors love it: ${(shop.whyChoose || []).slice(0,3).join(' | ')}
+${reviewSnippets ? '- Real customer reviews:\n- ' + reviewSnippets : ''}
+
+Write HTML with this structure (6 sections + FAQ):
+<h2>Why [Shop Name] Is Worth Visiting as a Foreigner in ${area}</h2>
+<p>...</p>
+<h2>What to Expect at [Shop Name]</h2>
+<p>...</p>
+<h2>Treatments & Services</h2>
+<p>...</p>
+<h2>Prices & What's Included</h2>
+<p>...</p>
+<h2>How to Book as a Foreigner</h2>
+<p>...</p>
+<h2>Getting There & Tips</h2>
+<p>...</p>
+<h2>FAQ</h2>
+<h3>Is ${shop.name} foreigner-friendly?</h3><p>...</p>
+<h3>How do I book ${shop.name}?</h3><p>...</p>
+<h3>What are the prices at ${shop.name}?</h3><p>...</p>
+
+Rules: 700-1000 words, HTML only, no markdown, cite real rating/review count, mention WhatsApp booking, no fake prices.
+
+After HTML add ---JSON---
+{"metaDescription":"[max 155 chars]","excerpt":"[2 sentence summary]","tags":["${shop.name}","${area} ${cat}","Seoul ${cat} foreigners","K-beauty ${area}","Seoul beauty 2026"]}`
+
+  try {
+    const res = await fetch('https://www.genspark.ai/api/llm_proxy/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5', // 크레딧 최소: haiku 사용
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 2500,
+        temperature: 0.6
+      })
+    })
+    if (!res.ok) return
+    const data: any = await res.json()
+    const raw = data.choices?.[0]?.message?.content || ''
+    if (!raw) return
+
+    const parts = raw.split('---JSON---')
+    const htmlContent = parts[0].trim()
+    if (!htmlContent || htmlContent.length < 200) return
+
+    let metaDescription = '', excerpt = '', tags: string[] = []
+    if (parts[1]) {
+      try {
+        const m = JSON.parse(parts[1].trim().replace(/```json|```/g,'').trim())
+        metaDescription = m.metaDescription || ''
+        excerpt = m.excerpt || ''
+        tags = Array.isArray(m.tags) ? m.tags : []
+      } catch {}
+    }
+
+    const blogId = 'b' + Date.now() + Math.random().toString(36).slice(2,5)
+    const slug = makeBlogSlug(title)
+    const now = new Date().toISOString().slice(0,10)
+
+    // slug 중복 체크
+    const dupCheck = await sql`SELECT id FROM blog_posts WHERE slug=${slug} LIMIT 1`.catch(() => [])
+    if (dupCheck.length > 0) return
+
+    await sql`INSERT INTO blog_posts
+      (id, slug, title, content, excerpt, meta_description, category, area, tags, status, views, shop_id, created_at, updated_at)
+      VALUES (
+        ${blogId}, ${slug}, ${title}, ${htmlContent}, ${excerpt}, ${metaDescription},
+        ${shop.category}, ${area}, ${JSON.stringify(tags)}, 'published', 0, ${shop.id}, ${now}, ${now}
+      )`
+  } catch { /* 실패해도 무시 */ }
+}
+
 // AI 블로그 본문 생성
 async function autoGenBlog(params: {
   title: string, category: string, area: string, keywords: string[]
@@ -3329,8 +3475,8 @@ app.get('/api/blogs', async (c) => {
   const sql = getDb(c.env)
   const status = c.req.query('status') || ''
   const rows = status
-    ? await sql`SELECT id,slug,title,meta_description,excerpt,category,area,tags,cover_image,status,views,created_at,updated_at FROM blog_posts WHERE status=${status} ORDER BY created_at DESC`
-    : await sql`SELECT id,slug,title,meta_description,excerpt,category,area,tags,cover_image,status,views,created_at,updated_at FROM blog_posts ORDER BY created_at DESC`
+    ? await sql`SELECT id,slug,title,meta_description,excerpt,content,category,area,tags,cover_image,status,views,created_at,updated_at FROM blog_posts WHERE status=${status} ORDER BY created_at DESC`
+    : await sql`SELECT id,slug,title,meta_description,excerpt,content,category,area,tags,cover_image,status,views,created_at,updated_at FROM blog_posts ORDER BY created_at DESC`
   return c.json(rows)
 })
 
@@ -3556,6 +3702,52 @@ app.post('/api/admin/sync-reviews', async (c) => {
     done: !hasMore,
     results
   })
+})
+
+// POST /api/admin/sync-photos — Google Places에서 사진 URL 재동기화 (만료된 lh3.googleusercontent 갱신)
+// body: { ids?: string[] }  ← 생략 시 thumbnail 없는 업체 전체
+app.post('/api/admin/sync-photos', async (c) => {
+  await ensureDb(c.env)
+  const sql = getDb(c.env)
+  const gKey = c.env?.GOOGLE_PLACES_KEY || ''
+  if (!gKey) return c.json({ error: 'GOOGLE_PLACES_KEY not configured' }, 500)
+
+  const body: any = await c.req.json().catch(() => ({}))
+  const targetIds: string[] = Array.isArray(body.ids) ? body.ids : []
+
+  const shops = targetIds.length > 0
+    ? await sql`SELECT id, name, google_place_id FROM shops WHERE id = ANY(${targetIds}::text[]) AND google_place_id IS NOT NULL AND google_place_id != ''`
+    : await sql`SELECT id, name, google_place_id FROM shops WHERE (thumbnail IS NULL OR thumbnail = '') AND google_place_id IS NOT NULL AND google_place_id != '' AND active = true`
+
+  const results: { id: string; name: string; status: string }[] = []
+
+  for (const shop of shops) {
+    try {
+      const pid = shop.google_place_id
+      const res = await fetch(
+        `https://places.googleapis.com/v1/places/${pid}?languageCode=en`,
+        { headers: { 'X-Goog-Api-Key': gKey, 'X-Goog-FieldMask': 'photos,rating,userRatingCount' } }
+      )
+      if (!res.ok) { results.push({ id: shop.id, name: shop.name, status: `API ${res.status}` }); continue }
+      const place: any = await res.json()
+
+      // photos → googleusercontent URL 조합
+      const rawPhotos: any[] = place.photos || []
+      const photoUrls: string[] = rawPhotos.slice(0, 8).map((p: any) => {
+        const ref = p.name || ''
+        return ref ? `https://places.googleapis.com/v1/${ref}/media?maxHeightPx=800&maxWidthPx=800&key=${gKey}` : ''
+      }).filter(Boolean)
+
+      if (!photoUrls.length) { results.push({ id: shop.id, name: shop.name, status: 'no photos' }); continue }
+
+      const thumb = photoUrls[0]
+      await sql`UPDATE shops SET thumbnail=${thumb}, photos=${JSON.stringify(photoUrls)} WHERE id=${shop.id}`
+      results.push({ id: shop.id, name: shop.name, status: 'ok' })
+    } catch(e: any) {
+      results.push({ id: shop.id, name: shop.name, status: `error: ${e.message}` })
+    }
+  }
+  return c.json({ total: shops.length, ok: results.filter(r => r.status === 'ok').length, results })
 })
 
 // PATCH /api/admin/patch-shop — 특정 업체 필드 직접 수정 (name, slug 등)
