@@ -10166,11 +10166,11 @@ var SB_TRACKER_SCRIPT = `<script>
     var h=el.href||'';
     if(h.includes('wa.me')||h.includes('whatsapp')){
       _waClicked=true;
-      var sn=el.dataset.shopName||el.closest('[data-shop-name]')?.dataset.shopName||'';
-      var si=el.dataset.shopId||el.closest('[data-shop-id]')?.dataset.shopId||'';
+      var _pn=el.closest('[data-shop-name]');var sn=el.dataset.shopName||(_pn?_pn.dataset.shopName:'')||'';
+      var _pi=el.closest('[data-shop-id]');var si=el.dataset.shopId||(_pi?_pi.dataset.shopId:'')||'';
       send('wa_click',{target:h.slice(0,120),shop_name:sn,shop_id:si});
     }else if(el.dataset.track==='shop'||el.closest('[data-track="shop"]')){
-      var c=el.closest('[data-shop-name]');send('shop_click',{target:el.href||'',shop_name:c?.dataset.shopName||''});
+      var c=el.closest('[data-shop-name]');send('shop_click',{target:el.href||'',shop_name:(c?c.dataset.shopName:'')||''});
     }else if(el.dataset.track==='video'){send('video_click',{target:el.dataset.vidId||''});}
   },true);
 
@@ -10179,7 +10179,7 @@ var SB_TRACKER_SCRIPT = `<script>
   if(location.pathname.startsWith('/shop/')){
     setTimeout(function(){
       // .sp-title h1\uC5D0\uC11C \uC5C5\uCCB4\uBA85 \uCD94\uCD9C, \uC5C6\uC73C\uBA74 title\uC758 '\u2014' \uC55E\uBD80\uBD84\uB9CC \uC0AC\uC6A9
-      var sn=document.querySelector('h1.sp-title')?.textContent?.trim()||document.title.split('\u2014')[0].split('|')[0].trim();
+      var _h1=document.querySelector('h1.sp-title');var sn=(_h1?_h1.textContent.trim():'')||document.title.split('\u2014')[0].split('|')[0].trim();
       send('shop_view',{target:location.pathname.replace('/shop/',''),shop_name:sn});
     },300);
   }

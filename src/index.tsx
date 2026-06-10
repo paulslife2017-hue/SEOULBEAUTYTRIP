@@ -9096,11 +9096,11 @@ const SB_TRACKER_SCRIPT = `<script>
     var h=el.href||'';
     if(h.includes('wa.me')||h.includes('whatsapp')){
       _waClicked=true;
-      var sn=el.dataset.shopName||el.closest('[data-shop-name]')?.dataset.shopName||'';
-      var si=el.dataset.shopId||el.closest('[data-shop-id]')?.dataset.shopId||'';
+      var _pn=el.closest('[data-shop-name]');var sn=el.dataset.shopName||(_pn?_pn.dataset.shopName:'')||'';
+      var _pi=el.closest('[data-shop-id]');var si=el.dataset.shopId||(_pi?_pi.dataset.shopId:'')||'';
       send('wa_click',{target:h.slice(0,120),shop_name:sn,shop_id:si});
     }else if(el.dataset.track==='shop'||el.closest('[data-track="shop"]')){
-      var c=el.closest('[data-shop-name]');send('shop_click',{target:el.href||'',shop_name:c?.dataset.shopName||''});
+      var c=el.closest('[data-shop-name]');send('shop_click',{target:el.href||'',shop_name:(c?c.dataset.shopName:'')||''});
     }else if(el.dataset.track==='video'){send('video_click',{target:el.dataset.vidId||''});}
   },true);
 
@@ -9109,7 +9109,7 @@ const SB_TRACKER_SCRIPT = `<script>
   if(location.pathname.startsWith('/shop/')){
     setTimeout(function(){
       // .sp-title h1에서 업체명 추출, 없으면 title의 '—' 앞부분만 사용
-      var sn=document.querySelector('h1.sp-title')?.textContent?.trim()||document.title.split('—')[0].split('|')[0].trim();
+      var _h1=document.querySelector('h1.sp-title');var sn=(_h1?_h1.textContent.trim():'')||document.title.split('—')[0].split('|')[0].trim();
       send('shop_view',{target:location.pathname.replace('/shop/',''),shop_name:sn});
     },300);
   }
