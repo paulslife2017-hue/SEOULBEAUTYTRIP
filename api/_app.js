@@ -4960,7 +4960,52 @@ async function autoGenShopBlog(shop, apiKey, sql) {
   if (existing.length > 0) return;
   const reviewSnippets = (shop.reviews || []).slice(0, 3).map((r) => (r.text || "").trim().slice(0, 150)).filter(Boolean).join("\n- ");
   const seoContext = (shop.seoText || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 300);
-  const title = `${shop.name} Review 2026: Is It Worth It for Foreigners in ${area}?`;
+  const titleTemplates = {
+    headspa: [
+      `${shop.name} Head Spa Review 2026: Worth It for Foreigners in ${area}?`,
+      `I Tried ${shop.name} in ${area} \u2014 Honest Head Spa Guide for Tourists (2026)`,
+      `${shop.name} ${area}: Best Head Spa for Foreigners? (2026 Guide)`
+    ],
+    hair: [
+      `${shop.name} Hair Salon in ${area}: Honest Guide for Foreigners (2026)`,
+      `Getting My Hair Done at ${shop.name} in ${area} \u2014 Tourist's Honest Take`,
+      `${shop.name} ${area}: Is It the Best Hair Salon for Foreigners in Seoul? (2026)`
+    ],
+    nail: [
+      `${shop.name} Nail Studio in ${area}: Worth Visiting as a Tourist? (2026)`,
+      `K-Beauty Nails at ${shop.name} in ${area} \u2014 What Foreigners Need to Know (2026)`,
+      `${shop.name} ${area}: Best Nail Art Studio for Tourists in Seoul? (2026)`
+    ],
+    clinic: [
+      `${shop.name} Skin Clinic in ${area}: Honest Guide for Foreigners (2026)`,
+      `Is ${shop.name} in ${area} Worth It for Foreign Visitors? (2026)`,
+      `${shop.name} ${area}: What Tourists Should Know Before Booking (2026)`
+    ],
+    skincare: [
+      `${shop.name} in ${area}: Honest Skincare Guide for Foreigners (2026)`,
+      `${shop.name} ${area} Review 2026: Best Skincare Clinic for Tourists?`,
+      `I Visited ${shop.name} in ${area} \u2014 Here's What Foreign Visitors Should Know`
+    ],
+    spa: [
+      `${shop.name} Spa in ${area}: Is It Worth It for Tourists? (2026)`,
+      `Relaxing at ${shop.name} in ${area} \u2014 Honest Guide for Foreign Visitors (2026)`
+    ],
+    tattoo: [
+      `${shop.name} in ${area}: Eyebrow Tattoo Guide for Foreigners (2026)`,
+      `Getting Eyebrow Tattoo at ${shop.name} in ${area} \u2014 Honest Tourist Guide (2026)`
+    ],
+    dental: [
+      `${shop.name} Dental Clinic in ${area}: Is It Worth It for Foreigners? (2026)`,
+      `${shop.name} in ${area}: Honest Dental Guide for Foreign Visitors (2026)`
+    ]
+  };
+  const defaultTitles = [
+    `${shop.name} Review 2026: Honest Guide for Foreigners in ${area}`,
+    `${shop.name} in ${area}: Worth It for Foreign Visitors? (2026)`,
+    `I Visited ${shop.name} in ${area} \u2014 Here's My Honest Take (2026)`
+  ];
+  const titlePool = titleTemplates[cat.toLowerCase()] || titleTemplates[shop.category?.toLowerCase() || ""] || defaultTitles;
+  const title = titlePool[Math.floor(Math.random() * titlePool.length)];
   const prompt = `You are a Seoul travel writer who has personally visited many K-beauty clinics. Write like a real person sharing their honest experience \u2014 not a brochure or AI.
 
 Write a blog post about "${shop.name}", a ${cat} in ${area}, Seoul for seoulbeautytrip.com.
@@ -8156,6 +8201,18 @@ app.get("/blog/:slug", async (c) => {
   const catLabel = { headspa: "Head Spa", skincare: "Skincare", hair: "Hair Salon", nail: "Nail Art", clinic: "Skin Clinic", makeup: "Makeup", spa: "Spa", tattoo: "Eyebrow Tattoo" };
   const cat = catLabel[post.category] || post.category || "Beauty";
   const dateStr = post.created_at ? new Date(post.created_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "";
+  const ctaMap = {
+    headspa: { icon: "\u{1F9D6}", title: "Find Your Head Spa in Seoul", desc: "Book top-rated head spas in Seoul \u2014 English support via WhatsApp, no Korean needed.", btn: "\u{1F33F} Browse Head Spas" },
+    hair: { icon: "\u{1F487}", title: "Find an English-Friendly Hair Salon", desc: "Top hair salons in Seoul with English service \u2014 easy WhatsApp booking for tourists.", btn: "\u2702\uFE0F Browse Hair Salons" },
+    nail: { icon: "\u{1F485}", title: "Book a Nail Studio in Seoul", desc: "Discover Seoul's best nail art studios \u2014 K-beauty nail artists, English booking.", btn: "\u{1F485} Browse Nail Studios" },
+    clinic: { icon: "\u2728", title: "Find a Skin Clinic in Seoul", desc: "Compare top skin clinics in Seoul \u2014 English-speaking staff, easy WhatsApp booking.", btn: "\u{1F52C} Browse Skin Clinics" },
+    skincare: { icon: "\u{1F31F}", title: "Find a Skincare Clinic in Seoul", desc: "Top-rated skincare clinics for foreigners \u2014 English support, WhatsApp booking.", btn: "\u{1F486} Browse Skincare Clinics" },
+    spa: { icon: "\u{1F6C1}", title: "Find a Spa in Seoul", desc: "Relax at Seoul's best spas \u2014 English-friendly, easy WhatsApp booking for tourists.", btn: "\u{1F6C1} Browse Spas" },
+    tattoo: { icon: "\u{1F3A8}", title: "Find Eyebrow Tattoo Artists in Seoul", desc: "Top eyebrow tattoo & permanent makeup artists in Seoul \u2014 English booking.", btn: "\u{1F3A8} Browse Artists" },
+    dental: { icon: "\u{1F9B7}", title: "Find an English-Friendly Dental Clinic", desc: "Trusted dental clinics in Korea for foreigners \u2014 English support, easy booking.", btn: "\u{1F9B7} Browse Dental Clinics" }
+  };
+  const ctaDefault = { icon: "\u{1F338}", title: "Ready to Book Your K-Beauty Experience?", desc: "Browse the best beauty clinics & salons in Seoul \u2014 English booking via WhatsApp, no Korean needed.", btn: "\u{1F338} Explore Seoul Beauty" };
+  const cta = ctaMap[post.category || ""] || ctaDefault;
   const canonicalUrl = `${base}/blog/${slug}`;
   const relatedHtml = related.length ? `
   <aside class="related-posts">
@@ -8245,6 +8302,15 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;line-height
 .post-body a{color:#FF4D8D;text-decoration:none}
 .post-body a:hover{text-decoration:underline}
 .post-body figure{display:none}
+.post-body .sp-seo-h2{font-size:1.1rem;font-weight:800;color:#fff;margin:28px 0 10px;padding:10px 14px;background:rgba(255,77,141,.07);border-left:3px solid #FF4D8D;border-radius:0 8px 8px 0;line-height:1.4}
+.post-body .sp-seo-h2:first-child{margin-top:0}
+.post-body .sp-seo-p{font-size:15px;color:rgba(255,255,255,.8);line-height:1.85;margin:0 0 16px;padding:0}
+.post-body .sp-seo-p:last-child{margin-bottom:0}
+.post-body .sp-seo-p strong{color:#fff;font-weight:700}
+.post-body .sp-seo-ul{margin:8px 0 18px 0;padding:0;list-style:none}
+.post-body .sp-seo-ul li{font-size:14px;color:rgba(255,255,255,.75);line-height:1.75;padding:6px 0 6px 22px;position:relative;border-bottom:1px solid rgba(255,255,255,.04)}
+.post-body .sp-seo-ul li:last-child{border-bottom:none}
+.post-body .sp-seo-ul li::before{content:'\u203A';position:absolute;left:6px;color:#FF4D8D;font-weight:700}
 .post-tags{display:flex;flex-wrap:wrap;gap:8px;margin:28px 0}
 .post-tag{font-size:12px;color:rgba(255,255,255,.4);background:rgba(255,255,255,.06);padding:5px 12px;border-radius:20px;border:1px solid rgba(255,255,255,.08)}
 .cta-box{background:linear-gradient(135deg,rgba(255,77,141,.12),rgba(155,89,182,.12));border:1px solid rgba(255,77,141,.25);border-radius:16px;padding:24px;text-align:center;margin:32px 0}
@@ -8298,9 +8364,9 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;line-height
   <article class="post-body">BLOG_CONTENT_PLACEHOLDER</article>
   <div class="post-tags">BLOG_TAGS_PLACEHOLDER</div>
   <div class="cta-box">
-    <h3>\u{1F485} Ready to Book Your K-Beauty Experience?</h3>
-    <p>Browse the best salons in Seoul \u2014 English booking via WhatsApp, no Korean needed.</p>
-    <a href="/" class="cta-btn">\u{1F338} Find Salons Now</a>
+    <h3>${cta.icon} ${cta.title}</h3>
+    <p>${cta.desc}</p>
+    <a href="/" class="cta-btn">${cta.btn}</a>
   </div>
   BLOG_RELATED_PLACEHOLDER
 </main>
