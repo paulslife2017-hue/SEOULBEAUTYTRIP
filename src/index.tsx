@@ -3217,8 +3217,8 @@ app.delete('/api/blogs/:id', async (c) => {
   return c.json({ ok: true })
 })
 
-// POST /api/admin/sync-reviews — Google Places API(구버전)로 실제 리뷰 fetch → DB 저장
-// maps.googleapis.com 구버전 API: next_page_token으로 최대 10개 수집
+// POST /api/admin/sync-reviews — Google Places API v1으로 실제 리뷰 fetch → DB 저장
+// MOST_RELEVANT + NEWEST 두 번 호출 → 중복 제거 → 최대 10개 저장
 // ?offset=0&limit=10 으로 배치 처리 (Cloudflare subrequest 50개 제한 대응)
 app.post('/api/admin/sync-reviews', async (c) => {
   await ensureDb(c.env)
@@ -3244,64 +3244,55 @@ app.post('/api/admin/sync-reviews', async (c) => {
   const shops = allShops.slice(offset, offset + limit)
   const results: { id: string; name: string; status: string; reviewCount?: number }[] = []
 
-  // 구버전 Places API(maps.googleapis.com) 응답 → 정규화 헬퍼
-  // rv 구조: { author_name, rating, text, time(unix), relative_time_description, profile_photo_url, language }
+  // Places API v1 응답 → 정규화 헬퍼
   const normalizeReviews = (rawReviews: any[]): any[] =>
     rawReviews.map((rv: any) => ({
-      author:            rv.author_name || rv.authorAttribution?.displayName || 'Anonymous',
-      author_name:       rv.author_name || rv.authorAttribution?.displayName || 'Anonymous',
+      author:            rv.authorAttribution?.displayName || 'Anonymous',
+      author_name:       rv.authorAttribution?.displayName || 'Anonymous',
       rating:            rv.rating || 5,
-      text:              rv.text || rv.text?.text || '',
-      time:              typeof rv.time === 'number' ? rv.time
-                         : (rv.publishTime ? Math.floor(new Date(rv.publishTime).getTime() / 1000) : 0),
-      relative_time:     rv.relative_time_description || rv.relativePublishTimeDescription || '',
-      profile_photo_url: rv.profile_photo_url || rv.authorAttribution?.photoUri || '',
-      language:          rv.language || rv.originalText?.languageCode || rv.text?.languageCode || 'en'
+      text:              rv.text?.text || rv.text || '',
+      time:              rv.publishTime ? Math.floor(new Date(rv.publishTime).getTime() / 1000) : 0,
+      relative_time:     rv.relativePublishTimeDescription || '',
+      profile_photo_url: rv.authorAttribution?.photoUri || '',
+      language:          rv.originalText?.languageCode || rv.text?.languageCode || 'en'
     })).filter((rv: any) => (rv.text + '').trim().length > 0)
 
   for (const shop of shops) {
     try {
       const pid = shop.google_place_id
-      // ─── 구버전 Places API (maps.googleapis.com) 1차 호출 ───────────────
-      const base1 = `https://maps.googleapis.com/maps/api/place/details/json`
-        + `?place_id=${pid}&fields=reviews,rating,user_ratings_total`
-        + `&key=${gKey}&language=en&reviews_sort=newest`
-      const res1 = await fetch(base1)
+      const fields = 'reviews,rating,userRatingCount'
+
+      // ─── 1차 호출: MOST_RELEVANT (기본값) ────────────────────────────────
+      const res1 = await fetch(
+        `https://places.googleapis.com/v1/places/${pid}?languageCode=en`,
+        { headers: { 'X-Goog-Api-Key': gKey, 'X-Goog-FieldMask': fields } }
+      )
       if (!res1.ok) {
         const errText = await res1.text()
         results.push({ id: shop.id, name: shop.name, status: `API error ${res1.status}: ${errText.slice(0,120)}` })
         continue
       }
-      const data1: any = await res1.json()
-      if (data1.status !== 'OK') {
-        results.push({ id: shop.id, name: shop.name, status: `Places status: ${data1.status}` })
-        continue
-      }
-      const reviews1: any[] = data1.result?.reviews || []
-      const rating      = data1.result?.rating           ?? null
-      const reviewCount = data1.result?.user_ratings_total ?? null
+      const place1: any = await res1.json()
+      const reviews1: any[] = place1.reviews || []
+      const rating      = place1.rating          ?? null
+      const reviewCount = place1.userRatingCount ?? null
 
-      // ─── next_page_token 있으면 2차 호출(추가 5개) ──────────────────────
+      // ─── 2차 호출: NEWEST ─────────────────────────────────────────────────
       let reviews2: any[] = []
-      const pageToken: string = data1.next_page_token || ''
-      if (pageToken) {
-        // Google 정책: pagetoken 발급 후 최소 2초 대기 필요
-        await new Promise(r => setTimeout(r, 2500))
-        const base2 = `https://maps.googleapis.com/maps/api/place/details/json`
-          + `?place_id=${pid}&fields=reviews`
-          + `&key=${gKey}&language=en&reviews_sort=newest&pagetoken=${pageToken}`
-        const res2 = await fetch(base2)
-        if (res2.ok) {
-          const data2: any = await res2.json()
-          if (data2.status === 'OK') reviews2 = data2.result?.reviews || []
-        }
+      const res2 = await fetch(
+        `https://places.googleapis.com/v1/places/${pid}?languageCode=en&reviewSort=NEWEST`,
+        { headers: { 'X-Goog-Api-Key': gKey, 'X-Goog-FieldMask': fields } }
+      )
+      if (res2.ok) {
+        const place2: any = await res2.json()
+        reviews2 = place2.reviews || []
       }
 
-      // ─── 합치기: 중복 제거(author+time 기준) + 최대 10개 ────────────────
+      // ─── 합치기: 중복 제거(publishTime 기준) + 최대 10개 ─────────────────
       const allRaw = [...reviews1, ...reviews2]
       const seen = new Set<string>()
       const deduped = allRaw.filter((rv: any) => {
-        const key = `${rv.author_name}|${rv.time}`
+        const key = `${rv.authorAttribution?.displayName}|${rv.publishTime}`
         if (seen.has(key)) return false
         seen.add(key)
         return true
