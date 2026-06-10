@@ -2476,7 +2476,8 @@ function rowToVideo(r) {
     createdAt: r.created_at || "",
     videoUrlLow: r.video_url_low || "",
     videoUrlMid: r.video_url_mid || "",
-    videoUrlHigh: r.video_url_high || ""
+    videoUrlHigh: r.video_url_high || "",
+    instagramUrl: r.instagram_url || ""
   };
 }
 function rowToBooking(r) {
@@ -2707,6 +2708,10 @@ async function initDb(env) {
     }
     try {
       await sql`ALTER TABLE videos ADD COLUMN IF NOT EXISTS video_url_high TEXT`;
+    } catch (e) {
+    }
+    try {
+      await sql`ALTER TABLE videos ADD COLUMN IF NOT EXISTS instagram_url TEXT DEFAULT ''`;
     } catch (e) {
     }
     await sql`CREATE TABLE IF NOT EXISTS bookings (
@@ -3624,10 +3629,11 @@ app.post("/api/videos", async (c) => {
   const urlLow = body.videoUrlLow || null;
   const urlMid = body.videoUrlMid || null;
   const urlHigh = body.videoUrlHigh || null;
-  await sql`INSERT INTO videos (id,shop_id,title,description,video_url,thumbnail,tags,views,likes,created_at,video_url_low,video_url_mid,video_url_high) VALUES (
+  const instagramUrl = body.instagramUrl || "";
+  await sql`INSERT INTO videos (id,shop_id,title,description,video_url,thumbnail,tags,views,likes,created_at,video_url_low,video_url_mid,video_url_high,instagram_url) VALUES (
     ${newId},${body.shopId || ""},${body.title || ""},${description},${vUrl},
     ${finalThumb},${JSON.stringify(autoTags)},0,0,${today},
-    ${urlLow},${urlMid},${urlHigh}
+    ${urlLow},${urlMid},${urlHigh},${instagramUrl}
   )`;
   return c.json({ ok: true, id: newId, descriptionGenerated: !body.description && !!description, tagsGenerated: !body.tags?.length && !!autoTags.length });
 });
@@ -3831,7 +3837,8 @@ app.put("/api/videos/:id", async (c) => {
       title=${body.title || ""},
       description=${body.description || ""},
       thumbnail=${body.thumbnail || ""},
-      tags=${JSON.stringify(body.tags || [])}
+      tags=${JSON.stringify(body.tags || [])},
+      instagram_url=${body.instagramUrl || ""}
       WHERE id=${c.req.param("id")}`;
   }
   return c.json({ ok: true });
@@ -6222,7 +6229,8 @@ ${(() => {
       const vidUrl = v.videoUrl || "";
       let displayTitle = (v.title || "").trim();
       if (!displayTitle || displayTitle === shop.name || /^[a-zA-Z0-9_.~-]{8,}$/.test(displayTitle)) displayTitle = shop.name;
-      return '<div class="sp-vid-card" data-vid-url="' + vidUrl + '" data-vid-thumb="' + thumb + '" onclick="playSpVid(' + vi + ')">' + (vidUrl ? '<video class="sp-vid-inline" data-src="' + vidUrl + '" poster="' + thumb + '" loop muted playsinline preload="metadata" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px;display:block"></video>' : "") + (thumb ? '<img class="sp-vid-poster" src="' + thumb + '" alt="' + displayTitle + '" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px;transition:opacity .4s">' : '<div class="sp-vid-poster" style="position:absolute;inset:0;background:#111;border-radius:14px"></div>') + '<div class="sp-play-ic"><i class="fas fa-play" style="font-size:14px;color:#fff;margin-left:2px"></i></div><div class="sp-vid-card-ov"><div class="sp-vid-card-title">' + displayTitle + "</div></div></div>";
+      const instUrl = v.instagramUrl || "";
+      return '<div class="sp-vid-card" data-vid-url="' + vidUrl + '" data-vid-thumb="' + thumb + '" data-vid-instagram="' + instUrl + '" onclick="playSpVid(' + vi + ')">' + (vidUrl ? '<video class="sp-vid-inline" data-src="' + vidUrl + '" poster="' + thumb + '" loop muted playsinline preload="metadata" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px;display:block"></video>' : "") + (thumb ? '<img class="sp-vid-poster" src="' + thumb + '" alt="' + displayTitle + '" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px;transition:opacity .4s">' : '<div class="sp-vid-poster" style="position:absolute;inset:0;background:#111;border-radius:14px"></div>') + '<div class="sp-play-ic"><i class="fas fa-play" style="font-size:14px;color:#fff;margin-left:2px"></i></div><div class="sp-vid-card-ov"><div class="sp-vid-card-title">' + displayTitle + "</div></div></div>";
     }).join("");
     const gridClass = shopVideos.length === 1 ? "sp-vid-grid single-vid" : "sp-vid-grid";
     return '<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-play-circle" style="color:var(--pk);margin-right:4px"></i>Videos <span style="font-size:10px;color:rgba(255,255,255,.3);font-weight:400;letter-spacing:0">(' + shopVideos.length + ')</span></div><div class="' + gridClass + '">' + cardsHtml + "</div></div>";
@@ -6470,12 +6478,42 @@ function playSpVid(idx){
   var cards = document.querySelectorAll('.sp-vid-card');
   var card  = cards[idx];
   if(!card) return;
-  var vidUrl = card.getAttribute('data-vid-url');
-  var thumb  = card.getAttribute('data-vid-thumb');
+  var vidUrl   = card.getAttribute('data-vid-url');
+  var thumb    = card.getAttribute('data-vid-thumb');
+  var instRaw  = card.getAttribute('data-vid-instagram') || '';
   if(!vidUrl) return;
 
   var old = document.getElementById('sp-vid-ov');
   if(old) old.remove();
+
+  // \uC778\uC2A4\uD0C0 \uCD9C\uCC98 HTML \uC0DD\uC131
+  // @account_name \u2192 https://instagram.com/account_name \uB9C1\uD06C\uB85C
+  var instHtml = '';
+  if(instRaw){
+    var instHref = '';
+    var instLabel = instRaw;
+    if(instRaw.startsWith('http')){
+      instHref  = instRaw;
+      // URL\uC5D0\uC11C \uD45C\uC2DC\uBA85 \uCD94\uCD9C: instagram.com/p/XXXX \u2192 @\uCD9C\uCC98, instagram.com/account \u2192 @account
+      var _m = instRaw.match(/instagram.com/(?:p/[^/?]+|([^/?]+))/);
+      instLabel = _m && _m[1] ? '@'+_m[1] : '\uCD9C\uCC98 \uBCF4\uAE30';
+    } else {
+      var _acc = instRaw.replace(/^@/,'');
+      instHref  = 'https://www.instagram.com/'+_acc+'/';
+      instLabel = '@'+_acc;
+    }
+    instHtml = '<a href="'+instHref+'" target="_blank" rel="noopener noreferrer"'
+      +' style="position:absolute;bottom:14px;left:50%;transform:translateX(-50%);'
+      +'display:flex;align-items:center;gap:6px;'
+      +'background:rgba(0,0,0,.55);backdrop-filter:blur(6px);'
+      +'border:1px solid rgba(255,255,255,.18);border-radius:20px;'
+      +'padding:5px 12px 5px 10px;color:#fff;font-size:12px;font-weight:600;'
+      +'text-decoration:none;white-space:nowrap;z-index:3;'
+      +'box-shadow:0 2px 12px rgba(0,0,0,.4)">'
+      +'<i class="fab fa-instagram" style="font-size:14px;color:#e1306c"></i>'
+      +instLabel
+      +'</a>';
+  }
 
   var ov = document.createElement('div');
   ov.id = 'sp-vid-ov';
@@ -6498,6 +6536,8 @@ function playSpVid(idx){
     +'<video id="sp-vid-ov-video"'+(thumb?' poster="'+thumb+'"':'')
     +' loop playsinline'
     +' style="width:100%;height:100%;border-radius:18px;object-fit:cover;background:#000;display:block"></video>'
+    // \uC778\uC2A4\uD0C0 \uCD9C\uCC98 (\uC788\uC744 \uB54C\uB9CC)
+    +instHtml
     +'</div>';
 
   // \uC2A4\uD53C\uB108 \uC560\uB2C8\uBA54\uC774\uC158 CSS (\uD55C \uBC88\uB9CC \uCD94\uAC00)
@@ -14133,6 +14173,14 @@ textarea{height:80px;resize:none}
     <div class="form-grid">
       <div class="full"><label>\uC601\uC0C1 \uC81C\uBAA9 *</label><input id="ve-title" placeholder="\uC601\uC0C1 \uC81C\uBAA9\uC744 \uC785\uB825\uD558\uC138\uC694"></div>
       <div class="full">
+        <label style="display:flex;align-items:center;gap:6px">
+          <i class="fab fa-instagram" style="color:#e1306c;font-size:13px"></i>
+          <span>\uC778\uC2A4\uD0C0\uADF8\uB7A8 \uCD9C\uCC98 <span style="font-size:11px;color:rgba(255,255,255,.4)">(\uC120\uD0DD \u2014 \uC601\uC0C1 \uC7AC\uC0DD \uD654\uBA74 \uD558\uB2E8\uC5D0 \uD45C\uC2DC)</span></span>
+        </label>
+        <input id="ve-instagram" placeholder="@account_name \uB610\uB294 https://www.instagram.com/p/..." style="background:rgba(225,48,108,.06);border-color:rgba(225,48,108,.25)">
+        <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:4px">\uC608: @clinic_gangnam &nbsp;|&nbsp; \uC785\uB825\uD558\uBA74 \uC601\uC0C1 \uC7AC\uC0DD \uC2DC \uD558\uB2E8\uC5D0 \uCD9C\uCC98 \uB9C1\uD06C\uB85C \uD45C\uC2DC\uB429\uB2C8\uB2E4</div>
+      </div>
+      <div class="full">
         <label style="display:flex;align-items:center;justify-content:space-between">
           <span>\uC601\uC0C1 \uC124\uBA85 <span style="font-size:11px;color:rgba(255,255,255,.4)">(\uC120\uD0DD)</span></span>
           <button type="button" id="ve-ai-desc-btn" onclick="genVideoDescSingle()" style="padding:4px 10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;border-radius:7px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px">
@@ -14181,6 +14229,15 @@ textarea{height:80px;resize:none}
       <video id="vd-preview-video" style="width:100%;height:100%;object-fit:cover" muted playsinline controls></video>
     </div>
 
+    <!-- \uC778\uC2A4\uD0C0 \uCD9C\uCC98 \uC785\uB825 -->
+    <div style="margin-top:12px">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:6px">
+        <i class="fab fa-instagram" style="color:#e1306c;font-size:13px"></i>
+        \uC778\uC2A4\uD0C0\uADF8\uB7A8 \uCD9C\uCC98 <span style="font-weight:400;color:rgba(255,255,255,.3)">(\uC120\uD0DD \u2014 \uC601\uC0C1 \uC7AC\uC0DD \uD654\uBA74 \uD558\uB2E8\uC5D0 \uD45C\uC2DC)</span>
+      </label>
+      <input id="vd-instagram" placeholder="@account_name \uB610\uB294 https://www.instagram.com/p/..." style="width:100%;background:rgba(225,48,108,.06);border:1px solid rgba(225,48,108,.25);border-radius:10px;color:#fff;font-size:13px;padding:10px 12px;box-sizing:border-box">
+      <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:4px">\uC608: @clinic_gangnam</div>
+    </div>
     <button class="btn-pk" style="margin-top:12px;opacity:.4;pointer-events:none" id="vd-submit-btn"><i class="fas fa-plus"></i> \uC601\uC0C1 \uB4F1\uB85D</button>
   </div>
 
@@ -17169,6 +17226,7 @@ function openVideoEditPanel(videoId){
   document.getElementById('ve-title').value = vid.title || '';
   document.getElementById('ve-desc').value = vid.description || '';
   document.getElementById('ve-tags').value = (vid.tags||[]).join(', ');
+  document.getElementById('ve-instagram').value = vid.instagramUrl || vid.instagram_url || '';
 
   // \uD328\uB110 \uC5F4\uAE30 (\uC601\uC0C1 \uCD94\uAC00 \uD328\uB110 \uB2EB\uAE30)
   document.getElementById('videoEditPanel').style.display = 'block';
@@ -17190,6 +17248,7 @@ function saveVideoEdit(){
   if(!title){ alert('\uC601\uC0C1 \uC81C\uBAA9\uC744 \uC785\uB825\uD574\uC8FC\uC138\uC694!'); return; }
   var desc  = document.getElementById('ve-desc').value.trim();
   var tags  = document.getElementById('ve-tags').value.split(',').map(function(t){ return t.trim(); }).filter(Boolean);
+  var instagram = document.getElementById('ve-instagram').value.trim();
 
   var btn = document.getElementById('ve-submit-btn');
   btn.disabled = true; btn.textContent = '\uC800\uC7A5 \uC911...';
@@ -17200,7 +17259,7 @@ function saveVideoEdit(){
   fetch('/api/videos/'+editingVideoId, {
     method:'PUT',
     headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ title: title, description: desc, thumbnail: vid.thumbnail||'', tags: tags })
+    body: JSON.stringify({ title: title, description: desc, thumbnail: vid.thumbnail||'', tags: tags, instagramUrl: instagram })
   }).then(function(r){ return r.json(); }).then(function(){
     btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> \uC800\uC7A5';
     closeVideoEditPanel();
@@ -18428,6 +18487,7 @@ window.addVideo = async function addVideo(){
     progressBar.style.width = '100%';
     progressPct.textContent = '100%';
 
+    var vdInst = (document.getElementById('vd-instagram')||{}).value||'';
     await fetch('/api/videos', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({
       shopId: currentShopId,
       title: '',
@@ -18437,7 +18497,8 @@ window.addVideo = async function addVideo(){
       videoUrlHigh: videoUrlHigh,
       thumbnail: shop.thumbnail || '',
       description: '',
-      tags: []
+      tags: [],
+      instagramUrl: vdInst.trim()
     })});
 
     _selectedVideoFile = null;

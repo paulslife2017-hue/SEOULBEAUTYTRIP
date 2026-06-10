@@ -370,6 +370,7 @@ interface Video {
   videoUrlLow?: string   // 360p 350kbps — Cloudinary eager 변환 (업로드 시 1회)
   videoUrlMid?: string   // 480p 700kbps
   videoUrlHigh?: string  // 720p 1500kbps
+  instagramUrl?: string  // 인스타그램 출처 (예: @clinic_name)
 }
 
 interface Booking {
@@ -464,7 +465,8 @@ function rowToVideo(r: any): Video {
     views: r.views || 0, likes: r.likes || 0, createdAt: r.created_at || '',
     videoUrlLow: r.video_url_low || '',
     videoUrlMid: r.video_url_mid || '',
-    videoUrlHigh: r.video_url_high || ''
+    videoUrlHigh: r.video_url_high || '',
+    instagramUrl: r.instagram_url || ''
   }
 }
 function rowToBooking(r: any): Booking {
@@ -635,6 +637,7 @@ async function initDb(env: any) {
     try { await sql`ALTER TABLE videos ADD COLUMN IF NOT EXISTS video_url_low TEXT` } catch(e) {}
     try { await sql`ALTER TABLE videos ADD COLUMN IF NOT EXISTS video_url_mid TEXT` } catch(e) {}
     try { await sql`ALTER TABLE videos ADD COLUMN IF NOT EXISTS video_url_high TEXT` } catch(e) {}
+    try { await sql`ALTER TABLE videos ADD COLUMN IF NOT EXISTS instagram_url TEXT DEFAULT ''` } catch(e) {}
     await sql`CREATE TABLE IF NOT EXISTS bookings (
       id TEXT PRIMARY KEY, shop_id TEXT, shop_name TEXT, name TEXT,
       email TEXT, phone TEXT, service TEXT, people TEXT DEFAULT '1',
@@ -1677,10 +1680,11 @@ app.post('/api/videos', async (c) => {
   const urlMid  = body.videoUrlMid  || null
   const urlHigh = body.videoUrlHigh || null
 
-  await sql`INSERT INTO videos (id,shop_id,title,description,video_url,thumbnail,tags,views,likes,created_at,video_url_low,video_url_mid,video_url_high) VALUES (
+  const instagramUrl = body.instagramUrl || ''
+  await sql`INSERT INTO videos (id,shop_id,title,description,video_url,thumbnail,tags,views,likes,created_at,video_url_low,video_url_mid,video_url_high,instagram_url) VALUES (
     ${newId},${body.shopId||''},${body.title||''},${description},${vUrl},
     ${finalThumb},${JSON.stringify(autoTags)},0,0,${today},
-    ${urlLow},${urlMid},${urlHigh}
+    ${urlLow},${urlMid},${urlHigh},${instagramUrl}
   )`
   return c.json({ ok: true, id: newId, descriptionGenerated: !body.description && !!description, tagsGenerated: !body.tags?.length && !!autoTags.length })
 })
@@ -1928,7 +1932,8 @@ app.put('/api/videos/:id', async (c) => {
       title=${body.title||''},
       description=${body.description||''},
       thumbnail=${body.thumbnail||''},
-      tags=${JSON.stringify(body.tags||[])}
+      tags=${JSON.stringify(body.tags||[])},
+      instagram_url=${body.instagramUrl||''}
       WHERE id=${c.req.param('id')}`
   }
   return c.json({ ok: true })
@@ -4749,7 +4754,8 @@ ${(()=>{
       const vidUrl = v.videoUrl  || '';
       let displayTitle = (v.title||'').trim();
       if(!displayTitle || displayTitle===shop.name || /^[a-zA-Z0-9_.~-]{8,}$/.test(displayTitle)) displayTitle = shop.name;
-      return '<div class="sp-vid-card" data-vid-url="'+vidUrl+'" data-vid-thumb="'+thumb+'" onclick="playSpVid('+vi+')">'
+      const instUrl = v.instagramUrl || '';
+      return '<div class="sp-vid-card" data-vid-url="'+vidUrl+'" data-vid-thumb="'+thumb+'" data-vid-instagram="'+instUrl+'" onclick="playSpVid('+vi+')">'
         +(vidUrl?'<video class="sp-vid-inline" data-src="'+vidUrl+'" poster="'+thumb+'" loop muted playsinline preload="metadata" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px;display:block"></video>':'')
         +(thumb?'<img class="sp-vid-poster" src="'+thumb+'" alt="'+displayTitle+'" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px;transition:opacity .4s">':'<div class="sp-vid-poster" style="position:absolute;inset:0;background:#111;border-radius:14px"></div>')
         +'<div class="sp-play-ic"><i class="fas fa-play" style="font-size:14px;color:#fff;margin-left:2px"></i></div>'
@@ -5031,12 +5037,42 @@ function playSpVid(idx){
   var cards = document.querySelectorAll('.sp-vid-card');
   var card  = cards[idx];
   if(!card) return;
-  var vidUrl = card.getAttribute('data-vid-url');
-  var thumb  = card.getAttribute('data-vid-thumb');
+  var vidUrl   = card.getAttribute('data-vid-url');
+  var thumb    = card.getAttribute('data-vid-thumb');
+  var instRaw  = card.getAttribute('data-vid-instagram') || '';
   if(!vidUrl) return;
 
   var old = document.getElementById('sp-vid-ov');
   if(old) old.remove();
+
+  // 인스타 출처 HTML 생성
+  // @account_name → https://instagram.com/account_name 링크로
+  var instHtml = '';
+  if(instRaw){
+    var instHref = '';
+    var instLabel = instRaw;
+    if(instRaw.startsWith('http')){
+      instHref  = instRaw;
+      // URL에서 표시명 추출: instagram.com/p/XXXX → @출처, instagram.com/account → @account
+      var _m = instRaw.match(/instagram\.com\/(?:p\/[^/?]+|([^/?]+))/);
+      instLabel = _m && _m[1] ? '@'+_m[1] : '출처 보기';
+    } else {
+      var _acc = instRaw.replace(/^@/,'');
+      instHref  = 'https://www.instagram.com/'+_acc+'/';
+      instLabel = '@'+_acc;
+    }
+    instHtml = '<a href="'+instHref+'" target="_blank" rel="noopener noreferrer"'
+      +' style="position:absolute;bottom:14px;left:50%;transform:translateX(-50%);'
+      +'display:flex;align-items:center;gap:6px;'
+      +'background:rgba(0,0,0,.55);backdrop-filter:blur(6px);'
+      +'border:1px solid rgba(255,255,255,.18);border-radius:20px;'
+      +'padding:5px 12px 5px 10px;color:#fff;font-size:12px;font-weight:600;'
+      +'text-decoration:none;white-space:nowrap;z-index:3;'
+      +'box-shadow:0 2px 12px rgba(0,0,0,.4)">'
+      +'<i class="fab fa-instagram" style="font-size:14px;color:#e1306c"></i>'
+      +instLabel
+      +'</a>';
+  }
 
   var ov = document.createElement('div');
   ov.id = 'sp-vid-ov';
@@ -5059,6 +5095,8 @@ function playSpVid(idx){
     +'<video id="sp-vid-ov-video"'+(thumb?' poster="'+thumb+'"':'')
     +' loop playsinline'
     +' style="width:100%;height:100%;border-radius:18px;object-fit:cover;background:#000;display:block"></video>'
+    // 인스타 출처 (있을 때만)
+    +instHtml
     +'</div>';
 
   // 스피너 애니메이션 CSS (한 번만 추가)
@@ -13081,6 +13119,14 @@ textarea{height:80px;resize:none}
     <div class="form-grid">
       <div class="full"><label>영상 제목 *</label><input id="ve-title" placeholder="영상 제목을 입력하세요"></div>
       <div class="full">
+        <label style="display:flex;align-items:center;gap:6px">
+          <i class="fab fa-instagram" style="color:#e1306c;font-size:13px"></i>
+          <span>인스타그램 출처 <span style="font-size:11px;color:rgba(255,255,255,.4)">(선택 — 영상 재생 화면 하단에 표시)</span></span>
+        </label>
+        <input id="ve-instagram" placeholder="@account_name 또는 https://www.instagram.com/p/..." style="background:rgba(225,48,108,.06);border-color:rgba(225,48,108,.25)">
+        <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:4px">예: @clinic_gangnam &nbsp;|&nbsp; 입력하면 영상 재생 시 하단에 출처 링크로 표시됩니다</div>
+      </div>
+      <div class="full">
         <label style="display:flex;align-items:center;justify-content:space-between">
           <span>영상 설명 <span style="font-size:11px;color:rgba(255,255,255,.4)">(선택)</span></span>
           <button type="button" id="ve-ai-desc-btn" onclick="genVideoDescSingle()" style="padding:4px 10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;border-radius:7px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px">
@@ -13129,6 +13175,15 @@ textarea{height:80px;resize:none}
       <video id="vd-preview-video" style="width:100%;height:100%;object-fit:cover" muted playsinline controls></video>
     </div>
 
+    <!-- 인스타 출처 입력 -->
+    <div style="margin-top:12px">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:6px">
+        <i class="fab fa-instagram" style="color:#e1306c;font-size:13px"></i>
+        인스타그램 출처 <span style="font-weight:400;color:rgba(255,255,255,.3)">(선택 — 영상 재생 화면 하단에 표시)</span>
+      </label>
+      <input id="vd-instagram" placeholder="@account_name 또는 https://www.instagram.com/p/..." style="width:100%;background:rgba(225,48,108,.06);border:1px solid rgba(225,48,108,.25);border-radius:10px;color:#fff;font-size:13px;padding:10px 12px;box-sizing:border-box">
+      <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:4px">예: @clinic_gangnam</div>
+    </div>
     <button class="btn-pk" style="margin-top:12px;opacity:.4;pointer-events:none" id="vd-submit-btn"><i class="fas fa-plus"></i> 영상 등록</button>
   </div>
 
@@ -16117,6 +16172,7 @@ function openVideoEditPanel(videoId){
   document.getElementById('ve-title').value = vid.title || '';
   document.getElementById('ve-desc').value = vid.description || '';
   document.getElementById('ve-tags').value = (vid.tags||[]).join(', ');
+  document.getElementById('ve-instagram').value = vid.instagramUrl || vid.instagram_url || '';
 
   // 패널 열기 (영상 추가 패널 닫기)
   document.getElementById('videoEditPanel').style.display = 'block';
@@ -16138,6 +16194,7 @@ function saveVideoEdit(){
   if(!title){ alert('영상 제목을 입력해주세요!'); return; }
   var desc  = document.getElementById('ve-desc').value.trim();
   var tags  = document.getElementById('ve-tags').value.split(',').map(function(t){ return t.trim(); }).filter(Boolean);
+  var instagram = document.getElementById('ve-instagram').value.trim();
 
   var btn = document.getElementById('ve-submit-btn');
   btn.disabled = true; btn.textContent = '저장 중...';
@@ -16148,7 +16205,7 @@ function saveVideoEdit(){
   fetch('/api/videos/'+editingVideoId, {
     method:'PUT',
     headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ title: title, description: desc, thumbnail: vid.thumbnail||'', tags: tags })
+    body: JSON.stringify({ title: title, description: desc, thumbnail: vid.thumbnail||'', tags: tags, instagramUrl: instagram })
   }).then(function(r){ return r.json(); }).then(function(){
     btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> 저장';
     closeVideoEditPanel();
@@ -17376,6 +17433,7 @@ window.addVideo = async function addVideo(){
     progressBar.style.width = '100%';
     progressPct.textContent = '100%';
 
+    var vdInst = (document.getElementById('vd-instagram')||{}).value||'';
     await fetch('/api/videos', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({
       shopId: currentShopId,
       title: '',
@@ -17385,7 +17443,8 @@ window.addVideo = async function addVideo(){
       videoUrlHigh: videoUrlHigh,
       thumbnail: shop.thumbnail || '',
       description: '',
-      tags: []
+      tags: [],
+      instagramUrl: vdInst.trim()
     })});
 
     _selectedVideoFile = null;
