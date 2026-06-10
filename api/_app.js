@@ -5248,14 +5248,6 @@ ${SB_TRACKER_SCRIPT}
       "currenciesAccepted":"KRW",
       "paymentAccepted":"Cash, Credit Card",
       "areaServed":{"@type":"City","name":"Seoul"},
-      "aggregateRating":{
-        "@type":"AggregateRating",
-        "ratingValue":"${shop.rating}",
-        "bestRating":"5",
-        "worstRating":"1",
-        "reviewCount":${Math.max(shop.reviewCount, 1)},
-        "ratingCount":${Math.max(shop.reviewCount, 1)}
-      },
       "hasOfferCatalog":{
         "@type":"OfferCatalog",
         "name":"${shop.category} Services at ${shop.name}",
@@ -5313,20 +5305,7 @@ ${SB_TRACKER_SCRIPT}
         }
       ]
     },
-    ${shop.reviews && shop.reviews.length > 0 ? `{
-      "@type":"ItemList",
-      "name":"Reviews of ${shop.name}",
-      "itemListElement":[${shop.reviews.slice(0, 3).map((r, i) => `{
-        "@type":"ListItem","position":${i + 1},
-        "item":{
-          "@type":"Review",
-          "author":{"@type":"Person","name":"${(r.author || "Guest").replace(/"/g, "'")}"},
-          "reviewRating":{"@type":"Rating","ratingValue":"${r.rating || 5}","bestRating":"5"},
-          "reviewBody":"${(r.text || "").replace(/"/g, "'").slice(0, 200)}",
-          "itemReviewed":{"@type":"LocalBusiness","name":"${shop.name}"}
-        }
-      }`).join(",")}]
-    },` : ""}
+
     {
       "@type":"WebPage",
       "@id":"${canonicalUrl}#webpage",
@@ -5565,8 +5544,8 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
     </div>
     <div class="sp-rating">
       <span class="sp-stars">\u2605\u2605\u2605\u2605\u2605</span>
-      <span class="sp-rating-num" itemprop="aggregateRating" itemscope itemtype="https://schema.org/AggregateRating">
-        <span itemprop="ratingValue">${shop.rating}</span> (<span itemprop="reviewCount">${shop.reviewCount}</span> reviews)
+      <span class="sp-rating-num">
+        ${shop.rating} (${shop.reviewCount} reviews)
       </span>
     </div>
   </div>
@@ -5747,6 +5726,7 @@ ${(() => {
           cleanSeo = '<h2 class="sp-seo-h2">' + _h2titles[0] + "</h2>" + cleanSeo;
         }
       }
+      cleanSeo = cleanSeo.replace(/<h2[^>]*>[^<]*How to Book[^<]*<\/h2>\s*<p[^>]*>[\s\S]*?<\/p>/i, "");
       const _seoHead = '<div class="sp-seo-block-head"><i class="fas fa-magnifying-glass"></i><span>Travel Guide</span></div>';
       return '<div class="sp-seo-block">' + _seoHead + cleanSeo + "</div>";
     }
@@ -6351,7 +6331,8 @@ app.get("/best/:category/:area", async (c) => {
     } catch (e) {
     }
   }
-  if (shops2.length === 0) {
+  if (shops2.length === 0) return c.notFound();
+  if (shops2.length <= 2) {
     const _base = "https://seoulbeautytrip.com";
     const availableAreaLinks = Object.entries(AREA_LABELS).filter(([k]) => k !== areaSlug).map(([k, v]) => `<a href="/best/${catSlug}/${k}" style="display:inline-block;padding:8px 16px;margin:4px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:20px;color:rgba(255,255,255,.8);text-decoration:none;font-size:13px;">${v}</a>`).join("");
     return c.html(`<!DOCTYPE html>
@@ -6464,12 +6445,6 @@ body{background:#0f0f12;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
             "addressCountry": "KR"
           },
           ...s.lat && s.lng ? { "geo": { "@type": "GeoCoordinates", "latitude": s.lat, "longitude": s.lng } } : {},
-          "aggregateRating": {
-            "@type": "AggregateRating",
-            "ratingValue": String(s.rating),
-            "bestRating": "5",
-            "reviewCount": String(Math.max(s.reviewCount, 1))
-          },
           "priceRange": s.priceRange,
           ...s.googlePlaceId ? { "sameAs": [`https://www.google.com/maps/place/?q=place_id:${s.googlePlaceId}`] } : {}
         }
@@ -6538,7 +6513,7 @@ ${SB_TRACKER_SCRIPT}
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${titleMain} | Seoul Beauty Trip</title>
 <meta name="description" content="${metaDesc}">
-<meta name="robots" content="${shops2.length <= 1 ? "noindex, follow" : "index, follow"}">
+<meta name="robots" content="${shops2.length <= 2 ? "noindex, follow" : "index, follow"}">
 <link rel="canonical" href="${pageUrl}">
 <meta property="og:type" content="website">
 <meta property="og:title" content="${titleMain} | Seoul Beauty Trip">
@@ -8033,13 +8008,13 @@ app.get("/about", (c) => {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>About Seoul Beauty Trip \u2014 Who We Are & How We Work</title>
-<meta name="description" content="Seoul Beauty Trip helps foreign visitors book skin clinics, hair salons, head spas and beauty services in Seoul. English support, same local price, WhatsApp booking.">
+<title>About Seoul Beauty Trip \u2014 Licensed Foreign Patient Facilitator in Seoul</title>
+<meta name="description" content="Seoul Beauty Trip is a government-licensed foreign patient facilitator (Reg. A-2025-01-02-5922) helping visitors book skin clinics, hair salons and beauty services in Seoul with English support.">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://seoulbeautytrip.com/about">
 <meta property="og:type" content="website">
-<meta property="og:title" content="About Seoul Beauty Trip">
-<meta property="og:description" content="We help foreigners book Seoul beauty services \u2014 skin clinics, head spas, nail studios and more. English support, no hidden fees.">
+<meta property="og:title" content="About Seoul Beauty Trip \u2014 Licensed Foreign Patient Facilitator">
+<meta property="og:description" content="Government-licensed facilitator (No. A-2025-01-02-5922) helping foreigners book Seoul beauty services \u2014 skin clinics, head spas, nail studios and more. English support, no hidden fees.">
 <meta property="og:url" content="https://seoulbeautytrip.com/about">
 <meta property="og:site_name" content="Seoul Beauty Trip">
 <script type="application/ld+json">
@@ -8047,12 +8022,28 @@ app.get("/about", (c) => {
   "@context":"https://schema.org",
   "@type":"Organization",
   "name":"Seoul Beauty Trip",
+  "legalName":"\uAE00\uB85C\uBC8C\uD398\uC774\uCF54\uB9AC\uC544 (GlobalPayKorea)",
   "url":"https://seoulbeautytrip.com",
-  "logo":"https://seoulbeautytrip.com/",
-  "description":"Seoul Beauty Trip helps foreign visitors book beauty services in Seoul \u2014 skin clinics, head spas, hair salons, nail studios and more. English-speaking support, same local price, WhatsApp booking.",
+  "description":"Seoul Beauty Trip is a government-licensed foreign patient facilitator in Seoul (Registration No. A-2025-01-02-5922, issued by the Mayor of Seoul). We help foreign visitors book skin clinics, hair salons, head spas and beauty services in Seoul with English-speaking support at the same local price.",
+  "address":{
+    "@type":"PostalAddress",
+    "streetAddress":"494-1 Samyang-ro, 801ho",
+    "addressLocality":"Gangbuk-gu",
+    "addressRegion":"Seoul",
+    "addressCountry":"KR"
+  },
   "contactPoint":{"@type":"ContactPoint","contactType":"customer support","availableLanguage":["English","Korean"]},
   "areaServed":{"@type":"City","name":"Seoul"},
-  "sameAs":["https://www.instagram.com/seoulbeautytrip/"]
+  "sameAs":["https://www.instagram.com/seoulbeautytrip/"],
+  "hasCredential":{
+    "@type":"EducationalOccupationalCredential",
+    "name":"Foreign Patient Facilitator Registration",
+    "credentialCategory":"Government License",
+    "recognizedBy":{"@type":"GovernmentOrganization","name":"Mayor of Seoul, Republic of Korea"},
+    "identifier":"A-2025-01-02-5922",
+    "validFrom":"2025-03-24",
+    "validUntil":"2028-03-23"
+  }
 }
 </script>
 <style>
@@ -8068,6 +8059,11 @@ p{color:#444;margin-bottom:14px;font-size:.97rem}
 ul{color:#444;padding-left:20px;margin-bottom:14px;font-size:.97rem}
 ul li{margin-bottom:6px}
 .highlight{background:#fff5f9;border-left:3px solid #FF4D8D;padding:14px 18px;border-radius:0 8px 8px 0;margin:24px 0;font-size:.95rem;color:#333}
+.cert-box{background:#f0faf5;border:1px solid #a8d8b9;border-radius:12px;padding:22px 24px;margin:28px 0}
+.cert-box .cert-badge{display:inline-flex;align-items:center;gap:8px;background:#1a8a4a;color:#fff;font-size:.78rem;font-weight:700;padding:4px 10px;border-radius:20px;margin-bottom:14px;letter-spacing:.3px}
+.cert-table{width:100%;border-collapse:collapse;font-size:.9rem}
+.cert-table td{padding:6px 0;vertical-align:top;color:#333}
+.cert-table td:first-child{color:#666;font-weight:600;min-width:160px;padding-right:12px}
 .contact-box{background:#f8f8fc;border:1px solid #e8e8f0;border-radius:12px;padding:24px;margin-top:40px;text-align:center}
 .contact-box a{color:#FF4D8D;font-weight:700;text-decoration:none}
 .contact-box a:hover{text-decoration:underline}
@@ -8080,7 +8076,23 @@ footer a{color:#FF4D8D;text-decoration:none}
   <a href="/" class="back">\u2190 Seoul Beauty Trip</a>
 
   <h1>About Seoul Beauty Trip</h1>
-  <p class="subtitle">We help foreign visitors discover and book the best beauty services in Seoul \u2014 in English, at the same price locals pay.</p>
+  <p class="subtitle">We help foreign visitors discover and book the best beauty services in Seoul \u2014 in English, at the same price locals pay. <strong>Government-licensed foreign patient facilitator.</strong></p>
+
+  <h2>Who We Are</h2>
+  <p>Seoul Beauty Trip is operated by <strong>GlobalPayKorea (\uAE00\uB85C\uBC8C\uD398\uC774\uCF54\uB9AC\uC544)</strong>, a company officially registered as a <strong>Foreign Patient Facilitator</strong> under the Act on Support for Overseas Advancement of Medical Services and Attraction of Foreign Patients (\uC758\uB8CC \uD574\uC678\uC9C4\uCD9C \uBC0F \uC678\uAD6D\uC778\uD658\uC790 \uC720\uCE58 \uC9C0\uC6D0\uC5D0 \uAD00\uD55C \uBC95\uB960).</p>
+  <p>This registration \u2014 issued by the <strong>Mayor of Seoul</strong> \u2014 certifies that we are legally authorized to assist foreign visitors in accessing and booking medical and beauty services in the Republic of Korea.</p>
+
+  <div class="cert-box">
+    <div class="cert-badge">\u2713 Government-Registered Facilitator</div>
+    <table class="cert-table">
+      <tr><td>Registration No.</td><td><strong>A-2025-01-02-5922</strong></td></tr>
+      <tr><td>Company</td><td>GlobalPayKorea (\uAE00\uB85C\uBC8C\uD398\uC774\uCF54\uB9AC\uC544)</td></tr>
+      <tr><td>Representative</td><td>Kim Eun Hee (\uAE40\uC740\uD76C)</td></tr>
+      <tr><td>Address</td><td>494-1 Samyang-ro, Gangbuk-gu, Seoul, Republic of Korea</td></tr>
+      <tr><td>Valid</td><td>March 24, 2025 \u2014 March 23, 2028</td></tr>
+      <tr><td>Issued by</td><td>Mayor of Seoul, Republic of Korea</td></tr>
+    </table>
+  </div>
 
   <h2>Why We Started This</h2>
   <p>Seoul has some of the best skin clinics, hair salons, head spas, and nail studios in the world. But for foreign visitors, finding and booking them has always been a barrier \u2014 most places don't have English websites, prices are unclear, and making a reservation without Korean is genuinely difficult.</p>
@@ -9337,13 +9349,6 @@ var MAIN_HTML = `<!DOCTYPE html>
         "contactType":"customer support",
         "availableLanguage":["English","Korean"],
         "contactOption":"TollFree"
-      },
-      "aggregateRating":{
-        "@type":"AggregateRating",
-        "ratingValue":"4.9",
-        "bestRating":"5",
-        "worstRating":"1",
-        "reviewCount":"480"
       },
       "sameAs":[
         "https://instagram.com/seoulbeautytrip",
@@ -11141,6 +11146,8 @@ function renderShopModal(shop) {
           _mSeo = '<h2 class="sp-seo-h2">'+_h2titles[0]+'</h2>'+_mSeo;
         }
       }
+      // "How to Book" H2+\uB2E8\uB77D \uC81C\uAC70 \u2014 WhatsApp \uBC84\uD2BC\uC774 \uC774\uBBF8 \uC0C1\uB2E8\uC5D0 \uC788\uC73C\uBBC0\uB85C \uC911\uBCF5
+      _mSeo = _mSeo.replace(/<h2[^>]*>[^<]*How to Book[^<]*</h2>s*<p[^>]*>[sS]*?</p>/i, '');
       seoHtml = '<div class="m-seo-block">'+_seoHead+_mSeo+'</div>';
       return;
     }
