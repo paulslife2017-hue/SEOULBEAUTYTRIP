@@ -5202,9 +5202,7 @@ app.get("/shop/:slug", async (c) => {
   const relatedPool = await withTimeout(sql`
     SELECT id, name, slug, category, location, thumbnail, rating, review_count, description
     FROM shops
-    WHERE category=${shop.category} AND id != ${shop.id} AND slug IS NOT NULL AND active = true
-    ORDER BY rating DESC NULLS LAST, review_count DESC NULLS LAST
-    LIMIT 20`, 15e3, []);
+    WHERE category=${shop.category} AND id != ${shop.id} AND slug IS NOT NULL AND active = true`, 15e3, []);
   const _shuffleArr = (arr) => {
     const a = [...arr];
     for (let i = a.length - 1; i > 0; i--) {
@@ -5220,9 +5218,7 @@ app.get("/shop/:slug", async (c) => {
     SELECT id, name, slug, category, location, thumbnail, rating, review_count
     FROM shops
     WHERE location ILIKE ${"%" + _shopAreaRaw + "%"} AND id != ${shop.id} AND slug IS NOT NULL AND active = true
-      AND category = ANY(${_otherCats}::text[])
-    ORDER BY rating DESC NULLS LAST
-    LIMIT 20`, 8e3, []);
+      AND category = ANY(${_otherCats}::text[])`, 8e3, []);
   const _crossMap = {};
   for (const r of _shuffleArr(nearbyCrossRows)) {
     if (!_crossMap[r.category]) _crossMap[r.category] = r;

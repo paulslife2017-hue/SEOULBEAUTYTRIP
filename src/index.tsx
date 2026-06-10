@@ -3604,13 +3604,11 @@ app.get('/shop/:slug', async (c) => {
   const shop = rowToShop(shopRows[0])
   const vidRows = await withTimeout(sql`SELECT * FROM videos WHERE shop_id=${shop.id} ORDER BY views DESC`, 15000, [])
   const shopVideos = vidRows.map((r: any) => rowToVideo({ ...r, shop_name: shop.name }))
-  // 같은 카테고리 업체 (본인 제외, 상위 20개 풀에서 랜덤 6개 — 매 방문마다 다른 추천)
+  // 같은 카테고리 업체 (본인 제외, 전체 풀에서 랜덤 6개 — 매 방문마다 다른 추천)
   const relatedPool = await withTimeout(sql`
     SELECT id, name, slug, category, location, thumbnail, rating, review_count, description
     FROM shops
-    WHERE category=${shop.category} AND id != ${shop.id} AND slug IS NOT NULL AND active = true
-    ORDER BY rating DESC NULLS LAST, review_count DESC NULLS LAST
-    LIMIT 20`, 15000, [])
+    WHERE category=${shop.category} AND id != ${shop.id} AND slug IS NOT NULL AND active = true`, 15000, [])
   // JS 단에서 Fisher-Yates 셔플 후 6개 추출 (DB RANDOM() 는 full scan 비용)
   const _shuffleArr = (arr: any[]) => {
     const a = [...arr]
@@ -3629,9 +3627,7 @@ app.get('/shop/:slug', async (c) => {
     SELECT id, name, slug, category, location, thumbnail, rating, review_count
     FROM shops
     WHERE location ILIKE ${'%' + _shopAreaRaw + '%'} AND id != ${shop.id} AND slug IS NOT NULL AND active = true
-      AND category = ANY(${_otherCats}::text[])
-    ORDER BY rating DESC NULLS LAST
-    LIMIT 20`, 8000, [])
+      AND category = ANY(${_otherCats}::text[])`, 8000, [])
   // 셔플 후 카테고리별 top 1만 추출 (최대 4개)
   const _crossMap: Record<string, any> = {}
   for (const r of _shuffleArr(nearbyCrossRows)) {
