@@ -2665,6 +2665,10 @@ async function initDb(env) {
       await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS review_summary JSONB DEFAULT NULL`;
     } catch (e) {
     }
+    try {
+      await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS editor_note TEXT DEFAULT ''`;
+    } catch (e) {
+    }
     await sql`CREATE TABLE IF NOT EXISTS blog_posts (
       id TEXT PRIMARY KEY,
       slug TEXT UNIQUE NOT NULL,
@@ -5569,8 +5573,16 @@ People: `);
   const catIcon = catEmoji[shop.category] || "\u2728";
   const _shopArea = shop.location.split(",")[0].trim();
   const _shopCat = shop.category;
+  const _clinicSubtype = (() => {
+    const nm = (shop.name || "").toLowerCase();
+    if (nm.includes("plastic surgery")) return "Plastic Surgery Clinic";
+    if (nm.includes("aesthetic")) return "Aesthetic Clinic";
+    if (nm.includes("dental") || nm.includes("dentist")) return "Dental Clinic";
+    if (nm.includes("dermatology") || nm.includes("derma")) return "Dermatology Clinic";
+    return "Skin Clinic";
+  })();
   const _catTitleLabels = {
-    clinic: "Dermatology Clinic",
+    clinic: _clinicSubtype,
     hair: "Hair Salon",
     headspa: "Head Spa",
     skincare: "Skincare",
@@ -5579,10 +5591,10 @@ People: `);
     tattoo: "Eyebrow Tattoo & Microblading"
   };
   const _catLabel = _catTitleLabels[_shopCat] || _shopCat.charAt(0).toUpperCase() + _shopCat.slice(1);
-  const _areaFinal = _shopArea.toLowerCase().replace("cheongdam", "Gangnam").replace("apgujeong", "Gangnam") !== _shopArea ? "Gangnam" : _shopArea;
+  const _areaFinal = ["cheongdam", "apgujeong", "sinsa", "nonhyeon"].some((a) => _shopArea.toLowerCase().includes(a)) ? "Gangnam" : _shopArea;
   const _pageTitle = shop.name + " \u2014 " + _areaFinal + " " + _catLabel + " Seoul | Seoul Beauty Trip";
   const _metaDescLabels = {
-    clinic: "dermatology clinic",
+    clinic: _clinicSubtype.toLowerCase(),
     hair: "hair salon",
     headspa: "head spa & scalp clinic",
     skincare: "skincare studio",
@@ -5634,7 +5646,7 @@ People: `);
   };
   const _schemaType = _schemaTypeMap[_shopCat] || '["LocalBusiness","BeautySalon"]';
   const _breadcrumbCatLabels = {
-    clinic: "Skin Clinic Seoul",
+    clinic: _clinicSubtype + " Seoul",
     hair: "Hair Salon Seoul",
     headspa: "Head Spa Seoul",
     skincare: "Skincare Seoul",
@@ -6242,14 +6254,31 @@ ${(() => {
       return '<div class="sp-seo-block">' + _seoHead + cleanSeo + "</div>";
     }
     const area3 = (shop.location || "Seoul").split(",")[0].trim();
-    const cat3 = shop.category.charAt(0).toUpperCase() + shop.category.slice(1);
-    const svcList = shop.services && shop.services.length > 0 ? shop.services.slice(0, 4).join(", ") : cat3 + " treatments";
-    const areaGn = area3.toLowerCase().includes("cheongdam") || area3.toLowerCase().includes("apgujeong") ? "Gangnam" : area3;
+    const svcList = shop.services && shop.services.length > 0 ? shop.services.slice(0, 4).join(", ") : "beauty treatments";
+    const areaGn = ["cheongdam", "apgujeong", "sinsa", "nonhyeon"].some((a) => area3.toLowerCase().includes(a)) ? "Gangnam" : area3;
     const revTxt = shop.reviewCount > 10 ? " With " + shop.reviewCount + "+ verified reviews and a " + shop.rating + "-star rating, it" : " It";
+    const _fbClinicType = (() => {
+      const nm = (shop.name || "").toLowerCase();
+      if (nm.includes("plastic surgery")) return "plastic surgery clinic";
+      if (nm.includes("aesthetic")) return "aesthetic clinic";
+      if (nm.includes("dental") || nm.includes("dentist")) return "dental clinic";
+      if (nm.includes("dermatology") || nm.includes("derma")) return "dermatology clinic";
+      return "skin clinic";
+    })();
+    const _fbClinicTypeTitle = _fbClinicType.replace(/\b\w/g, (c2) => c2.toUpperCase());
+    const _svc0 = shop.services && shop.services.length > 0 ? shop.services[0] : "";
+    const _svc1b = shop.services && shop.services.length > 1 ? shop.services[1] : "";
+    const _introVariants = [
+      shop.name + " is a foreigner-friendly " + _fbClinicType + " in " + area3 + ", Seoul." + revTxt + " is highly recommended by international visitors for its English-speaking staff and transparent pricing.",
+      "Located in the heart of " + areaGn + ", " + shop.name + " is one of Seoul's most accessible " + _fbClinicType + "s for foreign patients. " + (_svc0 ? "Specializing in " + _svc0 + (_svc1b ? " and " + _svc1b : "") + ", the" : "The") + " clinic offers consultations in English and seamless WhatsApp booking.",
+      "International patients consistently praise " + shop.name + " for its professional care and English-friendly environment. Situated in " + area3 + ", this " + _fbClinicType + " makes quality Korean treatments accessible without the language barrier."
+    ];
+    const _introIdx = Math.abs(shop.name.charCodeAt(0) + shop.name.charCodeAt(1)) % 3;
+    const _introTxt = _introVariants[_introIdx];
     const _fbHead = '<div class="sp-seo-block-head"><i class="fas fa-magnifying-glass"></i><span>Travel Guide</span></div>';
     if (shop.category === "clinic") {
       const treatments = shop.services && shop.services.length > 0 ? shop.services.slice(0, 6).join(", ") : "laser toning, skin booster injections, RF lifting, acne treatment, chemical peels";
-      return '<div class="sp-seo-block">' + _fbHead + '<h2 class="sp-seo-h2">' + shop.name + " \u2014 Dermatology Clinic in " + areaGn + ', Seoul for Foreigners</h2><p class="sp-seo-p">' + shop.name + " is a foreigner-friendly dermatology clinic located in " + area3 + ", Seoul." + revTxt + " is consistently rated as one of the top aesthetic clinics in " + areaGn + ' by international patients. The clinic offers English-language consultations, transparent pricing, and easy WhatsApp booking \u2014 everything a foreign visitor needs to get world-class Korean dermatology treatments without the language barrier.</p><h2 class="sp-seo-h2">Treatments Available at ' + shop.name + '</h2><p class="sp-seo-p">As a full-service ' + areaGn + " dermatology clinic, " + shop.name + " provides a comprehensive range of medical aesthetic treatments popular among foreign patients: " + treatments + ". Korean dermatology clinics like " + shop.name + ' use the latest KFDA-approved equipment, offering results that are often 40\u201360% more affordable than equivalent treatments in the US, UK, or Australia.</p><h2 class="sp-seo-h2">Why Foreign Patients Choose ' + shop.name + '</h2><p class="sp-seo-p">For foreigners visiting Seoul, finding a clinic with English-speaking staff and transparent fees is the biggest challenge. ' + shop.name + ' solves this with dedicated English-speaking coordinators, clear pricing, and seamless WhatsApp booking. Whether you are a first-time medical tourist or a returning patient, the team ensures your comfort from initial consultation through aftercare.</p><h2 class="sp-seo-h2">How to Book ' + shop.name + ' as a Foreigner</h2><p class="sp-seo-p">Booking through Seoul Beauty Trip takes under 2 minutes. Tap the WhatsApp button above, describe your desired treatment, and our English-speaking team will confirm your appointment, explain pricing, and prepare the clinic for your visit. No Korean needed. Same-day and advance bookings available.</p></div>';
+      return '<div class="sp-seo-block">' + _fbHead + '<h2 class="sp-seo-h2">' + shop.name + " \u2014 " + _fbClinicTypeTitle + " in " + areaGn + ' for Foreigners (2026)</h2><p class="sp-seo-p">' + _introTxt + '</p><h2 class="sp-seo-h2">Treatments at ' + shop.name + '</h2><p class="sp-seo-p">' + shop.name + " offers a range of treatments popular with foreign visitors: " + treatments + '. Korean clinics use KFDA-approved equipment, with results often 40\u201360% more affordable than equivalent treatments in the US, UK, or Australia.</p><h2 class="sp-seo-h2">Why Foreigners Choose ' + shop.name + '</h2><p class="sp-seo-p">English-speaking coordinators, clear pricing, and WhatsApp booking make ' + shop.name + " one of the most accessible options in " + areaGn + " for international patients. Whether it's your first visit or you're a returning patient, the team ensures a smooth experience from consultation to aftercare.</p></div>";
     }
     return '<div class="sp-seo-block">' + _fbHead + '<h2 class="sp-seo-h2">' + shop.name + " \u2014 " + cat3 + " in " + area3 + ', Seoul</h2><p class="sp-seo-p">Looking for the best ' + shop.category + " experience in " + area3 + ", Seoul? " + shop.name + " welcomes foreign visitors with English-friendly service and easy WhatsApp booking." + revTxt + ' offers an authentic Korean beauty experience tailored for international guests.</p><h2 class="sp-seo-h2">Foreigner-Friendly ' + cat3 + " in " + area3 + '</h2><p class="sp-seo-p">Located in ' + area3 + ", one of the top beauty districts in Seoul, " + shop.name + " specializes in " + svcList + ". The team provides English support throughout your visit \u2014 from consultation to aftercare \u2014 so you can relax and enjoy your treatment without language barriers. Book easily via WhatsApp through Seoul Beauty Trip.</p></div>";
   })()}
@@ -10727,7 +10756,6 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
     <button class="cat" data-cat="headspa"><i class="fas fa-spa"></i> Head Spa</button>
     <button class="cat" data-cat="skincare"><i class="fas fa-leaf"></i> Skincare</button>
     <button class="cat" data-cat="hair"><i class="fas fa-cut"></i> Hair</button>
-    <button class="cat" data-cat="nail"><i class="fas fa-hand-sparkles"></i> Nail</button>
     <button class="cat" data-cat="makeup"><i class="fas fa-magic"></i> Makeup</button>
     <button class="cat" data-cat="spa"><i class="fas fa-hot-tub"></i> Spa</button>
   </nav>
@@ -10749,7 +10777,6 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
     <button class="so-chip" data-filter="headspa">Head Spa</button>
     <button class="so-chip" data-filter="skincare">Skincare</button>
     <button class="so-chip" data-filter="hair">Hair</button>
-    <button class="so-chip" data-filter="nail">Nail</button>
     <button class="so-chip" data-filter="makeup">Makeup</button>
     <button class="so-chip" data-filter="spa">Spa</button>
     <button class="so-chip" data-filter="Gangnam">Gangnam</button>
