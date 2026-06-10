@@ -3265,7 +3265,8 @@ app.post('/api/admin/sync-reviews', async (c) => {
 
       // Places API v1 리뷰 구조 → DB 구조로 정규화
       const normalized = rawReviews.map((rv: any) => ({
-        author_name:       rv.authorAttribution?.displayName || rv.authorName || 'Anonymous',
+        author:            rv.authorAttribution?.displayName || rv.authorName || 'Anonymous',
+        author_name:       rv.authorAttribution?.displayName || rv.authorName || 'Anonymous',  // 하위호환
         rating:            rv.rating || 5,
         text:              rv.text?.text || rv.text || '',
         time:              rv.publishTime ? Math.floor(new Date(rv.publishTime).getTime() / 1000)
@@ -4010,7 +4011,7 @@ ${(()=>{
     const reviewCards2 = shopReviews2.map((rv:any)=>{
       const rvR = Number(rv.rating)||5;
       const rvStars = '★'.repeat(Math.min(5,Math.max(0,rvR)))+'☆'.repeat(Math.max(0,5-rvR));
-      return `<div class="sp-review-card"><div class="sp-review-top"><span class="sp-review-author">${rv.author||'Guest'}</span><span class="sp-review-stars">${rvStars}</span></div><div class="sp-review-text">${rv.text||''}</div>${rv.time?`<div class="sp-review-time">${rv.time}</div>`:''}</div>`;
+      return `<div class="sp-review-card"><div class="sp-review-top"><span class="sp-review-author">${rv.author||rv.author_name||'Guest'}</span><span class="sp-review-stars">${rvStars}</span></div><div class="sp-review-text">${rv.text||''}</div>${rv.time?`<div class="sp-review-time">${rv.time}</div>`:''}</div>`;
     }).join('');
     /* ── Map (리뷰 바로 뒤) ── */
     const mapHtml3 = (()=>{
@@ -4027,18 +4028,18 @@ ${(()=>{
     const reviewCardsEnhanced = shopReviews2.map((rv:any, ri:number)=>{
       const rvR = Math.min(5, Math.max(1, Number(rv.rating)||5));
       const rvStars = '★'.repeat(rvR) + (rvR < 5 ? '☆'.repeat(5-rvR) : '');
-      const initials = (rv.author||'G').trim().split(' ').map((w:string)=>w[0]||'').slice(0,2).join('').toUpperCase() || 'G';
+      const initials = (rv.author||rv.author_name||'G').trim().split(' ').map((w:string)=>w[0]||'').slice(0,2).join('').toUpperCase() || 'G';
       const avColor = avatarColors[ri % avatarColors.length];
       const hiddenClass = ri >= 3 ? ' sp-rv-hidden' : '';
       return `<div class="sp-review-card${hiddenClass}">`
         +`<div class="sp-review-avatar" style="background:${avColor}">${initials}</div>`
         +`<div class="sp-review-body">`
           +`<div class="sp-review-top">`
-            +`<span class="sp-review-author">${rv.author||'Guest'}</span>`
+            +`<span class="sp-review-author">${rv.author||rv.author_name||'Guest'}</span>`
             +`<span class="sp-review-stars">${rvStars}</span>`
           +`</div>`
           +`<div class="sp-review-text">${rv.text||''}</div>`
-          +(rv.time?`<div class="sp-review-time">${rv.time}</div>`:'')
+          +((rv.relative_time||rv.time)?`<div class="sp-review-time">${rv.relative_time||(typeof rv.time==='number'?new Date(rv.time*1000).toLocaleDateString('en-US',{year:'numeric',month:'short'}):rv.time)||''}</div>`:'')
         +`</div>`
       +`</div>`;
     }).join('');
@@ -5016,7 +5017,7 @@ body{background:#0f0f12;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
         const firstReview = Array.isArray(s.googleReviews) && s.googleReviews.length > 0
           ? s.googleReviews[0] : null
         const reviewQuote = firstReview && firstReview.text
-          ? `<div class="card-review-quote">&ldquo;${firstReview.text.slice(0,100)}${firstReview.text.length>100?'…':''}&rdquo;<span class="card-review-author"> — ${firstReview.author||'Guest'}</span></div>`
+          ? `<div class="card-review-quote">&ldquo;${firstReview.text.slice(0,100)}${firstReview.text.length>100?'…':''}&rdquo;<span class="card-review-author"> — ${firstReview.author||firstReview.author_name||'Guest'}</span></div>`
           : ''
         return `
 <article class="shop-card" itemscope itemtype="https://schema.org/LocalBusiness">
@@ -9971,18 +9972,18 @@ function renderShopModal(shop) {
     var reviewCards = shopReviews.map(function(rv, ri) {
       var rvR = Math.min(5, Math.max(1, Number(rv.rating)||5));
       var rvStars = '★'.repeat(rvR) + (rvR<5?'☆'.repeat(5-rvR):'');
-      var initials = (rv.author||'G').trim().split(' ').map(function(w){ return w[0]||''; }).slice(0,2).join('').toUpperCase() || 'G';
+      var initials = (rv.author||rv.author_name||'G').trim().split(' ').map(function(w){ return w[0]||''; }).slice(0,2).join('').toUpperCase() || 'G';
       var avColor = mAvColors[ri % mAvColors.length];
       var hiddenCls = ri >= 3 ? ' m-rv-hidden' : '';
       return '<div class="m-review-card'+hiddenCls+'">'
         +'<div class="m-review-avatar" style="background:'+avColor+'">'+initials+'</div>'
         +'<div class="m-review-body">'
           +'<div class="m-review-top">'
-            +'<span class="m-review-author">'+esc(rv.author||'Guest')+'</span>'
+            +'<span class="m-review-author">'+esc(rv.author||rv.author_name||'Guest')+'</span>'
             +'<span class="m-review-stars">'+rvStars+'</span>'
           +'</div>'
           +'<div class="m-review-text">'+esc(rv.text||'')+'</div>'
-          +(rv.time?'<div class="m-review-time">'+esc(rv.time)+'</div>':'')
+          +((rv.relative_time||rv.time)?'<div class="m-review-time">'+esc(rv.relative_time||(typeof rv.time==='number'?new Date(rv.time*1000).toLocaleDateString('en-US',{year:'numeric',month:'short'}):String(rv.time))||'')+'</div>':'')
         +'</div>'
       +'</div>';
     }).join('');
