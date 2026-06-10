@@ -9899,16 +9899,10 @@ app.get("/api/admin/debug-blog-photos", async (c) => {
         const i = thumb.indexOf("/photos/");
         return i < 0 ? "" : thumb.slice(i + 8, i + 68);
       })(),
-      p0PhotoName: (() => {
-        const u = String(photoArr[0] || "");
-        const i = u.indexOf("/photos/");
-        return i < 0 ? "" : u.slice(i + 8, i + 68);
-      })(),
-      p1PhotoName: (() => {
-        const u = String(photoArr[1] || "");
-        const i = u.indexOf("/photos/");
-        return i < 0 ? "" : u.slice(i + 8, i + 68);
-      })(),
+      p0raw: JSON.stringify(photoArr[0]).slice(0, 100),
+      p0type: typeof photoArr[0],
+      p1raw: JSON.stringify(photoArr[1]).slice(0, 100),
+      p1type: typeof photoArr[1],
       urls: urls.map((u) => u.slice(0, 80))
     });
   } catch (e) {
