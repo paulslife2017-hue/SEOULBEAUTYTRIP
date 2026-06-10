@@ -4961,13 +4961,6 @@ async function autoGenShopBlog(shop, apiKey, sql) {
   const reviewSnippets = (shop.reviews || []).slice(0, 3).map((r) => (r.text || "").trim().slice(0, 150)).filter(Boolean).join("\n- ");
   const seoContext = (shop.seoText || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 300);
   const title = `${shop.name} Review 2026: Is It Worth It for Foreigners in ${area}?`;
-  const photoPlaceholders = `
-<!-- PHOTO: after intro -->
-{{PHOTO_1}}
-<!-- PHOTO: after treatments -->
-{{PHOTO_2}}
-<!-- PHOTO: before FAQ -->
-{{PHOTO_3}}`;
   const prompt = `You are a Seoul travel writer who has personally visited many K-beauty clinics. Write like a real person sharing their honest experience \u2014 not a brochure or AI.
 
 Write a blog post about "${shop.name}", a ${cat} in ${area}, Seoul for seoulbeautytrip.com.
@@ -4979,16 +4972,10 @@ REAL DATA (use exactly \u2014 do NOT invent numbers or reviews):
 ${reviewSnippets ? `- Actual customer quotes (use these verbatim in blockquotes):
   "${reviewSnippets.replace(/\n- /g, '"\n  "')}"` : ""}
 
-PHOTO PLACEHOLDERS \u2014 insert these exactly where shown (they will be replaced with real clinic photos):
-{{PHOTO_1}} \u2014 place after the opening section
-{{PHOTO_2}} \u2014 place after the treatments/services section
-{{PHOTO_3}} \u2014 place before the FAQ
-
 Write HTML (900-1100 words) with this structure:
 <h2>My Honest Take on ${shop.name} (${area}, Seoul)</h2>
 <p>[2-3 sentence hook \u2014 why someone would search for this place. Be specific to ${area} and the type of visitor.]</p>
 <p>[Context paragraph \u2014 what kind of place this is, who it's best for]</p>
-{{PHOTO_1}}
 <h2>What Real Visitors Say</h2>
 <p>[Intro to reviews \u2014 1 sentence]</p>
 [Insert 2-3 blockquotes using this EXACT style (dark-theme safe):
@@ -4998,7 +4985,6 @@ Write HTML (900-1100 words) with this structure:
 <p>[Your interpretation \u2014 what these reviews tell us about the experience]</p>
 <h2>Treatments & What's on the Menu</h2>
 <p>[List main treatments naturally in prose, not bullets. Mention any standout services.]</p>
-{{PHOTO_2}}
 <h2>Pricing Reality Check</h2>
 <p>[Honest price framing \u2014 Korea is X% cheaper than [comparison country], don't give fake numbers, do say "confirm at booking"]</p>
 <h2>The Foreigner Experience \u2014 Language, Booking, What to Know</h2>
@@ -5010,7 +4996,6 @@ Write HTML (900-1100 words) with this structure:
 </ul>
 <h2>Getting to ${shop.name}</h2>
 <p>[Location in ${area} \u2014 nearest station, landmark, practical detail]</p>
-{{PHOTO_3}}
 <h2>FAQ</h2>
 <h3>Is ${shop.name} worth it for foreigners?</h3><p>[Direct answer]</p>
 <h3>Do they speak English at ${shop.name}?</h3><p>[Answer]</p>
@@ -5022,7 +5007,7 @@ RULES:
 - Blockquotes MUST use the dark-theme style shown above (rgba background, not #f9fafb)
 - Write like a real traveller \u2014 specific details beat generic praise
 - Cite the ${shop.rating}/5 rating and ${shop.reviewCount}+ reviews naturally
-- Include {{PHOTO_1}} {{PHOTO_2}} {{PHOTO_3}} exactly as placeholders
+- NO photo tags, figure tags, or image references \u2014 photos are handled separately
 - No fake prices, no invented facts
 
 After HTML add ---JSON---
@@ -5046,20 +5031,7 @@ After HTML add ---JSON---
     const parts = raw2.split("---JSON---");
     let htmlContent = parts[0].trim();
     if (!htmlContent || htmlContent.length < 200) return;
-    try {
-      const shopRow = await sql`SELECT photos, thumbnail FROM shops WHERE id=${shop.id} LIMIT 1`.catch(() => []);
-      if (shopRow.length > 0) {
-        const rawPhotos = shopRow[0].photos;
-        const photoArr = Array.isArray(rawPhotos) ? rawPhotos : typeof rawPhotos === "string" ? JSON.parse(rawPhotos || "[]") : [];
-        const thumb = shopRow[0].thumbnail || "";
-        const allPhotos = [thumb, ...photoArr].filter(Boolean).filter((u) => u.startsWith("http"));
-        const makePhotoHtml = (url, label) => url ? `<figure style="margin:20px 0;border-radius:12px;overflow:hidden;"><img src="${url}" alt="${label}" loading="lazy" style="width:100%;max-height:420px;object-fit:cover;display:block;" onerror="this.parentElement.style.display='none'"></figure>` : "";
-        htmlContent = htmlContent.replace("{{PHOTO_1}}", makePhotoHtml(allPhotos[0] || "", shop.name)).replace("{{PHOTO_2}}", makePhotoHtml(allPhotos[1] || allPhotos[0] || "", shop.name + " treatment")).replace("{{PHOTO_3}}", makePhotoHtml(allPhotos[2] || allPhotos[0] || "", shop.name + " interior"));
-      }
-    } catch {
-      htmlContent = htmlContent.replace(/\{\{PHOTO_\d\}\}/g, "");
-    }
-    htmlContent = htmlContent.replace(/\{\{PHOTO_\d\}\}/g, "");
+    htmlContent = htmlContent.replace(/<figure[\s\S]*?<\/figure>/gi, "").replace(/\{\{PHOTO_\d\}\}/g, "");
     let metaDescription = "", excerpt = "", tags = [];
     if (parts[1]) {
       try {
@@ -8166,6 +8138,20 @@ app.get("/blog/:slug", async (c) => {
   const tags = Array.isArray(post.tags) ? post.tags : typeof post.tags === "string" ? JSON.parse(post.tags || "[]") : [];
   sql`UPDATE blog_posts SET views=views+1 WHERE slug=${slug}`.catch(() => {
   });
+  let shopPhotoUrls = [];
+  if (post.shop_id) {
+    try {
+      const shopRow = await sql`SELECT thumbnail, photos FROM shops WHERE id=${post.shop_id} LIMIT 1`;
+      if (shopRow.length > 0) {
+        const rawPhotos = shopRow[0].photos;
+        const photoArr = Array.isArray(rawPhotos) ? rawPhotos : typeof rawPhotos === "string" ? JSON.parse(rawPhotos || "[]") : [];
+        const thumb = shopRow[0].thumbnail || "";
+        const restPhotos = photoArr.slice(1).filter((u) => u && u.startsWith("http"));
+        shopPhotoUrls = (thumb ? [thumb, ...restPhotos] : restPhotos).slice(0, 6);
+      }
+    } catch {
+    }
+  }
   const related = await sql`SELECT slug,title,excerpt,category,area,created_at FROM blog_posts WHERE status='published' AND slug!=${slug} AND category=${post.category || ""} ORDER BY created_at DESC LIMIT 3`;
   const base = "https://seoulbeautytrip.com";
   const catLabel = { headspa: "Head Spa", skincare: "Skincare", hair: "Hair Salon", nail: "Nail Art", clinic: "Skin Clinic", makeup: "Makeup", spa: "Spa", tattoo: "Eyebrow Tattoo" };
@@ -8259,6 +8245,7 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;line-height
 .post-body li{margin-bottom:6px}
 .post-body a{color:#FF4D8D;text-decoration:none}
 .post-body a:hover{text-decoration:underline}
+.post-body figure{display:none}
 .post-tags{display:flex;flex-wrap:wrap;gap:8px;margin:28px 0}
 .post-tag{font-size:12px;color:rgba(255,255,255,.4);background:rgba(255,255,255,.06);padding:5px 12px;border-radius:20px;border:1px solid rgba(255,255,255,.08)}
 .cta-box{background:linear-gradient(135deg,rgba(255,77,141,.12),rgba(155,89,182,.12));border:1px solid rgba(255,77,141,.25);border-radius:16px;padding:24px;text-align:center;margin:32px 0}
@@ -8273,7 +8260,15 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;line-height
 .related-cat{font-size:10px;color:#FF4D8D;font-weight:700;margin-bottom:6px;text-transform:uppercase}
 .related-title{font-size:12.5px;color:rgba(255,255,255,.8);font-weight:700;line-height:1.4;margin-bottom:6px}
 .related-area{font-size:11px;color:rgba(255,255,255,.3)}
-@media(max-width:600px){.related-grid{grid-template-columns:1fr}.post-cover{height:200px}}
+.shop-photo-gallery{margin:0 0 32px;position:relative}
+.shop-photo-gallery-label{font-size:11px;font-weight:700;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.shop-photo-strip{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;-ms-overflow-style:none;padding-bottom:4px}
+.shop-photo-strip::-webkit-scrollbar{display:none}
+.shop-photo-item{flex:0 0 auto;scroll-snap-align:start;border-radius:10px;overflow:hidden;background:#13132a}
+.shop-photo-item img{width:220px;height:165px;object-fit:cover;display:block;transition:opacity .3s}
+.shop-photo-item img:hover{opacity:.85}
+.shop-photo-single img{width:100%;max-height:360px;object-fit:cover;border-radius:12px;display:block}
+@media(max-width:600px){.related-grid{grid-template-columns:1fr}.post-cover{height:200px}.shop-photo-item img{width:160px;height:120px}}
 </style>
 </head>
 <body>
@@ -8300,6 +8295,7 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;line-height
     </div>
   </header>
   BLOG_COVER_PLACEHOLDER
+  BLOG_PHOTO_GALLERY_PLACEHOLDER
   <article class="post-body">BLOG_CONTENT_PLACEHOLDER</article>
   <div class="post-tags">BLOG_TAGS_PLACEHOLDER</div>
   <div class="cta-box">
@@ -8387,7 +8383,22 @@ ${SB_TRACKER_SCRIPT}
   const readMin = Math.ceil((post.content || "").replace(/<[^>]+>/g, "").split(" ").length / 200);
   const coverHtml = post.cover_image ? '<img src="' + post.cover_image + '" alt="' + post.title.replace(/"/g, "&quot;") + '" class="post-cover" loading="lazy">' : "";
   const tagsHtml = tags.map((t) => '<span class="post-tag">#' + t + "</span>").join("");
-  const finalHtml = html.replace("BLOG_READMIN_PLACEHOLDER", String(readMin)).replace("BLOG_COVER_PLACEHOLDER", coverHtml).replace("BLOG_CONTENT_PLACEHOLDER", post.content || "").replace("BLOG_TAGS_PLACEHOLDER", tagsHtml).replace("BLOG_RELATED_PLACEHOLDER", relatedHtml);
+  let photoGalleryHtml = "";
+  if (shopPhotoUrls.length > 0) {
+    const altBase = post.title.replace(/"/g, "&quot;");
+    if (shopPhotoUrls.length === 1) {
+      photoGalleryHtml = `<div class="shop-photo-gallery shop-photo-single"><img src="${shopPhotoUrls[0]}" alt="${altBase}" loading="lazy" onerror="this.parentElement.style.display='none'"></div>`;
+    } else {
+      const items = shopPhotoUrls.map(
+        (u, i) => `<div class="shop-photo-item"><img src="${u}" alt="${altBase} photo ${i + 1}" loading="lazy" onerror="this.parentElement.style.display='none'"></div>`
+      ).join("");
+      photoGalleryHtml = `<div class="shop-photo-gallery">
+  <div class="shop-photo-gallery-label"><i class="fas fa-camera"></i> Photos</div>
+  <div class="shop-photo-strip">${items}</div>
+</div>`;
+    }
+  }
+  const finalHtml = html.replace("BLOG_READMIN_PLACEHOLDER", String(readMin)).replace("BLOG_COVER_PLACEHOLDER", coverHtml).replace("BLOG_PHOTO_GALLERY_PLACEHOLDER", photoGalleryHtml).replace("BLOG_CONTENT_PLACEHOLDER", post.content || "").replace("BLOG_TAGS_PLACEHOLDER", tagsHtml).replace("BLOG_RELATED_PLACEHOLDER", relatedHtml);
   return c.html(finalHtml);
 });
 function guideHead(title, desc, slug, base) {
@@ -9828,6 +9839,50 @@ app.post("/api/admin/gen-gsc-blogs", async (c) => {
     return c.json({ total: candidates.length, created, results });
   } catch (e) {
     return c.json({ error: e.message }, 500);
+  }
+});
+app.get("/api/admin/debug-blog-photos", async (c) => {
+  try {
+    await ensureDb(c.env);
+    const sql = getDb(c.env);
+    const slug = c.req.query("slug") || "";
+    if (!slug) return c.json({ error: "slug required" }, 400);
+    const rows = await sql`SELECT id, slug, shop_id FROM blog_posts WHERE slug=${slug} LIMIT 1`;
+    if (!rows.length) return c.json({ error: "blog not found" }, 404);
+    const post = rows[0];
+    if (!post.shop_id) return c.json({ shop_id: null, photos: [] });
+    const shopRow = await sql`SELECT id, thumbnail, photos FROM shops WHERE id=${post.shop_id} LIMIT 1`;
+    if (!shopRow.length) return c.json({ shop_id: post.shop_id, shop_found: false });
+    const rawPhotos = shopRow[0].photos;
+    const rawType = Array.isArray(rawPhotos) ? "array" : typeof rawPhotos;
+    const photoArr = Array.isArray(rawPhotos) ? rawPhotos : typeof rawPhotos === "string" ? JSON.parse(rawPhotos || "[]") : [];
+    const thumb = shopRow[0].thumbnail || "";
+    const seen2 = /* @__PURE__ */ new Set();
+    const photoKey2 = (u) => {
+      const m = u.match(/photos\/([^/]+)\/media/);
+      return m ? m[1].slice(0, 30) : u.slice(-40);
+    };
+    const urls = [];
+    for (const u of [thumb, ...photoArr]) {
+      if (u && u.startsWith("http")) {
+        const k = photoKey2(u);
+        if (!seen2.has(k)) {
+          seen2.add(k);
+          urls.push(u);
+        }
+      }
+    }
+    return c.json({
+      blog_slug: post.slug,
+      shop_id: post.shop_id,
+      thumbnail: thumb.slice(0, 80),
+      rawPhotosType: rawType,
+      photoArrLen: photoArr.length,
+      dedupedCount: urls.length,
+      urls: urls.map((u) => u.slice(0, 80))
+    });
+  } catch (e) {
+    return c.json({ error: e.message, stack: e.stack?.slice(0, 300) }, 500);
   }
 });
 app.get("/api/admin/gsc-query-preview", async (c) => {
