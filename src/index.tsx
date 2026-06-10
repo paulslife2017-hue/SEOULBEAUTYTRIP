@@ -7185,7 +7185,9 @@ app.get('/', async (c) => {
 
     const ssrCountText = `${initShops.length} shops`
 
-    const inlineScript = `${videoLdScript}<script>window.__INIT_VIDEOS__=${safeJson(initVideos)};window.__INIT_PLATFORM__=${safeJson(initPlatform)};window.__INIT_SHOPS__=${safeJson(initShops)};<\/script>`
+    // 초기 로드 10개만 → HTML 크기 대폭 감소 (나머지는 JS lazy 로드)
+    const initVideosFirst = initVideos.slice(0, 10)
+    const inlineScript = `${videoLdScript}<script>window.__INIT_VIDEOS__=${safeJson(initVideosFirst)};window.__INIT_VIDEOS_ALL__=${safeJson(initVideos)};window.__INIT_PLATFORM__=${safeJson(initPlatform)};window.__INIT_SHOPS__=${safeJson(initShops)};<\/script>`
 
     // SSR placeholders를 실제 콘텐츠로 교체
     const html = MAIN_HTML
@@ -7194,6 +7196,9 @@ app.get('/', async (c) => {
       .replace('__SSR_FILTER_BTNS__', ssrFilterBtns)
       .replace('__SSR_SHOP_CARDS__', ssrShopCards)
 
+    // Vercel CDN 캐시: s-maxage=10 + stale-while-revalidate=60
+    // 10초 캐시 → TTFB ~50ms, 60초 백그라운드 갱신으로 데이터 신선도 유지
+    c.header('Cache-Control', 'public, s-maxage=10, stale-while-revalidate=60')
     return c.html(html)
   } catch(e: any) {
     console.error('[/ route error]', e?.message || e)
@@ -8536,8 +8541,12 @@ function hideCatLoading(){ var el=document.getElementById('cat-loading'); if(el)
 function loadVideos(cat) {
   // 첫 로드이고 cat='all'이면 SSR 인라인 데이터 즉시 사용
   if((cat === 'all' || !cat) && window.__INIT_VIDEOS__ && window.__INIT_VIDEOS__.length) {
-    vids = window.__INIT_VIDEOS__;
+    // 전체 데이터가 있으면 사용, 없으면 10개만 사용
+    vids = (window.__INIT_VIDEOS_ALL__ && window.__INIT_VIDEOS_ALL__.length)
+      ? window.__INIT_VIDEOS_ALL__
+      : window.__INIT_VIDEOS__;
     window.__INIT_VIDEOS__ = null;
+    window.__INIT_VIDEOS_ALL__ = null;
     for(var i=vids.length-1;i>0;i--){
       var j=Math.floor(Math.random()*(i+1));
       var tmp=vids[i]; vids[i]=vids[j]; vids[j]=tmp;

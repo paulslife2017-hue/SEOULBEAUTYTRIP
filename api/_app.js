@@ -8560,8 +8560,10 @@ app.get("/", async (c) => {
       return `<button class="sp-flt${cat === "all" ? " on" : ""}" data-cat="${cat}" onclick="filterSpGrid(this)">${lbl} <span class="sp-flt-n">${cnt}</span></button>`;
     }).join("");
     const ssrCountText = `${initShops.length} shops`;
-    const inlineScript = `${videoLdScript}<script>window.__INIT_VIDEOS__=${safeJson(initVideos)};window.__INIT_PLATFORM__=${safeJson(initPlatform)};window.__INIT_SHOPS__=${safeJson(initShops)};</script>`;
+    const initVideosFirst = initVideos.slice(0, 10);
+    const inlineScript = `${videoLdScript}<script>window.__INIT_VIDEOS__=${safeJson(initVideosFirst)};window.__INIT_VIDEOS_ALL__=${safeJson(initVideos)};window.__INIT_PLATFORM__=${safeJson(initPlatform)};window.__INIT_SHOPS__=${safeJson(initShops)};</script>`;
     const html = MAIN_HTML.replace("__INLINE_DATA_PLACEHOLDER__", inlineScript).replace("__SSR_SHOP_COUNT__", ssrCountText).replace("__SSR_FILTER_BTNS__", ssrFilterBtns).replace("__SSR_SHOP_CARDS__", ssrShopCards);
+    c.header("Cache-Control", "public, s-maxage=10, stale-while-revalidate=60");
     return c.html(html);
   } catch (e) {
     console.error("[/ route error]", e?.message || e);
@@ -9857,8 +9859,12 @@ function hideCatLoading(){ var el=document.getElementById('cat-loading'); if(el)
 function loadVideos(cat) {
   // \uCCAB \uB85C\uB4DC\uC774\uACE0 cat='all'\uC774\uBA74 SSR \uC778\uB77C\uC778 \uB370\uC774\uD130 \uC989\uC2DC \uC0AC\uC6A9
   if((cat === 'all' || !cat) && window.__INIT_VIDEOS__ && window.__INIT_VIDEOS__.length) {
-    vids = window.__INIT_VIDEOS__;
+    // \uC804\uCCB4 \uB370\uC774\uD130\uAC00 \uC788\uC73C\uBA74 \uC0AC\uC6A9, \uC5C6\uC73C\uBA74 10\uAC1C\uB9CC \uC0AC\uC6A9
+    vids = (window.__INIT_VIDEOS_ALL__ && window.__INIT_VIDEOS_ALL__.length)
+      ? window.__INIT_VIDEOS_ALL__
+      : window.__INIT_VIDEOS__;
     window.__INIT_VIDEOS__ = null;
+    window.__INIT_VIDEOS_ALL__ = null;
     for(var i=vids.length-1;i>0;i--){
       var j=Math.floor(Math.random()*(i+1));
       var tmp=vids[i]; vids[i]=vids[j]; vids[j]=tmp;
