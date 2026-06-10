@@ -2508,8 +2508,11 @@ app.post('/api/quick-register', async (c) => {
     const photos: string[] = sanitizePhotos(resolvedData.photos || [])
     const thumbnail = sanitizeThumb(resolvedData.thumbnail || '', photos)
 
-    // ── STEP 8: reviews 처리 ──
+    // ── STEP 8: reviews 처리 + AI 요약 생성 ──
     const reviews = resolvedData.reviews || []
+    const _qrSummary = (reviews.length > 0 && apiKey)
+      ? await genReviewSummary(engName, reviews, apiKey)
+      : null
 
     // ── STEP 9: DB에 업체 저장 (전체 필드) ──
     const shopId = 's' + Date.now()
@@ -2519,7 +2522,7 @@ app.post('/api/quick-register', async (c) => {
         rating, review_count, thumbnail, photos,
         google_place_id, google_map_url, lat, lng,
         description, why_choose, meta_description, seo_keywords, seo_text,
-        reviews, active, created_at
+        reviews, review_summary, active, created_at
       ) VALUES (
         ${shopId}, ${rawName}, ${slug}, ${cat},
         ${loc}, ${resolvedData.address || ''}, ${resolvedData.hours || ''},
@@ -2527,7 +2530,7 @@ app.post('/api/quick-register', async (c) => {
         ${thumbnail}, ${JSON.stringify(photos)},
         ${resolvedData.placeId || ''}, ${gmapUrl}, ${resolvedData.lat || ''}, ${resolvedData.lng || ''},
         ${description}, ${JSON.stringify(whyChoose)}, ${metaDescription}, ${seoKeywords}, ${seoTextVal},
-        ${JSON.stringify(reviews)}, true, NOW()
+        ${JSON.stringify(reviews)}, ${_qrSummary ? JSON.stringify(_qrSummary) : null}::jsonb, true, NOW()
       )
     `
 
@@ -11463,6 +11466,24 @@ textarea{height:80px;resize:none}
     </div>
   </div>
 
+  <!-- 구글 리뷰 & AI 요약 동기화 카드 -->
+  <div class="card" style="border:1px solid rgba(52,211,153,.3);margin-bottom:16px">
+    <div class="card-header">
+      <div class="card-title"><i class="fas fa-star" style="color:#34d399"></i> 구글 리뷰 & AI 요약 동기화</div>
+    </div>
+    <p style="font-size:12px;color:rgba(255,255,255,.45);margin-bottom:14px">google_place_id가 있는 업체의 구글 리뷰를 가져오고 AI 요약을 생성합니다.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+      <button onclick="syncReviews(false)" id="sync-reviews-btn" class="btn-sm btn-green" style="font-size:12px;padding:8px 16px">
+        <i class="fas fa-star"></i> 리뷰 없는 업체만 동기화
+      </button>
+      <button onclick="syncReviews(true)" id="sync-reviews-force-btn" class="btn-sm" style="font-size:12px;padding:8px 16px;background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.3);color:#6ee7b7">
+        <i class="fas fa-sync"></i> 전체 업체 강제 재동기화
+      </button>
+    </div>
+    <div id="sync-reviews-status" style="font-size:12px;color:rgba(255,255,255,.5)"></div>
+    <div id="sync-reviews-results" style="margin-top:10px;max-height:200px;overflow-y:auto"></div>
+  </div>
+
   <!-- SEO 관리 카드 -->
   <div class="card" style="border:1px solid rgba(99,102,241,.3)">
     <div class="card-header">
@@ -16444,6 +16465,70 @@ window.fixAllSlugs = async function fixAllSlugs() {
     if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-link"></i> 전체 Slug 정리 (업체명-지역명)'; }
   }
 }
+
+/* ── 구글 리뷰 & AI 요약 동기화 ── */
+window.syncReviews = async function syncReviews(force) {
+  var btn = document.getElementById(force ? 'sync-reviews-force-btn' : 'sync-reviews-btn');
+  var statusEl = document.getElementById('sync-reviews-status');
+  var resultsEl = document.getElementById('sync-reviews-results');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 처리 중...'; }
+  if (statusEl) statusEl.textContent = force ? '⏳ 전체 업체 리뷰 재동기화 중...' : '⏳ 리뷰 없는 업체 동기화 중...';
+  if (resultsEl) resultsEl.innerHTML = '';
+
+  var offset = 0;
+  var limit  = 10;
+  var totalOk = 0, totalErr = 0;
+
+  try {
+    while (true) {
+      var url = '/api/admin/sync-reviews?offset=' + offset + '&limit=' + limit + (force ? '&force=true' : '');
+      var res = await fetch(url, { method: 'POST', headers: { 'Authorization': 'Bearer ' + _GSK_TOKEN } });
+      var data = await res.json();
+
+      if (!res.ok) { throw new Error(data.error || 'API 오류 ' + res.status); }
+
+      totalOk  += (data.ok    || 0);
+      totalErr += (data.error || 0);
+
+      if (statusEl) statusEl.textContent =
+        '처리 중... ' + (offset + (data.processed || 0)) + '/' + data.total +
+        ' (✅' + totalOk + ' ❌' + totalErr + ')';
+
+      if (resultsEl && data.results) {
+        resultsEl.innerHTML += data.results.map(function(r) {
+          var color = r.status === 'ok' ? '#34d399' : '#f87171';
+          var icon  = r.status === 'ok' ? '✅' : '❌';
+          var extra = r.status === 'ok'
+            ? ' (' + (r.reviewCount||0) + '개 리뷰' + (r.summarized ? ' + AI요약' : '') + ')'
+            : '';
+          return '<div style="font-size:11px;padding:2px 0;color:' + color + '">'
+            + icon + ' ' + r.name + extra
+            + (r.status !== 'ok' ? ' — ' + r.status : '')
+            + '</div>';
+        }).join('');
+        resultsEl.scrollTop = resultsEl.scrollHeight;
+      }
+
+      if (data.done || data.nextOffset === null) break;
+      offset = data.nextOffset;
+      await new Promise(function(r){ setTimeout(r, 200); }); // 과부하 방지
+    }
+
+    if (statusEl) statusEl.innerHTML =
+      '<span style="color:#34d399">✅ 완료! 성공 ' + totalOk + '개 / 실패 ' + totalErr + '개</span>';
+  } catch(e) {
+    if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ 오류: ' + e.message + '</span>';
+  } finally {
+    if (document.getElementById('sync-reviews-btn'))
+      document.getElementById('sync-reviews-btn').disabled = false;
+    if (document.getElementById('sync-reviews-btn'))
+      document.getElementById('sync-reviews-btn').innerHTML = '<i class="fas fa-star"></i> 리뷰 없는 업체만 동기화';
+    if (document.getElementById('sync-reviews-force-btn'))
+      document.getElementById('sync-reviews-force-btn').disabled = false;
+    if (document.getElementById('sync-reviews-force-btn'))
+      document.getElementById('sync-reviews-force-btn').innerHTML = '<i class="fas fa-sync"></i> 전체 업체 강제 재동기화';
+  }
+};
 
 /* ── 일괄 SEO 재생성 ── */
 window.regenSeoAll = async function regenSeoAll(force) {
