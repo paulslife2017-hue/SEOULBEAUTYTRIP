@@ -10,12 +10,14 @@ type Env = {
   DATABASE_URL: string
   GA4_SERVICE_ACCOUNT_KEY: string
   GA4_PROPERTY_ID: string
+  GEMINI_API_KEY: string
 }
 
 // GA4 설정 (환경변수 우선, 없으면 내장값 사용)
 const GA4_PROPERTY_ID_DEFAULT = '539604689'
 const GA4_SA_KEY_B64 = 'eyJ0eXBlIjogInNlcnZpY2VfYWNjb3VudCIsICJwcm9qZWN0X2lkIjogInNlb3VsLWJlYXV0eS10cmlwIiwgInByaXZhdGVfa2V5X2lkIjogIjE0YmM0NmYyNWRkYmU1M2UxZTQzNWY0ZTAzOTdlZWZkNjQxZTZiZjgiLCAicHJpdmF0ZV9rZXkiOiAiLS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tXG5NSUlFdkFJQkFEQU5CZ2txaGtpRzl3MEJBUUVGQUFTQ0JLWXdnZ1NpQWdFQUFvSUJBUUM2dWFTRkJrQ2tFeCtkXG5XVUpLbzBZb2pnSHFqeDlJSkw5OGJBaFc2UU0waXIwSnVKSEFiY1NhL09OVnFOdXRGYldqd3FoRTgwajN3V0QxXG5xeE5XejNBMzBuMDZSV3F4WHhhZjI4c0p0ZFVlOStMeEtvTXpFTlFUblB0emhLaVJyVkRpWmd1YXowNm5ZODVKXG5DMkpQb1RvRFdrSmlTa1Bod2FwVUpUNEpaYjZrNWVXc0JVTGdmQ1BMOEMyd2t0djJFOURZd0JTU0lpelZxeEUvXG4wYkJMangrVGQwWHRwajhuWnpiVWVMaEpUcHh6eEdJTnhiazRFQ1p0bVRWeHcvN0UvM1VqYmJuTjFVejlmd3AvXG43RUIvYjZhOEpyQWFXYTdOMUNGd1NZOW5UVzJYTXlnTWk4aW13SXdnejRQb0NUNTNuVVdBTVFZTWJzMkZMZHpTXG5kWjRpNDZqaEFnTUJBQUVDZ2dFQUJTSzIraXVtV256bUtUTTd4Z2JBbHJ2MUpJamtNTjFGNFB1dHJRcENtczdZXG5EU3prNFZpRGlFbTlUTzFVZ1dtdjhiMllXREVpeUNHcTg0Yk5oTjAydG1wVkpHV2xYaFNCOEVxZ3huY1lVZjQ2XG5ZU3lzcUJwbDR0WTEra0xqU2dKc3o1VkQ2M0daTmJSaWg1TEhGTzZYeEdEV281SnNWSWk1a1EvbktXWUJmTktEXG4yajJRVWJSRThYajhTNXkzbCtVbXVaNG00WUg3dnhBT1VFRTMvUVBaNWJJYjlwRm4wZDNUc2Y2RlJtUVpKM1NJXG5BQmZ6bElKb0x6K2l0N3hyQU1abVUwSVU5cDlnUkRueGhTVTZjdWNMdmpOVGkvS2RWVk1ZRk13eE1BNWYzTStXXG5ocFV4VWQ2MnRSQTJURG52OEtXZy9IaFRSWTBMUTlQWG5lNDlNajlDcXdLQmdRRGl1U0dmQ1RVbHBKWXNMNkw5XG5uRmNRVEVuYjdteThyMGMwaTkvZVNOcXgrVDBFN1dLUnJZZ0JqVXQzanZyMHNySkRwd2N0R2g4TEFvMWNTWXVTXG5SUW5mamVPTldlUzRydVZVUGw1MUlQQTkvR1hnQlpaQmJ0bVlSNm5PanJPTTVqYWJ0MU8yZGRkOUtzQ1pKVWRzXG42eWtQalQ1SjF3NVQ4NEVLVDdsRU9lclVkd0tCZ1FEUzFraDRJVlN0WU0rUWdralJhUXFRazdqNUliUkVDMjcxXG5LSGkxcExVQ09aUWlGZDd0UnhPL29zQ1F4WDVsL1RFb1Uwc3l5ZStXbWt1Tkh2Z3gwTzFuVlNVRk9aY2VqY1dRXG5DZXB6eXNyZjhhcEVTaVJSd1h1NGloWFpZWk5JKzN4U3BZRE5PcUpqMmszSVprUDE5MUZsVE9CelhnV3RFa055XG5tdWFEdlFWN1p3S0JnRkltNlBMYWdFS0NqOU8wOHlkWU5nZjJ6TEIvaFRFZGhmeVpUbVlhR2Z4eEpsWVp1aVMxXG5MMW40bThiWHJVRnJXc0srekEvZ3JpenNJTksyNTNiNXd5a1pIY0lETjZoZjMwTVdVbDI0c0xTVk4wamtYVnlhXG5VUWdudDNUY0tsMDhzYjdjdjkyV2Q1Mm9GeCttN1dtZkVFTE5XQ3VqWEZLNUlpSGRYM0ZFVnozakFvR0FZWStTXG5uVFFmTU5OWmVPOHdydVpDWTBCWUdjQkU0Qy9DT21OdDUrKzlhcmdtR2Rldy9tOGpia3ZyZTVKSHVQMytYMENiXG56WGF3RFNwOHgyS0xTdEg0NlJYM09ZRzZzZ0s4WnJpUDZ1RHVHODZDRVhPVmR0ZG5YcTlYQ080ajcyT2YxY2FMXG40V3UrZFNJeFdBZ3Fib2p3KzBVbG4zemtkMys2QWpBM2RzSmk1UVVDZ1lBUisxeWplVGJKOSthazF5RXNWeGNDXG44ZWNGOGl1aXM5aWdCNFp5UXpheld0endLYTlPUXpIbDF3NmFsODU3UVI1MTl4WDMvNzJCdzVNZEVFd2dQL3hSXG4zTTNvVll4ZXZDRUFRc29NeHR3d1k0b0RzaXcvVkVxT0tTeVR0enJCTFNlTHIzNXZDcGRvQ1lGRDdxcytCdjhkXG5CNkU1a3NXNnZLdnl4L0tLSnpHemZRPT1cbi0tLS0tRU5EIFBSSVZBVEUgS0VZLS0tLS1cbiIsICJjbGllbnRfZW1haWwiOiAicXdlMTIzQHNlb3VsLWJlYXV0eS10cmlwLmlhbS5nc2VydmljZWFjY291bnQuY29tIiwgImNsaWVudF9pZCI6ICIxMDgxNzc0NDM0MTMyMDM0Nzk2MzMiLCAiYXV0aF91cmkiOiAiaHR0cHM6Ly9hY2NvdW50cy5nb29nbGUuY29tL28vb2F1dGgyL2F1dGgiLCAidG9rZW5fdXJpIjogImh0dHBzOi8vb2F1dGgyLmdvb2dsZWFwaXMuY29tL3Rva2VuIiwgImF1dGhfcHJvdmlkZXJfeDUwOV9jZXJ0X3VybCI6ICJodHRwczovL3d3dy5nb29nbGVhcGlzLmNvbS9vYXV0aDIvdjEvY2VydHMiLCAiY2xpZW50X3g1MDlfY2VydF91cmwiOiAiaHR0cHM6Ly93d3cuZ29vZ2xlYXBpcy5jb20vcm9ib3QvdjEvbWV0YWRhdGEveDUwOS9xd2UxMjMlNDBzZW91bC1iZWF1dHktdHJpcC5pYW0uZ3NlcnZpY2VhY2NvdW50LmNvbSIsICJ1bml2ZXJzZV9kb21haW4iOiAiZ29vZ2xlYXBpcy5jb20ifQ==' // base64-encoded service account key
 const GA4_SA_KEY_DEFAULT = (typeof atob !== 'undefined' ? atob(GA4_SA_KEY_B64) : Buffer.from(GA4_SA_KEY_B64, 'base64').toString())
+const GEMINI_API_KEY_DEFAULT = 'AIzaSyBCmBvB4c5W6DJbBeF6HR8WYZNqXqTs0Go'
 
 // API 키/DB URL은 환경변수에서만 읽음 (하드코딩 금지)
 // 로컬: .dev.vars 파일에 설정
@@ -1254,9 +1256,10 @@ function buildSeoContext(body: any, places: Record<string,any>): string {
 async function genReviewSummary(
   shopName: string,
   reviews: any[],
-  apiKey: string
+  apiKey: string,
+  geminiKey?: string
 ): Promise<{ vibe: string; strengths: string[]; bestFor: string } | null> {
-  if (!apiKey || !reviews || reviews.length === 0) return null
+  if (!reviews || reviews.length === 0) return null
   try {
     // 리뷰 텍스트만 추출 (토큰 절약: 각 최대 200자)
     const snippets = reviews
@@ -1273,19 +1276,19 @@ ${snippets}
 Reply ONLY with valid JSON (no markdown, no explanation):
 {"vibe":"one sentence overall impression (max 20 words)","strengths":["strength 1 (max 8 words)","strength 2 (max 8 words)","strength 3 (max 8 words)"],"bestFor":"type of customer this shop suits best (max 12 words)"}`
 
-    const res = await fetch('https://www.genspark.ai/api/llm_proxy/v1/chat/completions', {
+    // Gemini API 우선 사용 (GSK_TOKEN 불필요)
+    const gKey = geminiKey || GEMINI_API_KEY_DEFAULT
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${gKey}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 220,
-        temperature: 0.4
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.4, maxOutputTokens: 300 }
       })
     })
     if (!res.ok) return null
     const data: any = await res.json()
-    const raw = data?.choices?.[0]?.message?.content?.trim() || ''
+    const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ''
     // JSON 파싱 (코드블록 감싸여 있을 수도 있으므로 정제)
     const jsonStr = raw.replace(/^```(?:json)?/,'').replace(/```$/,'').trim()
     const parsed = JSON.parse(jsonStr)
@@ -1489,11 +1492,11 @@ app.post('/api/shops', async (c) => {
   const cleanPhotos = sanitizePhotos(body.photos||[])
   const cleanThumb  = sanitizeThumb(body.thumbnail||'', cleanPhotos)
 
-  // 등록 시 리뷰 있으면 AI 요약 자동 생성
+  // 등록 시 리뷰 있으면 AI 요약 자동 생성 (Gemini API 사용 — GSK_TOKEN 불필요)
   const _insertReviews: any[] = Array.isArray(body.reviews) ? body.reviews : []
-  const _insertApiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
-  const _insertSummary = (_insertReviews.length > 0 && _insertApiKey)
-    ? await genReviewSummary(body.name||'', _insertReviews, _insertApiKey)
+  const _insertGeminiKey = c.env?.GEMINI_API_KEY || GEMINI_API_KEY_DEFAULT
+  const _insertSummary = _insertReviews.length > 0
+    ? await genReviewSummary(body.name||'', _insertReviews, '', _insertGeminiKey)
     : null
 
   await sql`INSERT INTO shops (id,name,slug,category,location,address,google_map_url,google_map_embed,lat,lng,price_range,hours,services,service_prices,description,meta_description,seo_keywords,seo_text,why_choose,rating,review_count,thumbnail,photos,commission,active,created_at,reviews,review_summary) VALUES (
@@ -2645,10 +2648,11 @@ app.post('/api/quick-register', async (c) => {
       const _bgSeoText = seoTextVal
 
       const _bgTask = (async () => {
-        // ① 리뷰 요약 생성 (리뷰가 있을 때만)
+        // ① 리뷰 요약 생성 (리뷰가 있을 때만, Gemini API 사용)
         if (_bgReviews.length > 0) {
           try {
-            const summary = await genReviewSummary(_bgName, _bgReviews, _bgKey)
+            const _bgGeminiKey = GEMINI_API_KEY_DEFAULT
+            const summary = await genReviewSummary(_bgName, _bgReviews, '', _bgGeminiKey)
             if (summary) {
               await _bgSql`UPDATE shops SET review_summary = ${JSON.stringify(summary)}::jsonb WHERE id = ${_bgId}`
             }
@@ -3737,10 +3741,11 @@ app.post('/api/admin/sync-reviews', async (c) => {
       })
       const normalized = normalizeReviews(deduped).slice(0, 10)
 
-      // ─── AI 리뷰 요약 생성 (GSK 키 있을 때만, 실패해도 리뷰는 저장) ────────
+      // ─── AI 리뷰 요약 생성 (Gemini API 사용 — GSK 키 불필요) ────────
       let summary: { vibe: string; strengths: string[]; bestFor: string } | null = null
-      if (gskKey && normalized.length > 0) {
-        summary = await genReviewSummary(shop.name, normalized, gskKey)
+      if (normalized.length > 0) {
+        const _syncGeminiKey = (c.env as any)?.GEMINI_API_KEY || GEMINI_API_KEY_DEFAULT
+        summary = await genReviewSummary(shop.name, normalized, '', _syncGeminiKey)
       }
 
       await sql`
@@ -3883,7 +3888,8 @@ app.post('/api/admin/fill-summaries', async (c) => {
     try {
       const reviews = Array.isArray(row.reviews) ? row.reviews : JSON.parse(row.reviews || '[]')
       if (!reviews.length) { results.push({ id: row.id, name: row.name, status: 'skipped: no reviews' }); continue }
-      const summary = await genReviewSummary(row.name, reviews, gskKey)
+      const _fillGeminiKey = (c.env as any)?.GEMINI_API_KEY || GEMINI_API_KEY_DEFAULT
+      const summary = await genReviewSummary(row.name, reviews, '', _fillGeminiKey)
       if (!summary) { results.push({ id: row.id, name: row.name, status: 'skipped: summary failed' }); continue }
       await sql`UPDATE shops SET review_summary = ${JSON.stringify(summary)}::jsonb WHERE id = ${row.id}`
       results.push({ id: row.id, name: row.name, status: 'ok' })
