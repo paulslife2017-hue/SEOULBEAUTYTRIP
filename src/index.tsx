@@ -15063,7 +15063,7 @@ window.loadAnalytics = async function loadAnalytics(days) {
     // ── 소스/매체 상세 ──
     var smEl = document.getElementById('an-source-medium');
     if(smEl && data.sourceMedium && data.sourceMedium.rows) {
-      var smMax = parseInt(data.sourceMedium.rows[0]?.metricValues[0]?.value||1);
+      var _smRow0=data.sourceMedium.rows[0];var _smMv=_smRow0&&_smRow0.metricValues?_smRow0.metricValues[0]:null;var smMax = parseInt((_smMv?_smMv.value:null)||1);
       smEl.innerHTML = data.sourceMedium.rows.slice(0,8).map(function(r){
         var sm = r.dimensionValues[0].value;
         var sess = parseInt(r.metricValues[0].value||0);
@@ -15080,11 +15080,11 @@ window.loadAnalytics = async function loadAnalytics(days) {
     // ── 랜딩페이지 ──
     var landEl = document.getElementById('an-landing');
     if(landEl && data.landingPages && data.landingPages.rows) {
-      var landMax = parseInt(data.landingPages.rows[0]?.metricValues[0]?.value||1);
+      var _landRow0=data.landingPages.rows[0];var _landMv=_landRow0&&_landRow0.metricValues?_landRow0.metricValues[0]:null;var landMax = parseInt((_landMv?_landMv.value:null)||1);
       landEl.innerHTML = data.landingPages.rows.slice(0,8).map(function(r){
         var path = r.dimensionValues[0].value;
         var sess = parseInt(r.metricValues[0].value||0);
-        var bounce = Math.round(parseFloat(r.metricValues[1]?.value||0)*100);
+        var _mv1=r.metricValues&&r.metricValues[1]?r.metricValues[1]:null;var bounce = Math.round(parseFloat((_mv1?_mv1.value:0)||0)*100);
         var pct = Math.round(sess/landMax*100);
         var shortPath = path.length > 28 ? path.slice(0,28)+'…' : path;
         return '<div style="display:flex;align-items:center;gap:6px">'

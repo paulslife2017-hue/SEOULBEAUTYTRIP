@@ -16127,7 +16127,7 @@ window.loadAnalytics = async function loadAnalytics(days) {
     // \u2500\u2500 \uC18C\uC2A4/\uB9E4\uCCB4 \uC0C1\uC138 \u2500\u2500
     var smEl = document.getElementById('an-source-medium');
     if(smEl && data.sourceMedium && data.sourceMedium.rows) {
-      var smMax = parseInt(data.sourceMedium.rows[0]?.metricValues[0]?.value||1);
+      var _smRow0=data.sourceMedium.rows[0];var _smMv=_smRow0&&_smRow0.metricValues?_smRow0.metricValues[0]:null;var smMax = parseInt((_smMv?_smMv.value:null)||1);
       smEl.innerHTML = data.sourceMedium.rows.slice(0,8).map(function(r){
         var sm = r.dimensionValues[0].value;
         var sess = parseInt(r.metricValues[0].value||0);
@@ -16144,11 +16144,11 @@ window.loadAnalytics = async function loadAnalytics(days) {
     // \u2500\u2500 \uB79C\uB529\uD398\uC774\uC9C0 \u2500\u2500
     var landEl = document.getElementById('an-landing');
     if(landEl && data.landingPages && data.landingPages.rows) {
-      var landMax = parseInt(data.landingPages.rows[0]?.metricValues[0]?.value||1);
+      var _landRow0=data.landingPages.rows[0];var _landMv=_landRow0&&_landRow0.metricValues?_landRow0.metricValues[0]:null;var landMax = parseInt((_landMv?_landMv.value:null)||1);
       landEl.innerHTML = data.landingPages.rows.slice(0,8).map(function(r){
         var path = r.dimensionValues[0].value;
         var sess = parseInt(r.metricValues[0].value||0);
-        var bounce = Math.round(parseFloat(r.metricValues[1]?.value||0)*100);
+        var _mv1=r.metricValues&&r.metricValues[1]?r.metricValues[1]:null;var bounce = Math.round(parseFloat((_mv1?_mv1.value:0)||0)*100);
         var pct = Math.round(sess/landMax*100);
         var shortPath = path.length > 28 ? path.slice(0,28)+'\u2026' : path;
         return '<div style="display:flex;align-items:center;gap:6px">'
