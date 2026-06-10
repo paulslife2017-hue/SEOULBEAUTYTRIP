@@ -1314,6 +1314,24 @@ Return ONLY a single valid JSON object — no markdown, no explanation:
 app.post('/api/shops', async (c) => {
   const sql = getDb(c.env)
   const body = await c.req.json()
+
+  // ── 중복 업체 체크 ───────────────────────────────────────────────────────────
+  const _normName = (s: string) => s.toLowerCase().replace(/[\s\-_.,'()]/g,'').replace(/[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]/g,'')
+  // 1) place_id 일치
+  const _pid = body.googlePlaceId || body.placeId || ''
+  if (_pid) {
+    const _pr = await sql`SELECT id,name,slug FROM shops WHERE google_place_id=${_pid} AND active=true LIMIT 1`
+    if (_pr.length > 0) return c.json({ error:'already_exists', message:`이미 등록된 업체입니다: "${_pr[0].name}"`, existingId:_pr[0].id, existingSlug:_pr[0].slug, existingName:_pr[0].name }, 409)
+  }
+  // 2) 이름 정규화 일치
+  const _nm = _normName(body.name || '')
+  if (_nm.length > 2) {
+    const _nr = await sql`SELECT id,name,slug FROM shops WHERE active=true`
+    const _match = _nr.find((r:any) => _normName(r.name) === _nm)
+    if (_match) return c.json({ error:'already_exists', message:`이미 등록된 업체입니다: "${_match.name}"`, existingId:_match.id, existingSlug:_match.slug, existingName:_match.name }, 409)
+  }
+  // ───────────────────────────────────────────────────────────────────────────
+
   const newId = 's' + Date.now()
   const today = new Date().toISOString().split('T')[0]
 
@@ -2368,6 +2386,41 @@ app.post('/api/quick-register', async (c) => {
     if (!resolvedData || (!resolvedData.name && !resolvedData.address)) {
       return c.json({ error: '구글맵에서 업체 정보를 가져오지 못했습니다. (URL 확인 또는 잠시 후 재시도)' }, 400)
     }
+
+    // ── STEP 1.5: 중복 업체 체크 ──────────────────────────────────────────────
+    // 1) place_id 완전 일치
+    const placeIdToCheck = resolvedData.placeId || resolvedData.googlePlaceId || ''
+    if (placeIdToCheck) {
+      const pidRows = await sql`SELECT id, name, slug FROM shops WHERE google_place_id = ${placeIdToCheck} AND active = true LIMIT 1`
+      if (pidRows.length > 0) {
+        const ex = pidRows[0]
+        return c.json({
+          error: 'already_exists',
+          message: `이미 등록된 업체입니다: "${ex.name}"`,
+          existingId: ex.id,
+          existingSlug: ex.slug,
+          existingName: ex.name
+        }, 409)
+      }
+    }
+    // 2) 업체명 유사도 체크 (정규화 후 완전 일치)
+    const normalizeName = (s: string) => s.toLowerCase().replace(/[\s\-_.,'()]/g, '').replace(/[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]/g, '')
+    const rawNameCheck = resolvedData.name || ''
+    const normCheck = normalizeName(rawNameCheck)
+    if (normCheck.length > 2) {
+      const allNames = await sql`SELECT id, name, slug FROM shops WHERE active = true`
+      const matched = allNames.find((r: any) => normalizeName(r.name) === normCheck)
+      if (matched) {
+        return c.json({
+          error: 'already_exists',
+          message: `이미 등록된 업체입니다: "${matched.name}"`,
+          existingId: matched.id,
+          existingSlug: matched.slug,
+          existingName: matched.name
+        }, 409)
+      }
+    }
+    // ───────────────────────────────────────────────────────────────────────────
 
     // ── STEP 2: 업체명 정리 — 파트[0]에서 CJK만 제거 → 브랜드명 최우선 추출 ──
     // 예: "Cheongdam Dear Clinic 청담디어의원" → "Cheongdam Dear Clinic" ✅
@@ -11924,7 +11977,32 @@ textarea{height:80px;resize:none}
 
   <!-- ③ 등록된 업체 목록 (클릭하면 영상 추가) -->
   <div class="card" style="margin-bottom:16px">
-    <div class="card-title" style="margin-bottom:14px"><i class="fas fa-list" style="color:#FF4D8D"></i> 등록된 업체 <span style="font-size:12px;color:rgba(255,255,255,.4);font-weight:400">— 업체 클릭 시 영상 추가</span></div>
+    <div class="card-title" style="margin-bottom:12px"><i class="fas fa-list" style="color:#FF4D8D"></i> 등록된 업체 <span id="shop-list-count" style="font-size:12px;color:rgba(255,255,255,.4);font-weight:400"></span></div>
+    <!-- 검색창 -->
+    <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
+      <div style="position:relative;flex:1">
+        <i class="fas fa-search" style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,.3);font-size:12px;pointer-events:none"></i>
+        <input id="shop-search-input" type="text" placeholder="업체명, 주소, 카테고리 검색..."
+          oninput="filterShopList(this.value)"
+          style="width:100%;padding:9px 12px 9px 32px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:10px;color:#fff;font-size:13px;box-sizing:border-box">
+      </div>
+      <select id="shop-search-cat" onchange="filterShopList(document.getElementById('shop-search-input').value)"
+        style="padding:9px 10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:10px;color:rgba(255,255,255,.7);font-size:12px;cursor:pointer">
+        <option value="">전체 카테고리</option>
+        <option value="clinic">🏥 클리닉</option>
+        <option value="skincare">✨ 스킨케어</option>
+        <option value="headspa">🧖 헤드스파</option>
+        <option value="hair">💇 헤어</option>
+        <option value="nail">💅 네일</option>
+        <option value="makeup">💄 메이크업</option>
+        <option value="tattoo">✒️ 타투</option>
+        <option value="spa">🛁 스파</option>
+      </select>
+      <button onclick="filterShopList(''); document.getElementById('shop-search-input').value=''; document.getElementById('shop-search-cat').value='';"
+        style="padding:9px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:rgba(255,255,255,.4);font-size:12px;cursor:pointer;white-space:nowrap">
+        <i class="fas fa-times"></i> 초기화
+      </button>
+    </div>
     <div id="shopList"></div>
   </div>
 
@@ -14333,10 +14411,43 @@ window.quickRegister = async function quickRegister() {
     var data = await res.json();
 
     if (!res.ok || data.error) {
-      throw new Error(data.error || '등록 실패');
+      // ── 이미 등록된 업체 409 처리 ──
+      if (res.status === 409 || data.error === 'already_exists') {
+        btn.innerHTML = '<i class="fas fa-bolt"></i> 업체 + 영상 자동 등록';
+        btn.disabled = false;
+        status.innerHTML = '';
+        result.style.display = 'block';
+        result.style.borderColor = 'rgba(245,158,11,.4)';
+        result.style.background  = 'linear-gradient(135deg,rgba(245,158,11,.08),rgba(239,68,68,.05))';
+        document.getElementById('qr-result-detail').innerHTML =
+          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
+            +'<i class="fas fa-exclamation-triangle" style="color:#fbbf24;font-size:16px"></i>'
+            +'<b style="color:#fbbf24;font-size:14px">이미 등록된 업체입니다</b>'
+          +'</div>'
+          +'<div style="color:rgba(255,255,255,.7);font-size:13px;margin-bottom:8px">'
+            +'"<b style=\'color:#fff\'>' + (data.existingName || '') + '</b>" 이(가) 이미 등록되어 있습니다.'
+          +'</div>'
+          +'<div style="font-size:12px;color:rgba(255,255,255,.4)">아래 링크에서 해당 업체를 수정하거나 영상을 추가할 수 있습니다.</div>';
+        var linkEl = document.getElementById('qr-result-link');
+        if(data.existingSlug) {
+          linkEl.href = '/shop/' + data.existingSlug;
+          linkEl.textContent = '→ ' + (data.existingName||'업체') + ' 페이지 열기';
+        } else {
+          linkEl.style.display = 'none';
+        }
+        // 검색창에 업체명 자동 입력 → 목록 필터링
+        if(data.existingName) {
+          var si = document.getElementById('shop-search-input');
+          if(si){ si.value = data.existingName; if(typeof filterShopList==='function') filterShopList(data.existingName); }
+        }
+        return;
+      }
+      throw new Error(data.message || data.error || '등록 실패');
     }
 
     // 성공!
+    result.style.borderColor = '';
+    result.style.background  = '';
     btn.innerHTML = '<i class="fas fa-bolt"></i> 업체 + 영상 자동 등록';
     btn.disabled = false;
     status.innerHTML = '';
@@ -14559,21 +14670,62 @@ function fmtPrice(n){
 
 // ── 업체 목록 렌더 (아코디언) ──
 var _shopExpanded = {}; // 열려있는 업체 ID 추적
+var _shopListFiltered = null; // 현재 필터된 목록 (null=전체)
+
+// 검색 필터링
+window.filterShopList = function filterShopList(q) {
+  var cat = (document.getElementById('shop-search-cat') || {}).value || '';
+  q = (q || '').toLowerCase().trim();
+  if (!q && !cat) {
+    _shopListFiltered = null;
+  } else {
+    _shopListFiltered = shops.filter(function(s) {
+      var matchCat = !cat || s.category === cat;
+      var matchQ   = !q || (s.name||'').toLowerCase().includes(q)
+                       || (s.address||'').toLowerCase().includes(q)
+                       || (s.location||'').toLowerCase().includes(q)
+                       || (s.category||'').toLowerCase().includes(q)
+                       || (s.slug||'').toLowerCase().includes(q);
+      return matchCat && matchQ;
+    });
+  }
+  renderShops();
+};
 
 function renderShops(){
   var el = document.getElementById('shopList');
   if(!el) return;
+  var countEl = document.getElementById('shop-list-count');
   if(!shops.length){
     el.innerHTML = '<div style="text-align:center;padding:40px 24px;color:rgba(255,255,255,.25);font-size:13px"><div style="font-size:32px;margin-bottom:8px">&#127978;</div>No shops registered<br><span style="font-size:11px">Add a shop using the form above</span></div>';
+    if(countEl) countEl.textContent = '';
     return;
   }
   var catColors = {skincare:'#f472b6',makeup:'#c084fc',hair:'#60a5fa',headspa:'#67e8f9',nail:'#34d399',clinic:'#fb923c',spa:'#a78bfa'};
   var catLabels  = {skincare:'스킨케어',makeup:'메이크업',hair:'헤어',headspa:'헤드스파',nail:'네일',clinic:'클리닉',spa:'스파'};
 
   // 빈 레코드 필터링 + 업체명 알파벳 오름차순 정렬
-  var sortedShops = shops.filter(function(s){ return s.name && s.name.trim(); }).sort(function(a, b){
-    return (a.name||'').toLowerCase().localeCompare((b.name||'').toLowerCase());
-  });
+  var baseList = (_shopListFiltered !== null ? _shopListFiltered : shops)
+    .filter(function(s){ return s.name && s.name.trim(); })
+    .sort(function(a, b){ return (a.name||'').toLowerCase().localeCompare((b.name||'').toLowerCase()); });
+
+  // 카운트 표시
+  if(countEl) {
+    if(_shopListFiltered !== null) {
+      countEl.textContent = '— 검색결과 ' + baseList.length + ' / 전체 ' + shops.length + '개';
+      countEl.style.color = baseList.length > 0 ? 'rgba(255,77,141,.8)' : '#f87171';
+    } else {
+      countEl.textContent = '— 총 ' + baseList.length + '개';
+      countEl.style.color = 'rgba(255,255,255,.4)';
+    }
+  }
+
+  if(!baseList.length) {
+    el.innerHTML = '<div style="text-align:center;padding:32px 16px;color:rgba(255,255,255,.3);font-size:13px"><i class="fas fa-search" style="font-size:28px;margin-bottom:10px;display:block;opacity:.3"></i>검색 결과가 없습니다</div>';
+    return;
+  }
+
+  var sortedShops = baseList;
   el.innerHTML = '<div style="display:grid;gap:10px">' + sortedShops.map(function(s){
     var shopVids  = videos.filter(function(v){ return v.shopId === s.id; });
     var vcount    = shopVids.length;
