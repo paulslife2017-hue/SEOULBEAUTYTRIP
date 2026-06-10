@@ -103,6 +103,97 @@ app.use('*', async (c, next) => {
   await next()
 })
 
+// ── Admin 인증 미들웨어 (/admin 페이지 + /api/admin/* API 전체 보호) ──
+// Authorization: Bearer <GSK_TOKEN> 헤더 또는 ?token=<GSK_TOKEN> 쿼리 파라미터로 인증
+app.use('/admin', async (c, next) => {
+  const envToken = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
+  if (!envToken) return await next() // 서버에 토큰 미설정 시 통과 (개발 환경 예외)
+
+  // 1) Authorization 헤더 확인
+  const authHeader = c.req.header('Authorization') || ''
+  const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : ''
+
+  // 2) 쿼리 파라미터 확인 (?token=xxx)
+  const queryToken = c.req.query('token') || ''
+
+  // 3) 세션 쿠키 확인 (로그인 후 발급)
+  const cookieHeader = c.req.header('Cookie') || ''
+  const cookieToken = cookieHeader.match(/admin_token=([^;]+)/)?.[1] || ''
+
+  const provided = bearerToken || queryToken || cookieToken
+  if (provided !== envToken) {
+    // 브라우저 직접 접근 시 로그인 폼 반환
+    return c.html(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin Login — Seoul Beauty Trip</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0f0f1a;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:-apple-system,sans-serif}
+  .box{background:#1a1a2e;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:40px 36px;width:340px;text-align:center}
+  .logo{font-size:22px;font-weight:800;color:#fff;margin-bottom:6px}
+  .sub{font-size:13px;color:rgba(255,255,255,.4);margin-bottom:28px}
+  input{width:100%;padding:12px 16px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:10px;color:#fff;font-size:14px;outline:none;margin-bottom:14px}
+  input:focus{border-color:rgba(168,85,247,.6)}
+  button{width:100%;padding:13px;background:linear-gradient(135deg,#a855f7,#6366f1);border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:700;cursor:pointer}
+  button:hover{opacity:.9}
+  .err{color:#f87171;font-size:12px;margin-top:10px;display:none}
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="logo">⚙️ Admin</div>
+  <div class="sub">Seoul Beauty Trip</div>
+  <form id="f" onsubmit="login(event)">
+    <input type="password" id="pw" placeholder="Admin password" autocomplete="current-password">
+    <button type="submit">Login</button>
+    <div class="err" id="err">Incorrect password</div>
+  </form>
+</div>
+<script>
+async function login(e) {
+  e.preventDefault();
+  const pw = document.getElementById('pw').value;
+  const res = await fetch('/admin?token=' + encodeURIComponent(pw));
+  if (res.ok && res.url.includes('/admin') && !res.url.includes('token=')) {
+    location.href = '/admin';
+  } else if (res.ok) {
+    // 쿠키 방식: 서버가 Set-Cookie 반환 후 리다이렉트
+    location.href = '/admin';
+  } else {
+    document.getElementById('err').style.display = 'block';
+  }
+}
+// ?token= 파라미터로 왔는데 틀린 경우
+const params = new URLSearchParams(location.search);
+if (params.get('token')) document.getElementById('err').style.display = 'block';
+</script>
+</body>
+</html>`, 401)
+  }
+
+  // 인증 성공: 세션 쿠키 발급 (7일, HttpOnly, SameSite=Strict)
+  c.header('Set-Cookie', `admin_token=${envToken}; Path=/admin; Max-Age=604800; HttpOnly; SameSite=Strict`)
+  await next()
+})
+
+app.use('/api/admin/*', async (c, next) => {
+  const envToken = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
+  if (!envToken) return await next()
+
+  const authHeader = c.req.header('Authorization') || ''
+  const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : ''
+  const cookieHeader = c.req.header('Cookie') || ''
+  const cookieToken = cookieHeader.match(/admin_token=([^;]+)/)?.[1] || ''
+
+  if (bearerToken !== envToken && cookieToken !== envToken) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
+  await next()
+})
+
 // ── robots.txt: GEO(AI 검색엔진) + SEO 툴 모두 허용 ──
 app.get('/robots.txt', (c) => {
   const robotsTxt = `# robots.txt for SEOUL BEAUTY TRIP

@@ -2167,6 +2167,81 @@ app.use("*", async (c, next) => {
   }
   await next();
 });
+app.use("/admin", async (c, next) => {
+  const envToken = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
+  if (!envToken) return await next();
+  const authHeader = c.req.header("Authorization") || "";
+  const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+  const queryToken = c.req.query("token") || "";
+  const cookieHeader = c.req.header("Cookie") || "";
+  const cookieToken = cookieHeader.match(/admin_token=([^;]+)/)?.[1] || "";
+  const provided = bearerToken || queryToken || cookieToken;
+  if (provided !== envToken) {
+    return c.html(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin Login \u2014 Seoul Beauty Trip</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0f0f1a;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:-apple-system,sans-serif}
+  .box{background:#1a1a2e;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:40px 36px;width:340px;text-align:center}
+  .logo{font-size:22px;font-weight:800;color:#fff;margin-bottom:6px}
+  .sub{font-size:13px;color:rgba(255,255,255,.4);margin-bottom:28px}
+  input{width:100%;padding:12px 16px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:10px;color:#fff;font-size:14px;outline:none;margin-bottom:14px}
+  input:focus{border-color:rgba(168,85,247,.6)}
+  button{width:100%;padding:13px;background:linear-gradient(135deg,#a855f7,#6366f1);border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:700;cursor:pointer}
+  button:hover{opacity:.9}
+  .err{color:#f87171;font-size:12px;margin-top:10px;display:none}
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="logo">\u2699\uFE0F Admin</div>
+  <div class="sub">Seoul Beauty Trip</div>
+  <form id="f" onsubmit="login(event)">
+    <input type="password" id="pw" placeholder="Admin password" autocomplete="current-password">
+    <button type="submit">Login</button>
+    <div class="err" id="err">Incorrect password</div>
+  </form>
+</div>
+<script>
+async function login(e) {
+  e.preventDefault();
+  const pw = document.getElementById('pw').value;
+  const res = await fetch('/admin?token=' + encodeURIComponent(pw));
+  if (res.ok && res.url.includes('/admin') && !res.url.includes('token=')) {
+    location.href = '/admin';
+  } else if (res.ok) {
+    // \uCFE0\uD0A4 \uBC29\uC2DD: \uC11C\uBC84\uAC00 Set-Cookie \uBC18\uD658 \uD6C4 \uB9AC\uB2E4\uC774\uB809\uD2B8
+    location.href = '/admin';
+  } else {
+    document.getElementById('err').style.display = 'block';
+  }
+}
+// ?token= \uD30C\uB77C\uBBF8\uD130\uB85C \uC654\uB294\uB370 \uD2C0\uB9B0 \uACBD\uC6B0
+const params = new URLSearchParams(location.search);
+if (params.get('token')) document.getElementById('err').style.display = 'block';
+</script>
+</body>
+</html>`, 401);
+  }
+  c.header("Set-Cookie", `admin_token=${envToken}; Path=/admin; Max-Age=604800; HttpOnly; SameSite=Strict`);
+  await next();
+});
+app.use("/api/admin/*", async (c, next) => {
+  const envToken = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
+  if (!envToken) return await next();
+  const authHeader = c.req.header("Authorization") || "";
+  const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+  const cookieHeader = c.req.header("Cookie") || "";
+  const cookieToken = cookieHeader.match(/admin_token=([^;]+)/)?.[1] || "";
+  if (bearerToken !== envToken && cookieToken !== envToken) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+  await next();
+});
 app.get("/robots.txt", (c) => {
   const robotsTxt = `# robots.txt for SEOUL BEAUTY TRIP
 # GEO (Generative Engine Optimization): AI search engines allowed to index & cite
