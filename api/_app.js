@@ -4892,7 +4892,7 @@ app.post("/api/admin/sync-reviews", async (c) => {
   if (!gKey) return c.json({ error: "GOOGLE_PLACES_KEY not configured" }, 500);
   const force = c.req.query("force") === "true";
   const offset = parseInt(c.req.query("offset") || "0", 10);
-  const limit = Math.min(parseInt(c.req.query("limit") || "7", 10), 10);
+  const limit = Math.min(parseInt(c.req.query("limit") || "10", 10), 15);
   let allShops;
   try {
     allShops = force ? await sql`SELECT id, name, google_place_id FROM shops WHERE google_place_id IS NOT NULL AND google_place_id != '' AND active=true ORDER BY created_at ASC` : await sql`SELECT id, name, google_place_id FROM shops WHERE google_place_id IS NOT NULL AND google_place_id != '' AND active=true AND (reviews IS NULL OR reviews::text = '[]') ORDER BY created_at ASC`;
@@ -4924,33 +4924,18 @@ app.post("/api/admin/sync-reviews", async (c) => {
         continue;
       }
       const place1 = await res1.json();
-      const set1 = normalizeReviews(place1.reviews || []);
-      const url2 = `https://places.googleapis.com/v1/places/${shop.google_place_id}?languageCode=en&reviewSort=NEWEST`;
-      const res2 = await fetch(url2, {
-        headers: { "X-Goog-Api-Key": gKey, "X-Goog-FieldMask": "reviews" }
-      });
-      const set2 = res2.ok ? normalizeReviews((await res2.json()).reviews || []) : [];
-      const seen = /* @__PURE__ */ new Set();
-      const merged = [];
-      for (const rv of [...set1, ...set2]) {
-        const key = rv.author + "|" + (rv.text + "").slice(0, 40);
-        if (!seen.has(key)) {
-          seen.add(key);
-          merged.push(rv);
-        }
-        if (merged.length >= 10) break;
-      }
+      const normalized = normalizeReviews(place1.reviews || []);
       const rating = place1.rating ?? null;
       const reviewCount = place1.userRatingCount ?? null;
       await sql`
         UPDATE shops
         SET
-          reviews      = ${JSON.stringify(merged)}::jsonb,
+          reviews      = ${JSON.stringify(normalized)}::jsonb,
           rating       = ${rating},
           review_count = ${reviewCount}
         WHERE id = ${shop.id}
       `;
-      results.push({ id: shop.id, name: shop.name, status: "ok", reviewCount: merged.length });
+      results.push({ id: shop.id, name: shop.name, status: "ok", reviewCount: normalized.length });
     } catch (e) {
       results.push({ id: shop.id, name: shop.name, status: `error: ${e.message}` });
     }

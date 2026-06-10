@@ -3228,7 +3228,7 @@ app.post('/api/admin/sync-reviews', async (c) => {
   // 파라미터: force=true, offset, limit(기본 10)
   const force  = c.req.query('force')  === 'true'
   const offset = parseInt(c.req.query('offset') || '0', 10)
-  const limit  = Math.min(parseInt(c.req.query('limit')  || '7', 10), 10) // API 2회/업체 → 최대 10개
+  const limit  = Math.min(parseInt(c.req.query('limit')  || '10', 10), 15)
 
   let allShops: any[]
   try {
@@ -3259,7 +3259,7 @@ app.post('/api/admin/sync-reviews', async (c) => {
 
   for (const shop of shops) {
     try {
-      // ① MOST_RELEVANT (기본) 호출
+      // Places API v1 — 최대 5개 (API 정책 제한)
       const url1 = `https://places.googleapis.com/v1/places/${shop.google_place_id}?languageCode=en`
       const res1 = await fetch(url1, {
         headers: { 'X-Goog-Api-Key': gKey, 'X-Goog-FieldMask': 'reviews,rating,userRatingCount' }
@@ -3270,23 +3270,7 @@ app.post('/api/admin/sync-reviews', async (c) => {
         continue
       }
       const place1: any = await res1.json()
-      const set1 = normalizeReviews(place1.reviews || [])
-
-      // ② NEWEST 정렬로 두 번째 호출
-      const url2 = `https://places.googleapis.com/v1/places/${shop.google_place_id}?languageCode=en&reviewSort=NEWEST`
-      const res2 = await fetch(url2, {
-        headers: { 'X-Goog-Api-Key': gKey, 'X-Goog-FieldMask': 'reviews' }
-      })
-      const set2 = res2.ok ? normalizeReviews((await res2.json() as any).reviews || []) : []
-
-      // ③ 중복 제거 (author+text 앞 40자 기준) → 최대 10개
-      const seen = new Set<string>()
-      const merged: any[] = []
-      for (const rv of [...set1, ...set2]) {
-        const key = (rv.author + '|' + (rv.text + '').slice(0, 40))
-        if (!seen.has(key)) { seen.add(key); merged.push(rv) }
-        if (merged.length >= 10) break
-      }
+      const normalized = normalizeReviews(place1.reviews || [])
 
       const rating      = place1.rating          ?? null
       const reviewCount = place1.userRatingCount ?? null
@@ -3294,13 +3278,13 @@ app.post('/api/admin/sync-reviews', async (c) => {
       await sql`
         UPDATE shops
         SET
-          reviews      = ${JSON.stringify(merged)}::jsonb,
+          reviews      = ${JSON.stringify(normalized)}::jsonb,
           rating       = ${rating},
           review_count = ${reviewCount}
         WHERE id = ${shop.id}
       `
 
-      results.push({ id: shop.id, name: shop.name, status: 'ok', reviewCount: merged.length })
+      results.push({ id: shop.id, name: shop.name, status: 'ok', reviewCount: normalized.length })
     } catch(e: any) {
       results.push({ id: shop.id, name: shop.name, status: `error: ${e.message}` })
     }
