@@ -3228,7 +3228,7 @@ app.post('/api/admin/sync-reviews', async (c) => {
   // 파라미터: force=true, offset, limit(기본 10)
   const force  = c.req.query('force')  === 'true'
   const offset = parseInt(c.req.query('offset') || '0', 10)
-  const limit  = Math.min(parseInt(c.req.query('limit')  || '10', 10), 15) // 최대 15개
+  const limit  = Math.min(parseInt(c.req.query('limit')  || '7', 10), 10) // API 2회/업체 → 최대 10개
 
   let allShops: any[]
   try {
@@ -3243,53 +3243,64 @@ app.post('/api/admin/sync-reviews', async (c) => {
   const shops = allShops.slice(offset, offset + limit)
   const results: { id: string; name: string; status: string; reviewCount?: number }[] = []
 
+  // Places API 응답 → 정규화 헬퍼
+  const normalizeReviews = (rawReviews: any[]): any[] =>
+    rawReviews.map((rv: any) => ({
+      author:            rv.authorAttribution?.displayName || rv.authorName || 'Anonymous',
+      author_name:       rv.authorAttribution?.displayName || rv.authorName || 'Anonymous',
+      rating:            rv.rating || 5,
+      text:              rv.text?.text || rv.text || '',
+      time:              rv.publishTime ? Math.floor(new Date(rv.publishTime).getTime() / 1000)
+                         : (rv.relativePublishTimeDescription || ''),
+      relative_time:     rv.relativePublishTimeDescription || '',
+      profile_photo_url: rv.authorAttribution?.photoUri || rv.profilePhotoUrl || '',
+      language:          rv.originalText?.languageCode || rv.text?.languageCode || 'en'
+    })).filter((rv: any) => (rv.text + '').trim().length > 0)
+
   for (const shop of shops) {
     try {
-      // Places API v1 — reviews + rating + userRatingCount
-      const url = `https://places.googleapis.com/v1/places/${shop.google_place_id}?languageCode=en`
-      const res = await fetch(url, {
-        headers: {
-          'X-Goog-Api-Key': gKey,
-          'X-Goog-FieldMask': 'reviews,rating,userRatingCount'
-        }
+      // ① MOST_RELEVANT (기본) 호출
+      const url1 = `https://places.googleapis.com/v1/places/${shop.google_place_id}?languageCode=en`
+      const res1 = await fetch(url1, {
+        headers: { 'X-Goog-Api-Key': gKey, 'X-Goog-FieldMask': 'reviews,rating,userRatingCount' }
       })
-
-      if (!res.ok) {
-        const errText = await res.text()
-        results.push({ id: shop.id, name: shop.name, status: `API error ${res.status}: ${errText.slice(0,100)}` })
+      if (!res1.ok) {
+        const errText = await res1.text()
+        results.push({ id: shop.id, name: shop.name, status: `API error ${res1.status}: ${errText.slice(0,100)}` })
         continue
       }
+      const place1: any = await res1.json()
+      const set1 = normalizeReviews(place1.reviews || [])
 
-      const place: any = await res.json()
-      const rawReviews: any[] = place.reviews || []
+      // ② NEWEST 정렬로 두 번째 호출
+      const url2 = `https://places.googleapis.com/v1/places/${shop.google_place_id}?languageCode=en&reviewSort=NEWEST`
+      const res2 = await fetch(url2, {
+        headers: { 'X-Goog-Api-Key': gKey, 'X-Goog-FieldMask': 'reviews' }
+      })
+      const set2 = res2.ok ? normalizeReviews((await res2.json() as any).reviews || []) : []
 
-      // Places API v1 리뷰 구조 → DB 구조로 정규화
-      const normalized = rawReviews.map((rv: any) => ({
-        author:            rv.authorAttribution?.displayName || rv.authorName || 'Anonymous',
-        author_name:       rv.authorAttribution?.displayName || rv.authorName || 'Anonymous',  // 하위호환
-        rating:            rv.rating || 5,
-        text:              rv.text?.text || rv.text || '',
-        time:              rv.publishTime ? Math.floor(new Date(rv.publishTime).getTime() / 1000)
-                           : (rv.relativePublishTimeDescription || ''),
-        relative_time:     rv.relativePublishTimeDescription || '',
-        profile_photo_url: rv.authorAttribution?.photoUri || rv.profilePhotoUrl || '',
-        language:          rv.originalText?.languageCode || rv.text?.languageCode || 'en'
-      })).filter((rv: any) => (rv.text + '').trim().length > 0)
+      // ③ 중복 제거 (author+text 앞 40자 기준) → 최대 10개
+      const seen = new Set<string>()
+      const merged: any[] = []
+      for (const rv of [...set1, ...set2]) {
+        const key = (rv.author + '|' + (rv.text + '').slice(0, 40))
+        if (!seen.has(key)) { seen.add(key); merged.push(rv) }
+        if (merged.length >= 10) break
+      }
 
-      const rating      = place.rating          ?? null
-      const reviewCount = place.userRatingCount ?? null
+      const rating      = place1.rating          ?? null
+      const reviewCount = place1.userRatingCount ?? null
 
-      // DB 업데이트: reviews, rating, review_count
       await sql`
         UPDATE shops
         SET
-          reviews      = ${JSON.stringify(normalized)}::jsonb,
+          reviews      = ${JSON.stringify(merged)}::jsonb,
           rating       = ${rating},
           review_count = ${reviewCount}
         WHERE id = ${shop.id}
       `
 
-      results.push({ id: shop.id, name: shop.name, status: 'ok', reviewCount: normalized.length })
+      results.push({ id: shop.id, name: shop.name, status: 'ok', reviewCount: merged.length })
     } catch(e: any) {
       results.push({ id: shop.id, name: shop.name, status: `error: ${e.message}` })
     }
