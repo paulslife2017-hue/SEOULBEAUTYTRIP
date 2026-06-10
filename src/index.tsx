@@ -6845,24 +6845,12 @@ app.get('/blog/:slug', async (c) => {
         const photoArr: string[] = Array.isArray(rawPhotos)
           ? rawPhotos
           : (typeof rawPhotos === 'string' ? JSON.parse(rawPhotos || '[]') : [])
-        const thumb = (shopRow[0].thumbnail || '').trim()
-        // photo name 기준 중복 제거: URL에서 /photos/{name}/ 의 name 앞 60자 추출
-        const getPN = (u: string) => {
-          const s = (u || '').trim()
-          const i = s.indexOf('/photos/')
-          if (i < 0) return s.slice(0, 60)
-          return s.slice(i + 8, i + 68) // 60자
-        }
-        const seenP = new Set<string>()
-        const allCandidates: string[] = thumb ? [thumb, ...photoArr] : [...photoArr]
-        for (const raw of allCandidates) {
-          const u = (String(raw || '')).trim()
-          if (u.startsWith('http')) {
-            const key = getPN(u)
-            if (key && !seenP.has(key)) { seenP.add(key); shopPhotoUrls.push(u) }
-          }
-        }
-        shopPhotoUrls = shopPhotoUrls.slice(0, 6)
+        // photos 배열만 사용 (thumbnail은 cover_image로 이미 표시됨)
+        // photos[0]은 thumbnail과 같은 경우가 많으므로 index 1부터 6장
+        const validPhotos = photoArr
+          .map((u: any) => String(u || '').trim())
+          .filter((u: string) => u.startsWith('http'))
+        shopPhotoUrls = validPhotos.slice(1, 7) // photos[1..6]
       }
     } catch { /* 사진 없으면 갤러리 생략 */ }
   }

@@ -8145,26 +8145,8 @@ app.get("/blog/:slug", async (c) => {
       if (shopRow.length > 0) {
         const rawPhotos = shopRow[0].photos;
         const photoArr = Array.isArray(rawPhotos) ? rawPhotos : typeof rawPhotos === "string" ? JSON.parse(rawPhotos || "[]") : [];
-        const thumb = (shopRow[0].thumbnail || "").trim();
-        const getPN = (u) => {
-          const s = (u || "").trim();
-          const i = s.indexOf("/photos/");
-          if (i < 0) return s.slice(0, 60);
-          return s.slice(i + 8, i + 68);
-        };
-        const seenP = /* @__PURE__ */ new Set();
-        const allCandidates = thumb ? [thumb, ...photoArr] : [...photoArr];
-        for (const raw2 of allCandidates) {
-          const u = String(raw2 || "").trim();
-          if (u.startsWith("http")) {
-            const key = getPN(u);
-            if (key && !seenP.has(key)) {
-              seenP.add(key);
-              shopPhotoUrls.push(u);
-            }
-          }
-        }
-        shopPhotoUrls = shopPhotoUrls.slice(0, 6);
+        const validPhotos = photoArr.map((u) => String(u || "").trim()).filter((u) => u.startsWith("http"));
+        shopPhotoUrls = validPhotos.slice(1, 7);
       }
     } catch {
     }
