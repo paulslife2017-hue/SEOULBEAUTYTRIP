@@ -2359,6 +2359,13 @@ function sanitizeThumb(thumb, photos) {
 function sanitizePhotos(photos) {
   return (photos || []).filter((u) => typeof u === "string" && u.startsWith("https://"));
 }
+function trimDesc(s, max = 155) {
+  const clean = (s || "").replace(/Seoul,?\s*Seoul/g, "Seoul").trim();
+  if (clean.length <= max) return clean;
+  const cut = clean.slice(0, max);
+  const lastSpace = cut.lastIndexOf(" ");
+  return (lastSpace > 80 ? cut.slice(0, lastSpace) : cut) + "...";
+}
 function cleanVideoTitle(title, shopName) {
   if (!title) return shopName || "Video";
   const isFilename = /^[a-zA-Z0-9_.-]{8,}$/.test(title.trim());
@@ -4924,7 +4931,22 @@ var SLUG_REDIRECTS = {
   // GSC에서 발견된 초장기 구 slug (업체명 풀네임이 들어간 것)
   "leebeauty-myeongdong-spa-lee-hea-kyung-aesthetics-head-spa-myeongdong": "leebeauty-myeongdong",
   "glovi-plastic-surgery-gangnam": "glovi-clinic-gangnam",
-  "braun-plastic-surgery-gangnam": "braun-clinic-gangnam"
+  "braun-plastic-surgery-gangnam": "braun-clinic-gangnam",
+  // 외부 분석 보고서에서 발견된 구 슬러그
+  "barog-clinic-gangnam-2": "barog-clinic-gangnam",
+  "glovi-g-thera-anti-aging-clinic-gangnam": "glovi-antiaging-gangnam",
+  "gungseochae-gangnam": "gungseochae-head-spa-gangnam",
+  "diony-gangnam": "diony-hair-salon-gangnam",
+  "mood-collect-personal-color-gangnam": "mood-collect-gangnam",
+  "yonsei-midas-dental-clinic-incheon": "yonsei-midas-dental-incheon",
+  "fittingclinic-gangnam": "fitting-clinic-gangnam",
+  "como-clinic-yongsan": "como-clinic-itaewon",
+  "ppeum-global-clinic-myeongdong": "ppeum-clinic-myeongdong",
+  "reone-dermatology-clinic-sinsa": "reone-dermatology-gangnam",
+  "dr-evers-gangnam-2": "drevers-clinic-gangnam",
+  "me-seoul-clinic-gangnam": "me-seoul-clinic-gangnam",
+  "sugar-plastic-surgery-seocho": "sugar-clinic-gangnam",
+  "barog-clinic-gangnam-2-review-2026-foreigners": "barog-clinic-gangnam"
 };
 app.get("/shop/:slug", async (c) => {
   const slug = c.req.param("slug");
@@ -5005,7 +5027,7 @@ People: `);
   const _svc2 = shop.services && shop.services.length > 1 ? shop.services[1] : "";
   const _svcPart = _svc1 ? _svc2 ? _svc1 + " & " + _svc2 : _svc1 : "";
   const _areaClean = _shopArea.replace(", Seoul", "").trim();
-  const _metaDesc = shop.metaDescription && shop.metaDescription.trim().length > 30 ? shop.metaDescription.replace(/Seoul,?\s*Seoul/g, "Seoul").replace(/Gangnam,?\s*Seoul Seoul/g, "Gangnam, Seoul").trim().slice(0, 160) : (shop.name + " is a " + _rating + " foreigner-friendly " + _catLbl2 + " in " + _areaClean + ", Seoul." + (_revs ? " " + _revs + "." : "") + (_svcPart ? " Specializing in " + _svcPart + "." : "") + " English booking via WhatsApp. Same-day appointments available.").slice(0, 160);
+  const _metaDesc = shop.metaDescription && shop.metaDescription.trim().length > 30 ? trimDesc(shop.metaDescription.replace(/Gangnam,?\s*Seoul Seoul/g, "Gangnam, Seoul"), 160) : trimDesc(shop.name + " is a " + _rating + " foreigner-friendly " + _catLbl2 + " in " + _areaClean + ", Seoul." + (_revs ? " " + _revs + "." : "") + (_svcPart ? " Specializing in " + _svcPart + "." : "") + " English booking via WhatsApp. Same-day appointments available.", 160);
   const _areaGn = _shopArea.toLowerCase().includes("cheongdam") || _shopArea.toLowerCase().includes("apgujeong") ? "Gangnam" : _shopArea;
   const _n = shop.name;
   const _catKwMap = {
@@ -5083,20 +5105,20 @@ ${SB_TRACKER_SCRIPT}
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${_pageTitle}</title>
 <meta name="description" content="${_metaDesc}">
-<meta name="keywords" content="${_keywords}">
+
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="${canonicalUrl}">
 <!-- Open Graph -->
 <meta property="og:type" content="business.business">
 <meta property="og:title" content="${_ogTitle}">
-<meta property="og:description" content="${(shop.metaDescription || shop.description || "").replace(/Seoul,?\s*Seoul/g, "Seoul").slice(0, 155)}">
+<meta property="og:description" content="${trimDesc(shop.metaDescription || shop.description || "")}">
 <meta property="og:image" content="${ogImage}">
 <meta property="og:url" content="${canonicalUrl}">
 <meta property="og:site_name" content="Seoul Beauty Trip">
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${shop.name} | Seoul Beauty Trip">
-<meta name="twitter:description" content="${(shop.metaDescription || shop.description || "").replace(/Seoul,?\s*Seoul/g, "Seoul").slice(0, 155)}">
+<meta name="twitter:description" content="${trimDesc(shop.metaDescription || shop.description || "")}">
 <meta name="twitter:image" content="${ogImage}">
 <!-- Schema.org -->
 <script type="application/ld+json">
@@ -5232,7 +5254,7 @@ ${SB_TRACKER_SCRIPT}
       "@id":"${canonicalUrl}#webpage",
       "url":"${canonicalUrl}",
       "name":"${_wpName}",
-      "description":"${(shop.metaDescription || shop.description || "").replace(/"/g, "'").replace(/Seoul,?\s*Seoul/g, "Seoul").slice(0, 155)}",
+      "description":"${trimDesc(shop.metaDescription || shop.description || "").replace(/"/g, "'")}",
       "inLanguage":"en",
       "isPartOf":{"@id":"${base}/#website"},
       "primaryImageOfPage":{"@type":"ImageObject","url":"${shop.thumbnail}","thumbnailUrl":"${shop.thumbnail}"},
@@ -6093,18 +6115,18 @@ People: `);
 ${SB_TRACKER_SCRIPT}
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${title} | Seoul Beauty Trip</title>
-<meta name="description" content="${desc.slice(0, 155)}">
+<meta name="description" content="${trimDesc(desc)}">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="${pageUrl}">
 <meta property="og:type" content="video.other">
 <meta property="og:title" content="${title} | Seoul Beauty Trip">
-<meta property="og:description" content="${desc.slice(0, 155)}">
+<meta property="og:description" content="${trimDesc(desc)}">
 <meta property="og:image" content="${ogThumb}">
 <meta property="og:url" content="${pageUrl}">
 <meta property="og:site_name" content="Seoul Beauty Trip">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${title} | Seoul Beauty Trip">
-<meta name="twitter:description" content="${desc.slice(0, 155)}">
+<meta name="twitter:description" content="${trimDesc(desc)}">
 <meta name="twitter:image" content="${ogThumb}">
 <meta property="og:video" content="${streamUrl}">
 <meta property="og:video:secure_url" content="${streamUrl}">
@@ -6425,7 +6447,7 @@ ${SB_TRACKER_SCRIPT}
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${titleMain} | Seoul Beauty Trip</title>
 <meta name="description" content="${metaDesc}">
-<meta name="keywords" content="${isClinicGangnam ? "Gangnam dermatology clinic, Gangnam dermatology clinic foreigners, Gangnam skin clinic Seoul, best dermatology clinic Gangnam Seoul, Gangnam dermatologist English, Seoul dermatology clinic foreigners, skin clinic Gangnam tourists, Korean dermatology clinic Gangnam, dermatologist Seoul foreigner friendly, Gangnam aesthetic clinic English booking" : isHeadSpaMyeongdong ? "head spa Myeongdong, Korean head spa Myeongdong Seoul, Myeongdong scalp treatment, head spa Seoul Myeongdong foreigners, Korean scalp massage Myeongdong, 18 step head spa Seoul, head spa Seoul English, Myeongdong head spa booking, head spa Myeongdong price, best head spa Seoul tourists" : `best ${catLabel.toLowerCase()} ${areaLabel} Seoul, ${catLabel.toLowerCase()} Seoul foreigners, ${catLabel.toLowerCase()} Seoul English, ${catLabel.toLowerCase()} ${areaLabel} tourists, foreigner friendly ${catLabel.toLowerCase()} Seoul, ${catLabel.toLowerCase()} Seoul booking, Korean ${catLabel.toLowerCase()} ${areaLabel}, ${catLabel.toLowerCase()} Seoul recommendation`}">
+
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="${pageUrl}">
 <meta property="og:type" content="website">
@@ -8931,7 +8953,7 @@ var MAIN_HTML = `<!DOCTYPE html>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Seoul Skin Clinic & Beauty Salon for Foreigners | Seoul Beauty Trip</title>
 <meta name="description" content="Best skin clinics, dermatology & beauty salons in Seoul for foreigners. English-speaking staff, easy WhatsApp booking. Trusted by tourists visiting Seoul.">
-<meta name="keywords" content="Seoul beauty salon, Korean skincare, K-beauty booking, Seoul hair salon, Seoul nail art, Korean makeup, Seoul derma clinic, beauty travel Korea">
+
 <meta name="robots" content="index, follow">
 <meta name="msvalidate.01" content="DD5A8D9AA094B888C8A409EADE4610E9">
 <link rel="canonical" href="https://seoulbeautytrip.com/">
@@ -11752,6 +11774,7 @@ function renderShopPanel(cat) {
 <!-- \u2605 Best \uB79C\uB529 \uD398\uC774\uC9C0 \uB0B4\uBD80 \uB9C1\uD06C \u2014 \uAD6C\uAE00 \uD06C\uB864\uB7EC\uAC00 \uBC1C\uACAC\uD558\uB3C4\uB85D DOM\uC5D0 \uC0BD\uC785 -->
 <nav aria-label="Browse by category and area" style="background:#fff;border-top:1px solid #f0f0f0;padding:32px 16px 40px">
   <div style="max-width:700px;margin:0 auto">
+    <h1 style="font-size:1.15rem;font-weight:800;color:#1a1a2e;margin-bottom:4px;text-align:center">Seoul Beauty Booking for Foreigners</h1>
     <h2 style="font-size:1rem;font-weight:700;color:#1a1a2e;margin-bottom:6px;text-align:center">Browse Korean Beauty by Area</h2>
     <p style="font-size:.82rem;color:#888;text-align:center;margin-bottom:20px">Foreigner-friendly salons in Seoul \u2014 find your area</p>
     <div style="display:flex;flex-direction:column;gap:14px">
