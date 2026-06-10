@@ -5121,11 +5121,7 @@ ${SB_TRACKER_SCRIPT}
         "addressRegion":"Seoul",
         "addressCountry":"KR"
       },
-      "geo":{
-        "@type":"GeoCoordinates",
-        "latitude":"${shop.lat || ""}",
-        "longitude":"${shop.lng || ""}"
-      },
+      ${shop.lat && shop.lng ? `"geo":{"@type":"GeoCoordinates","latitude":"${shop.lat}","longitude":"${shop.lng}"},` : ""}
       "openingHours":"${shop.hours.replace(/"/g, "'")}",
       ${(() => {
     const _days = { monday: "Monday", tuesday: "Tuesday", wednesday: "Wednesday", thursday: "Thursday", friday: "Friday", saturday: "Saturday", sunday: "Sunday", mon: "Monday", tue: "Tuesday", wed: "Wednesday", thu: "Thursday", fri: "Friday", sat: "Saturday", sun: "Sunday" };
@@ -5150,7 +5146,7 @@ ${SB_TRACKER_SCRIPT}
     if (_specs.length > 0) return '"openingHoursSpecification":[' + _specs.join(",") + "],";
     return "";
   })()}
-      "priceRange":"${shop.priceRange}",
+      ${shop.priceRange ? `"priceRange":"${shop.priceRange}",` : ""}
       "currenciesAccepted":"KRW",
       "paymentAccepted":"Cash, Credit Card",
       "areaServed":{"@type":"City","name":"Seoul"},
