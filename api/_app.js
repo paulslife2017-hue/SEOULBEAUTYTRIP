@@ -6084,8 +6084,7 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 
 ${(() => {
     const allP = [shop.thumbnail, ...(shop.photos || []).filter((p) => p && p !== shop.thumbnail)];
-    const _firstVid = shopVideos.length > 0 ? shopVideos[0] : null;
-    if (allP.length < 2 && !_firstVid) return "";
+    if (allP.length < 2) return "";
     const _catAltMap = {
       clinic: ["skin booster treatment room", "laser toning procedure at clinic", "RF lifting facial treatment", "dermatology consultation room", "skin analysis & treatment area", "micro-needling procedure", "Shurink HIFU lifting session", "reception & waiting lounge"],
       hair: ["hair coloring & bleaching station", "Korean perm treatment styling", "hair cut & styling chair", "scalp treatment & hair care", "balayage color highlight session", "hair styling result showcase", "hair wash & conditioning area", "consultation & color mixing zone"],
@@ -6096,21 +6095,13 @@ ${(() => {
       spa: ["luxury spa treatment room", "body massage & relaxation", "aromatherapy spa session", "hot stone massage therapy", "deep tissue body treatment", "spa lounge & ambiance", "foot spa & reflexology", "premium body wrap treatment"]
     };
     const _altL = _catAltMap[shop.category] || ["interior and atmosphere", "treatment room", "service area for foreigners", "professional staff and setup", "entrance and reception", "treatment in progress", "relaxing ambiance", "reception and booking area"];
-    let vidThumbHtml = "";
-    if (_firstVid) {
-      const _vThumb = _firstVid.thumbnail || shop.thumbnail;
-      const _vAlt = shop.name + " \u2014 video | " + _catLabel + " in " + _areaFinal + ", Seoul";
-      vidThumbHtml = '<div class="sp-gthumb sp-gthumb-vid" onclick="playSpVid(0)" title="Watch video" style="position:relative"><img src="' + _vThumb + '" alt="' + _vAlt + '" loading="lazy" width="120" height="160"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35);border-radius:8px"><div style="width:22px;height:22px;background:rgba(255,77,141,.9);border-radius:50%;display:flex;align-items:center;justify-content:center"><i class="fas fa-play" style="font-size:8px;color:#fff;margin-left:2px"></i></div></div></div>';
-    }
-    const _photoItems = allP.length >= 2 || _firstVid ? allP : [];
-    const thumbs = _photoItems.map((url, i) => {
-      const _cls = "sp-gthumb" + (i === 0 && !_firstVid ? " active" : "");
+    const thumbs = allP.map((url, i) => {
+      const _cls = "sp-gthumb" + (i === 0 ? " active" : "");
       const _lbl = _altL[i] || _altL[i % _altL.length] || "beauty treatment";
       const _alt = shop.name + " \u2014 " + _lbl + " | " + _catLabel + " in " + _areaFinal + ", Seoul (foreigner-friendly)";
       return '<div class="' + _cls + `" onclick="setHero('` + url + `',this)"><img src="` + url + '" alt="' + _alt + '" loading="lazy" width="120" height="160"></div>';
     }).join("");
-    if (!vidThumbHtml && !thumbs) return "";
-    return '<div class="sp-gallery">' + vidThumbHtml + thumbs + "</div>";
+    return '<div class="sp-gallery">' + thumbs + "</div>";
   })()}
 
 <div class="sp-wrap">
@@ -12416,8 +12407,11 @@ function mVidPlay(idx, card) {
     vid.pause();
     vid.currentTime = 0;
   } else {
-    // src \uB85C\uB4DC \uD6C4 \uC7AC\uC0DD
-    if(vid.dataset.src && !vid.src) { vid.src = vid.dataset.src; }
+    // src \uB85C\uB4DC \uD6C4 \uC7AC\uC0DD (data-src \u2192 src \uC9C0\uC5F0 \uB85C\uB4DC)
+    if(vid.dataset.src && !vid.dataset.loaded) {
+      vid.dataset.loaded = '1';
+      vid.src = vid.dataset.src;
+    }
     card.classList.add('vid-on');
     vid.muted = _mVidMuted;
     var p = vid.play();

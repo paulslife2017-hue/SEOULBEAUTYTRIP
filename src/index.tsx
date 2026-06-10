@@ -4525,9 +4525,7 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 
 ${(()=>{
   const allP=[shop.thumbnail,...(shop.photos||[]).filter((p:string)=>p&&p!==shop.thumbnail)];
-  // 영상이 있으면 첫 번째 영상 썸네일을 갤러리 맨 앞에 삽입
-  const _firstVid = shopVideos.length > 0 ? shopVideos[0] : null;
-  if(allP.length<2 && !_firstVid)return '';
+  if(allP.length<2)return '';
   // 카테고리별 시술명 + 공간명 alt 설명 (구체적, 시술명 포함)
   const _catAltMap: Record<string,string[]> = {
     clinic:['skin booster treatment room','laser toning procedure at clinic','RF lifting facial treatment','dermatology consultation room','skin analysis & treatment area','micro-needling procedure','Shurink HIFU lifting session','reception & waiting lounge'],
@@ -4539,30 +4537,13 @@ ${(()=>{
     spa:['luxury spa treatment room','body massage & relaxation','aromatherapy spa session','hot stone massage therapy','deep tissue body treatment','spa lounge & ambiance','foot spa & reflexology','premium body wrap treatment'],
   };
   const _altL = _catAltMap[shop.category] || ['interior and atmosphere','treatment room','service area for foreigners','professional staff and setup','entrance and reception','treatment in progress','relaxing ambiance','reception and booking area'];
-  // 영상 썸네일 슬라이드 (맨 앞, 클릭 시 비디오 오버레이 실행)
-  let vidThumbHtml = '';
-  if(_firstVid){
-    const _vThumb = _firstVid.thumbnail || shop.thumbnail;
-    const _vAlt = shop.name+' — video | '+_catLabel+' in '+_areaFinal+', Seoul';
-    vidThumbHtml = '<div class="sp-gthumb sp-gthumb-vid" onclick="playSpVid(0)" title="Watch video" style="position:relative">'
-      +'<img src="'+_vThumb+'" alt="'+_vAlt+'" loading="lazy" width="120" height="160">'
-      +'<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35);border-radius:8px">'
-        +'<div style="width:22px;height:22px;background:rgba(255,77,141,.9);border-radius:50%;display:flex;align-items:center;justify-content:center">'
-          +'<i class="fas fa-play" style="font-size:8px;color:#fff;margin-left:2px"></i>'
-        +'</div>'
-      +'</div>'
-    +'</div>';
-  }
-  // 이미지 썸네일 (사진이 1장만 있어도 영상이 있으면 갤러리 표시)
-  const _photoItems = (allP.length>=2||_firstVid) ? allP : [];
-  const thumbs=_photoItems.map((url:string,i:number)=>{
-    const _cls='sp-gthumb'+(i===0&&!_firstVid?' active':'');
+  const thumbs=allP.map((url:string,i:number)=>{
+    const _cls='sp-gthumb'+(i===0?' active':'');
     const _lbl=_altL[i] || _altL[i % _altL.length] || 'beauty treatment';
     const _alt=shop.name+' — '+_lbl+' | '+_catLabel+' in '+_areaFinal+', Seoul (foreigner-friendly)';
     return '<div class="'+_cls+'" onclick="setHero(\''+url+'\',this)"><img src="'+url+'" alt="'+_alt+'" loading="lazy" width="120" height="160"></div>';
   }).join('');
-  if(!vidThumbHtml && !thumbs) return '';
-  return '<div class="sp-gallery">'+vidThumbHtml+thumbs+'</div>';
+  return '<div class="sp-gallery">'+thumbs+'</div>';
 })()}
 
 <div class="sp-wrap">
@@ -11358,8 +11339,11 @@ function mVidPlay(idx, card) {
     vid.pause();
     vid.currentTime = 0;
   } else {
-    // src 로드 후 재생
-    if(vid.dataset.src && !vid.src) { vid.src = vid.dataset.src; }
+    // src 로드 후 재생 (data-src → src 지연 로드)
+    if(vid.dataset.src && !vid.dataset.loaded) {
+      vid.dataset.loaded = '1';
+      vid.src = vid.dataset.src;
+    }
     card.classList.add('vid-on');
     vid.muted = _mVidMuted;
     var p = vid.play();
