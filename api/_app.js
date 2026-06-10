@@ -8146,11 +8146,18 @@ app.get("/blog/:slug", async (c) => {
         const rawPhotos = shopRow[0].photos;
         const photoArr = Array.isArray(rawPhotos) ? rawPhotos : typeof rawPhotos === "string" ? JSON.parse(rawPhotos || "[]") : [];
         const thumb = shopRow[0].thumbnail || "";
-        const thumbPrefix = thumb.slice(0, 120);
-        const filtered = photoArr.filter(
-          (u) => u && u.startsWith("http") && u.slice(0, 120) !== thumbPrefix
-        );
-        shopPhotoUrls = (thumb ? [thumb, ...filtered] : filtered).slice(0, 6);
+        const seenP = /* @__PURE__ */ new Set();
+        const allCandidates = thumb ? [thumb, ...photoArr] : [...photoArr];
+        for (const u of allCandidates) {
+          if (u && typeof u === "string" && u.startsWith("http")) {
+            const key = u.slice(0, 150);
+            if (!seenP.has(key)) {
+              seenP.add(key);
+              shopPhotoUrls.push(u);
+            }
+          }
+        }
+        shopPhotoUrls = shopPhotoUrls.slice(0, 6);
       }
     } catch {
     }

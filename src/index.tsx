@@ -6846,12 +6846,16 @@ app.get('/blog/:slug', async (c) => {
           ? rawPhotos
           : (typeof rawPhotos === 'string' ? JSON.parse(rawPhotos || '[]') : [])
         const thumb = shopRow[0].thumbnail || ''
-        // URL 앞 120자로 비교 (photo name 전체 포함 보장)
-        const thumbPrefix = thumb.slice(0, 120)
-        const filtered = photoArr.filter((u: string) =>
-          u && u.startsWith('http') && u.slice(0, 120) !== thumbPrefix
-        )
-        shopPhotoUrls = (thumb ? [thumb, ...filtered] : filtered).slice(0, 6)
+        // 전체 배열(thumb + photos) 에서 URL 앞 150자 기준으로 중복 제거
+        const seenP = new Set<string>()
+        const allCandidates = thumb ? [thumb, ...photoArr] : [...photoArr]
+        for (const u of allCandidates) {
+          if (u && typeof u === 'string' && u.startsWith('http')) {
+            const key = u.slice(0, 150)
+            if (!seenP.has(key)) { seenP.add(key); shopPhotoUrls.push(u) }
+          }
+        }
+        shopPhotoUrls = shopPhotoUrls.slice(0, 6)
       }
     } catch { /* 사진 없으면 갤러리 생략 */ }
   }
