@@ -3563,7 +3563,8 @@ app.put("/api/shops/:id", async (c) => {
     active=${body.active !== false},
     reviews=${JSON.stringify(body.reviews || [])},
     google_place_id=${body.googlePlaceId || ""},
-    menu_items=${JSON.stringify(body.menuItems || [])}
+    menu_items=${JSON.stringify(body.menuItems || [])},
+    editor_note=${body.editorNote || ""}
     WHERE id=${c.req.param("id")}`;
   return c.json({ ok: true, seoGenerated: !body.description || !!body.regenerateSeo });
 });
@@ -5879,6 +5880,7 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 .sp-gthumb{flex-shrink:0;width:72px;height:72px;border-radius:10px;overflow:hidden;cursor:pointer;border:2px solid transparent;transition:border-color .2s}
 .sp-gthumb.active,.sp-gthumb:hover{border-color:var(--pk)}
 .sp-gthumb img{width:100%;height:100%;object-fit:cover}
+.sp-gthumb-vid{border-color:rgba(255,77,141,.4)}
 /* WRAP */
 .sp-wrap{max-width:600px;margin:0 auto;padding:16px 20px 100px}
 /* ACTION BTNS */
@@ -5997,6 +5999,13 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 .sp-about-tag.tag-en{background:rgba(99,179,237,.12);border:1px solid rgba(99,179,237,.25);color:rgba(99,179,237,.9)}
 .sp-about-tag.tag-trust{background:rgba(72,187,120,.12);border:1px solid rgba(72,187,120,.25);color:rgba(72,187,120,.9)}
 .sp-about-tag.tag-intl{background:rgba(232,65,122,.12);border:1px solid rgba(232,65,122,.25);color:rgba(232,65,122,.9)}
+/* Editor's Note \uBC15\uC2A4 */
+.sp-editor-note{margin-bottom:14px;background:linear-gradient(135deg,rgba(244,114,182,.07),rgba(232,65,122,.03));border:1px solid rgba(244,114,182,.28);border-radius:14px;padding:14px 16px;position:relative}
+.sp-editor-note::before{content:'';position:absolute;top:-20px;right:-20px;width:80px;height:80px;background:radial-gradient(circle,rgba(244,114,182,.15),transparent 70%);pointer-events:none}
+.sp-editor-note-head{display:flex;align-items:center;gap:7px;margin-bottom:8px;font-size:12px;font-weight:800;color:rgba(244,114,182,.95);letter-spacing:.3px}
+.sp-editor-note-head i{font-size:11px}
+.sp-editor-verified{margin-left:auto;font-size:10px;font-weight:700;color:rgba(72,187,120,.9);background:rgba(72,187,120,.1);border:1px solid rgba(72,187,120,.25);border-radius:20px;padding:2px 8px;display:flex;align-items:center;gap:4px}
+.sp-editor-note-text{margin:0;font-size:13px;color:rgba(255,255,255,.82);line-height:1.6;font-style:italic}
 /* SEO \uD14D\uC2A4\uD2B8 \uBE14\uB85D */
 .sp-seo-block{margin-bottom:14px;padding:18px 16px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:14px;border-top:2px solid rgba(232,65,122,.25)}
 .sp-seo-block-head{display:flex;align-items:center;gap:6px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.06)}
@@ -6068,7 +6077,8 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 
 ${(() => {
     const allP = [shop.thumbnail, ...(shop.photos || []).filter((p) => p && p !== shop.thumbnail)];
-    if (allP.length < 2) return "";
+    const _firstVid = shopVideos.length > 0 ? shopVideos[0] : null;
+    if (allP.length < 2 && !_firstVid) return "";
     const _catAltMap = {
       clinic: ["skin booster treatment room", "laser toning procedure at clinic", "RF lifting facial treatment", "dermatology consultation room", "skin analysis & treatment area", "micro-needling procedure", "Shurink HIFU lifting session", "reception & waiting lounge"],
       hair: ["hair coloring & bleaching station", "Korean perm treatment styling", "hair cut & styling chair", "scalp treatment & hair care", "balayage color highlight session", "hair styling result showcase", "hair wash & conditioning area", "consultation & color mixing zone"],
@@ -6079,13 +6089,21 @@ ${(() => {
       spa: ["luxury spa treatment room", "body massage & relaxation", "aromatherapy spa session", "hot stone massage therapy", "deep tissue body treatment", "spa lounge & ambiance", "foot spa & reflexology", "premium body wrap treatment"]
     };
     const _altL = _catAltMap[shop.category] || ["interior and atmosphere", "treatment room", "service area for foreigners", "professional staff and setup", "entrance and reception", "treatment in progress", "relaxing ambiance", "reception and booking area"];
-    const thumbs = allP.map((url, i) => {
-      const _cls = "sp-gthumb" + (i === 0 ? " active" : "");
+    let vidThumbHtml = "";
+    if (_firstVid) {
+      const _vThumb = _firstVid.thumbnail || shop.thumbnail;
+      const _vAlt = shop.name + " \u2014 video | " + _catLabel + " in " + _areaFinal + ", Seoul";
+      vidThumbHtml = '<div class="sp-gthumb sp-gthumb-vid" onclick="playSpVid(0)" title="Watch video" style="position:relative"><img src="' + _vThumb + '" alt="' + _vAlt + '" loading="lazy" width="120" height="160"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35);border-radius:8px"><div style="width:22px;height:22px;background:rgba(255,77,141,.9);border-radius:50%;display:flex;align-items:center;justify-content:center"><i class="fas fa-play" style="font-size:8px;color:#fff;margin-left:2px"></i></div></div></div>';
+    }
+    const _photoItems = allP.length >= 2 || _firstVid ? allP : [];
+    const thumbs = _photoItems.map((url, i) => {
+      const _cls = "sp-gthumb" + (i === 0 && !_firstVid ? " active" : "");
       const _lbl = _altL[i] || _altL[i % _altL.length] || "beauty treatment";
       const _alt = shop.name + " \u2014 " + _lbl + " | " + _catLabel + " in " + _areaFinal + ", Seoul (foreigner-friendly)";
       return '<div class="' + _cls + `" onclick="setHero('` + url + `',this)"><img src="` + url + '" alt="' + _alt + '" loading="lazy" width="120" height="160"></div>';
     }).join("");
-    return '<div class="sp-gallery">' + thumbs + "</div>";
+    if (!vidThumbHtml && !thumbs) return "";
+    return '<div class="sp-gallery">' + vidThumbHtml + thumbs + "</div>";
   })()}
 
 <div class="sp-wrap">
@@ -6109,6 +6127,8 @@ ${(() => {
       if (_rating2) _tags.push(`<span class="sp-about-tag tag-trust"><i class="fas fa-star" style="margin-right:3px"></i>${_rating2}\u2605${_reviews2 ? " \xB7 " + _reviews2 + " reviews" : ""}</span>`);
       return `<div class="sp-about-box"><div class="sp-about-head"><div class="sp-about-icon"><i class="fas fa-store"></i></div><div class="sp-about-title">About</div></div><div class="sp-about-text" itemprop="description">${shop.description}</div><div class="sp-about-tags">${_tags.join("")}</div></div>`;
     })() : "";
+    const editorNoteVal = (shop.editor_note || shop.editorNote || "").trim();
+    const editorNoteHtml2 = editorNoteVal ? `<div class="sp-editor-note"><div class="sp-editor-note-head"><i class="fas fa-pen-nib"></i><span>Editor's Note</span><span class="sp-editor-verified"><i class="fas fa-circle-check"></i> Verified by Seoul Beauty Trip</span></div><p class="sp-editor-note-text">${editorNoteVal}</p></div>` : "";
     let hoursHtml2 = "";
     if (shop.hours) {
       const days2 = shop.hours.split(/\s*[\/|]\s*/).map((s) => s.trim()).filter(Boolean);
@@ -6149,7 +6169,7 @@ ${(() => {
       const gLink = `https://maps.google.com/?q=${mlat2},${mlng2}&hl=en`;
       return `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map" style="cursor:pointer;overflow:hidden;position:relative" data-map-url="${gLink}" onclick="openMapUrl(this)"><div style="display:flex;height:100%;filter:saturate(0.8) brightness(0.75)"><img src="${t1}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"><img src="${t2}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"></div><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none"><i class="fas fa-map-marker-alt" style="font-size:32px;color:#e8414a;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6))"></i></div>${shop.address || shop.location ? `<div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);backdrop-filter:blur(4px);color:#fff;font-size:11px;padding:4px 10px;border-radius:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:88%;pointer-events:none"><i class="fas fa-map-marker-alt" style="margin-right:4px;color:#FF4D8D"></i>${(shop.address || shop.location).trim()}</div>` : ""}</div></div>`;
     })();
-    return addrHtml2 + infoGridHtml2 + descHtml2 + priceHtml2 + svcHtml2 + hoursHtml2;
+    return addrHtml2 + infoGridHtml2 + descHtml2 + editorNoteHtml2 + priceHtml2 + svcHtml2 + hoursHtml2;
   })()}
 
   ${(() => {
@@ -14066,6 +14086,11 @@ textarea{height:80px;resize:none}
         <div id="edit-sh-ai-status" style="font-size:11px;color:rgba(255,255,255,.4);margin-top:4px;min-height:16px"></div>
       </div>
     </div>
+    <!-- Editor's Note -->
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.07)">
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:8px"><i class="fas fa-pen-nib" style="color:#f472b6;margin-right:4px"></i>Editor's Note <span style="font-weight:400;color:rgba(255,255,255,.3)">(\uC6B4\uC601\uC790 \uAC80\uC99D \uBA54\uC2DC\uC9C0 \u2014 \uC5C5\uCCB4 \uD398\uC774\uC9C0\uC5D0 \uD45C\uC2DC)</span></div>
+      <textarea id="edit-sh-editor-note" placeholder="\uC608: Personally visited in March 2025. Foreigner-friendly, English OK. Highly recommended for first-timers." style="width:100%;min-height:72px;background:rgba(244,114,182,.05);border:1px solid rgba(244,114,182,.25);border-radius:10px;color:#fff;font-size:12px;padding:10px 12px;resize:vertical;box-sizing:border-box;line-height:1.55"></textarea>
+    </div>
     <!-- \uCD94\uAC00 \uC0AC\uC9C4 \uC5C5\uB85C\uB4DC -->
     <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.07)">
       <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:8px"><i class="fas fa-images" style="color:#a78bfa;margin-right:4px"></i>\uCD94\uAC00 \uC0AC\uC9C4 <span style="font-weight:400;color:rgba(255,255,255,.3)">(\uACE0\uAC1D\uC5D0\uAC8C \uBCF4\uC5EC\uC9C8 \uC5C5\uCCB4 \uC0AC\uC9C4)</span></div>
@@ -17224,6 +17249,8 @@ function openEditShopPanel(shopId){
   document.getElementById('edit-sh-thumb').value = shop.thumbnail || '';
   document.getElementById('edit-sh-commission').value = shop.commission || 15;
   document.getElementById('edit-sh-desc').value = shop.description || '';
+  var enEl = document.getElementById('edit-sh-editor-note');
+  if(enEl) enEl.value = shop.editorNote || shop.editor_note || '';
   // \uB9AC\uBDF0/Places/photos \uB370\uC774\uD130 hidden \uD544\uB4DC \uCD08\uAE30\uD654
   var rEl = document.getElementById('edit-sh-reviews');
   if(!rEl){ rEl=document.createElement('input');rEl.type='hidden';rEl.id='edit-sh-reviews';document.body.appendChild(rEl); }
@@ -17451,7 +17478,8 @@ function saveEditShop(){
       reviews: (function(){ try{ var el=document.getElementById('edit-sh-reviews'); return el?JSON.parse(el.value||'[]'):shop.reviews||[];} catch(e){return shop.reviews||[];}}()),
       googlePlaceId: (function(){ var el=document.getElementById('edit-sh-place-id'); return el&&el.value?el.value:shop.googlePlaceId||'';})(),
       active: true,
-      photos: photosArr
+      photos: photosArr,
+      editorNote: (function(){ var el=document.getElementById('edit-sh-editor-note'); return el?el.value.trim():''; })()
     })
   }).then(function(r){ return r.json(); }).then(function(){
     btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> \uC218\uC815 \uC800\uC7A5';
