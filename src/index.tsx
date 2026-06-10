@@ -11743,7 +11743,6 @@ textarea{height:80px;resize:none}
         <button onclick="qrSetCat('headspa')" class="qr-cat-btn" data-cat="headspa" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">🧖 헤드스파</button>
         <button onclick="qrSetCat('skincare')" class="qr-cat-btn" data-cat="skincare" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">✨ 스킨케어</button>
         <button onclick="qrSetCat('hair')" class="qr-cat-btn" data-cat="hair" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">💇 헤어</button>
-        <button onclick="qrSetCat('nail')" class="qr-cat-btn" data-cat="nail" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">💅 네일</button>
         <button onclick="qrSetCat('makeup')" class="qr-cat-btn" data-cat="makeup" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">💄 메이크업</button>
         <button onclick="qrSetCat('tattoo')" class="qr-cat-btn" data-cat="tattoo" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">✒️ 타투</button>
         <button onclick="qrSetCat('spa')" class="qr-cat-btn" data-cat="spa" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">🛁 스파</button>
@@ -14390,7 +14389,7 @@ window.quickRegister = async function quickRegister() {
             +'<b style="color:#fbbf24;font-size:14px">이미 등록된 업체입니다</b>'
           +'</div>'
           +'<div style="color:rgba(255,255,255,.7);font-size:13px;margin-bottom:8px">'
-            +'"<b style=\'color:#fff\'>' + (data.existingName || '') + '</b>" 이(가) 이미 등록되어 있습니다.'
+            +'&quot;<b style="color:#fff">' + (data.existingName || '') + '</b>&quot; 이(가) 이미 등록되어 있습니다.'
           +'</div>'
           +'<div style="font-size:12px;color:rgba(255,255,255,.4)">아래 링크에서 해당 업체를 수정하거나 영상을 추가할 수 있습니다.</div>';
         var linkEl = document.getElementById('qr-result-link');
@@ -14548,8 +14547,8 @@ function loadAll(){
     document.getElementById('st-shops').textContent = d.totalShops;
 
     // ── 카테고리별 업체 도넛 차트 ──
-    var catLabels = {skincare:'스킨케어',makeup:'메이크업',hair:'헤어',headspa:'헤드스파',nail:'네일',clinic:'클리닉',spa:'스파'};
-    var catColors = ['#f472b6','#c084fc','#60a5fa','#67e8f9','#34d399','#fb923c','#a78bfa'];
+    var catLabels = {skincare:'스킨케어',makeup:'메이크업',hair:'헤어',headspa:'헤드스파',clinic:'클리닉',spa:'스파'};
+    var catColors = ['#f472b6','#c084fc','#60a5fa','#67e8f9','#fb923c','#a78bfa'];
     var cats = d.categoryStats||[];
     if(cats.length && document.getElementById('catChart')){
       new Chart(document.getElementById('catChart'), {
@@ -15695,7 +15694,7 @@ function applyPlacesDataToForm(prefix, d) {
   }
 }
 
-var _CAT_LABEL = {skincare:'스킨케어',makeup:'메이크업',hair:'헤어',headspa:'헤드스파',nail:'네일',clinic:'클리닉',spa:'스파·마사지'};
+var _CAT_LABEL = {skincare:'스킨케어',makeup:'메이크업',hair:'헤어',headspa:'헤드스파',clinic:'클리닉',spa:'스파·마사지'};
 
 function buildPlacesResultCard(d, extra) {
   /* 가져온 정보를 한눈에 볼 수 있는 상세 카드 HTML 반환 */
@@ -16319,7 +16318,6 @@ window.genAiSeo = async function genAiSeo(prefix) {
     makeup:'Korean makeup artist, K-beauty makeup Seoul, Korean beauty look, makeup studio Seoul',
     hair:'Korean hair salon, K-pop hairstyle Seoul, hair coloring Seoul, balayage Korean salon',
     headspa:'head spa Seoul, Korean scalp treatment, scalp care Seoul, relaxing head massage Korea',
-    nail:'Korean nail art Seoul, nail salon Seoul, K-pop nail design, gel nails Korea',
     clinic:'Korean dermatology Seoul, skin clinic Korea, laser treatment Seoul, aesthetic clinic Korea',
     spa:'Korean spa Seoul, body treatment Korea, Korean massage Seoul, relaxation spa Korea'
   };
