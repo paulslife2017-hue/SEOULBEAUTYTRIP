@@ -8145,19 +8145,20 @@ app.get("/blog/:slug", async (c) => {
       if (shopRow.length > 0) {
         const rawPhotos = shopRow[0].photos;
         const photoArr = Array.isArray(rawPhotos) ? rawPhotos : typeof rawPhotos === "string" ? JSON.parse(rawPhotos || "[]") : [];
-        const thumb = shopRow[0].thumbnail || "";
+        const thumb = (shopRow[0].thumbnail || "").trim();
         const getPN = (u) => {
-          if (!u) return "";
-          const i = u.indexOf("/photos/");
-          if (i < 0) return u.slice(0, 60);
-          return u.slice(i + 8, i + 68);
+          const s = (u || "").trim();
+          const i = s.indexOf("/photos/");
+          if (i < 0) return s.slice(0, 60);
+          return s.slice(i + 8, i + 68);
         };
         const seenP = /* @__PURE__ */ new Set();
         const allCandidates = thumb ? [thumb, ...photoArr] : [...photoArr];
-        for (const u of allCandidates) {
-          if (u && typeof u === "string" && u.startsWith("http")) {
+        for (const raw2 of allCandidates) {
+          const u = String(raw2 || "").trim();
+          if (u.startsWith("http")) {
             const key = getPN(u);
-            if (!seenP.has(key)) {
+            if (key && !seenP.has(key)) {
               seenP.add(key);
               shopPhotoUrls.push(u);
             }
@@ -9895,14 +9896,24 @@ app.get("/api/admin/debug-blog-photos", async (c) => {
       rawPhotosType: rawType,
       photoArrLen: photoArr.length,
       dedupedCount: urls.length,
-      thumbPhotoName: (() => {
-        const i = thumb.indexOf("/photos/");
-        return i < 0 ? "" : thumb.slice(i + 8, i + 68);
+      thumbTrimLen: thumb.trim().length,
+      p0trimPN: (() => {
+        const u = String(photoArr[0] || "").trim();
+        const i = u.indexOf("/photos/");
+        return i < 0 ? "" : u.slice(i + 8, i + 68);
       })(),
-      p0raw: JSON.stringify(photoArr[0]).slice(0, 100),
-      p0type: typeof photoArr[0],
-      p1raw: JSON.stringify(photoArr[1]).slice(0, 100),
-      p1type: typeof photoArr[1],
+      thumbPN: (() => {
+        const u = thumb.trim();
+        const i = u.indexOf("/photos/");
+        return i < 0 ? "" : u.slice(i + 8, i + 68);
+      })(),
+      samePN: (() => {
+        const u = String(photoArr[0] || "").trim();
+        const tu = thumb.trim();
+        const fi = u.indexOf("/photos/");
+        const ti = tu.indexOf("/photos/");
+        return fi >= 0 && ti >= 0 ? u.slice(fi + 8, fi + 68) === tu.slice(ti + 8, ti + 68) : false;
+      })(),
       urls: urls.map((u) => u.slice(0, 80))
     });
   } catch (e) {
