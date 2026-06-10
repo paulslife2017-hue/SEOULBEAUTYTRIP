@@ -8935,35 +8935,35 @@ function preloadNext(idx){
   var ni1 = document.getElementById('vid'+(idx+1));
   var ni2 = document.getElementById('vid'+(idx+2));
 
-  // +1 영상: src 즉시 세팅 (metadata 취득 시작), 실제 버퍼링은 2초 뒤
+  // +1 영상: src 즉시 세팅 + 0.3초 후 본격 버퍼링
+  // (CDN immutable 캐시 + Vercel HTML 캐시로 bandwidth 여유 충분)
   if(ni1 && !ni1.src && ni1.dataset.src){
-    ni1.preload = 'metadata'; // metadata만 먼저 (moov atom 취득)
+    ni1.preload = 'metadata';
     ni1.src = ni1.dataset.src;
-    // 2초 후: 현재 영상 안정화 완료 예상 → 본격 버퍼링
     _preloadTimers.push(setTimeout(function(){
       if(ni1 && ni1.src && ni1.readyState < 3){
         ni1.preload = 'auto';
         ni1.load();
       }
-    }, 2000));
+    }, 300));
   } else if(ni1 && ni1.src && ni1.readyState < 2){
-    // src는 있지만 버퍼링 부족 → 2초 후 load() 추가
+    // src는 있지만 버퍼링 부족 → 0.3초 후 load()
     _preloadTimers.push(setTimeout(function(){
       if(ni1 && ni1.src && ni1.readyState < 3){
         ni1.preload = 'auto';
         ni1.load();
       }
-    }, 2000));
+    }, 300));
   }
 
-  // +2 영상: 4초 뒤 metadata만
+  // +2 영상: 1.5초 뒤 metadata만 (기존 4초 → 1.5초)
   _preloadTimers.push(setTimeout(function(){
     var ni2 = document.getElementById('vid'+(idx+2));
     if(ni2 && !ni2.src && ni2.dataset.src){
       ni2.preload = 'metadata';
       ni2.src = ni2.dataset.src;
     }
-  }, 4000));
+  }, 1500));
 }
 
 function _playVid(vid, bufIc){

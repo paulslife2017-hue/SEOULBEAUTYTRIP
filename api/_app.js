@@ -10253,35 +10253,35 @@ function preloadNext(idx){
   var ni1 = document.getElementById('vid'+(idx+1));
   var ni2 = document.getElementById('vid'+(idx+2));
 
-  // +1 \uC601\uC0C1: src \uC989\uC2DC \uC138\uD305 (metadata \uCDE8\uB4DD \uC2DC\uC791), \uC2E4\uC81C \uBC84\uD37C\uB9C1\uC740 2\uCD08 \uB4A4
+  // +1 \uC601\uC0C1: src \uC989\uC2DC \uC138\uD305 + 0.3\uCD08 \uD6C4 \uBCF8\uACA9 \uBC84\uD37C\uB9C1
+  // (CDN immutable \uCE90\uC2DC + Vercel HTML \uCE90\uC2DC\uB85C bandwidth \uC5EC\uC720 \uCDA9\uBD84)
   if(ni1 && !ni1.src && ni1.dataset.src){
-    ni1.preload = 'metadata'; // metadata\uB9CC \uBA3C\uC800 (moov atom \uCDE8\uB4DD)
+    ni1.preload = 'metadata';
     ni1.src = ni1.dataset.src;
-    // 2\uCD08 \uD6C4: \uD604\uC7AC \uC601\uC0C1 \uC548\uC815\uD654 \uC644\uB8CC \uC608\uC0C1 \u2192 \uBCF8\uACA9 \uBC84\uD37C\uB9C1
     _preloadTimers.push(setTimeout(function(){
       if(ni1 && ni1.src && ni1.readyState < 3){
         ni1.preload = 'auto';
         ni1.load();
       }
-    }, 2000));
+    }, 300));
   } else if(ni1 && ni1.src && ni1.readyState < 2){
-    // src\uB294 \uC788\uC9C0\uB9CC \uBC84\uD37C\uB9C1 \uBD80\uC871 \u2192 2\uCD08 \uD6C4 load() \uCD94\uAC00
+    // src\uB294 \uC788\uC9C0\uB9CC \uBC84\uD37C\uB9C1 \uBD80\uC871 \u2192 0.3\uCD08 \uD6C4 load()
     _preloadTimers.push(setTimeout(function(){
       if(ni1 && ni1.src && ni1.readyState < 3){
         ni1.preload = 'auto';
         ni1.load();
       }
-    }, 2000));
+    }, 300));
   }
 
-  // +2 \uC601\uC0C1: 4\uCD08 \uB4A4 metadata\uB9CC
+  // +2 \uC601\uC0C1: 1.5\uCD08 \uB4A4 metadata\uB9CC (\uAE30\uC874 4\uCD08 \u2192 1.5\uCD08)
   _preloadTimers.push(setTimeout(function(){
     var ni2 = document.getElementById('vid'+(idx+2));
     if(ni2 && !ni2.src && ni2.dataset.src){
       ni2.preload = 'metadata';
       ni2.src = ni2.dataset.src;
     }
-  }, 4000));
+  }, 1500));
 }
 
 function _playVid(vid, bufIc){
