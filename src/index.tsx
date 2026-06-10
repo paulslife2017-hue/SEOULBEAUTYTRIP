@@ -257,6 +257,7 @@ interface Shop {
   seoKeywords: string
   menuItems: {name: string; price: string; description: string; image: string}[]
   whyChoose: string[]
+  reviewSummary: { vibe: string; strengths: string[]; bestFor: string } | null
 }
 
 interface Video {
@@ -314,7 +315,8 @@ function rowToShop(r: any): Shop {
     seoKeywords: r.seo_keywords || '',
     whyChoose: (() => { if(!r.why_choose) return []; if(Array.isArray(r.why_choose)) return r.why_choose; try { return JSON.parse(r.why_choose) } catch { return [] } })(),
     menuItems: (() => { if(!r.menu_items) return []; if(Array.isArray(r.menu_items)) return r.menu_items; try { return JSON.parse(r.menu_items) } catch { return [] } })(),
-    seoText: r.seo_text || ''
+    seoText: r.seo_text || '',
+    reviewSummary: (() => { if(!r.review_summary) return null; if(typeof r.review_summary === 'object' && !Array.isArray(r.review_summary)) return r.review_summary; try { return JSON.parse(r.review_summary) } catch { return null } })()
   }
 }
 // Cloudinary video URL → 썸네일 자동 생성 (so_0 = 첫 프레임)
@@ -504,6 +506,7 @@ async function initDb(env: any) {
     try { await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS seo_keywords TEXT DEFAULT ''` } catch(e) {}
     try { await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS why_choose JSONB DEFAULT '[]'` } catch(e) {}
     try { await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS menu_items JSONB DEFAULT '[]'` } catch(e) {}
+    try { await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS review_summary JSONB DEFAULT NULL` } catch(e) {}
     // ── blog_posts 테이블 ──
     await sql`CREATE TABLE IF NOT EXISTS blog_posts (
       id TEXT PRIMARY KEY,
@@ -1151,6 +1154,55 @@ function buildSeoContext(body: any, places: Record<string,any>): string {
   return lines.join('\n')
 }
 
+// ── AI 리뷰 요약 생성 (최소 토큰: gpt-4o-mini, max_tokens=220) ──────────────
+// 반환: { vibe: string, strengths: string[3], bestFor: string }
+async function genReviewSummary(
+  shopName: string,
+  reviews: any[],
+  apiKey: string
+): Promise<{ vibe: string; strengths: string[]; bestFor: string } | null> {
+  if (!apiKey || !reviews || reviews.length === 0) return null
+  try {
+    // 리뷰 텍스트만 추출 (토큰 절약: 각 최대 200자)
+    const snippets = reviews
+      .map((r: any) => (r.text || '').trim().slice(0, 200))
+      .filter(Boolean)
+      .join('\n---\n')
+    if (!snippets) return null
+
+    const prompt = `You are summarizing customer reviews for "${shopName}", a Korean beauty shop.
+
+Reviews:
+${snippets}
+
+Reply ONLY with valid JSON (no markdown, no explanation):
+{"vibe":"one sentence overall impression (max 20 words)","strengths":["strength 1 (max 8 words)","strength 2 (max 8 words)","strength 3 (max 8 words)"],"bestFor":"type of customer this shop suits best (max 12 words)"}`
+
+    const res = await fetch('https://www.genspark.ai/api/llm_proxy/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 220,
+        temperature: 0.4
+      })
+    })
+    if (!res.ok) return null
+    const data: any = await res.json()
+    const raw = data?.choices?.[0]?.message?.content?.trim() || ''
+    // JSON 파싱 (코드블록 감싸여 있을 수도 있으므로 정제)
+    const jsonStr = raw.replace(/^```(?:json)?/,'').replace(/```$/,'').trim()
+    const parsed = JSON.parse(jsonStr)
+    if (!parsed.vibe || !Array.isArray(parsed.strengths) || !parsed.bestFor) return null
+    return {
+      vibe:      String(parsed.vibe).trim(),
+      strengths: parsed.strengths.slice(0, 3).map((s: any) => String(s).trim()),
+      bestFor:   String(parsed.bestFor).trim()
+    }
+  } catch { return null }
+}
+
 async function autoGenSeo(body: any, apiKey: string, googleKey?: string): Promise<{description:string, metaDescription:string, keywords:string[], titleSuffix:string, whyChoose:string[], seoText:string} | null> {
   if (!apiKey || !body.name) return null
   try {
@@ -1326,16 +1378,25 @@ app.post('/api/shops', async (c) => {
   const cleanPhotos = sanitizePhotos(body.photos||[])
   const cleanThumb  = sanitizeThumb(body.thumbnail||'', cleanPhotos)
 
-  await sql`INSERT INTO shops (id,name,slug,category,location,address,google_map_url,google_map_embed,lat,lng,price_range,hours,services,service_prices,description,meta_description,seo_keywords,seo_text,why_choose,rating,review_count,thumbnail,photos,commission,active,created_at) VALUES (
+  // 등록 시 리뷰 있으면 AI 요약 자동 생성
+  const _insertReviews: any[] = Array.isArray(body.reviews) ? body.reviews : []
+  const _insertApiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
+  const _insertSummary = (_insertReviews.length > 0 && _insertApiKey)
+    ? await genReviewSummary(body.name||'', _insertReviews, _insertApiKey)
+    : null
+
+  await sql`INSERT INTO shops (id,name,slug,category,location,address,google_map_url,google_map_embed,lat,lng,price_range,hours,services,service_prices,description,meta_description,seo_keywords,seo_text,why_choose,rating,review_count,thumbnail,photos,commission,active,created_at,reviews,review_summary) VALUES (
     ${newId},${body.name||''},${slug},${body.category||''},${body.location||''},${body.address||''},
     ${body.googleMapUrl||''},${body.googleMapEmbed||''},${body.lat||''},${body.lng||''},
     ${body.priceRange||''},${body.hours||''},
     ${JSON.stringify(body.services||[])},${JSON.stringify(body.servicePrices||[])},
     ${description},${metaDescription},${seoKeywords},${seoText},${JSON.stringify(whyChoose)},
     ${body.rating||5.0},${body.reviewCount||0},${cleanThumb},
-    ${JSON.stringify(cleanPhotos)},${body.commission||15},true,${today}
+    ${JSON.stringify(cleanPhotos)},${body.commission||15},true,${today},
+    ${JSON.stringify(_insertReviews)}::jsonb,
+    ${_insertSummary ? JSON.stringify(_insertSummary) : null}::jsonb
   ) ON CONFLICT DO NOTHING`
-  return c.json({ ok: true, id: newId, seoGenerated: !body.description })
+  return c.json({ ok: true, id: newId, seoGenerated: !body.description, summarized: !!_insertSummary })
 })
 
 app.put('/api/shops/:id', async (c) => {
@@ -3242,7 +3303,8 @@ app.post('/api/admin/sync-reviews', async (c) => {
 
   const totalRemaining = allShops.length
   const shops = allShops.slice(offset, offset + limit)
-  const results: { id: string; name: string; status: string; reviewCount?: number }[] = []
+  const gskKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
+  const results: { id: string; name: string; status: string; reviewCount?: number; summarized?: boolean }[] = []
 
   // Places API v1 응답 → 정규화 헬퍼
   const normalizeReviews = (rawReviews: any[]): any[] =>
@@ -3299,16 +3361,23 @@ app.post('/api/admin/sync-reviews', async (c) => {
       })
       const normalized = normalizeReviews(deduped).slice(0, 10)
 
+      // ─── AI 리뷰 요약 생성 (GSK 키 있을 때만, 실패해도 리뷰는 저장) ────────
+      let summary: { vibe: string; strengths: string[]; bestFor: string } | null = null
+      if (gskKey && normalized.length > 0) {
+        summary = await genReviewSummary(shop.name, normalized, gskKey)
+      }
+
       await sql`
         UPDATE shops
         SET
-          reviews      = ${JSON.stringify(normalized)}::jsonb,
-          rating       = ${rating},
-          review_count = ${reviewCount}
+          reviews        = ${JSON.stringify(normalized)}::jsonb,
+          rating         = ${rating},
+          review_count   = ${reviewCount},
+          review_summary = ${summary ? JSON.stringify(summary) : null}::jsonb
         WHERE id = ${shop.id}
       `
 
-      results.push({ id: shop.id, name: shop.name, status: 'ok', reviewCount: normalized.length })
+      results.push({ id: shop.id, name: shop.name, status: 'ok', reviewCount: normalized.length, summarized: !!summary })
     } catch(e: any) {
       results.push({ id: shop.id, name: shop.name, status: `error: ${e.message}` })
     }
@@ -3829,6 +3898,17 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 .sp-reviews-toggle i{font-size:10px;transition:transform .2s}
 .sp-review-card.sp-rv-hidden{display:none}
 .sp-review-card.sp-rv-hidden.sp-rv-show{display:flex}
+/* REVIEW SUMMARY BOX — 상세페이지용 */
+.sp-rv-summary{background:linear-gradient(135deg,rgba(255,77,141,.07),rgba(120,80,220,.07));border:1px solid rgba(255,77,141,.18);border-radius:16px;padding:16px 18px;margin-bottom:14px}
+.sp-rv-summary-vibe{font-size:13.5px;color:rgba(255,255,255,.9);font-weight:600;line-height:1.6;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,.07)}
+.sp-rv-summary-vibe::before{content:'⭐ ';}
+.sp-rv-summary-row{display:flex;flex-direction:column;gap:10px}
+.sp-rv-summary-col{}
+.sp-rv-summary-label{font-size:10px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:rgba(255,77,141,.8);margin-bottom:6px}
+.sp-rv-summary-strengths{display:flex;flex-direction:column;gap:5px}
+.sp-rv-summary-strength{font-size:12.5px;color:rgba(255,255,255,.75);padding:5px 10px;background:rgba(255,255,255,.04);border-radius:8px;border-left:2px solid rgba(255,77,141,.4)}
+.sp-rv-summary-strength::before{content:'✓ ';color:rgba(255,77,141,.9);font-weight:700}
+.sp-rv-summary-bestfor{font-size:12.5px;color:rgba(255,255,255,.75);padding:7px 12px;background:rgba(255,255,255,.04);border-radius:8px;border:1px solid rgba(255,255,255,.07)}
 /* WHY CHOOSE */
 .sp-why-list{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 @media(max-width:380px){.sp-why-list{grid-template-columns:1fr}}
@@ -4077,6 +4157,26 @@ ${(()=>{
       else starsBarHtml+=`<span class="sp-reviews-star"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="rgba(255,255,255,.18)"/></svg></span>`;
     }
 
+    // ── AI 리뷰 요약 박스 (서버사이드 렌더링) ──
+    const rs = shop.reviewSummary
+    const summaryHtml = rs
+      ? `<div class="sp-rv-summary">`
+          +`<div class="sp-rv-summary-vibe">${rs.vibe}</div>`
+          +`<div class="sp-rv-summary-row">`
+            +`<div class="sp-rv-summary-col">`
+              +`<div class="sp-rv-summary-label">What customers love</div>`
+              +`<div class="sp-rv-summary-strengths">`
+                +(rs.strengths||[]).map((s:string)=>`<div class="sp-rv-summary-strength">${s}</div>`).join('')
+              +`</div>`
+            +`</div>`
+            +`<div class="sp-rv-summary-col" style="margin-top:12px">`
+              +`<div class="sp-rv-summary-label">Best for</div>`
+              +`<div class="sp-rv-summary-bestfor">👤 ${rs.bestFor}</div>`
+            +`</div>`
+          +`</div>`
+        +`</div>`
+      : ''
+
     const reviewsBlock = shopReviews2.length
       ? `<div class="sp-sec">`
           +`<div class="sp-sec-title"><i class="fas fa-star" style="color:var(--gold);margin-right:4px"></i>Google Reviews</div>`
@@ -4089,6 +4189,7 @@ ${(()=>{
               +`</div>`
             +`</div>`
           +`</div>`:'')
+          +summaryHtml
           +`<div class="sp-reviews-wrap">`
             +reviewCardsEnhanced
             +(hasMore2?`<button class="sp-reviews-toggle" onclick="spToggleReviews(this)"><i class="fas fa-chevron-down"></i> Show all ${shopReviews2.length} reviews</button>`:'')
@@ -8440,6 +8541,15 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .m-reviews-toggle:hover{background:rgba(255,255,255,.06);color:rgba(255,255,255,.8)}
 .m-review-card.m-rv-hidden{display:none}
 .m-review-card.m-rv-hidden.m-rv-show{display:flex}
+/* REVIEW SUMMARY BOX — 모달용 */
+.m-rv-summary{background:linear-gradient(135deg,rgba(255,77,141,.07),rgba(120,80,220,.07));border:1px solid rgba(255,77,141,.18);border-radius:14px;padding:14px 16px;margin-bottom:12px}
+.m-rv-summary-vibe{font-size:13px;color:rgba(255,255,255,.9);font-weight:600;line-height:1.6;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.07)}
+.m-rv-summary-vibe::before{content:'⭐ ';}
+.m-rv-summary-label{font-size:10px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:rgba(255,77,141,.8);margin-bottom:6px}
+.m-rv-summary-strengths{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.m-rv-summary-strength{font-size:12px;color:rgba(255,255,255,.75);padding:5px 9px;background:rgba(255,255,255,.04);border-radius:7px;border-left:2px solid rgba(255,77,141,.4)}
+.m-rv-summary-strength::before{content:'✓ ';color:rgba(255,77,141,.9);font-weight:700}
+.m-rv-summary-bestfor{font-size:12px;color:rgba(255,255,255,.75);padding:6px 11px;background:rgba(255,255,255,.04);border-radius:7px;border:1px solid rgba(255,255,255,.07)}
 /* 모달 WHY CHOOSE */
 .m-why-list{display:flex;flex-direction:column;gap:8px}
 .m-why-item{font-size:13px;color:rgba(255,255,255,.75);line-height:1.6;padding:10px 14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;border-left:3px solid var(--pk2)}
@@ -10028,9 +10138,23 @@ function renderShopModal(shop) {
           +'</div>'
         +'</div>'
       : '';
+    // ── AI 리뷰 요약 박스 ──
+    var mRs = shop.reviewSummary || null;
+    var mSummaryHtml = '';
+    if(mRs && mRs.vibe) {
+      var mStrengths = (mRs.strengths||[]).map(function(s){ return '<div class="m-rv-summary-strength">'+esc(s)+'</div>'; }).join('');
+      mSummaryHtml = '<div class="m-rv-summary">'
+        +'<div class="m-rv-summary-vibe">'+esc(mRs.vibe)+'</div>'
+        +'<div class="m-rv-summary-label">What customers love</div>'
+        +'<div class="m-rv-summary-strengths">'+mStrengths+'</div>'
+        +'<div class="m-rv-summary-label">Best for</div>'
+        +'<div class="m-rv-summary-bestfor">\uD83D\uDC64 '+esc(mRs.bestFor||'')+'</div>'
+        +'</div>';
+    }
     reviewsHtml = '<div class="m-sec">'
       +'<div class="m-sec-title"><i class="fas fa-star" style="color:var(--gold);margin-right:4px"></i>Google Reviews</div>'
       +mRatingHeader
+      +mSummaryHtml
       +'<div class="m-reviews-wrap">'
         +reviewCards
         +(mHasMore?'<button class="m-reviews-toggle" onclick="mToggleReviews(this)"><i class="fas fa-chevron-down"></i> Show all '+shopReviews.length+' reviews</button>':'')
