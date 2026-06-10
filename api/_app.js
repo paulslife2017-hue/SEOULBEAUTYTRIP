@@ -5726,7 +5726,14 @@ ${(() => {
           cleanSeo = '<h2 class="sp-seo-h2">' + _h2titles[0] + "</h2>" + cleanSeo;
         }
       }
-      cleanSeo = cleanSeo.replace(/<h2[^>]*>[^<]*How to Book[^<]*<\/h2>\s*<p[^>]*>[\s\S]*?<\/p>/i, "");
+      const _howIdx = cleanSeo.indexOf("How to Book");
+      if (_howIdx > 0) {
+        const _h2start = cleanSeo.lastIndexOf("<h2", _howIdx);
+        if (_h2start >= 0) {
+          const _nextH2 = cleanSeo.indexOf("<h2", _h2start + 4);
+          cleanSeo = cleanSeo.slice(0, _h2start) + (_nextH2 > 0 ? cleanSeo.slice(_nextH2) : "");
+        }
+      }
       const _seoHead = '<div class="sp-seo-block-head"><i class="fas fa-magnifying-glass"></i><span>Travel Guide</span></div>';
       return '<div class="sp-seo-block">' + _seoHead + cleanSeo + "</div>";
     }
@@ -11147,7 +11154,14 @@ function renderShopModal(shop) {
         }
       }
       // "How to Book" H2+\uB2E8\uB77D \uC81C\uAC70 \u2014 WhatsApp \uBC84\uD2BC\uC774 \uC774\uBBF8 \uC0C1\uB2E8\uC5D0 \uC788\uC73C\uBBC0\uB85C \uC911\uBCF5
-      _mSeo = _mSeo.replace(/<h2[^>]*>[^<]*How to Book[^<]*</h2>s*<p[^>]*>[sS]*?</p>/i, '');
+      var _howIdx2 = _mSeo.indexOf('How to Book');
+      if(_howIdx2 > 0){
+        var _h2start2 = _mSeo.lastIndexOf('<h2', _howIdx2);
+        if(_h2start2 >= 0){
+          var _nextH2b = _mSeo.indexOf('<h2', _h2start2 + 4);
+          _mSeo = _mSeo.slice(0, _h2start2) + (_nextH2b > 0 ? _mSeo.slice(_nextH2b) : '');
+        }
+      }
       seoHtml = '<div class="m-seo-block">'+_seoHead+_mSeo+'</div>';
       return;
     }

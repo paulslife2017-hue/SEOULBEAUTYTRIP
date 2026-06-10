@@ -4140,7 +4140,15 @@ ${(()=>{
         }
       }
       // "How to Book" H2+단락 제거 — WhatsApp 버튼이 이미 상단에 있으므로 중복
-      cleanSeo = cleanSeo.replace(/<h2[^>]*>[^<]*How to Book[^<]*<\/h2>\s*<p[^>]*>[\s\S]*?<\/p>/i, '');
+      const _howIdx = cleanSeo.indexOf('How to Book');
+      if(_howIdx > 0){
+        const _h2start = cleanSeo.lastIndexOf('<h2', _howIdx);
+        if(_h2start >= 0){
+          // 다음 <h2 또는 끝까지 잘라냄
+          const _nextH2 = cleanSeo.indexOf('<h2', _h2start + 4);
+          cleanSeo = cleanSeo.slice(0, _h2start) + (_nextH2 > 0 ? cleanSeo.slice(_nextH2) : '');
+        }
+      }
       const _seoHead = '<div class="sp-seo-block-head"><i class="fas fa-magnifying-glass"></i><span>Travel Guide</span></div>';
       return '<div class="sp-seo-block">'+_seoHead+cleanSeo+'</div>';
     }
@@ -9860,7 +9868,14 @@ function renderShopModal(shop) {
         }
       }
       // "How to Book" H2+단락 제거 — WhatsApp 버튼이 이미 상단에 있으므로 중복
-      _mSeo = _mSeo.replace(/<h2[^>]*>[^<]*How to Book[^<]*<\/h2>\s*<p[^>]*>[\s\S]*?<\/p>/i, '');
+      var _howIdx2 = _mSeo.indexOf('How to Book');
+      if(_howIdx2 > 0){
+        var _h2start2 = _mSeo.lastIndexOf('<h2', _howIdx2);
+        if(_h2start2 >= 0){
+          var _nextH2b = _mSeo.indexOf('<h2', _h2start2 + 4);
+          _mSeo = _mSeo.slice(0, _h2start2) + (_nextH2b > 0 ? _mSeo.slice(_nextH2b) : '');
+        }
+      }
       seoHtml = '<div class="m-seo-block">'+_seoHead+_mSeo+'</div>';
       return;
     }
