@@ -3808,7 +3808,7 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
     <div class="sp-cat-badge">${catIcon} ${shop.category.charAt(0).toUpperCase()+shop.category.slice(1)} · ${shop.location.split(',')[0].trim()} Seoul</div>
     <h1 class="sp-title" itemprop="name">${shop.name}</h1>
     <div class="sp-subtitle" style="font-size:13px;color:rgba(255,255,255,.65);margin-top:4px;font-weight:500;letter-spacing:.3px">${_catLabel} &middot; ${_areaFinal}, Seoul &middot; English Booking Available</div>
-    <div class="sp-loc"><i class="fas fa-map-marker-alt" style="color:var(--pk)"></i><span itemprop="addressLocality">${shop.location}, Seoul</span></div>
+    <div class="sp-loc"><i class="fas fa-map-marker-alt" style="color:var(--pk)"></i><span itemprop="addressLocality">${shop.location.toLowerCase().includes('seoul') ? shop.location : shop.location+', Seoul'}</span></div>
     <div style="margin-top:7px;display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.45);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.15);border-radius:20px;padding:5px 12px;width:fit-content;cursor:pointer;max-width:90vw;overflow:hidden" onclick="navigator.clipboard&&navigator.clipboard.writeText('${canonicalUrl}').then(function(){var el=document.getElementById('sp-url-copied');if(el){el.style.opacity='1';setTimeout(function(){el.style.opacity='0'},1500)}})">
       <i class="fas fa-link" style="color:rgba(255,255,255,.5);font-size:10px;flex-shrink:0"></i>
       <span style="font-size:11px;color:rgba(255,255,255,.7);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${canonicalUrl}</span>
@@ -4666,6 +4666,14 @@ app.get('/best/:category/:area', async (c) => {
   const areaLabel = AREA_LABELS[areaSlug]
   // 유효하지 않은 카테고리/지역이면 404
   if (!catLabel || !areaLabel) return c.notFound()
+  // areaLabel이 'Seoul'이면 ", Seoul" / " Seoul" 중복 방지용 헬퍼
+  const _isSeoul = areaLabel.toLowerCase() === 'seoul'
+  // "in {areaLabel} Seoul" → areaLabel이 Seoul이면 "in Seoul"만
+  const _inAreaSeoul  = _isSeoul ? 'in Seoul' : `in ${areaLabel}, Seoul`
+  // "{areaLabel} Seoul" → areaLabel이 Seoul이면 "Seoul"만
+  const _areaSeoul    = _isSeoul ? 'Seoul' : `${areaLabel} Seoul`
+  // "{areaLabel}, Seoul" → areaLabel이 Seoul이면 "Seoul"만
+  const _areaCommaSeoul = _isSeoul ? 'Seoul' : `${areaLabel}, Seoul`
 
   const sql = getDb(c.env)
   const base = 'https://seoulbeautytrip.com'
@@ -4704,11 +4712,11 @@ app.get('/best/:category/:area', async (c) => {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Best ${catLabel} in ${areaLabel} Seoul — Coming Soon | Seoul Beauty Trip</title>
-<meta name="description" content="We are curating the best ${catLabel.toLowerCase()} in ${areaLabel}, Seoul for foreign visitors. Check back soon or explore other areas.">
+<title>Best ${catLabel} ${_inAreaSeoul} — Coming Soon | Seoul Beauty Trip</title>
+<meta name="description" content="We are curating the best ${catLabel.toLowerCase()} ${_inAreaSeoul} for foreign visitors. Check back soon or explore other areas.">
 <link rel="canonical" href="${_base}/best/${catSlug}/${areaSlug}">
-<meta property="og:title" content="Best ${catLabel} in ${areaLabel} Seoul | Seoul Beauty Trip">
-<meta property="og:description" content="Coming soon — top-rated ${catLabel.toLowerCase()} in ${areaLabel}, Seoul for foreigners.">
+<meta property="og:title" content="Best ${catLabel} ${_inAreaSeoul} | Seoul Beauty Trip">
+<meta property="og:description" content="Coming soon — top-rated ${catLabel.toLowerCase()} ${_inAreaSeoul} for foreigners.">
 <meta name="robots" content="noindex, follow">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -4723,8 +4731,8 @@ body{background:#0f0f12;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
 </head>
 <body>
 <div class="cs-icon">✨</div>
-<h1 class="cs-title">Best ${catLabel} in ${areaLabel}, Seoul</h1>
-<p class="cs-sub">We're currently curating the best foreigner-friendly ${catLabel.toLowerCase()} options in ${areaLabel}. Check back soon — or explore ${catLabel} in other areas of Seoul below.</p>
+<h1 class="cs-title">Best ${catLabel} ${_inAreaSeoul}</h1>
+<p class="cs-sub">We're currently curating the best foreigner-friendly ${catLabel.toLowerCase()} options in ${_areaCommaSeoul}. Check back soon — or explore ${catLabel} in other areas of Seoul below.</p>
 <div class="cs-areas">
   <div class="cs-areas-label">Explore ${catLabel} in other areas</div>
   ${availableAreaLinks}
@@ -4763,7 +4771,7 @@ body{background:#0f0f12;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
     ? `Best Hair Salon in Gangnam for Foreigners ${yr} — Price & Booking Guide`
     : isSkincareGangnam
     ? `Best Skincare Clinic in Gangnam Seoul ${yr} — Clinic vs Dermatology Guide`
-    : `Best ${catLabel} in ${areaLabel} Seoul for Foreigners ${yr}`
+    : `Best ${catLabel} ${_inAreaSeoul} for Foreigners ${yr}`
   const metaDesc    = isClinicGangnam
     ? `Top-rated Gangnam dermatology clinic guide for foreigners ${yr}. English-speaking dermatologists, transparent pricing, WhatsApp booking. Laser, RF, skin booster & more.`
     : isHeadSpaMyeongdong
@@ -4780,7 +4788,7 @@ body{background:#0f0f12;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
     ? `Best Gangnam hair salons for foreigners ${yr}. K-pop cuts, Korean perms, balayage & more. English-friendly stylists, transparent pricing & WhatsApp booking.`
     : isSkincareGangnam
     ? `Gangnam skincare clinic vs dermatology — what's the difference? ${yr} guide for foreign tourists. Top-rated options with English support, real prices & WhatsApp booking.`
-    : `Best ${catLabel.toLowerCase()} in ${areaLabel}, Seoul ${yr}. Top-rated, foreigner-friendly salons with English support & WhatsApp booking. Real reviews, verified prices.`
+    : `Best ${catLabel.toLowerCase()} ${_inAreaSeoul} ${yr}. Top-rated, foreigner-friendly salons with English support & WhatsApp booking. Real reviews, verified prices.`
   const h1Text      = isClinicGangnam
     ? `Best Gangnam Dermatology Clinic for Foreigners ${yr}`
     : isHeadSpaMyeongdong
@@ -4797,7 +4805,7 @@ body{background:#0f0f12;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
     ? `Best Hair Salon in Gangnam for Foreigners ${yr}`
     : isSkincareGangnam
     ? `Best Skincare Clinic in Gangnam, Seoul ${yr}`
-    : `Best ${catLabel} in ${areaLabel}, Seoul ${yr}`
+    : `Best ${catLabel} ${_inAreaSeoul} ${yr}`
   const subText     = isClinicGangnam
     ? `English-Speaking Dermatologists · Verified Clinics · WhatsApp Booking · Updated ${yr}`
     : isHeadSpaMyeongdong
@@ -4826,7 +4834,7 @@ body{background:#0f0f12;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
       : `Seoul's head spa scene has exploded in popularity among foreign travelers, and ${areaLabel} is home to some of the best. These foreigner-friendly head spas offer English booking, transparent pricing, and authentic Korean scalp treatments — from the viral 18-step scalp ritual to deep-cleansing scalp analysis and relaxing massage. Whether you have hair loss concerns, a dry scalp, or simply want the most relaxing experience of your Seoul trip, these ${areaLabel} head spas welcome international guests with open arms.`,
     skincare: isSkincareGangnam
       ? `Gangnam's skincare scene can be confusing for first-time visitors: there are <em>피부관리실</em> (skincare salons), <em>피부과</em> (dermatology clinics), and everything in between. Understanding the difference is the key to getting the right treatment at the right price. <strong>Gangnam skincare salons</strong> are run by licensed estheticians and focus on non-prescription treatments: deep-cleansing facials, hydration therapy, LED light therapy, and skin brightening programs. <strong>Gangnam dermatology clinics</strong> are staffed by board-certified doctors and can prescribe medication, perform laser procedures, administer skin booster injections, and treat medical skin conditions. Both are excellent — but for different goals. The salons listed on this page cover both types, with clear labels so you know exactly what you're booking.`
-      : `Korean skincare treatments in ${areaLabel}, Seoul are world-renowned for their innovation and results. Foreign tourists visiting Seoul consistently rate skin clinics and beauty salons in ${areaLabel} as must-visit experiences. From hydrating glass-skin facials and LED therapy to customized prescription skincare, these foreigner-friendly salons offer English consultations and WhatsApp booking to make your experience seamless.`,
+      : `Korean skincare treatments ${_inAreaSeoul} are world-renowned for their innovation and results. Foreign tourists visiting Seoul consistently rate skin clinics and beauty salons in ${_areaCommaSeoul} as must-visit experiences. From hydrating glass-skin facials and LED therapy to customized prescription skincare, these foreigner-friendly salons offer English consultations and WhatsApp booking to make your experience seamless.`,
     hair: isHairGangnam
       ? `Gangnam is synonymous with Korean beauty excellence — and its hair salons are no exception. <strong>Gangnam hair salons for foreigners</strong> are experienced with international clients, diverse hair textures, and the full spectrum of K-beauty hair services: from ultra-precise Korean cuts and volume perms to balayage, color correction, and intensive moisture treatments. Prices in Gangnam are higher than in Hongdae or Sinchon — expect ₩50,000–₩120,000 for a cut, ₩80,000–₩200,000 for color — but the quality is consistently world-class. Most top Gangnam salons now employ English-speaking coordinators or provide English menus, making the booking and consultation process smooth for international visitors.`
       : `${areaLabel} is one of Seoul's top destinations for Korean hair transformations. From K-pop inspired cuts and colors to balayage, Korean perms, and treatment packages, these English-friendly hair salons cater specifically to international visitors. All salons listed are experienced with various hair textures and provide English support throughout.`,
@@ -4839,10 +4847,10 @@ body{background:#0f0f12;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
       ? `Myeongdong is Seoul's busiest tourist district — and its skin clinics are built for visitors who are short on time but high on expectations. <strong>Myeongdong dermatology clinics</strong> specialise in fast, effective treatments that deliver visible results in a single session: brightening laser, hydra-facial, skin booster injections, and quick acne extractions. Most clinics accept walk-ins and have English menus and price lists posted at reception — no appointment, no translator needed. If you're spending a day or two in Seoul and want a quick skin boost that you'd pay 3–4× more for back home, Myeongdong's walk-in aesthetic clinics are one of the city's best-kept travel secrets.`
       : `${areaLabel} is Seoul's medical beauty hub, home to top-tier dermatology clinics and aesthetic centers welcoming foreign patients. From laser toning and skin boosters to RF lifting and acne treatments, these clinics offer cutting-edge technology at competitive prices — often 30-50% less than Western countries — with English-speaking consultants.`,
     makeup: `Experience a Korean makeup transformation in ${areaLabel}. These English-friendly makeup studios specialize in K-beauty looks including glass skin, gradient lips, and K-pop inspired styles. Perfect for photoshoots, hanbok experiences, or just a memorable Seoul beauty experience. All studios offer English booking via WhatsApp.`,
-    spa: `Discover authentic Korean spa treatments in ${areaLabel}, Seoul. From traditional Korean body scrubs (때밀이) and aromatherapy massage to modern wellness packages, these foreigner-friendly spas deliver true Korean relaxation. All listed spas support English booking and welcome international guests.`,
-    tattoo: `Korean eyebrow tattooing (눈썹 반영구) in ${areaLabel}, Seoul is globally acclaimed for its ultra-natural, hair-stroke precision. Unlike traditional heavy tattooing, Korean microblading and powder brow techniques create results so natural that people around you simply think you were born with perfect eyebrows — not that you had a procedure. Studios in Seoul use single-use sterile needles, FDA-approved pigments, and follow strict hygiene protocols. Whether you prefer the hairline stroke technique for the most natural look, the soft powder brow for a defined finish, or a combo brow for depth and texture, ${areaLabel} studios listed here welcome foreign visitors with English-language consultations and easy WhatsApp booking. Men's eyebrow tattooing is also a growing specialty — Korean studios understand how to design brows that look completely natural on male faces. Prices are 40–60% lower than equivalent studios in the US, UK, or Australia.`
+    spa: `Discover authentic Korean spa treatments ${_inAreaSeoul}. From traditional Korean body scrubs (때밀이) and aromatherapy massage to modern wellness packages, these foreigner-friendly spas deliver true Korean relaxation. All listed spas support English booking and welcome international guests.`,
+    tattoo: `Korean eyebrow tattooing (눈썹 반영구) ${_inAreaSeoul} is globally acclaimed for its ultra-natural, hair-stroke precision. Unlike traditional heavy tattooing, Korean microblading and powder brow techniques create results so natural that people around you simply think you were born with perfect eyebrows — not that you had a procedure. Studios in Seoul use single-use sterile needles, FDA-approved pigments, and follow strict hygiene protocols. Whether you prefer the hairline stroke technique for the most natural look, the soft powder brow for a defined finish, or a combo brow for depth and texture, ${areaLabel} studios listed here welcome foreign visitors with English-language consultations and easy WhatsApp booking. Men's eyebrow tattooing is also a growing specialty — Korean studios understand how to design brows that look completely natural on male faces. Prices are 40–60% lower than equivalent studios in the US, UK, or Australia.`
   }
-  const introText = catIntros[catSlug] || `Discover the best ${catLabel.toLowerCase()} experiences in ${areaLabel}, Seoul. All salons are foreigner-friendly with English booking support via WhatsApp. Browse top-rated options below.`
+  const introText = catIntros[catSlug] || `Discover the best ${catLabel.toLowerCase()} experiences ${_inAreaSeoul}. All salons are foreigner-friendly with English booking support via WhatsApp. Browse top-rated options below.`
   const catEmoji: Record<string,string> = {skincare:'🌿',makeup:'💋',hair:'💇',headspa:'🧖',nail:'💅',clinic:'🏥',spa:'🛁',tattoo:'✒️'}
   const emoji = catEmoji[catSlug] || '✨'
 
@@ -4870,7 +4878,7 @@ body{background:#0f0f12;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
     // ItemList — 업체 목록
     ...(shops.length > 0 ? [{
       '@type':'ItemList',
-      'name':`Best ${catLabel} in ${areaLabel} Seoul`,
+      'name':`Best ${catLabel} ${_areaSeoul}`,
       'description':metaDesc,
       'numberOfItems':shops.length,
       'itemListElement': shops.map((s,i) => ({
@@ -4934,7 +4942,7 @@ body{background:#0f0f12;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
   <a href="/shop/${s.slug}" class="card-link">
     <div class="card-rank">#${i+1}</div>
     <div class="card-img-wrap">
-      <img src="${s.thumbnail}" alt="${s.name} ${catLabel} ${areaLabel} Seoul" loading="lazy" onerror="this.parentElement.remove()">
+      <img src="${s.thumbnail}" alt="${s.name} ${catLabel} ${_areaSeoul}" loading="lazy" onerror="this.parentElement.remove()">
     </div>
     <div class="card-body">
       <h2 class="card-name" itemprop="name">${s.name}</h2>
@@ -5118,7 +5126,7 @@ details[open] .faq-q::after{transform:rotate(180deg)}
   </div>
   <div class="section-title">${emoji} Top ${catLabel} Salons in ${areaLabel} <span style="font-size:.85rem;font-weight:400;color:#888">(${shops.length} listed)</span></div>
   ${shopCards}
-  <div class="section-title">❓ FAQ — ${catLabel} in ${areaLabel} Seoul</div>
+  <div class="section-title">❓ FAQ — ${catLabel} ${_inAreaSeoul}</div>
   <div>${faqHtml}</div>
 
   ${isClinicGangnam ? `
