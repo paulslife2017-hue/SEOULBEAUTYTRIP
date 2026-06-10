@@ -852,7 +852,6 @@ app.post('/api/resolve-gmap', async (c) => {
       const allTypes = [place.primaryType||'', ...(place.types||[])].map((t: string) => t.toLowerCase())
       let suggestedCategory = ''
       if (allTypes.some((t: string) => ['beauty_salon','hair_care','hair_salon','barber_shop'].includes(t))) suggestedCategory = 'hair'
-      else if (allTypes.some((t: string) => ['nail_salon'].includes(t))) suggestedCategory = 'nail'
       else if (allTypes.some((t: string) => ['spa','massage','sauna'].includes(t))) suggestedCategory = 'spa'
       else if (allTypes.some((t: string) => ['doctor','hospital','medical_lab','physiotherapist','skin_care','plastic_surgeon','dermatologist'].includes(t))) suggestedCategory = 'clinic'
       else if (allTypes.some((t: string) => ['makeup_artist'].includes(t))) suggestedCategory = 'makeup'
@@ -1015,7 +1014,6 @@ const CAT_SLUG_KEYWORD: Record<string, string> = {
   headspa:  'head-spa',
   makeup:   'color-studio',
   tattoo:   'tattoo',
-  nail:     'nail-salon',
   spa:      'spa',
 }
 
@@ -1220,7 +1218,6 @@ async function autoGenSeo(body: any, apiKey: string, googleKey?: string): Promis
       headspa: 'Focus on: scalp care method, relaxation depth, therapist attentiveness, step-by-step treatment.',
       skincare:'Focus on: facial technique, skin analysis, glow results, product quality mentioned in reviews.',
       makeup:  'Focus on: color analysis process, consultation style, what clients specifically learned or changed.',
-      nail:    'Focus on: nail art style, design options, precision, longevity from review feedback.',
       dental:  'Focus on: specific dental procedures, pain-free experience, visible results.',
     }
     const hint = catHints[cat] || 'Focus on standout features and unique aspects mentioned in reviews.'
@@ -1233,7 +1230,6 @@ async function autoGenSeo(body: any, apiKey: string, googleKey?: string): Promis
       hair:    'H2-1: "[Name] — Hair Salon in [area], Seoul 2026". H2-2: "Why Travelers Choose [Name]" (UL with 3-4 specific bullets: color specialty, stylist skill, English service, review highlight). H2-3: "Hair Services at [Name]" (paragraph citing 2-3 specific services). H2-4: "Booking [Name] as a Foreigner in Seoul" (paragraph: WhatsApp booking, consultation, results guarantee).',
       headspa: 'H2-1: "[Name] — Head Spa in [area], Seoul 2026". H2-2: "Why Guests Love [Name]" (UL with 3-4 specific bullets: scalp treatment method, relaxation, therapist skill, review phrases). H2-3: "The [Name] Treatment Experience" (paragraph: step-by-step sensory detail). H2-4: "Visiting [Name] as a Foreign Guest" (paragraph: English support, WhatsApp booking, location access).',
       skincare:'H2-1: "[Name] — Skincare Studio in [area], Seoul 2026". H2-2: "Why Foreigners Visit [Name]" (UL: skin analysis, glow results, product brands, English care). H2-3: "Facial Treatments at [Name]" (paragraph citing specific facial types). H2-4: "Book a Skincare Session at [Name]" (paragraph: WhatsApp, English, consultation process).',
-      nail:    'H2-1: "[Name] — Nail Studio in [area], Seoul 2026". H2-2: "Why Visitors Choose [Name] for K-Nails" (UL: design variety, precision, longevity, English friendly). H2-3: "Nail Services at [Name]" (paragraph: art styles, gel/acryl options). H2-4: "Getting Nails Done at [Name] as a Foreigner" (paragraph: walk-in or booking via WhatsApp).',
       makeup:  'H2-1: "[Name] — Color Analysis Studio in [area], Seoul 2026". H2-2: "Why Foreign Guests Choose [Name]" (UL: personal color process, English consultation, cosmetics used, transformation results). H2-3: "What Happens at a [Name] Session" (paragraph: step-by-step color analysis). H2-4: "Booking [Name] as a Foreign Visitor" (paragraph: WhatsApp, English, what to prepare).',
       dental:  'H2-1: "[Name] — Dental Clinic in [area], Seoul 2026". H2-2: "Why Foreign Patients Choose [Name]" (UL: procedures, pain-free, English, pricing transparency). H2-3: "Dental Procedures at [Name]" (paragraph: implants, whitening, orthodontics etc). H2-4: "Foreign Patients at [Name]: Booking & English Support" (paragraph: WhatsApp, English coordinator, insurance info).',
     }
@@ -1296,7 +1292,7 @@ Return ONLY a single valid JSON object — no markdown, no explanation:
     if (parsed.seoText && !parsed.seoText.includes('<h2')) {
       // p 태그를 h2+p 쌍으로 변환
       const _area2 = (body.location||'Seoul').split(',')[0].trim()
-      const _catMap2: Record<string,string> = {clinic:'Dermatology Clinic',hair:'Hair Salon',headspa:'Head Spa',skincare:'Skincare',makeup:'Makeup',nail:'Nail Art',dental:'Dental Clinic',tattoo:'Eyebrow Tattoo'}
+      const _catMap2: Record<string,string> = {clinic:'Dermatology Clinic',hair:'Hair Salon',headspa:'Head Spa',skincare:'Skincare',makeup:'Makeup',dental:'Dental Clinic',tattoo:'Eyebrow Tattoo'}
       const _catN2 = _catMap2[body.category||''] || (body.category||'Beauty').charAt(0).toUpperCase()+(body.category||'').slice(1)
       const _h2auto = [body.name+' \u2014 '+_catN2+' in '+_area2+', Seoul 2026','Foreigner-Friendly '+_catN2+' in '+_area2,'How to Book '+body.name+' as a Foreign Visitor']
       const _ps2 = (parsed.seoText as string).match(/<p[^>]*>[\s\S]*?<\/p>/g) || []
@@ -1642,7 +1638,6 @@ async function genVideoTags(video: any, shop: any, apiKey: string): Promise<stri
     skincare: ['#KoreanSkincare','#GlassSkin','#SeoulSkincare','#KBeauty'],
     headspa:  ['#HeadSpa','#KoreanHeadSpa','#SeoulHeadSpa','#ScalpTreatment'],
     hair:     ['#KoreanHair','#SeoulHairSalon','#KHairStyle','#HairSeoul'],
-    nail:     ['#KoreanNail','#SeoulNailArt','#KNailDesign','#NailSeoul'],
     makeup:   ['#KBeautyMakeup','#KoreanMakeup','#SeoulMakeup','#GlowUp'],
     spa:      ['#KoreanSpa','#SeoulSpa','#RelaxSeoul','#KBeautySpa'],
     tattoo:   ['#KoreanTattoo','#SeoulTattoo','#KTattooArt','#TattooSeoul']
@@ -1933,7 +1928,6 @@ app.post('/api/ai-seo', async (c) => {
       makeup:   'Korean makeup Seoul, K-beauty makeup artist, Korean beauty look, makeup studio Seoul foreigners',
       hair:     'Korean hair salon Seoul, K-pop hairstyle Seoul, hair coloring Seoul foreigners, balayage Seoul, Korean hair dyeing',
       headspa:  'head spa Seoul, Korean head spa foreigners, scalp treatment Seoul, Korean scalp massage, head spa Seoul English',
-      nail:     'Korean nail art Seoul, nail salon Seoul foreigners, K-pop nail design, gel nails Seoul English, nail salon Seoul English speaking',
       clinic:   'Korean dermatology Seoul, skin clinic Seoul foreigners, laser treatment Seoul, aesthetic clinic Korea, Korean skin care clinic',
       spa:      'Korean spa Seoul, body treatment Seoul foreigners, Korean massage Seoul, relaxation spa Seoul English',
     }
@@ -2174,7 +2168,6 @@ app.post('/api/places-fetch', async (c) => {
     const detectCategory = (primaryType: string, types: string[]): string => {
       const all = [primaryType, ...(types || [])].map(t => t.toLowerCase())
       if (all.some(t => ['beauty_salon','hair_care','hair_salon','barber_shop'].includes(t))) return 'hair'
-      if (all.some(t => ['nail_salon'].includes(t))) return 'nail'
       if (all.some(t => ['spa','massage','sauna'].includes(t))) return 'spa'
       if (all.some(t => ['doctor','hospital','medical_lab','physiotherapist','skin_care','plastic_surgeon','dermatologist'].includes(t))) return 'clinic'
       if (all.some(t => ['makeup_artist'].includes(t))) return 'makeup'
@@ -3548,7 +3541,7 @@ app.get('/shop/:slug', async (c) => {
 
   // 교차 카테고리 링크: 같은 지역 내 다른 카테고리 최고 업체 1개씩 (최대 4개)
   const _shopAreaRaw = shop.location ? shop.location.split(',')[0].trim() : ''
-  const _otherCats = ['clinic','hair','headspa','skincare','nail','makeup','tattoo'].filter(c => c !== shop.category)
+  const _otherCats = ['clinic','hair','headspa','skincare','makeup','tattoo'].filter(c => c !== shop.category)
   const nearbyCrossRows = await withTimeout(sql`
     SELECT id, name, slug, category, location, thumbnail, rating, review_count
     FROM shops
@@ -3572,7 +3565,7 @@ app.get('/shop/:slug', async (c) => {
   const ogImage = shop.thumbnail
     ? (shop.thumbnail.startsWith('http') ? shop.thumbnail : `${base}${shop.thumbnail}`)
     : `https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg`
-  const catEmoji: Record<string,string> = {skincare:'🌿',makeup:'💋',hair:'💇',headspa:'🧖',nail:'💅',clinic:'🏥',tattoo:'✒️'}
+  const catEmoji: Record<string,string> = {skincare:'🌿',makeup:'💋',hair:'💇',headspa:'🧖',clinic:'🏥',tattoo:'✒️'}
   const catIcon = catEmoji[shop.category] || '✨'
 
   // ── 템플릿 밖에서 미리 계산 (esbuild: HTML 템플릿 내 object literal {} 충돌 방지) ──
@@ -3580,7 +3573,7 @@ app.get('/shop/:slug', async (c) => {
   const _shopCat   = shop.category
   const _catTitleLabels: Record<string,string> = {
     clinic:'Dermatology Clinic', hair:'Hair Salon', headspa:'Head Spa',
-    skincare:'Skincare', makeup:'Makeup & Color Analysis', nail:'Nail Art', dental:'Dental Clinic', tattoo:'Eyebrow Tattoo & Microblading'
+    skincare:'Skincare', makeup:'Makeup & Color Analysis', dental:'Dental Clinic', tattoo:'Eyebrow Tattoo & Microblading'
   }
   const _catLabel  = _catTitleLabels[_shopCat] || (_shopCat.charAt(0).toUpperCase()+_shopCat.slice(1))
   const _areaFinal = _shopArea.toLowerCase().replace('cheongdam','Gangnam').replace('apgujeong','Gangnam') !== _shopArea ? 'Gangnam' : _shopArea
@@ -3589,7 +3582,7 @@ app.get('/shop/:slug', async (c) => {
 
   const _metaDescLabels: Record<string,string> = {
     clinic:'dermatology clinic', hair:'hair salon', headspa:'head spa & scalp clinic',
-    skincare:'skincare studio', makeup:'personal color & makeup', nail:'nail art studio', dental:'dental clinic', tattoo:'eyebrow tattoo & microblading studio'
+    skincare:'skincare studio', makeup:'personal color & makeup', dental:'dental clinic', tattoo:'eyebrow tattoo & microblading studio'
   }
   const _catLbl2   = _metaDescLabels[_shopCat] || _shopCat
   const _rating    = shop.rating ? shop.rating+'★' : ''
@@ -3612,7 +3605,6 @@ app.get('/shop/:slug', async (c) => {
     headspa: [_areaGn+' head spa foreigners','scalp treatment Seoul English','head spa Seoul foreigners','Korean head spa English',_areaGn+' scalp care Seoul'],
     skincare:[_areaGn+' skincare foreigners','facial Seoul English speaking','skincare Seoul foreigners','Korean facial treatment English',_areaGn+' glow treatment Seoul'],
     makeup:  [_areaGn+' personal color analysis','color analysis Seoul English','makeup Seoul foreigners','personal color Seoul English',_areaGn+' makeup consultation'],
-    nail:    [_areaGn+' nail art foreigners','nail salon Seoul English','Korean nail art Seoul','nail art Seoul foreigners',_areaGn+' nail design Seoul'],
     dental:  [_areaGn+' dental clinic foreigners','dentist Seoul English speaking','dental Seoul foreigners','Korean dentist English',_areaGn+' tooth whitening Seoul'],
   }
   const _extras    = _catKwMap[_shopCat] || []
@@ -3626,7 +3618,7 @@ app.get('/shop/:slug', async (c) => {
 
   const _ogCatLabels: Record<string,string> = {
     clinic:'Dermatology Clinic', hair:'Hair Salon', headspa:'Head Spa',
-    skincare:'Skincare', makeup:'Makeup', nail:'Nail', dental:'Dental', tattoo:'Eyebrow Tattoo'
+    skincare:'Skincare', makeup:'Makeup', dental:'Dental', tattoo:'Eyebrow Tattoo'
   }
   const _ogCatLabel = _ogCatLabels[_shopCat] || _shopCat
   const _ogTitle   = shop.name+' | '+_shopArea.replace('Cheongdam','Gangnam').replace('Apgujeong','Gangnam')+' '+_ogCatLabel+' Seoul'
@@ -3637,14 +3629,13 @@ app.get('/shop/:slug', async (c) => {
     headspa:'["BeautySalon","HealthClub","LocalBusiness"]',
     skincare:'["BeautySalon","LocalBusiness"]',
     makeup:'["BeautySalon","LocalBusiness"]',
-    nail:'["NailSalon","BeautySalon","LocalBusiness"]',
     dental:'["Dentist","MedicalClinic","LocalBusiness"]',
   }
   const _schemaType = _schemaTypeMap[_shopCat] || '["LocalBusiness","BeautySalon"]'
 
   const _breadcrumbCatLabels: Record<string,string> = {
     clinic:'Skin Clinic Seoul', hair:'Hair Salon Seoul', headspa:'Head Spa Seoul',
-    skincare:'Skincare Seoul', makeup:'Makeup Seoul', nail:'Nail Salon Seoul', dental:'Dental Clinic Seoul', tattoo:'Eyebrow Tattoo Seoul'
+    skincare:'Skincare Seoul', makeup:'Makeup Seoul', dental:'Dental Clinic Seoul', tattoo:'Eyebrow Tattoo Seoul'
   }
   const _bcCatName = _breadcrumbCatLabels[_shopCat] || _shopCat
   // BreadcrumbList: area depth URL (best 페이지 있는 카테고리만 링크)
@@ -3654,7 +3645,7 @@ app.get('/shop/:slug', async (c) => {
 
   const _wpCatLabels: Record<string,string> = {
     clinic:'Dermatology Clinic', hair:'Hair Salon', headspa:'Head Spa',
-    skincare:'Skincare Studio', makeup:'Makeup & Color Analysis', nail:'Nail Art Studio', dental:'Dental Clinic', tattoo:'Eyebrow Tattoo Studio'
+    skincare:'Skincare Studio', makeup:'Makeup & Color Analysis', dental:'Dental Clinic', tattoo:'Eyebrow Tattoo Studio'
   }
   const _wpCatLabel = _wpCatLabels[_shopCat] || _shopCat
   const _wpName    = shop.name+' \u2014 '+_shopArea+' '+_wpCatLabel+' Seoul'
@@ -4059,7 +4050,6 @@ ${(()=>{
     hair:['hair coloring & bleaching station','Korean perm treatment styling','hair cut & styling chair','scalp treatment & hair care','balayage color highlight session','hair styling result showcase','hair wash & conditioning area','consultation & color mixing zone'],
     headspa:['18-step Korean head spa treatment','scalp massage & oil treatment','head spa relaxation room','hair & scalp analysis station','deep cleansing scalp scrub','hair mask & steam treatment','premium scalp care station','head spa treatment setup'],
     skincare:['Korean facial treatment room','hydrating skin care session','glass skin facial treatment','pore cleansing & exfoliation','LED light therapy session','oxygen facial treatment room','Korean skincare consultation','moisturizing mask & treatment'],
-    nail:['Korean nail art design studio','gel nail application & art','3D nail art detail work','nail care & manicure station','luxury nail treatment chair','nail art showcase & gallery','pedicure & nail care room','nail color & design consultation'],
     makeup:['Korean makeup studio & transformation','K-beauty makeup application','color analysis consultation room','bridal & special occasion makeup','contouring & highlighting session','K-pop inspired makeup look','makeup tools & product display','before-after Korean makeup result'],
     tattoo:['eyebrow microblading procedure','semi-permanent eyebrow tattoo','brow design & mapping session','eyebrow tattoo healing result','nano-brow treatment close-up','eyebrow shape consultation','lip tint semi-permanent treatment','eyeliner tattoo procedure'],
     spa:['luxury spa treatment room','body massage & relaxation','aromatherapy spa session','hot stone massage therapy','deep tissue body treatment','spa lounge & ambiance','foot spa & reflexology','premium body wrap treatment'],
@@ -4296,7 +4286,7 @@ ${(()=>{
         const _area = (shop.location||'Seoul').split(',')[0].trim();
         const _cat  = shop.category.charAt(0).toUpperCase()+shop.category.slice(1);
         const _areaLabel = _area.toLowerCase().includes('cheongdam')||_area.toLowerCase().includes('apgujeong') ? 'Gangnam' : _area;
-        const _catLabel: Record<string,string> = {skincare:'Skincare',makeup:'Makeup',hair:'Hair Salon',nail:'Nail',clinic:'Dermatology Clinic',headspa:'Head Spa',spa:'Spa',tattoo:'Eyebrow Tattoo'};
+        const _catLabel: Record<string,string> = {skincare:'Skincare',makeup:'Makeup',hair:'Hair Salon',clinic:'Dermatology Clinic',headspa:'Head Spa',spa:'Spa',tattoo:'Eyebrow Tattoo'};
         const _catName = _catLabel[shop.category] || _cat;
         // p 태그를 H2+p 쌍으로 분리 (3개 p → h2+p, h2+p, h2+p)
         const _paras = cleanSeo.match(/<p[^>]*>[\s\S]*?<\/p>/g) || [];
@@ -4366,7 +4356,7 @@ ${(()=>{
         const rArea = (r.location||'').split(',')[0].trim()
         const rRating = r.rating ? `<span class="sp-rel-rating"><i class="fas fa-star" style="font-size:8px"></i>${Number(r.rating).toFixed(1)}</span>` : ''
         const rThumb = r.thumbnail || ''
-        const rCatL: Record<string,string> = {clinic:'Clinic',hair:'Hair Salon',headspa:'Head Spa',skincare:'Skincare',makeup:'Makeup',nail:'Nail',spa:'Spa',tattoo:'Eyebrow Tattoo'}
+        const rCatL: Record<string,string> = {clinic:'Clinic',hair:'Hair Salon',headspa:'Head Spa',skincare:'Skincare',makeup:'Makeup',spa:'Spa',tattoo:'Eyebrow Tattoo'}
         const rCatLabel = rCatL[r.category] || r.category
         return `<a class="sp-rel-card" href="/shop/${r.slug}">
           ${rThumb ? `<img class="sp-rel-thumb" src="${rThumb}" alt="${r.name} ${rCatLabel} ${rArea} Seoul" loading="lazy">` : `<div class="sp-rel-thumb" style="background:#111"></div>`}
@@ -4393,9 +4383,9 @@ ${(()=>{
     <div style="display:flex;flex-direction:column;gap:8px">
       ${nearbyCrossShops.map((r: any) => {
         const _rArea = (r.location || '').split(',')[0].trim()
-        const _rCatLabels: Record<string,string> = {clinic:'Derma Clinic',hair:'Hair Salon',headspa:'Head Spa',skincare:'Skincare',makeup:'Makeup',nail:'Nail Art',tattoo:'Eyebrow Tattoo'}
+        const _rCatLabels: Record<string,string> = {clinic:'Derma Clinic',hair:'Hair Salon',headspa:'Head Spa',skincare:'Skincare',makeup:'Makeup',tattoo:'Eyebrow Tattoo'}
         const _rCatLabel = _rCatLabels[r.category] || r.category
-        const _rCatIcons: Record<string,string> = {clinic:'fa-briefcase-medical',hair:'fa-cut',headspa:'fa-spa',skincare:'fa-leaf',makeup:'fa-magic',nail:'fa-hand-sparkles',tattoo:'fa-pen-nib'}
+        const _rCatIcons: Record<string,string> = {clinic:'fa-briefcase-medical',hair:'fa-cut',headspa:'fa-spa',skincare:'fa-leaf',makeup:'fa-magic',tattoo:'fa-pen-nib'}
         const _rIcon = _rCatIcons[r.category] || 'fa-star'
         const _rRating = r.rating ? Number(r.rating).toFixed(1) : ''
         const _rThumb = r.thumbnail || ''
@@ -4643,7 +4633,7 @@ function closeMapOverlay(){
 // ══════════════════════════════════════════════════════
 const CATEGORY_LABELS: Record<string,string> = {
   skincare:'Skincare', makeup:'Makeup', hair:'Hair Salon',
-  headspa:'Head Spa', nail:'Nail Salon', clinic:'Skin Clinic', spa:'Spa & Massage', tattoo:'Eyebrow Tattoo'
+  headspa:'Head Spa', clinic:'Skin Clinic', spa:'Spa & Massage', tattoo:'Eyebrow Tattoo'
 }
 const AREA_LABELS: Record<string,string> = {
   gangnam:'Gangnam', hongdae:'Hongdae', itaewon:'Itaewon',
@@ -4672,13 +4662,6 @@ const CAT_FAQ: Record<string,{q:string,a:string}[]> = {
     {q:'Can I get a K-pop hairstyle in Seoul?',a:'Absolutely! Many Seoul hair salons specialize in K-pop inspired hairstyles including perms, bleaching, and trendy cuts seen on Korean celebrities.'},
     {q:'Do Seoul hair salons speak English?',a:'Tourist-area salons in Gangnam, Hongdae, and Itaewon often have English-speaking staff. Seoul Beauty Trip lists only English-friendly salons for foreign visitors.'},
     {q:'How long does a hair appointment take in Seoul?',a:'A basic cut takes 30–60 minutes. Color treatments and perms can take 2–4 hours. Book in advance especially on weekends.'}
-  ],
-  nail:[
-    {q:'What is Korean nail art?',a:'Korean nail art features intricate designs, minimalist aesthetics, and high-quality gel applications. Popular styles include gradient nails, 3D nail art, and character-themed designs.'},
-    {q:'How much does a nail appointment cost in Seoul?',a:'Basic gel manicures start from ₩30,000. Full nail art designs range from ₩50,000 to ₩150,000 depending on complexity and salon.'},
-    {q:'How long does a nail appointment take in Seoul?',a:'A simple gel manicure takes about 1 hour. Full nail art with intricate designs can take 2–3 hours.'},
-    {q:'Do I need to book a nail salon in Seoul in advance?',a:'Weekend bookings should be made 2–3 days in advance. Weekday slots are more flexible. Book via WhatsApp through Seoul Beauty Trip.'},
-    {q:'Are Korean nail salons foreigner-friendly?',a:'Many nail salons in tourist areas have English menus and picture references so you can easily show the design you want.'}
   ],
   clinic:[
     {q:'What is a Gangnam dermatology clinic?',a:'A Gangnam dermatology clinic is a medical aesthetic center in Seoul\'s Gangnam district staffed by board-certified Korean dermatologists. Unlike regular beauty salons, these clinics perform medical-grade treatments including laser resurfacing, Botox, dermal fillers, RF lifting, skin booster injections, and prescription skincare — all at prices typically 40–60% lower than equivalent treatments in Western countries.'},
@@ -5112,7 +5095,7 @@ body{background:#0f0f12;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
     tattoo: `Korean eyebrow tattooing (눈썹 반영구) ${_inAreaSeoul} is globally acclaimed for its ultra-natural, hair-stroke precision. Unlike traditional heavy tattooing, Korean microblading and powder brow techniques create results so natural that people around you simply think you were born with perfect eyebrows — not that you had a procedure. Studios in Seoul use single-use sterile needles, FDA-approved pigments, and follow strict hygiene protocols. Whether you prefer the hairline stroke technique for the most natural look, the soft powder brow for a defined finish, or a combo brow for depth and texture, ${areaLabel} studios listed here welcome foreign visitors with English-language consultations and easy WhatsApp booking. Men's eyebrow tattooing is also a growing specialty — Korean studios understand how to design brows that look completely natural on male faces. Prices are 40–60% lower than equivalent studios in the US, UK, or Australia.`
   }
   const introText = catIntros[catSlug] || `Discover the best ${catLabel.toLowerCase()} experiences ${_inAreaSeoul}. All salons are foreigner-friendly with English booking support via WhatsApp. Browse top-rated options below.`
-  const catEmoji: Record<string,string> = {skincare:'🌿',makeup:'💋',hair:'💇',headspa:'🧖',nail:'💅',clinic:'🏥',spa:'🛁',tattoo:'✒️'}
+  const catEmoji: Record<string,string> = {skincare:'🌿',makeup:'💋',hair:'💇',headspa:'🧖',clinic:'🏥',spa:'🛁',tattoo:'✒️'}
   const emoji = catEmoji[catSlug] || '✨'
 
   // Schema.org JSON-LD
@@ -5896,10 +5879,10 @@ app.get('/shops', async (c) => {
   const sql = getDb(c.env)
   const rows = await sql`SELECT * FROM shops WHERE active=true ORDER BY rating DESC, created_at DESC`
   const shops = rows.map(rowToShop)
-  const catColors: Record<string,string> = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',nail:'#34d399',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa',tattoo:'#e879f9'}
-  const catIcons:  Record<string,string> = {skincare:'fa-leaf',makeup:'fa-magic',hair:'fa-cut',headspa:'fa-spa',nail:'fa-hand-sparkles',clinic:'fa-briefcase-medical',spa:'fa-hot-tub',tattoo:'fa-pen-nib'}
-  const cats      = ['all','clinic','headspa','skincare','hair','nail','makeup','spa','tattoo']
-  const catLabels: Record<string,string> = {all:'All',clinic:'Clinic',headspa:'Head Spa',skincare:'Skincare',hair:'Hair',nail:'Nail',makeup:'Makeup',spa:'Spa',tattoo:'Brow Tattoo'}
+  const catColors: Record<string,string> = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa',tattoo:'#e879f9'}
+  const catIcons:  Record<string,string> = {skincare:'fa-leaf',makeup:'fa-magic',hair:'fa-cut',headspa:'fa-spa',clinic:'fa-briefcase-medical',spa:'fa-hot-tub',tattoo:'fa-pen-nib'}
+  const cats      = ['all','clinic','headspa','skincare','hair','makeup','spa','tattoo']
+  const catLabels: Record<string,string> = {all:'All',clinic:'Clinic',headspa:'Head Spa',skincare:'Skincare',hair:'Hair',makeup:'Makeup',spa:'Spa',tattoo:'Brow Tattoo'}
 
   const catCountMap: Record<string,number> = {}
   shops.forEach((s: any) => { catCountMap[s.category] = (catCountMap[s.category]||0)+1 })
@@ -6248,11 +6231,11 @@ app.get('/blog', async (c) => {
 </script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Seoul Beauty Blog — K-Beauty Guides & Tips | Seoul Beauty Trip</title>
-<meta name="description" content="Expert guides on the best head spas, hair salons, skincare clinics and nail art in Seoul. K-beauty tips for foreign visitors with English booking.">
+<meta name="description" content="Expert guides on the best head spas, hair salons, and skincare clinics in Seoul. K-beauty tips for foreign visitors with English booking.">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="${base}/blog">
 <meta property="og:title" content="Seoul Beauty Blog — K-Beauty Guides & Tips">
-<meta property="og:description" content="Expert guides on the best head spas, hair salons, skincare clinics and nail art in Seoul for foreign visitors.">
+<meta property="og:description" content="Expert guides on the best head spas, hair salons, and skincare clinics in Seoul for foreign visitors.">
 <meta property="og:url" content="${base}/blog">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Seoul Beauty Trip">
@@ -6264,7 +6247,7 @@ app.get('/blog', async (c) => {
 <meta property="og:image:alt" content="Seoul Beauty Blog — K-Beauty Guides & Tips">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Seoul Beauty Blog — K-Beauty Guides & Tips">
-<meta name="twitter:description" content="Expert guides on the best head spas, hair salons, skincare clinics and nail art in Seoul for foreign visitors.">
+<meta name="twitter:description" content="Expert guides on the best head spas, hair salons, and skincare clinics in Seoul for foreign visitors.">
 <meta name="twitter:image" content="https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg">
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"Blog","url":"${base}/blog","name":"Seoul Beauty Blog","description":"K-Beauty guides and tips for foreign visitors in Seoul","publisher":{"@type":"Organization","name":"Seoul Beauty Trip","url":"${base}"}}</script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
@@ -6799,7 +6782,7 @@ app.get('/about', (c) => {
 <link rel="canonical" href="https://seoulbeautytrip.com/about">
 <meta property="og:type" content="website">
 <meta property="og:title" content="About Seoul Beauty Trip — Licensed Foreign Patient Facilitator">
-<meta property="og:description" content="Government-licensed facilitator (No. A-2025-01-02-5922) helping foreigners book Seoul beauty services — skin clinics, head spas, nail studios and more. English support, no hidden fees.">
+<meta property="og:description" content="Government-licensed facilitator (No. A-2025-01-02-5922) helping foreigners book Seoul beauty services — skin clinics, head spas, and more. English support, no hidden fees.">
 <meta property="og:url" content="https://seoulbeautytrip.com/about">
 <meta property="og:site_name" content="Seoul Beauty Trip">
 <script type="application/ld+json">
@@ -6880,12 +6863,12 @@ footer a{color:#FF4D8D;text-decoration:none}
   </div>
 
   <h2>Why We Started This</h2>
-  <p>Seoul has some of the best skin clinics, hair salons, head spas, and nail studios in the world. But for foreign visitors, finding and booking them has always been a barrier — most places don't have English websites, prices are unclear, and making a reservation without Korean is genuinely difficult.</p>
+  <p>Seoul has some of the best skin clinics, hair salons, and head spas in the world. But for foreign visitors, finding and booking them has always been a barrier — most places don't have English websites, prices are unclear, and making a reservation without Korean is genuinely difficult.</p>
   <p>Seoul Beauty Trip was created to remove that friction. We visit, verify, and list the best foreigner-friendly beauty businesses in Seoul, then handle all booking communication in English so you don't have to figure it out on your own.</p>
 
   <h2>How It Works</h2>
   <ul>
-    <li>Browse shops by category (clinic, head spa, hair, nail, makeup) and area (Gangnam, Myeongdong, Hongdae, etc.)</li>
+    <li>Browse shops by category (clinic, head spa, hair, makeup) and area (Gangnam, Myeongdong, Hongdae, etc.)</li>
     <li>Found something you like? Tap the Book button and message us on WhatsApp</li>
     <li>We confirm availability, communicate with the shop in Korean, and send you all the details</li>
     <li>You show up, enjoy the treatment — no language barrier, no surprise fees</li>
@@ -6900,8 +6883,7 @@ footer a{color:#FF4D8D;text-decoration:none}
     <li><strong>Skin Clinics & Dermatology</strong> — Botox, filler, laser, Rejuran, Potenza, Thermage and more</li>
     <li><strong>Head Spa</strong> — Scalp treatment, 18-step head spa, hair loss care</li>
     <li><strong>Hair Salons</strong> — K-pop cuts, Korean perms, balayage, color</li>
-    <li><strong>Nail Studios</strong> — Korean nail art, gel, extensions</li>
-    <li><strong>Makeup & Color Analysis</strong> — Personal color analysis, professional makeup</li>
+        <li><strong>Makeup & Color Analysis</strong> — Personal color analysis, professional makeup</li>
     <li><strong>Eyebrow Tattoo</strong> — Microblading, powder brow</li>
   </ul>
 
@@ -7045,7 +7027,7 @@ app.get('/guide', (c) => {
   const base = 'https://seoulbeautytrip.com'
   const yr = new Date().getFullYear()
   const guides = [
-    { slug: 'seoul-beauty-trip-itinerary', title: `Seoul Beauty Itinerary ${yr}: The Perfect 5-Day K-Beauty Schedule`, desc: 'Plan the ultimate Seoul beauty trip: head spa, skin clinic, hair salon, nail art & more — day-by-day itinerary for foreign visitors.', icon: '🗓️', tags: ['itinerary','planning','k-beauty'] },
+    { slug: 'seoul-beauty-trip-itinerary', title: `Seoul Beauty Itinerary ${yr}: The Perfect 5-Day K-Beauty Schedule`, desc: 'Plan the ultimate Seoul beauty trip: head spa, skin clinic, hair salon & more — day-by-day itinerary for foreign visitors.', icon: '🗓️', tags: ['itinerary','planning','k-beauty'] },
     { slug: 'k-beauty-treatment-guide', title: `K-Beauty Treatment Guide for Foreigners: What to Book in Seoul ${yr}`, desc: 'Complete guide to every K-beauty treatment available in Seoul — what it is, what it costs, how to book, and which areas are best.', icon: '💆', tags: ['k-beauty','treatments','guide'] },
     { slug: 'seoul-beauty-faq', title: `Seoul Beauty FAQ: 30 Questions Foreigners Ask About Korean Beauty ${yr}`, desc: 'Everything foreign travelers want to know about booking beauty services in Seoul — answered clearly with prices, tips, and booking advice.', icon: '❓', tags: ['faq','tips','foreigners'] },
   ]
@@ -7116,7 +7098,7 @@ app.get('/guide/seoul-beauty-trip-itinerary', (c) => {
   const yr = new Date().getFullYear()
   const slug = 'seoul-beauty-trip-itinerary'
   const title = `Seoul Beauty Itinerary ${yr}: The Perfect 5-Day K-Beauty Schedule`
-  const desc = `Plan the ultimate Seoul beauty trip: head spa, skin clinic, hair salon, nail art & more — day-by-day itinerary for foreign visitors to Seoul ${yr}.`
+  const desc = `Plan the ultimate Seoul beauty trip: head spa, skin clinic, hair salon & more — day-by-day itinerary for foreign visitors to Seoul ${yr}.`
 
   const schema = JSON.stringify({
     "@context":"https://schema.org",
@@ -7135,7 +7117,7 @@ app.get('/guide/seoul-beauty-trip-itinerary', (c) => {
       {
         "@type":"FAQPage",
         "mainEntity":[
-          {"@type":"Question","name":"How many days do I need for a Seoul beauty trip?","acceptedAnswer":{"@type":"Answer","text":"3–5 days is ideal. Day 1: head spa + nail art. Day 2: skin clinic (laser or facial). Day 3: hair salon. Day 4: shopping for K-beauty products + a relaxing spa. Day 5: any repeat treatments or last-minute appointments."}},
+          {"@type":"Question","name":"How many days do I need for a Seoul beauty trip?","acceptedAnswer":{"@type":"Answer","text":"3–5 days is ideal. Day 1: head spa. Day 2: skin clinic (laser or facial). Day 3: hair salon. Day 4: shopping for K-beauty products + a relaxing spa. Day 5: any repeat treatments or last-minute appointments."}},
           {"@type":"Question","name":"Should I book Seoul beauty appointments in advance?","acceptedAnswer":{"@type":"Answer","text":"Yes — especially for hair salons and skin clinics in Gangnam, which book out 3–7 days ahead on weekends. Head spas and nail salons are generally more walk-in friendly. Book via WhatsApp through Seoul Beauty Trip for guaranteed English-language service."}},
           {"@type":"Question","name":"What is the best area to base yourself for a Seoul beauty trip?","acceptedAnswer":{"@type":"Answer","text":"Myeongdong is best for first-timers: central, tourist-friendly, and packed with walk-in beauty options. Gangnam is best for premium clinics and top-tier hair salons. Hongdae is ideal for budget-conscious travelers who want quality without the Gangnam price tag."}}
         ]
@@ -7171,15 +7153,15 @@ app.get('/guide/seoul-beauty-trip-itinerary', (c) => {
 
   <div class="tip-box">
     <div class="tip-label">💡 Pro Tip</div>
-    <p>Book your skin clinic and hair salon appointments <strong>before you fly</strong> — especially if you're travelling on a weekend. Head spas and nail studios are easier to book on arrival, but clinics and hair salons in Gangnam fill up fast.</p>
+    <p>Book your skin clinic and hair salon appointments <strong>before you fly</strong> — especially if you're travelling on a weekend. Head spas are easier to book on arrival, but clinics and hair salons in Gangnam fill up fast.</p>
   </div>
 
-  <h2>Day 1 — Arrival &amp; First Impressions: Head Spa + Nail Art</h2>
+  <h2>Day 1 — Arrival &amp; First Impressions: Head Spa &amp; Relaxation</h2>
   <p>Start your Seoul beauty journey gently. After a long-haul flight, your scalp and skin need recovery before any intensive treatments. A Korean head spa is the perfect Day 1 activity: deeply relaxing, zero side effects, and an immediate mood-lifter after jet lag.</p>
   <h3>Morning: Korean Head Spa (90 min)</h3>
   <p><strong>Best area: Myeongdong or Hongdae.</strong> Both are walk-in friendly and staffed by English-capable therapists. Expect scalp analysis, multi-step deep cleanse, pressure-point massage, and a treatment mask. Cost: ₩40,000–₩70,000. Tip: avoid washing your hair for 24 hours after to let the treatment fully absorb.</p>
-  <h3>Afternoon: Korean Nail Art (90–120 min)</h3>
-  <p><strong>Best area: Gangnam, Hongdae, or Sinchon.</strong> Korean nail art is a world-class experience even at entry-level salons. Gel nail art starts from ₩35,000; elaborate 3D designs from ₩60,000. Bring reference photos from Instagram or Pinterest — nail artists appreciate clear visual direction.</p>
+  <h3>Afternoon: Skincare Consultation</h3>
+  <p><strong>Best area: Myeongdong or Gangnam.</strong> Visit a premium skincare store for a personalized consultation and stock up on K-beauty essentials. Pick up toner pads, sunscreen, and ampoules at Olive Young or brand flagship stores.</p>
   <h3>Evening: K-Beauty Product Shopping</h3>
   <p>Myeongdong's main street is lined with Olive Young, Innisfree, Laneige, and independent skincare brands. Stock up on essentials (toner pads, sunscreen, ampoules) before your skin clinic appointment tomorrow — you may get specific product recommendations from the dermatologist.</p>
 
@@ -7377,10 +7359,6 @@ app.get('/guide/k-beauty-treatment-guide', (c) => {
   <p>Combines hairstrokes at the front and powder fill toward the tail for maximum definition and naturalness. <strong>Cost: ₩180,000–₩320,000.</strong></p>
   <p><a href="/best/tattoo/gangnam" style="color:#ff4d8d">→ Browse eyebrow tattoo studios</a></p>
 
-  <h2>💅 Korean Nail Art</h2>
-  <p>Korean nail art combines precision technique with intricate design — from minimalist line art to elaborate 3D nail extensions. Services are priced per treatment type, not per nail. <strong>Basic gel: ₩25,000–₩40,000. Gel art design: ₩40,000–₩80,000. 3D or hand-painted art: ₩60,000–₩120,000.</strong></p>
-  <p><a href="/best/nail/hongdae" style="color:#ff4d8d">→ Browse nail salons</a></p>
-
   <div class="cta-block">
     <h3><i class="fab fa-whatsapp"></i> Book Any Treatment via WhatsApp</h3>
     <p>Not sure which treatment is right for you? Our team will help you choose and book — free, in English, for any salon on Seoul Beauty Trip.</p>
@@ -7403,8 +7381,8 @@ app.get('/guide/seoul-beauty-faq', (c) => {
 
   const faqs = [
     { q: 'Do I need to speak Korean to book beauty services in Seoul?', a: 'No. All salons on Seoul Beauty Trip support English booking via WhatsApp. Our team handles Korean communication with the salon, and most listed salons have English-capable staff on site.' },
-    { q: 'How do I pay for beauty services in Seoul?', a: 'Most salons accept cash (Korean won) and Korean credit/debit cards. International Visa/Mastercard are accepted at most Gangnam clinics and larger salons. Smaller salons (nail studios, head spas in Hongdae) often prefer cash. Always confirm payment methods when booking.' },
-    { q: 'Are Korean beauty prices really cheaper than at home?', a: 'Yes — significantly. Laser treatments, skin booster injections, hair perms, and eyebrow tattooing all cost 40–60% less than equivalent services in the US, UK, Australia, or most of Western Europe. Head spa and nail art are also cheaper despite being higher quality.' },
+    { q: 'How do I pay for beauty services in Seoul?', a: 'Most salons accept cash (Korean won) and Korean credit/debit cards. International Visa/Mastercard are accepted at most Gangnam clinics and larger salons. Smaller salons (head spas in Hongdae) often prefer cash. Always confirm payment methods when booking.' },
+    { q: 'Are Korean beauty prices really cheaper than at home?', a: 'Yes — significantly. Laser treatments, skin booster injections, hair perms, and eyebrow tattooing all cost 40–60% less than equivalent services in the US, UK, Australia, or most of Western Europe. Head spa is also cheaper despite being higher quality.' },
     { q: 'Is it safe to get laser treatment as a tourist?', a: 'Yes, with the right clinic. Korean dermatology clinics use the same FDA-approved equipment as Western clinics, and board-certified dermatologists perform or supervise all laser treatments. Choose clinics verified for English support and foreigner experience, like those listed on Seoul Beauty Trip.' },
     { q: 'Can foreigners with darker skin tones get laser treatments in Seoul?', a: 'Yes — but it\'s essential to choose a clinic experienced with darker skin types (Fitzpatrick IV–VI). Poorly-calibrated lasers can cause post-inflammatory hyperpigmentation on darker skin. Clinics in Itaewon and Gangnam with international clientele are typically the safest choice.' },
     { q: 'What is a Korean head spa and is it different from a regular hair treatment?', a: 'Very different. A Korean head spa is a multi-step scalp treatment lasting 60–90 minutes, including digital scalp analysis, deep cleansing, serum treatment, pressure-point massage, and a hair mask. It\'s performed by trained scalp specialists, not regular hairdressers, and targets scalp health rather than hair appearance.' },
@@ -7412,8 +7390,7 @@ app.get('/guide/seoul-beauty-faq', (c) => {
     { q: 'Can I get a Korean perm if my hair is bleached?', a: 'It depends on the degree of damage. Lightly bleached or highlighted hair may be eligible with a conditioning treatment. Heavily bleached or chemically damaged hair typically requires a recovery period (4–8 weeks of protein treatment) before a perm is safe. Always disclose your hair history during consultation.' },
     { q: 'How long does a Korean hair colour service take?', a: 'A single-process colour (all-over tint) takes 2–3 hours. Balayage or highlights take 3–5 hours. Bleach and tone or dramatic colour changes can take 4–6+ hours. Book a full half-day if you\'re planning colour — never rush a Korean colour service.' },
     { q: 'What is the difference between microblading and a powder brow?', a: 'Microblading uses a manual blade to create hair-stroke marks that mimic individual brow hairs — most natural-looking. Powder brow uses a machine to create a soft, filled-in powder finish — more defined, longer-lasting (18–24 months vs 12–18 months for microblading). Combo brow combines both techniques.' },
-    { q: 'Is nail art in Seoul expensive?', a: 'No — Korean nail art offers exceptional quality at competitive prices. Basic gel manicure: ₩25,000–₩40,000. Gel nail art design: ₩40,000–₩80,000. Elaborate 3D designs or hand-painted art: ₩60,000–₩120,000. Significantly cheaper than equivalent quality in the US or Europe.' },
-    { q: 'What is a skin booster injection?', a: 'A skin booster is a micro-injection of hyaluronic acid, PDRN (salmon DNA), or vitamin complex delivered into the dermis. It plumps, hydrates, and illuminates the skin from within — giving the "glass skin" effect that Korean celebrities are famous for. Popular brands: Restylane Skinbooster, Juvederm Volite, Rejuran. Costs ₩100,000–₩250,000 at Gangnam clinics.' },
+        { q: 'What is a skin booster injection?', a: 'A skin booster is a micro-injection of hyaluronic acid, PDRN (salmon DNA), or vitamin complex delivered into the dermis. It plumps, hydrates, and illuminates the skin from within — giving the "glass skin" effect that Korean celebrities are famous for. Popular brands: Restylane Skinbooster, Juvederm Volite, Rejuran. Costs ₩100,000–₩250,000 at Gangnam clinics.' },
     { q: 'How long do the results of Korean beauty treatments last?', a: 'Head spa: benefits last 1–2 weeks (scalp health) with recommended follow-up every 2–4 weeks. Laser toning: glow lasts 2–4 weeks. Skin booster injection: 4–6 weeks of hydration effect. Korean perm: 4–8 months. Eyebrow tattoo: 12–24 months.' },
     { q: 'Are there any treatments I should avoid right before flying home?', a: 'Yes: (1) Eyebrow tattooing — requires 7–10 days of careful aftercare, avoid on your last day if flying next morning. (2) Any treatment with 24–48 hours of sun avoidance (laser toning, chemical peel) — avoid if you have outdoor activities planned. (3) Korean straight perm — avoid washing hair for 48 hours.' },
     { q: 'What areas of Seoul are best for beauty treatments?', a: 'Gangnam: best for premium clinics, top-tier hair salons, and serious medical aesthetic treatments. Myeongdong: best for convenient walk-in options, tourist-friendly clinics. Hongdae: best for budget-friendly options with youthful, English-casual atmosphere. Itaewon: best for foreigners needing maximum English support and diverse skin type experience.' },
@@ -7707,9 +7684,9 @@ app.get('/', async (c) => {
     }))
 
     // ── SSR: 카탈로그 패널 HTML 서버에서 렌더링 (Google 크롤러가 읽을 수 있도록)
-    const catColorsSSR: Record<string,string> = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',nail:'#34d399',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa',tattoo:'#e879f9'}
-    const catFaIconsSSR: Record<string,string> = {skincare:'fa-leaf',makeup:'fa-magic',hair:'fa-cut',headspa:'fa-spa',nail:'fa-hand-sparkles',clinic:'fa-briefcase-medical',spa:'fa-hot-tub',tattoo:'fa-pen-nib'}
-    const catLabelsSSR: Record<string,string> = {skincare:'Skincare',makeup:'Makeup',hair:'Hair',headspa:'Head Spa',nail:'Nail',clinic:'Clinic',spa:'Spa',tattoo:'Brow Tattoo'}
+    const catColorsSSR: Record<string,string> = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa',tattoo:'#e879f9'}
+    const catFaIconsSSR: Record<string,string> = {skincare:'fa-leaf',makeup:'fa-magic',hair:'fa-cut',headspa:'fa-spa',clinic:'fa-briefcase-medical',spa:'fa-hot-tub',tattoo:'fa-pen-nib'}
+    const catLabelsSSR: Record<string,string> = {skincare:'Skincare',makeup:'Makeup',hair:'Hair',headspa:'Head Spa',clinic:'Clinic',spa:'Spa',tattoo:'Brow Tattoo'}
 
     const ssrShopCards = initShops.map((s: any) => {
       const col  = catColorsSSR[s.category] || '#aaa'
@@ -7729,7 +7706,7 @@ app.get('/', async (c) => {
 
     const ssrCatCounts: Record<string,number> = {}
     initShops.forEach((s: any) => { ssrCatCounts[s.category] = (ssrCatCounts[s.category]||0)+1 })
-    const ssrFilterBtns = ['all','clinic','headspa','skincare','hair','nail','makeup','spa','tattoo'].map(cat => {
+    const ssrFilterBtns = ['all','clinic','headspa','skincare','hair','makeup','spa','tattoo'].map(cat => {
       const cnt = cat === 'all' ? initShops.length : (ssrCatCounts[cat]||0)
       if(cnt === 0) return ''
       const lbl = cat === 'all' ? 'All' : catLabelsSSR[cat] || cat
@@ -8204,7 +8181,7 @@ const MAIN_HTML = `<!DOCTYPE html>
       "url":"https://seoulbeautytrip.com/",
       "name":"Seoul Beauty Trip",
       "alternateName":"Seoul Beauty Trip — K-Beauty Booking for Foreigners",
-      "description":"Discover and book the best Korean beauty salons in Seoul. Skincare, hair, nail, derma clinics — foreigner-friendly with English WhatsApp booking.",
+      "description":"Discover and book the best Korean beauty salons in Seoul. Skincare, hair, head spa, derma clinics — foreigner-friendly with English WhatsApp booking.",
       "inLanguage":"en",
       "potentialAction":[
         {
@@ -8275,7 +8252,7 @@ const MAIN_HTML = `<!DOCTYPE html>
         {
           "@type":"Question",
           "name":"What types of Korean beauty services can I book in Seoul?",
-          "acceptedAnswer":{"@type":"Answer","text":"Seoul Beauty Trip covers the full spectrum of K-beauty: skincare facials, dermatology clinics (laser, skin booster, Shurink lifting), Korean hair salons (perms, color, cuts), nail art studios, head spa (18-step scalp treatments), eyebrow tattoo/microblading, and makeup studios. All services available in Gangnam, Hongdae, Myeongdong, Itaewon, and Apgujeong."}
+          "acceptedAnswer":{"@type":"Answer","text":"Seoul Beauty Trip covers the full spectrum of K-beauty: skincare facials, dermatology clinics (laser, skin booster, Shurink lifting), Korean hair salons (perms, color, cuts), head spa (18-step scalp treatments), eyebrow tattoo/microblading, and makeup studios. All services available in Gangnam, Hongdae, Myeongdong, Itaewon, and Apgujeong."}
         },
         {
           "@type":"Question",
@@ -8285,7 +8262,7 @@ const MAIN_HTML = `<!DOCTYPE html>
         {
           "@type":"Question",
           "name":"Which area of Seoul is best for K-beauty?",
-          "acceptedAnswer":{"@type":"Answer","text":"Gangnam (including Cheongdam and Apgujeong) is Seoul's luxury beauty district, ideal for premium derma clinics and high-end hair salons. Hongdae is the trendiest area for creative nail art and indie beauty studios. Myeongdong is the most tourist-accessible, with makeup stores and skincare experiences. Itaewon has the most multilingual staff for all beauty types."}
+          "acceptedAnswer":{"@type":"Answer","text":"Gangnam (including Cheongdam and Apgujeong) is Seoul's luxury beauty district, ideal for premium derma clinics and high-end hair salons. Hongdae is the trendiest area for creative beauty studios and indie salons. Myeongdong is the most tourist-accessible, with makeup stores and skincare experiences. Itaewon has the most multilingual staff for all beauty types."}
         }
       ]
     }
@@ -8855,8 +8832,8 @@ __INLINE_DATA_PLACEHOLDER__
 <script>
 var vids = [], isMuted = true, liked = {}, platform = {}, allShopsData = [];
 var shopCache = {}; // 모달 캐시: shopId → shop 객체
-var catIcons = {skincare:'&#127807;',makeup:'&#128139;',hair:'&#128135;',headspa:'&#129496;',nail:'&#128133;',clinic:'&#127973;',spa:'&#129510;',tattoo:'&#9998;'};
-var catFaIcons = {skincare:'fa-leaf',makeup:'fa-magic',hair:'fa-cut',headspa:'fa-spa',nail:'fa-hand-sparkles',clinic:'fa-briefcase-medical',spa:'fa-hot-tub',tattoo:'fa-pen-nib'};
+var catIcons = {skincare:'&#127807;',makeup:'&#128139;',hair:'&#128135;',headspa:'&#129496;',clinic:'&#127973;',spa:'&#129510;',tattoo:'&#9998;'};
+var catFaIcons = {skincare:'fa-leaf',makeup:'fa-magic',hair:'fa-cut',headspa:'fa-spa',clinic:'fa-briefcase-medical',spa:'fa-hot-tub',tattoo:'fa-pen-nib'};
 
 if(window.__INIT_PLATFORM__) { platform = window.__INIT_PLATFORM__; }
 else { fetch('/api/platform').then(function(r){return r.json();}).then(function(d){ platform = d; }); }
@@ -10653,8 +10630,8 @@ function _renderSearchResults(q, filter){
   var header = document.getElementById('so-header');
   if(!grid) return;
   var kw = (q||'').toLowerCase().trim();
-  var catColors = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',nail:'#34d399',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa',tattoo:'#e879f9'};
-  var CAT_LIST = ['clinic','headspa','skincare','hair','nail','makeup','spa','tattoo'];
+  var catColors = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa',tattoo:'#e879f9'};
+  var CAT_LIST = ['clinic','headspa','skincare','hair','makeup','spa','tattoo'];
   var AREA_LIST = ['gangnam','hongdae','myeongdong','sinsa','itaewon','insadong','jongno','mapo','yongsan','apgujeong','cheongdam','bukchon'];
 
   var results = allShopsData.filter(function(s){
@@ -10985,7 +10962,7 @@ function renderShopPanel(cat) {
   var grid = document.getElementById('sp-grid');
   var countEl = document.getElementById('sp-count');
   if(!grid) return;
-  var catColors = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',nail:'#34d399',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa',tattoo:'#e879f9'};
+  var catColors = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa',tattoo:'#e879f9'};
   var filtered = cat === 'all' ? allShopsData : allShopsData.filter(function(s){ return s.category === cat; });
   if(countEl) countEl.textContent = filtered.length + ' shops';
   if(!filtered.length){
@@ -11113,12 +11090,6 @@ function renderShopPanel(cat) {
         <div style="font-size:.81rem;color:#555;line-height:1.6">K-pop cuts, balayage, Korean perms & color treatments. Stylists experienced with all hair textures. English menu available.</div>
         <div style="font-size:.78rem;color:#2563eb;margin-top:6px;font-weight:600">View Hair Salons →</div>
       </a>
-      <a href="/best/nail/seoul" style="background:#fdf4ff;border-radius:16px;padding:18px;text-decoration:none;display:block" title="Best Korean Nail Art Studios Seoul">
-        <div style="font-size:1.4rem;margin-bottom:5px">💅</div>
-        <div style="font-weight:700;color:#1a1a2e;font-size:.93rem;margin-bottom:5px">Nail Art</div>
-        <div style="font-size:.81rem;color:#555;line-height:1.6">Intricate K-beauty nail designs, gel art & 3D nail creations. World-class nail artistry in Hongdae, Gangnam & Itaewon.</div>
-        <div style="font-size:.78rem;color:#a21caf;margin-top:6px;font-weight:600">View Nail Studios →</div>
-      </a>
       <a href="/best/tattoo/seoul" style="background:#f7f7f7;border-radius:16px;padding:18px;text-decoration:none;display:block" title="Best Eyebrow Tattoo Microblading Seoul Foreigners">
         <div style="font-size:1.4rem;margin-bottom:5px">✒️</div>
         <div style="font-weight:700;color:#1a1a2e;font-size:.93rem;margin-bottom:5px">Eyebrow Tattoo</div>
@@ -11182,8 +11153,8 @@ function renderShopPanel(cat) {
         <div style="font-size:.82rem;color:#555;line-height:1.7">Home to Seoul's top-tier dermatology clinics, luxury skincare studios, and high-end hair salons. Known globally for medical beauty tourism — Shurink HIFU, PRP, laser skin resurfacing, and skin booster treatments are all available at 40–60% less than Western prices. Recommended for first-time K-beauty tourists who want results-driven treatments.</div>
       </div>
       <div style="padding:12px 14px;background:#f9fafb;border-radius:12px;border-left:3px solid #9c27b0">
-        <div style="font-size:.88rem;font-weight:700;color:#1a1a2e;margin-bottom:4px">🎨 <a href="/best/nail/hongdae" style="color:#1a1a2e;text-decoration:none">Hongdae</a> — Creative &amp; Trendy</div>
-        <div style="font-size:.82rem;color:#555;line-height:1.7">Seoul's most artistic beauty district — indie nail studios with 3D art, head spas with scalp detox rituals, and K-pop inspired hair salons. Popular with younger travelers and creative types who want unique, Instagrammable beauty experiences at accessible prices.</div>
+        <div style="font-size:.88rem;font-weight:700;color:#1a1a2e;margin-bottom:4px">🎨 <a href="/best/hair/hongdae" style="color:#1a1a2e;text-decoration:none">Hongdae</a> — Creative &amp; Trendy</div>
+        <div style="font-size:.82rem;color:#555;line-height:1.7">Seoul's most artistic beauty district — head spas with scalp detox rituals, K-pop inspired hair salons, and unique skincare studios. Popular with younger travelers and creative types who want unique, Instagrammable beauty experiences at accessible prices.</div>
       </div>
       <div style="padding:12px 14px;background:#f9fafb;border-radius:12px;border-left:3px solid #2196f3">
         <div style="font-size:.88rem;font-weight:700;color:#1a1a2e;margin-bottom:4px">🌍 Itaewon &amp; Myeongdong — Most Foreigner-Friendly</div>
@@ -11522,7 +11493,6 @@ textarea{height:80px;resize:none}
         <a href="/best/headspa/hongdae" target="_blank" class="btn-sm btn-blue" style="font-size:10px">🧖 Head Spa Hongdae</a>
         <a href="/best/skincare/gangnam" target="_blank" class="btn-sm btn-blue" style="font-size:10px">🌿 Skincare Gangnam</a>
         <a href="/best/hair/gangnam" target="_blank" class="btn-sm btn-blue" style="font-size:10px">💇 Hair Gangnam</a>
-        <a href="/best/nail/hongdae" target="_blank" class="btn-sm btn-blue" style="font-size:10px">💅 Nail Hongdae</a>
         <a href="/best/clinic/gangnam" target="_blank" class="btn-sm btn-blue" style="font-size:10px">🏥 Clinic Gangnam</a>
         <a href="/best/spa/itaewon" target="_blank" class="btn-sm btn-blue" style="font-size:10px">🛁 Spa Itaewon</a>
         <a href="/best/makeup/myeongdong" target="_blank" class="btn-sm btn-blue" style="font-size:10px">💋 Makeup Myeongdong</a>
@@ -11888,7 +11858,6 @@ textarea{height:80px;resize:none}
           <option value="makeup">메이크업</option>
           <option value="hair">헤어</option>
           <option value="headspa">헤드스파</option>
-          <option value="nail">네일</option>
           <option value="tattoo">눈썹 타투·반영구</option>
           <option value="spa">스파·마사지</option>
         </select>
@@ -11993,7 +11962,6 @@ textarea{height:80px;resize:none}
         <option value="skincare">✨ 스킨케어</option>
         <option value="headspa">🧖 헤드스파</option>
         <option value="hair">💇 헤어</option>
-        <option value="nail">💅 네일</option>
         <option value="makeup">💄 메이크업</option>
         <option value="tattoo">✒️ 타투</option>
         <option value="spa">🛁 스파</option>
@@ -12034,7 +12002,6 @@ textarea{height:80px;resize:none}
           <option value="makeup">메이크업</option>
           <option value="hair">헤어</option>
           <option value="headspa">헤드스파</option>
-          <option value="nail">네일</option>
           <option value="tattoo">눈썹 타투·반영구</option>
           <option value="spa">스파·마사지</option>
         </select>
@@ -12195,7 +12162,6 @@ textarea{height:80px;resize:none}
         <button class="quick-topic-btn" data-title="Best Head Spa in Gangnam Seoul 2026" data-cat="headspa" data-area="Gangnam" data-kw="head spa gangnam,korean head spa,scalp treatment seoul">Head Spa Gangnam</button>
         <button class="quick-topic-btn" data-title="Best Korean Hair Salon in Hongdae for Foreigners 2026" data-cat="hair" data-area="Hongdae" data-kw="hair salon hongdae,korean hair,foreigner friendly">Hair Hongdae</button>
         <button class="quick-topic-btn" data-title="Top Skincare Clinics in Gangnam Seoul: A Foreigner's Guide" data-cat="skincare" data-area="Gangnam" data-kw="skincare gangnam,korean skincare,skin clinic seoul">Skincare Gangnam</button>
-        <button class="quick-topic-btn" data-title="Korean Nail Art in Myeongdong: Best Salons for Tourists" data-cat="nail" data-area="Myeongdong" data-kw="nail art myeongdong,korean nail,nail salon seoul">Nail Myeongdong</button>
         <button class="quick-topic-btn" data-title="How to Book a Korean Beauty Salon as a Foreigner in Seoul" data-cat="headspa" data-area="Seoul" data-kw="book korean beauty,foreigner seoul beauty,english booking korea">Booking Guide</button>
         <button class="quick-topic-btn" data-title="Best Head Spa in Hongdae Seoul for English Speakers 2026" data-cat="headspa" data-area="Hongdae" data-kw="head spa hongdae,english head spa seoul">Head Spa Hongdae</button>
         <button class="quick-topic-btn" data-title="K-Beauty Treatments Worth Trying in Seoul: Complete Guide 2026" data-cat="skincare" data-area="Seoul" data-kw="kbeauty treatments,korean beauty seoul,what to try korea">K-Beauty Guide</button>
@@ -12214,7 +12180,6 @@ textarea{height:80px;resize:none}
           <option value="headspa">Head Spa</option>
           <option value="hair">Hair Salon</option>
           <option value="skincare">Skincare</option>
-          <option value="nail">Nail Art</option>
           <option value="clinic">Skin Clinic</option>
           <option value="makeup">Makeup</option>
           <option value="spa">Spa</option>
@@ -14614,7 +14579,7 @@ function loadAll(){
     var svEl = document.getElementById('shopViewStats');
     var svData = d.shopViewStats||[];
     var maxV = svData.length ? svData[0].views : 1;
-    var barColors = {skincare:'#f472b6',makeup:'#c084fc',hair:'#60a5fa',headspa:'#67e8f9',nail:'#34d399',clinic:'#fb923c',spa:'#a78bfa'};
+    var barColors = {skincare:'#f472b6',makeup:'#c084fc',hair:'#60a5fa',headspa:'#67e8f9',clinic:'#fb923c',spa:'#a78bfa'};
     svEl.innerHTML = svData.length ? svData.map(function(s,i){
       var pct = maxV>0 ? Math.round(s.views/maxV*100) : 0;
       var col = barColors[s.category]||'#aaa';
@@ -14701,8 +14666,8 @@ function renderShops(){
     if(countEl) countEl.textContent = '';
     return;
   }
-  var catColors = {skincare:'#f472b6',makeup:'#c084fc',hair:'#60a5fa',headspa:'#67e8f9',nail:'#34d399',clinic:'#fb923c',spa:'#a78bfa'};
-  var catLabels  = {skincare:'스킨케어',makeup:'메이크업',hair:'헤어',headspa:'헤드스파',nail:'네일',clinic:'클리닉',spa:'스파'};
+  var catColors = {skincare:'#f472b6',makeup:'#c084fc',hair:'#60a5fa',headspa:'#67e8f9',clinic:'#fb923c',spa:'#a78bfa'};
+  var catLabels  = {skincare:'스킨케어',makeup:'메이크업',hair:'헤어',headspa:'헤드스파',clinic:'클리닉',spa:'스파'};
 
   // 빈 레코드 필터링 + 업체명 알파벳 오름차순 정렬
   var baseList = (_shopListFiltered !== null ? _shopListFiltered : shops)
