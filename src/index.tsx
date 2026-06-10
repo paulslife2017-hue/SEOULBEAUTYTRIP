@@ -6846,10 +6846,12 @@ app.get('/blog/:slug', async (c) => {
           ? rawPhotos
           : (typeof rawPhotos === 'string' ? JSON.parse(rawPhotos || '[]') : [])
         const thumb = shopRow[0].thumbnail || ''
-        // photos[0]은 thumbnail과 동일한 경우가 많으므로 index 1부터 사용
-        // thumbnail을 맨 앞에 두고, photos[1..] 추가 (중복 없이)
-        const restPhotos = photoArr.slice(1).filter((u: string) => u && u.startsWith('http'))
-        shopPhotoUrls = (thumb ? [thumb, ...restPhotos] : restPhotos).slice(0, 6)
+        // URL 앞 120자로 비교 (photo name 전체 포함 보장)
+        const thumbPrefix = thumb.slice(0, 120)
+        const filtered = photoArr.filter((u: string) =>
+          u && u.startsWith('http') && u.slice(0, 120) !== thumbPrefix
+        )
+        shopPhotoUrls = (thumb ? [thumb, ...filtered] : filtered).slice(0, 6)
       }
     } catch { /* 사진 없으면 갤러리 생략 */ }
   }

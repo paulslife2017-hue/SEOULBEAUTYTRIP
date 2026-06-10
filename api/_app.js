@@ -8146,8 +8146,11 @@ app.get("/blog/:slug", async (c) => {
         const rawPhotos = shopRow[0].photos;
         const photoArr = Array.isArray(rawPhotos) ? rawPhotos : typeof rawPhotos === "string" ? JSON.parse(rawPhotos || "[]") : [];
         const thumb = shopRow[0].thumbnail || "";
-        const restPhotos = photoArr.slice(1).filter((u) => u && u.startsWith("http"));
-        shopPhotoUrls = (thumb ? [thumb, ...restPhotos] : restPhotos).slice(0, 6);
+        const thumbPrefix = thumb.slice(0, 120);
+        const filtered = photoArr.filter(
+          (u) => u && u.startsWith("http") && u.slice(0, 120) !== thumbPrefix
+        );
+        shopPhotoUrls = (thumb ? [thumb, ...filtered] : filtered).slice(0, 6);
       }
     } catch {
     }
