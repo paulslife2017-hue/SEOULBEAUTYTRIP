@@ -3450,6 +3450,77 @@ app.post('/api/admin/sync-reviews', async (c) => {
   })
 })
 
+// PATCH /api/admin/patch-shop — 특정 업체 필드 직접 수정 (name, slug 등)
+// body: { id: string, name?: string, slug?: string, address?: string }
+app.patch('/api/admin/patch-shop', async (c) => {
+  await ensureDb(c.env)
+  const sql = getDb(c.env)
+  const body: any = await c.req.json().catch(() => ({}))
+  const { id, name, slug, address } = body
+  if (!id) return c.json({ error: 'id required' }, 400)
+  if (!name && !slug && !address) return c.json({ error: 'nothing to update' }, 400)
+
+  // 업데이트할 필드 구성
+  let newSlug = slug
+  if (name && !slug) {
+    // name 바뀌면 slug도 자동 생성
+    newSlug = name.toLowerCase()
+      .replace(/[^a-z0-9가-힣\s-]/g, '')
+      .trim()
+      .replace(/[\s]+/g, '-')
+      .replace(/-+/g, '-')
+      .slice(0, 80)
+  }
+
+  if (name && newSlug && address) {
+    await sql`UPDATE shops SET name=${name}, slug=${newSlug}, address=${address} WHERE id=${id}`
+  } else if (name && newSlug) {
+    await sql`UPDATE shops SET name=${name}, slug=${newSlug} WHERE id=${id}`
+  } else if (name) {
+    await sql`UPDATE shops SET name=${name} WHERE id=${id}`
+  } else if (slug) {
+    await sql`UPDATE shops SET slug=${slug} WHERE id=${id}`
+  } else if (address) {
+    await sql`UPDATE shops SET address=${address} WHERE id=${id}`
+  }
+
+  const updated = await sql`SELECT id, name, slug, address FROM shops WHERE id=${id}`
+  return c.json({ ok: true, shop: updated[0] || null })
+})
+
+// POST /api/admin/fill-summaries
+// DB에 이미 있는 리뷰로 AI 요약만 생성 (구글 API 호출 없음 → 크레딧 최소)
+// body: { ids?: string[] }  ← 생략 시 review_summary 없는 업체 전체
+app.post('/api/admin/fill-summaries', async (c) => {
+  await ensureDb(c.env)
+  const sql = getDb(c.env)
+  const gskKey = c.env?.GSK_TOKEN || c.env?.gsk_token || ''
+  if (!gskKey) return c.json({ error: 'GSK_TOKEN not configured' }, 500)
+
+  const body: any = await c.req.json().catch(() => ({}))
+  const targetIds: string[] = Array.isArray(body.ids) ? body.ids : []
+
+  // 대상: review_summary 없고 reviews 있는 업체 (또는 지정 ids)
+  const rows = targetIds.length > 0
+    ? await sql`SELECT id, name, reviews FROM shops WHERE id = ANY(${targetIds}::text[]) AND reviews IS NOT NULL AND reviews::text != '[]'`
+    : await sql`SELECT id, name, reviews FROM shops WHERE review_summary IS NULL AND reviews IS NOT NULL AND reviews::text != '[]' AND active = true`
+
+  const results: { id: string; name: string; status: string }[] = []
+  for (const row of rows) {
+    try {
+      const reviews = Array.isArray(row.reviews) ? row.reviews : JSON.parse(row.reviews || '[]')
+      if (!reviews.length) { results.push({ id: row.id, name: row.name, status: 'skipped: no reviews' }); continue }
+      const summary = await genReviewSummary(row.name, reviews, gskKey)
+      if (!summary) { results.push({ id: row.id, name: row.name, status: 'skipped: summary failed' }); continue }
+      await sql`UPDATE shops SET review_summary = ${JSON.stringify(summary)}::jsonb WHERE id = ${row.id}`
+      results.push({ id: row.id, name: row.name, status: 'ok' })
+    } catch(e: any) {
+      results.push({ id: row.id, name: row.name, status: `error: ${e.message}` })
+    }
+  }
+  return c.json({ total: rows.length, ok: results.filter(r => r.status === 'ok').length, results })
+})
+
 // POST /api/admin/generate-blog — AI 블로그 일괄 생성
 app.post('/api/admin/generate-blog', async (c) => {
   await ensureDb(c.env)
@@ -11466,18 +11537,18 @@ textarea{height:80px;resize:none}
     </div>
   </div>
 
-  <!-- 구글 리뷰 & AI 요약 동기화 카드 -->
+  <!-- AI 리뷰 요약 생성 카드 -->
   <div class="card" style="border:1px solid rgba(52,211,153,.3);margin-bottom:16px">
     <div class="card-header">
-      <div class="card-title"><i class="fas fa-star" style="color:#34d399"></i> 구글 리뷰 & AI 요약 동기화</div>
+      <div class="card-title"><i class="fas fa-star" style="color:#34d399"></i> AI 리뷰 요약 생성</div>
     </div>
-    <p style="font-size:12px;color:rgba(255,255,255,.45);margin-bottom:14px">google_place_id가 있는 업체의 구글 리뷰를 가져오고 AI 요약을 생성합니다.</p>
+    <p style="font-size:12px;color:rgba(255,255,255,.45);margin-bottom:14px">DB에 저장된 리뷰로 AI 요약만 생성합니다. <b style="color:#34d399">구글 API 미호출 → 크레딧 최소</b></p>
     <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px">
-      <button onclick="syncReviews(false)" id="sync-reviews-btn" class="btn-sm btn-green" style="font-size:12px;padding:8px 16px">
-        <i class="fas fa-star"></i> 리뷰 없는 업체만 동기화
+      <button onclick="fillSummaries()" id="fill-summaries-btn" class="btn-sm btn-green" style="font-size:12px;padding:8px 16px">
+        <i class="fas fa-magic"></i> 요약 없는 업체만 생성
       </button>
-      <button onclick="syncReviews(true)" id="sync-reviews-force-btn" class="btn-sm" style="font-size:12px;padding:8px 16px;background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.3);color:#6ee7b7">
-        <i class="fas fa-sync"></i> 전체 업체 강제 재동기화
+      <button onclick="syncReviews(true)" id="sync-reviews-force-btn" class="btn-sm" style="font-size:12px;padding:8px 16px;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);color:#fbbf24">
+        <i class="fas fa-cloud-download-alt"></i> 구글에서 리뷰 새로 가져오기
       </button>
     </div>
     <div id="sync-reviews-status" style="font-size:12px;color:rgba(255,255,255,.5)"></div>
@@ -16466,7 +16537,39 @@ window.fixAllSlugs = async function fixAllSlugs() {
   }
 }
 
-/* ── 구글 리뷰 & AI 요약 동기화 ── */
+/* ── DB 리뷰로 AI 요약만 생성 (구글 API 호출 없음 → 크레딧 최소) ── */
+window.fillSummaries = async function fillSummaries(ids) {
+  var btn = document.getElementById('fill-summaries-btn');
+  var statusEl = document.getElementById('sync-reviews-status');
+  var resultsEl = document.getElementById('sync-reviews-results');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 생성 중...'; }
+  if (statusEl) statusEl.textContent = '⏳ DB 리뷰로 AI 요약 생성 중...';
+  if (resultsEl) resultsEl.innerHTML = '';
+  try {
+    var body = ids && ids.length ? { ids: ids } : {};
+    var res = await fetch('/api/admin/fill-summaries', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _GSK_TOKEN },
+      body: JSON.stringify(body)
+    });
+    var data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'API 오류 ' + res.status);
+    if (statusEl) statusEl.innerHTML = '<span style="color:#34d399">✅ 완료! 총 ' + data.total + '개 중 ' + data.ok + '개 성공</span>';
+    if (resultsEl && data.results) {
+      resultsEl.innerHTML = data.results.map(function(r) {
+        var ok = r.status === 'ok';
+        return '<div style="font-size:11px;padding:2px 0;color:' + (ok ? '#34d399' : '#f87171') + '">'
+          + (ok ? '✅' : '⚠️') + ' ' + r.name + (ok ? '' : ' — ' + r.status) + '</div>';
+      }).join('');
+    }
+  } catch(e) {
+    if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ 오류: ' + e.message + '</span>';
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-magic"></i> 요약 없는 업체만 생성'; }
+  }
+};
+
+/* ── 구글에서 리뷰 새로 가져오기 (force=true 시 구글 API 호출) ── */
 window.syncReviews = async function syncReviews(force) {
   var btn = document.getElementById(force ? 'sync-reviews-force-btn' : 'sync-reviews-btn');
   var statusEl = document.getElementById('sync-reviews-status');

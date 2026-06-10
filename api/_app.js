@@ -4330,6 +4330,7 @@ app.post("/api/quick-register", async (c) => {
     const photos = sanitizePhotos(resolvedData.photos || []);
     const thumbnail = sanitizeThumb(resolvedData.thumbnail || "", photos);
     const reviews = resolvedData.reviews || [];
+    const _qrSummary = reviews.length > 0 && apiKey ? await genReviewSummary(engName, reviews, apiKey) : null;
     const shopId = "s" + Date.now();
     await sql`
       INSERT INTO shops (
@@ -4337,7 +4338,7 @@ app.post("/api/quick-register", async (c) => {
         rating, review_count, thumbnail, photos,
         google_place_id, google_map_url, lat, lng,
         description, why_choose, meta_description, seo_keywords, seo_text,
-        reviews, active, created_at
+        reviews, review_summary, active, created_at
       ) VALUES (
         ${shopId}, ${rawName}, ${slug}, ${cat},
         ${loc}, ${resolvedData.address || ""}, ${resolvedData.hours || ""},
@@ -4345,7 +4346,7 @@ app.post("/api/quick-register", async (c) => {
         ${thumbnail}, ${JSON.stringify(photos)},
         ${resolvedData.placeId || ""}, ${gmapUrl}, ${resolvedData.lat || ""}, ${resolvedData.lng || ""},
         ${description}, ${JSON.stringify(whyChoose)}, ${metaDescription}, ${seoKeywords}, ${seoTextVal},
-        ${JSON.stringify(reviews)}, true, NOW()
+        ${JSON.stringify(reviews)}, ${_qrSummary ? JSON.stringify(_qrSummary) : null}::jsonb, true, NOW()
       )
     `;
     let videoId = null;
@@ -5071,6 +5072,60 @@ app.post("/api/admin/sync-reviews", async (c) => {
     done: !hasMore,
     results
   });
+});
+app.patch("/api/admin/patch-shop", async (c) => {
+  await ensureDb(c.env);
+  const sql = getDb(c.env);
+  const body = await c.req.json().catch(() => ({}));
+  const { id, name, slug, address } = body;
+  if (!id) return c.json({ error: "id required" }, 400);
+  if (!name && !slug && !address) return c.json({ error: "nothing to update" }, 400);
+  let newSlug = slug;
+  if (name && !slug) {
+    newSlug = name.toLowerCase().replace(/[^a-z0-9가-힣\s-]/g, "").trim().replace(/[\s]+/g, "-").replace(/-+/g, "-").slice(0, 80);
+  }
+  if (name && newSlug && address) {
+    await sql`UPDATE shops SET name=${name}, slug=${newSlug}, address=${address} WHERE id=${id}`;
+  } else if (name && newSlug) {
+    await sql`UPDATE shops SET name=${name}, slug=${newSlug} WHERE id=${id}`;
+  } else if (name) {
+    await sql`UPDATE shops SET name=${name} WHERE id=${id}`;
+  } else if (slug) {
+    await sql`UPDATE shops SET slug=${slug} WHERE id=${id}`;
+  } else if (address) {
+    await sql`UPDATE shops SET address=${address} WHERE id=${id}`;
+  }
+  const updated = await sql`SELECT id, name, slug, address FROM shops WHERE id=${id}`;
+  return c.json({ ok: true, shop: updated[0] || null });
+});
+app.post("/api/admin/fill-summaries", async (c) => {
+  await ensureDb(c.env);
+  const sql = getDb(c.env);
+  const gskKey = c.env?.GSK_TOKEN || c.env?.gsk_token || "";
+  if (!gskKey) return c.json({ error: "GSK_TOKEN not configured" }, 500);
+  const body = await c.req.json().catch(() => ({}));
+  const targetIds = Array.isArray(body.ids) ? body.ids : [];
+  const rows = targetIds.length > 0 ? await sql`SELECT id, name, reviews FROM shops WHERE id = ANY(${targetIds}::text[]) AND reviews IS NOT NULL AND reviews::text != '[]'` : await sql`SELECT id, name, reviews FROM shops WHERE review_summary IS NULL AND reviews IS NOT NULL AND reviews::text != '[]' AND active = true`;
+  const results = [];
+  for (const row of rows) {
+    try {
+      const reviews = Array.isArray(row.reviews) ? row.reviews : JSON.parse(row.reviews || "[]");
+      if (!reviews.length) {
+        results.push({ id: row.id, name: row.name, status: "skipped: no reviews" });
+        continue;
+      }
+      const summary = await genReviewSummary(row.name, reviews, gskKey);
+      if (!summary) {
+        results.push({ id: row.id, name: row.name, status: "skipped: summary failed" });
+        continue;
+      }
+      await sql`UPDATE shops SET review_summary = ${JSON.stringify(summary)}::jsonb WHERE id = ${row.id}`;
+      results.push({ id: row.id, name: row.name, status: "ok" });
+    } catch (e) {
+      results.push({ id: row.id, name: row.name, status: `error: ${e.message}` });
+    }
+  }
+  return c.json({ total: rows.length, ok: results.filter((r) => r.status === "ok").length, results });
 });
 app.post("/api/admin/generate-blog", async (c) => {
   await ensureDb(c.env);
@@ -12699,6 +12754,24 @@ textarea{height:80px;resize:none}
     </div>
   </div>
 
+  <!-- AI \uB9AC\uBDF0 \uC694\uC57D \uC0DD\uC131 \uCE74\uB4DC -->
+  <div class="card" style="border:1px solid rgba(52,211,153,.3);margin-bottom:16px">
+    <div class="card-header">
+      <div class="card-title"><i class="fas fa-star" style="color:#34d399"></i> AI \uB9AC\uBDF0 \uC694\uC57D \uC0DD\uC131</div>
+    </div>
+    <p style="font-size:12px;color:rgba(255,255,255,.45);margin-bottom:14px">DB\uC5D0 \uC800\uC7A5\uB41C \uB9AC\uBDF0\uB85C AI \uC694\uC57D\uB9CC \uC0DD\uC131\uD569\uB2C8\uB2E4. <b style="color:#34d399">\uAD6C\uAE00 API \uBBF8\uD638\uCD9C \u2192 \uD06C\uB808\uB527 \uCD5C\uC18C</b></p>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+      <button onclick="fillSummaries()" id="fill-summaries-btn" class="btn-sm btn-green" style="font-size:12px;padding:8px 16px">
+        <i class="fas fa-magic"></i> \uC694\uC57D \uC5C6\uB294 \uC5C5\uCCB4\uB9CC \uC0DD\uC131
+      </button>
+      <button onclick="syncReviews(true)" id="sync-reviews-force-btn" class="btn-sm" style="font-size:12px;padding:8px 16px;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);color:#fbbf24">
+        <i class="fas fa-cloud-download-alt"></i> \uAD6C\uAE00\uC5D0\uC11C \uB9AC\uBDF0 \uC0C8\uB85C \uAC00\uC838\uC624\uAE30
+      </button>
+    </div>
+    <div id="sync-reviews-status" style="font-size:12px;color:rgba(255,255,255,.5)"></div>
+    <div id="sync-reviews-results" style="margin-top:10px;max-height:200px;overflow-y:auto"></div>
+  </div>
+
   <!-- SEO \uAD00\uB9AC \uCE74\uB4DC -->
   <div class="card" style="border:1px solid rgba(99,102,241,.3)">
     <div class="card-header">
@@ -12979,7 +13052,6 @@ textarea{height:80px;resize:none}
         <button onclick="qrSetCat('headspa')" class="qr-cat-btn" data-cat="headspa" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">\u{1F9D6} \uD5E4\uB4DC\uC2A4\uD30C</button>
         <button onclick="qrSetCat('skincare')" class="qr-cat-btn" data-cat="skincare" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">\u2728 \uC2A4\uD0A8\uCF00\uC5B4</button>
         <button onclick="qrSetCat('hair')" class="qr-cat-btn" data-cat="hair" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">\u{1F487} \uD5E4\uC5B4</button>
-        <button onclick="qrSetCat('nail')" class="qr-cat-btn" data-cat="nail" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">\u{1F485} \uB124\uC77C</button>
         <button onclick="qrSetCat('makeup')" class="qr-cat-btn" data-cat="makeup" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">\u{1F484} \uBA54\uC774\uD06C\uC5C5</button>
         <button onclick="qrSetCat('tattoo')" class="qr-cat-btn" data-cat="tattoo" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">\u2712\uFE0F \uD0C0\uD22C</button>
         <button onclick="qrSetCat('spa')" class="qr-cat-btn" data-cat="spa" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer">\u{1F6C1} \uC2A4\uD30C</button>
@@ -15626,7 +15698,7 @@ window.quickRegister = async function quickRegister() {
             +'<b style="color:#fbbf24;font-size:14px">\uC774\uBBF8 \uB4F1\uB85D\uB41C \uC5C5\uCCB4\uC785\uB2C8\uB2E4</b>'
           +'</div>'
           +'<div style="color:rgba(255,255,255,.7);font-size:13px;margin-bottom:8px">'
-            +'"<b style='color:#fff'>' + (data.existingName || '') + '</b>" \uC774(\uAC00) \uC774\uBBF8 \uB4F1\uB85D\uB418\uC5B4 \uC788\uC2B5\uB2C8\uB2E4.'
+            +'&quot;<b style="color:#fff">' + (data.existingName || '') + '</b>&quot; \uC774(\uAC00) \uC774\uBBF8 \uB4F1\uB85D\uB418\uC5B4 \uC788\uC2B5\uB2C8\uB2E4.'
           +'</div>'
           +'<div style="font-size:12px;color:rgba(255,255,255,.4)">\uC544\uB798 \uB9C1\uD06C\uC5D0\uC11C \uD574\uB2F9 \uC5C5\uCCB4\uB97C \uC218\uC815\uD558\uAC70\uB098 \uC601\uC0C1\uC744 \uCD94\uAC00\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.</div>';
         var linkEl = document.getElementById('qr-result-link');
@@ -15784,8 +15856,8 @@ function loadAll(){
     document.getElementById('st-shops').textContent = d.totalShops;
 
     // \u2500\u2500 \uCE74\uD14C\uACE0\uB9AC\uBCC4 \uC5C5\uCCB4 \uB3C4\uB11B \uCC28\uD2B8 \u2500\u2500
-    var catLabels = {skincare:'\uC2A4\uD0A8\uCF00\uC5B4',makeup:'\uBA54\uC774\uD06C\uC5C5',hair:'\uD5E4\uC5B4',headspa:'\uD5E4\uB4DC\uC2A4\uD30C',nail:'\uB124\uC77C',clinic:'\uD074\uB9AC\uB2C9',spa:'\uC2A4\uD30C'};
-    var catColors = ['#f472b6','#c084fc','#60a5fa','#67e8f9','#34d399','#fb923c','#a78bfa'];
+    var catLabels = {skincare:'\uC2A4\uD0A8\uCF00\uC5B4',makeup:'\uBA54\uC774\uD06C\uC5C5',hair:'\uD5E4\uC5B4',headspa:'\uD5E4\uB4DC\uC2A4\uD30C',clinic:'\uD074\uB9AC\uB2C9',spa:'\uC2A4\uD30C'};
+    var catColors = ['#f472b6','#c084fc','#60a5fa','#67e8f9','#fb923c','#a78bfa'];
     var cats = d.categoryStats||[];
     if(cats.length && document.getElementById('catChart')){
       new Chart(document.getElementById('catChart'), {
@@ -16931,7 +17003,7 @@ function applyPlacesDataToForm(prefix, d) {
   }
 }
 
-var _CAT_LABEL = {skincare:'\uC2A4\uD0A8\uCF00\uC5B4',makeup:'\uBA54\uC774\uD06C\uC5C5',hair:'\uD5E4\uC5B4',headspa:'\uD5E4\uB4DC\uC2A4\uD30C',nail:'\uB124\uC77C',clinic:'\uD074\uB9AC\uB2C9',spa:'\uC2A4\uD30C\xB7\uB9C8\uC0AC\uC9C0'};
+var _CAT_LABEL = {skincare:'\uC2A4\uD0A8\uCF00\uC5B4',makeup:'\uBA54\uC774\uD06C\uC5C5',hair:'\uD5E4\uC5B4',headspa:'\uD5E4\uB4DC\uC2A4\uD30C',clinic:'\uD074\uB9AC\uB2C9',spa:'\uC2A4\uD30C\xB7\uB9C8\uC0AC\uC9C0'};
 
 function buildPlacesResultCard(d, extra) {
   /* \uAC00\uC838\uC628 \uC815\uBCF4\uB97C \uD55C\uB208\uC5D0 \uBCFC \uC218 \uC788\uB294 \uC0C1\uC138 \uCE74\uB4DC HTML \uBC18\uD658 */
@@ -17555,7 +17627,6 @@ window.genAiSeo = async function genAiSeo(prefix) {
     makeup:'Korean makeup artist, K-beauty makeup Seoul, Korean beauty look, makeup studio Seoul',
     hair:'Korean hair salon, K-pop hairstyle Seoul, hair coloring Seoul, balayage Korean salon',
     headspa:'head spa Seoul, Korean scalp treatment, scalp care Seoul, relaxing head massage Korea',
-    nail:'Korean nail art Seoul, nail salon Seoul, K-pop nail design, gel nails Korea',
     clinic:'Korean dermatology Seoul, skin clinic Korea, laser treatment Seoul, aesthetic clinic Korea',
     spa:'Korean spa Seoul, body treatment Korea, Korean massage Seoul, relaxation spa Korea'
   };
@@ -17682,6 +17753,102 @@ window.fixAllSlugs = async function fixAllSlugs() {
     if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-link"></i> \uC804\uCCB4 Slug \uC815\uB9AC (\uC5C5\uCCB4\uBA85-\uC9C0\uC5ED\uBA85)'; }
   }
 }
+
+/* \u2500\u2500 DB \uB9AC\uBDF0\uB85C AI \uC694\uC57D\uB9CC \uC0DD\uC131 (\uAD6C\uAE00 API \uD638\uCD9C \uC5C6\uC74C \u2192 \uD06C\uB808\uB527 \uCD5C\uC18C) \u2500\u2500 */
+window.fillSummaries = async function fillSummaries(ids) {
+  var btn = document.getElementById('fill-summaries-btn');
+  var statusEl = document.getElementById('sync-reviews-status');
+  var resultsEl = document.getElementById('sync-reviews-results');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> \uC0DD\uC131 \uC911...'; }
+  if (statusEl) statusEl.textContent = '\u23F3 DB \uB9AC\uBDF0\uB85C AI \uC694\uC57D \uC0DD\uC131 \uC911...';
+  if (resultsEl) resultsEl.innerHTML = '';
+  try {
+    var body = ids && ids.length ? { ids: ids } : {};
+    var res = await fetch('/api/admin/fill-summaries', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _GSK_TOKEN },
+      body: JSON.stringify(body)
+    });
+    var data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'API \uC624\uB958 ' + res.status);
+    if (statusEl) statusEl.innerHTML = '<span style="color:#34d399">\u2705 \uC644\uB8CC! \uCD1D ' + data.total + '\uAC1C \uC911 ' + data.ok + '\uAC1C \uC131\uACF5</span>';
+    if (resultsEl && data.results) {
+      resultsEl.innerHTML = data.results.map(function(r) {
+        var ok = r.status === 'ok';
+        return '<div style="font-size:11px;padding:2px 0;color:' + (ok ? '#34d399' : '#f87171') + '">'
+          + (ok ? '\u2705' : '\u26A0\uFE0F') + ' ' + r.name + (ok ? '' : ' \u2014 ' + r.status) + '</div>';
+      }).join('');
+    }
+  } catch(e) {
+    if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">\u274C \uC624\uB958: ' + e.message + '</span>';
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-magic"></i> \uC694\uC57D \uC5C6\uB294 \uC5C5\uCCB4\uB9CC \uC0DD\uC131'; }
+  }
+};
+
+/* \u2500\u2500 \uAD6C\uAE00\uC5D0\uC11C \uB9AC\uBDF0 \uC0C8\uB85C \uAC00\uC838\uC624\uAE30 (force=true \uC2DC \uAD6C\uAE00 API \uD638\uCD9C) \u2500\u2500 */
+window.syncReviews = async function syncReviews(force) {
+  var btn = document.getElementById(force ? 'sync-reviews-force-btn' : 'sync-reviews-btn');
+  var statusEl = document.getElementById('sync-reviews-status');
+  var resultsEl = document.getElementById('sync-reviews-results');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> \uCC98\uB9AC \uC911...'; }
+  if (statusEl) statusEl.textContent = force ? '\u23F3 \uC804\uCCB4 \uC5C5\uCCB4 \uB9AC\uBDF0 \uC7AC\uB3D9\uAE30\uD654 \uC911...' : '\u23F3 \uB9AC\uBDF0 \uC5C6\uB294 \uC5C5\uCCB4 \uB3D9\uAE30\uD654 \uC911...';
+  if (resultsEl) resultsEl.innerHTML = '';
+
+  var offset = 0;
+  var limit  = 10;
+  var totalOk = 0, totalErr = 0;
+
+  try {
+    while (true) {
+      var url = '/api/admin/sync-reviews?offset=' + offset + '&limit=' + limit + (force ? '&force=true' : '');
+      var res = await fetch(url, { method: 'POST', headers: { 'Authorization': 'Bearer ' + _GSK_TOKEN } });
+      var data = await res.json();
+
+      if (!res.ok) { throw new Error(data.error || 'API \uC624\uB958 ' + res.status); }
+
+      totalOk  += (data.ok    || 0);
+      totalErr += (data.error || 0);
+
+      if (statusEl) statusEl.textContent =
+        '\uCC98\uB9AC \uC911... ' + (offset + (data.processed || 0)) + '/' + data.total +
+        ' (\u2705' + totalOk + ' \u274C' + totalErr + ')';
+
+      if (resultsEl && data.results) {
+        resultsEl.innerHTML += data.results.map(function(r) {
+          var color = r.status === 'ok' ? '#34d399' : '#f87171';
+          var icon  = r.status === 'ok' ? '\u2705' : '\u274C';
+          var extra = r.status === 'ok'
+            ? ' (' + (r.reviewCount||0) + '\uAC1C \uB9AC\uBDF0' + (r.summarized ? ' + AI\uC694\uC57D' : '') + ')'
+            : '';
+          return '<div style="font-size:11px;padding:2px 0;color:' + color + '">'
+            + icon + ' ' + r.name + extra
+            + (r.status !== 'ok' ? ' \u2014 ' + r.status : '')
+            + '</div>';
+        }).join('');
+        resultsEl.scrollTop = resultsEl.scrollHeight;
+      }
+
+      if (data.done || data.nextOffset === null) break;
+      offset = data.nextOffset;
+      await new Promise(function(r){ setTimeout(r, 200); }); // \uACFC\uBD80\uD558 \uBC29\uC9C0
+    }
+
+    if (statusEl) statusEl.innerHTML =
+      '<span style="color:#34d399">\u2705 \uC644\uB8CC! \uC131\uACF5 ' + totalOk + '\uAC1C / \uC2E4\uD328 ' + totalErr + '\uAC1C</span>';
+  } catch(e) {
+    if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">\u274C \uC624\uB958: ' + e.message + '</span>';
+  } finally {
+    if (document.getElementById('sync-reviews-btn'))
+      document.getElementById('sync-reviews-btn').disabled = false;
+    if (document.getElementById('sync-reviews-btn'))
+      document.getElementById('sync-reviews-btn').innerHTML = '<i class="fas fa-star"></i> \uB9AC\uBDF0 \uC5C6\uB294 \uC5C5\uCCB4\uB9CC \uB3D9\uAE30\uD654';
+    if (document.getElementById('sync-reviews-force-btn'))
+      document.getElementById('sync-reviews-force-btn').disabled = false;
+    if (document.getElementById('sync-reviews-force-btn'))
+      document.getElementById('sync-reviews-force-btn').innerHTML = '<i class="fas fa-sync"></i> \uC804\uCCB4 \uC5C5\uCCB4 \uAC15\uC81C \uC7AC\uB3D9\uAE30\uD654';
+  }
+};
 
 /* \u2500\u2500 \uC77C\uAD04 SEO \uC7AC\uC0DD\uC131 \u2500\u2500 */
 window.regenSeoAll = async function regenSeoAll(force) {
