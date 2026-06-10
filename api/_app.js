@@ -9578,6 +9578,220 @@ app.get("/api/search-console/page-keywords", async (c) => {
     return c.json({ error: e.message }, 500);
   }
 });
+async function getGscTopQueries(saKey, opts = {}) {
+  const { days = 28, rowLimit = 100, type = "gap", minImpressions = 5 } = opts;
+  const endDate = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+  const startDate = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10);
+  const siteUrl = "https://seoulbeautytrip.com";
+  const token = await getGa4Token(saKey, "https://www.googleapis.com/auth/webmasters.readonly");
+  const res = await fetch(
+    `https://searchconsole.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ startDate, endDate, dimensions: ["query"], rowLimit, dataState: "all" })
+    }
+  ).then((r) => r.json());
+  const rows = res.rows || [];
+  const filtered = rows.filter((r) => r.impressions >= minImpressions).map((r) => ({
+    query: r.keys[0],
+    clicks: r.clicks,
+    impressions: r.impressions,
+    ctr: r.ctr,
+    position: r.position
+  }));
+  if (type === "gap") {
+    return filtered.filter((r) => r.clicks < 3).sort((a, b) => b.impressions - a.impressions);
+  }
+  return filtered.sort((a, b) => b.impressions - a.impressions);
+}
+async function autoGenGscBlog(query, context, apiKey, sql) {
+  if (!apiKey || !query) return null;
+  const slug = makeBlogSlug(query + " seoul guide");
+  const dupCheck = await sql`SELECT id FROM blog_posts WHERE slug=${slug} LIMIT 1`.catch(() => []);
+  if (dupCheck.length > 0) return null;
+  const catHints = {
+    clinic: "skin clinic",
+    skincare: "skincare",
+    hair: "hair salon",
+    headspa: "head spa",
+    tattoo: "eyebrow tattoo",
+    dental: "dental",
+    makeup: "personal color"
+  };
+  const queryCat = context.category || Object.entries(catHints).find(([k]) => query.toLowerCase().includes(k))?.[1] || "K-beauty";
+  const area = context.area || "Seoul";
+  const relatedStr = (context.relatedQueries || []).slice(0, 4).join(", ");
+  const isQuestion = /\?|is |are |do |does |how |what |where |which |can |should /.test(query.toLowerCase());
+  const titleBase = isQuestion ? query.replace(/\?$/, "").trim() : `${query} \u2014 Complete Guide for Foreigners`;
+  const title = titleBase.charAt(0).toUpperCase() + titleBase.slice(1);
+  const prompt = `You are a Seoul K-beauty travel writer for seoulbeautytrip.com.
+A real person searched Google for: "${query}"
+Write a helpful, honest blog post that DIRECTLY answers what they're looking for.
+
+Context: ${queryCat} in ${area}, Seoul. Related searches: ${relatedStr || "Seoul beauty, K-beauty foreigners"}
+
+Write HTML with this structure:
+<h2>[Direct answer headline]</h2>
+<p>[Lead paragraph \u2014 answer the query in 2-3 sentences]</p>
+<h2>What You Need to Know</h2>
+<p>...</p>
+<h2>Our Honest Take</h2>
+<p>[Include specific details: what's good, what to watch out for, price range hints without fake numbers]</p>
+<h2>How to Book as a Foreigner (Step by Step)</h2>
+<p>...</p>
+<h2>Tips Before You Go</h2>
+<ul><li>...</li></ul>
+<h2>FAQ</h2>
+<h3>[Related question 1]</h3><p>...</p>
+<h3>[Related question 2]</h3><p>...</p>
+<h3>[Related question 3]</h3><p>...</p>
+
+Rules:
+- 700-900 words, HTML only (no markdown)
+- Write like a real person who has been there \u2014 not a brochure
+- Mention WhatsApp booking via Seoul Beauty Trip as the easy English option
+- Naturally include: "${query}" and related terms like: ${relatedStr}
+- No fake prices or fake clinic names
+- End with a soft CTA: "Browse vetted options on Seoul Beauty Trip \u2192"
+
+After HTML add ---JSON---
+{"metaDescription":"[max 155 chars, include '${query}' naturally]","excerpt":"[2 sentence hook]","tags":["${query}","${queryCat} Seoul","Seoul beauty foreigners","K-beauty guide 2026","${area} ${queryCat}"],"category":"${context.category || "guide"}"}`;
+  try {
+    const res = await fetch("https://www.genspark.ai/api/llm_proxy/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 2800,
+        temperature: 0.65
+      })
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const raw2 = data.choices?.[0]?.message?.content || "";
+    if (!raw2 || raw2.length < 200) return null;
+    const parts = raw2.split("---JSON---");
+    const htmlContent = parts[0].trim();
+    if (htmlContent.length < 300) return null;
+    let metaDescription = `${query} \u2014 complete guide for foreigners visiting Seoul K-beauty spots. Book via WhatsApp with English support.`;
+    let excerpt = `Everything you need to know about ${query} as a foreigner in Seoul.`;
+    let tags = [query, `${queryCat} Seoul`, "Seoul beauty guide"];
+    let finalCat = context.category || "guide";
+    if (parts[1]) {
+      try {
+        const m = JSON.parse(parts[1].trim().replace(/```json|```/g, "").trim());
+        if (m.metaDescription) metaDescription = m.metaDescription;
+        if (m.excerpt) excerpt = m.excerpt;
+        if (Array.isArray(m.tags)) tags = m.tags;
+        if (m.category) finalCat = m.category;
+      } catch {
+      }
+    }
+    const blogId = "b" + Date.now() + Math.random().toString(36).slice(2, 5);
+    const now = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+    await sql`INSERT INTO blog_posts
+      (id, slug, title, content, excerpt, meta_description, category, area, tags, status, views, shop_id, created_at, updated_at)
+      VALUES (
+        ${blogId}, ${slug}, ${title}, ${htmlContent}, ${excerpt}, ${metaDescription},
+        ${finalCat}, ${area}, ${JSON.stringify(tags)}, 'published', 0, null, ${now}, ${now}
+      )`;
+    return { id: blogId, slug, title };
+  } catch {
+    return null;
+  }
+}
+app.post("/api/admin/gen-gsc-blogs", async (c) => {
+  try {
+    const sql = getDb(c.env);
+    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || "";
+    const saKey = c.env?.GA4_SERVICE_ACCOUNT_KEY || GA4_SA_KEY_DEFAULT;
+    if (!apiKey) return c.json({ error: "GSK_TOKEN not configured" }, 500);
+    const body = await c.req.json().catch(() => ({}));
+    const days = Number(body.days ?? 28);
+    const limit = Number(body.limit ?? 10);
+    const type = body.type === "top" ? "top" : "gap";
+    const dryRun = body.dryRun === true;
+    const minImpressions = Number(body.minImpressions ?? 5);
+    const queries = await getGscTopQueries(saKey, { days, rowLimit: 200, type, minImpressions });
+    if (queries.length === 0) {
+      return c.json({ message: "No qualifying queries found from GSC", queries: [] });
+    }
+    const existingSlugs = await sql`SELECT slug FROM blog_posts WHERE status='published'`.catch(() => []);
+    const existingSet = new Set(existingSlugs.map((r) => r.slug));
+    const candidates = queries.filter((q) => !existingSet.has(makeBlogSlug(q.query + " seoul guide"))).slice(0, limit);
+    if (dryRun) {
+      return c.json({
+        dryRun: true,
+        total: queries.length,
+        candidates: candidates.map((q) => ({
+          query: q.query,
+          impressions: q.impressions,
+          clicks: q.clicks,
+          position: Math.round(q.position * 10) / 10,
+          targetSlug: makeBlogSlug(q.query + " seoul guide")
+        }))
+      });
+    }
+    const results = [];
+    for (const q of candidates) {
+      try {
+        const catMap = {
+          "clinic": "clinic",
+          "skin": "clinic",
+          "derma": "clinic",
+          "botox": "clinic",
+          "filler": "clinic",
+          "hair": "hair",
+          "salon": "hair",
+          "perm": "hair",
+          "head spa": "headspa",
+          "scalp": "headspa",
+          "tattoo": "tattoo",
+          "eyebrow": "tattoo",
+          "microblading": "tattoo",
+          "dental": "dental",
+          "teeth": "dental",
+          "makeup": "makeup",
+          "color analysis": "makeup",
+          "personal color": "makeup"
+        };
+        const qLow = q.query.toLowerCase();
+        const cat = Object.entries(catMap).find(([k]) => qLow.includes(k))?.[1] || "guide";
+        const areas = ["gangnam", "hongdae", "sinchon", "myeongdong", "itaewon", "insadong", "apgujeong", "cheongdam", "mapo", "jongno", "dongdaemun"];
+        const detectedArea = areas.find((a) => qLow.includes(a));
+        const area = detectedArea ? detectedArea.charAt(0).toUpperCase() + detectedArea.slice(1) : "Seoul";
+        const relatedQueries = candidates.filter((rq) => rq.query !== q.query).slice(0, 4).map((rq) => rq.query);
+        const result = await autoGenGscBlog(q.query, { category: cat, area, relatedQueries }, apiKey, sql);
+        if (result) {
+          results.push({ query: q.query, status: "created", slug: result.slug, title: result.title });
+        } else {
+          results.push({ query: q.query, status: "skipped (duplicate or error)" });
+        }
+      } catch (e) {
+        results.push({ query: q.query, status: `error: ${e.message}` });
+      }
+      await new Promise((r) => setTimeout(r, 1200));
+    }
+    const created = results.filter((r) => r.status === "created").length;
+    return c.json({ total: candidates.length, created, results });
+  } catch (e) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+app.get("/api/admin/gsc-query-preview", async (c) => {
+  try {
+    const saKey = c.env?.GA4_SERVICE_ACCOUNT_KEY || GA4_SA_KEY_DEFAULT;
+    const days = Number(c.req.query("days") ?? 28);
+    const type = c.req.query("type") === "top" ? "top" : "gap";
+    const minImp = Number(c.req.query("minImpressions") ?? 5);
+    const queries = await getGscTopQueries(saKey, { days, rowLimit: 200, type, minImpressions: minImp });
+    return c.json({ total: queries.length, queries: queries.slice(0, 50) });
+  } catch (e) {
+    return c.json({ error: e.message }, 500);
+  }
+});
 var index_default = app;
 var SB_TRACKER_SCRIPT = `<script>
 (function(){
@@ -13773,6 +13987,56 @@ textarea{height:80px;resize:none}
     <div id="bl-gen-result" style="display:none;margin-top:12px;padding:12px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);border-radius:10px;font-size:13px;color:#6ee7b7"></div>
   </div>
 
+  <!-- GSC \uC2E4\uAC80\uC0C9\uC5B4 \uAE30\uBC18 \uB871\uD14C\uC77C \uBE14\uB85C\uADF8 \uC790\uB3D9 \uC0DD\uC131 -->
+  <div class="card" style="margin-bottom:16px;border-color:rgba(52,211,153,.25);background:rgba(52,211,153,.04)">
+    <div class="card-header">
+      <div class="card-title"><i class="fas fa-search" style="color:#34d399"></i> GSC \uC2E4\uAC80\uC0C9\uC5B4 \u2192 \uB871\uD14C\uC77C \uBE14\uB85C\uADF8 \uC790\uB3D9\uC0DD\uC131</div>
+      <button onclick="gscQueryPreview()" style="padding:6px 12px;background:rgba(52,211,153,.15);border:1px solid rgba(52,211,153,.3);border-radius:8px;color:#6ee7b7;font-size:12px;cursor:pointer"><i class="fas fa-eye"></i> \uD0A4\uC6CC\uB4DC \uBBF8\uB9AC\uBCF4\uAE30</button>
+    </div>
+    <p style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:14px">
+      Google Search Console \uC2E4\uC81C \uAC80\uC0C9\uC5B4 \uC911 <strong style="color:#6ee7b7">\uB178\uCD9C\uC740 \uB9CE\uC740\uB370 \uD074\uB9AD\uC774 \uC5C6\uB294 \uD0A4\uC6CC\uB4DC</strong>\uB97C \uCC3E\uC544<br>
+      \uD574\uB2F9 \uC9C8\uBB38\uC5D0 \uC9C1\uC811 \uB2F5\uD558\uB294 \uBE14\uB85C\uADF8 \uAE00\uC744 \uC790\uB3D9 \uC0DD\uC131\uD569\uB2C8\uB2E4. <code style="background:rgba(255,255,255,.08);padding:1px 5px;border-radius:4px;font-size:11px">/shop/:slug</code>\uAC00 \uCEE4\uBC84 \uBABB \uD558\uB294 \uB871\uD14C\uC77C \uD0A4\uC6CC\uB4DC \uD0C0\uAC9F.
+    </p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      <div style="flex:1;min-width:100px">
+        <label style="font-size:11px;color:rgba(255,255,255,.4);display:block;margin-bottom:4px">\uAE30\uAC04 (\uC77C)</label>
+        <select id="gsc-days" style="width:100%;padding:8px 10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;font-size:13px">
+          <option value="7">\uCD5C\uADFC 7\uC77C</option>
+          <option value="28" selected>\uCD5C\uADFC 28\uC77C</option>
+          <option value="90">\uCD5C\uADFC 90\uC77C</option>
+        </select>
+      </div>
+      <div style="flex:1;min-width:100px">
+        <label style="font-size:11px;color:rgba(255,255,255,.4);display:block;margin-bottom:4px">\uD0A4\uC6CC\uB4DC \uC720\uD615</label>
+        <select id="gsc-type" style="width:100%;padding:8px 10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;font-size:13px">
+          <option value="gap" selected>CTR \uAC2D (\uB178\uCD9C\u2191 \uD074\uB9AD\u2193)</option>
+          <option value="top">\uC804\uCCB4 \uC0C1\uC704 \uB178\uCD9C</option>
+        </select>
+      </div>
+      <div style="flex:1;min-width:80px">
+        <label style="font-size:11px;color:rgba(255,255,255,.4);display:block;margin-bottom:4px">\uC0DD\uC131 \uAC1C\uC218</label>
+        <input id="gsc-limit" type="number" value="5" min="1" max="20"
+          style="width:100%;padding:8px 10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;font-size:13px">
+      </div>
+      <div style="flex:1;min-width:80px">
+        <label style="font-size:11px;color:rgba(255,255,255,.4);display:block;margin-bottom:4px">\uCD5C\uC18C \uB178\uCD9C\uC218</label>
+        <input id="gsc-min-imp" type="number" value="5" min="1" max="100"
+          style="width:100%;padding:8px 10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;font-size:13px">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="gscGenBlogs(true)" style="flex:1;padding:11px;background:rgba(52,211,153,.15);border:1px solid rgba(52,211,153,.35);border-radius:10px;color:#6ee7b7;font-weight:700;font-size:13px;cursor:pointer">
+        <i class="fas fa-search"></i> \uB4DC\uB77C\uC774\uB7F0 (\uBBF8\uB9AC\uBCF4\uAE30\uB9CC)
+      </button>
+      <button onclick="gscGenBlogs(false)" style="flex:2;padding:11px;background:linear-gradient(135deg,#059669,#047857);border:none;border-radius:10px;color:#fff;font-weight:700;font-size:14px;cursor:pointer" id="gsc-gen-btn">
+        <i class="fas fa-rocket"></i> \uBE14\uB85C\uADF8 \uC0DD\uC131 \uC2E4\uD589
+      </button>
+    </div>
+    <div id="gsc-gen-result" style="display:none;margin-top:12px;padding:12px;border-radius:10px;font-size:13px"></div>
+    <!-- \uD0A4\uC6CC\uB4DC \uBBF8\uB9AC\uBCF4\uAE30 \uD14C\uC774\uBE14 -->
+    <div id="gsc-preview-table" style="display:none;margin-top:12px"></div>
+  </div>
+
   <!-- \uBE14\uB85C\uADF8 \uBAA9\uB85D -->
   <div class="card">
     <div class="card-header">
@@ -15047,6 +15311,148 @@ window.genBlogBatch = async function genBlogBatch(){
     loadBlogList();
   } catch(e){ res.innerHTML='\u274C \uC624\uB958: '+e.message; }
 }
+
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+// \u{1F50D} GSC \uC2E4\uAC80\uC0C9\uC5B4 \uAE30\uBC18 \uB871\uD14C\uC77C \uBE14\uB85C\uADF8 \uC790\uB3D9\uC0DD\uC131
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+
+// GSC \uD0A4\uC6CC\uB4DC \uBBF8\uB9AC\uBCF4\uAE30 (\uB4DC\uB77C\uC774\uB7F0 \uC5C6\uC774 \uD0A4\uC6CC\uB4DC \uBAA9\uB85D\uB9CC \uD655\uC778)
+window.gscQueryPreview = async function gscQueryPreview() {
+  var previewEl = document.getElementById('gsc-preview-table');
+  var resultEl  = document.getElementById('gsc-gen-result');
+  previewEl.style.display = 'block';
+  previewEl.innerHTML = '<div style="text-align:center;padding:12px;color:rgba(255,255,255,.3);font-size:13px">\u23F3 GSC\uC5D0\uC11C \uAC80\uC0C9\uC5B4 \uBD88\uB7EC\uC624\uB294 \uC911...</div>';
+  resultEl.style.display = 'none';
+
+  var days   = document.getElementById('gsc-days').value;
+  var type   = document.getElementById('gsc-type').value;
+  var minImp = document.getElementById('gsc-min-imp').value;
+
+  try {
+    var r = await fetch('/api/admin/gsc-query-preview?days='+days+'&type='+type+'&minImpressions='+minImp, {
+      headers: { 'Authorization': 'Bearer ' + _GSK_TOKEN }
+    });
+    var d = await r.json();
+    if(d.error) { previewEl.innerHTML = '<div style="color:#fca5a5;font-size:13px">\u274C ' + d.error + '</div>'; return; }
+    if(!d.queries || d.queries.length === 0) {
+      previewEl.innerHTML = '<div style="color:rgba(255,255,255,.4);font-size:13px;text-align:center;padding:12px">\uC870\uAC74\uC5D0 \uB9DE\uB294 \uAC80\uC0C9\uC5B4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4. \uAE30\uAC04/\uCD5C\uC18C \uB178\uCD9C\uC218\uB97C \uC870\uC815\uD574\uBCF4\uC138\uC694.</div>';
+      return;
+    }
+    // \uD14C\uC774\uBE14 \uB80C\uB354\uB9C1
+    var html = '<div style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:8px">\uCD1D ' + d.total + '\uAC1C \uD0A4\uC6CC\uB4DC (\uC0C1\uC704 50\uAC1C \uD45C\uC2DC)</div>';
+    html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+    html += '<thead><tr style="color:rgba(255,255,255,.4);border-bottom:1px solid rgba(255,255,255,.1)">';
+    html += '<th style="text-align:left;padding:6px 8px">\uAC80\uC0C9\uC5B4</th><th style="padding:6px 8px">\uB178\uCD9C</th><th style="padding:6px 8px">\uD074\uB9AD</th><th style="padding:6px 8px">\uC21C\uC704</th></tr></thead><tbody>';
+    d.queries.forEach(function(q, i) {
+      var ctrGap = q.clicks < 3 ? '\u{1F3AF}' : '';
+      html += '<tr style="border-bottom:1px solid rgba(255,255,255,.05);color:'+(i%2===0?'#e2e8f0':'rgba(255,255,255,.75)')+'">'+
+        '<td style="padding:6px 8px">'+ctrGap+' '+q.query+'</td>'+
+        '<td style="padding:6px 8px;text-align:center;color:#6ee7b7">'+q.impressions+'</td>'+
+        '<td style="padding:6px 8px;text-align:center;color:'+(q.clicks<3?'#fca5a5':'#93c5fd')+'">'+q.clicks+'</td>'+
+        '<td style="padding:6px 8px;text-align:center;color:rgba(255,255,255,.5)">'+Math.round(q.position*10)/10+'</td>'+
+        '</tr>';
+    });
+    html += '</tbody></table></div>';
+    html += '<div style="margin-top:8px;font-size:11px;color:rgba(255,255,255,.3)">\u{1F3AF} = \uD074\uB9AD 3 \uBBF8\uB9CC (\uBE14\uB85C\uADF8 \uC0DD\uC131 \uC6B0\uC120 \uD0C0\uAC9F)</div>';
+    previewEl.innerHTML = html;
+  } catch(e) {
+    previewEl.innerHTML = '<div style="color:#fca5a5;font-size:13px">\u274C \uC624\uB958: ' + e.message + '</div>';
+  }
+};
+
+// GSC \uD0A4\uC6CC\uB4DC \u2192 \uBE14\uB85C\uADF8 \uC0DD\uC131 \uC2E4\uD589
+window.gscGenBlogs = async function gscGenBlogs(dryRun) {
+  var resultEl  = document.getElementById('gsc-gen-result');
+  var genBtn    = document.getElementById('gsc-gen-btn');
+  var previewEl = document.getElementById('gsc-preview-table');
+
+  var days   = document.getElementById('gsc-days').value;
+  var type   = document.getElementById('gsc-type').value;
+  var limit  = parseInt(document.getElementById('gsc-limit').value) || 5;
+  var minImp = parseInt(document.getElementById('gsc-min-imp').value) || 5;
+
+  if(!dryRun && !confirm('GSC \uC2E4\uAC80\uC0C9\uC5B4\uB85C \uBE14\uB85C\uADF8 ' + limit + '\uAC1C\uB97C \uC790\uB3D9 \uC0DD\uC131\uD569\uB2C8\uB2E4.\\n\uC57D ' + (limit * 15) + '\uCD08 \uC18C\uC694\uB429\uB2C8\uB2E4. \uACC4\uC18D\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?')) return;
+
+  resultEl.style.display = 'block';
+  resultEl.style.background = 'rgba(251,191,36,.08)';
+  resultEl.style.borderColor = 'rgba(251,191,36,.2)';
+  resultEl.style.color = '#fde68a';
+  resultEl.innerHTML = dryRun
+    ? '\u23F3 GSC \uD0A4\uC6CC\uB4DC \uC870\uD68C \uC911 (\uB4DC\uB77C\uC774\uB7F0)...'
+    : '\u23F3 GSC \uAC80\uC0C9\uC5B4 \uBD84\uC11D \uD6C4 \uBE14\uB85C\uADF8 \uC0DD\uC131 \uC911... \uD0ED\uC744 \uB2EB\uC9C0 \uB9C8\uC138\uC694. (\uC57D ' + (limit * 15) + '\uCD08)';
+
+  if(!dryRun && genBtn) { genBtn.disabled = true; genBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> \uC0DD\uC131 \uC911...'; }
+
+  try {
+    var r = await fetch('/api/admin/gen-gsc-blogs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _GSK_TOKEN },
+      body: JSON.stringify({ days: Number(days), limit, type, dryRun, minImpressions: minImp })
+    });
+    var d = await r.json();
+
+    if(d.error) {
+      resultEl.style.background = 'rgba(239,68,68,.1)';
+      resultEl.style.borderColor = 'rgba(239,68,68,.3)';
+      resultEl.style.color = '#fca5a5';
+      resultEl.innerHTML = '\u274C ' + d.error;
+      return;
+    }
+
+    if(dryRun) {
+      // \uB4DC\uB77C\uC774\uB7F0: \uD6C4\uBCF4 \uD0A4\uC6CC\uB4DC \uD14C\uC774\uBE14 \uD45C\uC2DC
+      resultEl.style.background = 'rgba(52,211,153,.08)';
+      resultEl.style.borderColor = 'rgba(52,211,153,.2)';
+      resultEl.style.color = '#6ee7b7';
+      resultEl.innerHTML = '\u{1F50D} \uB4DC\uB77C\uC774\uB7F0 \uACB0\uACFC: GSC \uCD1D ' + d.total + '\uAC1C \uD0A4\uC6CC\uB4DC \uC911 \uBE14\uB85C\uADF8 \uC0DD\uC131 \uB300\uC0C1 ' + (d.candidates||[]).length + '\uAC1C';
+
+      if(d.candidates && d.candidates.length > 0) {
+        previewEl.style.display = 'block';
+        var tbl = '<div style="overflow-x:auto;margin-top:8px"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+        tbl += '<thead><tr style="color:rgba(255,255,255,.4);border-bottom:1px solid rgba(255,255,255,.1)"><th style="text-align:left;padding:5px 8px">\uAC80\uC0C9\uC5B4</th><th style="padding:5px 8px">\uB178\uCD9C</th><th style="padding:5px 8px">\uD074\uB9AD</th><th style="padding:5px 8px">\uC608\uC815 slug</th></tr></thead><tbody>';
+        d.candidates.forEach(function(q, i) {
+          tbl += '<tr style="border-bottom:1px solid rgba(255,255,255,.05);color:'+(i%2===0?'#e2e8f0':'rgba(255,255,255,.7)')+'">'+
+            '<td style="padding:5px 8px">'+q.query+'</td>'+
+            '<td style="padding:5px 8px;text-align:center;color:#6ee7b7">'+q.impressions+'</td>'+
+            '<td style="padding:5px 8px;text-align:center;color:#fca5a5">'+q.clicks+'</td>'+
+            '<td style="padding:5px 8px;font-size:11px;color:rgba(255,255,255,.35)">/blog/'+q.targetSlug+'</td></tr>';
+        });
+        tbl += '</tbody></table></div>';
+        previewEl.innerHTML = tbl;
+      }
+    } else {
+      // \uC2E4\uC81C \uC0DD\uC131 \uACB0\uACFC
+      var created = (d.results||[]).filter(function(x){ return x.status==='created'; }).length;
+      var skipped = (d.results||[]).filter(function(x){ return x.status.includes('skip'); }).length;
+      var errors  = (d.results||[]).filter(function(x){ return x.status.includes('error'); }).length;
+
+      resultEl.style.background = created > 0 ? 'rgba(16,185,129,.1)' : 'rgba(251,191,36,.08)';
+      resultEl.style.borderColor = created > 0 ? 'rgba(16,185,129,.3)' : 'rgba(251,191,36,.2)';
+      resultEl.style.color = created > 0 ? '#6ee7b7' : '#fde68a';
+
+      var summary = '\u2705 \uC0DD\uC131 \uC644\uB8CC: <strong>' + created + '\uAC1C</strong>';
+      if(skipped) summary += ' / \uC2A4\uD0B5(\uC911\uBCF5): ' + skipped + '\uAC1C';
+      if(errors)  summary += ' / \uC624\uB958: ' + errors + '\uAC1C';
+      summary += '<br><br>';
+
+      var details = (d.results||[]).map(function(r) {
+        var icon = r.status==='created' ? '\u2705' : r.status.includes('error') ? '\u274C' : '\u23ED';
+        var link = r.slug ? ' <a href="/blog/'+r.slug+'" target="_blank" style="color:#93c5fd;font-size:11px">\uBCF4\uAE30 \u2192</a>' : '';
+        return '<div style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,.05)">'+icon+' <strong>'+r.query+'</strong>'+link+'<br><span style="font-size:11px;color:rgba(255,255,255,.4)">'+r.status+'</span></div>';
+      }).join('');
+
+      resultEl.innerHTML = summary + details;
+      if(created > 0) loadBlogList();
+    }
+  } catch(e) {
+    resultEl.style.background = 'rgba(239,68,68,.1)';
+    resultEl.style.borderColor = 'rgba(239,68,68,.3)';
+    resultEl.style.color = '#fca5a5';
+    resultEl.innerHTML = '\u274C \uC624\uB958: ' + e.message;
+  } finally {
+    if(genBtn) { genBtn.disabled = false; genBtn.innerHTML = '<i class="fas fa-rocket"></i> \uBE14\uB85C\uADF8 \uC0DD\uC131 \uC2E4\uD589'; }
+  }
+};
 
 // \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 // \u{1F4CA} GA4 Analytics \uB300\uC2DC\uBCF4\uB4DC

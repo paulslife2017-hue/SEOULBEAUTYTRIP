@@ -8397,6 +8397,275 @@ app.get('/api/search-console/page-keywords', async (c) => {
   }
 })
 
+// ════════════════════════════════════════════
+// ── GSC 실검색어 기반 롱테일 블로그 자동 생성 ──
+// ════════════════════════════════════════════
+
+// GSC에서 상위 검색어를 가져오는 헬퍼
+// - impressions 상위 N개 반환
+// - type: 'gap' = 클릭 없이 노출만 많은 것(CTR 개선 기회) | 'top' = 전체 상위
+async function getGscTopQueries(saKey: string, opts: {
+  days?: number, rowLimit?: number, type?: 'gap' | 'top', minImpressions?: number
+} = {}): Promise<Array<{ query: string, clicks: number, impressions: number, ctr: number, position: number }>> {
+  const { days = 28, rowLimit = 100, type = 'gap', minImpressions = 5 } = opts
+  const endDate = new Date().toISOString().slice(0, 10)
+  const startDate = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10)
+  const siteUrl = 'https://seoulbeautytrip.com'
+
+  const token = await getGa4Token(saKey, 'https://www.googleapis.com/auth/webmasters.readonly')
+  const res: any = await fetch(
+    `https://searchconsole.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ startDate, endDate, dimensions: ['query'], rowLimit, dataState: 'all' })
+    }
+  ).then(r => r.json())
+
+  const rows: any[] = res.rows || []
+  const filtered = rows
+    .filter((r: any) => r.impressions >= minImpressions)
+    .map((r: any) => ({
+      query: r.keys[0] as string,
+      clicks: r.clicks as number,
+      impressions: r.impressions as number,
+      ctr: r.ctr as number,
+      position: r.position as number
+    }))
+
+  if (type === 'gap') {
+    // CTR gap: 노출 많은데 클릭 적음 → 새 블로그 글이 가장 필요한 키워드
+    return filtered
+      .filter(r => r.clicks < 3)           // 클릭 거의 없음
+      .sort((a, b) => b.impressions - a.impressions) // 노출 많은 순
+  }
+  // top: 전체 상위 (노출 순)
+  return filtered.sort((a, b) => b.impressions - a.impressions)
+}
+
+// GSC 검색어 1개 → haiku로 롱테일 블로그 생성
+async function autoGenGscBlog(query: string, context: {
+  category?: string, area?: string, relatedQueries?: string[]
+}, apiKey: string, sql: any): Promise<{ id: string, slug: string, title: string } | null> {
+  if (!apiKey || !query) return null
+
+  // 이미 같은 타이틀/슬러그 블로그 있으면 스킵
+  const slug = makeBlogSlug(query + ' seoul guide')
+  const dupCheck = await sql`SELECT id FROM blog_posts WHERE slug=${slug} LIMIT 1`.catch(() => [])
+  if (dupCheck.length > 0) return null
+
+  // 카테고리 추론 (검색어에서)
+  const catHints: Record<string, string> = {
+    clinic: 'skin clinic', skincare: 'skincare', hair: 'hair salon',
+    headspa: 'head spa', tattoo: 'eyebrow tattoo', dental: 'dental', makeup: 'personal color'
+  }
+  const queryCat = context.category
+    || Object.entries(catHints).find(([k]) => query.toLowerCase().includes(k))?.[1]
+    || 'K-beauty'
+  const area = context.area || 'Seoul'
+  const relatedStr = (context.relatedQueries || []).slice(0, 4).join(', ')
+
+  // 사람이 쓴 것처럼: 검색어가 질문이라면 그 질문에 직접 답하는 구조
+  const isQuestion = /\?|is |are |do |does |how |what |where |which |can |should /.test(query.toLowerCase())
+  const titleBase = isQuestion
+    ? query.replace(/\?$/, '').trim()
+    : `${query} — Complete Guide for Foreigners`
+  const title = titleBase.charAt(0).toUpperCase() + titleBase.slice(1)
+
+  const prompt = `You are a Seoul K-beauty travel writer for seoulbeautytrip.com.
+A real person searched Google for: "${query}"
+Write a helpful, honest blog post that DIRECTLY answers what they're looking for.
+
+Context: ${queryCat} in ${area}, Seoul. Related searches: ${relatedStr || 'Seoul beauty, K-beauty foreigners'}
+
+Write HTML with this structure:
+<h2>[Direct answer headline]</h2>
+<p>[Lead paragraph — answer the query in 2-3 sentences]</p>
+<h2>What You Need to Know</h2>
+<p>...</p>
+<h2>Our Honest Take</h2>
+<p>[Include specific details: what's good, what to watch out for, price range hints without fake numbers]</p>
+<h2>How to Book as a Foreigner (Step by Step)</h2>
+<p>...</p>
+<h2>Tips Before You Go</h2>
+<ul><li>...</li></ul>
+<h2>FAQ</h2>
+<h3>[Related question 1]</h3><p>...</p>
+<h3>[Related question 2]</h3><p>...</p>
+<h3>[Related question 3]</h3><p>...</p>
+
+Rules:
+- 700-900 words, HTML only (no markdown)
+- Write like a real person who has been there — not a brochure
+- Mention WhatsApp booking via Seoul Beauty Trip as the easy English option
+- Naturally include: "${query}" and related terms like: ${relatedStr}
+- No fake prices or fake clinic names
+- End with a soft CTA: "Browse vetted options on Seoul Beauty Trip →"
+
+After HTML add ---JSON---
+{"metaDescription":"[max 155 chars, include '${query}' naturally]","excerpt":"[2 sentence hook]","tags":["${query}","${queryCat} Seoul","Seoul beauty foreigners","K-beauty guide 2026","${area} ${queryCat}"],"category":"${context.category || 'guide'}"}`
+
+  try {
+    const res = await fetch('https://www.genspark.ai/api/llm_proxy/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 2800,
+        temperature: 0.65
+      })
+    })
+    if (!res.ok) return null
+    const data: any = await res.json()
+    const raw: string = data.choices?.[0]?.message?.content || ''
+    if (!raw || raw.length < 200) return null
+
+    const parts = raw.split('---JSON---')
+    const htmlContent = parts[0].trim()
+    if (htmlContent.length < 300) return null
+
+    let metaDescription = `${query} — complete guide for foreigners visiting Seoul K-beauty spots. Book via WhatsApp with English support.`
+    let excerpt = `Everything you need to know about ${query} as a foreigner in Seoul.`
+    let tags: string[] = [query, `${queryCat} Seoul`, 'Seoul beauty guide']
+    let finalCat = context.category || 'guide'
+
+    if (parts[1]) {
+      try {
+        const m = JSON.parse(parts[1].trim().replace(/```json|```/g, '').trim())
+        if (m.metaDescription) metaDescription = m.metaDescription
+        if (m.excerpt) excerpt = m.excerpt
+        if (Array.isArray(m.tags)) tags = m.tags
+        if (m.category) finalCat = m.category
+      } catch {}
+    }
+
+    const blogId = 'b' + Date.now() + Math.random().toString(36).slice(2, 5)
+    const now = new Date().toISOString().slice(0, 10)
+
+    await sql`INSERT INTO blog_posts
+      (id, slug, title, content, excerpt, meta_description, category, area, tags, status, views, shop_id, created_at, updated_at)
+      VALUES (
+        ${blogId}, ${slug}, ${title}, ${htmlContent}, ${excerpt}, ${metaDescription},
+        ${finalCat}, ${area}, ${JSON.stringify(tags)}, 'published', 0, null, ${now}, ${now}
+      )`
+
+    return { id: blogId, slug, title }
+  } catch {
+    return null
+  }
+}
+
+// POST /api/admin/gen-gsc-blogs
+// GSC 실검색어 → 롱테일 블로그 자동 생성 (어드민 트리거)
+// body: { days?:28, limit?:10, type?:'gap'|'top', dryRun?:false }
+app.post('/api/admin/gen-gsc-blogs', async (c) => {
+  try {
+    const sql = getDb(c.env)
+    const apiKey = c.env?.GSK_TOKEN || (c.env as any)?.gsk_token || ''
+    const saKey = (c.env as any)?.GA4_SERVICE_ACCOUNT_KEY || GA4_SA_KEY_DEFAULT
+    if (!apiKey) return c.json({ error: 'GSK_TOKEN not configured' }, 500)
+
+    const body: any = await c.req.json().catch(() => ({}))
+    const days       = Number(body.days   ?? 28)
+    const limit      = Number(body.limit  ?? 10)
+    const type       = (body.type === 'top' ? 'top' : 'gap') as 'gap' | 'top'
+    const dryRun     = body.dryRun === true
+    const minImpressions = Number(body.minImpressions ?? 5)
+
+    // ① GSC에서 검색어 가져오기
+    const queries = await getGscTopQueries(saKey, { days, rowLimit: 200, type, minImpressions })
+
+    if (queries.length === 0) {
+      return c.json({ message: 'No qualifying queries found from GSC', queries: [] })
+    }
+
+    // ② 이미 블로그 있는 slug 제외 (DB 조회)
+    const existingSlugs = await sql`SELECT slug FROM blog_posts WHERE status='published'`.catch(() => [])
+    const existingSet = new Set((existingSlugs as any[]).map((r: any) => r.slug))
+
+    const candidates = queries
+      .filter(q => !existingSet.has(makeBlogSlug(q.query + ' seoul guide')))
+      .slice(0, limit)
+
+    if (dryRun) {
+      return c.json({
+        dryRun: true,
+        total: queries.length,
+        candidates: candidates.map(q => ({
+          query: q.query,
+          impressions: q.impressions,
+          clicks: q.clicks,
+          position: Math.round(q.position * 10) / 10,
+          targetSlug: makeBlogSlug(q.query + ' seoul guide')
+        }))
+      })
+    }
+
+    // ③ 각 검색어로 블로그 생성 (순차 실행, rate limit 방지)
+    const results: Array<{ query: string, status: string, slug?: string, title?: string }> = []
+
+    for (const q of candidates) {
+      try {
+        // 검색어에서 카테고리/지역 추론
+        const catMap: Record<string, string> = {
+          'clinic': 'clinic', 'skin': 'clinic', 'derma': 'clinic', 'botox': 'clinic', 'filler': 'clinic',
+          'hair': 'hair', 'salon': 'hair', 'perm': 'hair',
+          'head spa': 'headspa', 'scalp': 'headspa',
+          'tattoo': 'tattoo', 'eyebrow': 'tattoo', 'microblading': 'tattoo',
+          'dental': 'dental', 'teeth': 'dental',
+          'makeup': 'makeup', 'color analysis': 'makeup', 'personal color': 'makeup'
+        }
+        const qLow = q.query.toLowerCase()
+        const cat = Object.entries(catMap).find(([k]) => qLow.includes(k))?.[1] || 'guide'
+
+        // 지역 추론
+        const areas = ['gangnam', 'hongdae', 'sinchon', 'myeongdong', 'itaewon', 'insadong', 'apgujeong', 'cheongdam', 'mapo', 'jongno', 'dongdaemun']
+        const detectedArea = areas.find(a => qLow.includes(a))
+        const area = detectedArea ? detectedArea.charAt(0).toUpperCase() + detectedArea.slice(1) : 'Seoul'
+
+        // 관련 검색어 (같은 카테고리의 다른 queries에서)
+        const relatedQueries = candidates
+          .filter(rq => rq.query !== q.query)
+          .slice(0, 4)
+          .map(rq => rq.query)
+
+        const result = await autoGenGscBlog(q.query, { category: cat, area, relatedQueries }, apiKey, sql)
+        if (result) {
+          results.push({ query: q.query, status: 'created', slug: result.slug, title: result.title })
+        } else {
+          results.push({ query: q.query, status: 'skipped (duplicate or error)' })
+        }
+      } catch (e: any) {
+        results.push({ query: q.query, status: `error: ${e.message}` })
+      }
+      // rate limit 방지: haiku도 TPM 제한 있음
+      await new Promise(r => setTimeout(r, 1200))
+    }
+
+    const created = results.filter(r => r.status === 'created').length
+    return c.json({ total: candidates.length, created, results })
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+})
+
+// GET /api/admin/gsc-query-preview
+// dryRun 없이 GSC 키워드 미리보기만 (블로그 생성 없음)
+app.get('/api/admin/gsc-query-preview', async (c) => {
+  try {
+    const saKey = (c.env as any)?.GA4_SERVICE_ACCOUNT_KEY || GA4_SA_KEY_DEFAULT
+    const days  = Number(c.req.query('days') ?? 28)
+    const type  = (c.req.query('type') === 'top' ? 'top' : 'gap') as 'gap' | 'top'
+    const minImp = Number(c.req.query('minImpressions') ?? 5)
+
+    const queries = await getGscTopQueries(saKey, { days, rowLimit: 200, type, minImpressions: minImp })
+    return c.json({ total: queries.length, queries: queries.slice(0, 50) })
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+})
+
 export default app
 
 // ════════════════════════════════════════════
@@ -12601,6 +12870,56 @@ textarea{height:80px;resize:none}
     <div id="bl-gen-result" style="display:none;margin-top:12px;padding:12px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);border-radius:10px;font-size:13px;color:#6ee7b7"></div>
   </div>
 
+  <!-- GSC 실검색어 기반 롱테일 블로그 자동 생성 -->
+  <div class="card" style="margin-bottom:16px;border-color:rgba(52,211,153,.25);background:rgba(52,211,153,.04)">
+    <div class="card-header">
+      <div class="card-title"><i class="fas fa-search" style="color:#34d399"></i> GSC 실검색어 → 롱테일 블로그 자동생성</div>
+      <button onclick="gscQueryPreview()" style="padding:6px 12px;background:rgba(52,211,153,.15);border:1px solid rgba(52,211,153,.3);border-radius:8px;color:#6ee7b7;font-size:12px;cursor:pointer"><i class="fas fa-eye"></i> 키워드 미리보기</button>
+    </div>
+    <p style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:14px">
+      Google Search Console 실제 검색어 중 <strong style="color:#6ee7b7">노출은 많은데 클릭이 없는 키워드</strong>를 찾아<br>
+      해당 질문에 직접 답하는 블로그 글을 자동 생성합니다. <code style="background:rgba(255,255,255,.08);padding:1px 5px;border-radius:4px;font-size:11px">/shop/:slug</code>가 커버 못 하는 롱테일 키워드 타겟.
+    </p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      <div style="flex:1;min-width:100px">
+        <label style="font-size:11px;color:rgba(255,255,255,.4);display:block;margin-bottom:4px">기간 (일)</label>
+        <select id="gsc-days" style="width:100%;padding:8px 10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;font-size:13px">
+          <option value="7">최근 7일</option>
+          <option value="28" selected>최근 28일</option>
+          <option value="90">최근 90일</option>
+        </select>
+      </div>
+      <div style="flex:1;min-width:100px">
+        <label style="font-size:11px;color:rgba(255,255,255,.4);display:block;margin-bottom:4px">키워드 유형</label>
+        <select id="gsc-type" style="width:100%;padding:8px 10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;font-size:13px">
+          <option value="gap" selected>CTR 갭 (노출↑ 클릭↓)</option>
+          <option value="top">전체 상위 노출</option>
+        </select>
+      </div>
+      <div style="flex:1;min-width:80px">
+        <label style="font-size:11px;color:rgba(255,255,255,.4);display:block;margin-bottom:4px">생성 개수</label>
+        <input id="gsc-limit" type="number" value="5" min="1" max="20"
+          style="width:100%;padding:8px 10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;font-size:13px">
+      </div>
+      <div style="flex:1;min-width:80px">
+        <label style="font-size:11px;color:rgba(255,255,255,.4);display:block;margin-bottom:4px">최소 노출수</label>
+        <input id="gsc-min-imp" type="number" value="5" min="1" max="100"
+          style="width:100%;padding:8px 10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;font-size:13px">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="gscGenBlogs(true)" style="flex:1;padding:11px;background:rgba(52,211,153,.15);border:1px solid rgba(52,211,153,.35);border-radius:10px;color:#6ee7b7;font-weight:700;font-size:13px;cursor:pointer">
+        <i class="fas fa-search"></i> 드라이런 (미리보기만)
+      </button>
+      <button onclick="gscGenBlogs(false)" style="flex:2;padding:11px;background:linear-gradient(135deg,#059669,#047857);border:none;border-radius:10px;color:#fff;font-weight:700;font-size:14px;cursor:pointer" id="gsc-gen-btn">
+        <i class="fas fa-rocket"></i> 블로그 생성 실행
+      </button>
+    </div>
+    <div id="gsc-gen-result" style="display:none;margin-top:12px;padding:12px;border-radius:10px;font-size:13px"></div>
+    <!-- 키워드 미리보기 테이블 -->
+    <div id="gsc-preview-table" style="display:none;margin-top:12px"></div>
+  </div>
+
   <!-- 블로그 목록 -->
   <div class="card">
     <div class="card-header">
@@ -13875,6 +14194,148 @@ window.genBlogBatch = async function genBlogBatch(){
     loadBlogList();
   } catch(e){ res.innerHTML='❌ 오류: '+e.message; }
 }
+
+// ══════════════════════════════════════════════
+// 🔍 GSC 실검색어 기반 롱테일 블로그 자동생성
+// ══════════════════════════════════════════════
+
+// GSC 키워드 미리보기 (드라이런 없이 키워드 목록만 확인)
+window.gscQueryPreview = async function gscQueryPreview() {
+  var previewEl = document.getElementById('gsc-preview-table');
+  var resultEl  = document.getElementById('gsc-gen-result');
+  previewEl.style.display = 'block';
+  previewEl.innerHTML = '<div style="text-align:center;padding:12px;color:rgba(255,255,255,.3);font-size:13px">⏳ GSC에서 검색어 불러오는 중...</div>';
+  resultEl.style.display = 'none';
+
+  var days   = document.getElementById('gsc-days').value;
+  var type   = document.getElementById('gsc-type').value;
+  var minImp = document.getElementById('gsc-min-imp').value;
+
+  try {
+    var r = await fetch('/api/admin/gsc-query-preview?days='+days+'&type='+type+'&minImpressions='+minImp, {
+      headers: { 'Authorization': 'Bearer ' + _GSK_TOKEN }
+    });
+    var d = await r.json();
+    if(d.error) { previewEl.innerHTML = '<div style="color:#fca5a5;font-size:13px">❌ ' + d.error + '</div>'; return; }
+    if(!d.queries || d.queries.length === 0) {
+      previewEl.innerHTML = '<div style="color:rgba(255,255,255,.4);font-size:13px;text-align:center;padding:12px">조건에 맞는 검색어가 없습니다. 기간/최소 노출수를 조정해보세요.</div>';
+      return;
+    }
+    // 테이블 렌더링
+    var html = '<div style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:8px">총 ' + d.total + '개 키워드 (상위 50개 표시)</div>';
+    html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+    html += '<thead><tr style="color:rgba(255,255,255,.4);border-bottom:1px solid rgba(255,255,255,.1)">';
+    html += '<th style="text-align:left;padding:6px 8px">검색어</th><th style="padding:6px 8px">노출</th><th style="padding:6px 8px">클릭</th><th style="padding:6px 8px">순위</th></tr></thead><tbody>';
+    d.queries.forEach(function(q, i) {
+      var ctrGap = q.clicks < 3 ? '🎯' : '';
+      html += '<tr style="border-bottom:1px solid rgba(255,255,255,.05);color:'+(i%2===0?'#e2e8f0':'rgba(255,255,255,.75)')+'">'+
+        '<td style="padding:6px 8px">'+ctrGap+' '+q.query+'</td>'+
+        '<td style="padding:6px 8px;text-align:center;color:#6ee7b7">'+q.impressions+'</td>'+
+        '<td style="padding:6px 8px;text-align:center;color:'+(q.clicks<3?'#fca5a5':'#93c5fd')+'">'+q.clicks+'</td>'+
+        '<td style="padding:6px 8px;text-align:center;color:rgba(255,255,255,.5)">'+Math.round(q.position*10)/10+'</td>'+
+        '</tr>';
+    });
+    html += '</tbody></table></div>';
+    html += '<div style="margin-top:8px;font-size:11px;color:rgba(255,255,255,.3)">🎯 = 클릭 3 미만 (블로그 생성 우선 타겟)</div>';
+    previewEl.innerHTML = html;
+  } catch(e) {
+    previewEl.innerHTML = '<div style="color:#fca5a5;font-size:13px">❌ 오류: ' + e.message + '</div>';
+  }
+};
+
+// GSC 키워드 → 블로그 생성 실행
+window.gscGenBlogs = async function gscGenBlogs(dryRun) {
+  var resultEl  = document.getElementById('gsc-gen-result');
+  var genBtn    = document.getElementById('gsc-gen-btn');
+  var previewEl = document.getElementById('gsc-preview-table');
+
+  var days   = document.getElementById('gsc-days').value;
+  var type   = document.getElementById('gsc-type').value;
+  var limit  = parseInt(document.getElementById('gsc-limit').value) || 5;
+  var minImp = parseInt(document.getElementById('gsc-min-imp').value) || 5;
+
+  if(!dryRun && !confirm('GSC 실검색어로 블로그 ' + limit + '개를 자동 생성합니다.\\n약 ' + (limit * 15) + '초 소요됩니다. 계속하시겠습니까?')) return;
+
+  resultEl.style.display = 'block';
+  resultEl.style.background = 'rgba(251,191,36,.08)';
+  resultEl.style.borderColor = 'rgba(251,191,36,.2)';
+  resultEl.style.color = '#fde68a';
+  resultEl.innerHTML = dryRun
+    ? '⏳ GSC 키워드 조회 중 (드라이런)...'
+    : '⏳ GSC 검색어 분석 후 블로그 생성 중... 탭을 닫지 마세요. (약 ' + (limit * 15) + '초)';
+
+  if(!dryRun && genBtn) { genBtn.disabled = true; genBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 생성 중...'; }
+
+  try {
+    var r = await fetch('/api/admin/gen-gsc-blogs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _GSK_TOKEN },
+      body: JSON.stringify({ days: Number(days), limit, type, dryRun, minImpressions: minImp })
+    });
+    var d = await r.json();
+
+    if(d.error) {
+      resultEl.style.background = 'rgba(239,68,68,.1)';
+      resultEl.style.borderColor = 'rgba(239,68,68,.3)';
+      resultEl.style.color = '#fca5a5';
+      resultEl.innerHTML = '❌ ' + d.error;
+      return;
+    }
+
+    if(dryRun) {
+      // 드라이런: 후보 키워드 테이블 표시
+      resultEl.style.background = 'rgba(52,211,153,.08)';
+      resultEl.style.borderColor = 'rgba(52,211,153,.2)';
+      resultEl.style.color = '#6ee7b7';
+      resultEl.innerHTML = '🔍 드라이런 결과: GSC 총 ' + d.total + '개 키워드 중 블로그 생성 대상 ' + (d.candidates||[]).length + '개';
+
+      if(d.candidates && d.candidates.length > 0) {
+        previewEl.style.display = 'block';
+        var tbl = '<div style="overflow-x:auto;margin-top:8px"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+        tbl += '<thead><tr style="color:rgba(255,255,255,.4);border-bottom:1px solid rgba(255,255,255,.1)"><th style="text-align:left;padding:5px 8px">검색어</th><th style="padding:5px 8px">노출</th><th style="padding:5px 8px">클릭</th><th style="padding:5px 8px">예정 slug</th></tr></thead><tbody>';
+        d.candidates.forEach(function(q, i) {
+          tbl += '<tr style="border-bottom:1px solid rgba(255,255,255,.05);color:'+(i%2===0?'#e2e8f0':'rgba(255,255,255,.7)')+'">'+
+            '<td style="padding:5px 8px">'+q.query+'</td>'+
+            '<td style="padding:5px 8px;text-align:center;color:#6ee7b7">'+q.impressions+'</td>'+
+            '<td style="padding:5px 8px;text-align:center;color:#fca5a5">'+q.clicks+'</td>'+
+            '<td style="padding:5px 8px;font-size:11px;color:rgba(255,255,255,.35)">/blog/'+q.targetSlug+'</td></tr>';
+        });
+        tbl += '</tbody></table></div>';
+        previewEl.innerHTML = tbl;
+      }
+    } else {
+      // 실제 생성 결과
+      var created = (d.results||[]).filter(function(x){ return x.status==='created'; }).length;
+      var skipped = (d.results||[]).filter(function(x){ return x.status.includes('skip'); }).length;
+      var errors  = (d.results||[]).filter(function(x){ return x.status.includes('error'); }).length;
+
+      resultEl.style.background = created > 0 ? 'rgba(16,185,129,.1)' : 'rgba(251,191,36,.08)';
+      resultEl.style.borderColor = created > 0 ? 'rgba(16,185,129,.3)' : 'rgba(251,191,36,.2)';
+      resultEl.style.color = created > 0 ? '#6ee7b7' : '#fde68a';
+
+      var summary = '✅ 생성 완료: <strong>' + created + '개</strong>';
+      if(skipped) summary += ' / 스킵(중복): ' + skipped + '개';
+      if(errors)  summary += ' / 오류: ' + errors + '개';
+      summary += '<br><br>';
+
+      var details = (d.results||[]).map(function(r) {
+        var icon = r.status==='created' ? '✅' : r.status.includes('error') ? '❌' : '⏭';
+        var link = r.slug ? ' <a href="/blog/'+r.slug+'" target="_blank" style="color:#93c5fd;font-size:11px">보기 →</a>' : '';
+        return '<div style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,.05)">'+icon+' <strong>'+r.query+'</strong>'+link+'<br><span style="font-size:11px;color:rgba(255,255,255,.4)">'+r.status+'</span></div>';
+      }).join('');
+
+      resultEl.innerHTML = summary + details;
+      if(created > 0) loadBlogList();
+    }
+  } catch(e) {
+    resultEl.style.background = 'rgba(239,68,68,.1)';
+    resultEl.style.borderColor = 'rgba(239,68,68,.3)';
+    resultEl.style.color = '#fca5a5';
+    resultEl.innerHTML = '❌ 오류: ' + e.message;
+  } finally {
+    if(genBtn) { genBtn.disabled = false; genBtn.innerHTML = '<i class="fas fa-rocket"></i> 블로그 생성 실행'; }
+  }
+};
 
 // ══════════════════════════════════════════════
 // 📊 GA4 Analytics 대시보드
