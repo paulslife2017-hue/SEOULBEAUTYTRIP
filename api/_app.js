@@ -4330,7 +4330,6 @@ app.post("/api/quick-register", async (c) => {
     const photos = sanitizePhotos(resolvedData.photos || []);
     const thumbnail = sanitizeThumb(resolvedData.thumbnail || "", photos);
     const reviews = resolvedData.reviews || [];
-    const _qrSummary = reviews.length > 0 && apiKey ? await genReviewSummary(engName, reviews, apiKey) : null;
     const shopId = "s" + Date.now();
     await sql`
       INSERT INTO shops (
@@ -4346,9 +4345,29 @@ app.post("/api/quick-register", async (c) => {
         ${thumbnail}, ${JSON.stringify(photos)},
         ${resolvedData.placeId || ""}, ${gmapUrl}, ${resolvedData.lat || ""}, ${resolvedData.lng || ""},
         ${description}, ${JSON.stringify(whyChoose)}, ${metaDescription}, ${seoKeywords}, ${seoTextVal},
-        ${JSON.stringify(reviews)}, ${_qrSummary ? JSON.stringify(_qrSummary) : null}::jsonb, true, NOW()
+        ${JSON.stringify(reviews)}, null, true, NOW()
       )
     `;
+    if (reviews.length > 0 && apiKey) {
+      const _bgSql = sql;
+      const _bgName = engName;
+      const _bgId = shopId;
+      const _bgKey = apiKey;
+      const _bgReviews = reviews;
+      const _summaryTask = (async () => {
+        try {
+          const summary = await genReviewSummary(_bgName, _bgReviews, _bgKey);
+          if (summary) {
+            await _bgSql`UPDATE shops SET review_summary = ${JSON.stringify(summary)}::jsonb WHERE id = ${_bgId}`;
+          }
+        } catch {
+        }
+      })();
+      try {
+        c.executionCtx?.waitUntil?.(_summaryTask);
+      } catch {
+      }
+    }
     let videoId = null;
     if (videoUrl && videoUrl.trim()) {
       videoId = "v" + Date.now();

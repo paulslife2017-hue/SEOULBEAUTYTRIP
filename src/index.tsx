@@ -2508,13 +2508,10 @@ app.post('/api/quick-register', async (c) => {
     const photos: string[] = sanitizePhotos(resolvedData.photos || [])
     const thumbnail = sanitizeThumb(resolvedData.thumbnail || '', photos)
 
-    // ── STEP 8: reviews 처리 + AI 요약 생성 ──
+    // ── STEP 8: reviews 처리 ──
     const reviews = resolvedData.reviews || []
-    const _qrSummary = (reviews.length > 0 && apiKey)
-      ? await genReviewSummary(engName, reviews, apiKey)
-      : null
 
-    // ── STEP 9: DB에 업체 저장 (전체 필드) ──
+    // ── STEP 9: DB에 업체 저장 (review_summary는 일단 null, 이후 백그라운드 채움) ──
     const shopId = 's' + Date.now()
     await sql`
       INSERT INTO shops (
@@ -2530,9 +2527,29 @@ app.post('/api/quick-register', async (c) => {
         ${thumbnail}, ${JSON.stringify(photos)},
         ${resolvedData.placeId || ''}, ${gmapUrl}, ${resolvedData.lat || ''}, ${resolvedData.lng || ''},
         ${description}, ${JSON.stringify(whyChoose)}, ${metaDescription}, ${seoKeywords}, ${seoTextVal},
-        ${JSON.stringify(reviews)}, ${_qrSummary ? JSON.stringify(_qrSummary) : null}::jsonb, true, NOW()
+        ${JSON.stringify(reviews)}, null, true, NOW()
       )
     `
+
+    // ── STEP 9.5: 리뷰 요약 백그라운드 생성 (응답 블로킹 없음, 크레딧 최소) ──
+    // DB 저장 완료 후 waitUntil로 비동기 실행 → 실패해도 등록 자체는 성공
+    if (reviews.length > 0 && apiKey) {
+      const _bgSql = sql
+      const _bgName = engName
+      const _bgId = shopId
+      const _bgKey = apiKey
+      const _bgReviews = reviews
+      const _summaryTask = (async () => {
+        try {
+          const summary = await genReviewSummary(_bgName, _bgReviews, _bgKey)
+          if (summary) {
+            await _bgSql`UPDATE shops SET review_summary = ${JSON.stringify(summary)}::jsonb WHERE id = ${_bgId}`
+          }
+        } catch { /* 실패해도 무시 — 관리자 fill-summaries로 나중에 채울 수 있음 */ }
+      })()
+      // Cloudflare Workers: waitUntil로 응답 후에도 백그라운드 실행 보장
+      try { (c.executionCtx as any)?.waitUntil?.(_summaryTask) } catch { /* non-CF 환경 무시 */ }
+    }
 
     // ── STEP 10: 영상 URL이 있으면 같이 등록 ──
     let videoId = null
