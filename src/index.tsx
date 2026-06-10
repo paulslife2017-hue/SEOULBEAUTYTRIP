@@ -3319,39 +3319,76 @@ async function autoGenShopBlog(shop: {
   // SEO텍스트에서 핵심 내용 추출 (태그 제거, 300자)
   const seoContext = (shop.seoText || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300)
 
-  const title = `${shop.name} Review 2026: Honest Guide for Foreigners in ${area}`
+  const title = `${shop.name} Review 2026: Is It Worth It for Foreigners in ${area}?`
 
-  const prompt = `You are a Seoul K-beauty travel writer for seoulbeautytrip.com.
-Write a helpful, honest blog post for foreign tourists about "${shop.name}", a ${cat} in ${area}, Seoul.
+  // 사진 플레이스홀더 — 실제 사진 URL은 DB photos 필드에서 최대 3장 삽입
+  // {{PHOTO_1}}, {{PHOTO_2}}, {{PHOTO_3}} → 렌더링 시 치환
+  const photoPlaceholders = `
+<!-- PHOTO: after intro -->
+{{PHOTO_1}}
+<!-- PHOTO: after treatments -->
+{{PHOTO_2}}
+<!-- PHOTO: before FAQ -->
+{{PHOTO_3}}`
 
-SHOP DATA (use this — do NOT invent):
-- Rating: ${shop.rating}/5 (${shop.reviewCount}+ reviews)
-- Description: ${shop.description || seoContext || 'Premium ' + cat + ' in ' + area}
-- Why visitors love it: ${(shop.whyChoose || []).slice(0,3).join(' | ')}
-${reviewSnippets ? '- Real customer reviews:\n- ' + reviewSnippets : ''}
+  const prompt = `You are a Seoul travel writer who has personally visited many K-beauty clinics. Write like a real person sharing their honest experience — not a brochure or AI.
 
-Write HTML with this structure (6 sections + FAQ):
-<h2>Why [Shop Name] Is Worth Visiting as a Foreigner in ${area}</h2>
-<p>...</p>
-<h2>What to Expect at [Shop Name]</h2>
-<p>...</p>
-<h2>Treatments & Services</h2>
-<p>...</p>
-<h2>Prices & What's Included</h2>
-<p>...</p>
-<h2>How to Book as a Foreigner</h2>
-<p>...</p>
-<h2>Getting There & Tips</h2>
-<p>...</p>
+Write a blog post about "${shop.name}", a ${cat} in ${area}, Seoul for seoulbeautytrip.com.
+
+REAL DATA (use exactly — do NOT invent numbers or reviews):
+- Rating: ${shop.rating}/5 from ${shop.reviewCount}+ Google reviews
+- About: ${shop.description || seoContext || 'Premium ' + cat + ' in ' + area}
+- What regulars love: ${(shop.whyChoose || []).slice(0,3).join(' | ')}
+${reviewSnippets ? `- Actual customer quotes (use these verbatim in blockquotes):\n  "${reviewSnippets.replace(/\n- /g, '"\n  "')}"` : ''}
+
+PHOTO PLACEHOLDERS — insert these exactly where shown (they will be replaced with real clinic photos):
+{{PHOTO_1}} — place after the opening section
+{{PHOTO_2}} — place after the treatments/services section
+{{PHOTO_3}} — place before the FAQ
+
+Write HTML (900-1100 words) with this structure:
+<h2>My Honest Take on ${shop.name} (${area}, Seoul)</h2>
+<p>[2-3 sentence hook — why someone would search for this place. Be specific to ${area} and the type of visitor.]</p>
+<p>[Context paragraph — what kind of place this is, who it's best for]</p>
+{{PHOTO_1}}
+<h2>What Real Visitors Say</h2>
+<p>[Intro to reviews — 1 sentence]</p>
+[Insert 2-3 blockquotes using this EXACT style (dark-theme safe):
+<blockquote style="border-left:4px solid #FF4D8D;padding:14px 18px;margin:16px 0;background:rgba(255,77,141,0.06);border-radius:0 8px 8px 0;">
+<p style="font-style:italic;color:rgba(255,255,255,0.85);margin:0 0 6px 0;">"[exact review text]"</p>
+</blockquote>]
+<p>[Your interpretation — what these reviews tell us about the experience]</p>
+<h2>Treatments & What's on the Menu</h2>
+<p>[List main treatments naturally in prose, not bullets. Mention any standout services.]</p>
+{{PHOTO_2}}
+<h2>Pricing Reality Check</h2>
+<p>[Honest price framing — Korea is X% cheaper than [comparison country], don't give fake numbers, do say "confirm at booking"]</p>
+<h2>The Foreigner Experience — Language, Booking, What to Know</h2>
+<p>[English availability, WhatsApp booking via Seoul Beauty Trip, any practical tips]</p>
+<ul style="color:rgba(255,255,255,0.8);padding-left:20px;">
+<li>[Tip 1 — specific and practical]</li>
+<li>[Tip 2]</li>
+<li>[Tip 3 — e.g. location tip for ${area}]</li>
+</ul>
+<h2>Getting to ${shop.name}</h2>
+<p>[Location in ${area} — nearest station, landmark, practical detail]</p>
+{{PHOTO_3}}
 <h2>FAQ</h2>
-<h3>Is ${shop.name} foreigner-friendly?</h3><p>...</p>
-<h3>How do I book ${shop.name}?</h3><p>...</p>
-<h3>What are the prices at ${shop.name}?</h3><p>...</p>
+<h3>Is ${shop.name} worth it for foreigners?</h3><p>[Direct answer]</p>
+<h3>Do they speak English at ${shop.name}?</h3><p>[Answer]</p>
+<h3>How do I book ${shop.name} as a tourist?</h3><p>[WhatsApp via Seoul Beauty Trip answer]</p>
 
-Rules: 700-1000 words, HTML only, no markdown, cite real rating/review count, mention WhatsApp booking, no fake prices.
+RULES:
+- HTML only, no markdown
+- All inline styles must use rgba() or hex — NO hsl() or named colors like "white"/"gray"
+- Blockquotes MUST use the dark-theme style shown above (rgba background, not #f9fafb)
+- Write like a real traveller — specific details beat generic praise
+- Cite the ${shop.rating}/5 rating and ${shop.reviewCount}+ reviews naturally
+- Include {{PHOTO_1}} {{PHOTO_2}} {{PHOTO_3}} exactly as placeholders
+- No fake prices, no invented facts
 
 After HTML add ---JSON---
-{"metaDescription":"[max 155 chars]","excerpt":"[2 sentence summary]","tags":["${shop.name}","${area} ${cat}","Seoul ${cat} foreigners","K-beauty ${area}","Seoul beauty 2026"]}`
+{"metaDescription":"[max 155 chars, include '${shop.name}' and '${area}']","excerpt":"[2 sentence hook for the blog card]","tags":["${shop.name} review","${area} ${cat}","${cat} Seoul foreigners","Seoul beauty 2026","${shop.name} worth it"]}`
 
   try {
     const res = await fetch('https://www.genspark.ai/api/llm_proxy/v1/chat/completions', {
@@ -3370,8 +3407,34 @@ After HTML add ---JSON---
     if (!raw) return
 
     const parts = raw.split('---JSON---')
-    const htmlContent = parts[0].trim()
+    let htmlContent = parts[0].trim()
     if (!htmlContent || htmlContent.length < 200) return
+
+    // {{PHOTO_N}} 플레이스홀더를 실제 사진 이미지 태그로 치환
+    // shop.photos는 quick-register 흐름에선 없으므로 DB에서 조회
+    try {
+      const shopRow = await sql`SELECT photos, thumbnail FROM shops WHERE id=${shop.id} LIMIT 1`.catch(() => [])
+      if (shopRow.length > 0) {
+        const rawPhotos = shopRow[0].photos
+        const photoArr: string[] = Array.isArray(rawPhotos)
+          ? rawPhotos
+          : (typeof rawPhotos === 'string' ? JSON.parse(rawPhotos || '[]') : [])
+        const thumb = shopRow[0].thumbnail || ''
+        const allPhotos = [thumb, ...photoArr].filter(Boolean).filter(u => u.startsWith('http'))
+        const makePhotoHtml = (url: string, label: string) => url
+          ? `<figure style="margin:20px 0;border-radius:12px;overflow:hidden;"><img src="${url}" alt="${label}" loading="lazy" style="width:100%;max-height:420px;object-fit:cover;display:block;" onerror="this.parentElement.style.display='none'"></figure>`
+          : ''
+        htmlContent = htmlContent
+          .replace('{{PHOTO_1}}', makePhotoHtml(allPhotos[0] || '', shop.name))
+          .replace('{{PHOTO_2}}', makePhotoHtml(allPhotos[1] || allPhotos[0] || '', shop.name + ' treatment'))
+          .replace('{{PHOTO_3}}', makePhotoHtml(allPhotos[2] || allPhotos[0] || '', shop.name + ' interior'))
+      }
+    } catch {
+      // 사진 없으면 플레이스홀더만 제거
+      htmlContent = htmlContent.replace(/\{\{PHOTO_\d\}\}/g, '')
+    }
+    // 혹시 남은 플레이스홀더 제거
+    htmlContent = htmlContent.replace(/\{\{PHOTO_\d\}\}/g, '')
 
     let metaDescription = '', excerpt = '', tags: string[] = []
     if (parts[1]) {
@@ -3391,11 +3454,14 @@ After HTML add ---JSON---
     const dupCheck = await sql`SELECT id FROM blog_posts WHERE slug=${slug} LIMIT 1`.catch(() => [])
     if (dupCheck.length > 0) return
 
+    // cover_image: 썸네일을 OG 이미지로도 사용
+    const coverImg = (await sql`SELECT thumbnail FROM shops WHERE id=${shop.id} LIMIT 1`.catch(() => []))?.[0]?.thumbnail || ''
+
     await sql`INSERT INTO blog_posts
-      (id, slug, title, content, excerpt, meta_description, category, area, tags, status, views, shop_id, created_at, updated_at)
+      (id, slug, title, content, excerpt, meta_description, category, area, tags, cover_image, status, views, shop_id, created_at, updated_at)
       VALUES (
         ${blogId}, ${slug}, ${title}, ${htmlContent}, ${excerpt}, ${metaDescription},
-        ${shop.category}, ${area}, ${JSON.stringify(tags)}, 'published', 0, ${shop.id}, ${now}, ${now}
+        ${shop.category}, ${area}, ${JSON.stringify(tags)}, ${coverImg}, 'published', 0, ${shop.id}, ${now}, ${now}
       )`
   } catch { /* 실패해도 무시 */ }
 }
@@ -8661,6 +8727,73 @@ app.get('/api/admin/gsc-query-preview', async (c) => {
 
     const queries = await getGscTopQueries(saKey, { days, rowLimit: 200, type, minImpressions: minImp })
     return c.json({ total: queries.length, queries: queries.slice(0, 50) })
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+})
+
+// POST /api/admin/regen-shop-blog
+// 특정 업체의 블로그 글을 재생성 (사진 삽입 + 사람다운 글 + 다크테마)
+// body: { shopId: string } 또는 { blogId: string }
+app.post('/api/admin/regen-shop-blog', async (c) => {
+  try {
+    await ensureDb(c.env)
+    const sql = getDb(c.env)
+    const apiKey = c.env?.GSK_TOKEN || (c.env as any)?.gsk_token || ''
+    if (!apiKey) return c.json({ error: 'GSK_TOKEN not configured' }, 500)
+
+    const body: any = await c.req.json().catch(() => ({}))
+    const blogId = body.blogId as string | undefined
+    const shopId = body.shopId as string | undefined
+
+    // 블로그 글 찾기
+    let blogRow: any = null
+    if (blogId) {
+      const rows = await sql`SELECT * FROM blog_posts WHERE id=${blogId} LIMIT 1`
+      blogRow = rows[0]
+    } else if (shopId) {
+      const rows = await sql`SELECT * FROM blog_posts WHERE shop_id=${shopId} LIMIT 1`
+      blogRow = rows[0]
+    }
+    if (!blogRow) return c.json({ error: 'Blog post not found' }, 404)
+
+    // 업체 정보 조회
+    const sid = blogRow.shop_id || shopId
+    if (!sid) return c.json({ error: 'No shop_id linked to this blog post' }, 400)
+
+    const shopRows = await sql`SELECT * FROM shops WHERE id=${sid} LIMIT 1`
+    if (!shopRows.length) return c.json({ error: 'Shop not found' }, 404)
+    const shop = shopRows[0]
+
+    const reviews = Array.isArray(shop.reviews) ? shop.reviews : JSON.parse(shop.reviews || '[]')
+    const whyChoose = Array.isArray(shop.why_choose) ? shop.why_choose : JSON.parse(shop.why_choose || '[]')
+    const photos: string[] = Array.isArray(shop.photos) ? shop.photos : JSON.parse(shop.photos || '[]')
+
+    // 기존 블로그 삭제 후 재생성 (autoGenShopBlog의 중복 체크를 bypass)
+    await sql`DELETE FROM blog_posts WHERE id=${blogRow.id}`
+
+    // autoGenShopBlog 재호출
+    await autoGenShopBlog({
+      id: sid,
+      name: shop.name,
+      category: shop.category,
+      location: shop.location,
+      rating: shop.rating,
+      reviewCount: shop.review_count,
+      description: shop.description,
+      reviews,
+      seoText: shop.seo_text || '',
+      whyChoose
+    }, apiKey, sql)
+
+    // 새로 생성된 블로그 slug 반환
+    const newBlog = await sql`SELECT id, slug, title FROM blog_posts WHERE shop_id=${sid} ORDER BY created_at DESC LIMIT 1`.catch(() => [])
+
+    return c.json({
+      success: true,
+      deleted: blogRow.slug,
+      created: newBlog[0] || null
+    })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
   }
