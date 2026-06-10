@@ -3217,6 +3217,85 @@ app.delete('/api/blogs/:id', async (c) => {
   return c.json({ ok: true })
 })
 
+// POST /api/admin/sync-reviews — Google Places API로 실제 리뷰 fetch → DB 저장
+app.post('/api/admin/sync-reviews', async (c) => {
+  await ensureDb(c.env)
+  const sql = getDb(c.env)
+  const gKey = c.env?.GOOGLE_PLACES_KEY || ''
+  if (!gKey) return c.json({ error: 'GOOGLE_PLACES_KEY not configured' }, 500)
+
+  // force=true 이면 reviews가 이미 있는 업체도 재fetch
+  const force = c.req.query('force') === 'true'
+
+  let shops: any[]
+  try {
+    shops = force
+      ? await sql`SELECT id, name, google_place_id FROM shops WHERE google_place_id IS NOT NULL AND google_place_id != '' AND active=true ORDER BY created_at ASC`
+      : await sql`SELECT id, name, google_place_id FROM shops WHERE google_place_id IS NOT NULL AND google_place_id != '' AND active=true AND (reviews IS NULL OR reviews::text = '[]') ORDER BY created_at ASC`
+  } catch(e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+
+  const results: { id: string; name: string; status: string; reviewCount?: number }[] = []
+
+  for (const shop of shops) {
+    try {
+      // Places API v1 — reviews + rating + userRatingCount
+      const fields = 'reviews,rating,userRatingCount'
+      const url = `https://places.googleapis.com/v1/places/${shop.google_place_id}?languageCode=en`
+      const res = await fetch(url, {
+        headers: {
+          'X-Goog-Api-Key': gKey,
+          'X-Goog-FieldMask': fields
+        }
+      })
+
+      if (!res.ok) {
+        const errText = await res.text()
+        results.push({ id: shop.id, name: shop.name, status: `API error ${res.status}: ${errText.slice(0,100)}` })
+        continue
+      }
+
+      const place: any = await res.json()
+      const rawReviews: any[] = place.reviews || []
+
+      // Places API v1 리뷰 구조 → 우리 DB 구조로 정규화
+      // { author_name, rating, text, time, profile_photo_url }
+      const normalized = rawReviews.map((rv: any) => ({
+        author_name:       rv.authorAttribution?.displayName || rv.authorName || 'Anonymous',
+        rating:            rv.rating || 5,
+        text:              rv.text?.text || rv.text || '',
+        time:              rv.publishTime ? Math.floor(new Date(rv.publishTime).getTime() / 1000)
+                           : (rv.relativePublishTimeDescription || ''),
+        relative_time:     rv.relativePublishTimeDescription || '',
+        profile_photo_url: rv.authorAttribution?.photoUri || rv.profilePhotoUrl || '',
+        language:          rv.originalText?.languageCode || rv.text?.languageCode || 'en'
+      })).filter((rv: any) => rv.text.trim().length > 0)
+
+      const rating       = place.rating            ?? null
+      const reviewCount  = place.userRatingCount   ?? null
+
+      // DB 업데이트: reviews, rating, review_count
+      await sql`
+        UPDATE shops
+        SET
+          reviews      = ${JSON.stringify(normalized)}::jsonb,
+          rating       = ${rating},
+          review_count = ${reviewCount}
+        WHERE id = ${shop.id}
+      `
+
+      results.push({ id: shop.id, name: shop.name, status: 'ok', reviewCount: normalized.length })
+    } catch(e: any) {
+      results.push({ id: shop.id, name: shop.name, status: `error: ${e.message}` })
+    }
+  }
+
+  const ok    = results.filter(r => r.status === 'ok').length
+  const error = results.filter(r => r.status !== 'ok').length
+  return c.json({ total: shops.length, ok, error, results })
+})
+
 // POST /api/admin/generate-blog — AI 블로그 일괄 생성
 app.post('/api/admin/generate-blog', async (c) => {
   await ensureDb(c.env)

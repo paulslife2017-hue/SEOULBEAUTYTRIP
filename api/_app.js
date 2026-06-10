@@ -4885,6 +4885,64 @@ app.delete("/api/blogs/:id", async (c) => {
   await sql`DELETE FROM blog_posts WHERE id=${c.req.param("id")}`;
   return c.json({ ok: true });
 });
+app.post("/api/admin/sync-reviews", async (c) => {
+  await ensureDb(c.env);
+  const sql = getDb(c.env);
+  const gKey = c.env?.GOOGLE_PLACES_KEY || "";
+  if (!gKey) return c.json({ error: "GOOGLE_PLACES_KEY not configured" }, 500);
+  const force = c.req.query("force") === "true";
+  let shops2;
+  try {
+    shops2 = force ? await sql`SELECT id, name, google_place_id FROM shops WHERE google_place_id IS NOT NULL AND google_place_id != '' AND active=true ORDER BY created_at ASC` : await sql`SELECT id, name, google_place_id FROM shops WHERE google_place_id IS NOT NULL AND google_place_id != '' AND active=true AND (reviews IS NULL OR reviews::text = '[]') ORDER BY created_at ASC`;
+  } catch (e) {
+    return c.json({ error: e.message }, 500);
+  }
+  const results = [];
+  for (const shop of shops2) {
+    try {
+      const fields = "reviews,rating,userRatingCount";
+      const url = `https://places.googleapis.com/v1/places/${shop.google_place_id}?languageCode=en`;
+      const res = await fetch(url, {
+        headers: {
+          "X-Goog-Api-Key": gKey,
+          "X-Goog-FieldMask": fields
+        }
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        results.push({ id: shop.id, name: shop.name, status: `API error ${res.status}: ${errText.slice(0, 100)}` });
+        continue;
+      }
+      const place = await res.json();
+      const rawReviews = place.reviews || [];
+      const normalized = rawReviews.map((rv) => ({
+        author_name: rv.authorAttribution?.displayName || rv.authorName || "Anonymous",
+        rating: rv.rating || 5,
+        text: rv.text?.text || rv.text || "",
+        time: rv.publishTime ? Math.floor(new Date(rv.publishTime).getTime() / 1e3) : rv.relativePublishTimeDescription || "",
+        relative_time: rv.relativePublishTimeDescription || "",
+        profile_photo_url: rv.authorAttribution?.photoUri || rv.profilePhotoUrl || "",
+        language: rv.originalText?.languageCode || rv.text?.languageCode || "en"
+      })).filter((rv) => rv.text.trim().length > 0);
+      const rating = place.rating ?? null;
+      const reviewCount = place.userRatingCount ?? null;
+      await sql`
+        UPDATE shops
+        SET
+          reviews      = ${JSON.stringify(normalized)}::jsonb,
+          rating       = ${rating},
+          review_count = ${reviewCount}
+        WHERE id = ${shop.id}
+      `;
+      results.push({ id: shop.id, name: shop.name, status: "ok", reviewCount: normalized.length });
+    } catch (e) {
+      results.push({ id: shop.id, name: shop.name, status: `error: ${e.message}` });
+    }
+  }
+  const ok = results.filter((r) => r.status === "ok").length;
+  const error = results.filter((r) => r.status !== "ok").length;
+  return c.json({ total: shops2.length, ok, error, results });
+});
 app.post("/api/admin/generate-blog", async (c) => {
   await ensureDb(c.env);
   const sql = getDb(c.env);
