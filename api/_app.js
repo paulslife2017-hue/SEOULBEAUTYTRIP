@@ -6273,7 +6273,7 @@ app.get("/best/:category/:area", async (c) => {
 <link rel="canonical" href="${_base}/best/${catSlug}/${areaSlug}">
 <meta property="og:title" content="Best ${catLabel} in ${areaLabel} Seoul | Seoul Beauty Trip">
 <meta property="og:description" content="Coming soon \u2014 top-rated ${catLabel.toLowerCase()} in ${areaLabel}, Seoul for foreigners.">
-<meta name="robots" content="index,follow">
+<meta name="robots" content="noindex, follow">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#0f0f12;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center}
@@ -6447,8 +6447,7 @@ ${SB_TRACKER_SCRIPT}
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${titleMain} | Seoul Beauty Trip</title>
 <meta name="description" content="${metaDesc}">
-
-<meta name="robots" content="index, follow">
+<meta name="robots" content="${shops2.length <= 1 ? "noindex, follow" : "index, follow"}">
 <link rel="canonical" href="${pageUrl}">
 <meta property="og:type" content="website">
 <meta property="og:title" content="${titleMain} | Seoul Beauty Trip">
