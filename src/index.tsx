@@ -8775,6 +8775,11 @@ app.get('/api/admin/debug-blog-photos', async (c) => {
       rawPhotosType: rawType,
       photoArrLen: photoArr.length,
       dedupedCount: urls.length,
+      thumbPrefix120: thumb.slice(0, 120),
+      photoArr0prefix120: photoArr[0] ? String(photoArr[0]).slice(0, 120) : null,
+      photoArr1prefix120: photoArr[1] ? String(photoArr[1]).slice(0, 120) : null,
+      filterMatch0: photoArr[0] ? String(photoArr[0]).slice(0, 120) === thumb.slice(0, 120) : null,
+      filterMatch1: photoArr[1] ? String(photoArr[1]).slice(0, 120) === thumb.slice(0, 120) : null,
       urls: urls.map(u => u.slice(0, 80))
     })
   } catch (e: any) {
