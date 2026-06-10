@@ -5199,24 +5199,32 @@ app.get("/shop/:slug", async (c) => {
   const shop = rowToShop(shopRows[0]);
   const vidRows = await withTimeout(sql`SELECT * FROM videos WHERE shop_id=${shop.id} ORDER BY views DESC`, 15e3, []);
   const shopVideos = vidRows.map((r) => rowToVideo({ ...r, shop_name: shop.name }));
-  const relatedRows = await withTimeout(sql`
+  const relatedPool = await withTimeout(sql`
     SELECT id, name, slug, category, location, thumbnail, rating, review_count, description
     FROM shops
-    WHERE category=${shop.category} AND id != ${shop.id} AND slug IS NOT NULL
+    WHERE category=${shop.category} AND id != ${shop.id} AND slug IS NOT NULL AND active = true
     ORDER BY rating DESC NULLS LAST, review_count DESC NULLS LAST
-    LIMIT 6`, 15e3, []);
-  const relatedShops = relatedRows.map((r) => rowToShop(r));
+    LIMIT 20`, 15e3, []);
+  const _shuffleArr = (arr) => {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  };
+  const relatedShops = _shuffleArr(relatedPool).slice(0, 6).map((r) => rowToShop(r));
   const _shopAreaRaw = shop.location ? shop.location.split(",")[0].trim() : "";
   const _otherCats = ["clinic", "hair", "headspa", "skincare", "makeup", "tattoo"].filter((c2) => c2 !== shop.category);
   const nearbyCrossRows = await withTimeout(sql`
     SELECT id, name, slug, category, location, thumbnail, rating, review_count
     FROM shops
-    WHERE location ILIKE ${"%" + _shopAreaRaw + "%"} AND id != ${shop.id} AND slug IS NOT NULL
+    WHERE location ILIKE ${"%" + _shopAreaRaw + "%"} AND id != ${shop.id} AND slug IS NOT NULL AND active = true
       AND category = ANY(${_otherCats}::text[])
     ORDER BY rating DESC NULLS LAST
-    LIMIT 8`, 8e3, []);
+    LIMIT 20`, 8e3, []);
   const _crossMap = {};
-  for (const r of nearbyCrossRows) {
+  for (const r of _shuffleArr(nearbyCrossRows)) {
     if (!_crossMap[r.category]) _crossMap[r.category] = r;
   }
   const nearbyCrossShops = Object.values(_crossMap).slice(0, 4);

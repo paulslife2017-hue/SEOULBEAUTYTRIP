@@ -3604,28 +3604,37 @@ app.get('/shop/:slug', async (c) => {
   const shop = rowToShop(shopRows[0])
   const vidRows = await withTimeout(sql`SELECT * FROM videos WHERE shop_id=${shop.id} ORDER BY views DESC`, 15000, [])
   const shopVideos = vidRows.map((r: any) => rowToVideo({ ...r, shop_name: shop.name }))
-  // 같은 카테고리 업체 (본인 제외, 최대 6개, rating 높은 순)
-  const relatedRows = await withTimeout(sql`
+  // 같은 카테고리 업체 (본인 제외, 상위 20개 풀에서 랜덤 6개 — 매 방문마다 다른 추천)
+  const relatedPool = await withTimeout(sql`
     SELECT id, name, slug, category, location, thumbnail, rating, review_count, description
     FROM shops
-    WHERE category=${shop.category} AND id != ${shop.id} AND slug IS NOT NULL
+    WHERE category=${shop.category} AND id != ${shop.id} AND slug IS NOT NULL AND active = true
     ORDER BY rating DESC NULLS LAST, review_count DESC NULLS LAST
-    LIMIT 6`, 15000, [])
-  const relatedShops = relatedRows.map((r: any) => rowToShop(r))
+    LIMIT 20`, 15000, [])
+  // JS 단에서 Fisher-Yates 셔플 후 6개 추출 (DB RANDOM() 는 full scan 비용)
+  const _shuffleArr = (arr: any[]) => {
+    const a = [...arr]
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]]
+    }
+    return a
+  }
+  const relatedShops = _shuffleArr(relatedPool).slice(0, 6).map((r: any) => rowToShop(r))
 
-  // 교차 카테고리 링크: 같은 지역 내 다른 카테고리 최고 업체 1개씩 (최대 4개)
+  // 교차 카테고리 링크: 같은 지역 내 다른 카테고리 업체 (상위 20개 풀에서 랜덤 → 카테고리별 1개씩)
   const _shopAreaRaw = shop.location ? shop.location.split(',')[0].trim() : ''
   const _otherCats = ['clinic','hair','headspa','skincare','makeup','tattoo'].filter(c => c !== shop.category)
   const nearbyCrossRows = await withTimeout(sql`
     SELECT id, name, slug, category, location, thumbnail, rating, review_count
     FROM shops
-    WHERE location ILIKE ${'%' + _shopAreaRaw + '%'} AND id != ${shop.id} AND slug IS NOT NULL
+    WHERE location ILIKE ${'%' + _shopAreaRaw + '%'} AND id != ${shop.id} AND slug IS NOT NULL AND active = true
       AND category = ANY(${_otherCats}::text[])
     ORDER BY rating DESC NULLS LAST
-    LIMIT 8`, 8000, [])
-  // 카테고리별 top 1만 추출 (최대 4개)
+    LIMIT 20`, 8000, [])
+  // 셔플 후 카테고리별 top 1만 추출 (최대 4개)
   const _crossMap: Record<string, any> = {}
-  for (const r of nearbyCrossRows) {
+  for (const r of _shuffleArr(nearbyCrossRows)) {
     if (!_crossMap[r.category]) _crossMap[r.category] = r
   }
   const nearbyCrossShops = Object.values(_crossMap).slice(0, 4)
