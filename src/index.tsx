@@ -1182,7 +1182,7 @@ Reply ONLY with valid JSON (no markdown, no explanation):
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'claude-haiku-4-5',
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 220,
         temperature: 0.4
