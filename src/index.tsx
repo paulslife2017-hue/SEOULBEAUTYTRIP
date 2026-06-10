@@ -3218,35 +3218,39 @@ app.delete('/api/blogs/:id', async (c) => {
 })
 
 // POST /api/admin/sync-reviews — Google Places API로 실제 리뷰 fetch → DB 저장
+// ?offset=0&limit=10 으로 배치 처리 (Cloudflare subrequest 50개 제한 대응)
 app.post('/api/admin/sync-reviews', async (c) => {
   await ensureDb(c.env)
   const sql = getDb(c.env)
   const gKey = c.env?.GOOGLE_PLACES_KEY || ''
   if (!gKey) return c.json({ error: 'GOOGLE_PLACES_KEY not configured' }, 500)
 
-  // force=true 이면 reviews가 이미 있는 업체도 재fetch
-  const force = c.req.query('force') === 'true'
+  // 파라미터: force=true, offset, limit(기본 10)
+  const force  = c.req.query('force')  === 'true'
+  const offset = parseInt(c.req.query('offset') || '0', 10)
+  const limit  = Math.min(parseInt(c.req.query('limit')  || '10', 10), 15) // 최대 15개
 
-  let shops: any[]
+  let allShops: any[]
   try {
-    shops = force
+    allShops = force
       ? await sql`SELECT id, name, google_place_id FROM shops WHERE google_place_id IS NOT NULL AND google_place_id != '' AND active=true ORDER BY created_at ASC`
       : await sql`SELECT id, name, google_place_id FROM shops WHERE google_place_id IS NOT NULL AND google_place_id != '' AND active=true AND (reviews IS NULL OR reviews::text = '[]') ORDER BY created_at ASC`
   } catch(e: any) {
     return c.json({ error: e.message }, 500)
   }
 
+  const totalRemaining = allShops.length
+  const shops = allShops.slice(offset, offset + limit)
   const results: { id: string; name: string; status: string; reviewCount?: number }[] = []
 
   for (const shop of shops) {
     try {
       // Places API v1 — reviews + rating + userRatingCount
-      const fields = 'reviews,rating,userRatingCount'
       const url = `https://places.googleapis.com/v1/places/${shop.google_place_id}?languageCode=en`
       const res = await fetch(url, {
         headers: {
           'X-Goog-Api-Key': gKey,
-          'X-Goog-FieldMask': fields
+          'X-Goog-FieldMask': 'reviews,rating,userRatingCount'
         }
       })
 
@@ -3259,8 +3263,7 @@ app.post('/api/admin/sync-reviews', async (c) => {
       const place: any = await res.json()
       const rawReviews: any[] = place.reviews || []
 
-      // Places API v1 리뷰 구조 → 우리 DB 구조로 정규화
-      // { author_name, rating, text, time, profile_photo_url }
+      // Places API v1 리뷰 구조 → DB 구조로 정규화
       const normalized = rawReviews.map((rv: any) => ({
         author_name:       rv.authorAttribution?.displayName || rv.authorName || 'Anonymous',
         rating:            rv.rating || 5,
@@ -3270,10 +3273,10 @@ app.post('/api/admin/sync-reviews', async (c) => {
         relative_time:     rv.relativePublishTimeDescription || '',
         profile_photo_url: rv.authorAttribution?.photoUri || rv.profilePhotoUrl || '',
         language:          rv.originalText?.languageCode || rv.text?.languageCode || 'en'
-      })).filter((rv: any) => rv.text.trim().length > 0)
+      })).filter((rv: any) => (rv.text + '').trim().length > 0)
 
-      const rating       = place.rating            ?? null
-      const reviewCount  = place.userRatingCount   ?? null
+      const rating      = place.rating          ?? null
+      const reviewCount = place.userRatingCount ?? null
 
       // DB 업데이트: reviews, rating, review_count
       await sql`
@@ -3291,9 +3294,22 @@ app.post('/api/admin/sync-reviews', async (c) => {
     }
   }
 
-  const ok    = results.filter(r => r.status === 'ok').length
-  const error = results.filter(r => r.status !== 'ok').length
-  return c.json({ total: shops.length, ok, error, results })
+  const ok         = results.filter(r => r.status === 'ok').length
+  const error      = results.filter(r => r.status !== 'ok').length
+  const nextOffset = offset + limit
+  const hasMore    = nextOffset < totalRemaining
+
+  return c.json({
+    total: totalRemaining,
+    processed: shops.length,
+    ok,
+    error,
+    offset,
+    limit,
+    nextOffset: hasMore ? nextOffset : null,
+    done: !hasMore,
+    results
+  })
 })
 
 // POST /api/admin/generate-blog — AI 블로그 일괄 생성

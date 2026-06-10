@@ -4891,21 +4891,24 @@ app.post("/api/admin/sync-reviews", async (c) => {
   const gKey = c.env?.GOOGLE_PLACES_KEY || "";
   if (!gKey) return c.json({ error: "GOOGLE_PLACES_KEY not configured" }, 500);
   const force = c.req.query("force") === "true";
-  let shops2;
+  const offset = parseInt(c.req.query("offset") || "0", 10);
+  const limit = Math.min(parseInt(c.req.query("limit") || "10", 10), 15);
+  let allShops;
   try {
-    shops2 = force ? await sql`SELECT id, name, google_place_id FROM shops WHERE google_place_id IS NOT NULL AND google_place_id != '' AND active=true ORDER BY created_at ASC` : await sql`SELECT id, name, google_place_id FROM shops WHERE google_place_id IS NOT NULL AND google_place_id != '' AND active=true AND (reviews IS NULL OR reviews::text = '[]') ORDER BY created_at ASC`;
+    allShops = force ? await sql`SELECT id, name, google_place_id FROM shops WHERE google_place_id IS NOT NULL AND google_place_id != '' AND active=true ORDER BY created_at ASC` : await sql`SELECT id, name, google_place_id FROM shops WHERE google_place_id IS NOT NULL AND google_place_id != '' AND active=true AND (reviews IS NULL OR reviews::text = '[]') ORDER BY created_at ASC`;
   } catch (e) {
     return c.json({ error: e.message }, 500);
   }
+  const totalRemaining = allShops.length;
+  const shops2 = allShops.slice(offset, offset + limit);
   const results = [];
   for (const shop of shops2) {
     try {
-      const fields = "reviews,rating,userRatingCount";
       const url = `https://places.googleapis.com/v1/places/${shop.google_place_id}?languageCode=en`;
       const res = await fetch(url, {
         headers: {
           "X-Goog-Api-Key": gKey,
-          "X-Goog-FieldMask": fields
+          "X-Goog-FieldMask": "reviews,rating,userRatingCount"
         }
       });
       if (!res.ok) {
@@ -4923,7 +4926,7 @@ app.post("/api/admin/sync-reviews", async (c) => {
         relative_time: rv.relativePublishTimeDescription || "",
         profile_photo_url: rv.authorAttribution?.photoUri || rv.profilePhotoUrl || "",
         language: rv.originalText?.languageCode || rv.text?.languageCode || "en"
-      })).filter((rv) => rv.text.trim().length > 0);
+      })).filter((rv) => (rv.text + "").trim().length > 0);
       const rating = place.rating ?? null;
       const reviewCount = place.userRatingCount ?? null;
       await sql`
@@ -4941,7 +4944,19 @@ app.post("/api/admin/sync-reviews", async (c) => {
   }
   const ok = results.filter((r) => r.status === "ok").length;
   const error = results.filter((r) => r.status !== "ok").length;
-  return c.json({ total: shops2.length, ok, error, results });
+  const nextOffset = offset + limit;
+  const hasMore = nextOffset < totalRemaining;
+  return c.json({
+    total: totalRemaining,
+    processed: shops2.length,
+    ok,
+    error,
+    offset,
+    limit,
+    nextOffset: hasMore ? nextOffset : null,
+    done: !hasMore,
+    results
+  });
 });
 app.post("/api/admin/generate-blog", async (c) => {
   await ensureDb(c.env);
