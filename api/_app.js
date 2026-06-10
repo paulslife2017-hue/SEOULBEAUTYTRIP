@@ -5067,7 +5067,7 @@ People: `);
   };
   const _schemaType = _schemaTypeMap[_shopCat] || '["LocalBusiness","BeautySalon"]';
   const _breadcrumbCatLabels = {
-    clinic: "Dermatology Clinic Seoul",
+    clinic: "Skin Clinic Seoul",
     hair: "Hair Salon Seoul",
     headspa: "Head Spa Seoul",
     skincare: "Skincare Seoul",
@@ -5077,6 +5077,9 @@ People: `);
     tattoo: "Eyebrow Tattoo Seoul"
   };
   const _bcCatName = _breadcrumbCatLabels[_shopCat] || _shopCat;
+  const _bcAreaSlug = _shopArea.toLowerCase().replace(/\s+/g, "-").replace("cheongdam", "gangnam").replace("apgujeong", "gangnam").replace("sinsa", "gangnam").replace("seocho", "gangnam");
+  const _bcCatSlug = _shopCat;
+  const _bcAreaItem = `{"@type":"ListItem","position":3,"name":"${_shopArea}","item":"${base}/best/${_bcCatSlug}/${_bcAreaSlug}"}`;
   const _wpCatLabels = {
     clinic: "Dermatology Clinic",
     hair: "Hair Salon",
@@ -5177,7 +5180,8 @@ ${SB_TRACKER_SCRIPT}
         "ratingValue":"${shop.rating}",
         "bestRating":"5",
         "worstRating":"1",
-        "reviewCount":"${Math.max(shop.reviewCount, 1)}"
+        "reviewCount":${Math.max(shop.reviewCount, 1)},
+        "ratingCount":${Math.max(shop.reviewCount, 1)}
       },
       "hasOfferCatalog":{
         "@type":"OfferCatalog",
@@ -5200,9 +5204,10 @@ ${SB_TRACKER_SCRIPT}
     {
       "@type":"BreadcrumbList",
       "itemListElement":[
-        {"@type":"ListItem","position":1,"name":"Seoul Beauty Trip","item":"${base}/"},
-        {"@type":"ListItem","position":2,"name":"${_bcCatName}","item":"${base}/?cat=${shop.category}"},
-        {"@type":"ListItem","position":3,"name":"${shop.name}","item":"${canonicalUrl}"}
+        {"@type":"ListItem","position":1,"name":"Home","item":"${base}/"},
+        {"@type":"ListItem","position":2,"name":"${_bcCatName}","item":"${base}/best/${_bcCatSlug}/gangnam"},
+        ${_bcAreaItem},
+        {"@type":"ListItem","position":4,"name":"${shop.name}","item":"${canonicalUrl}"}
       ]
     },
     {
@@ -5462,9 +5467,18 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
     <a href="/" class="sp-nav-back"><i class="fas fa-arrow-left"></i> Catalog</a>
   </div>
 </nav>
+<nav aria-label="breadcrumb" style="background:rgba(0,0,0,.35);padding:7px 16px;font-size:12px;color:rgba(255,255,255,.5);display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+  <a href="/" style="color:rgba(255,255,255,.55);text-decoration:none">Home</a>
+  <span style="opacity:.4">\u203A</span>
+  <a href="/best/${_bcCatSlug}/gangnam" style="color:rgba(255,255,255,.55);text-decoration:none">${_bcCatName}</a>
+  <span style="opacity:.4">\u203A</span>
+  <a href="/best/${_bcCatSlug}/${_bcAreaSlug}" style="color:rgba(255,255,255,.55);text-decoration:none">${_shopArea}</a>
+  <span style="opacity:.4">\u203A</span>
+  <span style="color:rgba(255,255,255,.8)">${shop.name}</span>
+</nav>
 
 <div class="sp-hero">
-  <img class="sp-hero-img" src="${shop.thumbnail}" alt="${shop.name} ${_catLabel} in ${_areaFinal} Seoul \u2014 Best Korean Beauty for Foreigners" itemprop="image" width="800" height="600">
+  <img class="sp-hero-img" src="${shop.thumbnail}" alt="${shop.name} ${_catLabel} in ${_areaFinal} Seoul \u2014 Best Korean Beauty for Foreigners" itemprop="image" width="800" height="600" fetchpriority="high">
   <div class="sp-hero-ov"></div>
   <div class="sp-hero-info">
     <div class="sp-cat-badge">${catIcon} ${shop.category.charAt(0).toUpperCase() + shop.category.slice(1)} \xB7 ${shop.location.split(",")[0].trim()} Seoul</div>
