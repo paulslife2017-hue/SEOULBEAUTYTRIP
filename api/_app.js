@@ -4903,30 +4903,53 @@ app.post("/api/admin/sync-reviews", async (c) => {
   const shops2 = allShops.slice(offset, offset + limit);
   const results = [];
   const normalizeReviews = (rawReviews) => rawReviews.map((rv) => ({
-    author: rv.authorAttribution?.displayName || rv.authorName || "Anonymous",
-    author_name: rv.authorAttribution?.displayName || rv.authorName || "Anonymous",
+    author: rv.author_name || rv.authorAttribution?.displayName || "Anonymous",
+    author_name: rv.author_name || rv.authorAttribution?.displayName || "Anonymous",
     rating: rv.rating || 5,
-    text: rv.text?.text || rv.text || "",
-    time: rv.publishTime ? Math.floor(new Date(rv.publishTime).getTime() / 1e3) : rv.relativePublishTimeDescription || "",
-    relative_time: rv.relativePublishTimeDescription || "",
-    profile_photo_url: rv.authorAttribution?.photoUri || rv.profilePhotoUrl || "",
-    language: rv.originalText?.languageCode || rv.text?.languageCode || "en"
+    text: rv.text || rv.text?.text || "",
+    time: typeof rv.time === "number" ? rv.time : rv.publishTime ? Math.floor(new Date(rv.publishTime).getTime() / 1e3) : 0,
+    relative_time: rv.relative_time_description || rv.relativePublishTimeDescription || "",
+    profile_photo_url: rv.profile_photo_url || rv.authorAttribution?.photoUri || "",
+    language: rv.language || rv.originalText?.languageCode || rv.text?.languageCode || "en"
   })).filter((rv) => (rv.text + "").trim().length > 0);
   for (const shop of shops2) {
     try {
-      const url1 = `https://places.googleapis.com/v1/places/${shop.google_place_id}?languageCode=en`;
-      const res1 = await fetch(url1, {
-        headers: { "X-Goog-Api-Key": gKey, "X-Goog-FieldMask": "reviews,rating,userRatingCount" }
-      });
+      const pid = shop.google_place_id;
+      const base1 = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${pid}&fields=reviews,rating,user_ratings_total&key=${gKey}&language=en&reviews_sort=newest`;
+      const res1 = await fetch(base1);
       if (!res1.ok) {
         const errText = await res1.text();
-        results.push({ id: shop.id, name: shop.name, status: `API error ${res1.status}: ${errText.slice(0, 100)}` });
+        results.push({ id: shop.id, name: shop.name, status: `API error ${res1.status}: ${errText.slice(0, 120)}` });
         continue;
       }
-      const place1 = await res1.json();
-      const normalized = normalizeReviews(place1.reviews || []);
-      const rating = place1.rating ?? null;
-      const reviewCount = place1.userRatingCount ?? null;
+      const data1 = await res1.json();
+      if (data1.status !== "OK") {
+        results.push({ id: shop.id, name: shop.name, status: `Places status: ${data1.status}` });
+        continue;
+      }
+      const reviews1 = data1.result?.reviews || [];
+      const rating = data1.result?.rating ?? null;
+      const reviewCount = data1.result?.user_ratings_total ?? null;
+      let reviews2 = [];
+      const pageToken = data1.next_page_token || "";
+      if (pageToken) {
+        await new Promise((r) => setTimeout(r, 2500));
+        const base2 = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${pid}&fields=reviews&key=${gKey}&language=en&reviews_sort=newest&pagetoken=${pageToken}`;
+        const res2 = await fetch(base2);
+        if (res2.ok) {
+          const data2 = await res2.json();
+          if (data2.status === "OK") reviews2 = data2.result?.reviews || [];
+        }
+      }
+      const allRaw = [...reviews1, ...reviews2];
+      const seen = /* @__PURE__ */ new Set();
+      const deduped = allRaw.filter((rv) => {
+        const key = `${rv.author_name}|${rv.time}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      const normalized = normalizeReviews(deduped).slice(0, 10);
       await sql`
         UPDATE shops
         SET
