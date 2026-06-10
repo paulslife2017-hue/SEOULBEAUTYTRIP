@@ -8754,18 +8754,11 @@ app.get('/api/admin/debug-blog-photos', async (c) => {
       : (typeof rawPhotos === 'string' ? JSON.parse(rawPhotos || '[]') : [])
 
     const thumb = shopRow[0].thumbnail || ''
-    const seen2 = new Set<string>()
-    const photoKey2 = (u: string) => {
-      const m = u.match(/photos\/([^/]+)\/media/)
-      return m ? m[1].slice(0, 30) : u.slice(-40)
-    }
-    const urls: string[] = []
-    for (const u of [thumb, ...photoArr]) {
-      if (u && u.startsWith('http')) {
-        const k = photoKey2(u)
-        if (!seen2.has(k)) { seen2.add(k); urls.push(u) }
-      }
-    }
+    // photos[0] == thumbnail인 경우가 많으므로 slice(1,7) 사용
+    const galleryUrls = photoArr
+      .map((u: any) => String(u || '').trim())
+      .filter((u: string) => u.startsWith('http'))
+      .slice(1, 7)
 
     return c.json({
       blog_slug: post.slug,
@@ -8773,12 +8766,8 @@ app.get('/api/admin/debug-blog-photos', async (c) => {
       thumbnail: thumb.slice(0, 80),
       rawPhotosType: rawType,
       photoArrLen: photoArr.length,
-      dedupedCount: urls.length,
-      thumbTrimLen: thumb.trim().length,
-      p0trimPN: (() => { const u=(String(photoArr[0]||'')).trim(); const i=u.indexOf('/photos/'); return i<0?'':u.slice(i+8,i+68) })(),
-      thumbPN: (() => { const u=thumb.trim(); const i=u.indexOf('/photos/'); return i<0?'':u.slice(i+8,i+68) })(),
-      samePN: (() => { const u=(String(photoArr[0]||'')).trim(); const tu=thumb.trim(); const fi=u.indexOf('/photos/'); const ti=tu.indexOf('/photos/'); return fi>=0&&ti>=0 ? u.slice(fi+8,fi+68)===tu.slice(ti+8,ti+68) : false })(),
-      urls: urls.map(u => u.slice(0, 80))
+      galleryCount: galleryUrls.length,
+      urls: galleryUrls.map((u: string) => u.slice(0, 80))
     })
   } catch (e: any) {
     return c.json({ error: e.message, stack: e.stack?.slice(0, 300) }, 500)
