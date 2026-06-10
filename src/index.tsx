@@ -5603,6 +5603,12 @@ details[open] .faq-q::after{transform:rotate(180deg)}
 </main>
 <footer class="lp-footer">
   © ${new Date().getFullYear()} <a href="/">Seoul Beauty Trip</a> — Book Korean Beauty in Seoul for Foreigners
+  <div style="margin-top:8px">
+    <a href="/about" style="color:#e91e8c">About</a> &nbsp;|&nbsp;
+    <a href="/privacy" style="color:#e91e8c">Privacy Policy</a> &nbsp;|&nbsp;
+    <a href="/blog">Blog</a> &nbsp;|&nbsp;
+    <a href="/guide">Guides</a>
+  </div>
 </footer>
 </body>
 </html>`)
@@ -6144,7 +6150,7 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;min-height:
 <main class="blog-grid">${postCards}</main>
 <footer style="text-align:center;padding:32px 20px;color:rgba(255,255,255,.25);font-size:12px;border-top:1px solid rgba(255,255,255,.06);margin-top:20px">
   <a href="/blog" style="color:#FF4D8D;text-decoration:none;font-weight:700">← All Seoul Beauty Guides</a>
-  <p style="margin-top:8px">© ${new Date().getFullYear()} Seoul Beauty Trip. All rights reserved.</p>
+  <p style="margin-top:8px">© ${new Date().getFullYear()} Seoul Beauty Trip. All rights reserved. &nbsp;|&nbsp; <a href="/about" style="color:#FF4D8D;text-decoration:none">About</a> &nbsp;|&nbsp; <a href="/privacy" style="color:#FF4D8D;text-decoration:none">Privacy</a></p>
 </footer>
 </body>
 </html>`
@@ -6502,6 +6508,224 @@ app.get('/llms.txt', (c) => {
   return c.text(txt, 200, { 'Content-Type': 'text/plain; charset=utf-8' })
 })
 
+// ── /about ──
+app.get('/about', (c) => {
+  const yr = new Date().getFullYear()
+  return c.html(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>About Seoul Beauty Trip — Who We Are & How We Work</title>
+<meta name="description" content="Seoul Beauty Trip helps foreign visitors book skin clinics, hair salons, head spas and beauty services in Seoul. English support, same local price, WhatsApp booking.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://seoulbeautytrip.com/about">
+<meta property="og:type" content="website">
+<meta property="og:title" content="About Seoul Beauty Trip">
+<meta property="og:description" content="We help foreigners book Seoul beauty services — skin clinics, head spas, nail studios and more. English support, no hidden fees.">
+<meta property="og:url" content="https://seoulbeautytrip.com/about">
+<meta property="og:site_name" content="Seoul Beauty Trip">
+<script type="application/ld+json">
+{
+  "@context":"https://schema.org",
+  "@type":"Organization",
+  "name":"Seoul Beauty Trip",
+  "url":"https://seoulbeautytrip.com",
+  "logo":"https://seoulbeautytrip.com/",
+  "description":"Seoul Beauty Trip helps foreign visitors book beauty services in Seoul — skin clinics, head spas, hair salons, nail studios and more. English-speaking support, same local price, WhatsApp booking.",
+  "contactPoint":{"@type":"ContactPoint","contactType":"customer support","availableLanguage":["English","Korean"]},
+  "areaServed":{"@type":"City","name":"Seoul"},
+  "sameAs":["https://www.instagram.com/seoulbeautytrip/"]
+}
+</script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fff;color:#1a1a2e;line-height:1.7}
+.wrap{max-width:720px;margin:0 auto;padding:40px 20px 80px}
+.back{display:inline-flex;align-items:center;gap:6px;color:#FF4D8D;text-decoration:none;font-size:13px;font-weight:600;margin-bottom:32px}
+.back:hover{text-decoration:underline}
+h1{font-size:clamp(1.6rem,5vw,2.2rem);font-weight:800;color:#1a1a2e;line-height:1.25;margin-bottom:12px}
+.subtitle{font-size:1.05rem;color:#666;margin-bottom:40px;border-bottom:2px solid #FF4D8D;padding-bottom:20px}
+h2{font-size:1.15rem;font-weight:700;color:#1a1a2e;margin:36px 0 10px}
+p{color:#444;margin-bottom:14px;font-size:.97rem}
+ul{color:#444;padding-left:20px;margin-bottom:14px;font-size:.97rem}
+ul li{margin-bottom:6px}
+.highlight{background:#fff5f9;border-left:3px solid #FF4D8D;padding:14px 18px;border-radius:0 8px 8px 0;margin:24px 0;font-size:.95rem;color:#333}
+.contact-box{background:#f8f8fc;border:1px solid #e8e8f0;border-radius:12px;padding:24px;margin-top:40px;text-align:center}
+.contact-box a{color:#FF4D8D;font-weight:700;text-decoration:none}
+.contact-box a:hover{text-decoration:underline}
+footer{text-align:center;padding:32px 20px;font-size:.82rem;color:#999;border-top:1px solid #eee;margin-top:40px}
+footer a{color:#FF4D8D;text-decoration:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a href="/" class="back">← Seoul Beauty Trip</a>
+
+  <h1>About Seoul Beauty Trip</h1>
+  <p class="subtitle">We help foreign visitors discover and book the best beauty services in Seoul — in English, at the same price locals pay.</p>
+
+  <h2>Why We Started This</h2>
+  <p>Seoul has some of the best skin clinics, hair salons, head spas, and nail studios in the world. But for foreign visitors, finding and booking them has always been a barrier — most places don't have English websites, prices are unclear, and making a reservation without Korean is genuinely difficult.</p>
+  <p>Seoul Beauty Trip was created to remove that friction. We visit, verify, and list the best foreigner-friendly beauty businesses in Seoul, then handle all booking communication in English so you don't have to figure it out on your own.</p>
+
+  <h2>How It Works</h2>
+  <ul>
+    <li>Browse shops by category (clinic, head spa, hair, nail, makeup) and area (Gangnam, Myeongdong, Hongdae, etc.)</li>
+    <li>Found something you like? Tap the Book button and message us on WhatsApp</li>
+    <li>We confirm availability, communicate with the shop in Korean, and send you all the details</li>
+    <li>You show up, enjoy the treatment — no language barrier, no surprise fees</li>
+  </ul>
+
+  <div class="highlight">
+    💬 All bookings go through our WhatsApp line. We charge <strong>no booking fee</strong> — you pay the same price the shop charges local customers.
+  </div>
+
+  <h2>What We Cover</h2>
+  <ul>
+    <li><strong>Skin Clinics & Dermatology</strong> — Botox, filler, laser, Rejuran, Potenza, Thermage and more</li>
+    <li><strong>Head Spa</strong> — Scalp treatment, 18-step head spa, hair loss care</li>
+    <li><strong>Hair Salons</strong> — K-pop cuts, Korean perms, balayage, color</li>
+    <li><strong>Nail Studios</strong> — Korean nail art, gel, extensions</li>
+    <li><strong>Makeup & Color Analysis</strong> — Personal color analysis, professional makeup</li>
+    <li><strong>Eyebrow Tattoo</strong> — Microblading, powder brow</li>
+  </ul>
+
+  <h2>How We Choose Shops</h2>
+  <p>Every shop listed on Seoul Beauty Trip has been reviewed against these criteria:</p>
+  <ul>
+    <li>Foreigner-friendly — English menus, or staff who can communicate in English</li>
+    <li>Verified Google rating of 4.5+ with substantial review count</li>
+    <li>Transparent pricing — no hidden fees or tourist markups</li>
+    <li>Responsive to booking requests from non-Korean speakers</li>
+  </ul>
+  <p>We do not accept payment from shops to be listed. Rankings reflect actual quality signals — ratings, reviews, and foreigner accessibility.</p>
+
+  <h2>Our Content</h2>
+  <p>The blog and guides on Seoul Beauty Trip are written based on research, clinic data, and direct communication with Seoul beauty businesses. We cover treatment guides, price comparisons, area guides, and honest shop reviews to help you make informed decisions before you book.</p>
+  <p>For medical treatments (botox, fillers, laser procedures), we strongly recommend consulting with the clinic during your appointment. Our content is informational — always follow the professional advice of the clinic staff.</p>
+
+  <div class="contact-box">
+    <p style="font-weight:700;font-size:1rem;margin-bottom:8px">Questions? Get in touch.</p>
+    <p style="color:#666;font-size:.9rem;margin-bottom:12px">For booking requests, shop recommendations, or general questions about Seoul beauty services:</p>
+    <a href="https://wa.me/821094086723" target="_blank" rel="noopener">💬 WhatsApp Us</a>
+    &nbsp;&nbsp;|&nbsp;&nbsp;
+    <a href="https://www.instagram.com/seoulbeautytrip/" target="_blank" rel="noopener">📸 Instagram</a>
+  </div>
+</div>
+<footer>
+  © ${yr} <a href="/">Seoul Beauty Trip</a> &nbsp;|&nbsp;
+  <a href="/about">About</a> &nbsp;|&nbsp;
+  <a href="/privacy">Privacy Policy</a> &nbsp;|&nbsp;
+  <a href="/blog">Blog</a> &nbsp;|&nbsp;
+  <a href="/guide">Guides</a>
+</footer>
+</body>
+</html>`)
+})
+
+// ── /privacy ──
+app.get('/privacy', (c) => {
+  const yr = new Date().getFullYear()
+  const updated = '2026-01-01'
+  return c.html(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Privacy Policy | Seoul Beauty Trip</title>
+<meta name="description" content="Privacy Policy for Seoul Beauty Trip. How we collect, use and protect your personal information.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://seoulbeautytrip.com/privacy">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fff;color:#1a1a2e;line-height:1.7}
+.wrap{max-width:720px;margin:0 auto;padding:40px 20px 80px}
+.back{display:inline-flex;align-items:center;gap:6px;color:#FF4D8D;text-decoration:none;font-size:13px;font-weight:600;margin-bottom:32px}
+.back:hover{text-decoration:underline}
+h1{font-size:1.8rem;font-weight:800;color:#1a1a2e;margin-bottom:8px}
+.updated{font-size:.85rem;color:#999;margin-bottom:40px;border-bottom:1px solid #eee;padding-bottom:20px}
+h2{font-size:1.05rem;font-weight:700;color:#1a1a2e;margin:32px 0 8px}
+p{color:#444;margin-bottom:12px;font-size:.95rem}
+ul{color:#444;padding-left:20px;margin-bottom:12px;font-size:.95rem}
+ul li{margin-bottom:5px}
+footer{text-align:center;padding:32px 20px;font-size:.82rem;color:#999;border-top:1px solid #eee;margin-top:40px}
+footer a{color:#FF4D8D;text-decoration:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a href="/" class="back">← Seoul Beauty Trip</a>
+
+  <h1>Privacy Policy</h1>
+  <p class="updated">Last updated: ${updated}</p>
+
+  <p>Seoul Beauty Trip ("we", "us", or "our") operates the website seoulbeautytrip.com. This Privacy Policy explains how we collect, use, and protect your information when you use our website and booking service.</p>
+
+  <h2>1. Information We Collect</h2>
+  <p>We may collect the following information:</p>
+  <ul>
+    <li><strong>Usage data</strong> — Pages visited, time spent, clicks, and general browsing behavior (collected via Google Analytics)</li>
+    <li><strong>Booking information</strong> — Name, contact details, and service preferences shared voluntarily when you request a booking via WhatsApp</li>
+    <li><strong>Communications</strong> — Messages sent to us via WhatsApp or email</li>
+  </ul>
+  <p>We do not collect payment information. All payments are made directly to the beauty service provider.</p>
+
+  <h2>2. How We Use Your Information</h2>
+  <ul>
+    <li>To process and confirm beauty service bookings on your behalf</li>
+    <li>To communicate with you about your booking status</li>
+    <li>To improve our website and service based on usage patterns</li>
+    <li>To respond to your inquiries</li>
+  </ul>
+  <p>We do not sell, rent, or share your personal information with third parties for marketing purposes.</p>
+
+  <h2>3. Google Analytics</h2>
+  <p>We use Google Analytics to understand how visitors use our website. Google Analytics collects anonymized data such as pages visited, device type, and general location. This data is processed by Google in accordance with their Privacy Policy. You can opt out of Google Analytics by using the <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noopener" style="color:#FF4D8D">Google Analytics Opt-out Browser Add-on</a>.</p>
+
+  <h2>4. Cookies</h2>
+  <p>Our website uses cookies primarily for Google Analytics. Cookies are small text files stored on your device. You can disable cookies in your browser settings, though this may affect some website functionality.</p>
+
+  <h2>5. Third-Party Links</h2>
+  <p>Our website contains links to beauty shop pages, Google Maps, and Instagram. We are not responsible for the privacy practices of these third-party services. We recommend reviewing their respective privacy policies.</p>
+
+  <h2>6. Data Retention</h2>
+  <p>Booking-related communications are retained for a reasonable period to provide our service. You may request deletion of your personal data at any time by contacting us via WhatsApp.</p>
+
+  <h2>7. Your Rights</h2>
+  <p>You have the right to:</p>
+  <ul>
+    <li>Access the personal information we hold about you</li>
+    <li>Request correction of inaccurate data</li>
+    <li>Request deletion of your personal data</li>
+    <li>Withdraw consent for data processing at any time</li>
+  </ul>
+  <p>To exercise any of these rights, contact us via WhatsApp or Instagram.</p>
+
+  <h2>8. Children's Privacy</h2>
+  <p>Our service is not directed to individuals under the age of 18. We do not knowingly collect personal information from minors.</p>
+
+  <h2>9. Changes to This Policy</h2>
+  <p>We may update this Privacy Policy from time to time. Changes will be posted on this page with an updated date. Continued use of the website after changes constitutes acceptance of the updated policy.</p>
+
+  <h2>10. Contact</h2>
+  <p>If you have questions about this Privacy Policy or how we handle your data, please contact us:</p>
+  <ul>
+    <li>WhatsApp: <a href="https://wa.me/821094086723" target="_blank" rel="noopener" style="color:#FF4D8D">+82-10-9408-6723</a></li>
+    <li>Instagram: <a href="https://www.instagram.com/seoulbeautytrip/" target="_blank" rel="noopener" style="color:#FF4D8D">@seoulbeautytrip</a></li>
+  </ul>
+</div>
+<footer>
+  © ${yr} <a href="/">Seoul Beauty Trip</a> &nbsp;|&nbsp;
+  <a href="/about">About</a> &nbsp;|&nbsp;
+  <a href="/privacy">Privacy Policy</a> &nbsp;|&nbsp;
+  <a href="/blog">Blog</a> &nbsp;|&nbsp;
+  <a href="/guide">Guides</a>
+</footer>
+</body>
+</html>`)
+})
+
 // ── /guide (인덱스 페이지) ──
 app.get('/guide', (c) => {
   const base = 'https://seoulbeautytrip.com'
@@ -6567,7 +6791,7 @@ app.get('/guide', (c) => {
   <p>Expert itineraries, treatment explainers, and booking tips — everything you need to plan the perfect Seoul beauty trip</p>
 </section>
 <main class="gwrap">${cards}</main>
-<footer class="gfooter">© ${yr} <a href="/">Seoul Beauty Trip</a> — Book Korean Beauty in Seoul for Foreigners</footer>
+<footer class="gfooter">© ${yr} <a href="/">Seoul Beauty Trip</a> — Book Korean Beauty in Seoul for Foreigners &nbsp;|&nbsp; <a href="/about">About</a> &nbsp;|&nbsp; <a href="/privacy">Privacy</a></footer>
 </body>
 </html>`)
 })
@@ -6717,7 +6941,7 @@ app.get('/guide/seoul-beauty-trip-itinerary', (c) => {
   </div>
 
 </main>
-<footer class="guide-footer">© ${yr} <a href="/">Seoul Beauty Trip</a> — Book Korean Beauty in Seoul for Foreigners &nbsp;|&nbsp; <a href="/guide">All Guides</a> &nbsp;|&nbsp; <a href="/blog">Blog</a></footer>
+<footer class="guide-footer">© ${yr} <a href="/">Seoul Beauty Trip</a> — Book Korean Beauty in Seoul for Foreigners &nbsp;|&nbsp; <a href="/guide">All Guides</a> &nbsp;|&nbsp; <a href="/blog">Blog</a> &nbsp;|&nbsp; <a href="/about">About</a> &nbsp;|&nbsp; <a href="/privacy">Privacy</a></footer>
 </body>
 </html>`)
 })
@@ -6850,7 +7074,7 @@ app.get('/guide/k-beauty-treatment-guide', (c) => {
   </div>
 
 </main>
-<footer class="guide-footer">© ${yr} <a href="/">Seoul Beauty Trip</a> — Book Korean Beauty in Seoul for Foreigners &nbsp;|&nbsp; <a href="/guide">All Guides</a> &nbsp;|&nbsp; <a href="/blog">Blog</a></footer>
+<footer class="guide-footer">© ${yr} <a href="/">Seoul Beauty Trip</a> — Book Korean Beauty in Seoul for Foreigners &nbsp;|&nbsp; <a href="/guide">All Guides</a> &nbsp;|&nbsp; <a href="/blog">Blog</a> &nbsp;|&nbsp; <a href="/about">About</a> &nbsp;|&nbsp; <a href="/privacy">Privacy</a></footer>
 </body>
 </html>`)
 })
@@ -6947,7 +7171,7 @@ app.get('/guide/seoul-beauty-faq', (c) => {
   </div>
 
 </main>
-<footer class="guide-footer">© ${yr} <a href="/">Seoul Beauty Trip</a> — Book Korean Beauty in Seoul for Foreigners &nbsp;|&nbsp; <a href="/guide">All Guides</a> &nbsp;|&nbsp; <a href="/blog">Blog</a></footer>
+<footer class="guide-footer">© ${yr} <a href="/">Seoul Beauty Trip</a> — Book Korean Beauty in Seoul for Foreigners &nbsp;|&nbsp; <a href="/guide">All Guides</a> &nbsp;|&nbsp; <a href="/blog">Blog</a> &nbsp;|&nbsp; <a href="/about">About</a> &nbsp;|&nbsp; <a href="/privacy">Privacy</a></footer>
 </body>
 </html>`)
 })
