@@ -6846,12 +6846,18 @@ app.get('/blog/:slug', async (c) => {
           ? rawPhotos
           : (typeof rawPhotos === 'string' ? JSON.parse(rawPhotos || '[]') : [])
         const thumb = shopRow[0].thumbnail || ''
-        // 전체 배열(thumb + photos) 에서 URL 앞 150자 기준으로 중복 제거
+        // photo name 기준 중복 제거: URL에서 /photos/{name}/ 의 name 앞 60자 추출
+        const getPN = (u: string) => {
+          if (!u) return ''
+          const i = u.indexOf('/photos/')
+          if (i < 0) return u.slice(0, 60)
+          return u.slice(i + 8, i + 68) // 60자
+        }
         const seenP = new Set<string>()
         const allCandidates = thumb ? [thumb, ...photoArr] : [...photoArr]
         for (const u of allCandidates) {
           if (u && typeof u === 'string' && u.startsWith('http')) {
-            const key = u.slice(0, 150)
+            const key = getPN(u)
             if (!seenP.has(key)) { seenP.add(key); shopPhotoUrls.push(u) }
           }
         }
@@ -8779,11 +8785,9 @@ app.get('/api/admin/debug-blog-photos', async (c) => {
       rawPhotosType: rawType,
       photoArrLen: photoArr.length,
       dedupedCount: urls.length,
-      thumbPrefix120: thumb.slice(0, 120),
-      photoArr0prefix120: photoArr[0] ? String(photoArr[0]).slice(0, 120) : null,
-      photoArr1prefix120: photoArr[1] ? String(photoArr[1]).slice(0, 120) : null,
-      filterMatch0: photoArr[0] ? String(photoArr[0]).slice(0, 120) === thumb.slice(0, 120) : null,
-      filterMatch1: photoArr[1] ? String(photoArr[1]).slice(0, 120) === thumb.slice(0, 120) : null,
+      thumbPhotoName: (() => { const i=thumb.indexOf('/photos/'); return i<0?'':thumb.slice(i+8,i+68) })(),
+      p0PhotoName: (() => { const u=String(photoArr[0]||''); const i=u.indexOf('/photos/'); return i<0?'':u.slice(i+8,i+68) })(),
+      p1PhotoName: (() => { const u=String(photoArr[1]||''); const i=u.indexOf('/photos/'); return i<0?'':u.slice(i+8,i+68) })(),
       urls: urls.map(u => u.slice(0, 80))
     })
   } catch (e: any) {
