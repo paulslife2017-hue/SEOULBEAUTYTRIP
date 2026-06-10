@@ -5035,7 +5035,7 @@ function playSpVid(idx){
     if(instRaw.startsWith('http')){
       instHref  = instRaw;
       // URL에서 표시명 추출: instagram.com/p/XXXX → @출처, instagram.com/account → @account
-      var _m = instRaw.match(/instagram\.com\/(?:p\/[^/?]+|([^/?]+))/);
+      var _m = instRaw.match(new RegExp('instagram\\.com/(?:p/[^/?]+|([^/?]+))'));
       instLabel = _m && _m[1] ? '@'+_m[1] : '출처 보기';
     } else {
       var _acc = instRaw.replace(/^@/,'');

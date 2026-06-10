@@ -6486,7 +6486,7 @@ function playSpVid(idx){
     if(instRaw.startsWith('http')){
       instHref  = instRaw;
       // URL\uC5D0\uC11C \uD45C\uC2DC\uBA85 \uCD94\uCD9C: instagram.com/p/XXXX \u2192 @\uCD9C\uCC98, instagram.com/account \u2192 @account
-      var _m = instRaw.match(/instagram.com/(?:p/[^/?]+|([^/?]+))/);
+      var _m = instRaw.match(new RegExp('instagram\\.com/(?:p/[^/?]+|([^/?]+))'));
       instLabel = _m && _m[1] ? '@'+_m[1] : '\uCD9C\uCC98 \uBCF4\uAE30';
     } else {
       var _acc = instRaw.replace(/^@/,'');
