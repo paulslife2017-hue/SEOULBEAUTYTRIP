@@ -5431,9 +5431,22 @@ if(typeof gtag!=='undefined') gtag('event','video_play',{event_category:'video',
 </html>`)
 })
 
+// ── /best/ 카테고리 301 리디렉션 맵 ──
+const BEST_CAT_REDIRECTS: Record<string, string> = {
+  'plastic-surgery': 'clinic',
+  'dermatology':     'clinic',
+  'nail':            'makeup',
+}
+
 app.get('/best/:category/:area', async (c) => {
   const catSlug  = c.req.param('category').toLowerCase()
   const areaSlug = c.req.param('area').toLowerCase()
+
+  // 카테고리 리디렉션 (plastic-surgery → clinic 등)
+  if (BEST_CAT_REDIRECTS[catSlug]) {
+    return c.redirect(`/best/${BEST_CAT_REDIRECTS[catSlug]}/${areaSlug}`, 301)
+  }
+
   const catLabel  = CATEGORY_LABELS[catSlug]
   const areaLabel = AREA_LABELS[areaSlug]
   // 유효하지 않은 카테고리/지역이면 404

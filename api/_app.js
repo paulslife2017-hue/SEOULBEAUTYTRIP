@@ -6881,9 +6881,17 @@ if(typeof gtag!=='undefined') gtag('event','video_play',{event_category:'video',
 </body>
 </html>`);
 });
+var BEST_CAT_REDIRECTS = {
+  "plastic-surgery": "clinic",
+  "dermatology": "clinic",
+  "nail": "makeup"
+};
 app.get("/best/:category/:area", async (c) => {
   const catSlug = c.req.param("category").toLowerCase();
   const areaSlug = c.req.param("area").toLowerCase();
+  if (BEST_CAT_REDIRECTS[catSlug]) {
+    return c.redirect(`/best/${BEST_CAT_REDIRECTS[catSlug]}/${areaSlug}`, 301);
+  }
   const catLabel = CATEGORY_LABELS[catSlug];
   const areaLabel = AREA_LABELS[areaSlug];
   if (!catLabel || !areaLabel) return c.notFound();
