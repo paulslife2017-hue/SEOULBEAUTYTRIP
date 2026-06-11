@@ -10389,9 +10389,16 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .shop-info-name .si-icon{color:var(--pk3);font-size:13px;flex-shrink:0;filter:drop-shadow(0 0 4px rgba(255,179,204,.4))}
 .shop-info-loc{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;color:rgba(255,255,255,.5);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .shop-info-loc i{font-size:9px;color:var(--pk);opacity:.85}
-.btns-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:0;overflow:hidden}
-.wa-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border-radius:22px;border:none;background:linear-gradient(135deg,#25D366 0%,#128C5E 100%);color:#fff;font-size:12px;font-weight:800;cursor:pointer;text-decoration:none;box-shadow:0 4px 16px rgba(37,211,102,.35),0 0 0 1px rgba(255,255,255,.08) inset;letter-spacing:.2px;transition:all .2s;white-space:nowrap;flex-shrink:0}
-.wa-btn:hover{opacity:.9;transform:scale(1.03)}
+.btns-row{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin-bottom:0;overflow:hidden}
+.wa-btn{display:none}
+/* \u2500\u2500 \uC5C5\uCCB4 \uC378\uB124\uC77C \uCE74\uB4DC (Book \uBC84\uD2BC \uB300\uCCB4) \u2500\u2500 */
+.shop-thumb-card{flex-shrink:0;width:62px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;-webkit-tap-highlight-color:transparent}
+.shop-thumb-wrap{position:relative;width:62px;height:62px;border-radius:14px;overflow:hidden;border:2px solid rgba(255,255,255,.18);box-shadow:0 4px 16px rgba(0,0,0,.55);transition:transform .15s,border-color .15s;background:#1a1a2e;flex-shrink:0}
+.shop-thumb-card:active .shop-thumb-wrap{transform:scale(0.93);border-color:var(--pk)}
+.shop-thumb-wrap img{width:100%;height:100%;object-fit:cover;display:block}
+.shop-thumb-wrap .stc-play{position:absolute;inset:0;background:rgba(0,0,0,.32);display:flex;align-items:center;justify-content:center}
+.shop-thumb-wrap .stc-play i{font-size:16px;color:#fff;filter:drop-shadow(0 1px 4px rgba(0,0,0,.7))}
+.shop-thumb-lbl{font-size:9px;font-weight:800;color:rgba(255,255,255,.65);letter-spacing:.5px;text-transform:uppercase;white-space:nowrap}
 /* \u2500\u2500 \uC778\uB514\uCF00\uC774\uD130 \u2500\u2500 */
 .hint{position:absolute;bottom:6px;left:50%;transform:translateX(-50%);z-index:3;display:flex;flex-direction:column;align-items:center;gap:2px;opacity:.4;animation:hb 2.4s infinite}
 .hint span{font-size:8px;color:#fff;letter-spacing:2px;text-transform:uppercase}
@@ -11264,7 +11271,15 @@ function buildSlide(v, idx) {
             ?'<div class="shop-info-loc"><i class="fas fa-map-marker-alt"></i>'+esc(areaOnly(shop.location||''))+'</div>'
             :'')
         +'</div>' +
-        '<button class="wa-btn" id="wabtn'+idx+'"><i class="fab fa-whatsapp" style="font-size:14px"></i> Book</button>' +
+        '<div class="shop-thumb-card" id="wabtn'+idx+'">'
+          +'<div class="shop-thumb-wrap">'
+            +(shop.thumbnail
+              ? '<img src="'+esc(cdnImg(shop.thumbnail,124,124))+'" alt="'+esc(shop.name||'')+'" loading="lazy">'
+              : '<div style="width:100%;height:100%;background:linear-gradient(135deg,#1a1a2e,#0d0d1a)"></div>')
+            +'<div class="stc-play"><i class="fas fa-chevron-right"></i></div>'
+          +'</div>'
+          +'<div class="shop-thumb-lbl">View</div>'
+        +'</div>' +
       '</div>' +
     '</div>' +
     '<div class="hint"><i class="fas fa-chevron-up" style="font-size:10px"></i><span>Swipe Up</span></div>';
