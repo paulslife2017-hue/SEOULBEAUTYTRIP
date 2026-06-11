@@ -10428,7 +10428,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .stc-open-dot.open{background:#22c55e}
 .stc-open-dot.closed{background:#6b7280}
 /* \uD558\uB2E8 \uB77C\uBCA8 */
-.shop-thumb-lbl{display:none}
+.shop-thumb-lbl{font-size:9px;font-weight:700;color:rgba(255,255,255,.6);letter-spacing:.4px;white-space:nowrap;text-align:center;line-height:1.2;margin-top:1px}
 /* \u2500\u2500 \uC2AC\uB77C\uC774\uB4DC \uD55C \uC904 \uB9AC\uBDF0 \uC694\uC57D \u2500\u2500 */
 .slide-rv-summary{
   margin-top:9px;

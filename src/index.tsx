@@ -9361,7 +9361,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .stc-open-dot.open{background:#22c55e}
 .stc-open-dot.closed{background:#6b7280}
 /* 하단 라벨 */
-.shop-thumb-lbl{display:none}
+.shop-thumb-lbl{font-size:9px;font-weight:700;color:rgba(255,255,255,.6);letter-spacing:.4px;white-space:nowrap;text-align:center;line-height:1.2;margin-top:1px}
 /* ── 슬라이드 한 줄 리뷰 요약 ── */
 .slide-rv-summary{
   margin-top:9px;
