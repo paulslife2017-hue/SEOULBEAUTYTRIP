@@ -11339,7 +11339,8 @@ function buildSlide(v, idx) {
         var line = '';
         if(why.length) {
           // \uC774\uBAA8\uC9C0 \uC81C\uAC70 \uD6C4 \uC0AC\uC6A9
-          line = why[0].replace(/^[\u{1F300}-\u{1FAFF}\u2600-\u27FF]s*/u, '').replace(/^[^w\uAC00-\uD7A3]+/, '').trim();
+          // \uC55E\uCABD \uC774\uBAA8\uC9C0/\uD2B9\uC218\uBB38\uC790 \uC81C\uAC70 (\uC720\uB2C8\uCF54\uB4DC u\uD50C\uB798\uADF8 \uC5C6\uC774 \uC548\uC804\uD558\uAC8C)
+          line = why[0].replace(/^[^w\uAC00-\uD7A3\uFF41-\uFF5A]+/, '').trim();
         } else if(shop.reviews && shop.reviews.length) {
           var txt = (shop.reviews[0].text||'').replace(/
 /g,' ');
