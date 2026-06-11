@@ -4224,7 +4224,7 @@ ${SB_TRACKER_SCRIPT}
       "@type":"BreadcrumbList",
       "itemListElement":[
         {"@type":"ListItem","position":1,"name":"Home","item":"${base}/"},
-        {"@type":"ListItem","position":2,"name":"${_bcCatName}","item":"${base}/best/${_bcCatSlug}/${_bcAreaSlug}"},
+        {"@type":"ListItem","position":2,"name":"${_bcCatName}","item":"${base}/best/${_bcCatSlug}/seoul"},
         ${_bcAreaItem},
         {"@type":"ListItem","position":4,"name":"${shop.name}","item":"${canonicalUrl}"}
       ]
@@ -4495,7 +4495,7 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 <nav aria-label="breadcrumb" style="background:rgba(0,0,0,.35);padding:7px 16px;font-size:12px;color:rgba(255,255,255,.5);display:flex;align-items:center;gap:4px;flex-wrap:wrap">
   <a href="/" style="color:rgba(255,255,255,.55);text-decoration:none">Home</a>
   <span style="opacity:.4">›</span>
-  <a href="/best/${_bcCatSlug}/gangnam" style="color:rgba(255,255,255,.55);text-decoration:none">${_bcCatName}</a>
+  <a href="/best/${_bcCatSlug}/seoul" style="color:rgba(255,255,255,.55);text-decoration:none">${_bcCatName}</a>
   <span style="opacity:.4">›</span>
   <a href="/best/${_bcCatSlug}/${_bcAreaSlug}" style="color:rgba(255,255,255,.55);text-decoration:none">${_shopArea}</a>
   <span style="opacity:.4">›</span>
@@ -4506,7 +4506,7 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
   <img class="sp-hero-img" src="${shop.thumbnail}" alt="${shop.name} ${_catLabel} in ${_areaFinal} Seoul — Best Korean Beauty for Foreigners" itemprop="image" width="800" height="600" fetchpriority="high">
   <div class="sp-hero-ov"></div>
   <div class="sp-hero-info">
-    <div class="sp-cat-badge">${catIcon} ${shop.category.charAt(0).toUpperCase()+shop.category.slice(1)} · ${shop.location.split(',')[0].trim()} Seoul</div>
+    <div class="sp-cat-badge">${catIcon} ${shop.category.charAt(0).toUpperCase()+shop.category.slice(1)} · ${_shopArea}</div>
     <h1 class="sp-title" itemprop="name">${shop.name}</h1>
     <div class="sp-subtitle" style="font-size:13px;color:rgba(255,255,255,.65);margin-top:4px;font-weight:500;letter-spacing:.3px">${_catLabel} &middot; ${_areaFinal}, Seoul &middot; English Booking Available</div>
     <div class="sp-loc"><i class="fas fa-map-marker-alt" style="color:var(--pk)"></i><span itemprop="addressLocality">${shop.location.toLowerCase().includes('seoul') ? shop.location : shop.location+', Seoul'}</span></div>
@@ -4768,6 +4768,11 @@ ${(()=>{
         .replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')
         .replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&nbsp;/g,' ')
         .replace(/&mdash;/g,'—').replace(/&ndash;/g,'–').replace(/&hellip;/g,'…');
+      // DB seo_text 보일러플레이트 정제: comprehensive range 문장 제거
+      cleanSeo = cleanSeo.replace(/[^<]*offers a comprehensive range of[^<]*<\/p>/g, '</p>')
+        .replace(/<p[^>]*>\s*<\/p>/g, '');
+      // DB seo_text 내 "Why Foreigners/Travelers Choose" H2+단락 제거 (sp-sec bullets와 중복)
+      cleanSeo = cleanSeo.replace(/<h2[^>]*>Why (?:Foreigners |Travelers )?Choose [^<]*<\/h2>\s*<p[^>]*>[^<]*<\/p>/g, '');
       // H2가 없으면 업체명+카테고리+지역 기반 H2 자동 삽입
       if(!cleanSeo.includes('<h2')){
         const _area = (shop.location||'Seoul').split(',')[0].trim();
@@ -4839,8 +4844,7 @@ ${(()=>{
         +'<p class="sp-seo-p">'+_introTxt+'</p>'
         +'<h2 class="sp-seo-h2">Treatments at '+shop.name+'</h2>'
         +'<p class="sp-seo-p">'+shop.name+' offers a range of treatments popular with foreign visitors: '+treatments+'. Korean clinics use KFDA-approved equipment, with results often 40\u201360% more affordable than equivalent treatments in the US, UK, or Australia.</p>'
-        +'<h2 class="sp-seo-h2">Why Foreigners Choose '+shop.name+'</h2>'
-        +'<p class="sp-seo-p">English-speaking coordinators, clear pricing, and WhatsApp booking make '+shop.name+' one of the most accessible options in '+areaGn+' for international patients. Whether it\'s your first visit or you\'re a returning patient, the team ensures a smooth experience from consultation to aftercare.</p>'
+        // Why Foreigners Choose 단락 제거 — sp-sec의 whyChoose bullets와 중복
         +'</div>';
     }
 
@@ -5307,8 +5311,17 @@ app.get('/best/:category/:area', async (c) => {
   if (shops.length <= 2) {
     const _base = 'https://seoulbeautytrip.com'
     // 같은 카테고리에서 업체 있는 다른 지역 링크 모아주기
+    // 업체 있는 지역만 링크 (0개 지역 제외)
+    let _areaShopCounts: Record<string,number> = {}
+    try {
+      const _acRows = await sql`SELECT location, COUNT(*)::int as cnt FROM shops WHERE category=${catSlug} AND active=true GROUP BY location` as any[]
+      for (const row of _acRows) {
+        const _aKey = (row.location||'').split(',')[0].trim().toLowerCase().replace(/\s+/g,'-')
+        _areaShopCounts[_aKey] = (_areaShopCounts[_aKey]||0) + Number(row.cnt)
+      }
+    } catch(e) {}
     const availableAreaLinks = Object.entries(AREA_LABELS)
-      .filter(([k]) => k !== areaSlug)
+      .filter(([k]) => k !== areaSlug && (_areaShopCounts[k]||0) > 0)
       .map(([k,v]) => `<a href="/best/${catSlug}/${k}" style="display:inline-block;padding:8px 16px;margin:4px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:20px;color:rgba(255,255,255,.8);text-decoration:none;font-size:13px;">${v}</a>`)
       .join('')
     return c.html(`<!DOCTYPE html>

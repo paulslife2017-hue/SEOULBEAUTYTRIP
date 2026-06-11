@@ -5783,7 +5783,7 @@ ${SB_TRACKER_SCRIPT}
       "@type":"BreadcrumbList",
       "itemListElement":[
         {"@type":"ListItem","position":1,"name":"Home","item":"${base}/"},
-        {"@type":"ListItem","position":2,"name":"${_bcCatName}","item":"${base}/best/${_bcCatSlug}/${_bcAreaSlug}"},
+        {"@type":"ListItem","position":2,"name":"${_bcCatName}","item":"${base}/best/${_bcCatSlug}/seoul"},
         ${_bcAreaItem},
         {"@type":"ListItem","position":4,"name":"${shop.name}","item":"${canonicalUrl}"}
       ]
@@ -6054,7 +6054,7 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 <nav aria-label="breadcrumb" style="background:rgba(0,0,0,.35);padding:7px 16px;font-size:12px;color:rgba(255,255,255,.5);display:flex;align-items:center;gap:4px;flex-wrap:wrap">
   <a href="/" style="color:rgba(255,255,255,.55);text-decoration:none">Home</a>
   <span style="opacity:.4">\u203A</span>
-  <a href="/best/${_bcCatSlug}/gangnam" style="color:rgba(255,255,255,.55);text-decoration:none">${_bcCatName}</a>
+  <a href="/best/${_bcCatSlug}/seoul" style="color:rgba(255,255,255,.55);text-decoration:none">${_bcCatName}</a>
   <span style="opacity:.4">\u203A</span>
   <a href="/best/${_bcCatSlug}/${_bcAreaSlug}" style="color:rgba(255,255,255,.55);text-decoration:none">${_shopArea}</a>
   <span style="opacity:.4">\u203A</span>
@@ -6065,7 +6065,7 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
   <img class="sp-hero-img" src="${shop.thumbnail}" alt="${shop.name} ${_catLabel} in ${_areaFinal} Seoul \u2014 Best Korean Beauty for Foreigners" itemprop="image" width="800" height="600" fetchpriority="high">
   <div class="sp-hero-ov"></div>
   <div class="sp-hero-info">
-    <div class="sp-cat-badge">${catIcon} ${shop.category.charAt(0).toUpperCase() + shop.category.slice(1)} \xB7 ${shop.location.split(",")[0].trim()} Seoul</div>
+    <div class="sp-cat-badge">${catIcon} ${shop.category.charAt(0).toUpperCase() + shop.category.slice(1)} \xB7 ${_shopArea}</div>
     <h1 class="sp-title" itemprop="name">${shop.name}</h1>
     <div class="sp-subtitle" style="font-size:13px;color:rgba(255,255,255,.65);margin-top:4px;font-weight:500;letter-spacing:.3px">${_catLabel} &middot; ${_areaFinal}, Seoul &middot; English Booking Available</div>
     <div class="sp-loc"><i class="fas fa-map-marker-alt" style="color:var(--pk)"></i><span itemprop="addressLocality">${shop.location.toLowerCase().includes("seoul") ? shop.location : shop.location + ", Seoul"}</span></div>
@@ -6242,6 +6242,8 @@ ${(() => {
   ${(() => {
     if (shop.seoText && shop.seoText.trim()) {
       let cleanSeo = shop.seoText.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ").replace(/&mdash;/g, "\u2014").replace(/&ndash;/g, "\u2013").replace(/&hellip;/g, "\u2026");
+      cleanSeo = cleanSeo.replace(/[^<]*offers a comprehensive range of[^<]*<\/p>/g, "</p>").replace(/<p[^>]*>\s*<\/p>/g, "");
+      cleanSeo = cleanSeo.replace(/<h2[^>]*>Why (?:Foreigners |Travelers )?Choose [^<]*<\/h2>\s*<p[^>]*>[^<]*<\/p>/g, "");
       if (!cleanSeo.includes("<h2")) {
         const _area = (shop.location || "Seoul").split(",")[0].trim();
         const _cat = shop.category.charAt(0).toUpperCase() + shop.category.slice(1);
@@ -6298,7 +6300,7 @@ ${(() => {
     const _fbHead = '<div class="sp-seo-block-head"><i class="fas fa-magnifying-glass"></i><span>Travel Guide</span></div>';
     if (shop.category === "clinic") {
       const treatments = shop.services && shop.services.length > 0 ? shop.services.slice(0, 6).join(", ") : "laser toning, skin booster injections, RF lifting, acne treatment, chemical peels";
-      return '<div class="sp-seo-block">' + _fbHead + '<h2 class="sp-seo-h2">' + shop.name + " \u2014 " + _fbClinicTypeTitle + " in " + areaGn + ' for Foreigners (2026)</h2><p class="sp-seo-p">' + _introTxt + '</p><h2 class="sp-seo-h2">Treatments at ' + shop.name + '</h2><p class="sp-seo-p">' + shop.name + " offers a range of treatments popular with foreign visitors: " + treatments + '. Korean clinics use KFDA-approved equipment, with results often 40\u201360% more affordable than equivalent treatments in the US, UK, or Australia.</p><h2 class="sp-seo-h2">Why Foreigners Choose ' + shop.name + '</h2><p class="sp-seo-p">English-speaking coordinators, clear pricing, and WhatsApp booking make ' + shop.name + " one of the most accessible options in " + areaGn + " for international patients. Whether it's your first visit or you're a returning patient, the team ensures a smooth experience from consultation to aftercare.</p></div>";
+      return '<div class="sp-seo-block">' + _fbHead + '<h2 class="sp-seo-h2">' + shop.name + " \u2014 " + _fbClinicTypeTitle + " in " + areaGn + ' for Foreigners (2026)</h2><p class="sp-seo-p">' + _introTxt + '</p><h2 class="sp-seo-h2">Treatments at ' + shop.name + '</h2><p class="sp-seo-p">' + shop.name + " offers a range of treatments popular with foreign visitors: " + treatments + ". Korean clinics use KFDA-approved equipment, with results often 40\u201360% more affordable than equivalent treatments in the US, UK, or Australia.</p></div>";
     }
     return '<div class="sp-seo-block">' + _fbHead + '<h2 class="sp-seo-h2">' + shop.name + " \u2014 " + cat3 + " in " + area3 + ', Seoul</h2><p class="sp-seo-p">Looking for the best ' + shop.category + " experience in " + area3 + ", Seoul? " + shop.name + " welcomes foreign visitors with English-friendly service and easy WhatsApp booking." + revTxt + ' offers an authentic Korean beauty experience tailored for international guests.</p><h2 class="sp-seo-h2">Foreigner-Friendly ' + cat3 + " in " + area3 + '</h2><p class="sp-seo-p">Located in ' + area3 + ", one of the top beauty districts in Seoul, " + shop.name + " specializes in " + svcList + ". The team provides English support throughout your visit \u2014 from consultation to aftercare \u2014 so you can relax and enjoy your treatment without language barriers. Book easily via WhatsApp through Seoul Beauty Trip.</p></div>";
   })()}
@@ -6745,7 +6747,16 @@ app.get("/best/:category/:area", async (c) => {
   if (shops2.length === 0) return c.notFound();
   if (shops2.length <= 2) {
     const _base = "https://seoulbeautytrip.com";
-    const availableAreaLinks = Object.entries(AREA_LABELS).filter(([k]) => k !== areaSlug).map(([k, v]) => `<a href="/best/${catSlug}/${k}" style="display:inline-block;padding:8px 16px;margin:4px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:20px;color:rgba(255,255,255,.8);text-decoration:none;font-size:13px;">${v}</a>`).join("");
+    let _areaShopCounts = {};
+    try {
+      const _acRows = await sql`SELECT location, COUNT(*)::int as cnt FROM shops WHERE category=${catSlug} AND active=true GROUP BY location`;
+      for (const row of _acRows) {
+        const _aKey = (row.location || "").split(",")[0].trim().toLowerCase().replace(/\s+/g, "-");
+        _areaShopCounts[_aKey] = (_areaShopCounts[_aKey] || 0) + Number(row.cnt);
+      }
+    } catch (e) {
+    }
+    const availableAreaLinks = Object.entries(AREA_LABELS).filter(([k]) => k !== areaSlug && (_areaShopCounts[k] || 0) > 0).map(([k, v]) => `<a href="/best/${catSlug}/${k}" style="display:inline-block;padding:8px 16px;margin:4px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:20px;color:rgba(255,255,255,.8);text-decoration:none;font-size:13px;">${v}</a>`).join("");
     return c.html(`<!DOCTYPE html>
 <html lang="en">
 <head>
