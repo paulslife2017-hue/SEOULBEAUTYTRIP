@@ -10384,7 +10384,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .info{position:absolute;bottom:0;left:0;right:0;padding:12px 16px calc(16px + env(safe-area-inset-bottom, 0px));z-index:3;display:flex;flex-direction:column;gap:0;padding-bottom:calc(20px + env(safe-area-inset-bottom, 0px))}
 .slide-cat-badge{display:none}
 .shop-info-block{flex:1;overflow:hidden;min-width:0;margin-right:10px}
-.shop-info-name{display:flex;align-items:center;gap:6px;font-size:15px;font-weight:900;color:#fff;text-shadow:0 2px 16px rgba(0,0,0,.9);letter-spacing:-.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
+.shop-info-name{display:flex;align-items:center;gap:5px;font-size:14px;font-weight:900;color:#fff;text-shadow:0 2px 16px rgba(0,0,0,.9);letter-spacing:-.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
 .shop-info-name .si-icon{color:var(--pk3);font-size:13px;flex-shrink:0;filter:drop-shadow(0 0 4px rgba(255,179,204,.4))}
 .shop-info-loc{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;color:rgba(255,255,255,.5);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .shop-info-tagline{font-size:10px;font-weight:500;color:rgba(255,255,255,.5);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -10393,15 +10393,15 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .wa-btn{display:none}
 /* \u2500\u2500 \uC5C5\uCCB4 \uC378\uB124\uC77C \uCE74\uB4DC \u2500\u2500 */
 .shop-thumb-card{
-  flex-shrink:0;width:72px;cursor:pointer;
-  display:flex;flex-direction:column;align-items:center;gap:5px;
+  flex-shrink:0;width:56px;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:4px;
   -webkit-tap-highlight-color:transparent;
 }
 .shop-thumb-wrap{
-  position:relative;width:72px;height:72px;
-  border-radius:14px;overflow:hidden;
+  position:relative;width:56px;height:56px;
+  border-radius:11px;overflow:hidden;
   border:2px solid rgba(255,255,255,.2);
-  box-shadow:0 4px 20px rgba(0,0,0,.6);
+  box-shadow:0 4px 16px rgba(0,0,0,.6);
   transition:transform .15s,border-color .15s;
   background:#1a1a2e;
 }
