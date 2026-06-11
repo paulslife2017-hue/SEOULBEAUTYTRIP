@@ -9233,23 +9233,25 @@ const MAIN_HTML = `<!DOCTYPE html>
 }
 html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-family:var(--ff-sans)}
 /* ── 홈 그리드 모드 (카드 중심) ── */
-body.home-grid-mode{overflow-y:auto;overflow-x:hidden;height:auto}
+html.home-grid-mode,body.home-grid-mode{overflow-y:auto!important;overflow-x:hidden!important;height:auto!important;min-height:100vh}
 body.home-grid-mode #feed{display:none!important}
 body.home-grid-mode #dots{display:none!important}
 body.home-grid-mode #cat-loading{display:none!important}
 body.home-grid-mode #pc-layout{display:block!important;width:100%!important}
 body.home-grid-mode #shop-panel{display:block!important;height:auto!important;border-left:none!important;background:var(--bg)!important;padding:0!important}
 body.home-grid-mode #hd{position:sticky;top:0;z-index:100;background:var(--bg);border-bottom:1px solid rgba(255,255,255,.07)}
-body.home-grid-mode #feed-col{display:none}
+body.home-grid-mode #feed-col{display:none!important}
+/* 홈 카탈로그 헤더 (Browse N salons) 숨김 */
+body.home-grid-mode .home-cat-header{display:none!important}
 /* 홈 상단 영역 */
 #home-top{display:none}
-body.home-grid-mode #home-top{display:block;padding:0 0 8px}
+body.home-grid-mode #home-top{display:block;padding:0 0 4px}
 /* PREVIEWS 띠 */
 #previews-strip{display:flex;gap:8px;overflow-x:auto;padding:8px 12px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 #previews-strip::-webkit-scrollbar{display:none}
-.pv-thumb{flex-shrink:0;width:80px;height:120px;border-radius:10px;overflow:hidden;position:relative;cursor:pointer;border:2px solid rgba(255,255,255,.08);transition:border-color .2s}
+.pv-thumb{flex-shrink:0;width:72px;height:128px;border-radius:10px;overflow:hidden;position:relative;cursor:pointer;border:2px solid rgba(255,255,255,.08);transition:border-color .2s;background:#1a1a2e}
 .pv-thumb:hover,.pv-thumb.playing{border-color:var(--pk)}
-.pv-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.pv-thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
 .pv-thumb-ov{position:absolute;inset:0;background:rgba(0,0,0,.28);display:flex;align-items:center;justify-content:center}
 .pv-thumb-ov i{font-size:20px;color:#fff;filter:drop-shadow(0 2px 6px rgba(0,0,0,.8))}
 .pv-thumb-name{position:absolute;bottom:0;left:0;right:0;padding:4px 5px;background:linear-gradient(to top,rgba(0,0,0,.8),transparent);font-size:8px;color:#fff;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -9702,7 +9704,7 @@ body.home-grid-mode #home-top{display:block;padding:0 0 8px}
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 </head>
-<body class="home-grid-mode">
+<body class="home-grid-mode"><script>document.documentElement.classList.add('home-grid-mode');</script>
 <div id="ld">
   <div class="ld-pre">Welcome to</div>
   <div class="ld-logo">Seoul Beauty Trip</div>
@@ -17826,30 +17828,54 @@ window.regenSeoAll = async function regenSeoAll(force) {
 
 // ── 홈 그리드 모드 JS ──
 (function(){
+  // 비디오 데이터를 미리 캐시 (loadVideos()가 null 처리하기 전에 저장)
+  var _cachedVids = null;
+  function getCachedVids() {
+    if (!_cachedVids) {
+      _cachedVids = (window.__INIT_VIDEOS_ALL__ && window.__INIT_VIDEOS_ALL__.length)
+        ? window.__INIT_VIDEOS_ALL__.slice()
+        : (window.__INIT_VIDEOS__ && window.__INIT_VIDEOS__.length)
+          ? window.__INIT_VIDEOS__.slice()
+          : [];
+    }
+    return _cachedVids;
+  }
+
   // PREVIEWS 띠 빌드
   function buildPreviewsStrip() {
     var strip = document.getElementById('previews-strip');
     if (!strip) return;
-    var vids = window.__INIT_VIDEOS_ALL__ || window.__INIT_VIDEOS__ || [];
-    if (!vids.length) { strip.innerHTML = '<div style="color:rgba(255,255,255,.2);font-size:11px;padding:8px">No previews yet</div>'; return; }
-    // 최대 6개, 카테고리 다양하게
+    var vids = getCachedVids();
+    if (!vids.length) {
+      // 데이터 없으면 PREVIEWS 섹션 자체 숨김
+      var homeTop = document.getElementById('home-top');
+      if (homeTop) homeTop.style.display = 'none';
+      return;
+    }
+    // 최대 8개, 카테고리 다양하게
     var seen = {}, selected = [];
-    for (var i = 0; i < vids.length && selected.length < 6; i++) {
+    for (var i = 0; i < vids.length && selected.length < 8; i++) {
       var v = vids[i];
       var cat = (v.shop && v.shop.category) || 'beauty';
-      if (!seen[cat] || selected.length < 3) { selected.push(v); seen[cat] = (seen[cat]||0)+1; }
+      if (!seen[cat] || selected.length < 4) { selected.push(v); seen[cat] = (seen[cat]||0)+1; }
     }
     strip.innerHTML = selected.map(function(v) {
       var thumb = v.thumbnail || (v.shop && v.shop.thumbnail) || '';
       var name  = (v.shop && v.shop.name) || v.title || 'Preview';
-      return '<div class="pv-thumb" onclick="openPreview(\''+v.id+'\')"><img src="'+thumb+'" alt="'+name+'" loading="lazy"><div class="pv-thumb-ov"><i class="fas fa-play"></i></div><div class="pv-thumb-name">'+name+'</div></div>';
+      return '<div class="pv-thumb" onclick="openPreview(\''+v.id+'\')">'
+        + '<img src="'+thumb+'" alt="'+name+'" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block">'
+        + '<div class="pv-thumb-ov"><i class="fas fa-play"></i></div>'
+        + '<div class="pv-thumb-name">'+name+'</div>'
+        + '</div>';
     }).join('');
   }
 
   // PREVIEWS 클릭 → 피드 모드로 전환
   window.openPreview = function(videoId) {
+    document.documentElement.classList.remove('home-grid-mode');
     document.body.classList.remove('home-grid-mode');
     document.body.style.overflowY = '';
+    document.documentElement.style.overflowY = '';
     // 피드 초기화 후 해당 영상으로 이동
     if (typeof loadVideos === 'function') loadVideos('all');
     setTimeout(function() {
@@ -17876,8 +17902,10 @@ window.regenSeoAll = async function regenSeoAll(force) {
       btn.innerHTML = '<i class="fas fa-th-large"></i> Browse';
       btn.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:600;background:linear-gradient(135deg,#E8417A,#7C3AED);color:#fff;border:none;border-radius:24px;padding:10px 24px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 4px 20px rgba(232,65,122,.4);font-family:inherit';
       btn.onclick = function() {
+        document.documentElement.classList.add('home-grid-mode');
         document.body.classList.add('home-grid-mode');
-        document.body.style.overflowY = 'auto';
+        document.body.style.overflowY = '';
+        document.documentElement.style.overflowY = '';
         btn.remove();
         window.scrollTo({top:0,behavior:'smooth'});
       };
