@@ -6130,7 +6130,7 @@ ${(() => {
     const editorNoteHtml2 = editorNoteVal ? `<div class="sp-editor-note"><div class="sp-editor-note-head"><i class="fas fa-pen-nib"></i><span>Editor's Note</span><span class="sp-editor-verified"><i class="fas fa-circle-check"></i> Verified by Seoul Beauty Trip</span></div><p class="sp-editor-note-text">${editorNoteVal}</p></div>` : "";
     let hoursHtml2 = "";
     if (shop.hours) {
-      const days2 = shop.hours.split(/\s*[\/|]\s*/).map((s) => s.trim()).filter(Boolean);
+      const days2 = shop.hours.split(/\s*[|]\s*|\s*\/\s*/).map((s) => s.trim()).filter(Boolean);
       const dayNames2 = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
       const today2 = (/* @__PURE__ */ new Date()).getDay();
       if (days2.length > 1) {
@@ -12000,7 +12000,7 @@ function renderShopModal(shop) {
   var hoursHtml = '';
   if(shop.hours) {
     // "Monday: 10:00 AM \u2013 7:00 PM / Tuesday: ..." \uB610\uB294 "| " \uAD6C\uBD84\uC790 \uCC98\uB9AC
-    var days = shop.hours.split(/s*[/|]s*/).map(function(s){ return s.trim(); }).filter(Boolean);
+    var days = shop.hours.split(/s*[|]s*|s*/s*/).map(function(s){ return s.trim(); }).filter(Boolean);
     var dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
     var today = new Date().getDay(); // 0=Sun
     if(days.length > 1) {

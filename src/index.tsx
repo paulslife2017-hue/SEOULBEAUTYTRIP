@@ -4584,7 +4584,7 @@ ${(()=>{
     /* ── Hours (모달과 동일 방식) ── */
     let hoursHtml2 = '';
     if(shop.hours) {
-      const days2 = shop.hours.split(/\s*[\/|]\s*/).map((s:string)=>s.trim()).filter(Boolean);
+      const days2 = shop.hours.split(/\s*[|]\s*|\s*\/\s*/).map((s:string)=>s.trim()).filter(Boolean);
       const dayNames2 = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
       const today2 = new Date().getDay();
       if(days2.length > 1) {
@@ -10932,7 +10932,7 @@ function renderShopModal(shop) {
   var hoursHtml = '';
   if(shop.hours) {
     // "Monday: 10:00 AM – 7:00 PM / Tuesday: ..." 또는 "| " 구분자 처리
-    var days = shop.hours.split(/\s*[\/|]\s*/).map(function(s){ return s.trim(); }).filter(Boolean);
+    var days = shop.hours.split(/\s*[|]\s*|\s*\/\s*/).map(function(s){ return s.trim(); }).filter(Boolean);
     var dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
     var today = new Date().getDay(); // 0=Sun
     if(days.length > 1) {
