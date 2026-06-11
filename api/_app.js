@@ -8484,6 +8484,7 @@ app.get("/llms.txt", (c) => {
 });
 app.get("/about", (c) => {
   const yr = (/* @__PURE__ */ new Date()).getFullYear();
+  const _ogImg = "https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg";
   return c.html(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8498,13 +8499,23 @@ app.get("/about", (c) => {
 <meta property="og:description" content="Government-licensed facilitator (No. A-2025-01-02-5922) helping foreigners book Seoul beauty services \u2014 skin clinics, head spas, and more. English support, no hidden fees.">
 <meta property="og:url" content="https://seoulbeautytrip.com/about">
 <meta property="og:site_name" content="Seoul Beauty Trip">
+<meta property="og:image" content="${_ogImg}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="About Seoul Beauty Trip \u2014 Licensed Foreign Patient Facilitator">
+<meta name="twitter:description" content="Government-licensed facilitator helping foreigners book Seoul beauty services in English. No booking fee.">
+<meta name="twitter:image" content="${_ogImg}">
 <script type="application/ld+json">
+[
 {
   "@context":"https://schema.org",
   "@type":"Organization",
   "name":"Seoul Beauty Trip",
   "legalName":"\uAE00\uB85C\uBC8C\uD398\uC774\uCF54\uB9AC\uC544 (GlobalPayKorea)",
   "url":"https://seoulbeautytrip.com",
+  "logo":"${_ogImg}",
+  "image":"${_ogImg}",
   "description":"Seoul Beauty Trip is a government-licensed foreign patient facilitator in Seoul (Registration No. A-2025-01-02-5922, issued by the Mayor of Seoul). We help foreign visitors book skin clinics, hair salons, head spas and beauty services in Seoul with English-speaking support at the same local price.",
   "address":{
     "@type":"PostalAddress",
@@ -8513,7 +8524,7 @@ app.get("/about", (c) => {
     "addressRegion":"Seoul",
     "addressCountry":"KR"
   },
-  "contactPoint":{"@type":"ContactPoint","contactType":"customer support","availableLanguage":["English","Korean"]},
+  "contactPoint":{"@type":"ContactPoint","contactType":"customer support","availableLanguage":["English","Korean"],"url":"https://wa.me/821094086723"},
   "areaServed":{"@type":"City","name":"Seoul"},
   "sameAs":["https://www.instagram.com/seoulbeautytrip/"],
   "hasCredential":{
@@ -8525,7 +8536,47 @@ app.get("/about", (c) => {
     "validFrom":"2025-03-24",
     "validUntil":"2028-03-23"
   }
+},
+{
+  "@context":"https://schema.org",
+  "@type":"BreadcrumbList",
+  "itemListElement":[
+    {"@type":"ListItem","position":1,"name":"Home","item":"https://seoulbeautytrip.com/"},
+    {"@type":"ListItem","position":2,"name":"About","item":"https://seoulbeautytrip.com/about"}
+  ]
+},
+{
+  "@context":"https://schema.org",
+  "@type":"FAQPage",
+  "mainEntity":[
+    {
+      "@type":"Question",
+      "name":"Is Seoul Beauty Trip free to use?",
+      "acceptedAnswer":{"@type":"Answer","text":"Yes. There is no booking fee. You pay the same price the shop charges local customers. Seoul Beauty Trip earns no commission from shops."}
+    },
+    {
+      "@type":"Question",
+      "name":"Is Seoul Beauty Trip a licensed business?",
+      "acceptedAnswer":{"@type":"Answer","text":"Yes. Seoul Beauty Trip is operated by GlobalPayKorea, registered as a Foreign Patient Facilitator by the Mayor of Seoul (Registration No. A-2025-01-02-5922, valid March 2025 \u2013 March 2028)."}
+    },
+    {
+      "@type":"Question",
+      "name":"How do I book a beauty service in Seoul through Seoul Beauty Trip?",
+      "acceptedAnswer":{"@type":"Answer","text":"Browse shops by category or area, then tap the WhatsApp button on any shop page. Describe the treatment you want and our English-speaking team will confirm availability and send all details within hours."}
+    },
+    {
+      "@type":"Question",
+      "name":"Do I need to speak Korean to book?",
+      "acceptedAnswer":{"@type":"Answer","text":"No. All booking communication is handled in English by the Seoul Beauty Trip team. The shops on our list are all verified to be foreigner-friendly."}
+    },
+    {
+      "@type":"Question",
+      "name":"What types of beauty services can I book in Seoul?",
+      "acceptedAnswer":{"@type":"Answer","text":"You can book skin clinics (botox, filler, laser, Rejuran), head spas, hair salons (Korean perm, color, cut), color analysis studios, eyebrow tattoo studios, and more \u2014 all in Seoul."}
+    }
+  ]
 }
+]
 </script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -8545,6 +8596,15 @@ ul li{margin-bottom:6px}
 .cert-table{width:100%;border-collapse:collapse;font-size:.9rem}
 .cert-table td{padding:6px 0;vertical-align:top;color:#333}
 .cert-table td:first-child{color:#666;font-weight:600;min-width:160px;padding-right:12px}
+.browse-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin:16px 0 28px}
+.browse-card{display:flex;align-items:center;gap:9px;padding:11px 14px;background:#fff;border:1px solid #e8e0f0;border-radius:10px;text-decoration:none;color:#1a1a2e;font-size:.88rem;font-weight:600;transition:border-color .2s,box-shadow .2s}
+.browse-card:hover{border-color:#FF4D8D;box-shadow:0 2px 8px rgba(255,77,141,.12)}
+.browse-card span{font-size:1.1rem}
+.faq-list{margin:16px 0}
+.faq-item{border-bottom:1px solid #eee;padding:16px 0}
+.faq-item:last-child{border-bottom:none}
+.faq-q{font-weight:700;color:#1a1a2e;font-size:.97rem;margin-bottom:6px}
+.faq-a{color:#555;font-size:.93rem;line-height:1.65}
 .contact-box{background:#f8f8fc;border:1px solid #e8e8f0;border-radius:12px;padding:24px;margin-top:40px;text-align:center}
 .contact-box a{color:#FF4D8D;font-weight:700;text-decoration:none}
 .contact-box a:hover{text-decoration:underline}
@@ -8581,7 +8641,7 @@ footer a{color:#FF4D8D;text-decoration:none}
 
   <h2>How It Works</h2>
   <ul>
-    <li>Browse shops by category (clinic, head spa, hair, makeup) and area (Gangnam, Myeongdong, Hongdae, etc.)</li>
+    <li>Browse shops by category and area using the links below</li>
     <li>Found something you like? Tap the Book button and message us on WhatsApp</li>
     <li>We confirm availability, communicate with the shop in Korean, and send you all the details</li>
     <li>You show up, enjoy the treatment \u2014 no language barrier, no surprise fees</li>
@@ -8591,12 +8651,26 @@ footer a{color:#FF4D8D;text-decoration:none}
     \u{1F4AC} All bookings go through our WhatsApp line. We charge <strong>no booking fee</strong> \u2014 you pay the same price the shop charges local customers.
   </div>
 
+  <h2>Browse Seoul Beauty Services</h2>
+  <p>All shops are verified foreigner-friendly with English booking support.</p>
+  <nav class="browse-grid" aria-label="Browse by category">
+    <a href="/best/clinic/gangnam" class="browse-card"><span>\u{1F3E5}</span> Skin Clinics</a>
+    <a href="/best/clinic/gangnam" class="browse-card"><span>\u{1F489}</span> Dermatology</a>
+    <a href="/best/headspa/gangnam" class="browse-card"><span>\u{1F9D6}</span> Head Spa</a>
+    <a href="/best/hair/hongdae" class="browse-card"><span>\u2702\uFE0F</span> Hair Salons</a>
+    <a href="/best/makeup/hongdae" class="browse-card"><span>\u{1F48B}</span> Color Analysis</a>
+    <a href="/best/spa/gangnam" class="browse-card"><span>\u{1F6C1}</span> Spa & Wellness</a>
+    <a href="/best/clinic/myeongdong" class="browse-card"><span>\u{1F4CD}</span> Myeongdong</a>
+    <a href="/best/clinic/itaewon" class="browse-card"><span>\u{1F4CD}</span> Itaewon</a>
+    <a href="/best/hair/seoul" class="browse-card"><span>\u{1F4CD}</span> All Seoul</a>
+  </nav>
+
   <h2>What We Cover</h2>
   <ul>
-    <li><strong>Skin Clinics & Dermatology</strong> \u2014 Botox, filler, laser, Rejuran, Potenza, Thermage and more</li>
+    <li><strong>Skin Clinics &amp; Dermatology</strong> \u2014 Botox, filler, laser, Rejuran, Potenza, Thermage and more</li>
     <li><strong>Head Spa</strong> \u2014 Scalp treatment, 18-step head spa, hair loss care</li>
     <li><strong>Hair Salons</strong> \u2014 K-pop cuts, Korean perms, balayage, color</li>
-        <li><strong>Makeup & Color Analysis</strong> \u2014 Personal color analysis, professional makeup</li>
+    <li><strong>Makeup &amp; Color Analysis</strong> \u2014 Personal color analysis, professional makeup</li>
     <li><strong>Eyebrow Tattoo</strong> \u2014 Microblading, powder brow</li>
   </ul>
 
@@ -8611,8 +8685,32 @@ footer a{color:#FF4D8D;text-decoration:none}
   <p>We do not accept payment from shops to be listed. Rankings reflect actual quality signals \u2014 ratings, reviews, and foreigner accessibility.</p>
 
   <h2>Our Content</h2>
-  <p>The blog and guides on Seoul Beauty Trip are written based on research, clinic data, and direct communication with Seoul beauty businesses. We cover treatment guides, price comparisons, area guides, and honest shop reviews to help you make informed decisions before you book.</p>
+  <p>The <a href="/blog" style="color:#FF4D8D;font-weight:600">blog</a> and <a href="/guide" style="color:#FF4D8D;font-weight:600">guides</a> on Seoul Beauty Trip are written based on research, clinic data, and direct communication with Seoul beauty businesses. We cover treatment guides, price comparisons, area guides, and honest shop reviews to help you make informed decisions before you book.</p>
   <p>For medical treatments (botox, fillers, laser procedures), we strongly recommend consulting with the clinic during your appointment. Our content is informational \u2014 always follow the professional advice of the clinic staff.</p>
+
+  <h2>Frequently Asked Questions</h2>
+  <div class="faq-list">
+    <div class="faq-item">
+      <div class="faq-q">Is Seoul Beauty Trip free to use?</div>
+      <div class="faq-a">Yes. There is no booking fee. You pay the same price the shop charges local customers. Seoul Beauty Trip earns no commission from shops \u2014 we are funded by our facilitator service.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">Is Seoul Beauty Trip a licensed business?</div>
+      <div class="faq-a">Yes. We are registered as a Foreign Patient Facilitator by the Mayor of Seoul (Registration No. A-2025-01-02-5922, valid March 2025 \u2013 March 2028). This is a government license under Korean medical tourism law.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">How do I book a beauty service in Seoul?</div>
+      <div class="faq-a">Browse shops by category or area, tap the WhatsApp button on any shop page, describe what you want, and our English-speaking team confirms availability and sends all details \u2014 usually within a few hours.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">Do I need to speak Korean to book?</div>
+      <div class="faq-a">No. All booking communication is handled in English by the Seoul Beauty Trip team. Every shop on our list is verified to be foreigner-friendly.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">What beauty services can I book in Seoul?</div>
+      <div class="faq-a">Skin clinics (botox, filler, laser, Rejuran, Potenza), head spas, hair salons (Korean perm, balayage, color), personal color analysis studios, eyebrow tattoo studios, and more \u2014 all across Seoul's major districts.</div>
+    </div>
+  </div>
 
   <div class="contact-box">
     <p style="font-weight:700;font-size:1rem;margin-bottom:8px">Questions? Get in touch.</p>
