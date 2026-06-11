@@ -10299,31 +10299,63 @@ var MAIN_HTML = `<!DOCTYPE html>
   --ff-sans:'Inter',sans-serif;
 }
 html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-family:var(--ff-sans)}
-/* \u2500\u2500 \uD648 \uADF8\uB9AC\uB4DC \uBAA8\uB4DC (\uCE74\uB4DC \uC911\uC2EC) \u2500\u2500 */
+/* \u2500\u2500 \uD648 \uADF8\uB9AC\uB4DC \uBAA8\uB4DC (\uC601\uC0C1 \uC808\uBC18 + \uCE74\uB4DC) \u2500\u2500 */
 html.home-grid-mode,body.home-grid-mode{overflow-y:auto!important;overflow-x:hidden!important;height:auto!important;min-height:100vh}
 body.home-grid-mode #feed{display:none!important}
 body.home-grid-mode #dots{display:none!important}
 body.home-grid-mode #cat-loading{display:none!important}
 body.home-grid-mode #pc-layout{display:block!important;width:100%!important}
 body.home-grid-mode #shop-panel{display:block!important;height:auto!important;border-left:none!important;background:var(--bg)!important;padding:0!important}
-body.home-grid-mode #hd{position:sticky;top:0;z-index:100;background:var(--bg);border-bottom:1px solid rgba(255,255,255,.07)}
+body.home-grid-mode #hd{position:sticky;top:0;z-index:100;background:rgba(8,8,14,.95);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.07)}
 body.home-grid-mode #feed-col{display:none!important}
-/* \uD648 \uCE74\uD0C8\uB85C\uADF8 \uD5E4\uB354 (Browse N salons) \uC228\uAE40 */
 body.home-grid-mode .home-cat-header{display:none!important}
-/* \uD648 \uC0C1\uB2E8 \uC601\uC5ED */
+/* \uD648 \uC0C1\uB2E8: \uC601\uC0C1 \uD0C0\uC77C \uAC00\uB85C \uC2A4\uD06C\uB864 \uC2EC \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
 #home-top{display:none}
-body.home-grid-mode #home-top{display:block;padding:0 0 4px}
-/* PREVIEWS \uB760 */
-#previews-strip{display:flex;gap:8px;overflow-x:auto;padding:8px 12px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
-#previews-strip::-webkit-scrollbar{display:none}
-.pv-thumb{flex-shrink:0;width:72px;height:128px;border-radius:10px;overflow:hidden;position:relative;cursor:pointer;border:2px solid rgba(255,255,255,.08);transition:border-color .2s;background:#1a1a2e}
-.pv-thumb:hover,.pv-thumb.playing{border-color:var(--pk)}
-.pv-thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
-.pv-thumb-ov{position:absolute;inset:0;background:rgba(0,0,0,.28);display:flex;align-items:center;justify-content:center}
-.pv-thumb-ov i{font-size:20px;color:#fff;filter:drop-shadow(0 2px 6px rgba(0,0,0,.8))}
-.pv-thumb-name{position:absolute;bottom:0;left:0;right:0;padding:4px 5px;background:linear-gradient(to top,rgba(0,0,0,.8),transparent);font-size:8px;color:#fff;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.previews-label{font-size:9px;font-weight:800;letter-spacing:2.5px;text-transform:uppercase;color:rgba(255,255,255,.35);padding:8px 14px 2px;display:flex;align-items:center;gap:7px}
+body.home-grid-mode #home-top{display:block}
+/* PREVIEWS \uC601\uC5ED */
+.previews-section{
+  padding:10px 0 0;
+}
+.previews-label{font-size:9px;font-weight:800;letter-spacing:2.5px;text-transform:uppercase;color:rgba(255,255,255,.35);padding:0 14px 6px;display:flex;align-items:center;gap:7px}
 .previews-label::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.07)}
+/* \uC601\uC0C1 \uD0C0\uC77C \uD589 \u2014 \uD654\uBA74 \uB180\uC774 ~45% */
+#previews-strip{
+  display:flex;
+  gap:6px;
+  overflow-x:auto;
+  padding:0 12px 12px;
+  scrollbar-width:none;
+  -webkit-overflow-scrolling:touch;
+  touch-action:pan-x;
+  /* \uB4F1\uB193\uC774 \uB370\uC2A4\uD06C: \uBE44\uC728 \uC720\uC9C0\uD558\uBA70 \uCD5C\uB300 45vh */
+  max-height:45vh;
+}
+#previews-strip::-webkit-scrollbar{display:none}
+.pv-thumb{
+  flex-shrink:0;
+  /* 45vh \uC548\uC5D0\uC11C \uC138\uB85C\uD615 9:16 \uBE44\uC728 */
+  width:calc(45vh * 9 / 16);
+  height:45vh;
+  max-width:200px;
+  border-radius:12px;
+  overflow:hidden;
+  position:relative;
+  cursor:pointer;
+  border:2px solid rgba(255,255,255,.08);
+  transition:border-color .2s,transform .15s;
+  background:#1a1a2e;
+}
+.pv-thumb:hover,.pv-thumb:active{border-color:var(--pk);transform:scale(1.02)}
+.pv-thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.pv-thumb-ov{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,rgba(0,0,0,.5) 100%);display:flex;align-items:center;justify-content:center}
+.pv-play-btn{width:40px;height:40px;border-radius:50%;background:rgba(232,65,122,.85);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(232,65,122,.4)}
+.pv-play-btn i{font-size:14px;color:#fff;margin-left:2px}
+.pv-thumb-name{position:absolute;bottom:0;left:0;right:0;padding:8px 8px 8px;background:linear-gradient(to top,rgba(0,0,0,.85),transparent);font-size:9px;color:#fff;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* \uB354\uBCF4\uAE30 \uBC84\uD2BC */
+.pv-see-all{flex-shrink:0;width:calc(45vh*9/16 * 0.7);max-width:120px;height:45vh;border-radius:12px;border:2px dashed rgba(232,65,122,.3);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;transition:border-color .2s;color:rgba(255,255,255,.4);font-size:11px;font-weight:700;text-align:center;padding:12px;background:rgba(232,65,122,.04)}
+.pv-see-all:hover{border-color:var(--pk);color:var(--pk2)}
+.pv-see-all i{font-size:20px;color:var(--pk);opacity:.7}
+/* (\uAD6C\uBC84\uC804 PREVIEWS \uB760 CSS \u2014 \uC704\uC758 3\uC548 CSS\uB85C \uD1B5\uD569\uB428) */
 /* \uD648 \uADF8\uB9AC\uB4DC \uCE74\uB4DC \uC601\uC5ED */
 .home-catalog-wrap{padding:0 10px 80px}
 .home-cat-header{display:flex;align-items:center;justify-content:space-between;padding:6px 4px 8px}
@@ -10852,32 +10884,30 @@ body.home-grid-mode #home-top{display:block;padding:0 0 4px}
     <div id="cat-loading"><div class="cat-spin"></div></div>
   </div>
 
-  <!-- \u2605 \uD648 \uADF8\uB9AC\uB4DC \uBAA8\uB4DC \uBA54\uC778 \uCF58\uD150\uCE20 (home-grid-mode \uC2DC \uD45C\uC2DC) -->
+  <!-- \u2605 \uD648 \uADF8\uB9AC\uB4DC \uBAA8\uB4DC \uBA54\uC778 \uCF58\uD150\uCE20 -->
   <aside id="shop-panel" aria-label="Shop catalog">
-    <!-- PREVIEWS \uB760 -->
-    <div id="home-top">
-      <div class="previews-label"><i class="fas fa-play-circle" style="color:var(--pk);font-size:10px"></i> PREVIEWS</div>
+
+    <!-- \u2460 \uC601\uC0C1 PREVIEWS \uC139\uC158 (\uD654\uBA74 ~45%) -->
+    <div id="home-top" class="previews-section">
+      <div class="previews-label">
+        <i class="fas fa-play-circle" style="color:var(--pk);font-size:10px"></i> PREVIEWS
+        <span style="font-size:8px;color:rgba(255,255,255,.2);font-weight:500;letter-spacing:.5px;margin-left:2px">tap to watch</span>
+      </div>
       <div id="previews-strip">
-        <!-- JS\uB85C \uCC44\uC6CC\uC9D0: buildPreviewsStrip() -->
-        <div style="color:rgba(255,255,255,.2);font-size:11px;padding:8px 4px">Loading...</div>
+        <!-- JS buildPreviewsStrip()\uB85C \uCC44\uC6CC\uC9D0 -->
       </div>
     </div>
 
-    <!-- \uC5C5\uCCB4 \uADF8\uB9AC\uB4DC \uD5E4\uB354 -->
-    <div class="home-cat-header">
-      <div style="font-size:13px;font-weight:800;color:#fff">Browse <span id="hm-count-label">__SSR_SHOP_COUNT__</span></div>
-      <div class="home-cat-count" id="hm-filter-count"></div>
-    </div>
+    <!-- \u2461 \uCE74\uD14C\uACE0\uB9AC \uD544\uD130 (\uC2A4\uD2F0\uD0A4) -->
+    <div class="home-filter-bar" id="hm-filter-bar" style="position:sticky;top:54px;z-index:50;background:var(--bg);border-bottom:1px solid rgba(255,255,255,.06);padding:6px 10px">__SSR_FILTER_BTNS__</div>
 
-    <!-- \uCE74\uD14C\uACE0\uB9AC \uD544\uD130 -->
-    <div class="home-filter-bar" id="hm-filter-bar">__SSR_FILTER_BTNS__</div>
-
-    <!-- \uC5C5\uCCB4 \uCE74\uB4DC \uADF8\uB9AC\uB4DC -->
+    <!-- \u2462 \uC5C5\uCCB4 \uCE74\uB4DC \uADF8\uB9AC\uB4DC -->
     <div class="home-catalog-wrap">
+      <div class="home-cat-header" style="display:none"></div>
       <div class="home-grid" id="hm-grid">__SSR_SHOP_CARDS__</div>
     </div>
 
-    <!-- (SEO\uC6A9) \uAE30\uC874 sp-grid\uB294 \uC228\uAE40 \uCC98\uB9AC -->
+    <!-- SEO\uC6A9 \uC228\uAE40 -->
     <div style="display:none">
       <div id="sp-count">__SSR_SHOP_COUNT__</div>
       <div id="sp-filter">__SSR_FILTER_BTNS__</div>
@@ -13006,6 +13036,12 @@ document.addEventListener('DOMContentLoaded', function(){
 
   // \uC2A4\uD50C\uB798\uC2DC \uD504\uB85C\uADF8\uB808\uC2A4 \uBC14 CSS \uC560\uB2C8\uBA54\uC774\uC158 \u2192 JS \uC9C1\uC811 \uC81C\uC5B4\uB85C \uC804\uD658
   setLdProgress(0);
+  // PREVIEWS\uC6A9 \uBE44\uB514\uC624 \uB370\uC774\uD130 \uBBF8\uB9AC \uC800\uC7A5 (loadVideos\uAC00 null \uCC98\uB9AC\uD558\uAE30 \uC804\uC5D0)
+  window.__PREVIEW_VIDS__ = (window.__INIT_VIDEOS_ALL__ && window.__INIT_VIDEOS_ALL__.length)
+    ? window.__INIT_VIDEOS_ALL__.slice()
+    : (window.__INIT_VIDEOS__ && window.__INIT_VIDEOS__.length)
+      ? window.__INIT_VIDEOS__.slice()
+      : [];
   loadVideos('all');
 
   // \u2500\u2500 \uCE74\uD14C\uACE0\uB9AC \uD0ED \uB9C8\uC6B0\uC2A4 \uB4DC\uB798\uADF8 \uC2A4\uD06C\uB864 (PC) \u2500\u2500
@@ -18891,46 +18927,57 @@ window.regenSeoAll = async function regenSeoAll(force) {
 
 // \u2500\u2500 \uD648 \uADF8\uB9AC\uB4DC \uBAA8\uB4DC JS \u2500\u2500
 (function(){
-  // \uBE44\uB514\uC624 \uB370\uC774\uD130\uB97C \uBBF8\uB9AC \uCE90\uC2DC (loadVideos()\uAC00 null \uCC98\uB9AC\uD558\uAE30 \uC804\uC5D0 \uC800\uC7A5)
-  var _cachedVids = null;
-  function getCachedVids() {
-    if (!_cachedVids) {
-      _cachedVids = (window.__INIT_VIDEOS_ALL__ && window.__INIT_VIDEOS_ALL__.length)
-        ? window.__INIT_VIDEOS_ALL__.slice()
-        : (window.__INIT_VIDEOS__ && window.__INIT_VIDEOS__.length)
-          ? window.__INIT_VIDEOS__.slice()
-          : [];
-    }
-    return _cachedVids;
-  }
-
-  // PREVIEWS \uB760 \uBE4C\uB4DC
+  // PREVIEWS \uB760 \uBE4C\uB4DC \u2014 __PREVIEW_VIDS__ \uC0AC\uC6A9 (loadVideos \uC2E4\uD589 \uC804\uC5D0 \uC800\uC7A5\uB41C \uC0AC\uBCF8)
   function buildPreviewsStrip() {
     var strip = document.getElementById('previews-strip');
     if (!strip) return;
-    var vids = getCachedVids();
+
+    // loadVideos()\uAC00 \uC2E4\uD589\uB41C \uD6C4\uB77C\uBA74 __PREVIEW_VIDS__ \uC0AC\uC6A9, \uC544\uC9C1\uC774\uBA74 \uC6D0\uBCF8\uC5D0\uC11C \uC9C1\uC811
+    var vids = window.__PREVIEW_VIDS__
+      || (window.__INIT_VIDEOS_ALL__ && window.__INIT_VIDEOS_ALL__.length ? window.__INIT_VIDEOS_ALL__.slice() : null)
+      || (window.__INIT_VIDEOS__ && window.__INIT_VIDEOS__.length ? window.__INIT_VIDEOS__.slice() : []);
+
     if (!vids.length) {
-      // \uB370\uC774\uD130 \uC5C6\uC73C\uBA74 PREVIEWS \uC139\uC158 \uC790\uCCB4 \uC228\uAE40
       var homeTop = document.getElementById('home-top');
       if (homeTop) homeTop.style.display = 'none';
       return;
     }
-    // \uCD5C\uB300 8\uAC1C, \uCE74\uD14C\uACE0\uB9AC \uB2E4\uC591\uD558\uAC8C
-    var seen = {}, selected = [];
-    for (var i = 0; i < vids.length && selected.length < 8; i++) {
-      var v = vids[i];
-      var cat = (v.shop && v.shop.category) || 'beauty';
-      if (!seen[cat] || selected.length < 4) { selected.push(v); seen[cat] = (seen[cat]||0)+1; }
+
+    // \uC804\uCCB4 \uC601\uC0C1 \uD45C\uC2DC (\uCE74\uD14C\uACE0\uB9AC \uC21C\uD658)
+    var catOrder = ['clinic','headspa','skincare','hair','makeup','spa','tattoo'];
+    var buckets = {};
+    catOrder.forEach(function(c){ buckets[c] = []; });
+    vids.forEach(function(v){
+      var c = (v.shop && v.shop.category) || 'skincare';
+      if (!buckets[c]) buckets[c] = [];
+      buckets[c].push(v);
+    });
+    var sorted = [];
+    var hasMore = true;
+    while(hasMore) {
+      hasMore = false;
+      catOrder.forEach(function(c){
+        if(buckets[c] && buckets[c].length){ sorted.push(buckets[c].shift()); hasMore=true; }
+      });
     }
-    strip.innerHTML = selected.map(function(v) {
+
+    var html = sorted.map(function(v) {
       var thumb = v.thumbnail || (v.shop && v.shop.thumbnail) || '';
       var name  = (v.shop && v.shop.name) || v.title || 'Preview';
       return '<div class="pv-thumb" onclick="openPreview(''+v.id+'')">'
-        + '<img src="'+thumb+'" alt="'+name+'" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block">'
-        + '<div class="pv-thumb-ov"><i class="fas fa-play"></i></div>'
+        + (thumb ? '<img src="'+thumb+'" alt="'+name+'" loading="eager">' : '<div style="width:100%;height:100%;background:linear-gradient(135deg,#1a1a3e,#0d0d20)"></div>')
+        + '<div class="pv-thumb-ov"><div class="pv-play-btn"><i class="fas fa-play"></i></div></div>'
         + '<div class="pv-thumb-name">'+name+'</div>'
         + '</div>';
     }).join('');
+
+    // \uB9E8 \uB05D\uC5D0 "\uC804\uCCB4 \uBCF4\uAE30" \uBC84\uD2BC
+    html += '<div class="pv-see-all" onclick="openPreview(null)">'
+      + '<i class="fas fa-th"></i>'
+      + '<span>See all<br>videos</span>'
+      + '</div>';
+
+    strip.innerHTML = html;
   }
 
   // PREVIEWS \uD074\uB9AD \u2192 \uD53C\uB4DC \uBAA8\uB4DC\uB85C \uC804\uD658
@@ -18995,8 +19042,16 @@ window.regenSeoAll = async function regenSeoAll(force) {
   };
 
   // \uD648 \uCE74\uB4DC \uD074\uB9AD \u2192 \uBAA8\uB2EC \uC5F4\uAE30 (\uAE30\uC874 openModal \uC7AC\uC0AC\uC6A9)
-  document.addEventListener('DOMContentLoaded', function() {
+  // DOMContentLoaded\uAC00 \uC774\uBBF8 \uBC1C\uD654\uB410\uC744 \uC218 \uC788\uC73C\uBBC0\uB85C readyState \uCCB4\uD06C
+  function initHomeGrid() {
     buildPreviewsStrip();
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initHomeGrid);
+  } else {
+    initHomeGrid();
+  }
+  document.addEventListener('DOMContentLoaded', function() {
     // hm-grid \uCE74\uB4DC \uD074\uB9AD \uC774\uBCA4\uD2B8
     var grid = document.getElementById('hm-grid');
     if (grid) {

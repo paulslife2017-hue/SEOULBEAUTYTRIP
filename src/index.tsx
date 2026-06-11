@@ -9232,31 +9232,63 @@ const MAIN_HTML = `<!DOCTYPE html>
   --ff-sans:'Inter',sans-serif;
 }
 html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-family:var(--ff-sans)}
-/* ── 홈 그리드 모드 (카드 중심) ── */
+/* ── 홈 그리드 모드 (영상 절반 + 카드) ── */
 html.home-grid-mode,body.home-grid-mode{overflow-y:auto!important;overflow-x:hidden!important;height:auto!important;min-height:100vh}
 body.home-grid-mode #feed{display:none!important}
 body.home-grid-mode #dots{display:none!important}
 body.home-grid-mode #cat-loading{display:none!important}
 body.home-grid-mode #pc-layout{display:block!important;width:100%!important}
 body.home-grid-mode #shop-panel{display:block!important;height:auto!important;border-left:none!important;background:var(--bg)!important;padding:0!important}
-body.home-grid-mode #hd{position:sticky;top:0;z-index:100;background:var(--bg);border-bottom:1px solid rgba(255,255,255,.07)}
+body.home-grid-mode #hd{position:sticky;top:0;z-index:100;background:rgba(8,8,14,.95);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.07)}
 body.home-grid-mode #feed-col{display:none!important}
-/* 홈 카탈로그 헤더 (Browse N salons) 숨김 */
 body.home-grid-mode .home-cat-header{display:none!important}
-/* 홈 상단 영역 */
+/* 홈 상단: 영상 타일 가로 스크롤 심 ──────────────────── */
 #home-top{display:none}
-body.home-grid-mode #home-top{display:block;padding:0 0 4px}
-/* PREVIEWS 띠 */
-#previews-strip{display:flex;gap:8px;overflow-x:auto;padding:8px 12px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
-#previews-strip::-webkit-scrollbar{display:none}
-.pv-thumb{flex-shrink:0;width:72px;height:128px;border-radius:10px;overflow:hidden;position:relative;cursor:pointer;border:2px solid rgba(255,255,255,.08);transition:border-color .2s;background:#1a1a2e}
-.pv-thumb:hover,.pv-thumb.playing{border-color:var(--pk)}
-.pv-thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
-.pv-thumb-ov{position:absolute;inset:0;background:rgba(0,0,0,.28);display:flex;align-items:center;justify-content:center}
-.pv-thumb-ov i{font-size:20px;color:#fff;filter:drop-shadow(0 2px 6px rgba(0,0,0,.8))}
-.pv-thumb-name{position:absolute;bottom:0;left:0;right:0;padding:4px 5px;background:linear-gradient(to top,rgba(0,0,0,.8),transparent);font-size:8px;color:#fff;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.previews-label{font-size:9px;font-weight:800;letter-spacing:2.5px;text-transform:uppercase;color:rgba(255,255,255,.35);padding:8px 14px 2px;display:flex;align-items:center;gap:7px}
+body.home-grid-mode #home-top{display:block}
+/* PREVIEWS 영역 */
+.previews-section{
+  padding:10px 0 0;
+}
+.previews-label{font-size:9px;font-weight:800;letter-spacing:2.5px;text-transform:uppercase;color:rgba(255,255,255,.35);padding:0 14px 6px;display:flex;align-items:center;gap:7px}
 .previews-label::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.07)}
+/* 영상 타일 행 — 화면 놀이 ~45% */
+#previews-strip{
+  display:flex;
+  gap:6px;
+  overflow-x:auto;
+  padding:0 12px 12px;
+  scrollbar-width:none;
+  -webkit-overflow-scrolling:touch;
+  touch-action:pan-x;
+  /* 등놓이 데스크: 비율 유지하며 최대 45vh */
+  max-height:45vh;
+}
+#previews-strip::-webkit-scrollbar{display:none}
+.pv-thumb{
+  flex-shrink:0;
+  /* 45vh 안에서 세로형 9:16 비율 */
+  width:calc(45vh * 9 / 16);
+  height:45vh;
+  max-width:200px;
+  border-radius:12px;
+  overflow:hidden;
+  position:relative;
+  cursor:pointer;
+  border:2px solid rgba(255,255,255,.08);
+  transition:border-color .2s,transform .15s;
+  background:#1a1a2e;
+}
+.pv-thumb:hover,.pv-thumb:active{border-color:var(--pk);transform:scale(1.02)}
+.pv-thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.pv-thumb-ov{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,rgba(0,0,0,.5) 100%);display:flex;align-items:center;justify-content:center}
+.pv-play-btn{width:40px;height:40px;border-radius:50%;background:rgba(232,65,122,.85);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(232,65,122,.4)}
+.pv-play-btn i{font-size:14px;color:#fff;margin-left:2px}
+.pv-thumb-name{position:absolute;bottom:0;left:0;right:0;padding:8px 8px 8px;background:linear-gradient(to top,rgba(0,0,0,.85),transparent);font-size:9px;color:#fff;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 더보기 버튼 */
+.pv-see-all{flex-shrink:0;width:calc(45vh*9/16 * 0.7);max-width:120px;height:45vh;border-radius:12px;border:2px dashed rgba(232,65,122,.3);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;transition:border-color .2s;color:rgba(255,255,255,.4);font-size:11px;font-weight:700;text-align:center;padding:12px;background:rgba(232,65,122,.04)}
+.pv-see-all:hover{border-color:var(--pk);color:var(--pk2)}
+.pv-see-all i{font-size:20px;color:var(--pk);opacity:.7}
+/* (구버전 PREVIEWS 띠 CSS — 위의 3안 CSS로 통합됨) */
 /* 홈 그리드 카드 영역 */
 .home-catalog-wrap{padding:0 10px 80px}
 .home-cat-header{display:flex;align-items:center;justify-content:space-between;padding:6px 4px 8px}
@@ -9785,32 +9817,30 @@ body.home-grid-mode #home-top{display:block;padding:0 0 4px}
     <div id="cat-loading"><div class="cat-spin"></div></div>
   </div>
 
-  <!-- ★ 홈 그리드 모드 메인 콘텐츠 (home-grid-mode 시 표시) -->
+  <!-- ★ 홈 그리드 모드 메인 콘텐츠 -->
   <aside id="shop-panel" aria-label="Shop catalog">
-    <!-- PREVIEWS 띠 -->
-    <div id="home-top">
-      <div class="previews-label"><i class="fas fa-play-circle" style="color:var(--pk);font-size:10px"></i> PREVIEWS</div>
+
+    <!-- ① 영상 PREVIEWS 섹션 (화면 ~45%) -->
+    <div id="home-top" class="previews-section">
+      <div class="previews-label">
+        <i class="fas fa-play-circle" style="color:var(--pk);font-size:10px"></i> PREVIEWS
+        <span style="font-size:8px;color:rgba(255,255,255,.2);font-weight:500;letter-spacing:.5px;margin-left:2px">tap to watch</span>
+      </div>
       <div id="previews-strip">
-        <!-- JS로 채워짐: buildPreviewsStrip() -->
-        <div style="color:rgba(255,255,255,.2);font-size:11px;padding:8px 4px">Loading...</div>
+        <!-- JS buildPreviewsStrip()로 채워짐 -->
       </div>
     </div>
 
-    <!-- 업체 그리드 헤더 -->
-    <div class="home-cat-header">
-      <div style="font-size:13px;font-weight:800;color:#fff">Browse <span id="hm-count-label">__SSR_SHOP_COUNT__</span></div>
-      <div class="home-cat-count" id="hm-filter-count"></div>
-    </div>
+    <!-- ② 카테고리 필터 (스티키) -->
+    <div class="home-filter-bar" id="hm-filter-bar" style="position:sticky;top:54px;z-index:50;background:var(--bg);border-bottom:1px solid rgba(255,255,255,.06);padding:6px 10px">__SSR_FILTER_BTNS__</div>
 
-    <!-- 카테고리 필터 -->
-    <div class="home-filter-bar" id="hm-filter-bar">__SSR_FILTER_BTNS__</div>
-
-    <!-- 업체 카드 그리드 -->
+    <!-- ③ 업체 카드 그리드 -->
     <div class="home-catalog-wrap">
+      <div class="home-cat-header" style="display:none"></div>
       <div class="home-grid" id="hm-grid">__SSR_SHOP_CARDS__</div>
     </div>
 
-    <!-- (SEO용) 기존 sp-grid는 숨김 처리 -->
+    <!-- SEO용 숨김 -->
     <div style="display:none">
       <div id="sp-count">__SSR_SHOP_COUNT__</div>
       <div id="sp-filter">__SSR_FILTER_BTNS__</div>
@@ -11939,6 +11969,12 @@ document.addEventListener('DOMContentLoaded', function(){
 
   // 스플래시 프로그레스 바 CSS 애니메이션 → JS 직접 제어로 전환
   setLdProgress(0);
+  // PREVIEWS용 비디오 데이터 미리 저장 (loadVideos가 null 처리하기 전에)
+  window.__PREVIEW_VIDS__ = (window.__INIT_VIDEOS_ALL__ && window.__INIT_VIDEOS_ALL__.length)
+    ? window.__INIT_VIDEOS_ALL__.slice()
+    : (window.__INIT_VIDEOS__ && window.__INIT_VIDEOS__.length)
+      ? window.__INIT_VIDEOS__.slice()
+      : [];
   loadVideos('all');
 
   // ── 카테고리 탭 마우스 드래그 스크롤 (PC) ──
@@ -17828,46 +17864,57 @@ window.regenSeoAll = async function regenSeoAll(force) {
 
 // ── 홈 그리드 모드 JS ──
 (function(){
-  // 비디오 데이터를 미리 캐시 (loadVideos()가 null 처리하기 전에 저장)
-  var _cachedVids = null;
-  function getCachedVids() {
-    if (!_cachedVids) {
-      _cachedVids = (window.__INIT_VIDEOS_ALL__ && window.__INIT_VIDEOS_ALL__.length)
-        ? window.__INIT_VIDEOS_ALL__.slice()
-        : (window.__INIT_VIDEOS__ && window.__INIT_VIDEOS__.length)
-          ? window.__INIT_VIDEOS__.slice()
-          : [];
-    }
-    return _cachedVids;
-  }
-
-  // PREVIEWS 띠 빌드
+  // PREVIEWS 띠 빌드 — __PREVIEW_VIDS__ 사용 (loadVideos 실행 전에 저장된 사본)
   function buildPreviewsStrip() {
     var strip = document.getElementById('previews-strip');
     if (!strip) return;
-    var vids = getCachedVids();
+
+    // loadVideos()가 실행된 후라면 __PREVIEW_VIDS__ 사용, 아직이면 원본에서 직접
+    var vids = window.__PREVIEW_VIDS__
+      || (window.__INIT_VIDEOS_ALL__ && window.__INIT_VIDEOS_ALL__.length ? window.__INIT_VIDEOS_ALL__.slice() : null)
+      || (window.__INIT_VIDEOS__ && window.__INIT_VIDEOS__.length ? window.__INIT_VIDEOS__.slice() : []);
+
     if (!vids.length) {
-      // 데이터 없으면 PREVIEWS 섹션 자체 숨김
       var homeTop = document.getElementById('home-top');
       if (homeTop) homeTop.style.display = 'none';
       return;
     }
-    // 최대 8개, 카테고리 다양하게
-    var seen = {}, selected = [];
-    for (var i = 0; i < vids.length && selected.length < 8; i++) {
-      var v = vids[i];
-      var cat = (v.shop && v.shop.category) || 'beauty';
-      if (!seen[cat] || selected.length < 4) { selected.push(v); seen[cat] = (seen[cat]||0)+1; }
+
+    // 전체 영상 표시 (카테고리 순환)
+    var catOrder = ['clinic','headspa','skincare','hair','makeup','spa','tattoo'];
+    var buckets = {};
+    catOrder.forEach(function(c){ buckets[c] = []; });
+    vids.forEach(function(v){
+      var c = (v.shop && v.shop.category) || 'skincare';
+      if (!buckets[c]) buckets[c] = [];
+      buckets[c].push(v);
+    });
+    var sorted = [];
+    var hasMore = true;
+    while(hasMore) {
+      hasMore = false;
+      catOrder.forEach(function(c){
+        if(buckets[c] && buckets[c].length){ sorted.push(buckets[c].shift()); hasMore=true; }
+      });
     }
-    strip.innerHTML = selected.map(function(v) {
+
+    var html = sorted.map(function(v) {
       var thumb = v.thumbnail || (v.shop && v.shop.thumbnail) || '';
       var name  = (v.shop && v.shop.name) || v.title || 'Preview';
       return '<div class="pv-thumb" onclick="openPreview(\''+v.id+'\')">'
-        + '<img src="'+thumb+'" alt="'+name+'" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block">'
-        + '<div class="pv-thumb-ov"><i class="fas fa-play"></i></div>'
+        + (thumb ? '<img src="'+thumb+'" alt="'+name+'" loading="eager">' : '<div style="width:100%;height:100%;background:linear-gradient(135deg,#1a1a3e,#0d0d20)"></div>')
+        + '<div class="pv-thumb-ov"><div class="pv-play-btn"><i class="fas fa-play"></i></div></div>'
         + '<div class="pv-thumb-name">'+name+'</div>'
         + '</div>';
     }).join('');
+
+    // 맨 끝에 "전체 보기" 버튼
+    html += '<div class="pv-see-all" onclick="openPreview(null)">'
+      + '<i class="fas fa-th"></i>'
+      + '<span>See all<br>videos</span>'
+      + '</div>';
+
+    strip.innerHTML = html;
   }
 
   // PREVIEWS 클릭 → 피드 모드로 전환
@@ -17932,8 +17979,16 @@ window.regenSeoAll = async function regenSeoAll(force) {
   };
 
   // 홈 카드 클릭 → 모달 열기 (기존 openModal 재사용)
-  document.addEventListener('DOMContentLoaded', function() {
+  // DOMContentLoaded가 이미 발화됐을 수 있으므로 readyState 체크
+  function initHomeGrid() {
     buildPreviewsStrip();
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initHomeGrid);
+  } else {
+    initHomeGrid();
+  }
+  document.addEventListener('DOMContentLoaded', function() {
     // hm-grid 카드 클릭 이벤트
     var grid = document.getElementById('hm-grid');
     if (grid) {
