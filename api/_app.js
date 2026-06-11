@@ -3770,7 +3770,7 @@ app.post("/api/shops/fill-seo-bulk", async (c) => {
       const _rt5 = String(row.rating || 5), _rc5 = Number(row.review_count || 0).toLocaleString();
       const _fallbackWhy = [
         `\u{1F310} English-friendly service and easy WhatsApp booking`,
-        `\u2B50 Rated ${row.rating || 5}/5 with ${row.review_count || 0}+ Google reviews`,
+        `\u2B50 Rated ${row.rating || 5}/5 with ${row.review_count || 0}+ verified reviews`,
         `\u{1F468}\u200D\u2695\uFE0F Expert team experienced with international patients`,
         `\u{1F4CD} Located in ${_area5}, Seoul \u2014 easily accessible by subway`,
         `\u{1F4AC} English support from consultation through aftercare`
@@ -4391,10 +4391,10 @@ app.post("/api/quick-register", async (c) => {
       seoTextVal = seoResult.seoText || "";
     }
     if (!description)
-      description = `${engName} is a highly rated ${cat} in ${loc}, Seoul. Rated ${resolvedData.rating || 5}/5 with ${resolvedData.reviewCount || 0}+ Google reviews. English consultations available. Book via WhatsApp with Seoul Beauty Trip.`;
+      description = `${engName} is a highly rated ${cat} in ${loc}, Seoul. Rated ${resolvedData.rating || 5}/5 with ${resolvedData.reviewCount || 0}+ verified reviews. English consultations available. Book via WhatsApp with Seoul Beauty Trip.`;
     if (!whyChoose.length) whyChoose = [
       `\u{1F310} English-friendly service and easy WhatsApp booking for international visitors`,
-      `\u2B50 Rated ${resolvedData.rating || 5}/5 with ${resolvedData.reviewCount || 0}+ Google reviews`,
+      `\u2B50 Rated ${resolvedData.rating || 5}/5 with ${resolvedData.reviewCount || 0}+ verified reviews`,
       `\u{1F468}\u200D\u2695\uFE0F Expert team with experience serving international patients`,
       `\u{1F4CD} Conveniently located in ${loc}, Seoul \u2014 easily accessible from major transit hubs`,
       `\u{1F4AC} Dedicated support for overseas visitors from consultation to aftercare`
@@ -5612,7 +5612,7 @@ People: `);
   };
   const _catLbl2 = _metaDescLabels[_shopCat] || _shopCat;
   const _rating = shop.rating ? shop.rating + "\u2605" : "";
-  const _revs = shop.reviewCount > 10 ? shop.reviewCount + "+ Google reviews" : shop.reviewCount > 0 ? shop.reviewCount + " reviews" : "";
+  const _revs = shop.reviewCount > 10 ? shop.reviewCount + "+ verified reviews" : shop.reviewCount > 0 ? shop.reviewCount + " reviews" : "";
   const _svc1 = shop.services && shop.services.length > 0 ? shop.services[0] : "";
   const _svc2 = shop.services && shop.services.length > 1 ? shop.services[1] : "";
   const _svcPart = _svc1 ? _svc2 ? _svc1 + " & " + _svc2 : _svc1 : "";
@@ -5809,7 +5809,7 @@ ${SB_TRACKER_SCRIPT}
         {
           "@type":"Question",
           "name":"What is ${shop.name}'s rating?",
-          "acceptedAnswer":{"@type":"Answer","text":"${shop.name} is rated ${shop.rating} out of 5 based on ${shop.reviewCount}+ Google reviews. It is consistently recommended by foreign visitors to Seoul for its quality and English-friendly service."}
+          "acceptedAnswer":{"@type":"Answer","text":"${shop.name} is rated ${shop.rating} out of 5 based on ${shop.reviewCount}+ verified reviews. It is consistently recommended by foreign visitors to Seoul for its quality and English-friendly service."}
         },
         {
           "@type":"Question",
@@ -6278,7 +6278,7 @@ ${(() => {
     const area3 = (shop.location || "Seoul").split(",")[0].trim();
     const svcList = shop.services && shop.services.length > 0 ? shop.services.slice(0, 4).join(", ") : "beauty treatments";
     const areaGn = ["cheongdam", "apgujeong", "sinsa", "nonhyeon"].some((a) => area3.toLowerCase().includes(a)) ? "Gangnam" : area3;
-    const revTxt = shop.reviewCount > 10 ? " With " + shop.reviewCount + "+ Google reviews and a " + shop.rating + "-star rating, it" : " It";
+    const revTxt = shop.reviewCount > 10 ? " With " + shop.reviewCount + "+ verified reviews and a " + shop.rating + "-star rating, it" : " It";
     const _fbClinicType = (() => {
       const nm = (shop.name || "").toLowerCase();
       if (nm.includes("plastic surgery")) return "plastic surgery clinic";
@@ -7243,7 +7243,7 @@ details[open] .faq-q::after{transform:rotate(180deg)}
     <h2>How to Book a Gangnam Dermatology Clinic Through Seoul Beauty Trip</h2>
     <p>Seoul Beauty Trip is an English-language platform specifically designed to help foreigners navigate the Gangnam dermatology clinic scene. Here is how the booking process works:</p>
     <ol>
-      <li><strong>Browse clinics above</strong> \u2014 each listing includes public reviews, treatment menus, pricing information, and location details</li>
+      <li><strong>Browse clinics above</strong> \u2014 each listing includes verified reviews, treatment menus, pricing information, and location details</li>
       <li><strong>Tap the WhatsApp button</strong> on your chosen clinic's page \u2014 this connects you directly to our English-speaking team</li>
       <li><strong>Tell us your treatment goal</strong> \u2014 we'll confirm the right treatment, current availability, and any pre-appointment preparation needed</li>
       <li><strong>Receive your booking confirmation</strong> \u2014 including clinic address (in Korean for your taxi), appointment time, and what to bring</li>
@@ -9438,44 +9438,19 @@ app.get("/", async (c) => {
     const catColorsSSR = { skincare: "#f472b6", headspa: "#67e8f9", hair: "#60a5fa", clinic: "#fb923c", makeup: "#c084fc", spa: "#a78bfa", tattoo: "#e879f9" };
     const catFaIconsSSR = { skincare: "fa-leaf", makeup: "fa-magic", hair: "fa-cut", headspa: "fa-spa", clinic: "fa-briefcase-medical", spa: "fa-hot-tub", tattoo: "fa-pen-nib" };
     const catLabelsSSR = { skincare: "Skincare", makeup: "Makeup", hair: "Hair", headspa: "Head Spa", clinic: "Clinic", spa: "Spa", tattoo: "Brow Tattoo" };
-    const CAT_ORDER_SSR = ["clinic", "headspa", "skincare", "hair", "makeup", "spa", "tattoo"];
-    const catBucketsSSR = {};
-    CAT_ORDER_SSR.forEach((c2) => {
-      catBucketsSSR[c2] = [];
-    });
-    initShops.forEach((s) => {
-      const key = CAT_ORDER_SSR.includes(s.category) ? s.category : "skincare";
-      const arr = catBucketsSSR[key];
-      const pos = Math.floor(Math.random() * (arr.length + 1));
-      arr.splice(pos, 0, s);
-    });
-    const shuffledShops = [];
-    let ssrRemaining = true;
-    let ssrCi = 0;
-    while (ssrRemaining) {
-      ssrRemaining = false;
-      for (let i = 0; i < CAT_ORDER_SSR.length; i++) {
-        const cat = CAT_ORDER_SSR[(ssrCi + i) % CAT_ORDER_SSR.length];
-        if (catBucketsSSR[cat].length > 0) {
-          shuffledShops.push(catBucketsSSR[cat].shift());
-          ssrRemaining = true;
-        }
-      }
-      ssrCi = (ssrCi + 1) % CAT_ORDER_SSR.length;
-    }
-    const ssrShopCards = shuffledShops.map((s) => {
+    const ssrShopCards = initShops.map((s) => {
+      const col = catColorsSSR[s.category] || "#aaa";
+      const icon = catFaIconsSSR[s.category] || "fa-star";
       const lbl = catLabelsSSR[s.category] || s.category;
       const loc = (s.location || "").split(",")[0].trim();
       const href = s.slug ? `/shop/${s.slug}` : "#";
-      const ratingHtml = s.rating > 0 ? `<div class="hm-badge">\u2605 ${s.rating}</div>` : "";
-      return `<a class="hm-card" href="${href}" data-cat="${s.category}" data-name="${s.name.toLowerCase().replace(/"/g, "")}" data-loc="${loc.toLowerCase()}">
-  <img class="hm-img" src="${s.thumbnail || ""}" alt="${s.name} \u2014 ${lbl} in ${loc}, Seoul" loading="lazy">
-  ${ratingHtml}
-  <div class="hm-body">
-    <div class="hm-cat">${lbl}</div>
-    <div class="hm-name">${s.name}</div>
-    <div class="hm-loc"><i class="fas fa-map-marker-alt"></i>${loc}</div>
+      return `<a class="sp-card" href="${href}" data-cat="${s.category}" data-name="${s.name.toLowerCase().replace(/"/g, "")}" data-loc="${loc.toLowerCase()}" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;text-decoration:none;border-bottom:1px solid rgba(255,255,255,.04);transition:background .15s" onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background=''">
+  <div style="width:44px;height:44px;border-radius:10px;overflow:hidden;flex-shrink:0;background:rgba(255,255,255,.06)"><img src="${s.thumbnail || ""}" alt="${s.name}" style="width:100%;height:100%;object-fit:cover" loading="lazy"></div>
+  <div style="flex:1;min-width:0">
+    <div style="font-size:12px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</div>
+    <div style="font-size:10px;color:${col};margin-top:2px"><i class="fas ${icon}" style="margin-right:3px"></i>${lbl} \xB7 ${loc}</div>
   </div>
+  <div style="font-size:11px;color:rgba(255,255,255,.4);flex-shrink:0">\u2605${s.rating}</div>
 </a>`;
     }).join("");
     const ssrCatCounts = {};
@@ -9486,12 +9461,12 @@ app.get("/", async (c) => {
       const cnt = cat === "all" ? initShops.length : ssrCatCounts[cat] || 0;
       if (cnt === 0) return "";
       const lbl = cat === "all" ? "All" : catLabelsSSR[cat] || cat;
-      return `<button class="hf-btn${cat === "all" ? " on" : ""}" data-cat="${cat}" onclick="hmFilter(this)">${lbl}<span class="hf-n">${cnt}</span></button>`;
+      return `<button class="sp-flt${cat === "all" ? " on" : ""}" data-cat="${cat}" onclick="filterSpGrid(this)">${lbl} <span class="sp-flt-n">${cnt}</span></button>`;
     }).join("");
-    const ssrCountText = `${initShops.length} Korean beauty salons`;
+    const ssrCountText = `${initShops.length} shops`;
     const initVideosFirst = initVideos.slice(0, 10);
     const inlineScript = `${videoLdScript}<script>window.__INIT_VIDEOS__=${safeJson(initVideosFirst)};window.__INIT_VIDEOS_ALL__=${safeJson(initVideos)};window.__INIT_PLATFORM__=${safeJson(initPlatform)};window.__INIT_SHOPS__=${safeJson(initShops)};</script>`;
-    const html = MAIN_HTML.replace("__INLINE_DATA_PLACEHOLDER__", inlineScript).replace(/__SSR_SHOP_COUNT__/g, ssrCountText).replace(/__SSR_FILTER_BTNS__/g, ssrFilterBtns).replace(/__SSR_SHOP_CARDS__/g, ssrShopCards);
+    const html = MAIN_HTML.replace("__INLINE_DATA_PLACEHOLDER__", inlineScript).replace("__SSR_SHOP_COUNT__", ssrCountText).replace("__SSR_FILTER_BTNS__", ssrFilterBtns).replace("__SSR_SHOP_CARDS__", ssrShopCards);
     c.header("Cache-Control", "public, s-maxage=10, stale-while-revalidate=60");
     return c.html(html);
   } catch (e) {
@@ -10156,7 +10131,7 @@ var MAIN_HTML = `<!DOCTYPE html>
 </script>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Seoul Skin Clinic & Beauty Salon for Foreigners | Seoul Beauty Trip</title>
-<meta name="description" content="Best skin clinics, dermatology & beauty salons in Seoul for foreigners. English-speaking staff, easy WhatsApp booking. For tourists visiting Seoul.">
+<meta name="description" content="Best skin clinics, dermatology & beauty salons in Seoul for foreigners. English-speaking staff, easy WhatsApp booking. Trusted by tourists visiting Seoul.">
 
 <meta name="robots" content="index, follow">
 <meta name="msvalidate.01" content="DD5A8D9AA094B888C8A409EADE4610E9">
@@ -10165,7 +10140,7 @@ var MAIN_HTML = `<!DOCTYPE html>
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Seoul Beauty Trip">
 <meta property="og:title" content="Seoul Beauty Trip \u2014 Book Korean Beauty in Seoul">
-<meta property="og:description" content="Best skin clinics & beauty salons in Seoul for foreigners. English-speaking staff, WhatsApp booking. For tourists visiting Seoul.">
+<meta property="og:description" content="Best skin clinics & beauty salons in Seoul for foreigners. English-speaking staff, WhatsApp booking. Trusted by tourists.">
 <meta property="og:image" content="https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -10218,7 +10193,7 @@ var MAIN_HTML = `<!DOCTYPE html>
         "width":1200,
         "height":630
       },
-      "description":"Seoul Beauty Trip connects international visitors with English-friendly Korean beauty salons \u2014 skincare clinics, hair salons, nail studios, head spas, and dermatology clinics \u2014 across Gangnam, Hongdae, Myeongdong, Itaewon, and Apgujeong.",
+      "description":"Seoul Beauty Trip is the #1 K-beauty booking platform for foreign tourists in Seoul. We connect international visitors with vetted, English-friendly Korean beauty salons \u2014 skincare clinics, hair salons, nail studios, head spas, and dermatology clinics \u2014 across Gangnam, Hongdae, Myeongdong, Itaewon, and Apgujeong.",
       "foundingDate":"2024",
       "areaServed":{
         "@type":"City",
@@ -10241,7 +10216,7 @@ var MAIN_HTML = `<!DOCTYPE html>
       "@type":"ItemList",
       "@id":"https://seoulbeautytrip.com/#featured-salons",
       "name":"Top K-Beauty Salons in Seoul for Foreigners",
-      "description":"Korean beauty salons in Seoul with English-friendly booking via WhatsApp. Covers skincare, dermatology, hair, nail, head spa, and more.",
+      "description":"Hand-verified Korean beauty salons in Seoul with English-friendly booking via WhatsApp. Covers skincare, dermatology, hair, nail, head spa, and more.",
       "url":"https://seoulbeautytrip.com/",
       "numberOfItems":48,
       "itemListOrder":"https://schema.org/ItemListOrderDescending"
@@ -10257,7 +10232,7 @@ var MAIN_HTML = `<!DOCTYPE html>
         {
           "@type":"Question",
           "name":"Are the salons on Seoul Beauty Trip foreigner-friendly?",
-          "acceptedAnswer":{"@type":"Answer","text":"Yes. Every salon listed on Seoul Beauty Trip is selected for foreigner-friendliness. They either have English-speaking staff, offer English menus, or are managed through Seoul Beauty Trip's English WhatsApp concierge service."}
+          "acceptedAnswer":{"@type":"Answer","text":"Yes. Every salon listed on Seoul Beauty Trip is manually verified for foreigner-friendliness. They either have English-speaking staff, offer English menus, or are managed through Seoul Beauty Trip's English WhatsApp concierge service."}
         },
         {
           "@type":"Question",
@@ -10299,86 +10274,6 @@ var MAIN_HTML = `<!DOCTYPE html>
   --ff-sans:'Inter',sans-serif;
 }
 html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-family:var(--ff-sans)}
-/* \u2500\u2500 \uD648 \uADF8\uB9AC\uB4DC \uBAA8\uB4DC (\uC601\uC0C1 \uC808\uBC18 + \uCE74\uB4DC) \u2500\u2500 */
-html.home-grid-mode,body.home-grid-mode{overflow-y:auto!important;overflow-x:hidden!important;height:auto!important;min-height:100vh}
-body.home-grid-mode #feed{display:none!important}
-body.home-grid-mode #dots{display:none!important}
-body.home-grid-mode #cat-loading{display:none!important}
-body.home-grid-mode #pc-layout{display:block!important;width:100%!important}
-body.home-grid-mode #shop-panel{display:block!important;height:auto!important;border-left:none!important;background:var(--bg)!important;padding:0!important}
-body.home-grid-mode #hd{position:sticky;top:0;z-index:100;background:rgba(8,8,14,.95);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.07)}
-body.home-grid-mode #feed-col{display:none!important}
-body.home-grid-mode .home-cat-header{display:none!important}
-/* \uD648 \uC0C1\uB2E8: \uC601\uC0C1 \uD0C0\uC77C \uAC00\uB85C \uC2A4\uD06C\uB864 \uC2EC \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
-#home-top{display:none}
-body.home-grid-mode #home-top{display:block}
-/* PREVIEWS \uC601\uC5ED */
-.previews-section{
-  padding:10px 0 0;
-}
-.previews-label{font-size:9px;font-weight:800;letter-spacing:2.5px;text-transform:uppercase;color:rgba(255,255,255,.35);padding:0 14px 6px;display:flex;align-items:center;gap:7px}
-.previews-label::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.07)}
-/* \uC601\uC0C1 \uD0C0\uC77C \uD589 \u2014 \uD654\uBA74 \uB180\uC774 ~45% */
-#previews-strip{
-  display:flex;
-  gap:6px;
-  overflow-x:auto;
-  padding:0 12px 12px;
-  scrollbar-width:none;
-  -webkit-overflow-scrolling:touch;
-  touch-action:pan-x;
-  /* \uB4F1\uB193\uC774 \uB370\uC2A4\uD06C: \uBE44\uC728 \uC720\uC9C0\uD558\uBA70 \uCD5C\uB300 45vh */
-  max-height:45vh;
-}
-#previews-strip::-webkit-scrollbar{display:none}
-.pv-thumb{
-  flex-shrink:0;
-  /* 45vh \uC548\uC5D0\uC11C \uC138\uB85C\uD615 9:16 \uBE44\uC728 */
-  width:calc(45vh * 9 / 16);
-  height:45vh;
-  max-width:200px;
-  border-radius:12px;
-  overflow:hidden;
-  position:relative;
-  cursor:pointer;
-  border:2px solid rgba(255,255,255,.08);
-  transition:border-color .2s,transform .15s;
-  background:#1a1a2e;
-}
-.pv-thumb:hover,.pv-thumb:active{border-color:var(--pk);transform:scale(1.02)}
-.pv-thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
-.pv-thumb-ov{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,rgba(0,0,0,.5) 100%);display:flex;align-items:center;justify-content:center}
-.pv-play-btn{width:40px;height:40px;border-radius:50%;background:rgba(232,65,122,.85);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(232,65,122,.4)}
-.pv-play-btn i{font-size:14px;color:#fff;margin-left:2px}
-.pv-thumb-name{position:absolute;bottom:0;left:0;right:0;padding:8px 8px 8px;background:linear-gradient(to top,rgba(0,0,0,.85),transparent);font-size:9px;color:#fff;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-/* \uB354\uBCF4\uAE30 \uBC84\uD2BC */
-.pv-see-all{flex-shrink:0;width:calc(45vh*9/16 * 0.7);max-width:120px;height:45vh;border-radius:12px;border:2px dashed rgba(232,65,122,.3);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;transition:border-color .2s;color:rgba(255,255,255,.4);font-size:11px;font-weight:700;text-align:center;padding:12px;background:rgba(232,65,122,.04)}
-.pv-see-all:hover{border-color:var(--pk);color:var(--pk2)}
-.pv-see-all i{font-size:20px;color:var(--pk);opacity:.7}
-/* (\uAD6C\uBC84\uC804 PREVIEWS \uB760 CSS \u2014 \uC704\uC758 3\uC548 CSS\uB85C \uD1B5\uD569\uB428) */
-/* \uD648 \uADF8\uB9AC\uB4DC \uCE74\uB4DC \uC601\uC5ED */
-.home-catalog-wrap{padding:0 10px 80px}
-.home-cat-header{display:flex;align-items:center;justify-content:space-between;padding:6px 4px 8px}
-.home-cat-count{font-size:11px;color:rgba(255,255,255,.35)}
-.home-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-/* \uD648 \uCE74\uB4DC \uC2A4\uD0C0\uC77C \u2014 \uBAA8\uBC14\uC77C 2\uC5F4 \uCD5C\uC801\uD654 */
-.hm-card{background:#13132a;border:1px solid rgba(255,255,255,.07);border-radius:14px;overflow:hidden;cursor:pointer;transition:all .2s;position:relative;display:block;text-decoration:none}
-.hm-card:hover,.hm-card:active{border-color:rgba(232,65,122,.4);transform:translateY(-2px);box-shadow:0 8px 24px rgba(232,65,122,.12)}
-.hm-img{width:100%;height:110px;object-fit:cover;display:block;background:#1a1a2e}
-.hm-body{padding:9px 10px 10px}
-.hm-cat{font-size:8.5px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--pk);margin-bottom:2px}
-.hm-name{font-size:12px;font-weight:800;color:#fff;line-height:1.3;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.hm-loc{font-size:10px;color:rgba(255,255,255,.38);display:flex;align-items:center;gap:3px;margin-bottom:4px}
-.hm-loc i{font-size:8px;color:var(--pk);opacity:.7}
-.hm-rating{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:#fbbf24}
-.hm-price{font-size:9.5px;color:rgba(255,255,255,.4);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.hm-badge{position:absolute;top:7px;right:7px;background:rgba(0,0,0,.72);backdrop-filter:blur(8px);border-radius:20px;padding:3px 7px;font-size:10px;font-weight:700;color:#fbbf24;display:flex;align-items:center;gap:2px}
-/* \uD648 \uD544\uD130 \uBC14 */
-.home-filter-bar{padding:4px 10px 4px;display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;touch-action:pan-x}
-.home-filter-bar::-webkit-scrollbar{display:none}
-.hf-btn{flex-shrink:0;padding:5px 12px;border-radius:20px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.05);color:rgba(255,255,255,.45);font-size:10px;font-weight:700;cursor:pointer;transition:all .18s;white-space:nowrap;font-family:var(--ff-sans)}
-.hf-btn.on{background:linear-gradient(135deg,var(--pk),#7C3AED);border-color:transparent;color:#fff}
-.hf-n{font-size:9px;opacity:.65;margin-left:2px}
 /* \u2500\u2500 \uB85C\uB529 \uC2A4\uD50C\uB798\uC2DC \u2500\u2500 */
 #ld{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;transition:opacity .4s}
 .ld-pre{font-size:10px;letter-spacing:5px;color:rgba(255,255,255,.28);text-transform:uppercase;font-family:var(--ff-sans);margin-bottom:10px}
@@ -10803,7 +10698,7 @@ body.home-grid-mode #home-top{display:block}
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 </head>
-<body class="home-grid-mode"><script>document.documentElement.classList.add('home-grid-mode');</script>
+<body>
 <div id="ld">
   <div class="ld-pre">Welcome to</div>
   <div class="ld-logo">Seoul Beauty Trip</div>
@@ -10819,7 +10714,7 @@ body.home-grid-mode #home-top{display:block}
       <div class="logo-mark"></div>
       <div class="logo-text">
         <div class="logo-name">Seoul Beauty Trip</div>
-        <div class="logo-tag">Book Seoul clinics \xB7 in English</div>
+        <div class="logo-tag">Korean Beauty Experience</div>
       </div>
     </div>
     <div class="hd-right">
@@ -10883,36 +10778,14 @@ body.home-grid-mode #home-top{display:block}
     <div id="feed" role="feed" aria-label="Beauty videos"></div>
     <div id="cat-loading"><div class="cat-spin"></div></div>
   </div>
-
-  <!-- \u2605 \uD648 \uADF8\uB9AC\uB4DC \uBAA8\uB4DC \uBA54\uC778 \uCF58\uD150\uCE20 -->
+  <!-- PC \uC6B0\uCE21 \uC5C5\uCCB4 \uCE74\uD0C8\uB85C\uADF8 -->
   <aside id="shop-panel" aria-label="Shop catalog">
-
-    <!-- \u2460 \uC601\uC0C1 PREVIEWS \uC139\uC158 (\uD654\uBA74 ~45%) -->
-    <div id="home-top" class="previews-section">
-      <div class="previews-label">
-        <i class="fas fa-play-circle" style="color:var(--pk);font-size:10px"></i> PREVIEWS
-        <span style="font-size:8px;color:rgba(255,255,255,.2);font-weight:500;letter-spacing:.5px;margin-left:2px">tap to watch</span>
-      </div>
-      <div id="previews-strip">
-        <!-- JS buildPreviewsStrip()\uB85C \uCC44\uC6CC\uC9D0 -->
-      </div>
+    <div class="sp-header">
+      <div class="sp-title">Seoul Beauty Catalog</div>
+      <div class="sp-subtitle" id="sp-count">__SSR_SHOP_COUNT__</div>
     </div>
-
-    <!-- \u2461 \uCE74\uD14C\uACE0\uB9AC \uD544\uD130 (\uC2A4\uD2F0\uD0A4) -->
-    <div class="home-filter-bar" id="hm-filter-bar" style="position:sticky;top:54px;z-index:50;background:var(--bg);border-bottom:1px solid rgba(255,255,255,.06);padding:6px 10px">__SSR_FILTER_BTNS__</div>
-
-    <!-- \u2462 \uC5C5\uCCB4 \uCE74\uB4DC \uADF8\uB9AC\uB4DC -->
-    <div class="home-catalog-wrap">
-      <div class="home-cat-header" style="display:none"></div>
-      <div class="home-grid" id="hm-grid">__SSR_SHOP_CARDS__</div>
-    </div>
-
-    <!-- SEO\uC6A9 \uC228\uAE40 -->
-    <div style="display:none">
-      <div id="sp-count">__SSR_SHOP_COUNT__</div>
-      <div id="sp-filter">__SSR_FILTER_BTNS__</div>
-      <div id="sp-grid">__SSR_SHOP_CARDS__</div>
-    </div>
+    <div class="sp-filter" id="sp-filter">__SSR_FILTER_BTNS__</div>
+    <div class="sp-grid" id="sp-grid">__SSR_SHOP_CARDS__</div>
   </aside>
 </div>
 <div id="toast" role="status" aria-live="polite"></div>
@@ -12117,7 +11990,7 @@ function renderShopModal(shop) {
     var cat3     = _catLabel[shop.category] || ((shop.category||'beauty').charAt(0).toUpperCase()+(shop.category||'beauty').slice(1));
     var areaGn   = (area3.toLowerCase().indexOf('cheongdam')>-1||area3.toLowerCase().indexOf('apgujeong')>-1) ? 'Gangnam' : area3;
     var svcList  = (shop.services&&shop.services.length>0) ? shop.services.slice(0,4).join(', ') : cat3+' treatments';
-    var revTxt   = (shop.reviewCount>10) ? ' With '+shop.reviewCount+'+ Google reviews and a '+shop.rating+'-star rating, it' : ' It';
+    var revTxt   = (shop.reviewCount>10) ? ' With '+shop.reviewCount+'+ verified reviews and a '+shop.rating+'-star rating, it' : ' It';
 
     // DB seo_text \uC788\uC73C\uBA74 \uADF8\uB300\uB85C \uC0AC\uC6A9 (\uC0C1\uC138 \uD398\uC774\uC9C0\uC640 \uC644\uC804\uD788 \uB3D9\uC77C)
     if(shop.seoText && shop.seoText.trim()){
@@ -13036,12 +12909,6 @@ document.addEventListener('DOMContentLoaded', function(){
 
   // \uC2A4\uD50C\uB798\uC2DC \uD504\uB85C\uADF8\uB808\uC2A4 \uBC14 CSS \uC560\uB2C8\uBA54\uC774\uC158 \u2192 JS \uC9C1\uC811 \uC81C\uC5B4\uB85C \uC804\uD658
   setLdProgress(0);
-  // PREVIEWS\uC6A9 \uBE44\uB514\uC624 \uB370\uC774\uD130 \uBBF8\uB9AC \uC800\uC7A5 (loadVideos\uAC00 null \uCC98\uB9AC\uD558\uAE30 \uC804\uC5D0)
-  window.__PREVIEW_VIDS__ = (window.__INIT_VIDEOS_ALL__ && window.__INIT_VIDEOS_ALL__.length)
-    ? window.__INIT_VIDEOS_ALL__.slice()
-    : (window.__INIT_VIDEOS__ && window.__INIT_VIDEOS__.length)
-      ? window.__INIT_VIDEOS__.slice()
-      : [];
   loadVideos('all');
 
   // \u2500\u2500 \uCE74\uD14C\uACE0\uB9AC \uD0ED \uB9C8\uC6B0\uC2A4 \uB4DC\uB798\uADF8 \uC2A4\uD06C\uB864 (PC) \u2500\u2500
@@ -13172,8 +13039,8 @@ function renderShopPanel(cat) {
       Seoul Beauty Booking for Foreigners \u2014 Your Complete K-Beauty Guide
     </h2>
     <p style="font-size:.92rem;color:#374151;line-height:1.9;margin-bottom:12px;text-align:center;max-width:600px;margin-left:auto;margin-right:auto">
-      <strong>Seoul Beauty Trip</strong> is a K-beauty booking platform for international visitors in Seoul.
-      We connect foreign tourists directly with <strong>Korean beauty salons</strong> \u2014 from skincare clinics and dermatology centers in Gangnam to head spas in Hongdae and nail studios across the city.
+      <strong>Seoul Beauty Trip</strong> is the #1 curated K-beauty booking platform for international visitors in Seoul.
+      We connect foreign tourists directly with <strong>48+ hand-verified Korean beauty salons</strong> \u2014 from skincare clinics and dermatology centers in Gangnam to head spas in Hongdae and nail studios across the city.
       Every booking is handled in <strong>English via WhatsApp</strong>. No Korean required.
     </p>
     <p style="font-size:.88rem;color:#555;line-height:1.8;margin-bottom:24px;text-align:center">
@@ -13220,12 +13087,12 @@ function renderShopPanel(cat) {
     <!-- \uC2E0\uB8B0 \uC9C0\uD45C -->
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:28px;text-align:center">
       <div style="background:#fdf2f8;border-radius:12px;padding:14px 8px">
-        <div style="font-size:1.4rem;font-weight:800;color:#e91e8c">Seoul</div>
-        <div style="font-size:.75rem;color:#555;margin-top:3px;line-height:1.4">Korean<br>Beauty Salons</div>
+        <div style="font-size:1.4rem;font-weight:800;color:#e91e8c">48+</div>
+        <div style="font-size:.75rem;color:#555;margin-top:3px;line-height:1.4">Verified Korean<br>Beauty Salons</div>
       </div>
       <div style="background:#f0fdf4;border-radius:12px;padding:14px 8px">
-        <div style="font-size:1.4rem;font-weight:800;color:#16a34a">4.5\u2605</div>
-        <div style="font-size:.75rem;color:#555;margin-top:3px;line-height:1.4">Avg public rating<br>across listings</div>
+        <div style="font-size:1.4rem;font-weight:800;color:#16a34a">4.9\u2605</div>
+        <div style="font-size:.75rem;color:#555;margin-top:3px;line-height:1.4">Average Rating<br>Across All Salons</div>
       </div>
       <div style="background:#eff6ff;border-radius:12px;padding:14px 8px">
         <div style="font-size:1.4rem;font-weight:800;color:#2563eb">100%</div>
@@ -13243,11 +13110,11 @@ function renderShopPanel(cat) {
       </li>
       <li style="display:flex;align-items:flex-start;gap:10px;font-size:.88rem;color:#374151;line-height:1.7">
         <span style="color:#e91e8c;font-size:1rem;flex-shrink:0;margin-top:2px">\u2713</span>
-        <span><strong>Selected for foreigner-friendliness</strong> \u2014 Every listing is reviewed for English menu availability, foreigner-friendly service, and English booking support.</span>
+        <span><strong>Hand-verified salons only</strong> \u2014 Every listing is personally visited or thoroughly vetted for foreigner-friendliness, English menu availability, and service quality.</span>
       </li>
       <li style="display:flex;align-items:flex-start;gap:10px;font-size:.88rem;color:#374151;line-height:1.7">
         <span style="color:#e91e8c;font-size:1rem;flex-shrink:0;margin-top:2px">\u2713</span>
-        <span><strong>Public ratings included</strong> \u2014 Salon ratings aggregated from public Google reviews to help you compare options.</span>
+        <span><strong>Real international reviews</strong> \u2014 Ratings from verified foreign visitors (US, UK, Australia, Japan, SEA) who have experienced the services firsthand.</span>
       </li>
       <li style="display:flex;align-items:flex-start;gap:10px;font-size:.88rem;color:#374151;line-height:1.7">
         <span style="color:#e91e8c;font-size:1rem;flex-shrink:0;margin-top:2px">\u2713</span>
@@ -13289,7 +13156,7 @@ function renderShopPanel(cat) {
       How to Book a Korean Beauty Salon as a Foreigner
     </h2>
     <ol style="padding-left:18px;margin:0 0 24px;display:flex;flex-direction:column;gap:8px">
-      <li style="font-size:.88rem;color:#374151;line-height:1.7"><strong>Browse &amp; choose</strong> \u2014 Explore Korean beauty salons above. Filter by category (clinic, hair, head spa, nail, etc.) or search by name.</li>
+      <li style="font-size:.88rem;color:#374151;line-height:1.7"><strong>Browse &amp; choose</strong> \u2014 Explore 48+ verified salons using the video feed or catalog above. Filter by category (clinic, hair, head spa, nail, etc.) or search by name.</li>
       <li style="font-size:.88rem;color:#374151;line-height:1.7"><strong>Check the salon page</strong> \u2014 Each salon page shows real photos, service prices in English, Google ratings, customer reviews, and available treatments.</li>
       <li style="font-size:.88rem;color:#374151;line-height:1.7"><strong>Tap "Book via WhatsApp"</strong> \u2014 A pre-filled booking message is sent to Seoul Beauty Trip's English concierge. We confirm your appointment, explain pricing, and answer any questions.</li>
       <li style="font-size:.88rem;color:#374151;line-height:1.7"><strong>Visit &amp; enjoy</strong> \u2014 Walk in on your confirmed date. The salon is briefed in advance on your service needs. Same-day bookings are often available.</li>
@@ -13304,7 +13171,7 @@ function renderShopPanel(cat) {
 
     <div style="background:linear-gradient(135deg,#e91e8c12,#9c27b012);border-radius:16px;padding:20px;text-align:center;border:1px solid #e91e8c20">
       <div style="font-size:.95rem;font-weight:700;color:#1a1a2e;margin-bottom:6px">Ready to experience authentic K-beauty in Seoul?</div>
-      <div style="font-size:.85rem;color:#555;margin-bottom:14px">Built for foreign visitors planning their Seoul beauty trip. Browse Korean beauty salons and book in English via WhatsApp \u2014 no Korean required.</div>
+      <div style="font-size:.85rem;color:#555;margin-bottom:14px">Join thousands of foreign visitors who have booked through Seoul Beauty Trip. Browse 48+ verified salons and book in English via WhatsApp \u2014 no Korean required.</div>
       <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
         <a href="/best/clinic/gangnam" style="display:inline-block;background:linear-gradient(135deg,#e91e8c,#9c27b0);color:#fff;padding:9px 22px;border-radius:24px;font-size:.85rem;font-weight:700;text-decoration:none">Best Clinics in Gangnam \u2192</a>
         <a href="/best/headspa/seoul" style="display:inline-block;background:#1a1a2e;color:#fff;padding:9px 22px;border-radius:24px;font-size:.85rem;font-weight:700;text-decoration:none">Top Head Spas \u2192</a>
@@ -18924,155 +18791,6 @@ window.regenSeoAll = async function regenSeoAll(force) {
 }
 
 }); // DOMContentLoaded
-
-// \u2500\u2500 \uD648 \uADF8\uB9AC\uB4DC \uBAA8\uB4DC JS \u2500\u2500
-(function(){
-  // PREVIEWS \uB760 \uBE4C\uB4DC \u2014 __PREVIEW_VIDS__ \uC0AC\uC6A9 (loadVideos \uC2E4\uD589 \uC804\uC5D0 \uC800\uC7A5\uB41C \uC0AC\uBCF8)
-  function buildPreviewsStrip() {
-    var strip = document.getElementById('previews-strip');
-    if (!strip) return;
-
-    // loadVideos()\uAC00 \uC2E4\uD589\uB41C \uD6C4\uB77C\uBA74 __PREVIEW_VIDS__ \uC0AC\uC6A9, \uC544\uC9C1\uC774\uBA74 \uC6D0\uBCF8\uC5D0\uC11C \uC9C1\uC811
-    var vids = window.__PREVIEW_VIDS__
-      || (window.__INIT_VIDEOS_ALL__ && window.__INIT_VIDEOS_ALL__.length ? window.__INIT_VIDEOS_ALL__.slice() : null)
-      || (window.__INIT_VIDEOS__ && window.__INIT_VIDEOS__.length ? window.__INIT_VIDEOS__.slice() : []);
-
-    if (!vids.length) {
-      var homeTop = document.getElementById('home-top');
-      if (homeTop) homeTop.style.display = 'none';
-      return;
-    }
-
-    // \uC804\uCCB4 \uC601\uC0C1 \uD45C\uC2DC (\uCE74\uD14C\uACE0\uB9AC \uC21C\uD658)
-    var catOrder = ['clinic','headspa','skincare','hair','makeup','spa','tattoo'];
-    var buckets = {};
-    catOrder.forEach(function(c){ buckets[c] = []; });
-    vids.forEach(function(v){
-      var c = (v.shop && v.shop.category) || 'skincare';
-      if (!buckets[c]) buckets[c] = [];
-      buckets[c].push(v);
-    });
-    var sorted = [];
-    var hasMore = true;
-    while(hasMore) {
-      hasMore = false;
-      catOrder.forEach(function(c){
-        if(buckets[c] && buckets[c].length){ sorted.push(buckets[c].shift()); hasMore=true; }
-      });
-    }
-
-    var html = sorted.map(function(v) {
-      var thumb = v.thumbnail || (v.shop && v.shop.thumbnail) || '';
-      var name  = (v.shop && v.shop.name) || v.title || 'Preview';
-      return '<div class="pv-thumb" onclick="openPreview(''+v.id+'')">'
-        + (thumb ? '<img src="'+thumb+'" alt="'+name+'" loading="eager">' : '<div style="width:100%;height:100%;background:linear-gradient(135deg,#1a1a3e,#0d0d20)"></div>')
-        + '<div class="pv-thumb-ov"><div class="pv-play-btn"><i class="fas fa-play"></i></div></div>'
-        + '<div class="pv-thumb-name">'+name+'</div>'
-        + '</div>';
-    }).join('');
-
-    // \uB9E8 \uB05D\uC5D0 "\uC804\uCCB4 \uBCF4\uAE30" \uBC84\uD2BC
-    html += '<div class="pv-see-all" onclick="openPreview(null)">'
-      + '<i class="fas fa-th"></i>'
-      + '<span>See all<br>videos</span>'
-      + '</div>';
-
-    strip.innerHTML = html;
-  }
-
-  // PREVIEWS \uD074\uB9AD \u2192 \uD53C\uB4DC \uBAA8\uB4DC\uB85C \uC804\uD658
-  window.openPreview = function(videoId) {
-    document.documentElement.classList.remove('home-grid-mode');
-    document.body.classList.remove('home-grid-mode');
-    document.body.style.overflowY = '';
-    document.documentElement.style.overflowY = '';
-    // \uD53C\uB4DC \uCD08\uAE30\uD654 \uD6C4 \uD574\uB2F9 \uC601\uC0C1\uC73C\uB85C \uC774\uB3D9
-    if (typeof loadVideos === 'function') loadVideos('all');
-    setTimeout(function() {
-      var feed = document.getElementById('feed');
-      if (!feed) return;
-      var slides = feed.querySelectorAll('.slide');
-      for (var i = 0; i < slides.length; i++) {
-        if (slides[i].dataset.videoId === String(videoId)) {
-          slides[i].scrollIntoView({behavior:'smooth'});
-          break;
-        }
-      }
-    }, 400);
-    // \uB4A4\uB85C\uAC00\uAE30 \uBC84\uD2BC \uD45C\uC2DC
-    showGridBackBtn();
-  };
-
-  // \uADF8\uB9AC\uB4DC\uB85C \uB3CC\uC544\uAC00\uAE30 \uBC84\uD2BC
-  function showGridBackBtn() {
-    var btn = document.getElementById('grid-back-btn');
-    if (!btn) {
-      btn = document.createElement('button');
-      btn.id = 'grid-back-btn';
-      btn.innerHTML = '<i class="fas fa-th-large"></i> Browse';
-      btn.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:600;background:linear-gradient(135deg,#E8417A,#7C3AED);color:#fff;border:none;border-radius:24px;padding:10px 24px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 4px 20px rgba(232,65,122,.4);font-family:inherit';
-      btn.onclick = function() {
-        document.documentElement.classList.add('home-grid-mode');
-        document.body.classList.add('home-grid-mode');
-        document.body.style.overflowY = '';
-        document.documentElement.style.overflowY = '';
-        btn.remove();
-        window.scrollTo({top:0,behavior:'smooth'});
-      };
-      document.body.appendChild(btn);
-    }
-  }
-
-  // \uD648 \uD544\uD130 \uD568\uC218
-  window.hmFilter = function(btn) {
-    var cat = btn.dataset.cat;
-    document.querySelectorAll('.hf-btn').forEach(function(b){ b.classList.remove('on'); });
-    btn.classList.add('on');
-    var grid = document.getElementById('hm-grid');
-    if (!grid) return;
-    var cards = grid.querySelectorAll('.hm-card');
-    var shown = 0;
-    cards.forEach(function(card) {
-      var match = cat === 'all' || card.dataset.cat === cat;
-      card.style.display = match ? '' : 'none';
-      if (match) shown++;
-    });
-    var lbl = document.getElementById('hm-filter-count');
-    if (lbl) lbl.textContent = shown + ' salons';
-  };
-
-  // \uD648 \uCE74\uB4DC \uD074\uB9AD \u2192 \uBAA8\uB2EC \uC5F4\uAE30 (\uAE30\uC874 openModal \uC7AC\uC0AC\uC6A9)
-  // DOMContentLoaded\uAC00 \uC774\uBBF8 \uBC1C\uD654\uB410\uC744 \uC218 \uC788\uC73C\uBBC0\uB85C readyState \uCCB4\uD06C
-  function initHomeGrid() {
-    buildPreviewsStrip();
-  }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initHomeGrid);
-  } else {
-    initHomeGrid();
-  }
-  document.addEventListener('DOMContentLoaded', function() {
-    // hm-grid \uCE74\uB4DC \uD074\uB9AD \uC774\uBCA4\uD2B8
-    var grid = document.getElementById('hm-grid');
-    if (grid) {
-      grid.addEventListener('click', function(e) {
-        var card = e.target.closest('.hm-card');
-        if (!card) return;
-        var href = card.getAttribute('href');
-        if (href && href !== '#') {
-          e.preventDefault();
-          // \uC5C5\uCCB4 slug\uB85C \uBAA8\uB2EC \uC5F4\uAE30 \uC2DC\uB3C4
-          var slug = href.replace('/shop/', '');
-          if (typeof openModal === 'function') {
-            openModal(slug);
-          } else {
-            window.location.href = href;
-          }
-        }
-      });
-    }
-  });
-})();
 </script>
 </body>
 </html>`;

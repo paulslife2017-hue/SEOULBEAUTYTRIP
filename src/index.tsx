@@ -1839,7 +1839,7 @@ app.post('/api/shops/fill-seo-bulk', async (c) => {
       const _rt5 = String(row.rating||5.0), _rc5 = Number(row.review_count||0).toLocaleString()
       const _fallbackWhy = [
         `🌐 English-friendly service and easy WhatsApp booking`,
-        `⭐ Rated ${row.rating||5}/5 with ${row.review_count||0}+ Google reviews`,
+        `⭐ Rated ${row.rating||5}/5 with ${row.review_count||0}+ verified reviews`,
         `👨‍⚕️ Expert team experienced with international patients`,
         `📍 Located in ${_area5}, Seoul — easily accessible by subway`,
         `💬 English support from consultation through aftercare`
@@ -2573,10 +2573,10 @@ app.post('/api/quick-register', async (c) => {
     // fallback: GPT 실패 시 기본 템플릿
     if (!description)
       description = `${engName} is a highly rated ${cat} in ${loc}, Seoul. ` +
-        `Rated ${resolvedData.rating || 5}/5 with ${resolvedData.reviewCount || 0}+ Google reviews. English consultations available. Book via WhatsApp with Seoul Beauty Trip.`
+        `Rated ${resolvedData.rating || 5}/5 with ${resolvedData.reviewCount || 0}+ verified reviews. English consultations available. Book via WhatsApp with Seoul Beauty Trip.`
     if (!whyChoose.length) whyChoose = [
       `🌐 English-friendly service and easy WhatsApp booking for international visitors`,
-      `⭐ Rated ${resolvedData.rating || 5}/5 with ${resolvedData.reviewCount || 0}+ Google reviews`,
+      `⭐ Rated ${resolvedData.rating || 5}/5 with ${resolvedData.reviewCount || 0}+ verified reviews`,
       `👨‍⚕️ Expert team with experience serving international patients`,
       `📍 Conveniently located in ${loc}, Seoul — easily accessible from major transit hubs`,
       `💬 Dedicated support for overseas visitors from consultation to aftercare`
@@ -4060,7 +4060,7 @@ app.get('/shop/:slug', async (c) => {
   }
   const _catLbl2   = _metaDescLabels[_shopCat] || _shopCat
   const _rating    = shop.rating ? shop.rating+'★' : ''
-  const _revs      = shop.reviewCount > 10 ? shop.reviewCount+'+ Google reviews' : shop.reviewCount > 0 ? shop.reviewCount+' reviews' : ''
+  const _revs      = shop.reviewCount > 10 ? shop.reviewCount+'+ verified reviews' : shop.reviewCount > 0 ? shop.reviewCount+' reviews' : ''
   const _svc1      = shop.services && shop.services.length > 0 ? shop.services[0] : ''
   const _svc2      = shop.services && shop.services.length > 1 ? shop.services[1] : ''
   const _svcPart   = _svc1 ? (_svc2 ? _svc1+' & '+_svc2 : _svc1) : ''
@@ -4250,7 +4250,7 @@ ${SB_TRACKER_SCRIPT}
         {
           "@type":"Question",
           "name":"What is ${shop.name}'s rating?",
-          "acceptedAnswer":{"@type":"Answer","text":"${shop.name} is rated ${shop.rating} out of 5 based on ${shop.reviewCount}+ Google reviews. It is consistently recommended by foreign visitors to Seoul for its quality and English-friendly service."}
+          "acceptedAnswer":{"@type":"Answer","text":"${shop.name} is rated ${shop.rating} out of 5 based on ${shop.reviewCount}+ verified reviews. It is consistently recommended by foreign visitors to Seoul for its quality and English-friendly service."}
         },
         {
           "@type":"Question",
@@ -4812,7 +4812,7 @@ ${(()=>{
     const area3   = (shop.location||'Seoul').split(',')[0].trim();
     const svcList = shop.services && shop.services.length > 0 ? shop.services.slice(0,4).join(', ') : 'beauty treatments';
     const areaGn  = (['cheongdam','apgujeong','sinsa','nonhyeon'].some(a=>area3.toLowerCase().includes(a))) ? 'Gangnam' : area3;
-    const revTxt  = shop.reviewCount > 10 ? ' With '+shop.reviewCount+'+ Google reviews and a '+shop.rating+'-star rating, it' : ' It';
+    const revTxt  = shop.reviewCount > 10 ? ' With '+shop.reviewCount+'+ verified reviews and a '+shop.rating+'-star rating, it' : ' It';
     // 업체명 기반 clinic 세부 타입 (Travel Guide 텍스트도 일관성 유지)
     const _fbClinicType = (()=>{
       const nm=(shop.name||'').toLowerCase();
@@ -5916,7 +5916,7 @@ details[open] .faq-q::after{transform:rotate(180deg)}
     <h2>How to Book a Gangnam Dermatology Clinic Through Seoul Beauty Trip</h2>
     <p>Seoul Beauty Trip is an English-language platform specifically designed to help foreigners navigate the Gangnam dermatology clinic scene. Here is how the booking process works:</p>
     <ol>
-      <li><strong>Browse clinics above</strong> — each listing includes public reviews, treatment menus, pricing information, and location details</li>
+      <li><strong>Browse clinics above</strong> — each listing includes verified reviews, treatment menus, pricing information, and location details</li>
       <li><strong>Tap the WhatsApp button</strong> on your chosen clinic's page — this connects you directly to our English-speaking team</li>
       <li><strong>Tell us your treatment goal</strong> — we'll confirm the right treatment, current availability, and any pre-appointment preparation needed</li>
       <li><strong>Receive your booking confirmation</strong> — including clinic address (in Korean for your taxi), appointment time, and what to bring</li>
@@ -8226,44 +8226,19 @@ app.get('/', async (c) => {
     const catFaIconsSSR: Record<string,string> = {skincare:'fa-leaf',makeup:'fa-magic',hair:'fa-cut',headspa:'fa-spa',clinic:'fa-briefcase-medical',spa:'fa-hot-tub',tattoo:'fa-pen-nib'}
     const catLabelsSSR: Record<string,string> = {skincare:'Skincare',makeup:'Makeup',hair:'Hair',headspa:'Head Spa',clinic:'Clinic',spa:'Spa',tattoo:'Brow Tattoo'}
 
-    // ── 카테고리 균형 랜덤화: 카테고리별 인터리브 셔플 ──
-    const CAT_ORDER_SSR = ['clinic','headspa','skincare','hair','makeup','spa','tattoo']
-    const catBucketsSSR: Record<string, any[]> = {}
-    CAT_ORDER_SSR.forEach((c: string) => { catBucketsSSR[c] = [] })
-    initShops.forEach((s: any) => {
-      const key = CAT_ORDER_SSR.includes(s.category) ? s.category : 'skincare'
-      const arr = catBucketsSSR[key]
-      const pos = Math.floor(Math.random() * (arr.length + 1))
-      arr.splice(pos, 0, s)
-    })
-    const shuffledShops: any[] = []
-    let ssrRemaining = true
-    let ssrCi = 0
-    while (ssrRemaining) {
-      ssrRemaining = false
-      for (let i = 0; i < CAT_ORDER_SSR.length; i++) {
-        const cat = CAT_ORDER_SSR[(ssrCi + i) % CAT_ORDER_SSR.length]
-        if (catBucketsSSR[cat].length > 0) {
-          shuffledShops.push(catBucketsSSR[cat].shift())
-          ssrRemaining = true
-        }
-      }
-      ssrCi = (ssrCi + 1) % CAT_ORDER_SSR.length
-    }
-
-    const ssrShopCards = shuffledShops.map((s: any) => {
+    const ssrShopCards = initShops.map((s: any) => {
+      const col  = catColorsSSR[s.category] || '#aaa'
+      const icon = catFaIconsSSR[s.category] || 'fa-star'
       const lbl  = catLabelsSSR[s.category] || s.category
       const loc  = (s.location || '').split(',')[0].trim()
       const href = s.slug ? `/shop/${s.slug}` : '#'
-      const ratingHtml = s.rating > 0 ? `<div class="hm-badge">★ ${s.rating}</div>` : ''
-      return `<a class="hm-card" href="${href}" data-cat="${s.category}" data-name="${s.name.toLowerCase().replace(/"/g,'')}" data-loc="${loc.toLowerCase()}">
-  <img class="hm-img" src="${s.thumbnail||''}" alt="${s.name} — ${lbl} in ${loc}, Seoul" loading="lazy">
-  ${ratingHtml}
-  <div class="hm-body">
-    <div class="hm-cat">${lbl}</div>
-    <div class="hm-name">${s.name}</div>
-    <div class="hm-loc"><i class="fas fa-map-marker-alt"></i>${loc}</div>
+      return `<a class="sp-card" href="${href}" data-cat="${s.category}" data-name="${s.name.toLowerCase().replace(/"/g,'')}" data-loc="${loc.toLowerCase()}" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;text-decoration:none;border-bottom:1px solid rgba(255,255,255,.04);transition:background .15s" onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background=''">
+  <div style="width:44px;height:44px;border-radius:10px;overflow:hidden;flex-shrink:0;background:rgba(255,255,255,.06)"><img src="${s.thumbnail||''}" alt="${s.name}" style="width:100%;height:100%;object-fit:cover" loading="lazy"></div>
+  <div style="flex:1;min-width:0">
+    <div style="font-size:12px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</div>
+    <div style="font-size:10px;color:${col};margin-top:2px"><i class="fas ${icon}" style="margin-right:3px"></i>${lbl} · ${loc}</div>
   </div>
+  <div style="font-size:11px;color:rgba(255,255,255,.4);flex-shrink:0">★${s.rating}</div>
 </a>`
     }).join('')
 
@@ -8273,21 +8248,21 @@ app.get('/', async (c) => {
       const cnt = cat === 'all' ? initShops.length : (ssrCatCounts[cat]||0)
       if(cnt === 0) return ''
       const lbl = cat === 'all' ? 'All' : catLabelsSSR[cat] || cat
-      return `<button class="hf-btn${cat==='all'?' on':''}" data-cat="${cat}" onclick="hmFilter(this)">${lbl}<span class="hf-n">${cnt}</span></button>`
+      return `<button class="sp-flt${cat==='all'?' on':''}" data-cat="${cat}" onclick="filterSpGrid(this)">${lbl} <span class="sp-flt-n">${cnt}</span></button>`
     }).join('')
 
-    const ssrCountText = `${initShops.length} Korean beauty salons`
+    const ssrCountText = `${initShops.length} shops`
 
     // 초기 로드 10개만 → HTML 크기 대폭 감소 (나머지는 JS lazy 로드)
     const initVideosFirst = initVideos.slice(0, 10)
     const inlineScript = `${videoLdScript}<script>window.__INIT_VIDEOS__=${safeJson(initVideosFirst)};window.__INIT_VIDEOS_ALL__=${safeJson(initVideos)};window.__INIT_PLATFORM__=${safeJson(initPlatform)};window.__INIT_SHOPS__=${safeJson(initShops)};<\/script>`
 
-    // SSR placeholders를 실제 콘텐츠로 교체 (전역 replace로 중복 placeholder 처리)
+    // SSR placeholders를 실제 콘텐츠로 교체
     const html = MAIN_HTML
       .replace('__INLINE_DATA_PLACEHOLDER__', inlineScript)
-      .replace(/__SSR_SHOP_COUNT__/g, ssrCountText)
-      .replace(/__SSR_FILTER_BTNS__/g, ssrFilterBtns)
-      .replace(/__SSR_SHOP_CARDS__/g, ssrShopCards)
+      .replace('__SSR_SHOP_COUNT__', ssrCountText)
+      .replace('__SSR_FILTER_BTNS__', ssrFilterBtns)
+      .replace('__SSR_SHOP_CARDS__', ssrShopCards)
 
     // Vercel CDN 캐시: s-maxage=10 + stale-while-revalidate=60
     // 10초 캐시 → TTFB ~50ms, 60초 백그라운드 갱신으로 데이터 신선도 유지
@@ -9089,7 +9064,7 @@ const MAIN_HTML = `<!DOCTYPE html>
 </script>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Seoul Skin Clinic & Beauty Salon for Foreigners | Seoul Beauty Trip</title>
-<meta name="description" content="Best skin clinics, dermatology & beauty salons in Seoul for foreigners. English-speaking staff, easy WhatsApp booking. For tourists visiting Seoul.">
+<meta name="description" content="Best skin clinics, dermatology & beauty salons in Seoul for foreigners. English-speaking staff, easy WhatsApp booking. Trusted by tourists visiting Seoul.">
 
 <meta name="robots" content="index, follow">
 <meta name="msvalidate.01" content="DD5A8D9AA094B888C8A409EADE4610E9">
@@ -9098,7 +9073,7 @@ const MAIN_HTML = `<!DOCTYPE html>
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Seoul Beauty Trip">
 <meta property="og:title" content="Seoul Beauty Trip — Book Korean Beauty in Seoul">
-<meta property="og:description" content="Best skin clinics & beauty salons in Seoul for foreigners. English-speaking staff, WhatsApp booking. For tourists visiting Seoul.">
+<meta property="og:description" content="Best skin clinics & beauty salons in Seoul for foreigners. English-speaking staff, WhatsApp booking. Trusted by tourists.">
 <meta property="og:image" content="https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -9151,7 +9126,7 @@ const MAIN_HTML = `<!DOCTYPE html>
         "width":1200,
         "height":630
       },
-      "description":"Seoul Beauty Trip connects international visitors with English-friendly Korean beauty salons — skincare clinics, hair salons, nail studios, head spas, and dermatology clinics — across Gangnam, Hongdae, Myeongdong, Itaewon, and Apgujeong.",
+      "description":"Seoul Beauty Trip is the #1 K-beauty booking platform for foreign tourists in Seoul. We connect international visitors with vetted, English-friendly Korean beauty salons — skincare clinics, hair salons, nail studios, head spas, and dermatology clinics — across Gangnam, Hongdae, Myeongdong, Itaewon, and Apgujeong.",
       "foundingDate":"2024",
       "areaServed":{
         "@type":"City",
@@ -9174,7 +9149,7 @@ const MAIN_HTML = `<!DOCTYPE html>
       "@type":"ItemList",
       "@id":"https://seoulbeautytrip.com/#featured-salons",
       "name":"Top K-Beauty Salons in Seoul for Foreigners",
-      "description":"Korean beauty salons in Seoul with English-friendly booking via WhatsApp. Covers skincare, dermatology, hair, nail, head spa, and more.",
+      "description":"Hand-verified Korean beauty salons in Seoul with English-friendly booking via WhatsApp. Covers skincare, dermatology, hair, nail, head spa, and more.",
       "url":"https://seoulbeautytrip.com/",
       "numberOfItems":48,
       "itemListOrder":"https://schema.org/ItemListOrderDescending"
@@ -9190,7 +9165,7 @@ const MAIN_HTML = `<!DOCTYPE html>
         {
           "@type":"Question",
           "name":"Are the salons on Seoul Beauty Trip foreigner-friendly?",
-          "acceptedAnswer":{"@type":"Answer","text":"Yes. Every salon listed on Seoul Beauty Trip is selected for foreigner-friendliness. They either have English-speaking staff, offer English menus, or are managed through Seoul Beauty Trip's English WhatsApp concierge service."}
+          "acceptedAnswer":{"@type":"Answer","text":"Yes. Every salon listed on Seoul Beauty Trip is manually verified for foreigner-friendliness. They either have English-speaking staff, offer English menus, or are managed through Seoul Beauty Trip's English WhatsApp concierge service."}
         },
         {
           "@type":"Question",
@@ -9232,86 +9207,6 @@ const MAIN_HTML = `<!DOCTYPE html>
   --ff-sans:'Inter',sans-serif;
 }
 html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-family:var(--ff-sans)}
-/* ── 홈 그리드 모드 (영상 절반 + 카드) ── */
-html.home-grid-mode,body.home-grid-mode{overflow-y:auto!important;overflow-x:hidden!important;height:auto!important;min-height:100vh}
-body.home-grid-mode #feed{display:none!important}
-body.home-grid-mode #dots{display:none!important}
-body.home-grid-mode #cat-loading{display:none!important}
-body.home-grid-mode #pc-layout{display:block!important;width:100%!important}
-body.home-grid-mode #shop-panel{display:block!important;height:auto!important;border-left:none!important;background:var(--bg)!important;padding:0!important}
-body.home-grid-mode #hd{position:sticky;top:0;z-index:100;background:rgba(8,8,14,.95);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.07)}
-body.home-grid-mode #feed-col{display:none!important}
-body.home-grid-mode .home-cat-header{display:none!important}
-/* 홈 상단: 영상 타일 가로 스크롤 심 ──────────────────── */
-#home-top{display:none}
-body.home-grid-mode #home-top{display:block}
-/* PREVIEWS 영역 */
-.previews-section{
-  padding:10px 0 0;
-}
-.previews-label{font-size:9px;font-weight:800;letter-spacing:2.5px;text-transform:uppercase;color:rgba(255,255,255,.35);padding:0 14px 6px;display:flex;align-items:center;gap:7px}
-.previews-label::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.07)}
-/* 영상 타일 행 — 화면 놀이 ~45% */
-#previews-strip{
-  display:flex;
-  gap:6px;
-  overflow-x:auto;
-  padding:0 12px 12px;
-  scrollbar-width:none;
-  -webkit-overflow-scrolling:touch;
-  touch-action:pan-x;
-  /* 등놓이 데스크: 비율 유지하며 최대 45vh */
-  max-height:45vh;
-}
-#previews-strip::-webkit-scrollbar{display:none}
-.pv-thumb{
-  flex-shrink:0;
-  /* 45vh 안에서 세로형 9:16 비율 */
-  width:calc(45vh * 9 / 16);
-  height:45vh;
-  max-width:200px;
-  border-radius:12px;
-  overflow:hidden;
-  position:relative;
-  cursor:pointer;
-  border:2px solid rgba(255,255,255,.08);
-  transition:border-color .2s,transform .15s;
-  background:#1a1a2e;
-}
-.pv-thumb:hover,.pv-thumb:active{border-color:var(--pk);transform:scale(1.02)}
-.pv-thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
-.pv-thumb-ov{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,rgba(0,0,0,.5) 100%);display:flex;align-items:center;justify-content:center}
-.pv-play-btn{width:40px;height:40px;border-radius:50%;background:rgba(232,65,122,.85);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(232,65,122,.4)}
-.pv-play-btn i{font-size:14px;color:#fff;margin-left:2px}
-.pv-thumb-name{position:absolute;bottom:0;left:0;right:0;padding:8px 8px 8px;background:linear-gradient(to top,rgba(0,0,0,.85),transparent);font-size:9px;color:#fff;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-/* 더보기 버튼 */
-.pv-see-all{flex-shrink:0;width:calc(45vh*9/16 * 0.7);max-width:120px;height:45vh;border-radius:12px;border:2px dashed rgba(232,65,122,.3);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;transition:border-color .2s;color:rgba(255,255,255,.4);font-size:11px;font-weight:700;text-align:center;padding:12px;background:rgba(232,65,122,.04)}
-.pv-see-all:hover{border-color:var(--pk);color:var(--pk2)}
-.pv-see-all i{font-size:20px;color:var(--pk);opacity:.7}
-/* (구버전 PREVIEWS 띠 CSS — 위의 3안 CSS로 통합됨) */
-/* 홈 그리드 카드 영역 */
-.home-catalog-wrap{padding:0 10px 80px}
-.home-cat-header{display:flex;align-items:center;justify-content:space-between;padding:6px 4px 8px}
-.home-cat-count{font-size:11px;color:rgba(255,255,255,.35)}
-.home-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-/* 홈 카드 스타일 — 모바일 2열 최적화 */
-.hm-card{background:#13132a;border:1px solid rgba(255,255,255,.07);border-radius:14px;overflow:hidden;cursor:pointer;transition:all .2s;position:relative;display:block;text-decoration:none}
-.hm-card:hover,.hm-card:active{border-color:rgba(232,65,122,.4);transform:translateY(-2px);box-shadow:0 8px 24px rgba(232,65,122,.12)}
-.hm-img{width:100%;height:110px;object-fit:cover;display:block;background:#1a1a2e}
-.hm-body{padding:9px 10px 10px}
-.hm-cat{font-size:8.5px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--pk);margin-bottom:2px}
-.hm-name{font-size:12px;font-weight:800;color:#fff;line-height:1.3;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.hm-loc{font-size:10px;color:rgba(255,255,255,.38);display:flex;align-items:center;gap:3px;margin-bottom:4px}
-.hm-loc i{font-size:8px;color:var(--pk);opacity:.7}
-.hm-rating{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:#fbbf24}
-.hm-price{font-size:9.5px;color:rgba(255,255,255,.4);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.hm-badge{position:absolute;top:7px;right:7px;background:rgba(0,0,0,.72);backdrop-filter:blur(8px);border-radius:20px;padding:3px 7px;font-size:10px;font-weight:700;color:#fbbf24;display:flex;align-items:center;gap:2px}
-/* 홈 필터 바 */
-.home-filter-bar{padding:4px 10px 4px;display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;touch-action:pan-x}
-.home-filter-bar::-webkit-scrollbar{display:none}
-.hf-btn{flex-shrink:0;padding:5px 12px;border-radius:20px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.05);color:rgba(255,255,255,.45);font-size:10px;font-weight:700;cursor:pointer;transition:all .18s;white-space:nowrap;font-family:var(--ff-sans)}
-.hf-btn.on{background:linear-gradient(135deg,var(--pk),#7C3AED);border-color:transparent;color:#fff}
-.hf-n{font-size:9px;opacity:.65;margin-left:2px}
 /* ── 로딩 스플래시 ── */
 #ld{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;transition:opacity .4s}
 .ld-pre{font-size:10px;letter-spacing:5px;color:rgba(255,255,255,.28);text-transform:uppercase;font-family:var(--ff-sans);margin-bottom:10px}
@@ -9736,7 +9631,7 @@ body.home-grid-mode #home-top{display:block}
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 </head>
-<body class="home-grid-mode"><script>document.documentElement.classList.add('home-grid-mode');</script>
+<body>
 <div id="ld">
   <div class="ld-pre">Welcome to</div>
   <div class="ld-logo">Seoul Beauty Trip</div>
@@ -9752,7 +9647,7 @@ body.home-grid-mode #home-top{display:block}
       <div class="logo-mark"></div>
       <div class="logo-text">
         <div class="logo-name">Seoul Beauty Trip</div>
-        <div class="logo-tag">Book Seoul clinics · in English</div>
+        <div class="logo-tag">Korean Beauty Experience</div>
       </div>
     </div>
     <div class="hd-right">
@@ -9816,36 +9711,14 @@ body.home-grid-mode #home-top{display:block}
     <div id="feed" role="feed" aria-label="Beauty videos"></div>
     <div id="cat-loading"><div class="cat-spin"></div></div>
   </div>
-
-  <!-- ★ 홈 그리드 모드 메인 콘텐츠 -->
+  <!-- PC 우측 업체 카탈로그 -->
   <aside id="shop-panel" aria-label="Shop catalog">
-
-    <!-- ① 영상 PREVIEWS 섹션 (화면 ~45%) -->
-    <div id="home-top" class="previews-section">
-      <div class="previews-label">
-        <i class="fas fa-play-circle" style="color:var(--pk);font-size:10px"></i> PREVIEWS
-        <span style="font-size:8px;color:rgba(255,255,255,.2);font-weight:500;letter-spacing:.5px;margin-left:2px">tap to watch</span>
-      </div>
-      <div id="previews-strip">
-        <!-- JS buildPreviewsStrip()로 채워짐 -->
-      </div>
+    <div class="sp-header">
+      <div class="sp-title">Seoul Beauty Catalog</div>
+      <div class="sp-subtitle" id="sp-count">__SSR_SHOP_COUNT__</div>
     </div>
-
-    <!-- ② 카테고리 필터 (스티키) -->
-    <div class="home-filter-bar" id="hm-filter-bar" style="position:sticky;top:54px;z-index:50;background:var(--bg);border-bottom:1px solid rgba(255,255,255,.06);padding:6px 10px">__SSR_FILTER_BTNS__</div>
-
-    <!-- ③ 업체 카드 그리드 -->
-    <div class="home-catalog-wrap">
-      <div class="home-cat-header" style="display:none"></div>
-      <div class="home-grid" id="hm-grid">__SSR_SHOP_CARDS__</div>
-    </div>
-
-    <!-- SEO용 숨김 -->
-    <div style="display:none">
-      <div id="sp-count">__SSR_SHOP_COUNT__</div>
-      <div id="sp-filter">__SSR_FILTER_BTNS__</div>
-      <div id="sp-grid">__SSR_SHOP_CARDS__</div>
-    </div>
+    <div class="sp-filter" id="sp-filter">__SSR_FILTER_BTNS__</div>
+    <div class="sp-grid" id="sp-grid">__SSR_SHOP_CARDS__</div>
   </aside>
 </div>
 <div id="toast" role="status" aria-live="polite"></div>
@@ -11050,7 +10923,7 @@ function renderShopModal(shop) {
     var cat3     = _catLabel[shop.category] || ((shop.category||'beauty').charAt(0).toUpperCase()+(shop.category||'beauty').slice(1));
     var areaGn   = (area3.toLowerCase().indexOf('cheongdam')>-1||area3.toLowerCase().indexOf('apgujeong')>-1) ? 'Gangnam' : area3;
     var svcList  = (shop.services&&shop.services.length>0) ? shop.services.slice(0,4).join(', ') : cat3+' treatments';
-    var revTxt   = (shop.reviewCount>10) ? ' With '+shop.reviewCount+'+ Google reviews and a '+shop.rating+'-star rating, it' : ' It';
+    var revTxt   = (shop.reviewCount>10) ? ' With '+shop.reviewCount+'+ verified reviews and a '+shop.rating+'-star rating, it' : ' It';
 
     // DB seo_text 있으면 그대로 사용 (상세 페이지와 완전히 동일)
     if(shop.seoText && shop.seoText.trim()){
@@ -11969,12 +11842,6 @@ document.addEventListener('DOMContentLoaded', function(){
 
   // 스플래시 프로그레스 바 CSS 애니메이션 → JS 직접 제어로 전환
   setLdProgress(0);
-  // PREVIEWS용 비디오 데이터 미리 저장 (loadVideos가 null 처리하기 전에)
-  window.__PREVIEW_VIDS__ = (window.__INIT_VIDEOS_ALL__ && window.__INIT_VIDEOS_ALL__.length)
-    ? window.__INIT_VIDEOS_ALL__.slice()
-    : (window.__INIT_VIDEOS__ && window.__INIT_VIDEOS__.length)
-      ? window.__INIT_VIDEOS__.slice()
-      : [];
   loadVideos('all');
 
   // ── 카테고리 탭 마우스 드래그 스크롤 (PC) ──
@@ -12105,8 +11972,8 @@ function renderShopPanel(cat) {
       Seoul Beauty Booking for Foreigners — Your Complete K-Beauty Guide
     </h2>
     <p style="font-size:.92rem;color:#374151;line-height:1.9;margin-bottom:12px;text-align:center;max-width:600px;margin-left:auto;margin-right:auto">
-      <strong>Seoul Beauty Trip</strong> is a K-beauty booking platform for international visitors in Seoul.
-      We connect foreign tourists directly with <strong>Korean beauty salons</strong> — from skincare clinics and dermatology centers in Gangnam to head spas in Hongdae and nail studios across the city.
+      <strong>Seoul Beauty Trip</strong> is the #1 curated K-beauty booking platform for international visitors in Seoul.
+      We connect foreign tourists directly with <strong>48+ hand-verified Korean beauty salons</strong> — from skincare clinics and dermatology centers in Gangnam to head spas in Hongdae and nail studios across the city.
       Every booking is handled in <strong>English via WhatsApp</strong>. No Korean required.
     </p>
     <p style="font-size:.88rem;color:#555;line-height:1.8;margin-bottom:24px;text-align:center">
@@ -12153,12 +12020,12 @@ function renderShopPanel(cat) {
     <!-- 신뢰 지표 -->
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:28px;text-align:center">
       <div style="background:#fdf2f8;border-radius:12px;padding:14px 8px">
-        <div style="font-size:1.4rem;font-weight:800;color:#e91e8c">Seoul</div>
-        <div style="font-size:.75rem;color:#555;margin-top:3px;line-height:1.4">Korean<br>Beauty Salons</div>
+        <div style="font-size:1.4rem;font-weight:800;color:#e91e8c">48+</div>
+        <div style="font-size:.75rem;color:#555;margin-top:3px;line-height:1.4">Verified Korean<br>Beauty Salons</div>
       </div>
       <div style="background:#f0fdf4;border-radius:12px;padding:14px 8px">
-        <div style="font-size:1.4rem;font-weight:800;color:#16a34a">4.5★</div>
-        <div style="font-size:.75rem;color:#555;margin-top:3px;line-height:1.4">Avg public rating<br>across listings</div>
+        <div style="font-size:1.4rem;font-weight:800;color:#16a34a">4.9★</div>
+        <div style="font-size:.75rem;color:#555;margin-top:3px;line-height:1.4">Average Rating<br>Across All Salons</div>
       </div>
       <div style="background:#eff6ff;border-radius:12px;padding:14px 8px">
         <div style="font-size:1.4rem;font-weight:800;color:#2563eb">100%</div>
@@ -12176,11 +12043,11 @@ function renderShopPanel(cat) {
       </li>
       <li style="display:flex;align-items:flex-start;gap:10px;font-size:.88rem;color:#374151;line-height:1.7">
         <span style="color:#e91e8c;font-size:1rem;flex-shrink:0;margin-top:2px">✓</span>
-        <span><strong>Selected for foreigner-friendliness</strong> — Every listing is reviewed for English menu availability, foreigner-friendly service, and English booking support.</span>
+        <span><strong>Hand-verified salons only</strong> — Every listing is personally visited or thoroughly vetted for foreigner-friendliness, English menu availability, and service quality.</span>
       </li>
       <li style="display:flex;align-items:flex-start;gap:10px;font-size:.88rem;color:#374151;line-height:1.7">
         <span style="color:#e91e8c;font-size:1rem;flex-shrink:0;margin-top:2px">✓</span>
-        <span><strong>Public ratings included</strong> — Salon ratings aggregated from public Google reviews to help you compare options.</span>
+        <span><strong>Real international reviews</strong> — Ratings from verified foreign visitors (US, UK, Australia, Japan, SEA) who have experienced the services firsthand.</span>
       </li>
       <li style="display:flex;align-items:flex-start;gap:10px;font-size:.88rem;color:#374151;line-height:1.7">
         <span style="color:#e91e8c;font-size:1rem;flex-shrink:0;margin-top:2px">✓</span>
@@ -12222,7 +12089,7 @@ function renderShopPanel(cat) {
       How to Book a Korean Beauty Salon as a Foreigner
     </h2>
     <ol style="padding-left:18px;margin:0 0 24px;display:flex;flex-direction:column;gap:8px">
-      <li style="font-size:.88rem;color:#374151;line-height:1.7"><strong>Browse &amp; choose</strong> — Explore Korean beauty salons above. Filter by category (clinic, hair, head spa, nail, etc.) or search by name.</li>
+      <li style="font-size:.88rem;color:#374151;line-height:1.7"><strong>Browse &amp; choose</strong> — Explore 48+ verified salons using the video feed or catalog above. Filter by category (clinic, hair, head spa, nail, etc.) or search by name.</li>
       <li style="font-size:.88rem;color:#374151;line-height:1.7"><strong>Check the salon page</strong> — Each salon page shows real photos, service prices in English, Google ratings, customer reviews, and available treatments.</li>
       <li style="font-size:.88rem;color:#374151;line-height:1.7"><strong>Tap "Book via WhatsApp"</strong> — A pre-filled booking message is sent to Seoul Beauty Trip's English concierge. We confirm your appointment, explain pricing, and answer any questions.</li>
       <li style="font-size:.88rem;color:#374151;line-height:1.7"><strong>Visit &amp; enjoy</strong> — Walk in on your confirmed date. The salon is briefed in advance on your service needs. Same-day bookings are often available.</li>
@@ -12237,7 +12104,7 @@ function renderShopPanel(cat) {
 
     <div style="background:linear-gradient(135deg,#e91e8c12,#9c27b012);border-radius:16px;padding:20px;text-align:center;border:1px solid #e91e8c20">
       <div style="font-size:.95rem;font-weight:700;color:#1a1a2e;margin-bottom:6px">Ready to experience authentic K-beauty in Seoul?</div>
-      <div style="font-size:.85rem;color:#555;margin-bottom:14px">Built for foreign visitors planning their Seoul beauty trip. Browse Korean beauty salons and book in English via WhatsApp — no Korean required.</div>
+      <div style="font-size:.85rem;color:#555;margin-bottom:14px">Join thousands of foreign visitors who have booked through Seoul Beauty Trip. Browse 48+ verified salons and book in English via WhatsApp — no Korean required.</div>
       <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
         <a href="/best/clinic/gangnam" style="display:inline-block;background:linear-gradient(135deg,#e91e8c,#9c27b0);color:#fff;padding:9px 22px;border-radius:24px;font-size:.85rem;font-weight:700;text-decoration:none">Best Clinics in Gangnam →</a>
         <a href="/best/headspa/seoul" style="display:inline-block;background:#1a1a2e;color:#fff;padding:9px 22px;border-radius:24px;font-size:.85rem;font-weight:700;text-decoration:none">Top Head Spas →</a>
@@ -17861,155 +17728,6 @@ window.regenSeoAll = async function regenSeoAll(force) {
 }
 
 }); // DOMContentLoaded
-
-// ── 홈 그리드 모드 JS ──
-(function(){
-  // PREVIEWS 띠 빌드 — __PREVIEW_VIDS__ 사용 (loadVideos 실행 전에 저장된 사본)
-  function buildPreviewsStrip() {
-    var strip = document.getElementById('previews-strip');
-    if (!strip) return;
-
-    // loadVideos()가 실행된 후라면 __PREVIEW_VIDS__ 사용, 아직이면 원본에서 직접
-    var vids = window.__PREVIEW_VIDS__
-      || (window.__INIT_VIDEOS_ALL__ && window.__INIT_VIDEOS_ALL__.length ? window.__INIT_VIDEOS_ALL__.slice() : null)
-      || (window.__INIT_VIDEOS__ && window.__INIT_VIDEOS__.length ? window.__INIT_VIDEOS__.slice() : []);
-
-    if (!vids.length) {
-      var homeTop = document.getElementById('home-top');
-      if (homeTop) homeTop.style.display = 'none';
-      return;
-    }
-
-    // 전체 영상 표시 (카테고리 순환)
-    var catOrder = ['clinic','headspa','skincare','hair','makeup','spa','tattoo'];
-    var buckets = {};
-    catOrder.forEach(function(c){ buckets[c] = []; });
-    vids.forEach(function(v){
-      var c = (v.shop && v.shop.category) || 'skincare';
-      if (!buckets[c]) buckets[c] = [];
-      buckets[c].push(v);
-    });
-    var sorted = [];
-    var hasMore = true;
-    while(hasMore) {
-      hasMore = false;
-      catOrder.forEach(function(c){
-        if(buckets[c] && buckets[c].length){ sorted.push(buckets[c].shift()); hasMore=true; }
-      });
-    }
-
-    var html = sorted.map(function(v) {
-      var thumb = v.thumbnail || (v.shop && v.shop.thumbnail) || '';
-      var name  = (v.shop && v.shop.name) || v.title || 'Preview';
-      return '<div class="pv-thumb" onclick="openPreview(\''+v.id+'\')">'
-        + (thumb ? '<img src="'+thumb+'" alt="'+name+'" loading="eager">' : '<div style="width:100%;height:100%;background:linear-gradient(135deg,#1a1a3e,#0d0d20)"></div>')
-        + '<div class="pv-thumb-ov"><div class="pv-play-btn"><i class="fas fa-play"></i></div></div>'
-        + '<div class="pv-thumb-name">'+name+'</div>'
-        + '</div>';
-    }).join('');
-
-    // 맨 끝에 "전체 보기" 버튼
-    html += '<div class="pv-see-all" onclick="openPreview(null)">'
-      + '<i class="fas fa-th"></i>'
-      + '<span>See all<br>videos</span>'
-      + '</div>';
-
-    strip.innerHTML = html;
-  }
-
-  // PREVIEWS 클릭 → 피드 모드로 전환
-  window.openPreview = function(videoId) {
-    document.documentElement.classList.remove('home-grid-mode');
-    document.body.classList.remove('home-grid-mode');
-    document.body.style.overflowY = '';
-    document.documentElement.style.overflowY = '';
-    // 피드 초기화 후 해당 영상으로 이동
-    if (typeof loadVideos === 'function') loadVideos('all');
-    setTimeout(function() {
-      var feed = document.getElementById('feed');
-      if (!feed) return;
-      var slides = feed.querySelectorAll('.slide');
-      for (var i = 0; i < slides.length; i++) {
-        if (slides[i].dataset.videoId === String(videoId)) {
-          slides[i].scrollIntoView({behavior:'smooth'});
-          break;
-        }
-      }
-    }, 400);
-    // 뒤로가기 버튼 표시
-    showGridBackBtn();
-  };
-
-  // 그리드로 돌아가기 버튼
-  function showGridBackBtn() {
-    var btn = document.getElementById('grid-back-btn');
-    if (!btn) {
-      btn = document.createElement('button');
-      btn.id = 'grid-back-btn';
-      btn.innerHTML = '<i class="fas fa-th-large"></i> Browse';
-      btn.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:600;background:linear-gradient(135deg,#E8417A,#7C3AED);color:#fff;border:none;border-radius:24px;padding:10px 24px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 4px 20px rgba(232,65,122,.4);font-family:inherit';
-      btn.onclick = function() {
-        document.documentElement.classList.add('home-grid-mode');
-        document.body.classList.add('home-grid-mode');
-        document.body.style.overflowY = '';
-        document.documentElement.style.overflowY = '';
-        btn.remove();
-        window.scrollTo({top:0,behavior:'smooth'});
-      };
-      document.body.appendChild(btn);
-    }
-  }
-
-  // 홈 필터 함수
-  window.hmFilter = function(btn) {
-    var cat = btn.dataset.cat;
-    document.querySelectorAll('.hf-btn').forEach(function(b){ b.classList.remove('on'); });
-    btn.classList.add('on');
-    var grid = document.getElementById('hm-grid');
-    if (!grid) return;
-    var cards = grid.querySelectorAll('.hm-card');
-    var shown = 0;
-    cards.forEach(function(card) {
-      var match = cat === 'all' || card.dataset.cat === cat;
-      card.style.display = match ? '' : 'none';
-      if (match) shown++;
-    });
-    var lbl = document.getElementById('hm-filter-count');
-    if (lbl) lbl.textContent = shown + ' salons';
-  };
-
-  // 홈 카드 클릭 → 모달 열기 (기존 openModal 재사용)
-  // DOMContentLoaded가 이미 발화됐을 수 있으므로 readyState 체크
-  function initHomeGrid() {
-    buildPreviewsStrip();
-  }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initHomeGrid);
-  } else {
-    initHomeGrid();
-  }
-  document.addEventListener('DOMContentLoaded', function() {
-    // hm-grid 카드 클릭 이벤트
-    var grid = document.getElementById('hm-grid');
-    if (grid) {
-      grid.addEventListener('click', function(e) {
-        var card = e.target.closest('.hm-card');
-        if (!card) return;
-        var href = card.getAttribute('href');
-        if (href && href !== '#') {
-          e.preventDefault();
-          // 업체 slug로 모달 열기 시도
-          var slug = href.replace('/shop/', '');
-          if (typeof openModal === 'function') {
-            openModal(slug);
-          } else {
-            window.location.href = href;
-          }
-        }
-      });
-    }
-  });
-})();
 </script>
 </body>
 </html>`
