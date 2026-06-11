@@ -4780,10 +4780,12 @@ app.get("/api/visitors-stats", async (c) => {
         GROUP BY hour ORDER BY hour`,
       sql`SELECT
         COUNT(DISTINCT session_id)::int AS total_sessions,
+        SUM(CASE WHEN did_video > 0 THEN 1 ELSE 0 END)::int AS watched_video,
         SUM(CASE WHEN did_shop > 0 THEN 1 ELSE 0 END)::int AS viewed_shop,
         SUM(CASE WHEN wa_clicked THEN 1 ELSE 0 END)::int AS clicked_wa
         FROM (
           SELECT vs.session_id, vs.wa_clicked,
+            MAX(CASE WHEN ve.event = 'video_play' THEN 1 ELSE 0 END) AS did_video,
             MAX(CASE WHEN ve.event = 'shop_view' THEN 1 ELSE 0 END) AS did_shop
           FROM visitor_sessions vs
           LEFT JOIN visitor_events ve ON ve.session_id = vs.session_id
@@ -4820,6 +4822,7 @@ app.get("/api/visitors-stats", async (c) => {
     const wf = waFunnelRaw[0] || {};
     const waFunnel = {
       visits: +(wf.total_sessions ?? wf.visits ?? 0),
+      videoWatched: +(wf.watched_video ?? wf.videoWatched ?? 0),
       shopViews: +(wf.viewed_shop ?? wf.shopViews ?? 0),
       waClicks: +(wf.clicked_wa ?? wf.waClicks ?? 0)
     };
@@ -13405,7 +13408,7 @@ textarea{height:80px;resize:none}
 .vs-stat-val{font-size:22px;font-weight:900;margin-bottom:3px}
 .vs-stat-lbl{font-size:10px;color:rgba(255,255,255,.4);font-weight:600;letter-spacing:.5px;text-transform:uppercase}
 .vs-funnel{display:flex;gap:0;margin-bottom:16px;border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.08)}
-.vs-funnel-step{flex:1;padding:12px 8px;text-align:center;background:var(--cd);border-right:1px solid rgba(255,255,255,.06)}
+.vs-funnel-step{flex:1;padding:10px 4px;text-align:center;background:var(--cd);border-right:1px solid rgba(255,255,255,.06)}
 .vs-funnel-step:last-child{border-right:none}
 .vs-funnel-n{font-size:20px;font-weight:900;color:#fff}
 .vs-funnel-l{font-size:9px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
@@ -13464,9 +13467,9 @@ textarea{height:80px;resize:none}
 .vs-day-btn-active,.vs-day-btn.active{background:rgba(99,102,241,.35);border-color:rgba(99,102,241,.6);color:#c7d2fe}
 .vs-filter-btn-active,.vs-filter-btn.active{background:var(--pk);border-color:var(--pk);color:#fff}
 /* VS funnel arrow */
-.vs-funnel-arrow{display:flex;align-items:center;color:rgba(255,255,255,.2);font-size:14px;padding:0 4px}
-.vs-funnel-num{font-size:20px;font-weight:900;color:#fff}
-.vs-funnel-lbl{font-size:10px;color:rgba(255,255,255,.4);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+.vs-funnel-arrow{display:flex;align-items:center;color:rgba(255,255,255,.2);font-size:11px;padding:0 2px}
+.vs-funnel-num{font-size:18px;font-weight:900;color:#fff}
+.vs-funnel-lbl{font-size:9px;color:rgba(255,255,255,.4);font-weight:700;letter-spacing:.3px;margin-top:2px;line-height:1.3}
 /* SHOP CARD */
 .shop-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px;display:flex;gap:14px;align-items:flex-start;transition:border-color .2s}
 .shop-card:hover{border-color:rgba(255,77,141,.4)}
@@ -14523,19 +14526,25 @@ textarea{height:80px;resize:none}
     <div class="vs-funnel" id="vs-funnel">
       <div class="vs-funnel-step" id="vsf-visit">
         <div class="vs-funnel-num">\u2014</div>
-        <div class="vs-funnel-lbl">\uBC29\uBB38</div>
+        <div class="vs-funnel-lbl"><i class="fas fa-door-open" style="font-size:9px;margin-right:2px"></i>\uBC29\uBB38</div>
         <div class="vs-funnel-pct"></div>
+      </div>
+      <div class="vs-funnel-arrow"><i class="fas fa-chevron-right"></i></div>
+      <div class="vs-funnel-step" id="vsf-video">
+        <div class="vs-funnel-num">\u2014</div>
+        <div class="vs-funnel-lbl"><i class="fas fa-play-circle" style="font-size:9px;margin-right:2px;color:#a78bfa"></i>\uC601\uC0C1 \uC2DC\uCCAD</div>
+        <div class="vs-funnel-pct" id="vsf-video-pct"></div>
       </div>
       <div class="vs-funnel-arrow"><i class="fas fa-chevron-right"></i></div>
       <div class="vs-funnel-step" id="vsf-shop">
         <div class="vs-funnel-num">\u2014</div>
-        <div class="vs-funnel-lbl">\uC5C5\uCCB4 \uC870\uD68C</div>
+        <div class="vs-funnel-lbl"><i class="fas fa-store" style="font-size:9px;margin-right:2px;color:#f472b6"></i>\uC5C5\uCCB4 \uD655\uC778</div>
         <div class="vs-funnel-pct" id="vsf-shop-pct"></div>
       </div>
       <div class="vs-funnel-arrow"><i class="fas fa-chevron-right"></i></div>
       <div class="vs-funnel-step" id="vsf-wa">
         <div class="vs-funnel-num">\u2014</div>
-        <div class="vs-funnel-lbl">WA \uD074\uB9AD</div>
+        <div class="vs-funnel-lbl"><i class="fab fa-whatsapp" style="font-size:9px;margin-right:2px;color:#25d366"></i>WA \uD074\uB9AD</div>
         <div class="vs-funnel-pct" id="vsf-wa-pct"></div>
       </div>
     </div>
@@ -14808,23 +14817,30 @@ window.loadVisitorStats = async function(days){
     var pps = (d.totals&&d.totals.pagesPerSession!=null) ? (+d.totals.pagesPerSession).toFixed(1) : '\u2014';
     setText('vs-s-pps', pps);
 
-    // \uD37C\uB110
+    // \uD37C\uB110 (\uBC29\uBB38 \u2192 \uC601\uC0C1 \uC2DC\uCCAD \u2192 \uC5C5\uCCB4 \uD655\uC778 \u2192 WA \uD074\uB9AD)
     var fv = (d.waFunnel&&d.waFunnel.visits)||0;
+    var fvid = (d.waFunnel&&d.waFunnel.videoWatched)||0;
     var fs = (d.waFunnel&&d.waFunnel.shopViews)||0;
     var fw = (d.waFunnel&&d.waFunnel.waClicks)||0;
     var vsVisit=document.getElementById('vsf-visit');
     if(vsVisit) vsVisit.querySelector('.vs-funnel-num').textContent=fv;
+    var vsVideo=document.getElementById('vsf-video');
+    if(vsVideo){
+      vsVideo.querySelector('.vs-funnel-num').textContent=fvid;
+      var vvidPct=document.getElementById('vsf-video-pct');
+      if(vvidPct){ vvidPct.textContent=fv>0?Math.round(fvid/fv*100)+'%':'\u2014'; vvidPct.style.color='#a78bfa'; }
+    }
     var vsShop=document.getElementById('vsf-shop');
     if(vsShop){
       vsShop.querySelector('.vs-funnel-num').textContent=fs;
-      document.getElementById('vsf-shop-pct').textContent = fv>0 ? Math.round(fs/fv*100)+'%' : '\u2014';
-      document.getElementById('vsf-shop-pct').style.color = '#a78bfa';
+      var vshPct=document.getElementById('vsf-shop-pct');
+      if(vshPct){ vshPct.textContent=fv>0?Math.round(fs/fv*100)+'%':'\u2014'; vshPct.style.color='#f472b6'; }
     }
     var vsWa=document.getElementById('vsf-wa');
     if(vsWa){
       vsWa.querySelector('.vs-funnel-num').textContent=fw;
-      document.getElementById('vsf-wa-pct').textContent = fv>0 ? Math.round(fw/fv*100)+'%' : '\u2014';
-      document.getElementById('vsf-wa-pct').style.color = '#34d399';
+      var vwaPct=document.getElementById('vsf-wa-pct');
+      if(vwaPct){ vwaPct.textContent=fv>0?Math.round(fw/fv*100)+'%':'\u2014'; vwaPct.style.color='#25d366'; }
     }
 
     // \uB514\uBC14\uC774\uC2A4 \uBD84\uD3EC
