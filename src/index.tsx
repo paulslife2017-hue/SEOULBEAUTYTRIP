@@ -10271,11 +10271,9 @@ function buildSlide(v, idx) {
         // whyChoose[0] 또는 리뷰 첫 문장에서 핵심 한 줄 추출
         var line = '';
         if(why.length) {
-          // 이모지 제거 후 사용
-          // 앞쪽 이모지/특수문자 제거 (유니코드 u플래그 없이 안전하게)
           line = why[0].replace(/^[^\w\uAC00-\uD7A3\uFF41-\uFF5A]+/, '').trim();
         } else if(shop.reviews && shop.reviews.length) {
-          var txt = (shop.reviews[0].text||'').split('\n').join(' ');
+          var txt = (shop.reviews[0].text||'').split(String.fromCharCode(10)).join(' ');
           line = txt.length > 72 ? txt.slice(0,70)+'…' : txt;
         }
         if(!line) return '';
