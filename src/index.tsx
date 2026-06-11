@@ -10290,7 +10290,7 @@ function buildSlide(v, idx) {
           line = why[0].trim();
           while(line.length > 0 && !/[a-zA-Z0-9\uAC00-\uD7A3]/.test(line[0])) { line = line.slice(1); }
         } else if(shop.reviews && shop.reviews.length) {
-          var _goodRevs = shop.reviews.filter(function(rv: any){ return (rv.rating||0) >= 4; });
+          var _goodRevs = shop.reviews.filter(function(rv){ return (rv.rating||0) >= 4; });
           if(_goodRevs.length) {
             var txt = (_goodRevs[0].text||'').split(String.fromCharCode(10)).join(' ');
             line = txt.length > 72 ? txt.slice(0,70)+'…' : txt;
