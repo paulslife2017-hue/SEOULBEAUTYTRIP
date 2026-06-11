@@ -11338,7 +11338,8 @@ function buildSlide(v, idx) {
         // whyChoose[0] \uB610\uB294 \uB9AC\uBDF0 \uCCAB \uBB38\uC7A5\uC5D0\uC11C \uD575\uC2EC \uD55C \uC904 \uCD94\uCD9C
         var line = '';
         if(why.length) {
-          line = why[0].replace(/^[^w\uAC00-\uD7A3\uFF41-\uFF5A]+/, '').trim();
+          line = why[0].trim();
+          while(line.length > 0 && !/[a-zA-Z0-9\uAC00-\uD7A3]/.test(line[0])) { line = line.slice(1); }
         } else if(shop.reviews && shop.reviews.length) {
           var txt = (shop.reviews[0].text||'').split(String.fromCharCode(10)).join(' ');
           line = txt.length > 72 ? txt.slice(0,70)+'\u2026' : txt;
@@ -11997,8 +11998,15 @@ function renderShopModal(shop) {
   var hoursHtml = '';
   if(shop.hours) {
     // "Monday: 10:00 AM \u2013 7:00 PM / Tuesday: ..." \uB610\uB294 "| " \uAD6C\uBD84\uC790 \uCC98\uB9AC
-    var _hraw = shop.hours.replace(/|/g,' | ').replace(///g,' / ');
-    var days = _hraw.split(' | ').join('|||').split(' / ').join('|||').split('|||').map(function(s){ return s.trim(); }).filter(Boolean);
+    var _hparts = shop.hours.split('|');
+    var days = [];
+    for(var _hi=0;_hi<_hparts.length;_hi++){
+      var _hsub = _hparts[_hi].split('/');
+      for(var _hj=0;_hj<_hsub.length;_hj++){
+        var _ht = _hsub[_hj].trim();
+        if(_ht) days.push(_ht);
+      }
+    }
     var dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
     var today = new Date().getDay(); // 0=Sun
     if(days.length > 1) {
@@ -12486,11 +12494,13 @@ function mapZoom(frameId, dir) {
   if(!fr) return;
   var src = fr.src || fr.getAttribute('src') || '';
   /* zoom= \uD30C\uB77C\uBBF8\uD130 \uC870\uC815 (\uC5C6\uC73C\uBA74 15 \uAE30\uBCF8) */
-  var zMatch = src.match(/[?&]z=(d+)/);
-  var cur = zMatch ? parseInt(zMatch[1]) : 15;
+  var zIdx = src.indexOf('z=');
+  var cur = 15;
+  if(zIdx !== -1) { var _zv = parseInt(src.slice(zIdx+2)); if(!isNaN(_zv)) cur = _zv; }
   var next = Math.min(20, Math.max(10, cur + dir));
-  if(src.indexOf('z=') !== -1) {
-    src = src.replace(/([?&]z=)d+/, '$1'+next);
+  if(zIdx !== -1) {
+    var _zend = zIdx+2; while(_zend < src.length && src[_zend] >= '0' && src[_zend] <= '9') _zend++;
+    src = src.slice(0, zIdx+2) + next + src.slice(_zend);
   } else {
     src += (src.indexOf('?') !== -1 ? '&' : '?') + 'z='+next;
   }
