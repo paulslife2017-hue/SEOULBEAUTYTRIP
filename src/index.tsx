@@ -1255,7 +1255,8 @@ function buildSeoContext(body: any, places: Record<string,any>): string {
   return lines.join('\n')
 }
 
-// ── AI 리뷰 요약 생성 (최소 토큰: gpt-4o-mini, max_tokens=220) ──────────────
+// ── AI 리뷰 요약 생성 ──────────────────────────────────────────────────────────
+// 모든 리뷰를 읽고 업체의 실제 분위기/느낌을 자연스럽게 요약
 // 반환: { vibe: string, strengths: string[3], bestFor: string }
 async function genReviewSummary(
   shopName: string,
@@ -1265,35 +1266,42 @@ async function genReviewSummary(
 ): Promise<{ vibe: string; strengths: string[]; bestFor: string } | null> {
   if (!reviews || reviews.length === 0) return null
   try {
-    // 리뷰 텍스트만 추출 (토큰 절약: 각 최대 200자)
+    // 별점 포함해서 모든 리뷰 텍스트 추출 (각 최대 300자)
     const snippets = reviews
-      .map((r: any) => (r.text || '').trim().slice(0, 200))
+      .map((r: any) => {
+        const stars = r.rating ? `[${r.rating}★] ` : ''
+        return stars + (r.text || '').trim().slice(0, 300)
+      })
       .filter(Boolean)
       .join('\n---\n')
     if (!snippets) return null
 
-    const prompt = `You are summarizing customer reviews for "${shopName}", a Korean beauty shop.
+    const prompt = `You are reading ALL customer reviews for "${shopName}", a Korean beauty shop, and writing a natural summary that captures the real feel of this place.
 
-Reviews:
+All reviews (${reviews.length} total):
 ${snippets}
 
-Reply ONLY with valid JSON (no markdown, no explanation):
-{"vibe":"one sentence overall impression (max 20 words)","strengths":["strength 1 (max 8 words)","strength 2 (max 8 words)","strength 3 (max 8 words)"],"bestFor":"type of customer this shop suits best (max 12 words)"}`
+Based on ALL reviews above, write:
+- "vibe": 1-2 natural sentences describing the overall atmosphere and feeling of this place. Sound like a friend recommending it, not a marketing copy. Mention what makes it genuinely special (e.g. "The doctor is warm and never pushes unnecessary treatments. Patients feel truly cared for, not rushed.").
+- "strengths": exactly 3 specific things customers repeatedly mention loving (concrete, not generic)
+- "bestFor": who would love this place most (be specific, e.g. "First-time visitors nervous about plastic surgery" not just "everyone")
 
-    // Gemini API 우선 사용 (GSK_TOKEN 불필요)
+Reply ONLY with valid JSON (no markdown):
+{"vibe":"...","strengths":["...","...","..."],"bestFor":"..."}`
+
+    // Gemini API 사용 (GSK_TOKEN 불필요)
     const gKey = geminiKey || GEMINI_API_KEY_DEFAULT
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${gKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.4, maxOutputTokens: 300 }
+        generationConfig: { temperature: 0.7, maxOutputTokens: 500 }
       })
     })
     if (!res.ok) return null
     const data: any = await res.json()
     const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ''
-    // JSON 파싱 (코드블록 감싸여 있을 수도 있으므로 정제)
     const jsonStr = raw.replace(/^```(?:json)?/,'').replace(/```$/,'').trim()
     const parsed = JSON.parse(jsonStr)
     if (!parsed.vibe || !Array.isArray(parsed.strengths) || !parsed.bestFor) return null

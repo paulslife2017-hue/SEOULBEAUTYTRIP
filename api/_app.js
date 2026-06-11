@@ -3299,22 +3299,30 @@ Customer reviews (${reviews.length} samples):`);
 async function genReviewSummary(shopName, reviews, apiKey, geminiKey) {
   if (!reviews || reviews.length === 0) return null;
   try {
-    const snippets = reviews.map((r) => (r.text || "").trim().slice(0, 200)).filter(Boolean).join("\n---\n");
+    const snippets = reviews.map((r) => {
+      const stars = r.rating ? `[${r.rating}\u2605] ` : "";
+      return stars + (r.text || "").trim().slice(0, 300);
+    }).filter(Boolean).join("\n---\n");
     if (!snippets) return null;
-    const prompt = `You are summarizing customer reviews for "${shopName}", a Korean beauty shop.
+    const prompt = `You are reading ALL customer reviews for "${shopName}", a Korean beauty shop, and writing a natural summary that captures the real feel of this place.
 
-Reviews:
+All reviews (${reviews.length} total):
 ${snippets}
 
-Reply ONLY with valid JSON (no markdown, no explanation):
-{"vibe":"one sentence overall impression (max 20 words)","strengths":["strength 1 (max 8 words)","strength 2 (max 8 words)","strength 3 (max 8 words)"],"bestFor":"type of customer this shop suits best (max 12 words)"}`;
+Based on ALL reviews above, write:
+- "vibe": 1-2 natural sentences describing the overall atmosphere and feeling of this place. Sound like a friend recommending it, not a marketing copy. Mention what makes it genuinely special (e.g. "The doctor is warm and never pushes unnecessary treatments. Patients feel truly cared for, not rushed.").
+- "strengths": exactly 3 specific things customers repeatedly mention loving (concrete, not generic)
+- "bestFor": who would love this place most (be specific, e.g. "First-time visitors nervous about plastic surgery" not just "everyone")
+
+Reply ONLY with valid JSON (no markdown):
+{"vibe":"...","strengths":["...","...","..."],"bestFor":"..."}`;
     const gKey = geminiKey || GEMINI_API_KEY_DEFAULT;
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${gKey}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.4, maxOutputTokens: 300 }
+        generationConfig: { temperature: 0.7, maxOutputTokens: 500 }
       })
     });
     if (!res.ok) return null;
