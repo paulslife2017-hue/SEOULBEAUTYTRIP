@@ -6478,32 +6478,28 @@ function playSpVid(idx){
   if(old) old.remove();
 
   // \uC778\uC2A4\uD0C0 \uCD9C\uCC98 HTML \uC0DD\uC131
-  // @account_name \u2192 https://instagram.com/account_name \uB9C1\uD06C\uB85C
+  // @account_name \uD45C\uC2DC (\uB9C1\uD06C \uC5C6\uC774 \uD14D\uC2A4\uD2B8\uB9CC)
   var instHtml = '';
   if(instRaw){
-    var instHref = '';
     var instLabel = instRaw;
     if(instRaw.startsWith('http')){
-      instHref  = instRaw;
-      // URL\uC5D0\uC11C \uD45C\uC2DC\uBA85 \uCD94\uCD9C: instagram.com/p/XXXX \u2192 @\uCD9C\uCC98, instagram.com/account \u2192 @account
+      // URL\uC5D0\uC11C \uD45C\uC2DC\uBA85 \uCD94\uCD9C: instagram.com/account \u2192 @account
       var _m = instRaw.match(new RegExp('instagram\\.com/(?:p/[^/?]+|([^/?]+))'));
-      instLabel = _m && _m[1] ? '@'+_m[1] : '\uCD9C\uCC98 \uBCF4\uAE30';
+      instLabel = _m && _m[1] ? '@'+_m[1] : instRaw;
     } else {
-      var _acc = instRaw.replace(/^@/,'');
-      instHref  = 'https://www.instagram.com/'+_acc+'/';
-      instLabel = '@'+_acc;
+      instLabel = '@'+instRaw.replace(/^@/,'');
     }
-    instHtml = '<a href="'+instHref+'" target="_blank" rel="noopener noreferrer"'
+    instHtml = '<div'
       +' style="position:absolute;bottom:14px;left:50%;transform:translateX(-50%);'
       +'display:flex;align-items:center;gap:6px;'
       +'background:rgba(0,0,0,.55);backdrop-filter:blur(6px);'
       +'border:1px solid rgba(255,255,255,.18);border-radius:20px;'
       +'padding:5px 12px 5px 10px;color:#fff;font-size:12px;font-weight:600;'
-      +'text-decoration:none;white-space:nowrap;z-index:3;'
+      +'white-space:nowrap;z-index:3;pointer-events:none;'
       +'box-shadow:0 2px 12px rgba(0,0,0,.4)">'
       +'<i class="fab fa-instagram" style="font-size:14px;color:#e1306c"></i>'
       +instLabel
-      +'</a>';
+      +'</div>';
   }
 
   var ov = document.createElement('div');

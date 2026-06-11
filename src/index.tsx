@@ -5027,32 +5027,28 @@ function playSpVid(idx){
   if(old) old.remove();
 
   // 인스타 출처 HTML 생성
-  // @account_name → https://instagram.com/account_name 링크로
+  // @account_name 표시 (링크 없이 텍스트만)
   var instHtml = '';
   if(instRaw){
-    var instHref = '';
     var instLabel = instRaw;
     if(instRaw.startsWith('http')){
-      instHref  = instRaw;
-      // URL에서 표시명 추출: instagram.com/p/XXXX → @출처, instagram.com/account → @account
+      // URL에서 표시명 추출: instagram.com/account → @account
       var _m = instRaw.match(new RegExp('instagram\\.com/(?:p/[^/?]+|([^/?]+))'));
-      instLabel = _m && _m[1] ? '@'+_m[1] : '출처 보기';
+      instLabel = _m && _m[1] ? '@'+_m[1] : instRaw;
     } else {
-      var _acc = instRaw.replace(/^@/,'');
-      instHref  = 'https://www.instagram.com/'+_acc+'/';
-      instLabel = '@'+_acc;
+      instLabel = '@'+instRaw.replace(/^@/,'');
     }
-    instHtml = '<a href="'+instHref+'" target="_blank" rel="noopener noreferrer"'
+    instHtml = '<div'
       +' style="position:absolute;bottom:14px;left:50%;transform:translateX(-50%);'
       +'display:flex;align-items:center;gap:6px;'
       +'background:rgba(0,0,0,.55);backdrop-filter:blur(6px);'
       +'border:1px solid rgba(255,255,255,.18);border-radius:20px;'
       +'padding:5px 12px 5px 10px;color:#fff;font-size:12px;font-weight:600;'
-      +'text-decoration:none;white-space:nowrap;z-index:3;'
+      +'white-space:nowrap;z-index:3;pointer-events:none;'
       +'box-shadow:0 2px 12px rgba(0,0,0,.4)">'
       +'<i class="fab fa-instagram" style="font-size:14px;color:#e1306c"></i>'
       +instLabel
-      +'</a>';
+      +'</div>';
   }
 
   var ov = document.createElement('div');
