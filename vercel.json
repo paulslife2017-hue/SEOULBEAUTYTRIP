@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "echo 'skip build - api/_app.js pre-built'",
   "outputDirectory": "public",
   "functions": {
     "api/index.ts": {
