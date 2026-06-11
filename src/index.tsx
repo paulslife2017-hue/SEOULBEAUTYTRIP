@@ -35,8 +35,9 @@ const getDb = (env?: Env) => {
   _cachedUrl = url
   return _cachedSql
 }
+const GOOGLE_PLACES_KEY_DEFAULT = 'AIzaSyCcM03wGoZrSkmCMOS-Vib-JR1oKNPsSkY'
 const getGoogleKey = (env?: Env) => {
-  return env?.GOOGLE_PLACES_KEY || (typeof process !== 'undefined' ? process.env.GOOGLE_PLACES_KEY : undefined) || ''
+  return env?.GOOGLE_PLACES_KEY || (typeof process !== 'undefined' ? process.env.GOOGLE_PLACES_KEY : undefined) || GOOGLE_PLACES_KEY_DEFAULT
 }
 // Google Places photo name → 실제 https:// URL 변환
 // DB 저장 시 반드시 이 함수를 통해 절대 URL로 변환 (상대경로 저장 금지)
@@ -3277,7 +3278,7 @@ app.post('/api/admin/regenerate-seo-all', async (c) => {
   for (const row of rows) {
     const shop = rowToShop(row)
     try {
-      const gKey = c.env?.GOOGLE_PLACES_KEY || ''
+      const gKey = getGoogleKey(c.env)
       const seo = await autoGenSeo({
         name:        shop.name,
         category:    shop.category,
@@ -3695,7 +3696,7 @@ app.delete('/api/blogs/:id', async (c) => {
 app.post('/api/admin/sync-reviews', async (c) => {
   await ensureDb(c.env)
   const sql = getDb(c.env)
-  const gKey = c.env?.GOOGLE_PLACES_KEY || ''
+  const gKey = getGoogleKey(c.env)
   if (!gKey) return c.json({ error: 'GOOGLE_PLACES_KEY not configured' }, 500)
 
   // 파라미터: force=true, offset, limit(기본 10)
@@ -3818,7 +3819,7 @@ app.post('/api/admin/sync-reviews', async (c) => {
 app.post('/api/admin/sync-photos', async (c) => {
   await ensureDb(c.env)
   const sql = getDb(c.env)
-  const gKey = c.env?.GOOGLE_PLACES_KEY || ''
+  const gKey = getGoogleKey(c.env)
   if (!gKey) return c.json({ error: 'GOOGLE_PLACES_KEY not configured' }, 500)
 
   const body: any = await c.req.json().catch(() => ({}))

@@ -2092,8 +2092,9 @@ var getDb = (env) => {
   _cachedUrl = url;
   return _cachedSql;
 };
+var GOOGLE_PLACES_KEY_DEFAULT = "AIzaSyCcM03wGoZrSkmCMOS-Vib-JR1oKNPsSkY";
 var getGoogleKey = (env) => {
-  return env?.GOOGLE_PLACES_KEY || (typeof process !== "undefined" ? process.env.GOOGLE_PLACES_KEY : void 0) || "";
+  return env?.GOOGLE_PLACES_KEY || (typeof process !== "undefined" ? process.env.GOOGLE_PLACES_KEY : void 0) || GOOGLE_PLACES_KEY_DEFAULT;
 };
 async function resolveGooglePhotoUrl(photoName, apiKey) {
   if (!photoName || !apiKey) return "";
@@ -4944,7 +4945,7 @@ app.post("/api/admin/regenerate-seo-all", async (c) => {
   for (const row of rows) {
     const shop = rowToShop(row);
     try {
-      const gKey = c.env?.GOOGLE_PLACES_KEY || "";
+      const gKey = getGoogleKey(c.env);
       const seo = await autoGenSeo({
         name: shop.name,
         category: shop.category,
@@ -5298,7 +5299,7 @@ app.delete("/api/blogs/:id", async (c) => {
 app.post("/api/admin/sync-reviews", async (c) => {
   await ensureDb(c.env);
   const sql = getDb(c.env);
-  const gKey = c.env?.GOOGLE_PLACES_KEY || "";
+  const gKey = getGoogleKey(c.env);
   if (!gKey) return c.json({ error: "GOOGLE_PLACES_KEY not configured" }, 500);
   const force = c.req.query("force") === "true";
   const offset = parseInt(c.req.query("offset") || "0", 10);
@@ -5396,7 +5397,7 @@ app.post("/api/admin/sync-reviews", async (c) => {
 app.post("/api/admin/sync-photos", async (c) => {
   await ensureDb(c.env);
   const sql = getDb(c.env);
-  const gKey = c.env?.GOOGLE_PLACES_KEY || "";
+  const gKey = getGoogleKey(c.env);
   if (!gKey) return c.json({ error: "GOOGLE_PLACES_KEY not configured" }, 500);
   const body = await c.req.json().catch(() => ({}));
   const targetIds = Array.isArray(body.ids) ? body.ids : [];
