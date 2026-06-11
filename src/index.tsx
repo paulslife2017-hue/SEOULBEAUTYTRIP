@@ -10930,7 +10930,8 @@ function renderShopModal(shop) {
   var hoursHtml = '';
   if(shop.hours) {
     // "Monday: 10:00 AM – 7:00 PM / Tuesday: ..." 또는 "| " 구분자 처리
-    var days = shop.hours.split(/\s*[|]\s*|\s*\/\s*/).map(function(s){ return s.trim(); }).filter(Boolean);
+    var _hraw = shop.hours.replace(/\|/g,' | ').replace(/\//g,' / ');
+    var days = _hraw.split(' | ').join('|||').split(' / ').join('|||').split('|||').map(function(s){ return s.trim(); }).filter(Boolean);
     var dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
     var today = new Date().getDay(); // 0=Sun
     if(days.length > 1) {

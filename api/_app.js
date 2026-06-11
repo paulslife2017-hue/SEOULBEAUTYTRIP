@@ -11997,7 +11997,8 @@ function renderShopModal(shop) {
   var hoursHtml = '';
   if(shop.hours) {
     // "Monday: 10:00 AM \u2013 7:00 PM / Tuesday: ..." \uB610\uB294 "| " \uAD6C\uBD84\uC790 \uCC98\uB9AC
-    var days = shop.hours.split(/s*[|]s*|s*/s*/).map(function(s){ return s.trim(); }).filter(Boolean);
+    var _hraw = shop.hours.replace(/|/g,' | ').replace(///g,' / ');
+    var days = _hraw.split(' | ').join('|||').split(' / ').join('|||').split('|||').map(function(s){ return s.trim(); }).filter(Boolean);
     var dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
     var today = new Date().getDay(); // 0=Sun
     if(days.length > 1) {
