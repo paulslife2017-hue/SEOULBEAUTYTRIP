@@ -10437,35 +10437,22 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   text-align:center;
   line-height:1.2;
 }
-/* \u2500\u2500 \uC2AC\uB77C\uC774\uB4DC \uB9AC\uBDF0 \uC694\uC57D \u2500\u2500 */
-.slide-reviews{
-  margin-top:8px;
-  display:flex;flex-direction:column;gap:5px;
-  max-height:130px;overflow:hidden;
+/* \u2500\u2500 \uC2AC\uB77C\uC774\uB4DC \uD55C \uC904 \uB9AC\uBDF0 \uC694\uC57D \u2500\u2500 */
+.slide-rv-summary{
+  margin-top:9px;
+  display:flex;flex-direction:column;gap:4px;
 }
-.slide-rv-item{
-  background:rgba(255,255,255,.08);
-  border-radius:10px;
-  padding:7px 10px;
-  backdrop-filter:blur(8px);
-  -webkit-backdrop-filter:blur(8px);
+.srv-badge{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:10px;font-weight:800;
+  color:#fbbf24;
+  letter-spacing:.2px;
 }
-.slide-rv-stars{font-size:9px;color:#fbbf24;letter-spacing:1px}
-.slide-rv-text{
-  font-size:10.5px;color:rgba(255,255,255,.88);
-  font-style:italic;line-height:1.45;
-  display:block;margin-top:2px;
-}
-.slide-rv-author{
-  font-size:9px;color:rgba(255,255,255,.42);
-  margin-top:3px;
-}
-.slide-rv-more{
-  font-size:9px;font-weight:700;
-  color:var(--pk);
-  text-align:right;
-  padding-right:2px;
-  margin-top:1px;
+.srv-line{
+  font-size:11px;font-weight:600;
+  color:rgba(255,255,255,.82);
+  line-height:1.45;
+  display:block;
 }
 /* \u2500\u2500 \uC778\uB514\uCF00\uC774\uD130 \u2500\u2500 */
 .hint{position:absolute;bottom:6px;left:50%;transform:translateX(-50%);z-index:3;display:flex;flex-direction:column;align-items:center;gap:2px;opacity:.4;animation:hb 2.4s infinite}
@@ -11354,24 +11341,24 @@ function buildSlide(v, idx) {
         +'</div>' +
       '</div>' +
       (function(){
-        var reviews = (shop.reviews) || [];
+        var why = (shop.whyChoose) || [];
         var reviewCount = (shop.reviewCount) || 0;
-        if(!reviews.length) return '';
-        var starsHtml = function(r){ return '<span class="slide-rv-stars">'+('\u2605\u2605\u2605\u2605\u2605'.slice(0, Math.round(r||5)))+'</span>'; };
-        var itemsHtml = reviews.slice(0,2).map(function(r){
-          var txt = (r.text||'').replace(/
+        var rating = (shop.rating) || 0;
+        // whyChoose[0] \uB610\uB294 \uB9AC\uBDF0 \uCCAB \uBB38\uC7A5\uC5D0\uC11C \uD575\uC2EC \uD55C \uC904 \uCD94\uCD9C
+        var line = '';
+        if(why.length) {
+          // \uC774\uBAA8\uC9C0 \uC81C\uAC70 \uD6C4 \uC0AC\uC6A9
+          line = why[0].replace(/^[\u{1F300}-\u{1FAFF}\u2600-\u27FF]s*/u, '').replace(/^[^w\uAC00-\uD7A3]+/, '').trim();
+        } else if(shop.reviews && shop.reviews.length) {
+          var txt = (shop.reviews[0].text||'').replace(/
 /g,' ');
-          var snippet = txt.length > 70 ? txt.slice(0,68)+'\u2026' : txt;
-          return '<div class="slide-rv-item">'
-            +starsHtml(r.rating)
-            +'<span class="slide-rv-text">&ldquo;'+esc(snippet)+'&rdquo;</span>'
-            +'<div class="slide-rv-author">\u2014 '+esc(r.author||'Anonymous')+(r.time?' &middot; '+esc(r.time):'')+'</div>'
-          +'</div>';
-        }).join('');
-        var moreHtml = (reviewCount > 2)
-          ? '<div class="slide-rv-more">+' + (reviewCount - 2) + ' more reviews</div>'
+          line = txt.length > 72 ? txt.slice(0,70)+'\u2026' : txt;
+        }
+        if(!line) return '';
+        var ratingBadge = rating
+          ? '<span class="srv-badge">\u2605 '+esc(String(rating))+(reviewCount?' \xB7 '+reviewCount+' reviews':'')+'</span>'
           : '';
-        return '<div class="slide-reviews">'+itemsHtml+moreHtml+'</div>';
+        return '<div class="slide-rv-summary">'+ratingBadge+'<span class="srv-line">'+esc(line)+'</span></div>';
       }()) +
     '</div>' +
     '<div class="hint"><i class="fas fa-chevron-up" style="font-size:10px"></i><span>Swipe Up</span></div>';
