@@ -9314,7 +9314,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .slide video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;background:#000}
 .ov{position:absolute;inset:0;z-index:2;background:linear-gradient(to bottom,rgba(0,0,0,.08) 0%,transparent 25%,transparent 40%,rgba(0,0,0,.2) 60%,rgba(0,0,0,.7) 80%,rgba(0,0,0,.92) 100%);cursor:pointer}
 /* ── 슬라이드 정보 영역 ── */
-.info{position:absolute;bottom:0;left:0;right:0;padding:12px 16px calc(16px + env(safe-area-inset-bottom, 0px));z-index:3;display:flex;flex-direction:column;gap:0}
+.info{position:absolute;bottom:0;left:0;right:0;padding:12px 16px calc(16px + env(safe-area-inset-bottom, 0px));z-index:3;display:flex;flex-direction:column;gap:0;padding-bottom:calc(20px + env(safe-area-inset-bottom, 0px))}
 .slide-cat-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:20px;background:linear-gradient(135deg,rgba(232,65,122,.25),rgba(124,58,237,.2));backdrop-filter:blur(12px);border:1px solid rgba(232,65,122,.3);font-size:9px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;color:rgba(255,255,255,.95);margin-bottom:6px;align-self:flex-start;box-shadow:0 2px 8px rgba(232,65,122,.15)}
 .slide-cat-badge i{font-size:9px;color:var(--pk3)}
 .shop-info-block{flex:1;overflow:hidden;min-width:0;margin-right:10px}
@@ -9369,6 +9369,36 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   white-space:nowrap;
   text-align:center;
   line-height:1.2;
+}
+/* ── 슬라이드 리뷰 요약 ── */
+.slide-reviews{
+  margin-top:8px;
+  display:flex;flex-direction:column;gap:5px;
+  max-height:130px;overflow:hidden;
+}
+.slide-rv-item{
+  background:rgba(255,255,255,.08);
+  border-radius:10px;
+  padding:7px 10px;
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+}
+.slide-rv-stars{font-size:9px;color:#fbbf24;letter-spacing:1px}
+.slide-rv-text{
+  font-size:10.5px;color:rgba(255,255,255,.88);
+  font-style:italic;line-height:1.45;
+  display:block;margin-top:2px;
+}
+.slide-rv-author{
+  font-size:9px;color:rgba(255,255,255,.42);
+  margin-top:3px;
+}
+.slide-rv-more{
+  font-size:9px;font-weight:700;
+  color:var(--pk);
+  text-align:right;
+  padding-right:2px;
+  margin-top:1px;
 }
 /* ── 인디케이터 ── */
 .hint{position:absolute;bottom:6px;left:50%;transform:translateX(-50%);z-index:3;display:flex;flex-direction:column;align-items:center;gap:2px;opacity:.4;animation:hb 2.4s infinite}
@@ -10256,6 +10286,25 @@ function buildSlide(v, idx) {
           +'<div class="shop-thumb-lbl">View info</div>'
         +'</div>' +
       '</div>' +
+      (function(){
+        var reviews = (shop.reviews) || [];
+        var reviewCount = (shop.reviewCount) || 0;
+        if(!reviews.length) return '';
+        var starsHtml = function(r){ return '<span class="slide-rv-stars">'+('★★★★★'.slice(0, Math.round(r||5)))+'</span>'; };
+        var itemsHtml = reviews.slice(0,2).map(function(r){
+          var txt = (r.text||'').replace(/\n/g,' ');
+          var snippet = txt.length > 70 ? txt.slice(0,68)+'…' : txt;
+          return '<div class="slide-rv-item">'
+            +starsHtml(r.rating)
+            +'<span class="slide-rv-text">&ldquo;'+esc(snippet)+'&rdquo;</span>'
+            +'<div class="slide-rv-author">— '+esc(r.author||'Anonymous')+(r.time?' &middot; '+esc(r.time):'')+'</div>'
+          +'</div>';
+        }).join('');
+        var moreHtml = (reviewCount > 2)
+          ? '<div class="slide-rv-more">+' + (reviewCount - 2) + ' more reviews</div>'
+          : '';
+        return '<div class="slide-reviews">'+itemsHtml+moreHtml+'</div>';
+      }()) +
     '</div>' +
     '<div class="hint"><i class="fas fa-chevron-up" style="font-size:10px"></i><span>Swipe Up</span></div>';
 
