@@ -9320,7 +9320,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .shop-info-name{display:flex;align-items:center;gap:6px;font-size:15px;font-weight:900;color:#fff;text-shadow:0 2px 16px rgba(0,0,0,.9);letter-spacing:-.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
 .shop-info-name .si-icon{color:var(--pk3);font-size:13px;flex-shrink:0;filter:drop-shadow(0 0 4px rgba(255,179,204,.4))}
 .shop-info-loc{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;color:rgba(255,255,255,.5);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.shop-info-tagline{font-size:10.5px;font-weight:500;color:rgba(255,255,255,.55);margin-top:5px;line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.shop-info-tagline{font-size:10px;font-weight:500;color:rgba(255,255,255,.5);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .shop-info-loc i{font-size:9px;color:var(--pk);opacity:.85}
 .btns-row{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;margin-bottom:0;overflow:hidden}
 .wa-btn{display:none}
@@ -10255,7 +10255,7 @@ function buildSlide(v, idx) {
             var _l = _w.length ? _w[0].trim() : ((shop.description||'').slice(0,60)||'');
             while(_l.length>0 && !/[a-zA-Z0-9\uAC00-\uD7A3]/.test(_l[0])){ _l=_l.slice(1); }
             if(!_l) return '';
-            if(_l.length>55) _l=_l.slice(0,53)+'\u2026';
+            if(_l.length>20) _l=_l.slice(0,19)+'\u2026';
             return '<div class="shop-info-tagline">'+esc(_l)+'</div>';
           }())
         +'</div>' +
