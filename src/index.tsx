@@ -9315,8 +9315,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .ov{position:absolute;inset:0;z-index:2;background:linear-gradient(to bottom,rgba(0,0,0,.08) 0%,transparent 25%,transparent 40%,rgba(0,0,0,.2) 60%,rgba(0,0,0,.7) 80%,rgba(0,0,0,.92) 100%);cursor:pointer}
 /* ── 슬라이드 정보 영역 ── */
 .info{position:absolute;bottom:0;left:0;right:0;padding:12px 16px calc(16px + env(safe-area-inset-bottom, 0px));z-index:3;display:flex;flex-direction:column;gap:0;padding-bottom:calc(20px + env(safe-area-inset-bottom, 0px))}
-.slide-cat-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:20px;background:linear-gradient(135deg,rgba(232,65,122,.25),rgba(124,58,237,.2));backdrop-filter:blur(12px);border:1px solid rgba(232,65,122,.3);font-size:9px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;color:rgba(255,255,255,.95);margin-bottom:6px;align-self:flex-start;box-shadow:0 2px 8px rgba(232,65,122,.15)}
-.slide-cat-badge i{font-size:9px;color:var(--pk3)}
+.slide-cat-badge{display:none}
 .shop-info-block{flex:1;overflow:hidden;min-width:0;margin-right:10px}
 .shop-info-name{display:flex;align-items:center;gap:6px;font-size:15px;font-weight:900;color:#fff;text-shadow:0 2px 16px rgba(0,0,0,.9);letter-spacing:-.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
 .shop-info-name .si-icon{color:var(--pk3);font-size:13px;flex-shrink:0;filter:drop-shadow(0 0 4px rgba(255,179,204,.4))}
@@ -9362,14 +9361,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .stc-open-dot.open{background:#22c55e}
 .stc-open-dot.closed{background:#6b7280}
 /* 하단 라벨 */
-.shop-thumb-lbl{
-  font-size:8.5px;font-weight:800;
-  color:rgba(255,255,255,.7);
-  letter-spacing:.3px;
-  white-space:nowrap;
-  text-align:center;
-  line-height:1.2;
-}
+.shop-thumb-lbl{display:none}
 /* ── 슬라이드 한 줄 리뷰 요약 ── */
 .slide-rv-summary{
   margin-top:9px;
