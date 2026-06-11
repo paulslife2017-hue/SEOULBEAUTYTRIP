@@ -10275,7 +10275,7 @@ function buildSlide(v, idx) {
           // 앞쪽 이모지/특수문자 제거 (유니코드 u플래그 없이 안전하게)
           line = why[0].replace(/^[^\w\uAC00-\uD7A3\uFF41-\uFF5A]+/, '').trim();
         } else if(shop.reviews && shop.reviews.length) {
-          var txt = (shop.reviews[0].text||'').replace(/\n/g,' ');
+          var txt = (shop.reviews[0].text||'').split('\n').join(' ');
           line = txt.length > 72 ? txt.slice(0,70)+'…' : txt;
         }
         if(!line) return '';
