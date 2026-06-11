@@ -4305,7 +4305,7 @@ app.get("/api/photo", async (c) => {
 app.post("/api/quick-register", async (c) => {
   try {
     const sql = getDb(c.env);
-    const { gmapUrl, videoUrl, videoUrlLow, videoUrlMid, videoUrlHigh, category } = await c.req.json();
+    const { gmapUrl, videoUrl, videoUrlLow, videoUrlMid, videoUrlHigh, category, instagramUrl } = await c.req.json();
     if (!gmapUrl) return c.json({ error: "\uAD6C\uAE00\uB9F5 URL\uC744 \uC785\uB825\uD574\uC8FC\uC138\uC694" }, 400);
     let resolvedData = null;
     try {
@@ -4358,11 +4358,20 @@ app.post("/api/quick-register", async (c) => {
       }
     }
     const isKor = (s) => /[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]/.test(s);
+    const hasEng = (s) => /[a-zA-Z]/.test(s);
     const stripCJK2 = (s) => s.replace(/[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]+/g, "").replace(/\s{2,}/g, " ").trim();
     const rawName = resolvedData.name || "";
-    const nameParts = rawName.split(/[|\uff5c]/).map((s) => s.trim()).filter(Boolean);
+    const nameParts = rawName.split(/[|\uff5c·]/).map((s) => s.trim()).filter(Boolean);
     const p0clean2 = nameParts[0] ? stripCJK2(nameParts[0]) : "";
-    const engName = (p0clean2.length > 1 ? p0clean2 : null) || nameParts.find((s) => !isKor(s) && s.length > 0) || stripCJK2(rawName) || rawName;
+    let engName = (p0clean2.length > 1 && hasEng(p0clean2) ? p0clean2 : null) || nameParts.find((s) => hasEng(s) && s.length > 1) || (hasEng(stripCJK2(rawName)) ? stripCJK2(rawName) : null) || rawName;
+    if (!hasEng(engName) && resolvedData.address) {
+      const addrEng = resolvedData.address.replace(/[^a-zA-Z0-9\s,\-]/g, "").trim();
+      const addrPart = addrEng.split(",")[1]?.trim() || addrEng.split(" ").slice(1, 3).join(" ");
+      if (addrPart && addrPart.length > 2) {
+        const catLabel = { clinic: "Clinic", skincare: "Skincare", hair: "Hair Salon", headspa: "Head Spa", makeup: "Makeup Studio", tattoo: "Tattoo Studio", spa: "Spa" };
+        engName = addrPart + " " + (catLabel[category || "clinic"] || "Beauty");
+      }
+    }
     let slug = await makeShopSlug(sql, engName, resolvedData.location || "seoul", category || "clinic");
     const loc = resolvedData.location || "Seoul";
     const cat = category || "skincare";
@@ -4442,7 +4451,7 @@ app.post("/api/quick-register", async (c) => {
         ${JSON.stringify(reviews)}, null, true, NOW()
       )
     `;
-    if (apiKey) {
+    {
       const _bgSql = sql;
       const _bgName = engName;
       const _bgId = shopId;
@@ -4458,7 +4467,7 @@ app.post("/api/quick-register", async (c) => {
       const _bgTask = (async () => {
         if (_bgReviews.length > 0) {
           try {
-            const _bgGeminiKey = GEMINI_API_KEY_DEFAULT;
+            const _bgGeminiKey = c.env?.GEMINI_API_KEY || GEMINI_API_KEY_DEFAULT;
             const summary = await genReviewSummary(_bgName, _bgReviews, "", _bgGeminiKey);
             if (summary) {
               await _bgSql`UPDATE shops SET review_summary = ${JSON.stringify(summary)}::jsonb WHERE id = ${_bgId}`;
@@ -4466,20 +4475,22 @@ app.post("/api/quick-register", async (c) => {
           } catch {
           }
         }
-        try {
-          await autoGenShopBlog({
-            id: _bgId,
-            name: _bgName,
-            category: _bgCat,
-            location: _bgLoc,
-            rating: _bgRating,
-            reviewCount: _bgReviewCount,
-            description: _bgDesc,
-            reviews: _bgReviews,
-            seoText: _bgSeoText,
-            whyChoose: _bgWhyChoose
-          }, _bgKey, _bgSql);
-        } catch {
+        if (_bgKey) {
+          try {
+            await autoGenShopBlog({
+              id: _bgId,
+              name: _bgName,
+              category: _bgCat,
+              location: _bgLoc,
+              rating: _bgRating,
+              reviewCount: _bgReviewCount,
+              description: _bgDesc,
+              reviews: _bgReviews,
+              seoText: _bgSeoText,
+              whyChoose: _bgWhyChoose
+            }, _bgKey, _bgSql);
+          } catch {
+          }
         }
       })();
       try {
@@ -4493,9 +4504,9 @@ app.post("/api/quick-register", async (c) => {
       const thumb = videoUrl.includes("cloudinary.com") ? videoUrl.replace("/video/upload/", "/video/upload/so_0,w_600,h_1066,c_fill,q_auto/").replace(/\.mp4$/, ".jpg") : "";
       const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
       await sql`
-        INSERT INTO videos (id, shop_id, title, description, video_url, thumbnail, tags, views, likes, created_at, video_url_low, video_url_mid, video_url_high)
+        INSERT INTO videos (id, shop_id, title, description, video_url, thumbnail, tags, views, likes, created_at, video_url_low, video_url_mid, video_url_high, instagram_url)
         VALUES (${videoId}, ${shopId}, ${engName}, ${""}, ${videoUrl.trim()}, ${thumb}, ${"[]"}, 0, 0, ${today},
-          ${videoUrlLow || null}, ${videoUrlMid || null}, ${videoUrlHigh || null})
+          ${videoUrlLow || null}, ${videoUrlMid || null}, ${videoUrlHigh || null}, ${instagramUrl || ""})
       `;
     }
     return c.json({
@@ -13891,6 +13902,12 @@ textarea{height:80px;resize:none}
       <input id="qr-gmap" placeholder="https://maps.app.goo.gl/..." style="width:100%;font-size:13px;border-color:rgba(66,133,244,.4)">
     </div>
 
+    <!-- \uC778\uC2A4\uD0C0\uADF8\uB7A8 URL -->
+    <div style="margin-bottom:10px">
+      <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:5px"><i class="fab fa-instagram" style="color:#e1306c"></i> \uC778\uC2A4\uD0C0\uADF8\uB7A8 URL <span style="color:rgba(255,255,255,.3)">(\uC120\uD0DD \xB7 \uC601\uC0C1 \uCD9C\uCC98)</span></label>
+      <input id="qr-instagram" placeholder="https://www.instagram.com/p/... \uB610\uB294 @\uACC4\uC815\uBA85" style="width:100%;font-size:13px;border-color:rgba(225,48,108,.3)">
+    </div>
+
     <!-- \uC601\uC0C1 \uD30C\uC77C \uC5C5\uB85C\uB4DC -->
     <div style="margin-bottom:14px">
       <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:5px"><i class="fas fa-video" style="color:#FF4D8D"></i> \uC601\uC0C1 \uD30C\uC77C <span style="color:rgba(255,255,255,.3)">(\uC120\uD0DD \xB7 \uC5C5\uB85C\uB4DC \uD6C4 \uC790\uB3D9 \uB4F1\uB85D)</span></label>
@@ -16732,7 +16749,7 @@ window.quickRegister = async function quickRegister() {
     var res = await fetch('/api/quick-register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gmapUrl, videoUrl, videoUrlLow, videoUrlMid, videoUrlHigh, category })
+      body: JSON.stringify({ gmapUrl, videoUrl, videoUrlLow, videoUrlMid, videoUrlHigh, category, instagramUrl: (document.getElementById('qr-instagram').value||'').trim() })
     });
     var data = await res.json();
 

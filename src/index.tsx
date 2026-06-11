@@ -2459,7 +2459,7 @@ app.get('/api/photo', async (c) => {
 app.post('/api/quick-register', async (c) => {
   try {
     const sql = getDb(c.env)
-    const { gmapUrl, videoUrl, videoUrlLow, videoUrlMid, videoUrlHigh, category } = await c.req.json() as { gmapUrl: string; videoUrl: string; videoUrlLow?: string; videoUrlMid?: string; videoUrlHigh?: string; category: string }
+    const { gmapUrl, videoUrl, videoUrlLow, videoUrlMid, videoUrlHigh, category, instagramUrl } = await c.req.json() as { gmapUrl: string; videoUrl: string; videoUrlLow?: string; videoUrlMid?: string; videoUrlHigh?: string; category: string; instagramUrl?: string }
 
     if (!gmapUrl) return c.json({ error: '구글맵 URL을 입력해주세요' }, 400)
 
@@ -2522,17 +2522,32 @@ app.post('/api/quick-register', async (c) => {
     }
     // ───────────────────────────────────────────────────────────────────────────
 
-    // ── STEP 2: 업체명 정리 — 파트[0]에서 CJK만 제거 → 브랜드명 최우선 추출 ──
-    // 예: "Cheongdam Dear Clinic 청담디어의원" → "Cheongdam Dear Clinic" ✅
+    // ── STEP 2: 업체명 정리 — 항상 영문명만 추출 (한글 절대 저장 안 함) ──
     const isKor = (s: string) => /[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]/.test(s)
+    const hasEng = (s: string) => /[a-zA-Z]/.test(s)
     const stripCJK2 = (s: string) => s.replace(/[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]+/g,'').replace(/\s{2,}/g,' ').trim()
     const rawName: string = resolvedData.name || ''
-    const nameParts = rawName.split(/[|\uff5c]/).map((s: string) => s.trim()).filter(Boolean)
+    // 구분자(|, ·, -)로 분리 후 영문 파트 우선
+    const nameParts = rawName.split(/[|\uff5c·]/).map((s: string) => s.trim()).filter(Boolean)
     const p0clean2 = nameParts[0] ? stripCJK2(nameParts[0]) : ''
-    const engName = (p0clean2.length > 1 ? p0clean2 : null)
-      || nameParts.find((s: string) => !isKor(s) && s.length > 0)
-      || stripCJK2(rawName)
-      || rawName
+    // 1) CJK 제거 후 영문이 2자 이상 남으면 사용
+    // 2) 파트 중 영문 포함된 것 사용
+    // 3) 전체에서 CJK 제거
+    // 4) 한글만 남으면 → address에서 영문 추출 시도, 최후엔 rawName 유지
+    let engName = (p0clean2.length > 1 && hasEng(p0clean2) ? p0clean2 : null)
+      || nameParts.find((s: string) => hasEng(s) && s.length > 1)
+      || (hasEng(stripCJK2(rawName)) ? stripCJK2(rawName) : null)
+      || rawName  // 최후 폴백 (한글만인 경우 그대로 — 아래서 처리)
+    // 한글만 남아있는 경우: address에서 영문 단어 추출 시도
+    if (!hasEng(engName) && resolvedData.address) {
+      const addrEng = resolvedData.address.replace(/[^a-zA-Z0-9\s,\-]/g,'').trim()
+      // "123 Nonhyeon-ro, Gangnam" 형태에서 동네명만 뽑기
+      const addrPart = addrEng.split(',')[1]?.trim() || addrEng.split(' ').slice(1,3).join(' ')
+      if (addrPart && addrPart.length > 2) {
+        const catLabel: Record<string,string> = {clinic:'Clinic',skincare:'Skincare',hair:'Hair Salon',headspa:'Head Spa',makeup:'Makeup Studio',tattoo:'Tattoo Studio',spa:'Spa'}
+        engName = addrPart + ' ' + (catLabel[category||'clinic'] || 'Beauty')
+      }
+    }
 
     // ── STEP 3: slug 생성 ──
     // SEO 최적 slug: makeShopSlug 공통 함수 사용 (카테고리 키워드 + 지역명 포함)
@@ -2640,7 +2655,9 @@ app.post('/api/quick-register', async (c) => {
 
     // ── STEP 9.5: 백그라운드 작업 (응답 블로킹 없음) ──
     // DB 저장 완료 후 waitUntil로 비동기 실행 → 실패해도 등록 자체는 성공
-    if (apiKey) {
+    // ① 리뷰 요약: Gemini API는 항상 사용 가능 (apiKey 불필요)
+    // ② 블로그 생성: apiKey(GSK_TOKEN) 있을 때만
+    {
       const _bgSql = sql
       const _bgName = engName
       const _bgId = shopId
@@ -2655,32 +2672,28 @@ app.post('/api/quick-register', async (c) => {
       const _bgSeoText = seoTextVal
 
       const _bgTask = (async () => {
-        // ① 리뷰 요약 생성 (리뷰가 있을 때만, Gemini API 사용)
+        // ① 리뷰 요약 생성 — apiKey 없어도 Gemini로 항상 실행
         if (_bgReviews.length > 0) {
           try {
-            const _bgGeminiKey = GEMINI_API_KEY_DEFAULT
+            const _bgGeminiKey = (c.env as any)?.GEMINI_API_KEY || GEMINI_API_KEY_DEFAULT
             const summary = await genReviewSummary(_bgName, _bgReviews, '', _bgGeminiKey)
             if (summary) {
               await _bgSql`UPDATE shops SET review_summary = ${JSON.stringify(summary)}::jsonb WHERE id = ${_bgId}`
             }
-          } catch { /* 실패해도 무시 — 관리자 fill-summaries로 나중에 채울 수 있음 */ }
+          } catch { /* 실패해도 무시 */ }
         }
 
-        // ② 자동 블로그 생성 (업체 페이지 SEO 보완 — "review", "is it worth it" 키워드 커버)
-        try {
-          await autoGenShopBlog({
-            id: _bgId,
-            name: _bgName,
-            category: _bgCat,
-            location: _bgLoc,
-            rating: _bgRating,
-            reviewCount: _bgReviewCount,
-            description: _bgDesc,
-            reviews: _bgReviews,
-            seoText: _bgSeoText,
-            whyChoose: _bgWhyChoose
-          }, _bgKey, _bgSql)
-        } catch { /* 블로그 생성 실패해도 업체 등록에는 영향 없음 */ }
+        // ② 자동 블로그 생성 — apiKey 있을 때만
+        if (_bgKey) {
+          try {
+            await autoGenShopBlog({
+              id: _bgId, name: _bgName, category: _bgCat, location: _bgLoc,
+              rating: _bgRating, reviewCount: _bgReviewCount,
+              description: _bgDesc, reviews: _bgReviews,
+              seoText: _bgSeoText, whyChoose: _bgWhyChoose
+            }, _bgKey, _bgSql)
+          } catch { /* 블로그 생성 실패해도 업체 등록에는 영향 없음 */ }
+        }
       })()
 
       // Cloudflare Workers: waitUntil로 응답 후에도 백그라운드 실행 보장
@@ -2697,9 +2710,9 @@ app.post('/api/quick-register', async (c) => {
       const today = new Date().toISOString().slice(0, 10)
       // eager 변환 URL 저장 (업로드 시 1회 변환 → 이후 크래딧 소모 없음)
       await sql`
-        INSERT INTO videos (id, shop_id, title, description, video_url, thumbnail, tags, views, likes, created_at, video_url_low, video_url_mid, video_url_high)
+        INSERT INTO videos (id, shop_id, title, description, video_url, thumbnail, tags, views, likes, created_at, video_url_low, video_url_mid, video_url_high, instagram_url)
         VALUES (${videoId}, ${shopId}, ${engName}, ${''}, ${videoUrl.trim()}, ${thumb}, ${'[]'}, 0, 0, ${today},
-          ${videoUrlLow||null}, ${videoUrlMid||null}, ${videoUrlHigh||null})
+          ${videoUrlLow||null}, ${videoUrlMid||null}, ${videoUrlHigh||null}, ${instagramUrl||''})
       `
     }
 
@@ -12809,6 +12822,12 @@ textarea{height:80px;resize:none}
       <input id="qr-gmap" placeholder="https://maps.app.goo.gl/..." style="width:100%;font-size:13px;border-color:rgba(66,133,244,.4)">
     </div>
 
+    <!-- 인스타그램 URL -->
+    <div style="margin-bottom:10px">
+      <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:5px"><i class="fab fa-instagram" style="color:#e1306c"></i> 인스타그램 URL <span style="color:rgba(255,255,255,.3)">(선택 · 영상 출처)</span></label>
+      <input id="qr-instagram" placeholder="https://www.instagram.com/p/... 또는 @계정명" style="width:100%;font-size:13px;border-color:rgba(225,48,108,.3)">
+    </div>
+
     <!-- 영상 파일 업로드 -->
     <div style="margin-bottom:14px">
       <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:5px"><i class="fas fa-video" style="color:#FF4D8D"></i> 영상 파일 <span style="color:rgba(255,255,255,.3)">(선택 · 업로드 후 자동 등록)</span></label>
@@ -15650,7 +15669,7 @@ window.quickRegister = async function quickRegister() {
     var res = await fetch('/api/quick-register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gmapUrl, videoUrl, videoUrlLow, videoUrlMid, videoUrlHigh, category })
+      body: JSON.stringify({ gmapUrl, videoUrl, videoUrlLow, videoUrlMid, videoUrlHigh, category, instagramUrl: (document.getElementById('qr-instagram').value||'').trim() })
     });
     var data = await res.json();
 
