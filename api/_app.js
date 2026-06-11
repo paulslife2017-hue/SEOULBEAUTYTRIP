@@ -9359,7 +9359,9 @@ app.get("/", async (c) => {
       withTimeout(
         sql`SELECT v.id, v.shop_id, v.title, v.description, v.video_url, v.thumbnail, v.tags, v.views, v.likes, v.created_at,
                v.video_url_low, v.video_url_mid, v.video_url_high,
-               s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb
+               s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb,
+               s.rating as shop_rating, s.review_count as shop_review_count,
+               s.why_choose as shop_why_choose, s.description as shop_description
             FROM videos v
             LEFT JOIN shops s ON v.shop_id=s.id
             WHERE s.active=true
@@ -9368,7 +9370,7 @@ app.get("/", async (c) => {
         []
       ),
       withTimeout(
-        sql`SELECT id, name, slug, category, location, thumbnail, rating, review_count FROM shops WHERE active=true ORDER BY rating DESC, review_count DESC`,
+        sql`SELECT id, name, slug, category, location, thumbnail, rating, review_count, why_choose, description FROM shops WHERE active=true ORDER BY rating DESC, review_count DESC`,
         1e4,
         []
       )
@@ -9395,7 +9397,23 @@ app.get("/", async (c) => {
         videoUrlLow: r.video_url_low || "",
         videoUrlMid: r.video_url_mid || "",
         videoUrlHigh: r.video_url_high || "",
-        shop: { id: r.shop_id, name: r.shop_name || "", category: r.shop_cat || "", location: r.shop_location || "", thumbnail: shopThumb }
+        shop: {
+          id: r.shop_id,
+          name: r.shop_name || "",
+          category: r.shop_cat || "",
+          location: r.shop_location || "",
+          thumbnail: shopThumb,
+          rating: r.shop_rating || 0,
+          reviewCount: r.shop_review_count || 0,
+          whyChoose: (() => {
+            try {
+              return JSON.parse(r.shop_why_choose || "[]");
+            } catch {
+              return [];
+            }
+          })(),
+          description: r.shop_description || ""
+        }
       };
     });
     const initPlatform = { whatsapp: PLATFORM.whatsapp, name: PLATFORM.name, instagram: PLATFORM.instagram };
@@ -9433,7 +9451,15 @@ app.get("/", async (c) => {
       location: r.location || "Seoul",
       thumbnail: r.thumbnail || "",
       rating: r.rating || 0,
-      reviewCount: r.review_count || 0
+      reviewCount: r.review_count || 0,
+      whyChoose: (() => {
+        try {
+          return JSON.parse(r.why_choose || "[]");
+        } catch {
+          return [];
+        }
+      })(),
+      description: r.description || ""
     }));
     const catColorsSSR = { skincare: "#f472b6", headspa: "#67e8f9", hair: "#60a5fa", clinic: "#fb923c", makeup: "#c084fc", spa: "#a78bfa", tattoo: "#e879f9" };
     const catFaIconsSSR = { skincare: "fa-leaf", makeup: "fa-magic", hair: "fa-cut", headspa: "fa-spa", clinic: "fa-briefcase-medical", spa: "fa-hot-tub", tattoo: "fa-pen-nib" };
