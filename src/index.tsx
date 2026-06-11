@@ -9314,7 +9314,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .slide video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;background:#000}
 .ov{position:absolute;inset:0;z-index:2;background:linear-gradient(to bottom,rgba(0,0,0,.08) 0%,transparent 25%,transparent 40%,rgba(0,0,0,.2) 60%,rgba(0,0,0,.7) 80%,rgba(0,0,0,.92) 100%);cursor:pointer}
 /* ── 슬라이드 정보 영역 ── */
-.info{position:absolute;bottom:0;left:0;right:0;padding:16px 18px calc(26px + env(safe-area-inset-bottom, 0px));z-index:3;display:flex;flex-direction:column;gap:0}
+.info{position:absolute;bottom:0;left:0;right:0;padding:12px 16px calc(16px + env(safe-area-inset-bottom, 0px));z-index:3;display:flex;flex-direction:column;gap:0}
 .slide-cat-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:20px;background:linear-gradient(135deg,rgba(232,65,122,.25),rgba(124,58,237,.2));backdrop-filter:blur(12px);border:1px solid rgba(232,65,122,.3);font-size:9px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;color:rgba(255,255,255,.95);margin-bottom:6px;align-self:flex-start;box-shadow:0 2px 8px rgba(232,65,122,.15)}
 .slide-cat-badge i{font-size:9px;color:var(--pk3)}
 .shop-info-block{flex:1;overflow:hidden;min-width:0;margin-right:10px}
@@ -9322,16 +9322,54 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .shop-info-name .si-icon{color:var(--pk3);font-size:13px;flex-shrink:0;filter:drop-shadow(0 0 4px rgba(255,179,204,.4))}
 .shop-info-loc{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;color:rgba(255,255,255,.5);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .shop-info-loc i{font-size:9px;color:var(--pk);opacity:.85}
-.btns-row{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin-bottom:0;overflow:hidden}
+.btns-row{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;margin-bottom:0;overflow:hidden}
 .wa-btn{display:none}
-/* ── 업체 썸네일 카드 (Book 버튼 대체) ── */
-.shop-thumb-card{flex-shrink:0;width:62px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;-webkit-tap-highlight-color:transparent}
-.shop-thumb-wrap{position:relative;width:62px;height:62px;border-radius:14px;overflow:hidden;border:2px solid rgba(255,255,255,.18);box-shadow:0 4px 16px rgba(0,0,0,.55);transition:transform .15s,border-color .15s;background:#1a1a2e;flex-shrink:0}
-.shop-thumb-card:active .shop-thumb-wrap{transform:scale(0.93);border-color:var(--pk)}
+/* ── 업체 썸네일 카드 ── */
+.shop-thumb-card{
+  flex-shrink:0;width:72px;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:5px;
+  -webkit-tap-highlight-color:transparent;
+}
+.shop-thumb-wrap{
+  position:relative;width:72px;height:72px;
+  border-radius:14px;overflow:hidden;
+  border:2px solid rgba(255,255,255,.2);
+  box-shadow:0 4px 20px rgba(0,0,0,.6);
+  transition:transform .15s,border-color .15s;
+  background:#1a1a2e;
+}
+.shop-thumb-card:active .shop-thumb-wrap{transform:scale(0.92);border-color:var(--pk)}
 .shop-thumb-wrap img{width:100%;height:100%;object-fit:cover;display:block}
-.shop-thumb-wrap .stc-play{position:absolute;inset:0;background:rgba(0,0,0,.32);display:flex;align-items:center;justify-content:center}
-.shop-thumb-wrap .stc-play i{font-size:16px;color:#fff;filter:drop-shadow(0 1px 4px rgba(0,0,0,.7))}
-.shop-thumb-lbl{font-size:9px;font-weight:800;color:rgba(255,255,255,.65);letter-spacing:.5px;text-transform:uppercase;white-space:nowrap}
+/* 별점 + 카테고리 오버레이 */
+.stc-bottom{
+  position:absolute;bottom:0;left:0;right:0;
+  padding:4px 5px 4px;
+  background:linear-gradient(to top,rgba(0,0,0,.85),transparent);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.stc-rating{
+  font-size:9px;font-weight:800;color:#fbbf24;
+  display:flex;align-items:center;gap:2px;
+  line-height:1;
+}
+.stc-cat-icon{font-size:9px;color:rgba(255,255,255,.7)}
+/* 영업중 도트 */
+.stc-open-dot{
+  position:absolute;top:5px;right:5px;
+  width:7px;height:7px;border-radius:50%;
+  border:1.5px solid rgba(0,0,0,.4);
+}
+.stc-open-dot.open{background:#22c55e}
+.stc-open-dot.closed{background:#6b7280}
+/* 하단 라벨 */
+.shop-thumb-lbl{
+  font-size:8.5px;font-weight:800;
+  color:rgba(255,255,255,.7);
+  letter-spacing:.3px;
+  white-space:nowrap;
+  text-align:center;
+  line-height:1.2;
+}
 /* ── 인디케이터 ── */
 .hint{position:absolute;bottom:6px;left:50%;transform:translateX(-50%);z-index:3;display:flex;flex-direction:column;align-items:center;gap:2px;opacity:.4;animation:hb 2.4s infinite}
 .hint span{font-size:8px;color:#fff;letter-spacing:2px;text-transform:uppercase}
@@ -10207,11 +10245,15 @@ function buildSlide(v, idx) {
         '<div class="shop-thumb-card" id="wabtn'+idx+'">'
           +'<div class="shop-thumb-wrap">'
             +(shop.thumbnail
-              ? '<img src="'+esc(cdnImg(shop.thumbnail,124,124))+'" alt="'+esc(shop.name||'')+'" loading="lazy">'
+              ? '<img src="'+esc(cdnImg(shop.thumbnail,144,144))+'" alt="'+esc(shop.name||'')+'" loading="lazy">'
               : '<div style="width:100%;height:100%;background:linear-gradient(135deg,#1a1a2e,#0d0d1a)"></div>')
-            +'<div class="stc-play"><i class="fas fa-chevron-right"></i></div>'
+            // 하단 오버레이: 별점 + 카테고리 아이콘
+            +'<div class="stc-bottom">'
+              +(shop.rating ? '<span class="stc-rating">★ '+esc(String(shop.rating))+'</span>' : '<span class="stc-rating" style="opacity:.5">★</span>')
+              +'<i class="fas '+(catFaIcons[shop.category]||'fa-star')+' stc-cat-icon"></i>'
+            +'</div>'
           +'</div>'
-          +'<div class="shop-thumb-lbl">View</div>'
+          +'<div class="shop-thumb-lbl">View info</div>'
         +'</div>' +
       '</div>' +
     '</div>' +
