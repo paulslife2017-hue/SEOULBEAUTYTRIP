@@ -3305,30 +3305,56 @@ async function genReviewSummary(shopName, reviews, apiKey, geminiKey) {
       return stars + (r.text || "").trim().slice(0, 300);
     }).filter(Boolean).join("\n---\n");
     if (!snippets) return null;
-    const prompt = `You are reading ALL customer reviews for "${shopName}", a Korean beauty shop, and writing a natural summary that captures the real feel of this place.
+    const prompt = `You are reading ALL customer reviews for "${shopName}", a Korean beauty clinic/shop.
+Write a natural summary that captures the real VIBE and FEEL of this place \u2014 like a friend who's been there recommending it.
 
 All reviews (${reviews.length} total):
 ${snippets}
 
 Based on ALL reviews above, write:
-- "vibe": 1-2 natural sentences describing the overall atmosphere and feeling of this place. Sound like a friend recommending it, not a marketing copy. Mention what makes it genuinely special (e.g. "The doctor is warm and never pushes unnecessary treatments. Patients feel truly cared for, not rushed.").
-- "strengths": exactly 3 specific things customers repeatedly mention loving (concrete, not generic)
-- "bestFor": who would love this place most (be specific, e.g. "First-time visitors nervous about plastic surgery" not just "everyone")
+- "vibe": 1-2 natural sentences. What's the actual atmosphere? How do patients/customers FEEL when they're there? What makes it genuinely special or different? Be specific and honest (e.g. "The doctor takes time to explain every step and never pushes unnecessary add-ons. You leave feeling genuinely cared for, not just processed.").
+- "strengths": exactly 3 specific things customers repeatedly praise (use concrete details from reviews, not vague phrases like "good service")
+- "bestFor": who would love this place most \u2014 be specific (e.g. "Nervous first-timers who want thorough explanations before any procedure" not "everyone")
 
-Reply ONLY with valid JSON (no markdown):
+Reply ONLY with valid JSON (no markdown, no extra text):
 {"vibe":"...","strengths":["...","...","..."],"bestFor":"..."}`;
-    const gKey = geminiKey || GEMINI_API_KEY_DEFAULT;
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${gKey}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.7, maxOutputTokens: 500 }
-      })
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const raw2 = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+    let raw2 = "";
+    const gskToken = apiKey || "";
+    if (gskToken) {
+      try {
+        const r1 = await fetch("https://api.genspark.ai/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${gskToken}` },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.7,
+            max_tokens: 500
+          })
+        });
+        if (r1.ok) {
+          const d1 = await r1.json();
+          raw2 = d1?.choices?.[0]?.message?.content?.trim() || "";
+        }
+      } catch {
+      }
+    }
+    if (!raw2) {
+      const gKey = geminiKey || GEMINI_API_KEY_DEFAULT;
+      const r2 = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${gKey}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.7, maxOutputTokens: 500 }
+        })
+      });
+      if (r2.ok) {
+        const d2 = await r2.json();
+        raw2 = d2?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+      }
+    }
+    if (!raw2) return null;
     const jsonStr = raw2.replace(/^```(?:json)?/, "").replace(/```$/, "").trim();
     const parsed = JSON.parse(jsonStr);
     if (!parsed.vibe || !Array.isArray(parsed.strengths) || !parsed.bestFor) return null;
@@ -5461,8 +5487,8 @@ app.patch("/api/admin/patch-shop", async (c) => {
 app.post("/api/admin/fill-summaries", async (c) => {
   await ensureDb(c.env);
   const sql = getDb(c.env);
-  const gskKey = c.env?.GSK_TOKEN || c.env?.gsk_token || "";
-  if (!gskKey) return c.json({ error: "GSK_TOKEN not configured" }, 500);
+  const _gskToken = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
+  const _geminiKey = c.env?.GEMINI_API_KEY || GEMINI_API_KEY_DEFAULT;
   const body = await c.req.json().catch(() => ({}));
   const targetIds = Array.isArray(body.ids) ? body.ids : [];
   const rows = targetIds.length > 0 ? await sql`SELECT id, name, reviews FROM shops WHERE id = ANY(${targetIds}::text[]) AND reviews IS NOT NULL AND reviews::text != '[]'` : await sql`SELECT id, name, reviews FROM shops WHERE review_summary IS NULL AND reviews IS NOT NULL AND reviews::text != '[]' AND active = true`;
@@ -5474,8 +5500,7 @@ app.post("/api/admin/fill-summaries", async (c) => {
         results.push({ id: row.id, name: row.name, status: "skipped: no reviews" });
         continue;
       }
-      const _fillGeminiKey = c.env?.GEMINI_API_KEY || GEMINI_API_KEY_DEFAULT;
-      const summary = await genReviewSummary(row.name, reviews, "", _fillGeminiKey);
+      const summary = await genReviewSummary(row.name, reviews, _gskToken, _geminiKey);
       if (!summary) {
         results.push({ id: row.id, name: row.name, status: "skipped: summary failed" });
         continue;
