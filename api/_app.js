@@ -3476,7 +3476,7 @@ app.post("/api/shops", async (c) => {
       const _cl3 = _catLbl[body.category || ""] || (body.category || "beauty");
       const _ll3 = (body.location || "Seoul").includes("Seoul") ? body.location || "Seoul" : `${body.location || "Seoul"}, Seoul`;
       const _rt3 = String(body.rating || 5), _rc3 = Number(body.reviewCount || 0).toLocaleString();
-      seoText = `<h2 class="sp-seo-h2">${body.name || ""} \u2014 ${_cl3.charAt(0).toUpperCase() + _cl3.slice(1)} in ${_ll3}</h2><p class="sp-seo-p">${body.name || ""} is a highly rated ${_cl3} in ${_ll3}, holding a <strong>${_rt3}/5.0 rating</strong> from over <strong>${_rc3} verified reviews</strong>. Consistently recommended by international visitors to Seoul in 2026 for its quality treatments and English-friendly service.</p><h2 class="sp-seo-h2">Why Travelers Choose ${body.name || ""}</h2><ul class="sp-seo-ul">${whyChoose.slice(0, 5).map((w) => `<li>${w}</li>`).join("")}</ul><h2 class="sp-seo-h2">Treatments &amp; Services at ${body.name || ""}</h2><p class="sp-seo-p">${body.name || ""} offers a comprehensive range of ${_cl3} services, making it a top destination for travelers seeking expert beauty and wellness treatments in ${_ll3}, South Korea.</p><h2 class="sp-seo-h2">How to Book ${body.name || ""} as a Foreign Visitor</h2><p class="sp-seo-p">Booking takes under 2 minutes \u2014 tap the WhatsApp button, describe your desired treatment, and our English-speaking team confirms your appointment and explains pricing. Located in ${_ll3}, easily accessible by subway. No Korean needed.</p>`;
+      seoText = `<h2 class="sp-seo-h2">${body.name || ""} \u2014 ${_cl3.charAt(0).toUpperCase() + _cl3.slice(1)} in ${_ll3}</h2><p class="sp-seo-p">${body.name || ""} is a highly rated ${_cl3} in ${_ll3}, holding a <strong>${_rt3}/5.0 rating</strong> from over <strong>${_rc3} verified reviews</strong>. Consistently recommended by international visitors to Seoul in 2026 for its quality treatments and English-friendly service.</p><h2 class="sp-seo-h2">Why Travelers Choose ${body.name || ""}</h2><ul class="sp-seo-ul">${whyChoose.slice(0, 5).map((w) => `<li>${w}</li>`).join("")}</ul><h2 class="sp-seo-h2">Treatments &amp; Services at ${body.name || ""}</h2><p class="sp-seo-p">${body.name || ""} specializes in ${_cl3} services in ${_ll3}, Seoul \u2014 a top choice for international visitors seeking quality Korean beauty treatments in 2026.</p><h2 class="sp-seo-h2">How to Book ${body.name || ""} as a Foreign Visitor</h2><p class="sp-seo-p">Booking takes under 2 minutes \u2014 tap the WhatsApp button, describe your desired treatment, and our English-speaking team confirms your appointment and explains pricing. Located in ${_ll3}, easily accessible by subway. No Korean needed.</p>`;
     }
   }
   const slug = await makeShopSlug(sql, body.name || "", body.location || "", body.category || "");
@@ -3535,7 +3535,7 @@ app.put("/api/shops/:id", async (c) => {
       const _cl4 = _catLbl2[body.category || ""] || (body.category || "beauty");
       const _ll4 = (body.location || "Seoul").includes("Seoul") ? body.location || "Seoul" : `${body.location || "Seoul"}, Seoul`;
       const _rt4 = String(body.rating || 5), _rc4 = Number(body.reviewCount || 0).toLocaleString();
-      seoTextPut = `<h2 class="sp-seo-h2">${body.name || ""} \u2014 ${_cl4.charAt(0).toUpperCase() + _cl4.slice(1)} in ${_ll4}</h2><p class="sp-seo-p">${body.name || ""} is a highly rated ${_cl4} in ${_ll4}, holding a <strong>${_rt4}/5.0 rating</strong> from over <strong>${_rc4} verified reviews</strong>. Consistently recommended by international visitors to Seoul in 2026 for its quality treatments and English-friendly service.</p><h2 class="sp-seo-h2">Why Travelers Choose ${body.name || ""}</h2><ul class="sp-seo-ul">${whyChoose.slice(0, 5).map((w) => `<li>${w}</li>`).join("")}</ul><h2 class="sp-seo-h2">Treatments &amp; Services at ${body.name || ""}</h2><p class="sp-seo-p">${body.name || ""} offers a comprehensive range of ${_cl4} services, making it a top destination for travelers seeking expert beauty and wellness treatments in ${_ll4}, South Korea.</p><h2 class="sp-seo-h2">How to Book ${body.name || ""} as a Foreign Visitor</h2><p class="sp-seo-p">Booking takes under 2 minutes \u2014 tap the WhatsApp button, describe your desired treatment, and our English-speaking team confirms your appointment and explains pricing. Located in ${_ll4}, easily accessible by subway. No Korean needed.</p>`;
+      seoTextPut = `<h2 class="sp-seo-h2">${body.name || ""} \u2014 ${_cl4.charAt(0).toUpperCase() + _cl4.slice(1)} in ${_ll4}</h2><p class="sp-seo-p">${body.name || ""} is a highly rated ${_cl4} in ${_ll4}, holding a <strong>${_rt4}/5.0 rating</strong> from over <strong>${_rc4} verified reviews</strong>. Consistently recommended by international visitors to Seoul in 2026 for its quality treatments and English-friendly service.</p><h2 class="sp-seo-h2">Why Travelers Choose ${body.name || ""}</h2><ul class="sp-seo-ul">${whyChoose.slice(0, 5).map((w) => `<li>${w}</li>`).join("")}</ul><h2 class="sp-seo-h2">Treatments &amp; Services at ${body.name || ""}</h2><p class="sp-seo-p">${body.name || ""} specializes in ${_cl4} services in ${_ll4}, Seoul \u2014 consistently recommended by international visitors in 2026 for quality and English-friendly care.</p><h2 class="sp-seo-h2">How to Book ${body.name || ""} as a Foreign Visitor</h2><p class="sp-seo-p">Booking takes under 2 minutes \u2014 tap the WhatsApp button, describe your desired treatment, and our English-speaking team confirms your appointment and explains pricing. Located in ${_ll4}, easily accessible by subway. No Korean needed.</p>`;
     }
   }
   const slugVal = body.slug || await makeShopSlug(sql, body.name || "", body.location || "", body.category || "");
@@ -3780,7 +3780,7 @@ app.post("/api/shops/fill-seo-bulk", async (c) => {
       const newKw = row.seo_keywords || (seo && Array.isArray(seo.keywords) ? seo.keywords.join(", ") : `${row.name} Seoul, best ${row.category} ${_area5} Seoul`);
       const newWhy = row.why_choose && row.why_choose !== "[]" ? row.why_choose : JSON.stringify(seo && Array.isArray(seo.whyChoose) ? seo.whyChoose : _fallbackWhy);
       const _parsedWhy = JSON.parse(newWhy);
-      const newSeoT = row.seo_text || seo?.seoText || `<h2 class="sp-seo-h2">${row.name} \u2014 ${_cl5.charAt(0).toUpperCase() + _cl5.slice(1)} in ${_ll5}</h2><p class="sp-seo-p">${row.name} is a highly rated ${_cl5} in ${_ll5}, holding a <strong>${_rt5}/5.0 rating</strong> from over <strong>${_rc5} verified reviews</strong>. Consistently recommended by international visitors to Seoul in 2026.</p><h2 class="sp-seo-h2">Why Travelers Choose ${row.name}</h2><ul class="sp-seo-ul">${_parsedWhy.slice(0, 5).map((w) => `<li>${w}</li>`).join("")}</ul><h2 class="sp-seo-h2">Treatments &amp; Services at ${row.name}</h2><p class="sp-seo-p">${row.name} offers a comprehensive range of ${_cl5} services in ${_ll5}, South Korea. English consultations available.</p><h2 class="sp-seo-h2">How to Book ${row.name} as a Foreign Visitor</h2><p class="sp-seo-p">Tap the WhatsApp button to book in under 2 minutes. Our English-speaking team confirms your appointment and explains all pricing. Located in ${_ll5}, easily accessible by subway. No Korean needed.</p>`;
+      const newSeoT = row.seo_text || seo?.seoText || `<h2 class="sp-seo-h2">${row.name} \u2014 ${_cl5.charAt(0).toUpperCase() + _cl5.slice(1)} in ${_ll5}</h2><p class="sp-seo-p">${row.name} is a highly rated ${_cl5} in ${_ll5}, holding a <strong>${_rt5}/5.0 rating</strong> from over <strong>${_rc5} verified reviews</strong>. Consistently recommended by international visitors to Seoul in 2026.</p><h2 class="sp-seo-h2">Why Travelers Choose ${row.name}</h2><ul class="sp-seo-ul">${_parsedWhy.slice(0, 5).map((w) => `<li>${w}</li>`).join("")}</ul><h2 class="sp-seo-h2">Treatments &amp; Services at ${row.name}</h2><p class="sp-seo-p">${row.name} provides ${_cl5} treatments in ${_ll5}, Seoul. English consultations available, with WhatsApp booking supported for international visitors.</p><h2 class="sp-seo-h2">How to Book ${row.name} as a Foreign Visitor</h2><p class="sp-seo-p">Tap the WhatsApp button to book in under 2 minutes. Our English-speaking team confirms your appointment and explains all pricing. Located in ${_ll5}, easily accessible by subway. No Korean needed.</p>`;
       await sql`UPDATE shops SET
         description=${newDesc},
         meta_description=${newMeta},
@@ -4419,7 +4419,7 @@ app.post("/api/quick-register", async (c) => {
       const _rc = Number(resolvedData.reviewCount || 0).toLocaleString();
       const _locLabel = loc.includes("Seoul") ? loc : `${loc}, Seoul`;
       const _whyItems = whyChoose.slice(0, 5).map((w) => `<li>${w}</li>`).join("");
-      seoTextVal = `<h2 class="sp-seo-h2">${engName} \u2014 ${_clTitle} in ${_locLabel}</h2><p class="sp-seo-p">${engName} is a highly rated ${_cl} in ${_locLabel}, holding a <strong>${_rt}/5.0 rating</strong> from over <strong>${_rc} verified reviews</strong>. Consistently recommended by international visitors to Seoul in 2026 for its quality treatments and English-friendly service.</p><h2 class="sp-seo-h2">Why Travelers Choose ${engName}</h2><ul class="sp-seo-ul">${_whyItems}</ul><h2 class="sp-seo-h2">Treatments &amp; Services at ${engName}</h2><p class="sp-seo-p">${engName} offers a comprehensive range of ${_cl} services, making it a top destination for travelers seeking expert beauty and wellness treatments in ${_locLabel}, South Korea. From first consultation to aftercare, the team ensures every international guest feels comfortable and informed.</p><h2 class="sp-seo-h2">How to Book ${engName} as a Foreign Visitor</h2><p class="sp-seo-p">Booking takes under 2 minutes \u2014 tap the WhatsApp button, describe your desired treatment, and our English-speaking team will confirm your appointment and explain pricing. Located in ${_locLabel}, easily accessible from major transit hubs. No Korean needed.</p>`;
+      seoTextVal = `<h2 class="sp-seo-h2">${engName} \u2014 ${_clTitle} in ${_locLabel}</h2><p class="sp-seo-p">${engName} is a highly rated ${_cl} in ${_locLabel}, holding a <strong>${_rt}/5.0 rating</strong> from over <strong>${_rc} verified reviews</strong>. Consistently recommended by international visitors to Seoul in 2026 for its quality treatments and English-friendly service.</p><h2 class="sp-seo-h2">Why Travelers Choose ${engName}</h2><ul class="sp-seo-ul">${_whyItems}</ul><h2 class="sp-seo-h2">Treatments &amp; Services at ${engName}</h2><p class="sp-seo-p">${engName} provides ${_cl} treatments in ${_locLabel}, Seoul. From first consultation to aftercare, the team ensures every international guest feels comfortable and informed \u2014 with English support throughout.</p><h2 class="sp-seo-h2">How to Book ${engName} as a Foreign Visitor</h2><p class="sp-seo-p">Booking takes under 2 minutes \u2014 tap the WhatsApp button, describe your desired treatment, and our English-speaking team will confirm your appointment and explain pricing. Located in ${_locLabel}, easily accessible from major transit hubs. No Korean needed.</p>`;
     }
     const photos = sanitizePhotos(resolvedData.photos || []);
     const thumbnail = sanitizeThumb(resolvedData.thumbnail || "", photos);
@@ -5617,7 +5617,7 @@ People: `);
   const _svc2 = shop.services && shop.services.length > 1 ? shop.services[1] : "";
   const _svcPart = _svc1 ? _svc2 ? _svc1 + " & " + _svc2 : _svc1 : "";
   const _areaClean = _shopArea.replace(", Seoul", "").trim();
-  const _metaDesc = shop.metaDescription && shop.metaDescription.trim().length > 30 ? trimDesc(shop.metaDescription.replace(/Gangnam,?\s*Seoul Seoul/g, "Gangnam, Seoul"), 160) : trimDesc(shop.name + " is a " + _rating + " foreigner-friendly " + _catLbl2 + " in " + _areaClean + ", Seoul." + (_revs ? " " + _revs + "." : "") + (_svcPart ? " Specializing in " + _svcPart + "." : "") + " English booking via WhatsApp. Same-day appointments available.", 160);
+  const _metaDesc = shop.metaDescription && shop.metaDescription.trim().length > 30 ? trimDesc(shop.metaDescription.replace(/([\w][\w\s,]*?)\s+Seoul\s+Seoul/g, "$1, Seoul").replace(/Seoul,\s*Seoul/g, "Seoul"), 160) : trimDesc(shop.name + " is a " + _rating + " foreigner-friendly " + _catLbl2 + " in " + _areaClean + ", Seoul." + (_revs ? " " + _revs + "." : "") + (_svcPart ? " Specializing in " + _svcPart + "." : "") + " English booking via WhatsApp. Same-day appointments available.", 160);
   const _areaGn = _shopArea.toLowerCase().includes("cheongdam") || _shopArea.toLowerCase().includes("apgujeong") ? "Gangnam" : _shopArea;
   const _n = shop.name;
   const _catKwMap = {
@@ -5663,7 +5663,8 @@ People: `);
     tattoo: "Eyebrow Tattoo Seoul"
   };
   const _bcCatName = _breadcrumbCatLabels[_shopCat] || _shopCat;
-  const _bcAreaSlug = _shopArea.toLowerCase().replace(/\s+/g, "-").replace("cheongdam", "gangnam").replace("apgujeong", "gangnam").replace("sinsa", "gangnam").replace("seocho", "gangnam");
+  const _bcAreaSlugRaw = _shopArea.toLowerCase().replace(/\s+/g, "-").replace("cheongdam", "gangnam").replace("apgujeong", "gangnam").replace("sinsa", "gangnam");
+  const _bcAreaSlug = typeof AREA_LABELS !== "undefined" && AREA_LABELS[_bcAreaSlugRaw] ? _bcAreaSlugRaw : "seoul";
   const _bcCatSlug = _shopCat;
   const _bcAreaItem = `{"@type":"ListItem","position":3,"name":"${_shopArea}","item":"${base}/best/${_bcCatSlug}/${_bcAreaSlug}"}`;
   const _wpCatLabels = {
@@ -5782,7 +5783,7 @@ ${SB_TRACKER_SCRIPT}
       "@type":"BreadcrumbList",
       "itemListElement":[
         {"@type":"ListItem","position":1,"name":"Home","item":"${base}/"},
-        {"@type":"ListItem","position":2,"name":"${_bcCatName}","item":"${base}/best/${_bcCatSlug}/gangnam"},
+        {"@type":"ListItem","position":2,"name":"${_bcCatName}","item":"${base}/best/${_bcCatSlug}/${_bcAreaSlug}"},
         ${_bcAreaItem},
         {"@type":"ListItem","position":4,"name":"${shop.name}","item":"${canonicalUrl}"}
       ]
@@ -6697,189 +6698,12 @@ app.get("/video/:id", async (c) => {
   const sql = getDb(c.env);
   const vid = c.req.param("id");
   const rows = await sql`
-    SELECT v.*, s.name as shop_name, s.slug as shop_slug,
-           s.category as shop_cat, s.location as shop_loc,
-           s.thumbnail as shop_thumb, s.google_map_url as shop_map
+    SELECT s.slug as shop_slug
     FROM videos v LEFT JOIN shops s ON v.shop_id=s.id
     WHERE v.id=${vid}`;
-  if (!rows.length) return c.notFound();
+  if (!rows.length) return c.redirect("/", 301);
   const r = rows[0];
-  const video = rowToVideo({ ...r, shop_name: r.shop_name });
-  const base = "https://seoulbeautytrip.com";
-  const pageUrl = `${base}/video/${vid}`;
-  const autoThumb = video.videoUrl && video.videoUrl.includes("cloudinary.com") ? video.videoUrl.replace("/video/upload/", "/video/upload/so_0,w_600,h_1066,c_fill,q_auto/").replace(/\.mp4$/, ".jpg") : "";
-  const shopThumbAbs = r.shop_thumb && String(r.shop_thumb).startsWith("http") ? r.shop_thumb : "";
-  const thumb = (video.thumbnail && video.thumbnail.startsWith("http") ? video.thumbnail : "") || autoThumb || shopThumbAbs || `https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg`;
-  const ogThumb = thumb.startsWith("http") ? thumb : `${base}${thumb}`;
-  const shopName = r.shop_name || "Seoul Beauty";
-  const title = video.title || `${shopName} Beauty Video`;
-  const desc = video.description || `Watch ${shopName} beauty treatments and services in Seoul. Book via WhatsApp.`;
-  const uploadDate = video.createdAt ? video.createdAt.includes("T") ? video.createdAt : video.createdAt + "T00:00:00+09:00" : (/* @__PURE__ */ new Date()).toISOString();
-  const streamUrl = video.videoUrl ? video.videoUrl.replace("/video/upload/", "/video/upload/q_auto:low,vc_auto,br_800k/") : "";
-  const shopUrl = r.shop_slug ? `${base}/shop/${r.shop_slug}` : `${base}/`;
-  const videoLd = {
-    "@context": "https://schema.org",
-    "@type": "VideoObject",
-    "name": title,
-    "description": desc,
-    "thumbnailUrl": ogThumb,
-    "uploadDate": uploadDate,
-    "embedUrl": pageUrl,
-    "contentUrl": video.videoUrl || streamUrl,
-    "duration": "PT30S",
-    "isFamilyFriendly": true,
-    "inLanguage": "en",
-    "publisher": {
-      "@type": "Organization",
-      "name": "Seoul Beauty Trip",
-      "url": base,
-      "logo": { "@type": "ImageObject", "url": `https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg` }
-    }
-  };
-  const ldJson = JSON.stringify(videoLd).replace(/<\/script>/gi, "<\\/script>").replace(/<!--/g, "<\\!--");
-  const waMsg = encodeURIComponent(`[ Booking Request ]
-Shop: ${shopName}${r.shop_loc ? " (" + r.shop_loc.split(",")[0].trim() + ")" : ""}
-
-Date: 
-Time: 
-Service: 
-Name: 
-People: `);
-  const waUrl = `https://wa.me/${PLATFORM.whatsapp}?text=${waMsg}`;
-  return c.html(`<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-1N9ZQRHLJ0"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-  gtag('config', 'G-1N9ZQRHLJ0');
-</script>
-${SB_TRACKER_SCRIPT}
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${title} | Seoul Beauty Trip</title>
-<meta name="description" content="${trimDesc(desc)}">
-<meta name="robots" content="index, follow">
-<link rel="canonical" href="${pageUrl}">
-<meta property="og:type" content="video.other">
-<meta property="og:title" content="${title} | Seoul Beauty Trip">
-<meta property="og:description" content="${trimDesc(desc)}">
-<meta property="og:image" content="${ogThumb}">
-<meta property="og:url" content="${pageUrl}">
-<meta property="og:site_name" content="Seoul Beauty Trip">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="${title} | Seoul Beauty Trip">
-<meta name="twitter:description" content="${trimDesc(desc)}">
-<meta name="twitter:image" content="${ogThumb}">
-<meta property="og:video" content="${streamUrl}">
-<meta property="og:video:secure_url" content="${streamUrl}">
-<meta property="og:video:type" content="video/mp4">
-<meta property="og:video:width" content="600">
-<meta property="og:video:height" content="1066">
-<script type="application/ld+json">${ldJson}</script>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-html,body{background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;height:100%;overflow:hidden}
-/* \u2500\u2500 full-viewport video player: Google\uC774 "\uB3D9\uC601\uC0C1\uC774 \uC8FC\uC694 \uCF58\uD150\uCE20"\uB85C \uC778\uC2DD\uD558\uAC8C \uD568 \u2500\u2500 */
-#player-page{position:fixed;inset:0;display:flex;flex-direction:column;background:#000}
-#vid-container{position:relative;flex:1;overflow:hidden;background:#000}
-#mainVid{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block;cursor:pointer}
-#vid-poster{position:absolute;inset:0;background-size:cover;background-position:center;background-color:#000;pointer-events:none}
-#play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:72px;height:72px;border-radius:50%;background:rgba(0,0,0,.55);border:2.5px solid rgba(255,255,255,.45);display:flex;align-items:center;justify-content:center;cursor:pointer;backdrop-filter:blur(6px);transition:opacity .2s}
-#play-btn svg{fill:#fff;margin-left:5px}
-/* \uD558\uB2E8 \uC624\uBC84\uB808\uC774: \uC601\uC0C1 \uC704\uC5D0 \uBC18\uD22C\uBA85\uC73C\uB85C \uC62C\uB9BC */
-#bottom-overlay{position:absolute;bottom:0;left:0;right:0;padding:0 16px 20px;background:linear-gradient(transparent,rgba(0,0,0,.85) 40%);pointer-events:none}
-#bottom-overlay .info{pointer-events:auto}
-.shop-nm{font-size:16px;font-weight:700;color:#fff;line-height:1.3;margin-bottom:2px;text-shadow:0 1px 4px rgba(0,0,0,.8)}
-.shop-lc{font-size:13px;color:rgba(255,255,255,.7);margin-bottom:10px;text-shadow:0 1px 3px rgba(0,0,0,.8)}
-.vid-ttl{font-size:13px;color:rgba(255,255,255,.85);line-height:1.45;margin-bottom:12px;text-shadow:0 1px 3px rgba(0,0,0,.8)}
-.act-row{display:flex;gap:8px;margin-bottom:8px}
-.btn-wa{flex:1;background:#25D366;color:#fff;border:none;border-radius:12px;padding:12px 10px;font-size:14px;font-weight:700;cursor:pointer;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:7px;box-shadow:0 2px 8px rgba(0,0,0,.4)}
-.btn-sh{flex:0 0 auto;background:rgba(255,255,255,.1);color:#FF4D8D;border:1px solid rgba(255,77,141,.5);border-radius:12px;padding:12px 14px;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:5px;backdrop-filter:blur(4px)}
-/* \uC0C1\uB2E8 back bar */
-#top-bar{position:absolute;top:0;left:0;right:0;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(rgba(0,0,0,.6),transparent);z-index:10;pointer-events:auto}
-#top-bar a{color:#FF4D8D;text-decoration:none;font-size:14px;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,.8)}
-#top-bar span{font-size:12px;color:rgba(255,255,255,.6);text-shadow:0 1px 3px rgba(0,0,0,.8)}
-</style>
-</head>
-<body>
-<div id="player-page">
-  <div id="vid-container">
-    <!-- \uC378\uB124\uC77C \uD3EC\uC2A4\uD130 -->
-    <div id="vid-poster" style="background-image:url('${ogThumb}')"></div>
-    <!-- primary video element: Google\uC774 \uC774 \uD398\uC774\uC9C0\uC758 \uC8FC\uC694 \uCF58\uD150\uCE20\uB85C \uC778\uC2DD -->
-    <video id="mainVid" loop playsinline preload="metadata"
-      itemprop="video"
-      poster="${ogThumb}"
-      src="${streamUrl}"
-    ></video>
-    <!-- \uC0C1\uB2E8 back bar -->
-    <div id="top-bar">
-      <a href="/">\u2190 Seoul Beauty Trip</a>
-      <span>Beauty Video</span>
-    </div>
-    <!-- \uC7AC\uC0DD \uBC84\uD2BC -->
-    <div id="play-btn" onclick="togglePlay()">
-      <svg width="26" height="26" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-    </div>
-    <!-- \uD558\uB2E8 \uC815\uBCF4 \uC624\uBC84\uB808\uC774 -->
-    <div id="bottom-overlay">
-      <div class="info">
-        ${r.shop_name ? `<div class="shop-nm">${r.shop_name}</div>` : ""}
-        ${r.shop_loc ? `<div class="shop-lc">\u{1F4CD} ${r.shop_loc.split(",")[0].trim()}, Seoul</div>` : ""}
-        ${video.title ? `<div class="vid-ttl">${video.title}</div>` : ""}
-        <div class="act-row">
-          <a class="btn-wa" href="${waUrl}" target="_blank" rel="noopener">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-            Book via WhatsApp
-          </a>
-          ${r.shop_slug ? `<a class="btn-sh" href="${shopUrl}">\u{1F3EA} Shop</a>` : ""}
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-<script>
-var vid = document.getElementById('mainVid');
-var playBtn = document.getElementById('play-btn');
-var poster = document.getElementById('vid-poster');
-var playing = false;
-function togglePlay(){
-  if(!playing){
-    vid.play().then(function(){
-      playing=true;
-      if(poster) poster.style.display='none';
-      playBtn.style.display='none';
-    }).catch(function(){
-      vid.muted=true;
-      vid.play().then(function(){
-        playing=true;
-        if(poster) poster.style.display='none';
-        playBtn.style.display='none';
-      }).catch(function(){});
-    });
-  } else {
-    vid.pause();
-    playing=false;
-    playBtn.style.display='flex';
-  }
-}
-vid.addEventListener('click', togglePlay);
-vid.addEventListener('ended', function(){
-  playing=false;
-  playBtn.style.display='flex';
-  if(poster){ poster.style.display='block'; }
-});
-// \uC870\uD68C\uC218 \uCE74\uC6B4\uD2B8 (IP \uC911\uBCF5 \uBC29\uC9C0 \uC801\uC6A9)
-fetch('/api/videos/${vid}/view',{method:'POST'}).catch(function(){});
-// GA4: \uB2E8\uC77C \uC601\uC0C1 \uD398\uC774\uC9C0 \uC7AC\uC0DD \uC774\uBCA4\uD2B8
-if(typeof gtag!=='undefined') gtag('event','video_play',{event_category:'video',video_id:'${vid}',video_title:'${video.title.replace(/'/g, "'")}',page_location:window.location.href});
-</script>
-</body>
-</html>`);
+  return c.redirect(r.shop_slug ? `/shop/${r.shop_slug}` : "/", 301);
 });
 var BEST_CAT_REDIRECTS = {
   "plastic-surgery": "clinic",
@@ -9328,7 +9152,6 @@ app.get("/sitemap.xml", async (c) => {
   const sql = getDb(c.env);
   let shopSlugs = [];
   let blogSlugs = [];
-  let videoIds = [];
   try {
     const rows = await sql`SELECT slug FROM shops WHERE active=true AND slug IS NOT NULL AND slug!=''`;
     shopSlugs = rows.map((r) => r.slug).filter((s) => {
@@ -9348,11 +9171,6 @@ app.get("/sitemap.xml", async (c) => {
       if (!d || d.trim().length < 20) return false;
       return true;
     }).map((r) => r.slug);
-  } catch (e) {
-  }
-  try {
-    const vrows = await sql`SELECT id FROM videos ORDER BY created_at DESC`;
-    videoIds = vrows.map((r) => String(r.id)).filter(Boolean);
   } catch (e) {
   }
   const base = "https://seoulbeautytrip.com";
@@ -9414,9 +9232,6 @@ app.get("/sitemap.xml", async (c) => {
     ),
     ...blogSlugs.map(
       (slug) => `<url><loc>${base}/blog/${slug}</loc><changefreq>weekly</changefreq><priority>0.85</priority><lastmod>${today}</lastmod></url>`
-    ),
-    ...videoIds.map(
-      (id) => `<url><loc>${base}/video/${id}</loc><changefreq>monthly</changefreq><priority>0.7</priority><lastmod>${today}</lastmod></url>`
     )
   ].join("\n  ");
   return c.body(`<?xml version="1.0" encoding="UTF-8"?>
