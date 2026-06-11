@@ -9074,7 +9074,7 @@ const MAIN_HTML = `<!DOCTYPE html>
 <meta property="og:site_name" content="Seoul Beauty Trip">
 <meta property="og:title" content="Seoul Beauty Trip — Book Korean Beauty in Seoul">
 <meta property="og:description" content="Best skin clinics & beauty salons in Seoul for foreigners. English-speaking staff, WhatsApp booking. Trusted by tourists.">
-<meta property="og:image" content="https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg">
+<meta property="og:image" content="https://seoulbeautytrip.com/og-cover.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:type" content="image/jpeg">
@@ -9086,7 +9086,7 @@ const MAIN_HTML = `<!DOCTYPE html>
 <meta name="twitter:site" content="@seoulbeautytrip">
 <meta name="twitter:title" content="Seoul Beauty Trip — Book Korean Beauty in Seoul">
 <meta name="twitter:description" content="Best skin clinics & beauty salons in Seoul for foreigners. English support, WhatsApp booking.">
-<meta name="twitter:image" content="https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg">
+<meta name="twitter:image" content="https://seoulbeautytrip.com/og-cover.jpg">
 <meta name="twitter:image:alt" content="Seoul Beauty Trip — Book Korean Beauty in Seoul">
 <!-- Schema.org -->
 <script type="application/ld+json">
