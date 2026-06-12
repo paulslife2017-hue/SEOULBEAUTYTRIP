@@ -11,8 +11,7 @@ type Env = {
   GA4_SERVICE_ACCOUNT_KEY: string
   GA4_PROPERTY_ID: string
   GEMINI_API_KEY: string
-  DATAFORSEO_LOGIN: string
-  DATAFORSEO_PASSWORD: string
+  SERPAPI_KEY: string
 }
 
 // GA4 설정 (환경변수 우선, 없으면 내장값 사용)
@@ -3964,96 +3963,96 @@ app.post('/api/admin/fill-summaries', async (c) => {
   return c.json({ total: rows.length, ok: results.filter(r => r.status === 'ok').length, results })
 })
 
-// ── DataForSEO 헬퍼 ──────────────────────────────────────────────────────────
-function getDataForSeoAuth(env: Env): string {
-  const login = (env as any)?.DATAFORSEO_LOGIN || ''
-  const pass  = (env as any)?.DATAFORSEO_PASSWORD || ''
-  if (!login || !pass) return ''
-  return 'Basic ' + btoa(`${login}:${pass}`)
+// ── SerpApi 헬퍼 ─────────────────────────────────────────────────────────────
+function getSerpApiKey(env: Env): string {
+  return (env as any)?.SERPAPI_KEY || ''
 }
 
-// GET /api/admin/keyword-volume?keywords=kw1,kw2,...&location=South Korea
-// DataForSEO로 키워드 검색량 조회
+// GET /api/admin/keyword-volume?keywords=kw1,kw2,...
+// SerpApi Google Trends + Autocomplete로 키워드 트렌드/연관어 조회
 app.get('/api/admin/keyword-volume', async (c) => {
-  const auth = getDataForSeoAuth(c.env)
-  if (!auth) return c.json({ error: 'DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD not configured' }, 500)
+  const apiKey = getSerpApiKey(c.env)
+  if (!apiKey) return c.json({ error: 'SERPAPI_KEY not configured' }, 500)
 
   const kwParam = c.req.query('keywords') || ''
-  const location = c.req.query('location') || 'South Korea'
-  const keywords = kwParam.split(',').map(k => k.trim()).filter(Boolean).slice(0, 20)
+  const keywords = kwParam.split(',').map((k: string) => k.trim()).filter(Boolean).slice(0, 10)
   if (!keywords.length) return c.json({ error: 'keywords required' }, 400)
 
   try {
-    const res = await fetch('https://api.dataforseo.com/v3/keywords_data/google_ads/search_volume/live', {
-      method: 'POST',
-      headers: { 'Authorization': auth, 'Content-Type': 'application/json' },
-      body: JSON.stringify([{
-        keywords,
-        language_name: 'English',
-        location_name: location
-      }])
-    })
-    const data: any = await res.json()
-    if (!res.ok || data.status_code !== 20000) {
-      return c.json({ error: data.status_message || 'DataForSEO error', code: data.status_code }, 400)
-    }
+    // 키워드별로 Google Autocomplete + Related Searches 병렬 조회
+    const results = await Promise.all(keywords.map(async (kw: string) => {
+      // ① Autocomplete — 연관 키워드 존재 여부 확인
+      const acUrl = `https://serpapi.com/search.json?engine=google_autocomplete&q=${encodeURIComponent(kw)}&api_key=${apiKey}`
+      const acRes = await fetch(acUrl)
+      const acData: any = acRes.ok ? await acRes.json() : {}
+      const suggestions: string[] = (acData.suggestions || []).slice(0, 5).map((s: any) => s.value || s)
 
-    const items: any[] = data.tasks?.[0]?.result?.[0]?.items || []
-    const result = items
-      .map((item: any) => ({
-        keyword:    item.keyword,
-        volume:     item.search_volume || 0,
-        competition: item.competition_level || 'N/A',  // LOW / MEDIUM / HIGH
-        cpc:        item.cpc ? `$${item.cpc.toFixed(2)}` : 'N/A',
-        trend:      item.monthly_searches?.slice(-3).map((m: any) => m.search_volume) || []
-      }))
-      .sort((a: any, b: any) => b.volume - a.volume)
+      // ② Google Trends — 트렌드 수치
+      const tUrl = `https://serpapi.com/search.json?engine=google_trends&q=${encodeURIComponent(kw)}&data_type=TIMESERIES&api_key=${apiKey}`
+      const tRes = await fetch(tUrl)
+      const tData: any = tRes.ok ? await tRes.json() : {}
+      const timelineData: any[] = tData.interest_over_time?.timeline_data || []
+      const recentValues = timelineData.slice(-4).map((d: any) => d.values?.[0]?.extracted_value || 0)
+      const avgTrend = recentValues.length
+        ? Math.round(recentValues.reduce((a: number, b: number) => a + b, 0) / recentValues.length)
+        : 0
 
-    return c.json({ total: result.length, keywords: result })
+      // 트렌드 점수로 볼륨 레벨 추정 (SerpApi Trends는 0~100 상대값)
+      const trendLevel = avgTrend >= 50 ? 'HIGH' : avgTrend >= 20 ? 'MEDIUM' : avgTrend > 0 ? 'LOW' : 'N/A'
+
+      return {
+        keyword:     kw,
+        volume:      avgTrend,   // 0~100 Google Trends 상대 점수
+        competition: trendLevel,
+        cpc:         'N/A',
+        suggestions
+      }
+    }))
+
+    return c.json({ total: results.length, keywords: results })
   } catch(e: any) {
     return c.json({ error: e.message }, 500)
   }
 })
 
-// GET /api/admin/keyword-ideas?seed=korean skin clinic&location=South Korea
-// DataForSEO 키워드 아이디어 (시드 키워드 → 연관 키워드 발굴)
+// GET /api/admin/keyword-ideas?seed=korean skin clinic
+// SerpApi Google Autocomplete + Related Searches로 연관 키워드 발굴
 app.get('/api/admin/keyword-ideas', async (c) => {
-  const auth = getDataForSeoAuth(c.env)
-  if (!auth) return c.json({ error: 'DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD not configured' }, 500)
+  const apiKey = getSerpApiKey(c.env)
+  if (!apiKey) return c.json({ error: 'SERPAPI_KEY not configured' }, 500)
 
   const seed = c.req.query('seed') || ''
-  const location = c.req.query('location') || 'South Korea'
   if (!seed) return c.json({ error: 'seed required' }, 400)
 
   try {
-    const res = await fetch('https://api.dataforseo.com/v3/keywords_data/google_ads/keywords_for_keywords/live', {
-      method: 'POST',
-      headers: { 'Authorization': auth, 'Content-Type': 'application/json' },
-      body: JSON.stringify([{
-        keywords: [seed],
-        language_name: 'English',
-        location_name: location,
-        limit: 30
-      }])
+    // ① Google Autocomplete
+    const acUrl = `https://serpapi.com/search.json?engine=google_autocomplete&q=${encodeURIComponent(seed)}&api_key=${apiKey}`
+    const acRes = await fetch(acUrl)
+    const acData: any = acRes.ok ? await acRes.json() : {}
+    const autoKeywords: string[] = (acData.suggestions || []).map((s: any) => s.value || s)
+
+    // ② Google Search Related Searches + People Also Ask
+    const srUrl = `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(seed)}&api_key=${apiKey}`
+    const srRes = await fetch(srUrl)
+    const srData: any = srRes.ok ? await srRes.json() : {}
+    const relatedSearches: string[] = (srData.related_searches || []).map((r: any) => r.query || r)
+    const relatedQuestions: string[] = (srData.related_questions || []).map((q: any) => q.question || q)
+
+    // 중복 제거 후 합치기
+    const allKeywords = [...new Set([...autoKeywords, ...relatedSearches])]
+    const result = allKeywords.map((kw: string) => ({
+      keyword:     kw,
+      volume:      0,     // SerpApi Autocomplete는 볼륨 미제공 (트렌드 별도 조회)
+      competition: 'N/A',
+      cpc:         'N/A'
+    }))
+
+    return c.json({
+      seed,
+      total: result.length,
+      keywords: result,
+      questions: relatedQuestions.slice(0, 6)  // 블로그 소제목 아이디어용
     })
-    const data: any = await res.json()
-    if (!res.ok || data.status_code !== 20000) {
-      return c.json({ error: data.status_message || 'DataForSEO error', code: data.status_code }, 400)
-    }
-
-    const items: any[] = data.tasks?.[0]?.result?.[0]?.items || []
-    const result = items
-      .map((item: any) => ({
-        keyword:     item.keyword,
-        volume:      item.search_volume || 0,
-        competition: item.competition_level || 'N/A',
-        cpc:         item.cpc ? `$${item.cpc.toFixed(2)}` : 'N/A'
-      }))
-      .filter((item: any) => item.volume > 0)
-      .sort((a: any, b: any) => b.volume - a.volume)
-      .slice(0, 25)
-
-    return c.json({ seed, total: result.length, keywords: result })
   } catch(e: any) {
     return c.json({ error: e.message }, 500)
   }
@@ -13370,12 +13369,12 @@ textarea{height:80px;resize:none}
 <!-- ════ 블로그 탭 ════ -->
 <div class="tab-content" id="tab-blog">
 
-  <!-- ① 키워드 검색량 조회 (DataForSEO) -->
+  <!-- ① 키워드 발굴 (SerpApi) -->
   <div class="card" style="margin-bottom:16px;border-color:rgba(99,102,241,.35);background:rgba(99,102,241,.05)">
     <div class="card-header">
-      <div class="card-title"><i class="fas fa-chart-bar" style="color:#818cf8"></i> 키워드 검색량 조회 <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,.35);margin-left:6px">DataForSEO</span></div>
+      <div class="card-title"><i class="fas fa-chart-bar" style="color:#818cf8"></i> 키워드 발굴 <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,.35);margin-left:6px">SerpApi · Google Autocomplete / Trends</span></div>
     </div>
-    <p style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:12px">블로그 쓰기 전에 키워드 월간 검색량을 확인하세요. 검색량 많은 키워드를 타겟으로 블로그를 바로 생성할 수 있습니다.</p>
+    <p style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:12px">블로그 쓰기 전에 키워드를 분석하세요. 연관 키워드 발굴 → 트렌드 확인 → 블로그 테마 선정 흐름으로 사용하세요.</p>
 
     <!-- 시드 키워드 → 아이디어 발굴 -->
     <div style="margin-bottom:12px">
@@ -17915,32 +17914,39 @@ window.fixAllSlugs = async function fixAllSlugs() {
 }
 
 /* ══════════════════════════════════════════════════════
-   DataForSEO 키워드 검색량 / 아이디어 조회
+   SerpApi 키워드 발굴 / 트렌드 조회
 ══════════════════════════════════════════════════════ */
+// SerpApi 결과 테이블 렌더링
+// keyword-volume: Trends 점수(0~100) + 트렌드 레벨
+// keyword-ideas: Autocomplete + Related Searches (volume=0, 순수 키워드 목록)
 function renderKwTable(keywords, resultEl) {
   if (!keywords || !keywords.length) {
-    resultEl.innerHTML = '<div style="color:rgba(255,255,255,.4);font-size:12px;text-align:center;padding:10px">결과 없음</div>';
+    resultEl.insertAdjacentHTML('beforeend', '<div style="color:rgba(255,255,255,.4);font-size:12px;text-align:center;padding:10px">결과 없음</div>');
     return;
   }
-  var compColor = { 'LOW':'#34d399', 'MEDIUM':'#fbbf24', 'HIGH':'#f87171', 'N/A':'rgba(255,255,255,.3)' };
-  var html = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+  // Trends 기반: HIGH=많이 검색됨(초록), MEDIUM=보통(노랑), LOW=적음(파랑), N/A=데이터없음
+  var compColor = { 'HIGH':'#34d399', 'MEDIUM':'#fbbf24', 'LOW':'#93c5fd', 'N/A':'rgba(255,255,255,.3)' };
+  var hasTrend = keywords.some(function(k) { return k.volume > 0; });
+  var html = '<div style="overflow-x:auto;margin-top:4px"><table style="width:100%;border-collapse:collapse;font-size:12px">';
   html += '<thead><tr style="color:rgba(255,255,255,.4);border-bottom:1px solid rgba(255,255,255,.1)">'
     + '<th style="text-align:left;padding:7px 8px">키워드</th>'
-    + '<th style="padding:7px 8px;text-align:right">월 검색량</th>'
-    + '<th style="padding:7px 8px;text-align:center">경쟁도</th>'
-    + '<th style="padding:7px 8px;text-align:right">CPC</th>'
+    + (hasTrend ? '<th style="padding:7px 8px;text-align:right">Trends 점수</th><th style="padding:7px 8px;text-align:center">레벨</th>' : '')
     + '<th style="padding:7px 8px;text-align:center">블로그 생성</th>'
     + '</tr></thead><tbody>';
-  keywords.forEach(function(k, i) {
-    var vol = k.volume >= 1000 ? (k.volume/1000).toFixed(1)+'K' : String(k.volume);
-    var volColor = k.volume >= 500 ? '#34d399' : k.volume >= 100 ? '#93c5fd' : 'rgba(255,255,255,.4)';
-    var cc = compColor[k.competition] || 'rgba(255,255,255,.3)';
-    var safekw = k.keyword.replace(/"/g, '&quot;');
+  keywords.forEach(function(k) {
+    var safekw = (k.keyword || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    var dispkw = escHtml(k.keyword || '');
+    var volCell = '';
+    if (hasTrend) {
+      var volColor = k.volume >= 50 ? '#34d399' : k.volume >= 20 ? '#93c5fd' : 'rgba(255,255,255,.4)';
+      var volStr = k.volume > 0 ? String(k.volume) : '—';
+      var cc = compColor[k.competition] || 'rgba(255,255,255,.3)';
+      volCell = '<td style="padding:7px 8px;text-align:right;font-weight:700;color:' + volColor + '">' + volStr + '</td>'
+        + '<td style="padding:7px 8px;text-align:center;font-size:11px;color:' + cc + '">' + k.competition + '</td>';
+    }
     html += '<tr style="border-bottom:1px solid rgba(255,255,255,.05)">'
-      + '<td style="padding:7px 8px;color:#e2e8f0">' + k.keyword + '</td>'
-      + '<td style="padding:7px 8px;text-align:right;font-weight:700;color:' + volColor + '">' + vol + '</td>'
-      + '<td style="padding:7px 8px;text-align:center;font-size:11px;color:' + cc + '">' + k.competition + '</td>'
-      + '<td style="padding:7px 8px;text-align:right;color:rgba(255,255,255,.4)">' + k.cpc + '</td>'
+      + '<td style="padding:7px 8px;color:#e2e8f0">' + dispkw + '</td>'
+      + volCell
       + '<td style="padding:7px 8px;text-align:center">'
       + '<button onclick="kwToBlog(\'' + safekw + '\')" style="padding:4px 10px;background:rgba(255,77,141,.15);border:1px solid rgba(255,77,141,.3);border-radius:6px;color:#f9a8d4;font-size:11px;cursor:pointer" title="이 키워드로 블로그 생성">'
       + '<i class="fas fa-magic"></i> 생성</button>'
@@ -17948,7 +17954,7 @@ function renderKwTable(keywords, resultEl) {
   });
   html += '</tbody></table></div>';
   resultEl.style.display = 'block';
-  resultEl.innerHTML = html;
+  resultEl.insertAdjacentHTML('beforeend', html);
 }
 
 window.kwVolume = async function kwVolume() {
@@ -17958,13 +17964,14 @@ window.kwVolume = async function kwVolume() {
   if (!input) return;
   btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 조회 중...';
   resultEl.style.display = 'block';
-  resultEl.innerHTML = '<div style="color:rgba(255,255,255,.3);font-size:12px;text-align:center;padding:10px">⏳ DataForSEO 조회 중...</div>';
+  resultEl.innerHTML = '<div style="color:rgba(255,255,255,.3);font-size:12px;text-align:center;padding:10px">⏳ SerpApi Google Trends 조회 중...<br><span style="font-size:11px">키워드당 2회 API 호출, 잠시 기다려주세요</span></div>';
   try {
     var r = await fetch('/api/admin/keyword-volume?keywords=' + encodeURIComponent(input), {
       headers: { 'Authorization': 'Bearer 0907' }
     });
     var d = await r.json();
     if (!r.ok || d.error) { resultEl.innerHTML = '<div style="color:#fca5a5;font-size:12px">❌ ' + (d.error||'오류') + '</div>'; return; }
+    resultEl.innerHTML = '<div style="font-size:11px;color:rgba(255,255,255,.35);margin-bottom:4px">📈 Google Trends 점수 (0~100 상대값) · ' + d.total + '개 키워드<br><span style="font-size:10px;opacity:.7">50+ = 인기 높음 / 20~49 = 보통 / 20 미만 = 낮음</span></div>';
     renderKwTable(d.keywords, resultEl);
   } catch(e) {
     resultEl.innerHTML = '<div style="color:#fca5a5;font-size:12px">❌ ' + e.message + '</div>';
@@ -17980,16 +17987,36 @@ window.kwIdeas = async function kwIdeas() {
   if (!seed) return;
   btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 발굴 중...';
   resultEl.style.display = 'block';
-  resultEl.innerHTML = '<div style="color:rgba(255,255,255,.3);font-size:12px;text-align:center;padding:10px">⏳ 연관 키워드 발굴 중...</div>';
+  resultEl.innerHTML = '<div style="color:rgba(255,255,255,.3);font-size:12px;text-align:center;padding:10px">⏳ SerpApi 키워드 발굴 중...<br><span style="font-size:11px">Google Autocomplete + Related Searches 조회</span></div>';
   try {
     var r = await fetch('/api/admin/keyword-ideas?seed=' + encodeURIComponent(seed), {
       headers: { 'Authorization': 'Bearer 0907' }
     });
     var d = await r.json();
     if (!r.ok || d.error) { resultEl.innerHTML = '<div style="color:#fca5a5;font-size:12px">❌ ' + (d.error||'오류') + '</div>'; return; }
-    var header = '<div style="font-size:11px;color:rgba(255,255,255,.35);margin-bottom:8px">🔍 "' + escHtml(seed) + '" 연관 키워드 ' + d.total + '개</div>';
-    resultEl.innerHTML = header;
+
+    resultEl.innerHTML = '';
+    // 연관 키워드 헤더 + 테이블
+    resultEl.insertAdjacentHTML('beforeend',
+      '<div style="font-size:11px;color:rgba(255,255,255,.35);margin-bottom:4px">🔍 "' + escHtml(seed) + '" · Google Autocomplete + Related Searches · ' + d.total + '개</div>'
+    );
     renderKwTable(d.keywords, resultEl);
+
+    // People Also Ask — 블로그 소재 아이디어
+    if (d.questions && d.questions.length) {
+      var qHtml = '<div style="margin-top:14px">';
+      qHtml += '<div style="font-size:11px;color:rgba(255,255,255,.35);margin-bottom:8px">💬 People Also Ask — 블로그 테마 아이디어 (' + d.questions.length + '개)</div>';
+      qHtml += '<div style="display:flex;flex-direction:column;gap:6px">';
+      d.questions.forEach(function(q) {
+        var safeQ = (q || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        qHtml += '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:7px">';
+        qHtml += '<span style="font-size:12px;color:#e2e8f0;flex:1">' + escHtml(q) + '</span>';
+        qHtml += '<button onclick="kwToBlog(\'' + safeQ + '\')" style="flex-shrink:0;padding:4px 10px;background:rgba(255,77,141,.15);border:1px solid rgba(255,77,141,.3);border-radius:6px;color:#f9a8d4;font-size:11px;cursor:pointer"><i class="fas fa-magic"></i> 생성</button>';
+        qHtml += '</div>';
+      });
+      qHtml += '</div></div>';
+      resultEl.insertAdjacentHTML('beforeend', qHtml);
+    }
     resultEl.style.display = 'block';
   } catch(e) {
     resultEl.innerHTML = '<div style="color:#fca5a5;font-size:12px">❌ ' + e.message + '</div>';

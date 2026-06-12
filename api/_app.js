@@ -5513,76 +5513,72 @@ app.post("/api/admin/fill-summaries", async (c) => {
   }
   return c.json({ total: rows.length, ok: results.filter((r) => r.status === "ok").length, results });
 });
-function getDataForSeoAuth(env) {
-  const login = env?.DATAFORSEO_LOGIN || "";
-  const pass = env?.DATAFORSEO_PASSWORD || "";
-  if (!login || !pass) return "";
-  return "Basic " + btoa(`${login}:${pass}`);
+function getSerpApiKey(env) {
+  return env?.SERPAPI_KEY || "";
 }
 app.get("/api/admin/keyword-volume", async (c) => {
-  const auth = getDataForSeoAuth(c.env);
-  if (!auth) return c.json({ error: "DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD not configured" }, 500);
+  const apiKey = getSerpApiKey(c.env);
+  if (!apiKey) return c.json({ error: "SERPAPI_KEY not configured" }, 500);
   const kwParam = c.req.query("keywords") || "";
-  const location = c.req.query("location") || "South Korea";
-  const keywords = kwParam.split(",").map((k) => k.trim()).filter(Boolean).slice(0, 20);
+  const keywords = kwParam.split(",").map((k) => k.trim()).filter(Boolean).slice(0, 10);
   if (!keywords.length) return c.json({ error: "keywords required" }, 400);
   try {
-    const res = await fetch("https://api.dataforseo.com/v3/keywords_data/google_ads/search_volume/live", {
-      method: "POST",
-      headers: { "Authorization": auth, "Content-Type": "application/json" },
-      body: JSON.stringify([{
-        keywords,
-        language_name: "English",
-        location_name: location
-      }])
-    });
-    const data = await res.json();
-    if (!res.ok || data.status_code !== 2e4) {
-      return c.json({ error: data.status_message || "DataForSEO error", code: data.status_code }, 400);
-    }
-    const items = data.tasks?.[0]?.result?.[0]?.items || [];
-    const result = items.map((item) => ({
-      keyword: item.keyword,
-      volume: item.search_volume || 0,
-      competition: item.competition_level || "N/A",
-      // LOW / MEDIUM / HIGH
-      cpc: item.cpc ? `$${item.cpc.toFixed(2)}` : "N/A",
-      trend: item.monthly_searches?.slice(-3).map((m) => m.search_volume) || []
-    })).sort((a, b) => b.volume - a.volume);
-    return c.json({ total: result.length, keywords: result });
+    const results = await Promise.all(keywords.map(async (kw) => {
+      const acUrl = `https://serpapi.com/search.json?engine=google_autocomplete&q=${encodeURIComponent(kw)}&api_key=${apiKey}`;
+      const acRes = await fetch(acUrl);
+      const acData = acRes.ok ? await acRes.json() : {};
+      const suggestions = (acData.suggestions || []).slice(0, 5).map((s) => s.value || s);
+      const tUrl = `https://serpapi.com/search.json?engine=google_trends&q=${encodeURIComponent(kw)}&data_type=TIMESERIES&api_key=${apiKey}`;
+      const tRes = await fetch(tUrl);
+      const tData = tRes.ok ? await tRes.json() : {};
+      const timelineData = tData.interest_over_time?.timeline_data || [];
+      const recentValues = timelineData.slice(-4).map((d) => d.values?.[0]?.extracted_value || 0);
+      const avgTrend = recentValues.length ? Math.round(recentValues.reduce((a, b) => a + b, 0) / recentValues.length) : 0;
+      const trendLevel = avgTrend >= 50 ? "HIGH" : avgTrend >= 20 ? "MEDIUM" : avgTrend > 0 ? "LOW" : "N/A";
+      return {
+        keyword: kw,
+        volume: avgTrend,
+        // 0~100 Google Trends 상대 점수
+        competition: trendLevel,
+        cpc: "N/A",
+        suggestions
+      };
+    }));
+    return c.json({ total: results.length, keywords: results });
   } catch (e) {
     return c.json({ error: e.message }, 500);
   }
 });
 app.get("/api/admin/keyword-ideas", async (c) => {
-  const auth = getDataForSeoAuth(c.env);
-  if (!auth) return c.json({ error: "DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD not configured" }, 500);
+  const apiKey = getSerpApiKey(c.env);
+  if (!apiKey) return c.json({ error: "SERPAPI_KEY not configured" }, 500);
   const seed = c.req.query("seed") || "";
-  const location = c.req.query("location") || "South Korea";
   if (!seed) return c.json({ error: "seed required" }, 400);
   try {
-    const res = await fetch("https://api.dataforseo.com/v3/keywords_data/google_ads/keywords_for_keywords/live", {
-      method: "POST",
-      headers: { "Authorization": auth, "Content-Type": "application/json" },
-      body: JSON.stringify([{
-        keywords: [seed],
-        language_name: "English",
-        location_name: location,
-        limit: 30
-      }])
+    const acUrl = `https://serpapi.com/search.json?engine=google_autocomplete&q=${encodeURIComponent(seed)}&api_key=${apiKey}`;
+    const acRes = await fetch(acUrl);
+    const acData = acRes.ok ? await acRes.json() : {};
+    const autoKeywords = (acData.suggestions || []).map((s) => s.value || s);
+    const srUrl = `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(seed)}&api_key=${apiKey}`;
+    const srRes = await fetch(srUrl);
+    const srData = srRes.ok ? await srRes.json() : {};
+    const relatedSearches = (srData.related_searches || []).map((r) => r.query || r);
+    const relatedQuestions = (srData.related_questions || []).map((q) => q.question || q);
+    const allKeywords = [.../* @__PURE__ */ new Set([...autoKeywords, ...relatedSearches])];
+    const result = allKeywords.map((kw) => ({
+      keyword: kw,
+      volume: 0,
+      // SerpApi Autocomplete는 볼륨 미제공 (트렌드 별도 조회)
+      competition: "N/A",
+      cpc: "N/A"
+    }));
+    return c.json({
+      seed,
+      total: result.length,
+      keywords: result,
+      questions: relatedQuestions.slice(0, 6)
+      // 블로그 소제목 아이디어용
     });
-    const data = await res.json();
-    if (!res.ok || data.status_code !== 2e4) {
-      return c.json({ error: data.status_message || "DataForSEO error", code: data.status_code }, 400);
-    }
-    const items = data.tasks?.[0]?.result?.[0]?.items || [];
-    const result = items.map((item) => ({
-      keyword: item.keyword,
-      volume: item.search_volume || 0,
-      competition: item.competition_level || "N/A",
-      cpc: item.cpc ? `$${item.cpc.toFixed(2)}` : "N/A"
-    })).filter((item) => item.volume > 0).sort((a, b) => b.volume - a.volume).slice(0, 25);
-    return c.json({ seed, total: result.length, keywords: result });
   } catch (e) {
     return c.json({ error: e.message }, 500);
   }
@@ -14426,12 +14422,12 @@ textarea{height:80px;resize:none}
 <!-- \u2550\u2550\u2550\u2550 \uBE14\uB85C\uADF8 \uD0ED \u2550\u2550\u2550\u2550 -->
 <div class="tab-content" id="tab-blog">
 
-  <!-- \u2460 \uD0A4\uC6CC\uB4DC \uAC80\uC0C9\uB7C9 \uC870\uD68C (DataForSEO) -->
+  <!-- \u2460 \uD0A4\uC6CC\uB4DC \uBC1C\uAD74 (SerpApi) -->
   <div class="card" style="margin-bottom:16px;border-color:rgba(99,102,241,.35);background:rgba(99,102,241,.05)">
     <div class="card-header">
-      <div class="card-title"><i class="fas fa-chart-bar" style="color:#818cf8"></i> \uD0A4\uC6CC\uB4DC \uAC80\uC0C9\uB7C9 \uC870\uD68C <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,.35);margin-left:6px">DataForSEO</span></div>
+      <div class="card-title"><i class="fas fa-chart-bar" style="color:#818cf8"></i> \uD0A4\uC6CC\uB4DC \uBC1C\uAD74 <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,.35);margin-left:6px">SerpApi \xB7 Google Autocomplete / Trends</span></div>
     </div>
-    <p style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:12px">\uBE14\uB85C\uADF8 \uC4F0\uAE30 \uC804\uC5D0 \uD0A4\uC6CC\uB4DC \uC6D4\uAC04 \uAC80\uC0C9\uB7C9\uC744 \uD655\uC778\uD558\uC138\uC694. \uAC80\uC0C9\uB7C9 \uB9CE\uC740 \uD0A4\uC6CC\uB4DC\uB97C \uD0C0\uAC9F\uC73C\uB85C \uBE14\uB85C\uADF8\uB97C \uBC14\uB85C \uC0DD\uC131\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.</p>
+    <p style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:12px">\uBE14\uB85C\uADF8 \uC4F0\uAE30 \uC804\uC5D0 \uD0A4\uC6CC\uB4DC\uB97C \uBD84\uC11D\uD558\uC138\uC694. \uC5F0\uAD00 \uD0A4\uC6CC\uB4DC \uBC1C\uAD74 \u2192 \uD2B8\uB80C\uB4DC \uD655\uC778 \u2192 \uBE14\uB85C\uADF8 \uD14C\uB9C8 \uC120\uC815 \uD750\uB984\uC73C\uB85C \uC0AC\uC6A9\uD558\uC138\uC694.</p>
 
     <!-- \uC2DC\uB4DC \uD0A4\uC6CC\uB4DC \u2192 \uC544\uC774\uB514\uC5B4 \uBC1C\uAD74 -->
     <div style="margin-bottom:12px">
@@ -18971,32 +18967,39 @@ window.fixAllSlugs = async function fixAllSlugs() {
 }
 
 /* \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
-   DataForSEO \uD0A4\uC6CC\uB4DC \uAC80\uC0C9\uB7C9 / \uC544\uC774\uB514\uC5B4 \uC870\uD68C
+   SerpApi \uD0A4\uC6CC\uB4DC \uBC1C\uAD74 / \uD2B8\uB80C\uB4DC \uC870\uD68C
 \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
+// SerpApi \uACB0\uACFC \uD14C\uC774\uBE14 \uB80C\uB354\uB9C1
+// keyword-volume: Trends \uC810\uC218(0~100) + \uD2B8\uB80C\uB4DC \uB808\uBCA8
+// keyword-ideas: Autocomplete + Related Searches (volume=0, \uC21C\uC218 \uD0A4\uC6CC\uB4DC \uBAA9\uB85D)
 function renderKwTable(keywords, resultEl) {
   if (!keywords || !keywords.length) {
-    resultEl.innerHTML = '<div style="color:rgba(255,255,255,.4);font-size:12px;text-align:center;padding:10px">\uACB0\uACFC \uC5C6\uC74C</div>';
+    resultEl.insertAdjacentHTML('beforeend', '<div style="color:rgba(255,255,255,.4);font-size:12px;text-align:center;padding:10px">\uACB0\uACFC \uC5C6\uC74C</div>');
     return;
   }
-  var compColor = { 'LOW':'#34d399', 'MEDIUM':'#fbbf24', 'HIGH':'#f87171', 'N/A':'rgba(255,255,255,.3)' };
-  var html = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+  // Trends \uAE30\uBC18: HIGH=\uB9CE\uC774 \uAC80\uC0C9\uB428(\uCD08\uB85D), MEDIUM=\uBCF4\uD1B5(\uB178\uB791), LOW=\uC801\uC74C(\uD30C\uB791), N/A=\uB370\uC774\uD130\uC5C6\uC74C
+  var compColor = { 'HIGH':'#34d399', 'MEDIUM':'#fbbf24', 'LOW':'#93c5fd', 'N/A':'rgba(255,255,255,.3)' };
+  var hasTrend = keywords.some(function(k) { return k.volume > 0; });
+  var html = '<div style="overflow-x:auto;margin-top:4px"><table style="width:100%;border-collapse:collapse;font-size:12px">';
   html += '<thead><tr style="color:rgba(255,255,255,.4);border-bottom:1px solid rgba(255,255,255,.1)">'
     + '<th style="text-align:left;padding:7px 8px">\uD0A4\uC6CC\uB4DC</th>'
-    + '<th style="padding:7px 8px;text-align:right">\uC6D4 \uAC80\uC0C9\uB7C9</th>'
-    + '<th style="padding:7px 8px;text-align:center">\uACBD\uC7C1\uB3C4</th>'
-    + '<th style="padding:7px 8px;text-align:right">CPC</th>'
+    + (hasTrend ? '<th style="padding:7px 8px;text-align:right">Trends \uC810\uC218</th><th style="padding:7px 8px;text-align:center">\uB808\uBCA8</th>' : '')
     + '<th style="padding:7px 8px;text-align:center">\uBE14\uB85C\uADF8 \uC0DD\uC131</th>'
     + '</tr></thead><tbody>';
-  keywords.forEach(function(k, i) {
-    var vol = k.volume >= 1000 ? (k.volume/1000).toFixed(1)+'K' : String(k.volume);
-    var volColor = k.volume >= 500 ? '#34d399' : k.volume >= 100 ? '#93c5fd' : 'rgba(255,255,255,.4)';
-    var cc = compColor[k.competition] || 'rgba(255,255,255,.3)';
-    var safekw = k.keyword.replace(/"/g, '&quot;');
+  keywords.forEach(function(k) {
+    var safekw = (k.keyword || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    var dispkw = escHtml(k.keyword || '');
+    var volCell = '';
+    if (hasTrend) {
+      var volColor = k.volume >= 50 ? '#34d399' : k.volume >= 20 ? '#93c5fd' : 'rgba(255,255,255,.4)';
+      var volStr = k.volume > 0 ? String(k.volume) : '\u2014';
+      var cc = compColor[k.competition] || 'rgba(255,255,255,.3)';
+      volCell = '<td style="padding:7px 8px;text-align:right;font-weight:700;color:' + volColor + '">' + volStr + '</td>'
+        + '<td style="padding:7px 8px;text-align:center;font-size:11px;color:' + cc + '">' + k.competition + '</td>';
+    }
     html += '<tr style="border-bottom:1px solid rgba(255,255,255,.05)">'
-      + '<td style="padding:7px 8px;color:#e2e8f0">' + k.keyword + '</td>'
-      + '<td style="padding:7px 8px;text-align:right;font-weight:700;color:' + volColor + '">' + vol + '</td>'
-      + '<td style="padding:7px 8px;text-align:center;font-size:11px;color:' + cc + '">' + k.competition + '</td>'
-      + '<td style="padding:7px 8px;text-align:right;color:rgba(255,255,255,.4)">' + k.cpc + '</td>'
+      + '<td style="padding:7px 8px;color:#e2e8f0">' + dispkw + '</td>'
+      + volCell
       + '<td style="padding:7px 8px;text-align:center">'
       + '<button onclick="kwToBlog('' + safekw + '')" style="padding:4px 10px;background:rgba(255,77,141,.15);border:1px solid rgba(255,77,141,.3);border-radius:6px;color:#f9a8d4;font-size:11px;cursor:pointer" title="\uC774 \uD0A4\uC6CC\uB4DC\uB85C \uBE14\uB85C\uADF8 \uC0DD\uC131">'
       + '<i class="fas fa-magic"></i> \uC0DD\uC131</button>'
@@ -19004,7 +19007,7 @@ function renderKwTable(keywords, resultEl) {
   });
   html += '</tbody></table></div>';
   resultEl.style.display = 'block';
-  resultEl.innerHTML = html;
+  resultEl.insertAdjacentHTML('beforeend', html);
 }
 
 window.kwVolume = async function kwVolume() {
@@ -19014,13 +19017,14 @@ window.kwVolume = async function kwVolume() {
   if (!input) return;
   btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> \uC870\uD68C \uC911...';
   resultEl.style.display = 'block';
-  resultEl.innerHTML = '<div style="color:rgba(255,255,255,.3);font-size:12px;text-align:center;padding:10px">\u23F3 DataForSEO \uC870\uD68C \uC911...</div>';
+  resultEl.innerHTML = '<div style="color:rgba(255,255,255,.3);font-size:12px;text-align:center;padding:10px">\u23F3 SerpApi Google Trends \uC870\uD68C \uC911...<br><span style="font-size:11px">\uD0A4\uC6CC\uB4DC\uB2F9 2\uD68C API \uD638\uCD9C, \uC7A0\uC2DC \uAE30\uB2E4\uB824\uC8FC\uC138\uC694</span></div>';
   try {
     var r = await fetch('/api/admin/keyword-volume?keywords=' + encodeURIComponent(input), {
       headers: { 'Authorization': 'Bearer 0907' }
     });
     var d = await r.json();
     if (!r.ok || d.error) { resultEl.innerHTML = '<div style="color:#fca5a5;font-size:12px">\u274C ' + (d.error||'\uC624\uB958') + '</div>'; return; }
+    resultEl.innerHTML = '<div style="font-size:11px;color:rgba(255,255,255,.35);margin-bottom:4px">\u{1F4C8} Google Trends \uC810\uC218 (0~100 \uC0C1\uB300\uAC12) \xB7 ' + d.total + '\uAC1C \uD0A4\uC6CC\uB4DC<br><span style="font-size:10px;opacity:.7">50+ = \uC778\uAE30 \uB192\uC74C / 20~49 = \uBCF4\uD1B5 / 20 \uBBF8\uB9CC = \uB0AE\uC74C</span></div>';
     renderKwTable(d.keywords, resultEl);
   } catch(e) {
     resultEl.innerHTML = '<div style="color:#fca5a5;font-size:12px">\u274C ' + e.message + '</div>';
@@ -19036,16 +19040,36 @@ window.kwIdeas = async function kwIdeas() {
   if (!seed) return;
   btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> \uBC1C\uAD74 \uC911...';
   resultEl.style.display = 'block';
-  resultEl.innerHTML = '<div style="color:rgba(255,255,255,.3);font-size:12px;text-align:center;padding:10px">\u23F3 \uC5F0\uAD00 \uD0A4\uC6CC\uB4DC \uBC1C\uAD74 \uC911...</div>';
+  resultEl.innerHTML = '<div style="color:rgba(255,255,255,.3);font-size:12px;text-align:center;padding:10px">\u23F3 SerpApi \uD0A4\uC6CC\uB4DC \uBC1C\uAD74 \uC911...<br><span style="font-size:11px">Google Autocomplete + Related Searches \uC870\uD68C</span></div>';
   try {
     var r = await fetch('/api/admin/keyword-ideas?seed=' + encodeURIComponent(seed), {
       headers: { 'Authorization': 'Bearer 0907' }
     });
     var d = await r.json();
     if (!r.ok || d.error) { resultEl.innerHTML = '<div style="color:#fca5a5;font-size:12px">\u274C ' + (d.error||'\uC624\uB958') + '</div>'; return; }
-    var header = '<div style="font-size:11px;color:rgba(255,255,255,.35);margin-bottom:8px">\u{1F50D} "' + escHtml(seed) + '" \uC5F0\uAD00 \uD0A4\uC6CC\uB4DC ' + d.total + '\uAC1C</div>';
-    resultEl.innerHTML = header;
+
+    resultEl.innerHTML = '';
+    // \uC5F0\uAD00 \uD0A4\uC6CC\uB4DC \uD5E4\uB354 + \uD14C\uC774\uBE14
+    resultEl.insertAdjacentHTML('beforeend',
+      '<div style="font-size:11px;color:rgba(255,255,255,.35);margin-bottom:4px">\u{1F50D} "' + escHtml(seed) + '" \xB7 Google Autocomplete + Related Searches \xB7 ' + d.total + '\uAC1C</div>'
+    );
     renderKwTable(d.keywords, resultEl);
+
+    // People Also Ask \u2014 \uBE14\uB85C\uADF8 \uC18C\uC7AC \uC544\uC774\uB514\uC5B4
+    if (d.questions && d.questions.length) {
+      var qHtml = '<div style="margin-top:14px">';
+      qHtml += '<div style="font-size:11px;color:rgba(255,255,255,.35);margin-bottom:8px">\u{1F4AC} People Also Ask \u2014 \uBE14\uB85C\uADF8 \uD14C\uB9C8 \uC544\uC774\uB514\uC5B4 (' + d.questions.length + '\uAC1C)</div>';
+      qHtml += '<div style="display:flex;flex-direction:column;gap:6px">';
+      d.questions.forEach(function(q) {
+        var safeQ = (q || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        qHtml += '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:7px">';
+        qHtml += '<span style="font-size:12px;color:#e2e8f0;flex:1">' + escHtml(q) + '</span>';
+        qHtml += '<button onclick="kwToBlog('' + safeQ + '')" style="flex-shrink:0;padding:4px 10px;background:rgba(255,77,141,.15);border:1px solid rgba(255,77,141,.3);border-radius:6px;color:#f9a8d4;font-size:11px;cursor:pointer"><i class="fas fa-magic"></i> \uC0DD\uC131</button>';
+        qHtml += '</div>';
+      });
+      qHtml += '</div></div>';
+      resultEl.insertAdjacentHTML('beforeend', qHtml);
+    }
     resultEl.style.display = 'block';
   } catch(e) {
     resultEl.innerHTML = '<div style="color:#fca5a5;font-size:12px">\u274C ' + e.message + '</div>';
