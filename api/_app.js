@@ -5513,6 +5513,80 @@ app.post("/api/admin/fill-summaries", async (c) => {
   }
   return c.json({ total: rows.length, ok: results.filter((r) => r.status === "ok").length, results });
 });
+function getDataForSeoAuth(env) {
+  const login = env?.DATAFORSEO_LOGIN || "";
+  const pass = env?.DATAFORSEO_PASSWORD || "";
+  if (!login || !pass) return "";
+  return "Basic " + btoa(`${login}:${pass}`);
+}
+app.get("/api/admin/keyword-volume", async (c) => {
+  const auth = getDataForSeoAuth(c.env);
+  if (!auth) return c.json({ error: "DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD not configured" }, 500);
+  const kwParam = c.req.query("keywords") || "";
+  const location = c.req.query("location") || "South Korea";
+  const keywords = kwParam.split(",").map((k) => k.trim()).filter(Boolean).slice(0, 20);
+  if (!keywords.length) return c.json({ error: "keywords required" }, 400);
+  try {
+    const res = await fetch("https://api.dataforseo.com/v3/keywords_data/google_ads/search_volume/live", {
+      method: "POST",
+      headers: { "Authorization": auth, "Content-Type": "application/json" },
+      body: JSON.stringify([{
+        keywords,
+        language_name: "English",
+        location_name: location
+      }])
+    });
+    const data = await res.json();
+    if (!res.ok || data.status_code !== 2e4) {
+      return c.json({ error: data.status_message || "DataForSEO error", code: data.status_code }, 400);
+    }
+    const items = data.tasks?.[0]?.result?.[0]?.items || [];
+    const result = items.map((item) => ({
+      keyword: item.keyword,
+      volume: item.search_volume || 0,
+      competition: item.competition_level || "N/A",
+      // LOW / MEDIUM / HIGH
+      cpc: item.cpc ? `$${item.cpc.toFixed(2)}` : "N/A",
+      trend: item.monthly_searches?.slice(-3).map((m) => m.search_volume) || []
+    })).sort((a, b) => b.volume - a.volume);
+    return c.json({ total: result.length, keywords: result });
+  } catch (e) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+app.get("/api/admin/keyword-ideas", async (c) => {
+  const auth = getDataForSeoAuth(c.env);
+  if (!auth) return c.json({ error: "DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD not configured" }, 500);
+  const seed = c.req.query("seed") || "";
+  const location = c.req.query("location") || "South Korea";
+  if (!seed) return c.json({ error: "seed required" }, 400);
+  try {
+    const res = await fetch("https://api.dataforseo.com/v3/keywords_data/google_ads/keywords_for_keywords/live", {
+      method: "POST",
+      headers: { "Authorization": auth, "Content-Type": "application/json" },
+      body: JSON.stringify([{
+        keywords: [seed],
+        language_name: "English",
+        location_name: location,
+        limit: 30
+      }])
+    });
+    const data = await res.json();
+    if (!res.ok || data.status_code !== 2e4) {
+      return c.json({ error: data.status_message || "DataForSEO error", code: data.status_code }, 400);
+    }
+    const items = data.tasks?.[0]?.result?.[0]?.items || [];
+    const result = items.map((item) => ({
+      keyword: item.keyword,
+      volume: item.search_volume || 0,
+      competition: item.competition_level || "N/A",
+      cpc: item.cpc ? `$${item.cpc.toFixed(2)}` : "N/A"
+    })).filter((item) => item.volume > 0).sort((a, b) => b.volume - a.volume).slice(0, 25);
+    return c.json({ seed, total: result.length, keywords: result });
+  } catch (e) {
+    return c.json({ error: e.message }, 500);
+  }
+});
 app.post("/api/admin/generate-blog", async (c) => {
   await ensureDb(c.env);
   const sql = getDb(c.env);
@@ -6933,8 +7007,6 @@ body{background:#0f0f12;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
   const shopCards = shops2.length > 0 ? shops2.map((s, i) => {
     const stars = "\u2B50".repeat(Math.round(s.rating));
     const desc = (s.metaDescription || s.description || "").slice(0, 200);
-    const firstReview = Array.isArray(s.googleReviews) && s.googleReviews.length > 0 ? s.googleReviews[0] : null;
-    const reviewQuote = firstReview && firstReview.text ? `<div class="card-review-quote">&ldquo;${firstReview.text.slice(0, 100)}${firstReview.text.length > 100 ? "\u2026" : ""}&rdquo;<span class="card-review-author"> \u2014 ${firstReview.author || firstReview.author_name || "Guest"}</span></div>` : "";
     return `
 <article class="shop-card" itemscope itemtype="https://schema.org/LocalBusiness">
   <a href="/shop/${s.slug}" class="card-link">
@@ -6949,7 +7021,6 @@ body{background:#0f0f12;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
         <span class="card-rating">${stars} ${s.rating} (${s.reviewCount} reviews)</span>
       </div>
       <p class="card-desc" itemprop="description">${desc}</p>
-      ${reviewQuote}
       <div class="card-services">${s.services.slice(0, 4).map((sv) => `<span class="svc-tag">${sv}</span>`).join("")}</div>
       <div class="card-price">${s.priceRange}</div>
       <div class="card-cta">
@@ -14354,6 +14425,40 @@ textarea{height:80px;resize:none}
 <!-- \uC124\uC815 -->
 <!-- \u2550\u2550\u2550\u2550 \uBE14\uB85C\uADF8 \uD0ED \u2550\u2550\u2550\u2550 -->
 <div class="tab-content" id="tab-blog">
+
+  <!-- \u2460 \uD0A4\uC6CC\uB4DC \uAC80\uC0C9\uB7C9 \uC870\uD68C (DataForSEO) -->
+  <div class="card" style="margin-bottom:16px;border-color:rgba(99,102,241,.35);background:rgba(99,102,241,.05)">
+    <div class="card-header">
+      <div class="card-title"><i class="fas fa-chart-bar" style="color:#818cf8"></i> \uD0A4\uC6CC\uB4DC \uAC80\uC0C9\uB7C9 \uC870\uD68C <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,.35);margin-left:6px">DataForSEO</span></div>
+    </div>
+    <p style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:12px">\uBE14\uB85C\uADF8 \uC4F0\uAE30 \uC804\uC5D0 \uD0A4\uC6CC\uB4DC \uC6D4\uAC04 \uAC80\uC0C9\uB7C9\uC744 \uD655\uC778\uD558\uC138\uC694. \uAC80\uC0C9\uB7C9 \uB9CE\uC740 \uD0A4\uC6CC\uB4DC\uB97C \uD0C0\uAC9F\uC73C\uB85C \uBE14\uB85C\uADF8\uB97C \uBC14\uB85C \uC0DD\uC131\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.</p>
+
+    <!-- \uC2DC\uB4DC \uD0A4\uC6CC\uB4DC \u2192 \uC544\uC774\uB514\uC5B4 \uBC1C\uAD74 -->
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:6px">\u{1F4A1} \uC2DC\uB4DC \uD0A4\uC6CC\uB4DC\uB85C \uC5F0\uAD00 \uD0A4\uC6CC\uB4DC \uBC1C\uAD74</div>
+      <div style="display:flex;gap:8px">
+        <input id="kw-seed" placeholder="\uC608: korean skin clinic, head spa seoul" style="flex:1;padding:9px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(99,102,241,.3);border-radius:8px;color:#fff;font-size:13px;outline:none">
+        <button onclick="kwIdeas()" id="kw-ideas-btn" style="padding:9px 16px;background:rgba(99,102,241,.2);border:1px solid rgba(99,102,241,.4);border-radius:8px;color:#a5b4fc;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap">
+          <i class="fas fa-lightbulb"></i> \uC544\uC774\uB514\uC5B4
+        </button>
+      </div>
+    </div>
+
+    <!-- \uC9C1\uC811 \uD0A4\uC6CC\uB4DC \uAC80\uC0C9\uB7C9 \uD655\uC778 -->
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:6px">\u{1F50D} \uD2B9\uC815 \uD0A4\uC6CC\uB4DC \uAC80\uC0C9\uB7C9 \uC9C1\uC811 \uD655\uC778 (\uC27C\uD45C\uB85C \uAD6C\uBD84, \uCD5C\uB300 20\uAC1C)</div>
+      <div style="display:flex;gap:8px">
+        <input id="kw-check" placeholder="\uC608: best clinic gangnam, korean botox foreigners" style="flex:1;padding:9px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(99,102,241,.3);border-radius:8px;color:#fff;font-size:13px;outline:none">
+        <button onclick="kwVolume()" id="kw-vol-btn" style="padding:9px 16px;background:rgba(99,102,241,.2);border:1px solid rgba(99,102,241,.4);border-radius:8px;color:#a5b4fc;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap">
+          <i class="fas fa-search"></i> \uC870\uD68C
+        </button>
+      </div>
+    </div>
+
+    <!-- \uACB0\uACFC \uD14C\uC774\uBE14 -->
+    <div id="kw-result" style="display:none;margin-top:4px"></div>
+  </div>
+
   <!-- \uBE14\uB85C\uADF8 \uBE60\uB978 \uC0DD\uC131 -->
   <div class="card" style="margin-bottom:16px">
     <div class="card-header">
@@ -18864,6 +18969,115 @@ window.fixAllSlugs = async function fixAllSlugs() {
     if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-link"></i> \uC804\uCCB4 Slug \uC815\uB9AC (\uC5C5\uCCB4\uBA85-\uC9C0\uC5ED\uBA85)'; }
   }
 }
+
+/* \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+   DataForSEO \uD0A4\uC6CC\uB4DC \uAC80\uC0C9\uB7C9 / \uC544\uC774\uB514\uC5B4 \uC870\uD68C
+\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
+function renderKwTable(keywords, resultEl) {
+  if (!keywords || !keywords.length) {
+    resultEl.innerHTML = '<div style="color:rgba(255,255,255,.4);font-size:12px;text-align:center;padding:10px">\uACB0\uACFC \uC5C6\uC74C</div>';
+    return;
+  }
+  var compColor = { 'LOW':'#34d399', 'MEDIUM':'#fbbf24', 'HIGH':'#f87171', 'N/A':'rgba(255,255,255,.3)' };
+  var html = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+  html += '<thead><tr style="color:rgba(255,255,255,.4);border-bottom:1px solid rgba(255,255,255,.1)">'
+    + '<th style="text-align:left;padding:7px 8px">\uD0A4\uC6CC\uB4DC</th>'
+    + '<th style="padding:7px 8px;text-align:right">\uC6D4 \uAC80\uC0C9\uB7C9</th>'
+    + '<th style="padding:7px 8px;text-align:center">\uACBD\uC7C1\uB3C4</th>'
+    + '<th style="padding:7px 8px;text-align:right">CPC</th>'
+    + '<th style="padding:7px 8px;text-align:center">\uBE14\uB85C\uADF8 \uC0DD\uC131</th>'
+    + '</tr></thead><tbody>';
+  keywords.forEach(function(k, i) {
+    var vol = k.volume >= 1000 ? (k.volume/1000).toFixed(1)+'K' : String(k.volume);
+    var volColor = k.volume >= 500 ? '#34d399' : k.volume >= 100 ? '#93c5fd' : 'rgba(255,255,255,.4)';
+    var cc = compColor[k.competition] || 'rgba(255,255,255,.3)';
+    var safekw = k.keyword.replace(/"/g, '&quot;');
+    html += '<tr style="border-bottom:1px solid rgba(255,255,255,.05)">'
+      + '<td style="padding:7px 8px;color:#e2e8f0">' + k.keyword + '</td>'
+      + '<td style="padding:7px 8px;text-align:right;font-weight:700;color:' + volColor + '">' + vol + '</td>'
+      + '<td style="padding:7px 8px;text-align:center;font-size:11px;color:' + cc + '">' + k.competition + '</td>'
+      + '<td style="padding:7px 8px;text-align:right;color:rgba(255,255,255,.4)">' + k.cpc + '</td>'
+      + '<td style="padding:7px 8px;text-align:center">'
+      + '<button onclick="kwToBlog('' + safekw + '')" style="padding:4px 10px;background:rgba(255,77,141,.15);border:1px solid rgba(255,77,141,.3);border-radius:6px;color:#f9a8d4;font-size:11px;cursor:pointer" title="\uC774 \uD0A4\uC6CC\uB4DC\uB85C \uBE14\uB85C\uADF8 \uC0DD\uC131">'
+      + '<i class="fas fa-magic"></i> \uC0DD\uC131</button>'
+      + '</td></tr>';
+  });
+  html += '</tbody></table></div>';
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = html;
+}
+
+window.kwVolume = async function kwVolume() {
+  var input = document.getElementById('kw-check').value.trim();
+  var btn = document.getElementById('kw-vol-btn');
+  var resultEl = document.getElementById('kw-result');
+  if (!input) return;
+  btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> \uC870\uD68C \uC911...';
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = '<div style="color:rgba(255,255,255,.3);font-size:12px;text-align:center;padding:10px">\u23F3 DataForSEO \uC870\uD68C \uC911...</div>';
+  try {
+    var r = await fetch('/api/admin/keyword-volume?keywords=' + encodeURIComponent(input), {
+      headers: { 'Authorization': 'Bearer 0907' }
+    });
+    var d = await r.json();
+    if (!r.ok || d.error) { resultEl.innerHTML = '<div style="color:#fca5a5;font-size:12px">\u274C ' + (d.error||'\uC624\uB958') + '</div>'; return; }
+    renderKwTable(d.keywords, resultEl);
+  } catch(e) {
+    resultEl.innerHTML = '<div style="color:#fca5a5;font-size:12px">\u274C ' + e.message + '</div>';
+  } finally {
+    btn.disabled = false; btn.innerHTML = '<i class="fas fa-search"></i> \uC870\uD68C';
+  }
+};
+
+window.kwIdeas = async function kwIdeas() {
+  var seed = document.getElementById('kw-seed').value.trim();
+  var btn = document.getElementById('kw-ideas-btn');
+  var resultEl = document.getElementById('kw-result');
+  if (!seed) return;
+  btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> \uBC1C\uAD74 \uC911...';
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = '<div style="color:rgba(255,255,255,.3);font-size:12px;text-align:center;padding:10px">\u23F3 \uC5F0\uAD00 \uD0A4\uC6CC\uB4DC \uBC1C\uAD74 \uC911...</div>';
+  try {
+    var r = await fetch('/api/admin/keyword-ideas?seed=' + encodeURIComponent(seed), {
+      headers: { 'Authorization': 'Bearer 0907' }
+    });
+    var d = await r.json();
+    if (!r.ok || d.error) { resultEl.innerHTML = '<div style="color:#fca5a5;font-size:12px">\u274C ' + (d.error||'\uC624\uB958') + '</div>'; return; }
+    var header = '<div style="font-size:11px;color:rgba(255,255,255,.35);margin-bottom:8px">\u{1F50D} "' + escHtml(seed) + '" \uC5F0\uAD00 \uD0A4\uC6CC\uB4DC ' + d.total + '\uAC1C</div>';
+    resultEl.innerHTML = header;
+    renderKwTable(d.keywords, resultEl);
+    resultEl.style.display = 'block';
+  } catch(e) {
+    resultEl.innerHTML = '<div style="color:#fca5a5;font-size:12px">\u274C ' + e.message + '</div>';
+  } finally {
+    btn.disabled = false; btn.innerHTML = '<i class="fas fa-lightbulb"></i> \uC544\uC774\uB514\uC5B4';
+  }
+};
+
+// \uD0A4\uC6CC\uB4DC \uD074\uB9AD \u2192 \uBE14\uB85C\uADF8 \uC0DD\uC131 \uD3FC \uC790\uB3D9 \uC785\uB825
+window.kwToBlog = function kwToBlog(keyword) {
+  // \uD0A4\uC6CC\uB4DC\uB85C \uC81C\uBAA9 \uC790\uB3D9 \uC0DD\uC131
+  var title = keyword.charAt(0).toUpperCase() + keyword.slice(1);
+  // 2026 \uC5C6\uC73C\uBA74 \uCD94\uAC00
+  if (!title.includes('2026')) title += ' 2026';
+  document.getElementById('bl-title').value = title;
+  document.getElementById('bl-kw').value = keyword;
+  // \uCE74\uD14C\uACE0\uB9AC \uC790\uB3D9 \uAC10\uC9C0
+  var cat = 'headspa';
+  if (/clinic|dermatolog|skin|botox|laser|filler|rhinoplast|plastic/i.test(keyword)) cat = 'clinic';
+  else if (/hair|salon|color|perm|cut/i.test(keyword)) cat = 'hair';
+  else if (/makeup|color analysis|personal color/i.test(keyword)) cat = 'makeup';
+  else if (/head.?spa|scalp/i.test(keyword)) cat = 'headspa';
+  document.getElementById('bl-cat').value = cat;
+  // \uC9C0\uC5ED \uC790\uB3D9 \uAC10\uC9C0
+  var areaMap = { gangnam:'Gangnam', hongdae:'Hongdae', myeongdong:'Myeongdong', itaewon:'Itaewon', sinchon:'Sinchon', cheongdam:'Cheongdam', apgujeong:'Apgujeong' };
+  var area = 'Seoul';
+  for (var k in areaMap) { if (keyword.toLowerCase().includes(k)) { area = areaMap[k]; break; } }
+  document.getElementById('bl-area').value = area;
+  // \uBE14\uB85C\uADF8 \uC0DD\uC131 \uC139\uC158\uC73C\uB85C \uC2A4\uD06C\uB864
+  document.getElementById('bl-title').scrollIntoView({ behavior:'smooth', block:'center' });
+  document.getElementById('bl-title').focus();
+};
 
 /* \u2500\u2500 DB \uB9AC\uBDF0\uB85C AI \uC694\uC57D\uB9CC \uC0DD\uC131 (\uAD6C\uAE00 API \uD638\uCD9C \uC5C6\uC74C \u2192 \uD06C\uB808\uB527 \uCD5C\uC18C) \u2500\u2500 */
 window.fillSummaries = async function fillSummaries(ids) {

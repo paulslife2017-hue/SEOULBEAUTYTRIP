@@ -11,6 +11,8 @@ type Env = {
   GA4_SERVICE_ACCOUNT_KEY: string
   GA4_PROPERTY_ID: string
   GEMINI_API_KEY: string
+  DATAFORSEO_LOGIN: string
+  DATAFORSEO_PASSWORD: string
 }
 
 // GA4 설정 (환경변수 우선, 없으면 내장값 사용)
@@ -3962,6 +3964,101 @@ app.post('/api/admin/fill-summaries', async (c) => {
   return c.json({ total: rows.length, ok: results.filter(r => r.status === 'ok').length, results })
 })
 
+// ── DataForSEO 헬퍼 ──────────────────────────────────────────────────────────
+function getDataForSeoAuth(env: Env): string {
+  const login = (env as any)?.DATAFORSEO_LOGIN || ''
+  const pass  = (env as any)?.DATAFORSEO_PASSWORD || ''
+  if (!login || !pass) return ''
+  return 'Basic ' + btoa(`${login}:${pass}`)
+}
+
+// GET /api/admin/keyword-volume?keywords=kw1,kw2,...&location=South Korea
+// DataForSEO로 키워드 검색량 조회
+app.get('/api/admin/keyword-volume', async (c) => {
+  const auth = getDataForSeoAuth(c.env)
+  if (!auth) return c.json({ error: 'DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD not configured' }, 500)
+
+  const kwParam = c.req.query('keywords') || ''
+  const location = c.req.query('location') || 'South Korea'
+  const keywords = kwParam.split(',').map(k => k.trim()).filter(Boolean).slice(0, 20)
+  if (!keywords.length) return c.json({ error: 'keywords required' }, 400)
+
+  try {
+    const res = await fetch('https://api.dataforseo.com/v3/keywords_data/google_ads/search_volume/live', {
+      method: 'POST',
+      headers: { 'Authorization': auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify([{
+        keywords,
+        language_name: 'English',
+        location_name: location
+      }])
+    })
+    const data: any = await res.json()
+    if (!res.ok || data.status_code !== 20000) {
+      return c.json({ error: data.status_message || 'DataForSEO error', code: data.status_code }, 400)
+    }
+
+    const items: any[] = data.tasks?.[0]?.result?.[0]?.items || []
+    const result = items
+      .map((item: any) => ({
+        keyword:    item.keyword,
+        volume:     item.search_volume || 0,
+        competition: item.competition_level || 'N/A',  // LOW / MEDIUM / HIGH
+        cpc:        item.cpc ? `$${item.cpc.toFixed(2)}` : 'N/A',
+        trend:      item.monthly_searches?.slice(-3).map((m: any) => m.search_volume) || []
+      }))
+      .sort((a: any, b: any) => b.volume - a.volume)
+
+    return c.json({ total: result.length, keywords: result })
+  } catch(e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+})
+
+// GET /api/admin/keyword-ideas?seed=korean skin clinic&location=South Korea
+// DataForSEO 키워드 아이디어 (시드 키워드 → 연관 키워드 발굴)
+app.get('/api/admin/keyword-ideas', async (c) => {
+  const auth = getDataForSeoAuth(c.env)
+  if (!auth) return c.json({ error: 'DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD not configured' }, 500)
+
+  const seed = c.req.query('seed') || ''
+  const location = c.req.query('location') || 'South Korea'
+  if (!seed) return c.json({ error: 'seed required' }, 400)
+
+  try {
+    const res = await fetch('https://api.dataforseo.com/v3/keywords_data/google_ads/keywords_for_keywords/live', {
+      method: 'POST',
+      headers: { 'Authorization': auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify([{
+        keywords: [seed],
+        language_name: 'English',
+        location_name: location,
+        limit: 30
+      }])
+    })
+    const data: any = await res.json()
+    if (!res.ok || data.status_code !== 20000) {
+      return c.json({ error: data.status_message || 'DataForSEO error', code: data.status_code }, 400)
+    }
+
+    const items: any[] = data.tasks?.[0]?.result?.[0]?.items || []
+    const result = items
+      .map((item: any) => ({
+        keyword:     item.keyword,
+        volume:      item.search_volume || 0,
+        competition: item.competition_level || 'N/A',
+        cpc:         item.cpc ? `$${item.cpc.toFixed(2)}` : 'N/A'
+      }))
+      .filter((item: any) => item.volume > 0)
+      .sort((a: any, b: any) => b.volume - a.volume)
+      .slice(0, 25)
+
+    return c.json({ seed, total: result.length, keywords: result })
+  } catch(e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+})
+
 // POST /api/admin/generate-blog — AI 블로그 일괄 생성
 app.post('/api/admin/generate-blog', async (c) => {
   await ensureDb(c.env)
@@ -5597,12 +5694,6 @@ body{background:#0f0f12;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
         const stars = '⭐'.repeat(Math.round(s.rating))
         // 200자로 확장 — metaDescription 우선, 없으면 description
         const desc = (s.metaDescription || s.description || '').slice(0,200)
-        // 첫 번째 Google 리뷰 발췌 (있을 경우)
-        const firstReview = Array.isArray(s.googleReviews) && s.googleReviews.length > 0
-          ? s.googleReviews[0] : null
-        const reviewQuote = firstReview && firstReview.text
-          ? `<div class="card-review-quote">&ldquo;${firstReview.text.slice(0,100)}${firstReview.text.length>100?'…':''}&rdquo;<span class="card-review-author"> — ${firstReview.author||firstReview.author_name||'Guest'}</span></div>`
-          : ''
         return `
 <article class="shop-card" itemscope itemtype="https://schema.org/LocalBusiness">
   <a href="/shop/${s.slug}" class="card-link">
@@ -5617,7 +5708,6 @@ body{background:#0f0f12;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
         <span class="card-rating">${stars} ${s.rating} (${s.reviewCount} reviews)</span>
       </div>
       <p class="card-desc" itemprop="description">${desc}</p>
-      ${reviewQuote}
       <div class="card-services">${s.services.slice(0,4).map(sv=>`<span class="svc-tag">${sv}</span>`).join('')}</div>
       <div class="card-price">${s.priceRange}</div>
       <div class="card-cta">
@@ -13279,6 +13369,40 @@ textarea{height:80px;resize:none}
 <!-- 설정 -->
 <!-- ════ 블로그 탭 ════ -->
 <div class="tab-content" id="tab-blog">
+
+  <!-- ① 키워드 검색량 조회 (DataForSEO) -->
+  <div class="card" style="margin-bottom:16px;border-color:rgba(99,102,241,.35);background:rgba(99,102,241,.05)">
+    <div class="card-header">
+      <div class="card-title"><i class="fas fa-chart-bar" style="color:#818cf8"></i> 키워드 검색량 조회 <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,.35);margin-left:6px">DataForSEO</span></div>
+    </div>
+    <p style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:12px">블로그 쓰기 전에 키워드 월간 검색량을 확인하세요. 검색량 많은 키워드를 타겟으로 블로그를 바로 생성할 수 있습니다.</p>
+
+    <!-- 시드 키워드 → 아이디어 발굴 -->
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:6px">💡 시드 키워드로 연관 키워드 발굴</div>
+      <div style="display:flex;gap:8px">
+        <input id="kw-seed" placeholder="예: korean skin clinic, head spa seoul" style="flex:1;padding:9px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(99,102,241,.3);border-radius:8px;color:#fff;font-size:13px;outline:none">
+        <button onclick="kwIdeas()" id="kw-ideas-btn" style="padding:9px 16px;background:rgba(99,102,241,.2);border:1px solid rgba(99,102,241,.4);border-radius:8px;color:#a5b4fc;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap">
+          <i class="fas fa-lightbulb"></i> 아이디어
+        </button>
+      </div>
+    </div>
+
+    <!-- 직접 키워드 검색량 확인 -->
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:6px">🔍 특정 키워드 검색량 직접 확인 (쉼표로 구분, 최대 20개)</div>
+      <div style="display:flex;gap:8px">
+        <input id="kw-check" placeholder="예: best clinic gangnam, korean botox foreigners" style="flex:1;padding:9px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(99,102,241,.3);border-radius:8px;color:#fff;font-size:13px;outline:none">
+        <button onclick="kwVolume()" id="kw-vol-btn" style="padding:9px 16px;background:rgba(99,102,241,.2);border:1px solid rgba(99,102,241,.4);border-radius:8px;color:#a5b4fc;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap">
+          <i class="fas fa-search"></i> 조회
+        </button>
+      </div>
+    </div>
+
+    <!-- 결과 테이블 -->
+    <div id="kw-result" style="display:none;margin-top:4px"></div>
+  </div>
+
   <!-- 블로그 빠른 생성 -->
   <div class="card" style="margin-bottom:16px">
     <div class="card-header">
@@ -17789,6 +17913,115 @@ window.fixAllSlugs = async function fixAllSlugs() {
     if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-link"></i> 전체 Slug 정리 (업체명-지역명)'; }
   }
 }
+
+/* ══════════════════════════════════════════════════════
+   DataForSEO 키워드 검색량 / 아이디어 조회
+══════════════════════════════════════════════════════ */
+function renderKwTable(keywords, resultEl) {
+  if (!keywords || !keywords.length) {
+    resultEl.innerHTML = '<div style="color:rgba(255,255,255,.4);font-size:12px;text-align:center;padding:10px">결과 없음</div>';
+    return;
+  }
+  var compColor = { 'LOW':'#34d399', 'MEDIUM':'#fbbf24', 'HIGH':'#f87171', 'N/A':'rgba(255,255,255,.3)' };
+  var html = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+  html += '<thead><tr style="color:rgba(255,255,255,.4);border-bottom:1px solid rgba(255,255,255,.1)">'
+    + '<th style="text-align:left;padding:7px 8px">키워드</th>'
+    + '<th style="padding:7px 8px;text-align:right">월 검색량</th>'
+    + '<th style="padding:7px 8px;text-align:center">경쟁도</th>'
+    + '<th style="padding:7px 8px;text-align:right">CPC</th>'
+    + '<th style="padding:7px 8px;text-align:center">블로그 생성</th>'
+    + '</tr></thead><tbody>';
+  keywords.forEach(function(k, i) {
+    var vol = k.volume >= 1000 ? (k.volume/1000).toFixed(1)+'K' : String(k.volume);
+    var volColor = k.volume >= 500 ? '#34d399' : k.volume >= 100 ? '#93c5fd' : 'rgba(255,255,255,.4)';
+    var cc = compColor[k.competition] || 'rgba(255,255,255,.3)';
+    var safekw = k.keyword.replace(/"/g, '&quot;');
+    html += '<tr style="border-bottom:1px solid rgba(255,255,255,.05)">'
+      + '<td style="padding:7px 8px;color:#e2e8f0">' + k.keyword + '</td>'
+      + '<td style="padding:7px 8px;text-align:right;font-weight:700;color:' + volColor + '">' + vol + '</td>'
+      + '<td style="padding:7px 8px;text-align:center;font-size:11px;color:' + cc + '">' + k.competition + '</td>'
+      + '<td style="padding:7px 8px;text-align:right;color:rgba(255,255,255,.4)">' + k.cpc + '</td>'
+      + '<td style="padding:7px 8px;text-align:center">'
+      + '<button onclick="kwToBlog(\'' + safekw + '\')" style="padding:4px 10px;background:rgba(255,77,141,.15);border:1px solid rgba(255,77,141,.3);border-radius:6px;color:#f9a8d4;font-size:11px;cursor:pointer" title="이 키워드로 블로그 생성">'
+      + '<i class="fas fa-magic"></i> 생성</button>'
+      + '</td></tr>';
+  });
+  html += '</tbody></table></div>';
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = html;
+}
+
+window.kwVolume = async function kwVolume() {
+  var input = document.getElementById('kw-check').value.trim();
+  var btn = document.getElementById('kw-vol-btn');
+  var resultEl = document.getElementById('kw-result');
+  if (!input) return;
+  btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 조회 중...';
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = '<div style="color:rgba(255,255,255,.3);font-size:12px;text-align:center;padding:10px">⏳ DataForSEO 조회 중...</div>';
+  try {
+    var r = await fetch('/api/admin/keyword-volume?keywords=' + encodeURIComponent(input), {
+      headers: { 'Authorization': 'Bearer 0907' }
+    });
+    var d = await r.json();
+    if (!r.ok || d.error) { resultEl.innerHTML = '<div style="color:#fca5a5;font-size:12px">❌ ' + (d.error||'오류') + '</div>'; return; }
+    renderKwTable(d.keywords, resultEl);
+  } catch(e) {
+    resultEl.innerHTML = '<div style="color:#fca5a5;font-size:12px">❌ ' + e.message + '</div>';
+  } finally {
+    btn.disabled = false; btn.innerHTML = '<i class="fas fa-search"></i> 조회';
+  }
+};
+
+window.kwIdeas = async function kwIdeas() {
+  var seed = document.getElementById('kw-seed').value.trim();
+  var btn = document.getElementById('kw-ideas-btn');
+  var resultEl = document.getElementById('kw-result');
+  if (!seed) return;
+  btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 발굴 중...';
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = '<div style="color:rgba(255,255,255,.3);font-size:12px;text-align:center;padding:10px">⏳ 연관 키워드 발굴 중...</div>';
+  try {
+    var r = await fetch('/api/admin/keyword-ideas?seed=' + encodeURIComponent(seed), {
+      headers: { 'Authorization': 'Bearer 0907' }
+    });
+    var d = await r.json();
+    if (!r.ok || d.error) { resultEl.innerHTML = '<div style="color:#fca5a5;font-size:12px">❌ ' + (d.error||'오류') + '</div>'; return; }
+    var header = '<div style="font-size:11px;color:rgba(255,255,255,.35);margin-bottom:8px">🔍 "' + escHtml(seed) + '" 연관 키워드 ' + d.total + '개</div>';
+    resultEl.innerHTML = header;
+    renderKwTable(d.keywords, resultEl);
+    resultEl.style.display = 'block';
+  } catch(e) {
+    resultEl.innerHTML = '<div style="color:#fca5a5;font-size:12px">❌ ' + e.message + '</div>';
+  } finally {
+    btn.disabled = false; btn.innerHTML = '<i class="fas fa-lightbulb"></i> 아이디어';
+  }
+};
+
+// 키워드 클릭 → 블로그 생성 폼 자동 입력
+window.kwToBlog = function kwToBlog(keyword) {
+  // 키워드로 제목 자동 생성
+  var title = keyword.charAt(0).toUpperCase() + keyword.slice(1);
+  // 2026 없으면 추가
+  if (!title.includes('2026')) title += ' 2026';
+  document.getElementById('bl-title').value = title;
+  document.getElementById('bl-kw').value = keyword;
+  // 카테고리 자동 감지
+  var cat = 'headspa';
+  if (/clinic|dermatolog|skin|botox|laser|filler|rhinoplast|plastic/i.test(keyword)) cat = 'clinic';
+  else if (/hair|salon|color|perm|cut/i.test(keyword)) cat = 'hair';
+  else if (/makeup|color analysis|personal color/i.test(keyword)) cat = 'makeup';
+  else if (/head.?spa|scalp/i.test(keyword)) cat = 'headspa';
+  document.getElementById('bl-cat').value = cat;
+  // 지역 자동 감지
+  var areaMap = { gangnam:'Gangnam', hongdae:'Hongdae', myeongdong:'Myeongdong', itaewon:'Itaewon', sinchon:'Sinchon', cheongdam:'Cheongdam', apgujeong:'Apgujeong' };
+  var area = 'Seoul';
+  for (var k in areaMap) { if (keyword.toLowerCase().includes(k)) { area = areaMap[k]; break; } }
+  document.getElementById('bl-area').value = area;
+  // 블로그 생성 섹션으로 스크롤
+  document.getElementById('bl-title').scrollIntoView({ behavior:'smooth', block:'center' });
+  document.getElementById('bl-title').focus();
+};
 
 /* ── DB 리뷰로 AI 요약만 생성 (구글 API 호출 없음 → 크레딧 최소) ── */
 window.fillSummaries = async function fillSummaries(ids) {
