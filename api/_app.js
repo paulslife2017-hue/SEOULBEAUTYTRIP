@@ -12807,11 +12807,11 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 }
 #view-map.active{display:flex}
 
-/* --- PC\uC5D0\uC11C\uB294 fixed \uD574\uC81C, \uD328\uB110 \uB0B4\uBD80\uC5D0\uC11C flex --- */
+/* --- PC\uC5D0\uC11C\uB294 fixed \uD574\uC81C, pc-content-panel \uC601\uC5ED \uC644\uC804\uD788 \uCC44\uC6B0\uAE30 --- */
 @media(min-width:1024px){
   #view-browse,#view-map{
-    position:static;inset:auto;
-    flex:1;height:100%;overflow:hidden;
+    position:fixed;left:72px;top:0;right:0;bottom:0;
+    z-index:200;
   }
   #view-browse.active,#view-map.active{display:flex}
   #bottom-tabs{display:none!important}
@@ -13092,10 +13092,11 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 </nav>
 
 <!-- PC \uCF58\uD150\uCE20 \uD328\uB110 (\uCC3E\uAE30/\uB9F5) -->
-<div id="pc-content-panel">
-  <div id="view-browse" role="main" aria-label="Browse clinics"></div>
-  <div id="view-map" role="main" aria-label="Map view"></div>
-</div>
+<div id="pc-content-panel"></div>
+
+<!-- Browse/Map \uBDF0 \u2014 body \uC9C1\uACC4 (position:fixed \uBAA8\uBC14\uC77C, PC\uC5D0\uC11C\uB294 pc-content-panel \uC601\uC5ED\uC73C\uB85C \uD655\uC7A5) -->
+<div id="view-browse" role="main" aria-label="Browse clinics"></div>
+<div id="view-map" role="main" aria-label="Map view"></div>
 
 <!-- \uD53C\uB4DC \uB798\uD37C -->
 <div id="pc-layout">
@@ -15392,15 +15393,16 @@ function switchTab(tab) {
   _setNavActive(tab);
   var pcLayout   = document.getElementById('pc-layout');
   var hd         = document.getElementById('hd');
-  var pcPanel    = document.getElementById('pc-content-panel');
   var viewBrowse = document.getElementById('view-browse');
   var viewMap    = document.getElementById('view-map');
+
+  // \uBAA8\uB4E0 \uBDF0 \uCD08\uAE30\uD654
+  if (viewBrowse) { viewBrowse.classList.remove('active'); viewBrowse.style.display = 'none'; }
+  if (viewMap)    { viewMap.classList.remove('active');    viewMap.style.display    = 'none'; }
+
   if (tab === 'reels') {
-    if (viewBrowse) { viewBrowse.classList.remove('active'); viewBrowse.style.display = 'none'; }
-    if (viewMap)    { viewMap.classList.remove('active');    viewMap.style.display    = 'none'; }
-    if (pcPanel)    pcPanel.classList.remove('active');
-    if (pcLayout)   pcLayout.style.display = 'block';
-    if (hd)         hd.style.display = '';
+    if (pcLayout) pcLayout.style.display = 'block';
+    if (hd)       hd.style.display = '';
     setTimeout(function() {
       var cur = document.querySelector('.slide.current video');
       if (cur) { try { cur.play(); } catch(e){} }
@@ -15409,27 +15411,12 @@ function switchTab(tab) {
     document.querySelectorAll('#feed video').forEach(function(v){ try{v.pause();}catch(e){} });
     if (pcLayout) pcLayout.style.display = 'none';
     if (hd)       hd.style.display = 'none';
-    if (_isPC_check()) {
-      if (pcPanel) pcPanel.classList.add('active');
-      if (tab === 'browse') {
-        if (viewMap)    { viewMap.classList.remove('active');    viewMap.style.display = 'none'; }
-        if (viewBrowse) { viewBrowse.classList.add('active');    viewBrowse.style.display = 'flex'; }
-        if (!_browseBuilt) { _browseBuilt = true; buildBrowse(); }
-      } else if (tab === 'map') {
-        if (viewBrowse) { viewBrowse.classList.remove('active'); viewBrowse.style.display = 'none'; }
-        if (viewMap)    { viewMap.classList.add('active');       viewMap.style.display = 'flex'; }
-        if (!_mapBuilt) { _mapBuilt = true; buildMap(); }
-      }
-    } else {
-      if (tab === 'browse') {
-        if (viewMap)    { viewMap.classList.remove('active');    viewMap.style.display = 'none'; }
-        if (viewBrowse) { viewBrowse.classList.add('active');    viewBrowse.style.display = 'flex'; }
-        if (!_browseBuilt) { _browseBuilt = true; buildBrowse(); }
-      } else if (tab === 'map') {
-        if (viewBrowse) { viewBrowse.classList.remove('active'); viewBrowse.style.display = 'none'; }
-        if (viewMap)    { viewMap.classList.add('active');       viewMap.style.display = 'flex'; }
-        if (!_mapBuilt) { _mapBuilt = true; buildMap(); }
-      }
+    if (tab === 'browse') {
+      if (viewBrowse) { viewBrowse.classList.add('active'); viewBrowse.style.display = 'flex'; }
+      if (!_browseBuilt) { _browseBuilt = true; buildBrowse(); }
+    } else if (tab === 'map') {
+      if (viewMap) { viewMap.classList.add('active'); viewMap.style.display = 'flex'; }
+      if (!_mapBuilt) { _mapBuilt = true; buildMap(); }
     }
   }
 }

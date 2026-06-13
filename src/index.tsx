@@ -11762,11 +11762,11 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 }
 #view-map.active{display:flex}
 
-/* --- PC에서는 fixed 해제, 패널 내부에서 flex --- */
+/* --- PC에서는 fixed 해제, pc-content-panel 영역 완전히 채우기 --- */
 @media(min-width:1024px){
   #view-browse,#view-map{
-    position:static;inset:auto;
-    flex:1;height:100%;overflow:hidden;
+    position:fixed;left:72px;top:0;right:0;bottom:0;
+    z-index:200;
   }
   #view-browse.active,#view-map.active{display:flex}
   #bottom-tabs{display:none!important}
@@ -12047,10 +12047,11 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 </nav>
 
 <!-- PC 콘텐츠 패널 (찾기/맵) -->
-<div id="pc-content-panel">
-  <div id="view-browse" role="main" aria-label="Browse clinics"></div>
-  <div id="view-map" role="main" aria-label="Map view"></div>
-</div>
+<div id="pc-content-panel"></div>
+
+<!-- Browse/Map 뷰 — body 직계 (position:fixed 모바일, PC에서는 pc-content-panel 영역으로 확장) -->
+<div id="view-browse" role="main" aria-label="Browse clinics"></div>
+<div id="view-map" role="main" aria-label="Map view"></div>
 
 <!-- 피드 래퍼 -->
 <div id="pc-layout">
@@ -14347,15 +14348,16 @@ function switchTab(tab) {
   _setNavActive(tab);
   var pcLayout   = document.getElementById('pc-layout');
   var hd         = document.getElementById('hd');
-  var pcPanel    = document.getElementById('pc-content-panel');
   var viewBrowse = document.getElementById('view-browse');
   var viewMap    = document.getElementById('view-map');
+
+  // 모든 뷰 초기화
+  if (viewBrowse) { viewBrowse.classList.remove('active'); viewBrowse.style.display = 'none'; }
+  if (viewMap)    { viewMap.classList.remove('active');    viewMap.style.display    = 'none'; }
+
   if (tab === 'reels') {
-    if (viewBrowse) { viewBrowse.classList.remove('active'); viewBrowse.style.display = 'none'; }
-    if (viewMap)    { viewMap.classList.remove('active');    viewMap.style.display    = 'none'; }
-    if (pcPanel)    pcPanel.classList.remove('active');
-    if (pcLayout)   pcLayout.style.display = 'block';
-    if (hd)         hd.style.display = '';
+    if (pcLayout) pcLayout.style.display = 'block';
+    if (hd)       hd.style.display = '';
     setTimeout(function() {
       var cur = document.querySelector('.slide.current video');
       if (cur) { try { cur.play(); } catch(e){} }
@@ -14364,27 +14366,12 @@ function switchTab(tab) {
     document.querySelectorAll('#feed video').forEach(function(v){ try{v.pause();}catch(e){} });
     if (pcLayout) pcLayout.style.display = 'none';
     if (hd)       hd.style.display = 'none';
-    if (_isPC_check()) {
-      if (pcPanel) pcPanel.classList.add('active');
-      if (tab === 'browse') {
-        if (viewMap)    { viewMap.classList.remove('active');    viewMap.style.display = 'none'; }
-        if (viewBrowse) { viewBrowse.classList.add('active');    viewBrowse.style.display = 'flex'; }
-        if (!_browseBuilt) { _browseBuilt = true; buildBrowse(); }
-      } else if (tab === 'map') {
-        if (viewBrowse) { viewBrowse.classList.remove('active'); viewBrowse.style.display = 'none'; }
-        if (viewMap)    { viewMap.classList.add('active');       viewMap.style.display = 'flex'; }
-        if (!_mapBuilt) { _mapBuilt = true; buildMap(); }
-      }
-    } else {
-      if (tab === 'browse') {
-        if (viewMap)    { viewMap.classList.remove('active');    viewMap.style.display = 'none'; }
-        if (viewBrowse) { viewBrowse.classList.add('active');    viewBrowse.style.display = 'flex'; }
-        if (!_browseBuilt) { _browseBuilt = true; buildBrowse(); }
-      } else if (tab === 'map') {
-        if (viewBrowse) { viewBrowse.classList.remove('active'); viewBrowse.style.display = 'none'; }
-        if (viewMap)    { viewMap.classList.add('active');       viewMap.style.display = 'flex'; }
-        if (!_mapBuilt) { _mapBuilt = true; buildMap(); }
-      }
+    if (tab === 'browse') {
+      if (viewBrowse) { viewBrowse.classList.add('active'); viewBrowse.style.display = 'flex'; }
+      if (!_browseBuilt) { _browseBuilt = true; buildBrowse(); }
+    } else if (tab === 'map') {
+      if (viewMap) { viewMap.classList.add('active'); viewMap.style.display = 'flex'; }
+      if (!_mapBuilt) { _mapBuilt = true; buildMap(); }
     }
   }
 }
