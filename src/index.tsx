@@ -10019,7 +10019,8 @@ app.get('/', async (c) => {
                v.video_url_low, v.video_url_mid, v.video_url_high,
                s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb,
                s.rating as shop_rating, s.review_count as shop_review_count,
-               s.why_choose as shop_why_choose, s.description as shop_description
+               s.why_choose as shop_why_choose, s.description as shop_description,
+               s.review_summary as shop_review_summary
             FROM videos v
             LEFT JOIN shops s ON v.shop_id=s.id
             WHERE s.active=true
@@ -10027,7 +10028,7 @@ app.get('/', async (c) => {
         10000, []
       ),
       withTimeout(
-        sql`SELECT id, name, slug, category, location, thumbnail, rating, review_count, why_choose, description FROM shops WHERE active=true ORDER BY rating DESC, review_count DESC`,
+        sql`SELECT id, name, slug, category, location, thumbnail, rating, review_count, why_choose, description, review_summary FROM shops WHERE active=true ORDER BY rating DESC, review_count DESC`,
         10000, []
       )
     ])
@@ -10053,7 +10054,8 @@ app.get('/', async (c) => {
         shop: { id: r.shop_id, name: r.shop_name || '', category: r.shop_cat || '', location: r.shop_location || '', thumbnail: shopThumb,
           rating: r.shop_rating || 0, reviewCount: r.shop_review_count || 0,
           whyChoose: (() => { try { return JSON.parse(r.shop_why_choose||'[]') } catch { return [] } })(),
-          description: r.shop_description || '' }
+          description: r.shop_description || '',
+          reviewSummary: (() => { const rs = r.shop_review_summary; if(!rs) return null; if(typeof rs==='string') return rs; if(typeof rs==='object') return rs; try { return JSON.parse(rs) } catch { return null } })() }
       }
     })
     // platform 테이블 대신 PLATFORM 상수 사용
@@ -10105,7 +10107,8 @@ app.get('/', async (c) => {
       category: r.category || 'beauty', location: r.location || 'Seoul',
       thumbnail: r.thumbnail || '', rating: r.rating || 0, reviewCount: r.review_count || 0,
       whyChoose: (() => { try { return JSON.parse(r.why_choose||'[]') } catch { return [] } })(),
-      description: r.description || ''
+      description: r.description || '',
+      reviewSummary: (() => { const rs = r.review_summary; if(!rs) return null; if(typeof rs==='string') return rs; if(typeof rs==='object') return rs; try { return JSON.parse(rs) } catch { return null } })()
     }))
 
     // ── SSR: 카탈로그 패널 HTML 서버에서 렌더링 (Google 크롤러가 읽을 수 있도록)
@@ -10956,6 +10959,9 @@ const MAIN_HTML = `<!DOCTYPE html>
 <meta name="robots" content="index, follow">
 <meta name="msvalidate.01" content="DD5A8D9AA094B888C8A409EADE4610E9">
 <link rel="canonical" href="https://seoulbeautytrip.com/">
+<!-- hreflang: English-only targeting -->
+<link rel="alternate" hreflang="en" href="https://seoulbeautytrip.com/">
+<link rel="alternate" hreflang="x-default" href="https://seoulbeautytrip.com/">
 <!-- Open Graph -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Seoul Beauty Trip">
@@ -11207,7 +11213,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .shop-info-name{display:flex;align-items:center;gap:5px;font-size:14px;font-weight:900;color:#fff;text-shadow:0 2px 16px rgba(0,0,0,.9);letter-spacing:-.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
 .shop-info-name .si-icon{color:var(--pk3);font-size:13px;flex-shrink:0;filter:drop-shadow(0 0 4px rgba(255,179,204,.4))}
 .shop-info-loc{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;color:rgba(255,255,255,.5);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.shop-info-tagline{font-size:10px;font-weight:500;color:rgba(255,255,255,.5);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3;}
+.shop-info-tagline{font-size:10px;font-weight:500;color:rgba(255,255,255,.6);margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.35;}
 .shop-info-loc i{font-size:9px;color:var(--pk);opacity:.85}
 .btns-row{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;margin-bottom:0;overflow:hidden}
 .wa-btn{display:none}
@@ -12138,19 +12144,22 @@ function buildSlide(v, idx) {
             ?'<div class="shop-info-loc"><i class="fas fa-map-marker-alt"></i>'+esc(areaOnly(shop.location||''))+'</div>'
             :'')
           +(function(){
-            // 1순위: review_summary (rule-based 25자 요약)
+            // 1순위: review_summary (영어 리뷰 기반 AI 요약)
             var _rs = shop.reviewSummary;
-            var _l = (typeof _rs === 'string' && _rs.trim()) ? _rs.trim() : '';
+            var _l = '';
+            if(_rs && typeof _rs === 'string' && _rs.trim()) {
+              _l = _rs.trim();
+            } else if(_rs && typeof _rs === 'object' && _rs.vibe) {
+              _l = String(_rs.vibe).trim();
+            }
             // 2순위: whyChoose[0]
             if(!_l){
               var _w = (shop.whyChoose)||[];
               _l = _w.length ? _w[0].trim() : '';
               while(_l.length>0 && !/[a-zA-Z0-9]/.test(_l[0])){ _l=_l.slice(1); }
             }
-            // 3순위: description 앞부분
-            if(!_l) _l = (shop.description||'').slice(0,60).trim();
             if(!_l) return '';
-            if(_l.length>27) _l=_l.slice(0,26)+'\u2026';
+            if(_l.length>55) _l=_l.slice(0,54)+'\u2026';
             return '<div class="shop-info-tagline">'+esc(_l)+'</div>';
           }())
         +'</div>' +
