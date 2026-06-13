@@ -12023,7 +12023,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 /* ── Leaflet 맵 커스텀 스타일 ── */
 #map-leaflet{width:100%;height:100%;z-index:1}
 .leaflet-container{background:#0f0f1e!important;font-family:-apple-system,sans-serif}
-.leaflet-tile-pane{filter:saturate(0.75) brightness(0.85) contrast(1.1)}
+.leaflet-tile-pane{filter:saturate(0.9) brightness(0.95) contrast(1.05)}
 /* 커스텀 마커 핀 */
 .lf-pin{
   width:32px;height:40px;position:relative;cursor:pointer;
@@ -15040,11 +15040,10 @@ function buildMap() {
     attributionControl: false
   });
 
-  // CartoDB Voyager — 항상 영어 표기, 무료, API 키 불필요
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-    maxZoom: 19,
-    subdomains: 'abcd',
-    attribution: '© OpenStreetMap © CARTO'
+  // Stadia Maps Alidade Smooth Dark — 영어 고정, 다크 테마, 무료
+  L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png', {
+    maxZoom: 20,
+    attribution: '© Stadia Maps © OpenStreetMap'
   }).addTo(_leafletMap);
 
   // 지도 클릭 → 패널 닫기
