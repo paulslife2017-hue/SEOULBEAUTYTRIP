@@ -12691,14 +12691,14 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 
 /* \u2500\u2500 \uD558\uB2E8 \uD0ED\uBC14 \u2500\u2500 */
-#bottom-tabs{position:fixed;bottom:0;left:0;right:0;height:56px;background:rgba(10,10,20,.96);backdrop-filter:blur(20px);border-top:1px solid rgba(255,255,255,.08);display:flex;align-items:stretch;z-index:500;max-width:480px;margin:0 auto}
+#bottom-tabs{position:fixed;bottom:0;left:0;right:0;height:56px;background:rgba(10,10,20,.96);backdrop-filter:blur(20px);border-top:1px solid rgba(255,255,255,.08);display:flex;align-items:stretch;z-index:500}
 .btab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:transparent;cursor:pointer;color:rgba(255,255,255,.35);transition:color .2s;padding:0;-webkit-tap-highlight-color:transparent;position:relative}
 .btab i{font-size:18px;transition:transform .2s}
 .btab span{font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
 .btab.active{color:#FF4D8D}
 .btab.active i{transform:scale(1.12)}
 .btab.active::after{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:28px;height:2px;background:linear-gradient(90deg,#FF4D8D,#a855f7);border-radius:0 0 3px 3px}
-@media(min-width:640px){#bottom-tabs{display:none}}
+@media(min-width:1024px){#bottom-tabs{display:none}}
 
 /* \u2500\u2500 Browse \uBDF0 \u2500\u2500 */
 #view-browse{display:none;position:fixed;inset:0;background:#0a0a14;z-index:400;overflow-y:auto;padding-bottom:60px}
@@ -12743,7 +12743,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .map-no-coords{padding:20px;text-align:center;color:rgba(255,255,255,.3);font-size:12px}
 
 /* feed/header: \uD0ED\uBC14 \uACF5\uAC04 \uD655\uBCF4 */
-@media(max-width:639px){
+@media(max-width:1023px){
   body{padding-bottom:56px}
   #hd{padding-bottom:0}
 }
