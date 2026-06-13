@@ -11902,34 +11902,76 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   transition:all .15s;-webkit-tap-highlight-color:transparent
 }
 .map-area-chip.on{background:rgba(255,77,141,.15);border-color:#FF4D8D;color:#FF4D8D}
-#map-body{flex:1;display:flex;overflow:hidden;min-height:0}
+#map-body{flex:1;display:flex;overflow:hidden;min-height:0;position:relative}
 
-/* 지도 Leaflet 래퍼 */
+/* 지도 Leaflet 래퍼 — 항상 전체 크기 */
 #map-iframe-wrap{flex:1;position:relative;overflow:hidden;display:flex;flex-direction:column}
 #map-leaflet{flex:1;width:100%;min-height:0}
 
-/* 업체 목록 사이드바 (PC) / 드로어 (모바일) */
+/* ── 업체 목록: PC 우측 사이드바 / 모바일 하단 bottom sheet ── */
 #map-shop-list{
-  background:rgba(8,8,16,.98);border-left:1px solid rgba(255,255,255,.07);
+  background:rgba(8,8,16,.97);border-left:1px solid rgba(255,255,255,.07);
   display:flex;flex-direction:column;overflow:hidden;
-  transition:width .3s;
 }
-@media(max-width:1023px){
-  #map-body{flex-direction:column}
-  #map-iframe-wrap{height:45%;flex-shrink:0;flex:none;min-height:200px}
-  #map-leaflet{height:100%}
-  #map-shop-list{
-    border-left:none;border-top:1px solid rgba(255,255,255,.08);
-    width:100%!important;flex:1;min-height:0;
-  }
-  .map-list-scroll{-webkit-overflow-scrolling:touch}
-}
+/* PC: 우측 360px 사이드바 */
 @media(min-width:1024px){
   #map-shop-list{width:360px;flex-shrink:0}
 }
+/* 모바일: 지도 위 bottom sheet (absolute) */
+@media(max-width:1023px){
+  #map-shop-list{
+    position:absolute;left:0;right:0;bottom:0;z-index:500;
+    border-left:none;
+    border-radius:18px 18px 0 0;
+    border-top:1px solid rgba(255,255,255,.1);
+    box-shadow:0 -8px 32px rgba(0,0,0,.6);
+    /* 접힌 상태: 핸들+헤더만 보임 (~56px) */
+    height:56px;
+    transition:height .32s cubic-bezier(.32,1.15,.7,1);
+    backdrop-filter:blur(20px);
+  }
+  #map-shop-list.sheet-open{
+    height:55%;
+  }
+  #map-shop-list .map-list-scroll{
+    -webkit-overflow-scrolling:touch;
+    /* 접힌 상태에선 스크롤 숨김 */
+    opacity:0;pointer-events:none;
+    transition:opacity .2s;
+  }
+  #map-shop-list.sheet-open .map-list-scroll{
+    opacity:1;pointer-events:auto;
+  }
+}
+/* 드로어 핸들 (모바일 bottom sheet 전용) */
+#map-sheet-handle{
+  display:none;
+}
+@media(max-width:1023px){
+  #map-sheet-handle{
+    display:flex;flex-direction:column;align-items:center;
+    padding:10px 0 4px;cursor:pointer;flex-shrink:0;gap:3px;
+    -webkit-tap-highlight-color:transparent;
+  }
+  #map-sheet-handle-bar{
+    width:36px;height:4px;border-radius:2px;
+    background:rgba(255,255,255,.2);
+    transition:background .15s;
+  }
+  #map-sheet-handle:hover #map-sheet-handle-bar{background:rgba(255,255,255,.4)}
+  #map-sheet-handle-label{
+    font-size:10px;font-weight:700;color:rgba(255,255,255,.35);
+    letter-spacing:.05em;text-transform:uppercase;
+    transition:color .15s;
+  }
+  #map-shop-list.sheet-open #map-sheet-handle-label{color:rgba(255,255,255,.2)}
+}
 .map-list-header{
-  flex-shrink:0;padding:12px 16px 8px;
-  border-bottom:1px solid rgba(255,255,255,.06)
+  flex-shrink:0;padding:4px 16px 8px;
+  border-bottom:1px solid rgba(255,255,255,.06);
+}
+@media(max-width:1023px){
+  .map-list-header{display:none}
 }
 .map-list-count{font-size:11px;font-weight:700;color:rgba(255,255,255,.4);letter-spacing:.05em;text-transform:uppercase}
 .map-list-scroll{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,77,141,.2) transparent}
@@ -14778,6 +14820,9 @@ function _showMapPanel(shop) {
     + '</div>';
 
   popup.classList.add('open');
+  // 팝업 열릴 때 bottom sheet 닫기 (겹침 방지)
+  var sheet = document.getElementById('map-shop-list');
+  if (sheet) sheet.classList.remove('sheet-open');
 }
 
 window.closeMapPanel = function() {
@@ -14792,6 +14837,13 @@ window.closeMapPanel = function() {
   }
   _leafletSelectedSlug = null;
   document.querySelectorAll('.map-pin-card').forEach(function(c){ c.classList.remove('selected'); });
+};
+
+/* 모바일 bottom sheet 토글 */
+window.toggleMapSheet = function() {
+  var sheet = document.getElementById('map-shop-list');
+  if (!sheet) return;
+  sheet.classList.toggle('sheet-open');
 };
 
 /* 마커 선택 + 지도 이동 + 패널 표시 */
@@ -14850,10 +14902,14 @@ function _buildMarkers(shops) {
 /* 업체 목록 카드 렌더 */
 function renderMapList(shops) {
   var list    = document.getElementById('map-pin-list');
-  var countEl = document.getElementById('map-list-count');
   if (!list) return;
   var geoCount = shops.filter(function(s){ return s.lat && s.lng; }).length;
-  if (countEl) countEl.innerHTML = '<strong style="color:#fff">' + shops.length + '</strong> shops'
+  // 모바일 핸들 레이블
+  var handleLabel = document.getElementById('map-sheet-handle-label');
+  if (handleLabel) handleLabel.textContent = shops.length + ' shops nearby';
+  // PC 헤더 카운트
+  var countPc = document.getElementById('map-list-count-pc');
+  if (countPc) countPc.innerHTML = '<strong style="color:#fff">' + shops.length + '</strong> shops'
     + (geoCount < shops.length ? ' <span style="color:rgba(255,255,255,.25);font-size:9px">(' + geoCount + ' on map)</span>' : '');
   if (!shops.length) {
     list.innerHTML = '<div class="map-no-coords"><div style="font-size:28px;margin-bottom:8px">🗺️</div>No shops in this area</div>';
@@ -14928,7 +14984,11 @@ function buildMap() {
     '<div id="map-shop-popup"></div>',
     '</div>',
     '<div id="map-shop-list">',
-    '<div class="map-list-header"><div class="map-list-count" id="map-list-count">Loading shops...</div></div>',
+    '<div id="map-sheet-handle" onclick="toggleMapSheet()">',
+    '<div id="map-sheet-handle-bar"></div>',
+    '<div id="map-sheet-handle-label" id="map-list-count">— shops nearby —</div>',
+    '</div>',
+    '<div class="map-list-header"><div class="map-list-count" id="map-list-count-pc">Shops</div></div>',
     '<div class="map-list-scroll" id="map-pin-list"><div style="padding:32px 16px;color:rgba(255,255,255,.3);text-align:center">Loading...</div></div>',
     '</div>',
     '</div>'
