@@ -12310,6 +12310,11 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 #feed::-webkit-scrollbar{display:none}
 /* \u2500\u2500 \uC2AC\uB77C\uC774\uB4DC \u2500\u2500 */
 .slide{height:100vh;width:100%;max-width:100%;position:relative;scroll-snap-align:start;overflow:hidden;background:#000;flex-shrink:0;touch-action:pan-y}
+/* \u2500\u2500 \uBAA8\uBC14\uC77C: \uD0ED\uBC14(56px) \uC81C\uC678\uD55C \uC2E4\uC81C \uBDF0\uD3EC\uD2B8 \u2500\u2500 */
+@media(max-width:1023px){
+  #feed{height:calc(100vh - 56px)}
+  .slide{height:calc(100vh - 56px)}
+}
 .bg-img{
   position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;
   filter:blur(12px);transform:scale(1.06);
@@ -12406,7 +12411,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 }
 /* \u2500\u2500 PC \uB808\uC774\uC544\uC6C3: \uC88C\uCE21 \uC0AC\uC774\uB4DC\uB124\uBE44 + \uC911\uC559 \uD53C\uB4DC + \uC6B0\uCE21 \uD328\uB110 \u2500\u2500 */
 #shop-panel{display:none!important}
-#pc-layout{display:block!important}
+#pc-layout{display:block}
 #feed-col{width:100%}
 
 /* PC \uC0AC\uC774\uB4DC \uB124\uBE44 (\u22651024px) */
@@ -15365,6 +15370,7 @@ function renderShopPanel(cat) {
 // \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 var _bwCat  = 'all';
 var _bwArea = 'all';
+var _browseShops = [];
 var _mapArea = 'all';
 var _mapShops = [];
 var _TAB_COLORS = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa',tattoo:'#e879f9'};
@@ -15375,6 +15381,12 @@ var _TAB_ICONS  = {skincare:'&#127807;',headspa:'&#128134;',hair:'&#9986;',clini
   var _browseBuilt = false;
   var _mapBuilt    = false;
   var _isPC        = window.innerWidth >= 1024;
+
+  // \uCD08\uAE30\uD654: \uCC3E\uAE30/\uB9F5 \uBDF0 \uBA85\uC2DC\uC801\uC73C\uB85C \uC228\uAE40 (CSS display:none \uC7AC\uD655\uC778)
+  var _vb = document.getElementById('view-browse');
+  var _vm = document.getElementById('view-map');
+  if (_vb) { _vb.classList.remove('active'); _vb.style.display = 'none'; }
+  if (_vm) { _vm.classList.remove('active'); _vm.style.display = 'none'; }
 
   function isPC() { return window.innerWidth >= 1024; }
 
@@ -15401,46 +15413,47 @@ var _TAB_ICONS  = {skincare:'&#127807;',headspa:'&#128134;',hair:'&#9986;',clini
     var viewMap     = document.getElementById('view-map');
 
     if (tab === 'reels') {
-      // \uCC3E\uAE30/\uB9F5 \uC228\uAE30\uAE30
-      if (viewBrowse) viewBrowse.classList.remove('active');
-      if (viewMap)    viewMap.classList.remove('active');
+      // \u2500\u2500 \uCC3E\uAE30/\uB9F5 \uC228\uAE30\uAE30 \u2500\u2500
+      if (viewBrowse) { viewBrowse.classList.remove('active'); viewBrowse.style.display = 'none'; }
+      if (viewMap)    { viewMap.classList.remove('active');    viewMap.style.display    = 'none'; }
       if (pcPanel)    pcPanel.classList.remove('active');
-      // \uD53C\uB4DC \uBCF4\uC774\uAE30
-      if (pcLayout) pcLayout.style.display = '';
-      if (hd)       hd.style.display = '';
-      // \uC601\uC0C1 \uC7AC\uAC1C
-      var cur = document.querySelector('.slide.current video');
-      if (cur) { try { cur.play(); } catch(e){} }
+      // \u2500\u2500 \uD53C\uB4DC + \uD5E4\uB354 \uBCF4\uC774\uAE30 \u2500\u2500
+      if (pcLayout)   pcLayout.style.display  = 'block';
+      if (hd)         hd.style.display        = '';
+      // \u2500\u2500 \uC601\uC0C1 \uC7AC\uAC1C (\uB80C\uB354 \uC644\uB8CC \uD6C4 \uC2E4\uD589) \u2500\u2500
+      setTimeout(function() {
+        var cur = document.querySelector('.slide.current video');
+        if (cur) { try { cur.play(); } catch(e){} }
+      }, 80);
 
     } else {
-      // \uC601\uC0C1 \uC815\uC9C0
+      // \u2500\u2500 \uC601\uC0C1 \uC804\uCCB4 \uC815\uC9C0 \u2500\u2500
       document.querySelectorAll('#feed video').forEach(function(v){ try{v.pause();}catch(e){} });
+      // \u2500\u2500 \uD53C\uB4DC + \uD5E4\uB354 \uC228\uAE30\uAE30 \u2500\u2500
+      if (pcLayout) pcLayout.style.display = 'none';
+      if (hd)       hd.style.display       = 'none';
 
       if (isPC()) {
-        // PC: \uD53C\uB4DC\uB294 \uC720\uC9C0, pc-content-panel \uD65C\uC131\uD654
-        if (pcLayout) pcLayout.style.display = 'none';
-        if (hd)       hd.style.display = 'none';
-        if (pcPanel)  pcPanel.classList.add('active');
+        // \u2500\u2500 PC: pc-content-panel \uD65C\uC131\uD654 \u2500\u2500
+        if (pcPanel) pcPanel.classList.add('active');
         if (tab === 'browse') {
-          if (viewMap)   { viewMap.classList.remove('active'); viewMap.style.display = 'none'; }
-          if (viewBrowse){ viewBrowse.classList.add('active'); viewBrowse.style.display = ''; }
+          if (viewMap)    { viewMap.classList.remove('active');    viewMap.style.display    = 'none'; }
+          if (viewBrowse) { viewBrowse.classList.add('active');    viewBrowse.style.display = 'flex'; }
           if (!_browseBuilt) { _browseBuilt = true; buildBrowse(); }
         } else if (tab === 'map') {
-          if (viewBrowse){ viewBrowse.classList.remove('active'); viewBrowse.style.display = 'none'; }
-          if (viewMap)   { viewMap.classList.add('active'); viewMap.style.display = ''; }
+          if (viewBrowse) { viewBrowse.classList.remove('active'); viewBrowse.style.display = 'none'; }
+          if (viewMap)    { viewMap.classList.add('active');       viewMap.style.display    = 'flex'; }
           if (!_mapBuilt) { _mapBuilt = true; buildMap(); }
         }
       } else {
-        // \uBAA8\uBC14\uC77C: fixed \uC804\uCCB4\uD654\uBA74
-        if (pcLayout) pcLayout.style.display = 'none';
-        if (hd)       hd.style.display = 'none';
+        // \u2500\u2500 \uBAA8\uBC14\uC77C: position:fixed \uC804\uCCB4\uD654\uBA74 \u2500\u2500
         if (tab === 'browse') {
-          if (viewMap)   viewMap.classList.remove('active');
-          if (viewBrowse)viewBrowse.classList.add('active');
+          if (viewMap)    { viewMap.classList.remove('active');    viewMap.style.display    = 'none'; }
+          if (viewBrowse) { viewBrowse.classList.add('active');    viewBrowse.style.display = 'flex'; }
           if (!_browseBuilt) { _browseBuilt = true; buildBrowse(); }
         } else if (tab === 'map') {
-          if (viewBrowse)viewBrowse.classList.remove('active');
-          if (viewMap)   viewMap.classList.add('active');
+          if (viewBrowse) { viewBrowse.classList.remove('active'); viewBrowse.style.display = 'none'; }
+          if (viewMap)    { viewMap.classList.add('active');       viewMap.style.display    = 'flex'; }
           if (!_mapBuilt) { _mapBuilt = true; buildMap(); }
         }
       }
@@ -15477,21 +15490,16 @@ function buildBrowse() {
   var container = document.getElementById('view-browse');
   if (!container) return;
 
-  var shops = (window.__INIT_SHOPS__ || []);
-  var totalCount = shops.length;
-
-  // HTML \uC0BD\uC785
+  // \u2500\u2500 HTML \uBF08\uB300 \uBA3C\uC800 \uC0BD\uC785 \u2500\u2500
   container.innerHTML = [
     '<div class="bw-layout">',
     '<div class="bw-header">',
-    // \uD5E4\uB354 \uD0C0\uC774\uD2C0 \uD589
     '<div class="bw-header-top">',
     '<div>',
     '<div class="bw-title">Seoul Beauty Guide</div>',
-    '<div class="bw-subtitle">' + totalCount + ' foreigner-friendly shops in Seoul</div>',
+    '<div class="bw-subtitle" id="bw-subtitle">Loading shops...</div>',
     '</div>',
     '</div>',
-    // \uCE74\uD14C\uACE0\uB9AC \uD544\uD130
     '<div class="bw-filter-group">',
     '<span class="bw-filter-label">Category</span>',
     '<div class="bw-filter-row" id="bw-cat-filters">',
@@ -15504,7 +15512,6 @@ function buildBrowse() {
     '<button class="bw-chip" data-cat="spa">&#9992; Spa</button>',
     '<button class="bw-chip" data-cat="tattoo">&#9999; Tattoo</button>',
     '</div></div>',
-    // \uC9C0\uC5ED \uD544\uD130
     '<div class="bw-filter-group">',
     '<span class="bw-filter-label">Area</span>',
     '<div class="bw-filter-row" id="bw-area-filters">',
@@ -15517,37 +15524,62 @@ function buildBrowse() {
     '<button class="bw-chip" data-area="Sinsa">Sinsa</button>',
     '<button class="bw-chip" data-area="Apgujeong">Apgujeong</button>',
     '</div></div>',
-    '</div>', // bw-header
+    '</div>',
     '<div class="bw-body">',
     '<div id="bw-section-label" class="bw-section-label"></div>',
-    '<div class="bw-grid" id="bw-grid"></div>',
+    '<div class="bw-grid" id="bw-grid"><div style="grid-column:1/-1;padding:48px 20px;text-align:center;color:rgba(255,255,255,.3)">Loading...</div></div>',
     '</div>',
-    '</div>' // bw-layout
+    '</div>'
   ].join('');
 
-  // \uCE74\uD14C\uACE0\uB9AC \uD544\uD130 \uC774\uBCA4\uD2B8
-  var catChips = container.querySelectorAll('#bw-cat-filters .bw-chip');
+  // \u2500\u2500 \uD544\uD130 \uC774\uBCA4\uD2B8 \uB4F1\uB85D (\uB370\uC774\uD130\uC640 \uBB34\uAD00\uD558\uAC8C \uBA3C\uC800 \uB4F1\uB85D) \u2500\u2500
+  var catChips  = container.querySelectorAll('#bw-cat-filters .bw-chip');
+  var areaChips = container.querySelectorAll('#bw-area-filters .bw-chip');
   catChips.forEach(function(chip) {
     chip.addEventListener('click', function() {
       catChips.forEach(function(c){ c.classList.remove('on'); });
       chip.classList.add('on');
       _bwCat = chip.dataset.cat || 'all';
-      renderBrowseGrid(shops);
+      renderBrowseGrid(_browseShops);
     });
   });
-
-  // \uC9C0\uC5ED \uD544\uD130 \uC774\uBCA4\uD2B8
-  var areaChips = container.querySelectorAll('#bw-area-filters .bw-chip');
   areaChips.forEach(function(chip) {
     chip.addEventListener('click', function() {
       areaChips.forEach(function(c){ c.classList.remove('on'); });
       chip.classList.add('on');
       _bwArea = chip.dataset.area || 'all';
-      renderBrowseGrid(shops);
+      renderBrowseGrid(_browseShops);
     });
   });
 
-  renderBrowseGrid(shops);
+  // \u2500\u2500 \uB370\uC774\uD130 \uB85C\uB4DC \uD6C4 \uADF8\uB9AC\uB4DC \uB80C\uB354 \u2500\u2500
+  function doRender(list) {
+    _browseShops = list;
+    var subtitle = document.getElementById('bw-subtitle');
+    if (subtitle) subtitle.textContent = list.length + ' foreigner-friendly shops in Seoul';
+    renderBrowseGrid(list);
+  }
+
+  // shopCache \uC6B0\uC120 \u2192 __INIT_SHOPS__ \u2192 /api/shops fetch
+  var cached = Object.keys(shopCache).length > 0 ? Object.values(shopCache) : null;
+  if (cached && cached.length > 0) {
+    doRender(cached);
+  } else if (window.__INIT_SHOPS__ && window.__INIT_SHOPS__.length) {
+    doRender(window.__INIT_SHOPS__);
+  } else {
+    // API fallback
+    fetch('/api/shops')
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var list = d.shops || d || [];
+        list.forEach(function(s){ if(s && s.id) shopCache[s.id] = s; });
+        doRender(list);
+      })
+      .catch(function(){
+        var grid = document.getElementById('bw-grid');
+        if (grid) grid.innerHTML = '<div style="grid-column:1/-1;padding:48px;text-align:center;color:rgba(255,255,255,.3)">Failed to load shops.</div>';
+      });
+  }
 }
 
 function renderBrowseGrid(shops) {
@@ -15621,11 +15653,7 @@ function buildMap() {
   var container = document.getElementById('view-map');
   if (!container) return;
 
-  var allShops = (window.__INIT_SHOPS__ || []);
-  // lat/lng \uC5C6\uB294 \uC5C5\uCCB4\uB3C4 \uBAA9\uB85D\uC5D4 \uD45C\uC2DC (\uC9C0\uB3C4 \uD540\uC740 \uC788\uB294 \uAC83\uB9CC)
-  _mapShops = allShops;
-
-  // HTML \uC0BD\uC785
+  // \u2500\u2500 HTML \uBF08\uB300 \uBA3C\uC800 \uC0BD\uC785 \u2500\u2500
   container.innerHTML = [
     '<div id="map-top-bar">',
     '<div id="map-top-bar-title">&#128205; Shop Map</div>',
@@ -15638,17 +15666,17 @@ function buildMap() {
     '<button class="map-area-chip" data-area="Itaewon">Itaewon</button>',
     '<button class="map-area-chip" data-area="Sinsa">Sinsa</button>',
     '</div>',
-    '</div>', // map-top-bar
+    '</div>',
     '<div id="map-body">',
     '<div id="map-iframe-wrap"><iframe id="map-iframe" src="" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade" title="Seoul Beauty Map"></iframe></div>',
     '<div id="map-shop-list">',
     '<div class="map-list-header"><div class="map-list-count" id="map-list-count">Loading shops...</div></div>',
-    '<div class="map-list-scroll" id="map-pin-list"></div>',
+    '<div class="map-list-scroll" id="map-pin-list"><div style="padding:32px 16px;color:rgba(255,255,255,.3);text-align:center">Loading...</div></div>',
     '</div>',
-    '</div>' // map-body
+    '</div>'
   ].join('');
 
-  // \uC9C0\uC5ED \uD544\uD130 \uC774\uBCA4\uD2B8
+  // \u2500\u2500 \uC9C0\uC5ED \uD544\uD130 \uC774\uBCA4\uD2B8 \uB4F1\uB85D \u2500\u2500
   var areaChips = container.querySelectorAll('.map-area-chip');
   areaChips.forEach(function(chip) {
     chip.addEventListener('click', function() {
@@ -15663,8 +15691,34 @@ function buildMap() {
     });
   });
 
-  setMapIframe(allShops.filter(function(s){ return s.lat && s.lng; }));
-  renderMapList(allShops);
+  // \u2500\u2500 \uB370\uC774\uD130 \uB85C\uB4DC \uD6C4 \uB80C\uB354 \u2500\u2500
+  function doMapRender(list) {
+    _mapShops = list;
+    var cnt = document.getElementById('map-list-count');
+    if (cnt) cnt.textContent = list.length + ' shops';
+    setMapIframe(list.filter(function(s){ return s.lat && s.lng; }));
+    renderMapList(list);
+  }
+
+  // shopCache \uC6B0\uC120 \u2192 __INIT_SHOPS__ \u2192 /api/shops fetch
+  var cached = Object.keys(shopCache).length > 0 ? Object.values(shopCache) : null;
+  if (cached && cached.length > 0) {
+    doMapRender(cached);
+  } else if (window.__INIT_SHOPS__ && window.__INIT_SHOPS__.length) {
+    doMapRender(window.__INIT_SHOPS__);
+  } else {
+    fetch('/api/shops')
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var list = d.shops || d || [];
+        list.forEach(function(s){ if(s && s.id) shopCache[s.id] = s; });
+        doMapRender(list);
+      })
+      .catch(function(){
+        var pl = document.getElementById('map-pin-list');
+        if (pl) pl.innerHTML = '<div style="padding:32px;text-align:center;color:rgba(255,255,255,.3)">Failed to load shops.</div>';
+      });
+  }
 }
 
 function getMapCenter(shops) {
