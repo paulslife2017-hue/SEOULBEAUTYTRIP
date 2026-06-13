@@ -10414,8 +10414,8 @@ var MAIN_HTML = `<!DOCTYPE html>
   --ff-sans:'Inter',sans-serif;
 }
 html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-family:var(--ff-sans)}
-/* \u2500\u2500 \uB85C\uB529 \uC2A4\uD50C\uB798\uC2DC \u2500\u2500 */
-#ld{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;transition:opacity .4s}
+/* \u2500\u2500 \uB85C\uB529 \uC2A4\uD50C\uB798\uC2DC (Hero \uB4A4\uC5D0 \uC228\uAE40 \u2014 \uBE44\uB514\uC624 \uB85C\uB4DC \uB300\uAE30\uC6A9\uC73C\uB85C\uB9CC \uC720\uC9C0) \u2500\u2500 */
+#ld{position:fixed;inset:0;background:var(--bg);z-index:9999;display:none;flex-direction:column;align-items:center;justify-content:center;gap:0;transition:opacity .4s}
 .ld-pre{font-size:10px;letter-spacing:5px;color:rgba(255,255,255,.28);text-transform:uppercase;font-family:var(--ff-sans);margin-bottom:10px}
 .ld-logo{font-family:var(--ff-serif);font-size:34px;font-weight:900;background:linear-gradient(135deg,#fff 0%,var(--pk3) 60%,var(--gold2) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:1px;text-align:center;line-height:1.1}
 .ld-sub{font-size:9px;letter-spacing:6px;color:rgba(255,255,255,.25);text-transform:uppercase;margin-top:4px}
@@ -10478,6 +10478,117 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .sk-act-btn{width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.05);animation:skpulse 1.5s ease-in-out infinite}
 .sk-act-label{width:24px;height:8px;border-radius:3px;background:rgba(255,255,255,.04);animation:skpulse 1.5s ease-in-out infinite .1s}
 @keyframes skpulse{0%,100%{opacity:.6}50%{opacity:1}}
+/* \u2500\u2500 Hero \uC2AC\uB77C\uC774\uB4DC \u2500\u2500 */
+#hero-slide{
+  position:relative;
+  width:100%;height:100vh;
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;
+  flex-shrink:0;
+}
+.hero-bg{
+  position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(232,65,122,.22) 0%, transparent 65%),
+    radial-gradient(ellipse 50% 40% at 80% 80%, rgba(124,58,237,.18) 0%, transparent 60%),
+    var(--bg);
+}
+.hero-bg::after{
+  content:'';position:absolute;inset:0;
+  background-image:
+    radial-gradient(circle at 20% 30%, rgba(232,65,122,.07) 0%, transparent 40%),
+    radial-gradient(circle at 75% 60%, rgba(201,168,76,.06) 0%, transparent 35%);
+}
+.hero-content{
+  position:relative;z-index:2;
+  text-align:center;
+  padding:0 24px;
+  max-width:480px;
+  width:100%;
+}
+.hero-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:5px 14px;
+  background:rgba(34,197,94,.12);
+  border:1px solid rgba(34,197,94,.25);
+  border-radius:20px;
+  font-size:11px;font-weight:700;
+  color:#4ade80;
+  letter-spacing:.3px;
+  margin-bottom:18px;
+}
+.hero-badge i{font-size:10px}
+.hero-title{
+  font-family:var(--ff-serif);
+  font-size:clamp(26px,7vw,38px);
+  font-weight:900;
+  line-height:1.15;
+  background:linear-gradient(135deg,#fff 0%,var(--pk3) 55%,var(--gold2) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  margin-bottom:14px;
+}
+.hero-sub{
+  font-size:14px;
+  color:rgba(255,255,255,.55);
+  line-height:1.6;
+  margin-bottom:22px;
+}
+.hero-stats{
+  display:flex;align-items:center;justify-content:center;gap:0;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:14px;
+  padding:12px 0;
+  margin-bottom:20px;
+}
+.hero-stat{display:flex;flex-direction:column;align-items:center;flex:1;gap:3px}
+.hs-num{font-size:18px;font-weight:900;color:#fff}
+.hs-lbl{font-size:9.5px;color:rgba(255,255,255,.4);font-weight:600;letter-spacing:.3px;text-transform:uppercase}
+.hero-divider{width:1px;height:32px;background:rgba(255,255,255,.08)}
+.hero-cats{
+  display:flex;flex-wrap:wrap;gap:8px;justify-content:center;
+  margin-bottom:20px;
+}
+.hero-cat-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:9px 16px;
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:22px;
+  color:rgba(255,255,255,.8);
+  font-size:12px;font-weight:700;
+  text-decoration:none;
+  transition:all .2s;
+  cursor:pointer;
+}
+.hero-cat-btn:hover,.hero-cat-btn:active{
+  background:rgba(232,65,122,.18);
+  border-color:rgba(232,65,122,.4);
+  color:#fff;
+}
+.hero-cat-btn i{font-size:11px;color:var(--pk2)}
+.hero-cta{
+  width:100%;
+  padding:14px;
+  background:linear-gradient(135deg,var(--pk) 0%,#7C3AED 100%);
+  border:none;border-radius:14px;
+  color:#fff;font-size:14px;font-weight:800;
+  cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  box-shadow:0 4px 24px rgba(232,65,122,.35);
+  transition:opacity .2s,transform .15s;
+}
+.hero-cta:active{opacity:.9;transform:scale(.98)}
+.hero-cta i{font-size:16px}
+.hero-scroll-hint{
+  position:absolute;bottom:24px;left:50%;transform:translateX(-50%);
+  color:rgba(255,255,255,.25);
+  font-size:18px;
+  animation:hb 2s ease-in-out infinite;
+  z-index:3;
+}
+/* hero \uC228\uAE30\uAE30 \u2014 \uCE74\uD14C\uACE0\uB9AC \uD0ED \uD074\uB9AD \uC2DC */
+#hero-slide.hidden{display:none}
 /* \u2500\u2500 \uCE74\uD14C\uACE0\uB9AC \uC804\uD658 \uC624\uBC84\uB808\uC774 \u2500\u2500 */
 #cat-loading{position:absolute;inset:0;z-index:50;display:none;align-items:center;justify-content:center;pointer-events:none}
 #cat-loading.on{display:flex}
@@ -10964,6 +11075,31 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
     <div class="so-header" id="so-header"></div>
     <div class="so-grid" id="so-grid"></div>
   </div>
+</div>
+
+<!-- \u2500\u2500 Hero \uC2AC\uB77C\uC774\uB4DC (\uD53C\uB4DC \uC704 \uACE0\uC815 \uCCAB \uD654\uBA74) \u2500\u2500 -->
+<div id="hero-slide">
+  <div class="hero-bg"></div>
+  <div class="hero-content">
+    <div class="hero-badge"><i class="fas fa-check-circle"></i> Verified \xB7 English-friendly</div>
+    <h1 class="hero-title">Book Korean Beauty<br>in Seoul \u2014 in English</h1>
+    <p class="hero-sub">Skin clinics, head spas, hair salons &amp; more.<br>WhatsApp booking. No Korean needed.</p>
+    <div class="hero-stats">
+      <div class="hero-stat"><span class="hs-num">56</span><span class="hs-lbl">Verified Shops</span></div>
+      <div class="hero-divider"></div>
+      <div class="hero-stat"><span class="hs-num">4.8\u2605</span><span class="hs-lbl">Avg Rating</span></div>
+      <div class="hero-divider"></div>
+      <div class="hero-stat"><span class="hs-num">\u{1F1EC}\u{1F1E7}</span><span class="hs-lbl">English OK</span></div>
+    </div>
+    <div class="hero-cats">
+      <a class="hero-cat-btn" href="#" onclick="selectHeroCat('clinic');return false"><i class="fas fa-briefcase-medical"></i> Skin Clinic</a>
+      <a class="hero-cat-btn" href="#" onclick="selectHeroCat('headspa');return false"><i class="fas fa-spa"></i> Head Spa</a>
+      <a class="hero-cat-btn" href="#" onclick="selectHeroCat('hair');return false"><i class="fas fa-cut"></i> Hair Salon</a>
+      <a class="hero-cat-btn" href="#" onclick="selectHeroCat('skincare');return false"><i class="fas fa-leaf"></i> Skincare</a>
+    </div>
+    <button class="hero-cta" onclick="heroScrollFeed()"><i class="fas fa-play-circle"></i> Browse All Shops</button>
+  </div>
+  <div class="hero-scroll-hint"><i class="fas fa-chevron-down"></i></div>
 </div>
 
 <!-- PC \uB808\uC774\uC544\uC6C3 \uB798\uD37C -->
@@ -13030,6 +13166,34 @@ document.addEventListener('keydown', function(e){
 /* \u2605 \uD575\uC2EC \uC218\uC815: window 'load' \u2192 'DOMContentLoaded' \uB85C \uBCC0\uACBD
    'load'\uB294 \uBAA8\uB4E0 \uC774\uBBF8\uC9C0\xB7CDN\xB7\uD3F0\uD2B8\uAC00 \uB2E4 \uBC1B\uC544\uC9C8 \uB54C\uAE4C\uC9C0 \uAE30\uB2E4\uB9BC (5~15\uCD08 \uC9C0\uC5F0 \uAC00\uB2A5)
    'DOMContentLoaded'\uB294 HTML \uD30C\uC2F1 \uC644\uB8CC \uC989\uC2DC \uC2E4\uD589 (0.1~0.3\uCD08) \u2192 \uB85C\uB529 \uD654\uBA74 \uC989\uC2DC \uD574\uC81C \uAC00\uB2A5 */
+/* \u2500\u2500 Hero \uC2AC\uB77C\uC774\uB4DC \uD568\uC218 \u2500\u2500 */
+window.heroScrollFeed = function() {
+  var hero = document.getElementById('hero-slide');
+  var feed = document.getElementById('feed');
+  if(hero) hero.classList.add('hidden');
+  if(feed) feed.scrollIntoView({behavior:'smooth'});
+};
+window.selectHeroCat = function(cat) {
+  // \uCE74\uD14C\uACE0\uB9AC \uD0ED \uD074\uB9AD \uD6A8\uACFC
+  document.querySelectorAll('.cat').forEach(function(b){
+    if(b.getAttribute('data-cat') === cat){
+      b.click();
+    }
+  });
+  window.heroScrollFeed();
+};
+/* Hero \uC2AC\uB77C\uC774\uB4DC: \uD53C\uB4DC \uC2A4\uD06C\uB864 \uC2DC \uC790\uB3D9 \uC228\uAE30\uAE30 */
+(function(){
+  var feed = document.getElementById('feed');
+  var pcLayout = document.getElementById('pc-layout');
+  if(!feed && !pcLayout) return;
+  var target = feed || pcLayout;
+  target.addEventListener('scroll', function(){
+    var hero = document.getElementById('hero-slide');
+    if(hero && target.scrollTop > 50) hero.classList.add('hidden');
+  }, {passive:true});
+})();
+
 document.addEventListener('DOMContentLoaded', function(){
   document.querySelectorAll('.cat').forEach(function(b){
     b.addEventListener('click', function(){
@@ -13037,6 +13201,9 @@ document.addEventListener('DOMContentLoaded', function(){
       b.classList.add('on');
       loadVideos(b.getAttribute('data-cat'));
       document.getElementById('feed').scrollTo({top:0});
+      // \uCE74\uD14C\uACE0\uB9AC \uD0ED \uD074\uB9AD \uC2DC Hero \uC228\uAE30\uAE30
+      var hero = document.getElementById('hero-slide');
+      if(hero) hero.classList.add('hidden');
     });
   });
 
