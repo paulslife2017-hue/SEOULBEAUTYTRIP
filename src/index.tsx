@@ -11991,71 +11991,72 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .lf-pin:hover{transform:scale(1.2) translateY(-3px)}
 .lf-pin svg{width:32px;height:40px}
 .lf-pin.selected{filter:drop-shadow(0 4px 12px rgba(255,77,141,.7));transform:scale(1.25) translateY(-4px)}
-/* ── 업체 정보 팝업 (모바일: 하단 슬라이드업 / PC: 우측 패널) ── */
+/* ── 업체 정보 팝업 (모바일: 하단 슬라이드업 / PC: 좌하단 플로팅 카드) ── */
 #map-shop-popup{
-  position:absolute;left:0;right:0;bottom:0;z-index:600;
-  background:rgba(10,10,20,.98);backdrop-filter:blur(24px);
-  border-top:1px solid rgba(255,255,255,.1);
-  border-radius:20px 20px 0 0;
-  box-shadow:0 -8px 40px rgba(0,0,0,.6);
-  transform:translateY(100%);opacity:0;pointer-events:none;
-  transition:transform .32s cubic-bezier(.32,1.15,.7,1),opacity .25s ease;
-  overflow:hidden;max-height:80%;overflow-y:auto;
+  position:absolute;
+  bottom:16px;left:50%;transform:translateX(-50%) translateY(24px);
+  z-index:600;width:min(340px,calc(100vw - 32px));
+  background:rgba(10,10,20,.97);backdrop-filter:blur(24px);
+  border:1px solid rgba(255,255,255,.13);border-radius:20px;
+  box-shadow:0 16px 48px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.05);
+  opacity:0;pointer-events:none;
+  transition:opacity .25s ease,transform .28s cubic-bezier(.32,1.15,.7,1);
+  overflow:hidden;
 }
-#map-shop-popup.open{transform:translateY(0);opacity:1;pointer-events:auto}
+#map-shop-popup.open{
+  opacity:1;pointer-events:auto;
+  transform:translateX(-50%) translateY(0);
+}
 @media(min-width:1024px){
-  #map-shop-popup{
-    position:absolute;top:0;right:0;bottom:0;left:auto;
-    width:300px;max-height:100%;overflow-y:auto;
-    border-radius:0;border-top:none;border-left:1px solid rgba(255,255,255,.08);
-    box-shadow:-8px 0 32px rgba(0,0,0,.5);
-    transform:translateX(110%);
-  }
-  #map-shop-popup.open{transform:translateX(0)}
+  /* PC: 지도 좌측 하단에 고정 플로팅 카드 */
+  #map-shop-popup{left:16px;transform:translateY(24px);bottom:20px}
+  #map-shop-popup.open{transform:translateY(0)}
 }
 /* 드래그 핸들 (모바일) */
 .msp-handle{width:40px;height:4px;border-radius:2px;background:rgba(255,255,255,.18);margin:12px auto 0}
 @media(min-width:1024px){.msp-handle{display:none}}
 /* 히어로 이미지 */
-.msp-hero{position:relative;width:100%;height:180px;overflow:hidden;flex-shrink:0}
-.msp-hero img{width:100%;height:100%;object-fit:cover;display:block}
-.msp-hero-ov{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,rgba(10,10,20,.85) 100%)}
+.msp-hero{position:relative;width:100%;height:160px;overflow:hidden;flex-shrink:0}
+.msp-hero img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s}
+#map-shop-popup.open .msp-hero img{transform:scale(1.03)}
+.msp-hero-ov{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.05) 0%,rgba(0,0,0,.6) 100%)}
 /* 닫기 버튼 */
 .msp-close-btn{
   position:absolute;top:10px;right:10px;
-  width:30px;height:30px;border-radius:50%;
-  background:rgba(0,0,0,.6);backdrop-filter:blur(6px);
-  border:1px solid rgba(255,255,255,.2);
-  color:#fff;font-size:13px;cursor:pointer;
+  width:28px;height:28px;border-radius:50%;
+  background:rgba(0,0,0,.55);backdrop-filter:blur(6px);
+  border:1px solid rgba(255,255,255,.15);
+  color:#fff;font-size:12px;cursor:pointer;
   display:flex;align-items:center;justify-content:center;
-  transition:background .15s;z-index:3;
+  transition:background .15s;z-index:2;
 }
-.msp-close-btn:hover{background:rgba(0,0,0,.9)}
+.msp-close-btn:hover{background:rgba(0,0,0,.8)}
 /* 카테고리 배지 */
 .msp-cat-badge{
-  position:absolute;bottom:12px;left:14px;
-  padding:4px 11px;border-radius:20px;font-size:9px;font-weight:800;
+  position:absolute;bottom:10px;left:12px;
+  padding:3px 10px;border-radius:20px;font-size:9px;font-weight:800;
   letter-spacing:.7px;text-transform:uppercase;
-  backdrop-filter:blur(8px);background:rgba(0,0,0,.5);border:1px solid;z-index:2;
+  backdrop-filter:blur(8px);background:rgba(0,0,0,.45);border:1px solid;z-index:2;
 }
 /* 본문 */
-.msp-body{padding:14px 16px 20px}
-.msp-name{font-size:17px;font-weight:900;color:#fff;margin-bottom:7px;line-height:1.25}
+.msp-body{padding:14px 16px 16px}
+.msp-name{font-size:16px;font-weight:900;color:#fff;margin-bottom:6px;line-height:1.25}
 .msp-meta{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
 .msp-rating{display:flex;align-items:center;gap:3px;font-size:12px;font-weight:800;color:#f59e0b}
 .msp-reviews{font-size:10px;color:rgba(255,255,255,.3);font-weight:500}
-.msp-addr{font-size:11.5px;color:rgba(255,255,255,.45);display:flex;align-items:flex-start;gap:5px;line-height:1.45;margin-bottom:12px}
-/* 설명 — 핵심: 충분히 보이게 */
-.msp-desc{font-size:12.5px;color:rgba(255,255,255,.65);line-height:1.6;margin-bottom:16px}
-/* 하단 링크 */
+.msp-addr{font-size:11px;color:rgba(255,255,255,.42);display:flex;align-items:flex-start;gap:4px;line-height:1.4;margin-bottom:10px}
+.msp-addr span{overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+/* 설명 — 클램프 없이 전체 표시 */
+.msp-desc{font-size:11.5px;color:rgba(255,255,255,.55);line-height:1.55;margin-bottom:14px}
+/* 버튼 */
 .msp-btn-view{
   display:flex;align-items:center;justify-content:center;gap:6px;
-  width:100%;padding:12px;
-  background:rgba(255,77,141,.15);border:1px solid rgba(255,77,141,.35);
+  width:100%;padding:11px;
+  background:rgba(255,77,141,.12);border:1px solid rgba(255,77,141,.3);
   color:#FF4D8D;border-radius:12px;font-size:13px;font-weight:700;
   cursor:pointer;text-decoration:none;transition:background .15s;
 }
-.msp-btn-view:hover{background:rgba(255,77,141,.25)}
+.msp-btn-view:hover{background:rgba(255,77,141,.22)}
 /* Leaflet hover 툴팁 */
 .leaflet-popup-content-wrapper{
   background:rgba(10,10,20,.93)!important;border:1px solid rgba(255,255,255,.1)!important;
@@ -14776,20 +14777,12 @@ function _showMapPanel(shop) {
     + (slug ? '<a href="/shop/' + esc(slug) + '?from=map" class="msp-btn-view"><i class="fas fa-arrow-right" style="font-size:11px"></i> Go to Shop Page</a>' : '')
     + '</div>';
 
-  // PC에서 지도 여백 추가
-  var wrap = document.getElementById('map-iframe-wrap');
-  if (wrap) wrap.classList.add('popup-open');
   popup.classList.add('open');
-  // 팝업 열릴 때 Leaflet 크기 재계산
-  setTimeout(function(){ if(_leafletMap) _leafletMap.invalidateSize(); }, 350);
 }
 
 window.closeMapPanel = function() {
   var popup = document.getElementById('map-shop-popup');
   if (popup) popup.classList.remove('open');
-  var wrap = document.getElementById('map-iframe-wrap');
-  if (wrap) wrap.classList.remove('popup-open');
-  setTimeout(function(){ if(_leafletMap) _leafletMap.invalidateSize(); }, 350);
   // 마커 선택 해제
   if (_leafletSelectedSlug && _leafletMarkers[_leafletSelectedSlug]) {
     var shop = _mapShops.find(function(s){ return s.slug === _leafletSelectedSlug; });
