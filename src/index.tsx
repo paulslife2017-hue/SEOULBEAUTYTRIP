@@ -4359,7 +4359,7 @@ app.get('/shop/:slug', async (c) => {
   gtag('config', 'G-1N9ZQRHLJ0');
 </script>
 ${SB_TRACKER_SCRIPT}
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>${_pageTitle}</title>
 <meta name="description" content="${_metaDesc}">
 
@@ -11261,14 +11261,14 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .cat.on{background:linear-gradient(135deg,var(--pk) 0%,#7C3AED 100%);border-color:transparent;color:#fff;box-shadow:0 2px 14px rgba(232,65,122,.4),0 0 0 1px rgba(255,255,255,.08) inset}
 .cat i{font-size:9px;opacity:.85}
 /* ── 피드 ── */
-#feed{height:100vh;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none;display:flex;flex-direction:column;align-items:center;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain}
+#feed{height:100vh;height:100dvh;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none;display:flex;flex-direction:column;align-items:center;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain}
 #feed::-webkit-scrollbar{display:none}
 /* ── 슬라이드 ── */
-.slide{height:100vh;width:100%;max-width:100%;position:relative;scroll-snap-align:start;overflow:hidden;background:#000;flex-shrink:0;touch-action:pan-y}
-/* ── 모바일: 탭바(56px) 제외한 실제 뷰포트 ── */
+.slide{height:100vh;height:100dvh;width:100%;max-width:100%;position:relative;scroll-snap-align:start;overflow:hidden;background:#000;flex-shrink:0;touch-action:pan-y}
+/* ── 모바일: 탭바(56px) + 아이폰 홈바 safe-area 제외한 실제 뷰포트 ── */
 @media(max-width:1023px){
-  #feed{height:calc(100vh - 56px)}
-  .slide{height:calc(100vh - 56px)}
+  #feed{height:calc(100dvh - 56px - env(safe-area-inset-bottom,0px))}
+  .slide{height:calc(100dvh - 56px - env(safe-area-inset-bottom,0px))}
 }
 .bg-img{
   position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;
@@ -11280,7 +11280,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .ov{position:absolute;inset:0;z-index:2;background:linear-gradient(to bottom,rgba(0,0,0,.08) 0%,transparent 25%,transparent 40%,rgba(0,0,0,.2) 60%,rgba(0,0,0,.7) 80%,rgba(0,0,0,.92) 100%);cursor:pointer}
 /* ── 슬라이드 정보 영역 ── */
 .info{position:absolute;bottom:0;left:0;right:0;padding:12px 16px 20px;z-index:3;display:flex;flex-direction:column;gap:0}
-@media(max-width:1023px){.info{padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))}}
+/* 모바일: 슬라이드 높이가 이미 safe-area를 제외하므로 info는 단순 padding만 */
+@media(max-width:1023px){.info{padding-bottom:20px}}
 .slide-cat-badge{display:none}
 .shop-info-block{flex:1;overflow:hidden;min-width:0;margin-right:10px}
 .shop-info-name{display:flex;align-items:center;gap:5px;font-size:14px;font-weight:900;color:#fff;text-shadow:0 2px 16px rgba(0,0,0,.9);letter-spacing:-.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
@@ -11360,7 +11361,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 @media(min-width:768px) and (max-width:1199px){
   #hd{padding:16px 0 0;left:50%;transform:translateX(-50%);width:420px;max-width:420px;padding-left:16px;padding-right:16px}
   #feed{background:#040408}
-  .slide{width:420px;max-width:420px;height:100vh;box-shadow:0 0 80px rgba(232,65,122,.06)}
+  .slide{width:420px;max-width:420px;height:100dvh;box-shadow:0 0 80px rgba(232,65,122,.06)}
   #dots{left:calc(50% - 234px)}
   .modal{max-width:420px}
   .hint{display:none}
@@ -11418,7 +11419,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 
   /* PC에서는 피드 중앙 정렬 유지, overflow 제거 */
   #feed{background:#040408}
-  .slide{width:420px;max-width:420px;height:100vh;box-shadow:0 0 80px rgba(232,65,122,.06)}
+  .slide{width:420px;max-width:420px;height:100dvh;box-shadow:0 0 80px rgba(232,65,122,.06)}
   #dots{left:calc(50% + 36px - 234px)}
   .modal{max-width:420px}
   .hint{display:none}
@@ -11719,7 +11720,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
    하단 탭바: 모바일(<1024px)에서만 표시
    ════════════════════════════════════════ */
 #bottom-tabs{
-  position:fixed;bottom:0;left:0;right:0;height:56px;
+  position:fixed;bottom:0;left:0;right:0;
+  height:calc(56px + env(safe-area-inset-bottom,0px));
+  padding-bottom:env(safe-area-inset-bottom,0px);
   background:rgba(10,10,20,.97);backdrop-filter:blur(20px);
   border-top:1px solid rgba(255,255,255,.1);
   display:none;align-items:stretch;z-index:9999;
@@ -11727,7 +11730,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 }
 @media(max-width:1023px){
   #bottom-tabs{display:flex}
-  body{padding-bottom:56px}
+  body{padding-bottom:calc(56px + env(safe-area-inset-bottom,0px))}
   /* 모바일에서 사이드네비 숨김 */
   #pc-sidenav{display:none!important}
 }
