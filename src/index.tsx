@@ -12118,7 +12118,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .lf-popup-sub{font-size:10px;color:rgba(255,255,255,.4)}
 </style>
 <!-- Google Maps JavaScript API -->
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCcM03wGoZrSkmCMOS-Vib-JR1oKNPsSkY&loading=async&callback=__gmapsReady"></script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCcM03wGoZrSkmCMOS-Vib-JR1oKNPsSkY&language=en&region=KR&loading=async&callback=__gmapsReady"></script>
 <script>function __gmapsReady(){ window.__gmapsLoaded = true; }</script>
 </head>
 <body>
