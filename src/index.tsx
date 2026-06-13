@@ -14551,17 +14551,17 @@ function renderBrowseGrid(shops) {
     var distBadge = hasGeo ? '' : '';
     // 카테고리 레이블 (영문 첫글자 대문자)
     var catLabel = s.category ? (s.category.charAt(0).toUpperCase() + s.category.slice(1)) : '';
-    return '<a class="bw-card" href="' + href + '" aria-label="' + escHtml(s.name) + '">'
+    return '<a class="bw-card" href="' + href + '" aria-label="' + esc(s.name) + '">'
       + '<div class="bw-card-img-wrap">'
-      + '<img class="bw-card-img" src="' + escHtml(s.thumbnail||'') + '" alt="' + escHtml(s.name) + '" loading="lazy" onerror="this.style.background=&quot;#13132a&quot;">'
-      + '<div class="bw-card-cat-badge" style="background:' + color + '20;border-color:' + color + '55;color:' + color + '">' + icon + ' ' + escHtml(catLabel) + '</div>'
-      + (rating ? '<div class="bw-card-rating-badge"><i class="fas fa-star" style="font-size:9px;color:#f59e0b"></i> ' + escHtml(rating) + '</div>' : '')
+      + '<img class="bw-card-img" src="' + esc(s.thumbnail||'') + '" alt="' + esc(s.name) + '" loading="lazy" onerror="this.style.background=&quot;#13132a&quot;">'
+      + '<div class="bw-card-cat-badge" style="background:' + color + '20;border-color:' + color + '55;color:' + color + '">' + icon + ' ' + esc(catLabel) + '</div>'
+      + (rating ? '<div class="bw-card-rating-badge"><i class="fas fa-star" style="font-size:9px;color:#f59e0b"></i> ' + esc(rating) + '</div>' : '')
       + '</div>'
       + '<div class="bw-card-body">'
-      + '<div class="bw-card-name">' + escHtml(s.name) + '</div>'
-      + '<div class="bw-card-addr"><i class="fas fa-map-marker-alt" style="color:' + color + ';font-size:9px"></i><span>' + escHtml(addr) + '</span></div>'
+      + '<div class="bw-card-name">' + esc(s.name) + '</div>'
+      + '<div class="bw-card-addr"><i class="fas fa-map-marker-alt" style="color:' + color + ';font-size:9px"></i><span>' + esc(addr) + '</span></div>'
       + '<div class="bw-card-footer">'
-      + (starHtml ? '<div class="bw-card-stars">' + starHtml + (reviews ? '<span class="bw-card-reviews"> ' + escHtml(reviews+'') + '</span>' : '') + '</div>' : '<div class="bw-card-stars" style="color:rgba(255,255,255,.2);font-size:10px">No reviews yet</div>')
+      + (starHtml ? '<div class="bw-card-stars">' + starHtml + (reviews ? '<span class="bw-card-reviews"> ' + esc(reviews+'') + '</span>' : '') + '</div>' : '<div class="bw-card-stars" style="color:rgba(255,255,255,.2);font-size:10px">No reviews yet</div>')
       + '<div class="bw-card-cta">View <i class="fas fa-chevron-right" style="font-size:8px"></i></div>'
       + '</div>'
       + '</div>'
@@ -14670,23 +14670,23 @@ function renderMapList(shops) {
     var catLabel = s.category ? (s.category.charAt(0).toUpperCase() + s.category.slice(1)) : '';
     // onclick은 단따옴표 충돌 방지를 위해 data 속성으로 처리
     return '<a class="map-pin-card' + (hasGeo ? ' has-geo' : '') + '" href="' + href + '"'
-      + ' data-slug="' + escHtml(s.slug||'') + '"'
+      + ' data-slug="' + esc(s.slug||'') + '"'
       + (hasGeo ? ' data-lat="' + s.lat + '" data-lng="' + s.lng + '" data-name="' + encodeURIComponent(s.name) + '"' : '')
       + '>'
       + '<div class="map-pin-img-wrap">'
-      + '<img src="' + escHtml(s.thumbnail||'') + '" alt="' + escHtml(s.name) + '" loading="lazy" onerror="this.style.background=&quot;#13132a&quot;">'
+      + '<img src="' + esc(s.thumbnail||'') + '" alt="' + esc(s.name) + '" loading="lazy" onerror="this.style.background=&quot;#13132a&quot;">'
       + (hasGeo ? '<div class="map-pin-geo-dot"></div>' : '')
       + '</div>'
       + '<div class="map-pin-card-body">'
-      + '<div class="map-pin-name">' + escHtml(s.name) + '</div>'
-      + '<div class="map-pin-cat" style="color:' + color + '">' + icon + ' ' + escHtml(catLabel) + '</div>'
-      + '<div class="map-pin-addr"><i class="fas fa-map-marker-alt" style="color:' + color + ';font-size:8px"></i><span>' + escHtml(addr) + '</span></div>'
+      + '<div class="map-pin-name">' + esc(s.name) + '</div>'
+      + '<div class="map-pin-cat" style="color:' + color + '">' + icon + ' ' + esc(catLabel) + '</div>'
+      + '<div class="map-pin-addr"><i class="fas fa-map-marker-alt" style="color:' + color + ';font-size:8px"></i><span>' + esc(addr) + '</span></div>'
       + '</div>'
       + '<div class="map-pin-action">'
       + (hasGeo
         ? '<div class="map-pin-link-map"><i class="fas fa-map-marker-alt"></i></div>'
         : '<div class="map-pin-link-info"><i class="fas fa-info-circle"></i></div>')
-      + (rating ? '<div class="map-pin-rating"><i class="fas fa-star" style="font-size:8px;color:#f59e0b"></i> ' + escHtml(rating) + '</div>' : '')
+      + (rating ? '<div class="map-pin-rating"><i class="fas fa-star" style="font-size:8px;color:#f59e0b"></i> ' + esc(rating) + '</div>' : '')
       + '</div>'
       + '</a>';
   }).join('');
