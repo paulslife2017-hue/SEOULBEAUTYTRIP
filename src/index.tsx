@@ -11752,13 +11752,13 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 /* --- 모바일 전체화면 --- */
 #view-browse{
   display:none;position:fixed;inset:0 0 56px 0;
-  background:#0a0a14;z-index:450;overflow-y:auto;flex-direction:column;
+  background:#0a0a14;z-index:450;flex-direction:column;overflow:hidden;
 }
 #view-browse.active{display:flex}
 
 #view-map{
   display:none;position:fixed;inset:0 0 56px 0;
-  background:#0a0a14;z-index:450;flex-direction:column;
+  background:#0a0a14;z-index:450;flex-direction:column;overflow:hidden;
 }
 #view-map.active{display:flex}
 
@@ -11769,13 +11769,12 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
     flex:1;height:100%;overflow:hidden;
   }
   #view-browse.active,#view-map.active{display:flex}
-  /* 모바일 탭바 숨김 */
   #bottom-tabs{display:none!important}
   body{padding-bottom:0}
 }
 
 /* ── Browse 내부 스타일 ── */
-.bw-layout{display:flex;flex-direction:column;height:100%;overflow:hidden}
+.bw-layout{display:flex;flex-direction:column;flex:1;overflow:hidden;min-height:0}
 .bw-header{
   flex-shrink:0;position:sticky;top:0;z-index:10;
   background:rgba(10,10,20,.98);backdrop-filter:blur(20px);
@@ -11798,7 +11797,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 }
 .bw-chip:hover{background:rgba(255,255,255,.06);color:rgba(255,255,255,.7)}
 .bw-chip.on{background:rgba(255,77,141,.15);border-color:#FF4D8D;color:#FF4D8D}
-.bw-body{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,77,141,.2) transparent}
+.bw-body{flex:1;overflow-y:auto;min-height:0;scrollbar-width:thin;scrollbar-color:rgba(255,77,141,.2) transparent}
 .bw-body::-webkit-scrollbar{width:4px}
 .bw-body::-webkit-scrollbar-thumb{background:rgba(255,77,141,.2);border-radius:2px}
 .bw-section-label{
@@ -11883,7 +11882,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   transition:all .15s;-webkit-tap-highlight-color:transparent
 }
 .map-area-chip.on{background:rgba(255,77,141,.15);border-color:#FF4D8D;color:#FF4D8D}
-#map-body{flex:1;display:flex;overflow:hidden}
+#map-body{flex:1;display:flex;overflow:hidden;min-height:0}
 
 /* 지도 iframe 래퍼 */
 #map-iframe-wrap{flex:1;position:relative;overflow:hidden}
@@ -11897,11 +11896,12 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 }
 @media(max-width:1023px){
   #map-body{flex-direction:column}
-  #map-iframe-wrap{height:45%;flex-shrink:0;flex:none}
+  #map-iframe-wrap{height:40%;flex-shrink:0;flex:none;min-height:180px}
   #map-shop-list{
     border-left:none;border-top:1px solid rgba(255,255,255,.08);
-    width:100%!important;flex:1;height:auto;
+    width:100%!important;flex:1;min-height:0;
   }
+  .map-list-scroll{-webkit-overflow-scrolling:touch}
 }
 @media(min-width:1024px){
   #map-shop-list{width:320px;flex-shrink:0}
