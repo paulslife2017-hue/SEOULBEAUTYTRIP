@@ -11905,7 +11905,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 #map-body{flex:1;display:flex;overflow:hidden;min-height:0;position:relative}
 
 /* 지도 Leaflet 래퍼 — 항상 전체 크기 */
-#map-iframe-wrap{flex:1;position:relative;overflow:hidden;display:flex;flex-direction:column}
+#map-iframe-wrap{flex:1;position:relative;overflow:hidden;display:flex;flex-direction:column;z-index:0}
 #map-leaflet{flex:1;width:100%;min-height:0}
 
 /* ── 업체 목록: PC 우측 사이드바 / 모바일 하단 bottom sheet ── */
@@ -12035,9 +12035,11 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .lf-pin.selected{filter:drop-shadow(0 4px 12px rgba(255,77,141,.7));transform:scale(1.25) translateY(-4px)}
 /* ── 업체 정보 팝업 (모바일: 하단 슬라이드업 / PC: 좌하단 플로팅 카드) ── */
 #map-shop-popup{
+  /* #map-body 기준 absolute — overflow:hidden 부모 밖으로 탈출 */
   position:absolute;
   bottom:16px;left:50%;transform:translateX(-50%) translateY(24px);
   z-index:600;width:min(340px,calc(100vw - 32px));
+  max-height:calc(100% - 32px);overflow-y:auto;
   background:rgba(10,10,20,.97);backdrop-filter:blur(24px);
   border:1px solid rgba(255,255,255,.13);border-radius:20px;
   box-shadow:0 16px 48px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.05);
@@ -12050,8 +12052,19 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   transform:translateX(-50%) translateY(0);
 }
 @media(min-width:1024px){
-  /* PC: 지도 좌측 하단에 고정 플로팅 카드 */
-  #map-shop-popup{left:16px;transform:translateY(24px);bottom:20px}
+  /* PC: 지도 좌측 하단 고정 플로팅 카드, 내용 길어도 잘리지 않게 */
+  #map-shop-popup{
+    left:16px;
+    transform:translateY(24px);
+    bottom:20px;
+    max-height:calc(100% - 40px);
+    overflow-y:auto;
+    /* 스크롤바 스타일 */
+    scrollbar-width:thin;
+    scrollbar-color:rgba(255,77,141,.2) transparent;
+  }
+  #map-shop-popup::-webkit-scrollbar{width:3px}
+  #map-shop-popup::-webkit-scrollbar-thumb{background:rgba(255,77,141,.2);border-radius:2px}
   #map-shop-popup.open{transform:translateY(0)}
 }
 /* 드래그 핸들 (모바일) */
@@ -14981,8 +14994,8 @@ function buildMap() {
     '<div id="map-body">',
     '<div id="map-iframe-wrap" style="position:relative;flex:1;overflow:hidden">',
     '<div id="map-leaflet"></div>',
-    '<div id="map-shop-popup"></div>',
     '</div>',
+    '<div id="map-shop-popup"></div>',
     '<div id="map-shop-list">',
     '<div id="map-sheet-handle" onclick="toggleMapSheet()">',
     '<div id="map-sheet-handle-bar"></div>',
