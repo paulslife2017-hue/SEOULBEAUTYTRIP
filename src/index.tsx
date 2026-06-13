@@ -14689,18 +14689,18 @@ function getMapCenter(shops) {
 function setMapIframe(geoShops) {
   var iframe = document.getElementById('map-iframe');
   if (!iframe) return;
-  var apiKey = window.__GMAP_KEY__ || '';
-  if (!apiKey || !geoShops.length) {
-    // API 키 없으면 OpenStreetMap 임베드
-    iframe.src = 'https://www.openstreetmap.org/export/embed.html?bbox=126.85,37.45,127.15,37.65&layer=mapnik&marker=37.5172,127.0473';
-    return;
+  var center = (geoShops && geoShops.length) ? getMapCenter(geoShops) : {lat:37.5172, lng:127.0473};
+  var zoom = (geoShops && geoShops.length === 1) ? 16 : (_mapArea !== 'all' ? 15 : 13);
+  // OpenStreetMap (무료, 키 불필요)
+  var minLat = center.lat - 0.02, maxLat = center.lat + 0.02;
+  var minLng = center.lng - 0.03, maxLng = center.lng + 0.03;
+  if (_mapArea !== 'all' || (geoShops && geoShops.length <= 5)) {
+    minLat = center.lat - 0.008; maxLat = center.lat + 0.008;
+    minLng = center.lng - 0.012; maxLng = center.lng + 0.012;
   }
-  var center = getMapCenter(geoShops);
-  var zoom = geoShops.length === 1 ? 16 : (_mapArea !== 'all' ? 15 : 13);
-  iframe.src = 'https://www.google.com/maps/embed/v1/search?key=' + apiKey
-    + '&q=' + encodeURIComponent('beauty clinic ' + (_mapArea !== 'all' ? _mapArea : 'Seoul') + ' Korea')
-    + '&center=' + center.lat + ',' + center.lng
-    + '&zoom=' + zoom;
+  iframe.src = 'https://www.openstreetmap.org/export/embed.html?bbox='
+    + minLng + ',' + minLat + ',' + maxLng + ',' + maxLat
+    + '&layer=mapnik&marker=' + center.lat + ',' + center.lng;
 }
 
 function renderMapList(shops) {
@@ -14772,13 +14772,13 @@ window.updateMapToShop = function(e, slug, lat, lng, nameEnc) {
   var card = document.querySelector('.map-pin-card[data-slug="' + slug + '"]');
   if (card) card.classList.add('selected');
   var iframe = document.getElementById('map-iframe');
-  var apiKey = window.__GMAP_KEY__ || '';
-  var name = decodeURIComponent(nameEnc);
-  if (iframe && apiKey) {
-    iframe.src = 'https://www.google.com/maps/embed/v1/place?key=' + apiKey
-      + '&q=' + encodeURIComponent(name + ' Seoul Korea')
-      + '&center=' + lat + ',' + lng + '&zoom=17';
-    // SEO 페이지로 이동 (500ms 후, 지도 애니메이션 보고 나서)
+  if (iframe) {
+    // 업체 위치로 OSM 지도 이동
+    var d = 0.006;
+    iframe.src = 'https://www.openstreetmap.org/export/embed.html?bbox='
+      + (lng-d) + ',' + (lat-d) + ',' + (lng+d) + ',' + (lat+d)
+      + '&layer=mapnik&marker=' + lat + ',' + lng;
+    // 업체 상세 페이지로 이동
     setTimeout(function(){ location.href = '/shop/' + slug; }, 700);
     e.preventDefault();
   }
