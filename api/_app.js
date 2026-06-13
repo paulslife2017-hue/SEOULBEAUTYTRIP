@@ -6824,6 +6824,376 @@ app.get("/video/:id", async (c) => {
   const r = rows[0];
   return c.redirect(r.shop_slug ? `/shop/${r.shop_slug}` : "/", 301);
 });
+app.get("/best/clinic/gangnam", (c) => {
+  const yr = (/* @__PURE__ */ new Date()).getFullYear();
+  const clinics = [
+    // Tier 1 — Perfect 5.0★
+    { rank: 1, name: "Sugar Plastic Surgery", slug: "sugar-clinic-gangnam", area: "Gangnam", rating: 5, reviews: 168, badge: "5.0\u2605 Perfect", specialty: "Rhinoplasty & Face Contouring", price: "\u20A9800K\u2013\u20A93M", highlight: "Small-clinic precision; highly rated for natural results in rhinoplasty and face-line work." },
+    { rank: 2, name: "Onyoo Plastic Surgery", slug: "onyoo-plastic-surgery-clinic-gangnam", area: "Gangnam", rating: 5, reviews: 52, badge: "5.0\u2605 Perfect", specialty: "Eyelid & Facial Rejuvenation", price: "\u20A9500K\u2013\u20A92.5M", highlight: "Boutique clinic known for ultra-natural double-eyelid results with minimal downtime." },
+    { rank: 3, name: "FittingClinic", slug: "fitting-clinic-gangnam", area: "Gangnam", rating: 5, reviews: 41, badge: "5.0\u2605 Perfect", specialty: "Skin Boosters & Anti-Aging", price: "\u20A9200K\u2013\u20A9800K", highlight: "English-friendly; specialises in Juvelook, Rejuran, and HIFU for radiant skin." },
+    { rank: 4, name: "Glovi G-Thera Anti-Aging", slug: "glovi-antiaging-gangnam", area: "Gangnam", rating: 5, reviews: 28, badge: "5.0\u2605 Perfect", specialty: "Anti-Aging & Skin Tightening", price: "\u20A9300K\u2013\u20A91.5M", highlight: "Niche specialist in non-surgical lifting using G-Thera and RF technology." },
+    { rank: 5, name: "Medicube Clinic", slug: "medicube-clinic-seocho", area: "Seocho", rating: 5, reviews: 646, badge: "5.0\u2605 Most-Reviewed", specialty: "Acne & Barrier Repair", price: "\u20A9150K\u2013\u20A9600K", highlight: "K-beauty brand clinic; outstanding acne care protocol with professional-grade devices." },
+    // Tier 2 — Top Volume
+    { rank: 6, name: "GU Clinic", slug: "gu-clinic-seocho", area: "Seocho", rating: 4.8, reviews: 10798, badge: "#1 Most Reviewed", specialty: "Full-Service Dermatology", price: "\u20A9100K\u2013\u20A92M", highlight: "10,000+ Google reviews \u2014 arguably the most trusted clinic in the Gangnam\u2013Seocho corridor." },
+    { rank: 7, name: "Braun Plastic Surgery", slug: "braun-clinic-gangnam", area: "Gangnam", rating: 4.7, reviews: 1555, badge: "Top Reviewed", specialty: "Rhinoplasty & Breast Surgery", price: "\u20A91M\u2013\u20A98M", highlight: "Internationally recognised; transparent pricing and dedicated English coordination team." },
+    { rank: 8, name: "Orta Clinic", slug: "orta-clinic-seocho", area: "Seocho", rating: 4.8, reviews: 4407, badge: "Top Reviewed", specialty: "Laser & Skin Care", price: "\u20A9150K\u2013\u20A91.2M", highlight: "4,400+ reviews; laser toning, Pico laser, and Fraxel under one roof." },
+    { rank: 9, name: "Lienjang", slug: "lienjang-plastic-surgery-dermatology-gangnam", area: "Gangnam", rating: 4.6, reviews: 1461, badge: "Top Reviewed", specialty: "Dermatology & Plastic Surgery", price: "\u20A9300K\u2013\u20A95M", highlight: "Dual plastic surgery + dermatology licence; popular for combined treatment packages." },
+    { rank: 10, name: "INKO Seoul", slug: "inko-clinic-gangnam", area: "Gangnam", rating: 4.7, reviews: 1451, badge: "Top Reviewed", specialty: "Anti-Aging & Regenerative Skin", price: "\u20A9200K\u2013\u20A91.5M", highlight: "Cutting-edge regenerative treatments including exosomes and stem-cell-derived serums." },
+    // Tier 3 — Established Mid-Size
+    { rank: 11, name: "AB Plastic Surgery", slug: "ab-plastic-surgery-seocho", area: "Seocho", rating: 4.7, reviews: 985, badge: "Established", specialty: "Face & Body Contouring", price: "\u20A9500K\u2013\u20A96M", highlight: "Consistent high-satisfaction scores for liposuction and facial bone contouring." },
+    { rank: 12, name: "View Plastic Surgery", slug: "view-plastic-surgery-gangnam", area: "Gangnam", rating: 4.6, reviews: 785, badge: "Established", specialty: "Eyelid & Nose Surgery", price: "\u20A9600K\u2013\u20A94M", highlight: "Long-standing reputation for natural-looking eyelid and nose surgery." },
+    { rank: 13, name: "Lee Moon Won Korean Medicine", slug: "lee-moon-won-korean-medicine-clinic", area: "Gangnam", rating: 4.8, reviews: 1304, badge: "Established", specialty: "Acupuncture Facial Lifting", price: "\u20A980K\u2013\u20A9400K", highlight: "Unique Korean traditional medicine approach; popular for facial lifting without surgery." },
+    { rank: 14, name: "DR.EVERS GANGNAM", slug: "drevers-clinic-gangnam", area: "Gangnam", rating: 4.6, reviews: 1167, badge: "Established", specialty: "Non-Surgical Aesthetics", price: "\u20A9200K\u2013\u20A91.2M", highlight: "European-style clinic; strong reviews for thread lifts and dermal fillers." },
+    { rank: 15, name: "Wonderful Plastic Surgery", slug: "wonderful-clinic-gangnam", area: "Gangnam", rating: 4.5, reviews: 1061, badge: "Established", specialty: "Rhinoplasty & Contouring", price: "\u20A9700K\u2013\u20A95M", highlight: "Trusted name for secondary (revision) rhinoplasty cases." },
+    // Tier 4 — Hidden Gems
+    { rank: 16, name: "ME SEOUL CLINIC", slug: "me-seoul-clinic-gangnam", area: "Gangnam", rating: 4.7, reviews: 710, badge: "Hidden Gem", specialty: "Skin Boosters & Laser", price: "\u20A9150K\u2013\u20A9800K", highlight: "Trendy Apgujeong clinic; loved by local influencers for glow treatments." },
+    { rank: 17, name: "D&A Dermatology", slug: "da-derm-gangnam", area: "Gangnam", rating: 4.7, reviews: 422, badge: "Hidden Gem", specialty: "Acne & Pigmentation", price: "\u20A9100K\u2013\u20A9600K", highlight: "Highly rated for stubborn acne and post-acne pigmentation management." },
+    { rank: 18, name: "Jiwoo Clinic", slug: "jiwoo-clinic-gangnam", area: "Gangnam", rating: 4.8, reviews: 359, badge: "Hidden Gem", specialty: "Skin Rejuvenation", price: "\u20A9120K\u2013\u20A9700K", highlight: "Small, personal clinic with exceptional patient care and Pico laser expertise." },
+    { rank: 19, name: "Barog Clinic", slug: "barog-clinic-gangnam", area: "Gangnam", rating: 4.7, reviews: 356, badge: "Hidden Gem", specialty: "Botox & Fillers", price: "\u20A9100K\u2013\u20A9500K", highlight: "Affordable Botox and filler specialist; quick appointments, no waiting." },
+    { rank: 20, name: "Yaan Clinic", slug: "yaan-clinic-gangnam", area: "Gangnam", rating: 4.6, reviews: 332, badge: "Hidden Gem", specialty: "Anti-Aging Laser", price: "\u20A9150K\u2013\u20A9900K", highlight: "Laser toning and skin brightening; popular with working professionals." },
+    { rank: 21, name: "Dr New Cell Clinic", slug: "dr-new-cell-clinic-gangnam", area: "Gangnam", rating: 4.6, reviews: 386, badge: "Hidden Gem", specialty: "Regenerative Aesthetics", price: "\u20A9200K\u2013\u20A91.2M", highlight: "Innovative exosome and growth-factor treatments for skin regeneration." },
+    { rank: 22, name: "Seoul I Plastic Surgery", slug: "seoul-i-clinic-gangnam", area: "Gangnam", rating: 4.6, reviews: 269, badge: "Hidden Gem", specialty: "Eyelid Specialisation", price: "\u20A9500K\u2013\u20A92M", highlight: "Single-specialty focus on eyes; non-incisional and incisional double-eyelid options." },
+    { rank: 23, name: "Nohd Dermatology", slug: "nohd-dermatology-gangnam", area: "Gangnam", rating: 4.7, reviews: 165, badge: "Hidden Gem", specialty: "Medical Dermatology", price: "\u20A9100K\u2013\u20A9500K", highlight: "Evidence-based dermatology; thorough skin analysis before any treatment." },
+    { rank: 24, name: "Cheongdam Dear Clinic", slug: "dear-clinic-cheongdam", area: "Gangnam", rating: 4.7, reviews: 128, badge: "Hidden Gem", specialty: "Luxury Skin Care", price: "\u20A9200K\u2013\u20A91.5M", highlight: "Cheongdam boutique feel; VIP experience for skin boosters and anti-aging." },
+    { rank: 25, name: "Edition Plastic Surgery", slug: "edition-plastic-surgery-clinic-seocho", area: "Seocho", rating: 4.6, reviews: 204, badge: "Hidden Gem", specialty: "Minimal Invasive Surgery", price: "\u20A9400K\u2013\u20A93M", highlight: "Focus on minimal-downtime surgical procedures using advanced endoscopic techniques." },
+    // Tier 5 — Rising Stars
+    { rank: 26, name: "Arc Plastic Surgery", slug: "arc-plastic-surgery-seocho", area: "Seocho", rating: 4.5, reviews: 98, badge: "Rising Star", specialty: "Body Contouring", price: "\u20A9600K\u2013\u20A94M", highlight: "Up-and-coming Seocho clinic with strong early reviews for body-line work." },
+    { rank: 27, name: "21 Plastic Surgery", slug: "21-plastic-surgery-gangnam", area: "Gangnam", rating: 4.5, reviews: 69, badge: "Rising Star", specialty: "Rhinoplasty & Chest", price: "\u20A9700K\u2013\u20A95M", highlight: "Young surgical team bringing fresh approaches to classic cosmetic procedures." },
+    { rank: 28, name: "GD Clinic", slug: "gd-clinic-gangnam", area: "Gangnam", rating: 4.5, reviews: 68, badge: "Rising Star", specialty: "Skin Care & Lasers", price: "\u20A9100K\u2013\u20A9600K", highlight: "Affordable entry point for quality laser and skin-care treatments in Gangnam." },
+    { rank: 29, name: "Reev Clinic", slug: "reev-clinic-gangnam", area: "Gangnam", rating: 4.5, reviews: 26, badge: "Rising Star", specialty: "Anti-Aging Injectables", price: "\u20A9150K\u2013\u20A9700K", highlight: "New but already praised for precise Botox technique and honest consultations." },
+    { rank: 30, name: "TUNE CLINIC APGUJEONG", slug: "tune-clinic-apgujeong", area: "Gangnam", rating: 4.5, reviews: 71, badge: "Rising Star", specialty: "Skin Toning & Brightening", price: "\u20A9120K\u2013\u20A9600K", highlight: "Apgujeong specialist in skin-tone correction and brightening laser protocols." }
+  ];
+  const clinicCards = clinics.map((cl) => `
+    <article class="bcg-card" itemscope itemtype="https://schema.org/MedicalBusiness">
+      <meta itemprop="name" content="${cl.name}">
+      <meta itemprop="url" content="https://seoulbeautytrip.com/shop/${cl.slug}">
+      <div class="bcg-card-head">
+        <span class="bcg-rank">#${cl.rank}</span>
+        <span class="bcg-badge">${cl.badge}</span>
+        <span class="bcg-area-tag">${cl.area}</span>
+      </div>
+      <h3 class="bcg-name" itemprop="name">${cl.name}</h3>
+      <p class="bcg-spec">\u2695 ${cl.specialty}</p>
+      <p class="bcg-price">\u{1F4B0} Typical price: ${cl.price}</p>
+      <div class="bcg-rating">
+        <span class="bcg-stars">${"\u2605".repeat(Math.round(cl.rating))}${"\u2606".repeat(5 - Math.round(cl.rating))}</span>
+        <span class="bcg-rv">${cl.rating.toFixed(1)} \xB7 ${cl.reviews.toLocaleString()} reviews</span>
+      </div>
+      <p class="bcg-hl">${cl.highlight}</p>
+      <a href="/shop/${cl.slug}" class="bcg-btn" itemprop="url">View Clinic \u2192</a>
+    </article>`).join("\n");
+  const tier1Cards = clinics.filter((c2) => c2.rank <= 5);
+  const tier2Cards = clinics.filter((c2) => c2.rank >= 6 && c2.rank <= 10);
+  const tier3Cards = clinics.filter((c2) => c2.rank >= 11 && c2.rank <= 15);
+  const tier4Cards = clinics.filter((c2) => c2.rank >= 16 && c2.rank <= 25);
+  const tier5Cards = clinics.filter((c2) => c2.rank >= 26);
+  const renderCards = (list) => list.map((cl) => `
+    <article class="bcg-card" itemscope itemtype="https://schema.org/MedicalBusiness">
+      <meta itemprop="name" content="${cl.name}">
+      <div class="bcg-card-head">
+        <span class="bcg-rank">#${cl.rank}</span>
+        <span class="bcg-badge">${cl.badge}</span>
+        <span class="bcg-area-tag ${cl.area === "Seocho" ? "seocho" : ""}">${cl.area}</span>
+      </div>
+      <h3 class="bcg-name">${cl.name}</h3>
+      <p class="bcg-spec">\u2695 ${cl.specialty}</p>
+      <p class="bcg-price">\u{1F4B0} ${cl.price}</p>
+      <div class="bcg-rating">
+        <span class="bcg-stars">\u2605${cl.rating.toFixed(1)}</span>
+        <span class="bcg-rv">${cl.reviews.toLocaleString()} reviews</span>
+      </div>
+      <p class="bcg-hl">${cl.highlight}</p>
+      <a href="/shop/${cl.slug}" class="bcg-btn">Book / Details \u2192</a>
+    </article>`).join("");
+  const itemListEl = clinics.map((cl) => `{"@type":"ListItem","position":${cl.rank},"url":"https://seoulbeautytrip.com/shop/${cl.slug}","name":"${cl.name}"}`).join(",");
+  const medBizEl = clinics.slice(0, 5).map((cl) => `{"@type":"MedicalBusiness","name":"${cl.name}","url":"https://seoulbeautytrip.com/shop/${cl.slug}","aggregateRating":{"@type":"AggregateRating","ratingValue":"${cl.rating}","reviewCount":"${cl.reviews}"}}`).join(",");
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Best 30 Skin Clinics in Gangnam &amp; Seocho ${yr} \u2014 Seoul Beauty Trip</title>
+<meta name="description" content="The definitive ${yr} guide to the top 30 skin clinics and plastic surgery centres in Gangnam and Seocho, Seoul \u2014 verified reviews, English-friendly booking, honest prices.">
+<link rel="canonical" href="https://seoulbeautytrip.com/best/clinic/gangnam">
+<meta property="og:title" content="Top 30 Skin Clinics in Gangnam ${yr} | Seoul Beauty Trip">
+<meta property="og:description" content="Verified list of the 30 best aesthetic clinics in Gangnam &amp; Seocho. English booking available.">
+<meta property="og:url" content="https://seoulbeautytrip.com/best/clinic/gangnam">
+<meta property="og:type" content="article">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+  {"@type":"ItemList","name":"Top 30 Skin Clinics in Gangnam Seoul ${yr}","numberOfItems":30,"itemListElement":[${itemListEl}]},
+  {"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://seoulbeautytrip.com"},{"@type":"ListItem","position":2,"name":"Best Clinics","item":"https://seoulbeautytrip.com/best"},{"@type":"ListItem","position":3,"name":"Skin Clinics Gangnam","item":"https://seoulbeautytrip.com/best/clinic/gangnam"}]}
+]}
+</script>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+:root{--gn:#2d6a4f;--gn2:#1b4332;--gold:#f59e0b;--seocho:#7c3aed}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#f8fafc;color:#1e293b;margin:0}
+.bcg-hero{background:linear-gradient(135deg,#1b4332 0%,#2d6a4f 60%,#40916c 100%);color:#fff;padding:56px 24px 48px;text-align:center}
+.bcg-hero h1{font-size:clamp(1.6rem,4vw,2.6rem);font-weight:800;margin:0 0 12px;line-height:1.2}
+.bcg-hero p{font-size:1.05rem;opacity:.9;max-width:620px;margin:0 auto 20px}
+.bcg-hero-stats{display:flex;justify-content:center;gap:32px;flex-wrap:wrap;margin-top:8px}
+.bcg-stat{text-align:center}.bcg-stat-n{font-size:1.8rem;font-weight:800;color:#95d5b2}
+.bcg-stat-l{font-size:.75rem;opacity:.8;text-transform:uppercase;letter-spacing:.05em}
+.bcg-nav-strip{background:#fff;border-bottom:1px solid #e2e8f0;padding:12px 24px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.bcg-nav-strip a{font-size:.8rem;color:#64748b;text-decoration:none}.bcg-nav-strip a:hover{color:#2d6a4f}
+.bcg-nav-strip span{color:#94a3b8;font-size:.8rem}
+.bcg-toc-box{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px 24px;max-width:800px;margin:32px auto 0}
+.bcg-toc-box h2{font-size:1rem;font-weight:700;margin:0 0 12px;color:#1e293b}
+.bcg-toc-box ol{margin:0;padding-left:20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:4px 16px}
+.bcg-toc-box li{font-size:.85rem;color:#475569;padding:2px 0}
+.bcg-toc-box li a{color:#2d6a4f;text-decoration:none}.bcg-toc-box li a:hover{text-decoration:underline}
+.bcg-main{max-width:1100px;margin:0 auto;padding:0 16px 64px}
+.bcg-intro{background:#fff;border-radius:12px;padding:28px 32px;margin:32px 0;border:1px solid #e2e8f0;line-height:1.75}
+.bcg-intro h2{font-size:1.25rem;font-weight:700;margin:0 0 12px;color:#1b4332}
+.bcg-intro p{font-size:.95rem;color:#374151;margin:0 0 12px}
+.bcg-intro ul{padding-left:20px;font-size:.92rem;color:#374151}
+.bcg-intro li{margin-bottom:6px}
+.bcg-tier{margin:40px 0}
+.bcg-tier-title{font-size:1.35rem;font-weight:800;color:#1b4332;margin:0 0 8px;padding-bottom:8px;border-bottom:2px solid #d1fae5}
+.bcg-tier-desc{font-size:.9rem;color:#64748b;margin:0 0 20px;line-height:1.65}
+.bcg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px}
+.bcg-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:8px;transition:box-shadow .2s,transform .2s}
+.bcg-card:hover{box-shadow:0 8px 24px rgba(0,0,0,.1);transform:translateY(-2px)}
+.bcg-card-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.bcg-rank{background:#1b4332;color:#fff;font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:20px}
+.bcg-badge{font-size:.7rem;font-weight:600;padding:2px 8px;border-radius:20px;background:#dcfce7;color:#166534}
+.bcg-area-tag{font-size:.7rem;font-weight:600;padding:2px 8px;border-radius:20px;background:#ede9fe;color:#5b21b6}
+.bcg-area-tag:not(.seocho){background:#e0f2fe;color:#075985}
+.bcg-name{font-size:1.05rem;font-weight:700;color:#1e293b;margin:0}
+.bcg-spec{font-size:.82rem;color:#475569;margin:0}
+.bcg-price{font-size:.82rem;color:#64748b;margin:0}
+.bcg-rating{display:flex;align-items:center;gap:8px}
+.bcg-stars{color:#f59e0b;font-weight:700;font-size:.9rem}
+.bcg-rv{font-size:.78rem;color:#94a3b8}
+.bcg-hl{font-size:.85rem;color:#374151;line-height:1.55;margin:0;flex:1}
+.bcg-btn{display:inline-block;margin-top:4px;background:#2d6a4f;color:#fff;padding:8px 16px;border-radius:8px;font-size:.85rem;font-weight:600;text-decoration:none;text-align:center;transition:background .2s}
+.bcg-btn:hover{background:#1b4332}
+.bcg-guide-box{background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #86efac;border-radius:14px;padding:28px 32px;margin:48px 0}
+.bcg-guide-box h2{font-size:1.15rem;font-weight:700;color:#1b4332;margin:0 0 16px}
+.bcg-guide-links{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
+.bcg-guide-links a{background:#fff;border:1px solid #86efac;border-radius:10px;padding:10px 14px;font-size:.85rem;color:#166534;text-decoration:none;font-weight:500;transition:background .2s}
+.bcg-guide-links a:hover{background:#f0fdf4}
+.bcg-faq{margin:48px 0}
+.bcg-faq h2{font-size:1.25rem;font-weight:700;color:#1b4332;margin:0 0 20px;padding-bottom:8px;border-bottom:2px solid #d1fae5}
+.bcg-faq-item{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px 24px;margin-bottom:14px}
+.bcg-faq-q{font-size:.95rem;font-weight:700;color:#1e293b;margin:0 0 8px}
+.bcg-faq-a{font-size:.88rem;color:#475569;line-height:1.7;margin:0}
+.bcg-price-table{width:100%;border-collapse:collapse;font-size:.88rem;margin:16px 0}
+.bcg-price-table th{background:#1b4332;color:#fff;padding:10px 14px;text-align:left}
+.bcg-price-table td{padding:10px 14px;border-bottom:1px solid #e2e8f0;color:#374151}
+.bcg-price-table tr:nth-child(even) td{background:#f8fafc}
+.bcg-cta-box{background:#1b4332;color:#fff;border-radius:16px;padding:36px 32px;text-align:center;margin:48px 0}
+.bcg-cta-box h2{font-size:1.4rem;font-weight:800;margin:0 0 12px}
+.bcg-cta-box p{font-size:.95rem;opacity:.85;max-width:520px;margin:0 auto 20px}
+.bcg-cta-link{display:inline-block;background:#fff;color:#1b4332;font-weight:700;padding:12px 28px;border-radius:10px;text-decoration:none;font-size:.95rem}
+.bcg-cta-link:hover{background:#dcfce7}
+@media(max-width:640px){.bcg-hero{padding:36px 16px 32px}.bcg-intro{padding:20px 18px}.bcg-guide-box{padding:20px 16px}.bcg-faq-item{padding:16px 18px}}
+</style>
+</head>
+<body>
+<nav class="bcg-nav-strip">
+  <a href="/">Home</a><span>\u203A</span>
+  <a href="/best">Best Lists</a><span>\u203A</span>
+  <span style="color:#2d6a4f;font-weight:600">Skin Clinics \xB7 Gangnam &amp; Seocho</span>
+</nav>
+
+<header class="bcg-hero">
+  <h1>Top 30 Skin Clinics in Gangnam &amp; Seocho, Seoul (${yr})</h1>
+  <p>Verified by real patient reviews. English-friendly booking available via WhatsApp for all listed clinics.</p>
+  <div class="bcg-hero-stats">
+    <div class="bcg-stat"><div class="bcg-stat-n">30</div><div class="bcg-stat-l">Clinics Listed</div></div>
+    <div class="bcg-stat"><div class="bcg-stat-n">24K+</div><div class="bcg-stat-l">Reviews Analysed</div></div>
+    <div class="bcg-stat"><div class="bcg-stat-n">5</div><div class="bcg-stat-l">Tiers Ranked</div></div>
+    <div class="bcg-stat"><div class="bcg-stat-n">\u{1F1EC}\u{1F1E7}</div><div class="bcg-stat-l">English Support</div></div>
+  </div>
+</header>
+
+<main class="bcg-main">
+
+<div class="bcg-toc-box">
+  <h2>\u{1F4CB} Quick Navigation</h2>
+  <ol>
+    <li><a href="#tier1">Tier 1 \u2014 Perfect 5.0\u2605 (Clinics 1\u20135)</a></li>
+    <li><a href="#tier2">Tier 2 \u2014 Highest Review Volume (6\u201310)</a></li>
+    <li><a href="#tier3">Tier 3 \u2014 Established Performers (11\u201315)</a></li>
+    <li><a href="#tier4">Tier 4 \u2014 Hidden Gems (16\u201325)</a></li>
+    <li><a href="#tier5">Tier 5 \u2014 Rising Stars (26\u201330)</a></li>
+    <li><a href="#prices">Price Reference Table</a></li>
+    <li><a href="#booking">How to Book</a></li>
+    <li><a href="#faq">FAQ</a></li>
+  </ol>
+</div>
+
+<div class="bcg-intro">
+  <h2>Why Gangnam &amp; Seocho for Aesthetic Treatments?</h2>
+  <p>Gangnam and its neighbouring district Seocho form the world's most concentrated cluster of aesthetic clinics. Within a few square kilometres you will find board-certified plastic surgeons, dermatologists, and cosmetic medicine specialists whose credentials rival top practices in New York or London \u2014 often at a fraction of the price.</p>
+  <p>What sets the area apart is not just density but <strong>competition-driven quality</strong>. Clinics know that patients can walk next door if the results disappoint, which keeps standards remarkably high. Google reviews in Korean are brutally honest, and the thirty clinics on this list have collectively earned strong ratings from tens of thousands of real patients.</p>
+  <ul>
+    <li>\u{1F30F} <strong>International-friendly infrastructure</strong> \u2014 most clinics offer English consultation or dedicated translation staff</li>
+    <li>\u{1F4B3} <strong>Transparent pricing</strong> \u2014 Korean clinics are required by law to post treatment prices; no hidden fees</li>
+    <li>\u{1F3E5} <strong>Advanced technology</strong> \u2014 latest laser and device platforms arrive in Seoul before most Western markets</li>
+    <li>\u2708\uFE0F <strong>Medical tourism ecosystem</strong> \u2014 hotels, recovery residences, and airport-to-clinic transfers all available</li>
+  </ul>
+  <p>This guide covers both Gangnam-gu and Seocho-gu because many of the strongest clinics \u2014 including the most-reviewed clinic in the entire area \u2014 sit on the Seocho side of the Gangnam boundary. Treating them as separate lists would be artificial; most visitors travel between the two districts in under ten minutes.</p>
+</div>
+
+<section class="bcg-tier" id="tier1">
+  <h2 class="bcg-tier-title">\u2B50 Tier 1 \u2014 Perfect 5.0\u2605 Rating</h2>
+  <p class="bcg-tier-desc">These five clinics have maintained a flawless five-star average across all major review platforms. Achieving perfect scores is rare in a hyper-competitive market like Gangnam, making each a benchmark for quality in its specialty.</p>
+  <div class="bcg-grid">${renderCards(tier1Cards)}</div>
+</section>
+
+<section class="bcg-tier" id="tier2">
+  <h2 class="bcg-tier-title">\u{1F3C6} Tier 2 \u2014 Highest Review Volume</h2>
+  <p class="bcg-tier-desc">Volume alone does not guarantee quality, but when thousands of patients repeatedly leave strong feedback, it is a reliable signal. These clinics combine scale with consistent patient satisfaction \u2014 a difficult balance to maintain.</p>
+  <div class="bcg-grid">${renderCards(tier2Cards)}</div>
+</section>
+
+<section class="bcg-tier" id="tier3">
+  <h2 class="bcg-tier-title">\u{1F4BC} Tier 3 \u2014 Established Performers</h2>
+  <p class="bcg-tier-desc">Mid-size clinics with hundreds to over a thousand reviews and consistently high scores. These are the workhorses of the Gangnam\u2013Seocho scene \u2014 dependable, experienced, and broadly trusted by both local and international patients.</p>
+  <div class="bcg-grid">${renderCards(tier3Cards)}</div>
+</section>
+
+<section class="bcg-tier" id="tier4">
+  <h2 class="bcg-tier-title">\u{1F48E} Tier 4 \u2014 Hidden Gems</h2>
+  <p class="bcg-tier-desc">Smaller review counts can reflect a specialist niche or a newer practice rather than lower quality. Each clinic here earns its place with outstanding ratings and a clear area of expertise \u2014 often offering more personalised care than larger chains.</p>
+  <div class="bcg-grid">${renderCards(tier4Cards)}</div>
+</section>
+
+<section class="bcg-tier" id="tier5">
+  <h2 class="bcg-tier-title">\u{1F680} Tier 5 \u2014 Rising Stars</h2>
+  <p class="bcg-tier-desc">Newer to the scene but already building solid reputations. Worth booking now before they become household names and appointment wait times grow longer.</p>
+  <div class="bcg-grid">${renderCards(tier5Cards)}</div>
+</section>
+
+<section id="prices" style="margin:48px 0">
+  <h2 style="font-size:1.25rem;font-weight:700;color:#1b4332;margin:0 0 16px;padding-bottom:8px;border-bottom:2px solid #d1fae5">\u{1F4B0} Price Reference Table \u2014 Common Treatments</h2>
+  <p style="font-size:.88rem;color:#64748b;margin:0 0 16px">All prices are approximate and vary by clinic, practitioner, and treatment plan. Always request a written quote during your consultation.</p>
+  <div style="overflow-x:auto">
+  <table class="bcg-price-table">
+    <thead><tr><th>Treatment</th><th>Low Range</th><th>High Range</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Botox (jaw slimming)</td><td>\u20A980,000</td><td>\u20A9200,000</td><td>Results last 4\u20136 months</td></tr>
+      <tr><td>Dermal filler (1 vial)</td><td>\u20A9150,000</td><td>\u20A9400,000</td><td>Juvederm, Restylane common brands</td></tr>
+      <tr><td>Rejuran Healer</td><td>\u20A9200,000</td><td>\u20A9500,000</td><td>Polynucleotide skin booster</td></tr>
+      <tr><td>Juvelook (skin booster)</td><td>\u20A9180,000</td><td>\u20A9450,000</td><td>PDLLA filler; longer lasting</td></tr>
+      <tr><td>HIFU / Shurink (full face)</td><td>\u20A9300,000</td><td>\u20A9900,000</td><td>Ultrasound lifting; 1\u20132 sessions/year</td></tr>
+      <tr><td>Thermage FLX (full face)</td><td>\u20A9600,000</td><td>\u20A91,500,000</td><td>RF tightening; once yearly typical</td></tr>
+      <tr><td>Pico laser (full face)</td><td>\u20A9100,000</td><td>\u20A9350,000</td><td>Pigmentation, brightening</td></tr>
+      <tr><td>Thread lift (mid-face)</td><td>\u20A9400,000</td><td>\u20A91,200,000</td><td>PDO/PLLA threads; 3\u201312 month duration</td></tr>
+      <tr><td>Double eyelid (non-incisional)</td><td>\u20A9500,000</td><td>\u20A91,500,000</td><td>Recovery: 1\u20132 weeks</td></tr>
+      <tr><td>Rhinoplasty (tip only)</td><td>\u20A9800,000</td><td>\u20A92,500,000</td><td>Cartilage or implant; full recovery 3\u20134 weeks</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section id="booking" style="margin:48px 0">
+  <h2 style="font-size:1.25rem;font-weight:700;color:#1b4332;margin:0 0 16px;padding-bottom:8px;border-bottom:2px solid #d1fae5">\u{1F4C5} How to Book an Appointment</h2>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px">
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px">
+      <div style="font-size:1.5rem;margin-bottom:8px">1\uFE0F\u20E3</div>
+      <h3 style="font-size:.95rem;font-weight:700;margin:0 0 8px">Choose your clinic</h3>
+      <p style="font-size:.85rem;color:#64748b;margin:0">Browse the list above. Filter by your desired treatment, budget, and area (Gangnam or Seocho).</p>
+    </div>
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px">
+      <div style="font-size:1.5rem;margin-bottom:8px">2\uFE0F\u20E3</div>
+      <h3 style="font-size:.95rem;font-weight:700;margin:0 0 8px">Request via WhatsApp</h3>
+      <p style="font-size:.85rem;color:#64748b;margin:0">Click "Book / Details" on any clinic card. Our team contacts the clinic on your behalf in Korean \u2014 no language barrier.</p>
+    </div>
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px">
+      <div style="font-size:1.5rem;margin-bottom:8px">3\uFE0F\u20E3</div>
+      <h3 style="font-size:.95rem;font-weight:700;margin:0 0 8px">Confirm &amp; visit</h3>
+      <p style="font-size:.85rem;color:#64748b;margin:0">Receive your appointment time and clinic address in English. Bring your passport \u2014 some clinics require ID for medical records.</p>
+    </div>
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px">
+      <div style="font-size:1.5rem;margin-bottom:8px">4\uFE0F\u20E3</div>
+      <h3 style="font-size:.95rem;font-weight:700;margin:0 0 8px">Aftercare support</h3>
+      <p style="font-size:.85rem;color:#64748b;margin:0">Post-treatment questions? Message us on WhatsApp and we will liaise with the clinic for any follow-up needs.</p>
+    </div>
+  </div>
+</section>
+
+<div class="bcg-guide-box">
+  <h2>\u{1F4DA} Related Treatment Guides</h2>
+  <div class="bcg-guide-links">
+    <a href="/guide/shurink-hifu-seoul-price">HIFU &amp; Shurink \u2014 Seoul Price Guide</a>
+    <a href="/guide/rejuran-healer-korea-guide">Rejuran Healer \u2014 Complete Korea Guide</a>
+    <a href="/guide/thermage-flx-korea-cost">Thermage FLX \u2014 Korea Cost Guide</a>
+    <a href="/guide/botox-jaw-slimming-seoul">Botox Jaw Slimming in Seoul</a>
+    <a href="/guide/skin-booster-comparison-juvelook-rejuran">Juvelook vs Rejuran \u2014 Comparison</a>
+    <a href="/guide/laser-toning-pico-laser-korea">Pico Laser &amp; Laser Toning in Korea</a>
+    <a href="/guide/thread-lift-korea-foreigner-guide">Thread Lift \u2014 Foreigner Guide</a>
+    <a href="/guide/double-eyelid-surgery-korea-foreigners">Double Eyelid Surgery for Foreigners</a>
+    <a href="/guide/exosome-skin-treatment-seoul">Exosome Skin Treatment Seoul</a>
+    <a href="/guide/rhinoplasty-korea-cost-guide">Rhinoplasty Korea \u2014 Cost Guide</a>
+  </div>
+</div>
+
+<section class="bcg-faq" id="faq">
+  <h2>\u2753 Frequently Asked Questions</h2>
+
+  <div class="bcg-faq-item" itemscope itemtype="https://schema.org/Question">
+    <p class="bcg-faq-q" itemprop="name">Do Gangnam clinics offer consultations in English?</p>
+    <div class="bcg-faq-a" itemscope itemtype="https://schema.org/Answer" itemprop="acceptedAnswer">
+      <p itemprop="text">Most clinics on this list have at least basic English-speaking staff, and several \u2014 particularly those popular with international visitors \u2014 offer dedicated English coordinators. If direct communication is a concern, Seoul Beauty Trip can handle the back-and-forth in Korean on your behalf and relay everything to you in English.</p>
+    </div>
+  </div>
+
+  <div class="bcg-faq-item" itemscope itemtype="https://schema.org/Question">
+    <p class="bcg-faq-q" itemprop="name">Is it safe to have plastic surgery or skin treatments in Korea as a tourist?</p>
+    <div class="bcg-faq-a" itemscope itemtype="https://schema.org/Answer" itemprop="acceptedAnswer">
+      <p itemprop="text">South Korea has one of the most regulated medical aesthetics industries in the world. Clinics must be licensed, doctors must hold board certifications, and treatment prices must be publicly posted. The clinics on this list have high review volumes and strong ratings \u2014 a reliable indicator of consistent safety and quality. As with any medical procedure, always complete a proper consultation before committing to any treatment.</p>
+    </div>
+  </div>
+
+  <div class="bcg-faq-item" itemscope itemtype="https://schema.org/Question">
+    <p class="bcg-faq-q" itemprop="name">How far is Gangnam from central Seoul and the airport?</p>
+    <div class="bcg-faq-a" itemscope itemtype="https://schema.org/Answer" itemprop="acceptedAnswer">
+      <p itemprop="text">From Incheon Airport (ICN), the AREX express train reaches Seoul Station in 43 minutes. From Seoul Station, the subway to Gangnam Station takes a further 20\u201325 minutes, making the total journey roughly 65\u201370 minutes. From Gimpo Airport (GMP), the journey to Gangnam is around 30\u201340 minutes. Most clinics are within a five-minute walk of a subway station.</p>
+    </div>
+  </div>
+
+  <div class="bcg-faq-item" itemscope itemtype="https://schema.org/Question">
+    <p class="bcg-faq-q" itemprop="name">What is the difference between Gangnam and Seocho clinics?</p>
+    <div class="bcg-faq-a" itemscope itemtype="https://schema.org/Answer" itemprop="acceptedAnswer">
+      <p itemprop="text">Administratively they are separate districts, but they share a border and are culturally and geographically continuous. Gangnam-gu contains Apgujeong (luxury brand clinics) and the main Gangnam station area (broad range of clinics). Seocho-gu, directly to the south-west, contains Banpo and Seocho-dong \u2014 less tourist-heavy but with some of the highest-reviewed clinics in all of Seoul, including GU Clinic with over 10,000 Google reviews.</p>
+    </div>
+  </div>
+
+  <div class="bcg-faq-item" itemscope itemtype="https://schema.org/Question">
+    <p class="bcg-faq-q" itemprop="name">How far in advance should I book?</p>
+    <div class="bcg-faq-a" itemscope itemtype="https://schema.org/Answer" itemprop="acceptedAnswer">
+      <p itemprop="text">For non-surgical treatments (botox, fillers, laser), same-week or even same-day appointments are sometimes available at smaller clinics. For surgical procedures (rhinoplasty, double eyelid, body contouring), plan a minimum of two to four weeks in advance to allow time for a consultation, pre-operative tests, and scheduling. During peak travel seasons (spring and autumn), popular clinics can be fully booked several weeks out.</p>
+    </div>
+  </div>
+
+  <div class="bcg-faq-item" itemscope itemtype="https://schema.org/Question">
+    <p class="bcg-faq-q" itemprop="name">What payment methods do Gangnam clinics accept?</p>
+    <div class="bcg-faq-a" itemscope itemtype="https://schema.org/Answer" itemprop="acceptedAnswer">
+      <p itemprop="text">Most clinics accept international credit cards (Visa, Mastercard, Amex) and cash in Korean Won. Some accept bank transfers. Foreign card fees can be 2\u20133%, so having cash or a low-fee travel card is advisable. VAT refund (\uBD80\uAC00\uC138 \uD658\uAE09) is available for treatments paid in cash at some clinics \u2014 ask the front desk before payment.</p>
+    </div>
+  </div>
+</section>
+
+<div class="bcg-cta-box">
+  <h2>Ready to Book Your Seoul Clinic?</h2>
+  <p>Browse all verified clinics and request your appointment via WhatsApp \u2014 in English, no Korean needed.</p>
+  <a href="/" class="bcg-cta-link">Browse All Shops \u2192</a>
+</div>
+
+</main>
+
+<footer style="background:#1e293b;color:#94a3b8;text-align:center;padding:24px 16px;font-size:.8rem">
+  <p style="margin:0 0 6px"><a href="/" style="color:#94a3b8;text-decoration:none">Seoul Beauty Trip</a> &nbsp;\xB7&nbsp; <a href="/best" style="color:#94a3b8;text-decoration:none">Best Lists</a> &nbsp;\xB7&nbsp; <a href="/guide/k-beauty-treatment-guide" style="color:#94a3b8;text-decoration:none">Treatment Guide</a></p>
+  <p style="margin:0">\xA9 ${yr} Seoul Beauty Trip. All clinic information is based on publicly available review data and is updated regularly.</p>
+</footer>
+</body>
+</html>`;
+  return c.html(html);
+});
 var BEST_CAT_REDIRECTS = {
   "plastic-surgery": "clinic",
   "dermatology": "clinic",
@@ -9370,6 +9740,1323 @@ app.get("/guide/seoul-beauty-faq", (c) => {
 </body>
 </html>`);
 });
+var GUIDE_COMMON_CSS = `
+<style>
+:root{--gn:#2d6a4f;--gn2:#1b4332;--acc:#f59e0b}
+*{box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#f8fafc;color:#1e293b;margin:0;line-height:1.7}
+.gp-nav{background:#fff;border-bottom:1px solid #e2e8f0;padding:10px 20px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:.82rem}
+.gp-nav a{color:#64748b;text-decoration:none}.gp-nav a:hover{color:#2d6a4f}.gp-nav span{color:#94a3b8}
+.gp-hero{background:linear-gradient(135deg,#1b4332,#2d6a4f,#40916c);color:#fff;padding:52px 20px 44px;text-align:center}
+.gp-hero h1{font-size:clamp(1.5rem,4vw,2.4rem);font-weight:800;margin:0 0 12px;line-height:1.2}
+.gp-hero p{font-size:1rem;opacity:.88;max-width:600px;margin:0 auto}
+.gp-wrap{max-width:820px;margin:0 auto;padding:0 16px 60px}
+.gp-toc{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px 24px;margin:32px 0}
+.gp-toc h2{font-size:.95rem;font-weight:700;margin:0 0 10px;color:#1e293b}
+.gp-toc ol{margin:0;padding-left:20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:4px 12px}
+.gp-toc li a{font-size:.82rem;color:#2d6a4f;text-decoration:none}.gp-toc li a:hover{text-decoration:underline}
+.gp-section{margin:36px 0}
+.gp-section h2{font-size:1.15rem;font-weight:700;color:#1b4332;margin:0 0 12px;padding-bottom:8px;border-bottom:2px solid #d1fae5}
+.gp-section h3{font-size:1rem;font-weight:700;color:#1e293b;margin:20px 0 8px}
+.gp-section p{font-size:.92rem;color:#374151;margin:0 0 12px}
+.gp-section ul,.gp-section ol{font-size:.92rem;color:#374151;padding-left:20px;margin:0 0 12px}
+.gp-section li{margin-bottom:6px}
+.gp-table-wrap{overflow-x:auto;margin:12px 0}
+.gp-table{width:100%;border-collapse:collapse;font-size:.86rem}
+.gp-table th{background:#1b4332;color:#fff;padding:9px 12px;text-align:left}
+.gp-table td{padding:9px 12px;border-bottom:1px solid #e2e8f0;color:#374151}
+.gp-table tr:nth-child(even) td{background:#f8fafc}
+.gp-clinic-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin:16px 0}
+.gp-clinic-card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px}
+.gp-clinic-card h4{font-size:.9rem;font-weight:700;margin:0 0 4px;color:#1e293b}
+.gp-clinic-card p{font-size:.8rem;color:#64748b;margin:0 0 8px}
+.gp-clinic-card a{font-size:.82rem;color:#2d6a4f;font-weight:600;text-decoration:none}
+.gp-clinic-card a:hover{text-decoration:underline}
+.gp-tip-box{background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:16px 20px;margin:16px 0;font-size:.88rem;color:#166534}
+.gp-tip-box strong{color:#1b4332}
+.gp-faq-item{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px 20px;margin:12px 0}
+.gp-faq-q{font-size:.92rem;font-weight:700;color:#1e293b;margin:0 0 8px}
+.gp-faq-a{font-size:.86rem;color:#475569;margin:0;line-height:1.65}
+.gp-cta{background:#1b4332;color:#fff;border-radius:14px;padding:32px 24px;text-align:center;margin:40px 0}
+.gp-cta h2{font-size:1.2rem;font-weight:800;margin:0 0 10px}
+.gp-cta p{font-size:.9rem;opacity:.85;max-width:480px;margin:0 auto 18px}
+.gp-cta a{display:inline-block;background:#fff;color:#1b4332;font-weight:700;padding:10px 24px;border-radius:8px;text-decoration:none;font-size:.9rem}
+.gp-cta a:hover{background:#dcfce7}
+.gp-related{margin:32px 0}.gp-related h2{font-size:1rem;font-weight:700;color:#1b4332;margin:0 0 12px}
+.gp-related-links{display:flex;flex-wrap:wrap;gap:8px}
+.gp-related-links a{background:#fff;border:1px solid #d1fae5;border-radius:8px;padding:7px 12px;font-size:.82rem;color:#166534;text-decoration:none;font-weight:500}
+.gp-related-links a:hover{background:#f0fdf4}
+.gp-footer{background:#1e293b;color:#94a3b8;text-align:center;padding:20px 16px;font-size:.78rem}
+.gp-footer a{color:#94a3b8;text-decoration:none}
+</style>`;
+app.get("/guide/shurink-hifu-seoul-price", (c) => {
+  const yr = (/* @__PURE__ */ new Date()).getFullYear();
+  return c.html(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Shurink HIFU in Seoul \u2014 ${yr} Price Guide | Seoul Beauty Trip</title>
+<meta name="description" content="Complete ${yr} guide to Shurink and HIFU ultrasound lifting in Seoul: how it works, realistic costs (\u20A9200K\u2013\u20A9900K), top Gangnam clinics, and what to expect.">
+<link rel="canonical" href="https://seoulbeautytrip.com/guide/shurink-hifu-seoul-price">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Shurink HIFU in Seoul \u2014 ${yr} Price Guide","author":{"@type":"Organization","name":"Seoul Beauty Trip"},"publisher":{"@type":"Organization","name":"Seoul Beauty Trip","logo":{"@type":"ImageObject","url":"https://seoulbeautytrip.com/favicon.ico"}},"datePublished":"${yr}-01-01","dateModified":"${yr}-06-01"}</script>
+${GUIDE_COMMON_CSS}
+</head>
+<body>
+<nav class="gp-nav"><a href="/">Home</a><span>\u203A</span><a href="/guide">Guides</a><span>\u203A</span><span style="color:#2d6a4f;font-weight:600">Shurink &amp; HIFU Seoul Price Guide</span></nav>
+<header class="gp-hero">
+  <h1>Shurink &amp; HIFU Ultrasound Lifting in Seoul<br><span style="font-size:.65em;opacity:.85">${yr} Price &amp; Clinic Guide for Foreigners</span></h1>
+  <p>Everything you need to know before booking \u2014 costs, realistic results, and which Gangnam clinics actually deliver.</p>
+</header>
+<main class="gp-wrap">
+<div class="gp-toc">
+  <h2>\u{1F4CB} In This Guide</h2>
+  <ol>
+    <li><a href="#what">What is HIFU / Shurink?</a></li>
+    <li><a href="#prices">Seoul Price Breakdown</a></li>
+    <li><a href="#shurink-vs-others">Shurink vs Ulthera vs Doublo</a></li>
+    <li><a href="#clinics">Recommended Gangnam Clinics</a></li>
+    <li><a href="#expect">What to Expect (Before &amp; After)</a></li>
+    <li><a href="#faq">FAQ</a></li>
+  </ol>
+</div>
+
+<section class="gp-section" id="what">
+  <h2>What is HIFU and How Does Shurink Work?</h2>
+  <p>HIFU stands for <strong>High-Intensity Focused Ultrasound</strong>. It delivers precise energy pulses to the SMAS layer \u2014 the same layer a surgeon tightens during a facelift \u2014 without any cuts or needles. The controlled thermal damage triggers collagen production, gradually firming and lifting skin over two to three months.</p>
+  <p><strong>Shurink</strong> is a Korean-manufactured HIFU device by Classys Inc. It dominates the Seoul market because it is faster, more comfortable, and slightly cheaper to operate than the American original (Ulthera / Ultherapy), while producing comparable results. Most Gangnam clinics now use Shurink as their primary HIFU platform.</p>
+  <p>Key treatment areas include:</p>
+  <ul>
+    <li>Lower face and jawline (jowl lifting)</li>
+    <li>Neck and d\xE9colletage tightening</li>
+    <li>Brow lifting and forehead smoothing</li>
+    <li>Under-eye area (with a gentler cartridge)</li>
+    <li>Body: arms, abdomen, inner thighs</li>
+  </ul>
+</section>
+
+<section class="gp-section" id="prices">
+  <h2>Seoul HIFU / Shurink Price Breakdown (${yr})</h2>
+  <div class="gp-table-wrap">
+  <table class="gp-table">
+    <thead><tr><th>Treatment Area</th><th>Low (budget clinic)</th><th>Mid (standard Gangnam)</th><th>High (premium)</th></tr></thead>
+    <tbody>
+      <tr><td>Full face + neck (300 shots)</td><td>\u20A9200,000</td><td>\u20A9350,000\u2013\u20A9500,000</td><td>\u20A9700,000\u2013\u20A9900,000</td></tr>
+      <tr><td>Full face only (200 shots)</td><td>\u20A9150,000</td><td>\u20A9250,000\u2013\u20A9380,000</td><td>\u20A9500,000\u2013\u20A9650,000</td></tr>
+      <tr><td>Neck only</td><td>\u20A980,000</td><td>\u20A9120,000\u2013\u20A9200,000</td><td>\u20A9280,000\u2013\u20A9400,000</td></tr>
+      <tr><td>Eye area (100 shots)</td><td>\u20A960,000</td><td>\u20A990,000\u2013\u20A9150,000</td><td>\u20A9200,000\u2013\u20A9300,000</td></tr>
+      <tr><td>Body (abdomen, 400 shots)</td><td>\u20A9200,000</td><td>\u20A9350,000\u2013\u20A9600,000</td><td>\u20A9800,000\u2013\u20A91,200,000</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="gp-tip-box">\u{1F4A1} <strong>Tip:</strong> Always ask how many "shots" (cartridge pulses) are included. Some clinics advertise low prices but deliver only 100\u2013150 shots \u2014 too few for a meaningful full-face result. A standard full-face treatment uses 200\u2013300 shots at multiple depths (1.5mm, 3.0mm, 4.5mm).</div>
+</section>
+
+<section class="gp-section" id="shurink-vs-others">
+  <h2>Shurink vs Ulthera vs Doublo \u2014 Which Is Best?</h2>
+  <div class="gp-table-wrap">
+  <table class="gp-table">
+    <thead><tr><th>Device</th><th>Origin</th><th>Price (Seoul)</th><th>Pain Level</th><th>Best For</th></tr></thead>
+    <tbody>
+      <tr><td>Shurink</td><td>Korea (Classys)</td><td>\u20A9200K\u2013\u20A9900K</td><td>Moderate</td><td>Value + speed; most popular in Korea</td></tr>
+      <tr><td>Ulthera (Ultherapy)</td><td>USA (Merz)</td><td>\u20A9600K\u2013\u20A92M</td><td>Higher</td><td>Deep SMAS; premium branding</td></tr>
+      <tr><td>Doublo Gold</td><td>Korea (HIRONIC)</td><td>\u20A9180K\u2013\u20A9700K</td><td>Moderate</td><td>Budget option; decent for maintenance</td></tr>
+      <tr><td>Ultraformer MPT</td><td>Korea (Classys)</td><td>\u20A9250K\u2013\u20A9800K</td><td>Low\u2013Moderate</td><td>Comfortable; good for sensitive skin</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>For most foreigners visiting Seoul, <strong>Shurink is the smart choice</strong>: it is the device most Gangnam doctors are most experienced with, produces reliable results, and costs significantly less than Ulthera for equivalent shot counts.</p>
+</section>
+
+<section class="gp-section" id="clinics">
+  <h2>Recommended Clinics for HIFU in Gangnam</h2>
+  <div class="gp-clinic-strip">
+    <div class="gp-clinic-card"><h4>FittingClinic</h4><p>5.0\u2605 \xB7 English-friendly \xB7 Skin Boosters &amp; HIFU specialist</p><a href="/shop/fitting-clinic-gangnam">View Clinic \u2192</a></div>
+    <div class="gp-clinic-card"><h4>Glovi G-Thera Anti-Aging</h4><p>5.0\u2605 \xB7 RF + HIFU combinations \xB7 Non-surgical lifting</p><a href="/shop/glovi-antiaging-gangnam">View Clinic \u2192</a></div>
+    <div class="gp-clinic-card"><h4>Orta Clinic (Seocho)</h4><p>4.8\u2605 \xB7 4,400+ reviews \xB7 Laser &amp; HIFU packages</p><a href="/shop/orta-clinic-seocho">View Clinic \u2192</a></div>
+    <div class="gp-clinic-card"><h4>Jiwoo Clinic</h4><p>4.8\u2605 \xB7 Personalised treatment plans \xB7 Competitive pricing</p><a href="/shop/jiwoo-clinic-gangnam">View Clinic \u2192</a></div>
+  </div>
+</section>
+
+<section class="gp-section" id="expect">
+  <h2>What to Expect Before, During &amp; After</h2>
+  <h3>Before the Treatment</h3>
+  <ul>
+    <li>Remove all makeup and sunscreen before your appointment</li>
+    <li>Avoid retinol or AHA/BHA products for 48 hours prior</li>
+    <li>Discuss your concerns clearly \u2014 ask the doctor to mark the target zones</li>
+    <li>Numbing cream is usually applied 20\u201330 minutes before to reduce discomfort</li>
+  </ul>
+  <h3>During the Treatment</h3>
+  <p>The procedure takes 30\u201360 minutes depending on area. You will feel intermittent heat and tingling as the device passes over your skin. Bony areas (jawline, temples) are more sensitive. Most patients rate the discomfort as 3\u20135 out of 10 with numbing cream.</p>
+  <h3>After the Treatment</h3>
+  <ul>
+    <li>Mild redness and slight swelling may occur for 1\u20133 days \u2014 normal and temporary</li>
+    <li>Results begin appearing at 4\u20138 weeks and peak around 3 months</li>
+    <li>A single session typically lasts 6\u201312 months; many patients repeat annually</li>
+    <li>Avoid intense heat (sauna, hot yoga) for 48 hours post-treatment</li>
+  </ul>
+</section>
+
+<section class="gp-section" id="faq">
+  <h2>FAQ</h2>
+  <div class="gp-faq-item"><p class="gp-faq-q">Is HIFU safe for all skin tones?</p><p class="gp-faq-a">Yes. Unlike some laser treatments, HIFU is safe for all Fitzpatrick skin types including darker skin tones, because the ultrasound energy bypasses the epidermis entirely and acts on the deeper layers.</p></div>
+  <div class="gp-faq-item"><p class="gp-faq-q">How soon before a trip should I get HIFU?</p><p class="gp-faq-a">If you want to look your best for an event, schedule HIFU 2\u20133 months before, as peak collagen production takes time. If you are getting it as part of a Seoul trip, the treatment itself is fine \u2014 just expect mild redness for a day or two.</p></div>
+  <div class="gp-faq-item"><p class="gp-faq-q">Can I combine HIFU with other treatments?</p><p class="gp-faq-a">Yes, and it is commonly done in Korea. Popular combinations include HIFU + Botox (jaw) + skin booster (Rejuran or Juvelook) for a comprehensive anti-aging result. Allow at least one week between energy-based treatments.</p></div>
+  <div class="gp-faq-item"><p class="gp-faq-q">Do I need multiple sessions?</p><p class="gp-faq-a">Most patients see good results from a single session and repeat after 6\u201312 months for maintenance. Those with significant laxity may benefit from two sessions spaced 8\u201312 weeks apart.</p></div>
+</section>
+
+<div class="gp-cta">
+  <h2>Book Your HIFU Session in Gangnam</h2>
+  <p>English booking via WhatsApp \u2014 we handle the Korean communication for you.</p>
+  <a href="/best/clinic/gangnam">See Top Gangnam Clinics \u2192</a>
+</div>
+<div class="gp-related">
+  <h2>Related Guides</h2>
+  <div class="gp-related-links">
+    <a href="/guide/thermage-flx-korea-cost">Thermage FLX Korea</a>
+    <a href="/guide/rejuran-healer-korea-guide">Rejuran Healer</a>
+    <a href="/guide/skin-booster-comparison-juvelook-rejuran">Juvelook vs Rejuran</a>
+    <a href="/guide/thread-lift-korea-foreigner-guide">Thread Lift Korea</a>
+    <a href="/guide/laser-toning-pico-laser-korea">Pico Laser Korea</a>
+  </div>
+</div>
+</main>
+<footer class="gp-footer"><p><a href="/">Seoul Beauty Trip</a> &nbsp;\xB7&nbsp; <a href="/best/clinic/gangnam">Top 30 Gangnam Clinics</a> &nbsp;\xB7&nbsp; <a href="/guide">All Guides</a></p><p style="margin-top:6px">\xA9 ${yr} Seoul Beauty Trip. For informational purposes only \u2014 always consult a licensed medical professional.</p></footer>
+</body></html>`);
+});
+app.get("/guide/rejuran-healer-korea-guide", (c) => {
+  const yr = (/* @__PURE__ */ new Date()).getFullYear();
+  return c.html(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rejuran Healer in Korea \u2014 Complete ${yr} Guide | Seoul Beauty Trip</title>
+<meta name="description" content="Everything about Rejuran Healer (PDRN skin booster) in Korea: what it is, realistic results, ${yr} prices in Seoul, top clinics, and how to book as a foreigner.">
+<link rel="canonical" href="https://seoulbeautytrip.com/guide/rejuran-healer-korea-guide">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Rejuran Healer in Korea \u2014 Complete ${yr} Guide","author":{"@type":"Organization","name":"Seoul Beauty Trip"},"datePublished":"${yr}-01-01","dateModified":"${yr}-06-01"}</script>
+${GUIDE_COMMON_CSS}
+</head>
+<body>
+<nav class="gp-nav"><a href="/">Home</a><span>\u203A</span><a href="/guide">Guides</a><span>\u203A</span><span style="color:#2d6a4f;font-weight:600">Rejuran Healer Korea Guide</span></nav>
+<header class="gp-hero">
+  <h1>Rejuran Healer in Korea<br><span style="font-size:.65em;opacity:.85">Complete ${yr} Guide for Foreign Visitors</span></h1>
+  <p>Korea's most popular skin booster explained \u2014 how PDRN works, realistic costs, and which Seoul clinics to trust.</p>
+</header>
+<main class="gp-wrap">
+<div class="gp-toc">
+  <h2>\u{1F4CB} In This Guide</h2>
+  <ol>
+    <li><a href="#what">What is Rejuran Healer?</a></li>
+    <li><a href="#types">Rejuran Types Explained</a></li>
+    <li><a href="#prices">Seoul Price Table (${yr})</a></li>
+    <li><a href="#vs-juvelook">Rejuran vs Juvelook</a></li>
+    <li><a href="#clinics">Top Seoul Clinics</a></li>
+    <li><a href="#expect">What to Expect</a></li>
+    <li><a href="#faq">FAQ</a></li>
+  </ol>
+</div>
+
+<section class="gp-section" id="what">
+  <h2>What is Rejuran Healer?</h2>
+  <p>Rejuran Healer is a skin booster developed by South Korean biotech company <strong>Pharmos Biopharma</strong>. Its active ingredient is <strong>PDRN (Polydeoxyribonucleotide)</strong> \u2014 DNA fragments derived from salmon that closely resemble human DNA. When injected into the skin, PDRN activates A2A adenosine receptors, stimulating fibroblasts to produce collagen and elastin.</p>
+  <p>Unlike dermal fillers, Rejuran does not add volume. Instead it <strong>heals and rebuilds the skin from within</strong>, improving texture, hydration, elasticity, and reducing fine lines over multiple weeks. It is particularly effective for:</p>
+  <ul>
+    <li>Enlarged or clogged pores</li>
+    <li>Fine lines and early wrinkles</li>
+    <li>Dull, dehydrated skin lacking bounce</li>
+    <li>Acne scars and post-inflammatory marks</li>
+    <li>Under-eye thinning and dark circles (using Rejuran Eye/I)</li>
+  </ul>
+</section>
+
+<section class="gp-section" id="types">
+  <h2>Rejuran Product Types</h2>
+  <div class="gp-table-wrap">
+  <table class="gp-table">
+    <thead><tr><th>Product</th><th>Use Case</th><th>Injection Area</th></tr></thead>
+    <tbody>
+      <tr><td>Rejuran Healer</td><td>General skin repair &amp; rejuvenation</td><td>Full face, neck</td></tr>
+      <tr><td>Rejuran I (Eye)</td><td>Delicate under-eye area</td><td>Periorbital zone</td></tr>
+      <tr><td>Rejuran S (Scar)</td><td>Acne scars, surgical scars</td><td>Localised scar tissue</td></tr>
+      <tr><td>Rejuran HB</td><td>Extra hydration + HA combination</td><td>Face, d\xE9colletage</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="gp-section" id="prices">
+  <h2>Rejuran Healer Seoul Price Table (${yr})</h2>
+  <div class="gp-table-wrap">
+  <table class="gp-table">
+    <thead><tr><th>Treatment</th><th>Price Range</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Rejuran Healer (1 session, full face)</td><td>\u20A9200,000\u2013\u20A9400,000</td><td>Standard dose; recommended course: 3\u20134 sessions</td></tr>
+      <tr><td>Rejuran I / Eye</td><td>\u20A9150,000\u2013\u20A9300,000</td><td>Thinner formulation for periorbital area</td></tr>
+      <tr><td>Rejuran S (scars)</td><td>\u20A9180,000\u2013\u20A9350,000</td><td>Often combined with laser treatments</td></tr>
+      <tr><td>Rejuran HB (hydration boost)</td><td>\u20A9220,000\u2013\u20A9450,000</td><td>HA-enriched; more hydration than standard</td></tr>
+      <tr><td>Course of 4 sessions</td><td>\u20A9600,000\u2013\u20A91,200,000</td><td>Many clinics offer package discounts</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="gp-tip-box">\u{1F4A1} <strong>Package deals:</strong> Most Seoul clinics offer 3- or 4-session packages at a 15\u201325% discount. If you are visiting Seoul regularly (or willing to commit upfront), ask about course pricing.</div>
+</section>
+
+<section class="gp-section" id="vs-juvelook">
+  <h2>Rejuran vs Juvelook \u2014 Which Should You Choose?</h2>
+  <p>These are the two most-discussed skin boosters in Korea right now. Here is a direct comparison:</p>
+  <div class="gp-table-wrap">
+  <table class="gp-table">
+    <thead><tr><th>Factor</th><th>Rejuran Healer</th><th>Juvelook</th></tr></thead>
+    <tbody>
+      <tr><td>Active ingredient</td><td>PDRN (salmon DNA)</td><td>PDLLA (biodegradable polymer)</td></tr>
+      <tr><td>Primary effect</td><td>Skin repair, collagen rebuild</td><td>Collagen stimulation, volume</td></tr>
+      <tr><td>Duration</td><td>6\u201312 months (with course)</td><td>12\u201318 months</td></tr>
+      <tr><td>Sessions needed</td><td>3\u20134 for best results</td><td>1\u20132</td></tr>
+      <tr><td>Best for</td><td>Texture, pores, scars</td><td>Skin laxity, volume, fine lines</td></tr>
+      <tr><td>Price (per session)</td><td>\u20A9200K\u2013\u20A9400K</td><td>\u20A9180K\u2013\u20A9450K</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Many patients in Seoul do both \u2014 Rejuran for skin repair and Juvelook for structural support \u2014 as they target complementary concerns. See our full <a href="/guide/skin-booster-comparison-juvelook-rejuran" style="color:#2d6a4f">Juvelook vs Rejuran comparison guide</a>.</p>
+</section>
+
+<section class="gp-section" id="clinics">
+  <h2>Top Seoul Clinics for Rejuran</h2>
+  <div class="gp-clinic-strip">
+    <div class="gp-clinic-card"><h4>FittingClinic</h4><p>5.0\u2605 \xB7 English-friendly \xB7 Rejuran specialist packages</p><a href="/shop/fitting-clinic-gangnam">View Clinic \u2192</a></div>
+    <div class="gp-clinic-card"><h4>GU Clinic (Seocho)</h4><p>4.8\u2605 \xB7 10,798 reviews \xB7 Full skin booster menu</p><a href="/shop/gu-clinic-seocho">View Clinic \u2192</a></div>
+    <div class="gp-clinic-card"><h4>ME SEOUL CLINIC</h4><p>4.7\u2605 \xB7 Influencer favourite \xB7 Rejuran + Juvelook combos</p><a href="/shop/me-seoul-clinic-gangnam">View Clinic \u2192</a></div>
+    <div class="gp-clinic-card"><h4>Nohd Dermatology</h4><p>4.7\u2605 \xB7 Evidence-based \xB7 Thorough skin analysis first</p><a href="/shop/nohd-dermatology-gangnam">View Clinic \u2192</a></div>
+  </div>
+</section>
+
+<section class="gp-section" id="expect">
+  <h2>What to Expect</h2>
+  <h3>The Procedure</h3>
+  <p>Numbing cream is applied 20\u201330 minutes before. The doctor then uses a fine needle or a multi-needle stamp device to inject Rejuran into the dermis across the treatment area. The full-face procedure takes 20\u201340 minutes. Expect pinpoint bruising and papule bumps immediately after \u2014 these typically resolve within 24\u201348 hours.</p>
+  <h3>Results Timeline</h3>
+  <ul>
+    <li><strong>Week 1:</strong> Skin feels slightly firmer and more hydrated</li>
+    <li><strong>Week 4:</strong> Pore size visibly reduced; texture noticeably smoother</li>
+    <li><strong>Week 8\u201312:</strong> Collagen remodelling at its peak; skin looks healthiest</li>
+    <li><strong>After a course of 4:</strong> Results maintained for 6\u201312 months</li>
+  </ul>
+</section>
+
+<section class="gp-section" id="faq">
+  <h2>FAQ</h2>
+  <div class="gp-faq-item"><p class="gp-faq-q">Is Rejuran painful?</p><p class="gp-faq-a">With numbing cream, most patients rate the discomfort as 2\u20133 out of 10. The injections feel like mild stinging. The under-eye area (Rejuran I) is slightly more sensitive. Pain tolerance varies and some clinics offer additional topical anaesthetic if needed.</p></div>
+  <div class="gp-faq-item"><p class="gp-faq-q">How soon can I see results?</p><p class="gp-faq-a">Initial hydration improvement appears within 1\u20132 weeks. Structural collagen benefits develop over 4\u201312 weeks. For best results, dermatologists recommend a course of 3\u20134 sessions spaced 2\u20134 weeks apart.</p></div>
+  <div class="gp-faq-item"><p class="gp-faq-q">Is Rejuran safe for all skin types?</p><p class="gp-faq-a">Yes, Rejuran is generally safe for all skin types and tones. It is not suitable for people with fish allergies (salmon-derived PDRN) or those on blood-thinning medication. Always disclose your full medical history during consultation.</p></div>
+  <div class="gp-faq-item"><p class="gp-faq-q">Can I fly home the same day?</p><p class="gp-faq-a">Yes. Rejuran is a non-surgical lunchtime treatment. Most patients have mild redness and small bumps that resolve within hours to a day. Many visitors schedule their last session a day or two before departure without issues.</p></div>
+</section>
+
+<div class="gp-cta">
+  <h2>Book Rejuran in Seoul \u2014 English Support Included</h2>
+  <p>We liaise with clinics in Korean so you do not have to.</p>
+  <a href="/best/clinic/gangnam">Browse Top Clinics \u2192</a>
+</div>
+<div class="gp-related">
+  <h2>Related Guides</h2>
+  <div class="gp-related-links">
+    <a href="/guide/skin-booster-comparison-juvelook-rejuran">Juvelook vs Rejuran</a>
+    <a href="/guide/exosome-skin-treatment-seoul">Exosome Treatments Seoul</a>
+    <a href="/guide/laser-toning-pico-laser-korea">Pico Laser Korea</a>
+    <a href="/guide/shurink-hifu-seoul-price">HIFU Seoul Price</a>
+  </div>
+</div>
+</main>
+<footer class="gp-footer"><p><a href="/">Seoul Beauty Trip</a> &nbsp;\xB7&nbsp; <a href="/best/clinic/gangnam">Top Gangnam Clinics</a> &nbsp;\xB7&nbsp; <a href="/guide">All Guides</a></p><p style="margin-top:6px">\xA9 ${yr} Seoul Beauty Trip. For informational purposes only.</p></footer>
+</body></html>`);
+});
+app.get("/guide/exosome-skin-treatment-seoul", (c) => {
+  const yr = (/* @__PURE__ */ new Date()).getFullYear();
+  return c.html(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Exosome Skin Treatment in Seoul \u2014 ${yr} Guide | Seoul Beauty Trip</title>
+<meta name="description" content="Exosome skin therapy in Seoul: what it is, how it compares to Rejuran and PRP, ${yr} prices at Gangnam clinics, and who it is best suited for.">
+<link rel="canonical" href="https://seoulbeautytrip.com/guide/exosome-skin-treatment-seoul">
+${GUIDE_COMMON_CSS}
+</head>
+<body>
+<nav class="gp-nav"><a href="/">Home</a><span>\u203A</span><a href="/guide">Guides</a><span>\u203A</span><span style="color:#2d6a4f;font-weight:600">Exosome Skin Treatment Seoul</span></nav>
+<header class="gp-hero">
+  <h1>Exosome Skin Treatment in Seoul<br><span style="font-size:.65em;opacity:.85">${yr} Guide \u2014 Cutting-Edge Regenerative Aesthetics</span></h1>
+  <p>The next generation beyond Rejuran and PRP \u2014 Seoul clinics lead the world in exosome aesthetics.</p>
+</header>
+<main class="gp-wrap">
+<div class="gp-toc">
+  <h2>\u{1F4CB} In This Guide</h2>
+  <ol>
+    <li><a href="#what">What Are Exosomes?</a></li>
+    <li><a href="#vs-pdrn">Exosomes vs Rejuran vs PRP</a></li>
+    <li><a href="#prices">Seoul Price Table</a></li>
+    <li><a href="#clinics">Recommended Seoul Clinics</a></li>
+    <li><a href="#expect">What to Expect</a></li>
+    <li><a href="#faq">FAQ</a></li>
+  </ol>
+</div>
+
+<section class="gp-section" id="what">
+  <h2>What Are Exosomes in Aesthetics?</h2>
+  <p>Exosomes are nano-sized vesicles (30\u2013150 nm) secreted by stem cells. They carry <strong>growth factors, proteins, mRNA, and lipids</strong> that act as biological messengers \u2014 telling surrounding cells to repair, regenerate, and produce fresh collagen. In aesthetics, exosome serums derived from human stem cells (umbilical cord, adipose, or plant-derived) are applied topically or injected into the skin to:</p>
+  <ul>
+    <li>Accelerate skin repair after laser treatments</li>
+    <li>Stimulate collagen and elastin production</li>
+    <li>Reduce inflammation and redness</li>
+    <li>Improve hair follicle health (scalp exosome therapy)</li>
+    <li>Brighten and even out skin tone</li>
+  </ul>
+  <p>Korea is a global leader in exosome research and cosmetic application. Several Seoul clinics \u2014 particularly in Gangnam \u2014 have been offering clinical exosome treatments for years, well ahead of most Western markets.</p>
+</section>
+
+<section class="gp-section" id="vs-pdrn">
+  <h2>Exosomes vs Rejuran (PDRN) vs PRP</h2>
+  <div class="gp-table-wrap">
+  <table class="gp-table">
+    <thead><tr><th>Factor</th><th>Exosomes</th><th>Rejuran (PDRN)</th><th>PRP</th></tr></thead>
+    <tbody>
+      <tr><td>Source</td><td>Stem cell-derived</td><td>Salmon DNA</td><td>Patient's own blood</td></tr>
+      <tr><td>Mechanism</td><td>Growth factor signalling</td><td>A2A receptor activation</td><td>Platelet growth factors</td></tr>
+      <tr><td>Main benefit</td><td>Repair, anti-inflammation, collagen</td><td>Skin healing, texture</td><td>Collagen, healing</td></tr>
+      <tr><td>Seoul price</td><td>\u20A9300K\u2013\u20A91.5M</td><td>\u20A9200K\u2013\u20A9400K</td><td>\u20A9200K\u2013\u20A9600K</td></tr>
+      <tr><td>Best for</td><td>Post-laser, anti-aging, scalp</td><td>Pores, scars, texture</td><td>Hair loss, skin laxity</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Exosomes are the premium option \u2014 more biologically complex and generally considered more potent than PDRN, though clinical research is still emerging. Many Gangnam clinics combine exosomes with laser or HIFU as a post-treatment recovery boost.</p>
+</section>
+
+<section class="gp-section" id="prices">
+  <h2>Seoul Exosome Treatment Prices (${yr})</h2>
+  <div class="gp-table-wrap">
+  <table class="gp-table">
+    <thead><tr><th>Treatment</th><th>Price Range</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Exosome facial (topical + microneedling)</td><td>\u20A9300,000\u2013\u20A9700,000</td><td>Most common entry point</td></tr>
+      <tr><td>Exosome injection (intradermal)</td><td>\u20A9500,000\u2013\u20A91,200,000</td><td>Higher potency; premium brands</td></tr>
+      <tr><td>Post-laser exosome booster</td><td>\u20A9150,000\u2013\u20A9400,000</td><td>Add-on; accelerates recovery</td></tr>
+      <tr><td>Scalp exosome therapy</td><td>\u20A9200,000\u2013\u20A9600,000</td><td>For hair thinning / loss</td></tr>
+      <tr><td>Exosome + HIFU package</td><td>\u20A9700,000\u2013\u20A91,800,000</td><td>Lifting + regeneration combo</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="gp-tip-box">\u{1F4A1} Exosome products vary widely in quality. Ask your clinic which brand they use (common premium brands: Exoderm, Exocobio, AnteAGE). Cheaper products may contain fewer active exosomes \u2014 concentration matters.</div>
+</section>
+
+<section class="gp-section" id="clinics">
+  <h2>Seoul Clinics Specialising in Exosome Treatments</h2>
+  <div class="gp-clinic-strip">
+    <div class="gp-clinic-card"><h4>INKO Seoul</h4><p>4.7\u2605 \xB7 Regenerative skin specialist \xB7 Exosome + growth factor protocols</p><a href="/shop/inko-clinic-gangnam">View Clinic \u2192</a></div>
+    <div class="gp-clinic-card"><h4>Dr New Cell Clinic</h4><p>4.6\u2605 \xB7 Named for regenerative focus \xB7 Advanced exosome menu</p><a href="/shop/dr-new-cell-clinic-gangnam">View Clinic \u2192</a></div>
+    <div class="gp-clinic-card"><h4>Glovi G-Thera Anti-Aging</h4><p>5.0\u2605 \xB7 Anti-aging combinations including exosome</p><a href="/shop/glovi-antiaging-gangnam">View Clinic \u2192</a></div>
+    <div class="gp-clinic-card"><h4>Barog Clinic</h4><p>4.7\u2605 \xB7 Affordable injectables + exosome add-on options</p><a href="/shop/barog-clinic-gangnam">View Clinic \u2192</a></div>
+  </div>
+</section>
+
+<section class="gp-section" id="expect">
+  <h2>What to Expect</h2>
+  <p>Exosome treatments are typically low-downtime. When delivered by topical application after microneedling or laser, expect mild redness for 24\u201348 hours. When injected, minor bruising or swelling may occur for 2\u20133 days. Results build gradually over 4\u20138 weeks as cellular repair occurs. Most patients report improved skin glow and texture within 2 weeks.</p>
+</section>
+
+<section class="gp-section" id="faq">
+  <h2>FAQ</h2>
+  <div class="gp-faq-item"><p class="gp-faq-q">Are exosome treatments FDA-approved?</p><p class="gp-faq-a">In the United States, exosome-based injectables face regulatory uncertainty. However in Korea and many Asian markets, they are widely used in clinical settings. Always choose a licensed clinic with documented quality-controlled products.</p></div>
+  <div class="gp-faq-item"><p class="gp-faq-q">How is it different from a regular facial?</p><p class="gp-faq-a">A regular facial works on the skin surface. Exosome therapy \u2014 whether microneedled or injected \u2014 delivers active biological molecules into the dermis, triggering real cellular changes rather than temporary surface hydration.</p></div>
+  <div class="gp-faq-item"><p class="gp-faq-q">Can I combine exosomes with other treatments on the same day?</p><p class="gp-faq-a">Yes. Exosomes are frequently used immediately after laser, HIFU, or microneedling to enhance recovery and amplify results. This combined approach is one of the most popular protocols at Gangnam anti-aging clinics.</p></div>
+</section>
+
+<div class="gp-cta">
+  <h2>Book Your Exosome Treatment in Seoul</h2>
+  <p>English booking \xB7 No Korean needed \xB7 WhatsApp support</p>
+  <a href="/best/clinic/gangnam">Browse Gangnam Clinics \u2192</a>
+</div>
+<div class="gp-related">
+  <h2>Related Guides</h2>
+  <div class="gp-related-links">
+    <a href="/guide/rejuran-healer-korea-guide">Rejuran Healer Korea</a>
+    <a href="/guide/skin-booster-comparison-juvelook-rejuran">Juvelook vs Rejuran</a>
+    <a href="/guide/shurink-hifu-seoul-price">HIFU Seoul</a>
+    <a href="/guide/laser-toning-pico-laser-korea">Pico Laser Korea</a>
+  </div>
+</div>
+</main>
+<footer class="gp-footer"><p><a href="/">Seoul Beauty Trip</a> &nbsp;\xB7&nbsp; <a href="/best/clinic/gangnam">Top Gangnam Clinics</a> &nbsp;\xB7&nbsp; <a href="/guide">All Guides</a></p><p style="margin-top:6px">\xA9 ${yr} Seoul Beauty Trip. For informational purposes only.</p></footer>
+</body></html>`);
+});
+app.get("/guide/thermage-flx-korea-cost", (c) => {
+  const yr = (/* @__PURE__ */ new Date()).getFullYear();
+  return c.html(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Thermage FLX in Korea \u2014 ${yr} Cost Guide | Seoul Beauty Trip</title>
+<meta name="description" content="Thermage FLX in Korea: is it worth it? ${yr} Seoul prices (\u20A9600K\u2013\u20A91.5M), how it compares to HIFU, top Gangnam clinics, and honest patient experience.">
+<link rel="canonical" href="https://seoulbeautytrip.com/guide/thermage-flx-korea-cost">
+${GUIDE_COMMON_CSS}
+</head>
+<body>
+<nav class="gp-nav"><a href="/">Home</a><span>\u203A</span><a href="/guide">Guides</a><span>\u203A</span><span style="color:#2d6a4f;font-weight:600">Thermage FLX Korea Cost Guide</span></nav>
+<header class="gp-hero">
+  <h1>Thermage FLX in Korea<br><span style="font-size:.65em;opacity:.85">${yr} Cost Guide \u2014 Is It Worth the Price?</span></h1>
+  <p>Korea's most popular RF skin-tightening device \u2014 honest prices, comparison with HIFU, and top Seoul clinics.</p>
+</header>
+<main class="gp-wrap">
+<div class="gp-toc">
+  <h2>\u{1F4CB} In This Guide</h2>
+  <ol>
+    <li><a href="#what">How Thermage FLX Works</a></li>
+    <li><a href="#prices">Korea Price Table</a></li>
+    <li><a href="#vs-hifu">Thermage vs HIFU \u2014 Which to Choose?</a></li>
+    <li><a href="#clinics">Recommended Clinics</a></li>
+    <li><a href="#expect">Honest Patient Experience</a></li>
+    <li><a href="#faq">FAQ</a></li>
+  </ol>
+</div>
+
+<section class="gp-section" id="what">
+  <h2>How Thermage FLX Works</h2>
+  <p>Thermage FLX uses monopolar <strong>radiofrequency (RF)</strong> energy to heat the deep dermis and subcutaneous layer to 55\u201365\xB0C. This heat denatures existing collagen (causing immediate tightening) and stimulates new collagen formation over the following three to six months (progressive tightening).</p>
+  <p>The "FLX" generation (the current version) includes a vibration feature and improved tip cooling that significantly reduces pain compared to the original Thermage. It also processes shots faster, shortening treatment time from 90+ minutes to around 45\u201360 minutes.</p>
+  <p>Best suited for:</p>
+  <ul>
+    <li>Mild to moderate skin laxity on face and neck</li>
+    <li>Eye area tightening (Thermage Eyes tipset)</li>
+    <li>Body: abdomen, arms, thighs (Thermage Body)</li>
+    <li>Those who prefer a single annual treatment over multiple sessions</li>
+  </ul>
+</section>
+
+<section class="gp-section" id="prices">
+  <h2>Thermage FLX Korea Price Table (${yr})</h2>
+  <div class="gp-table-wrap">
+  <table class="gp-table">
+    <thead><tr><th>Treatment Area</th><th>Seoul Price Range</th><th>Shots (approx)</th></tr></thead>
+    <tbody>
+      <tr><td>Full face + neck</td><td>\u20A9800,000\u2013\u20A91,500,000</td><td>600\u2013900 shots</td></tr>
+      <tr><td>Full face only</td><td>\u20A9600,000\u2013\u20A91,100,000</td><td>450\u2013600 shots</td></tr>
+      <tr><td>Eyes (Thermage Eyes)</td><td>\u20A9300,000\u2013\u20A9600,000</td><td>75\u2013150 shots</td></tr>
+      <tr><td>Body (abdomen)</td><td>\u20A9600,000\u2013\u20A91,200,000</td><td>600\u2013900 shots</td></tr>
+      <tr><td>Body (arms or thighs)</td><td>\u20A9400,000\u2013\u20A9800,000</td><td>400\u2013600 shots</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="gp-tip-box">\u{1F4A1} Korea prices are 40\u201370% lower than the UK or US for equivalent Thermage FLX treatments (UK face: \xA32,500\u2013\xA34,000 / US: $3,000\u2013$5,000). This is one of the strongest value cases for medical tourism in Seoul.</div>
+</section>
+
+<section class="gp-section" id="vs-hifu">
+  <h2>Thermage FLX vs HIFU \u2014 Which Should You Choose?</h2>
+  <div class="gp-table-wrap">
+  <table class="gp-table">
+    <thead><tr><th>Factor</th><th>Thermage FLX</th><th>HIFU / Shurink</th></tr></thead>
+    <tbody>
+      <tr><td>Energy type</td><td>Radiofrequency (RF)</td><td>Ultrasound</td></tr>
+      <tr><td>Depth of action</td><td>Dermis + subcutis</td><td>Dermis + SMAS (deeper)</td></tr>
+      <tr><td>Sessions needed</td><td>1 per year</td><td>1\u20132 per year</td></tr>
+      <tr><td>Pain level</td><td>Moderate (vibration cooling helps)</td><td>Moderate (numbing cream helps)</td></tr>
+      <tr><td>Best result for</td><td>Skin texture + mild sagging</td><td>Lifting + SMAS tightening</td></tr>
+      <tr><td>Seoul price (full face)</td><td>\u20A9600K\u2013\u20A91.5M</td><td>\u20A9200K\u2013\u20A9900K</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p><strong>Choose Thermage FLX</strong> if you want skin texture improvement alongside tightening, have moderate laxity, or prefer a single comfortable session per year. <strong>Choose HIFU</strong> if your primary goal is structural lifting, or you want a more budget-friendly option. Many patients in Seoul do both \u2014 typically HIFU in one session and Thermage Eyes separately for the periorbital area.</p>
+</section>
+
+<section class="gp-section" id="clinics">
+  <h2>Seoul Clinics Offering Thermage FLX</h2>
+  <div class="gp-clinic-strip">
+    <div class="gp-clinic-card"><h4>Orta Clinic (Seocho)</h4><p>4.8\u2605 \xB7 4,400+ reviews \xB7 Thermage + laser packages</p><a href="/shop/orta-clinic-seocho">View Clinic \u2192</a></div>
+    <div class="gp-clinic-card"><h4>GU Clinic (Seocho)</h4><p>4.8\u2605 \xB7 Most-reviewed clinic in the area \xB7 Full device menu</p><a href="/shop/gu-clinic-seocho">View Clinic \u2192</a></div>
+    <div class="gp-clinic-card"><h4>ME SEOUL CLINIC</h4><p>4.7\u2605 \xB7 Apgujeong \xB7 Popular for skin-tightening combos</p><a href="/shop/me-seoul-clinic-gangnam">View Clinic \u2192</a></div>
+    <div class="gp-clinic-card"><h4>Glovi G-Thera Anti-Aging</h4><p>5.0\u2605 \xB7 RF specialist \xB7 Thermage + G-Thera combinations</p><a href="/shop/glovi-antiaging-gangnam">View Clinic \u2192</a></div>
+  </div>
+</section>
+
+<section class="gp-section" id="expect">
+  <h2>Honest Patient Experience</h2>
+  <p>Thermage has historically had a reputation for being painful. The FLX generation is meaningfully better \u2014 the vibration feedback system and improved cooling reduce the "hot spike" sensation that older patients describe. Most patients rate it as 4\u20136 out of 10 discomfort without additional pain management, and 2\u20133 with numbing cream and optional pain medication.</p>
+  <p>Realistic results timeline: slight tightening immediately; skin continues to improve for 3\u20136 months. Do not expect dramatic lifting \u2014 Thermage is a refinement treatment, not a substitute for surgical intervention. Ideal candidates are in their 30s\u201350s with mild to moderate sagging.</p>
+</section>
+
+<section class="gp-section" id="faq">
+  <h2>FAQ</h2>
+  <div class="gp-faq-item"><p class="gp-faq-q">How long do results last?</p><p class="gp-faq-a">Results typically last 12\u201318 months. Most Korean dermatologists recommend one Thermage FLX session per year as maintenance, often combined with a skin booster session and annual Pico laser for comprehensive anti-aging.</p></div>
+  <div class="gp-faq-item"><p class="gp-faq-q">Is there downtime?</p><p class="gp-faq-a">Minimal. Most patients have mild redness for a few hours. Some experience slight puffiness that resolves overnight. You can return to normal activities \u2014 including makeup \u2014 the same day or the next morning.</p></div>
+  <div class="gp-faq-item"><p class="gp-faq-q">Can I do it during a short trip to Seoul?</p><p class="gp-faq-a">Yes. Thermage FLX is a single-session treatment. You can arrive, have the procedure, and fly home the following day. Mild redness on the day should not significantly affect your travel plans.</p></div>
+</section>
+
+<div class="gp-cta">
+  <h2>Book Thermage FLX in Seoul</h2>
+  <p>English support \xB7 WhatsApp booking \xB7 No Korean needed</p>
+  <a href="/best/clinic/gangnam">Browse Top Gangnam Clinics \u2192</a>
+</div>
+<div class="gp-related">
+  <h2>Related Guides</h2>
+  <div class="gp-related-links">
+    <a href="/guide/shurink-hifu-seoul-price">HIFU &amp; Shurink Seoul</a>
+    <a href="/guide/thread-lift-korea-foreigner-guide">Thread Lift Korea</a>
+    <a href="/guide/rejuran-healer-korea-guide">Rejuran Healer</a>
+    <a href="/guide/laser-toning-pico-laser-korea">Pico Laser Korea</a>
+  </div>
+</div>
+</main>
+<footer class="gp-footer"><p><a href="/">Seoul Beauty Trip</a> &nbsp;\xB7&nbsp; <a href="/best/clinic/gangnam">Top Gangnam Clinics</a> &nbsp;\xB7&nbsp; <a href="/guide">All Guides</a></p><p style="margin-top:6px">\xA9 ${yr} Seoul Beauty Trip. For informational purposes only.</p></footer>
+</body></html>`);
+});
+app.get("/guide/botox-jaw-slimming-seoul", (c) => {
+  const yr = (/* @__PURE__ */ new Date()).getFullYear();
+  return c.html(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Botox Jaw Slimming in Seoul \u2014 ${yr} Guide &amp; Prices | Seoul Beauty Trip</title>
+<meta name="description" content="Botox masseter jaw slimming in Seoul: ${yr} prices (\u20A980K\u2013\u20A9200K), how it works, realistic results, and which Gangnam clinics offer the best value for foreigners.">
+<link rel="canonical" href="https://seoulbeautytrip.com/guide/botox-jaw-slimming-seoul">
+${GUIDE_COMMON_CSS}
+</head>
+<body>
+<nav class="gp-nav"><a href="/">Home</a><span>\u203A</span><a href="/guide">Guides</a><span>\u203A</span><span style="color:#2d6a4f;font-weight:600">Botox Jaw Slimming Seoul</span></nav>
+<header class="gp-hero">
+  <h1>Botox Jaw Slimming in Seoul<br><span style="font-size:.65em;opacity:.85">${yr} Guide \u2014 Masseter Reduction for a V-Line Face</span></h1>
+  <p>One of the most popular treatments for foreigners visiting Seoul \u2014 the science, the prices, and what to realistically expect.</p>
+</header>
+<main class="gp-wrap">
+<div class="gp-toc">
+  <h2>\u{1F4CB} In This Guide</h2>
+  <ol>
+    <li><a href="#what">How Masseter Botox Works</a></li>
+    <li><a href="#prices">Seoul Price Table</a></li>
+    <li><a href="#brands">Botox Brands in Korea</a></li>
+    <li><a href="#clinics">Top Clinics</a></li>
+    <li><a href="#results">Results &amp; Longevity</a></li>
+    <li><a href="#faq">FAQ</a></li>
+  </ol>
+</div>
+
+<section class="gp-section" id="what">
+  <h2>How Masseter Botox (Jaw Slimming) Works</h2>
+  <p>Botulinum toxin injected into the <strong>masseter muscle</strong> (the large jaw muscle responsible for chewing) temporarily blocks nerve signals, causing the muscle to relax and gradually shrink in size over 4\u20138 weeks. The result is a slimmer, more oval face shape \u2014 sometimes called a "V-line" effect in Korea.</p>
+  <p>It is particularly effective for people who:</p>
+  <ul>
+    <li>Have naturally large masseters (genetic or from teeth grinding)</li>
+    <li>Grind their teeth (bruxism) \u2014 jaw slimming also reduces grinding pain</li>
+    <li>Want a softer, more oval facial contour without surgery</li>
+  </ul>
+  <p>The procedure takes 5\u201310 minutes. No numbing is needed for most patients. Results are not immediate \u2014 the muscle gradually reduces over 4\u20138 weeks with full effect at around 2\u20133 months.</p>
+</section>
+
+<section class="gp-section" id="prices">
+  <h2>Seoul Botox Jaw Slimming Prices (${yr})</h2>
+  <div class="gp-table-wrap">
+  <table class="gp-table">
+    <thead><tr><th>Treatment</th><th>Price Range</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Masseter Botox (jaw slimming)</td><td>\u20A980,000\u2013\u20A9200,000</td><td>Both sides; typically 25\u201350 units per side</td></tr>
+      <tr><td>Forehead Botox</td><td>\u20A960,000\u2013\u20A9150,000</td><td>Horizontal lines; ~20 units</td></tr>
+      <tr><td>Glabella (frown lines)</td><td>\u20A950,000\u2013\u20A9120,000</td><td>11 lines between brows; ~20 units</td></tr>
+      <tr><td>Crow's feet (eye corners)</td><td>\u20A960,000\u2013\u20A9140,000</td><td>Both sides; ~12\u201324 units total</td></tr>
+      <tr><td>Full face Botox package</td><td>\u20A9200,000\u2013\u20A9450,000</td><td>Jaw + forehead + glabella + crow's feet</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="gp-tip-box">\u{1F4A1} Seoul Botox prices are among the lowest in the developed world \u2014 equivalent jaw slimming in the UK costs \xA3250\u2013\xA3400 per session; in the US, $400\u2013$600. The quality is the same (same Allergan/Medytox products) at 30\u201350% of Western prices.</div>
+</section>
+
+<section class="gp-section" id="brands">
+  <h2>Botox Brands Used in Korean Clinics</h2>
+  <div class="gp-table-wrap">
+  <table class="gp-table">
+    <thead><tr><th>Brand</th><th>Origin</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>Botox (Allergan)</td><td>USA</td><td>Global gold standard</td></tr>
+      <tr><td>Dysport (Ipsen)</td><td>UK/France</td><td>Diffuses more widely; popular for forehead</td></tr>
+      <tr><td>Jeuveau (Evolus)</td><td>USA</td><td>Newer; similar to Botox</td></tr>
+      <tr><td>Nabota (Daewoong)</td><td>Korea</td><td>Korean-made; FDA-approved; cost-effective</td></tr>
+      <tr><td>Meditoxin / Neuronox (Medytox)</td><td>Korea</td><td>Korean-made; widely used in Asia</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Always ask your clinic which brand they use. Reputable Gangnam clinics use Allergan Botox or Korean-manufactured brands with established safety records. Avoid clinics that are vague about product sourcing.</p>
+</section>
+
+<section class="gp-section" id="clinics">
+  <h2>Top Gangnam Clinics for Botox Jaw Slimming</h2>
+  <div class="gp-clinic-strip">
+    <div class="gp-clinic-card"><h4>Barog Clinic</h4><p>4.7\u2605 \xB7 Botox &amp; filler specialist \xB7 Fast appointments</p><a href="/shop/barog-clinic-gangnam">View Clinic \u2192</a></div>
+    <div class="gp-clinic-card"><h4>GD Clinic</h4><p>4.5\u2605 \xB7 Affordable entry-level \xB7 Good Botox reviews</p><a href="/shop/gd-clinic-gangnam">View Clinic \u2192</a></div>
+    <div class="gp-clinic-card"><h4>Reev Clinic</h4><p>4.5\u2605 \xB7 Praised for precise technique \xB7 Honest consultations</p><a href="/shop/reev-clinic-gangnam">View Clinic \u2192</a></div>
+    <div class="gp-clinic-card"><h4>Nohd Dermatology</h4><p>4.7\u2605 \xB7 Evidence-based approach \xB7 Conservative, natural results</p><a href="/shop/nohd-dermatology-gangnam">View Clinic \u2192</a></div>
+  </div>
+</section>
+
+<section class="gp-section" id="results">
+  <h2>Results &amp; Longevity</h2>
+  <p>Initial results appear at 4\u20136 weeks. Full masseter reduction is visible at 2\u20133 months. Most patients see noticeable jaw slimming and a softer face contour. Results last <strong>4\u20136 months</strong> for first-timers; as the masseter muscle gradually atrophies with repeated treatment, subsequent sessions may last longer (6\u20138 months) and require lower doses.</p>
+  <p>Many patients time their Seoul visit to receive Botox at the beginning of their stay so that some early effects are visible by the time they return home, with full results developing over the following weeks.</p>
+</section>
+
+<section class="gp-section" id="faq">
+  <h2>FAQ</h2>
+  <div class="gp-faq-item"><p class="gp-faq-q">Is it safe?</p><p class="gp-faq-a">Masseter Botox is one of the most well-studied cosmetic procedures in the world. When administered by a trained physician using properly sourced products, serious complications are extremely rare. Temporary bruising at injection sites is the most common side effect.</p></div>
+  <div class="gp-faq-item"><p class="gp-faq-q">Can I eat normally after jaw Botox?</p><p class="gp-faq-a">Yes, but doctors recommend avoiding very hard foods (tough meat, hard nuts) for about two weeks after treatment, as excessive chewing may reduce the effectiveness. Soft foods are not required \u2014 normal eating is fine.</p></div>
+  <div class="gp-faq-item"><p class="gp-faq-q">Will my face look frozen or unnatural?</p><p class="gp-faq-a">Jaw slimming Botox affects only the masseter muscle and does not impact facial expressions at all. Your face will look exactly the same when smiling, talking, or making expressions \u2014 simply with a slimmer jaw contour over time.</p></div>
+  <div class="gp-faq-item"><p class="gp-faq-q">How soon after flying can I get Botox?</p><p class="gp-faq-a">There is no medical requirement to wait after flying. Many visitors get Botox on their first or second day in Seoul. It is advisable to stay upright for 4 hours post-injection and avoid rubbing the area \u2014 easily managed on a day out exploring Seoul.</p></div>
+</section>
+
+<div class="gp-cta">
+  <h2>Book Jaw Slimming Botox in Seoul</h2>
+  <p>English support \xB7 Same-day appointments often available</p>
+  <a href="/best/clinic/gangnam">See Top Gangnam Clinics \u2192</a>
+</div>
+<div class="gp-related">
+  <h2>Related Guides</h2>
+  <div class="gp-related-links">
+    <a href="/guide/rejuran-healer-korea-guide">Rejuran Healer</a>
+    <a href="/guide/skin-booster-comparison-juvelook-rejuran">Juvelook vs Rejuran</a>
+    <a href="/guide/shurink-hifu-seoul-price">HIFU Seoul</a>
+    <a href="/guide/thread-lift-korea-foreigner-guide">Thread Lift Korea</a>
+  </div>
+</div>
+</main>
+<footer class="gp-footer"><p><a href="/">Seoul Beauty Trip</a> &nbsp;\xB7&nbsp; <a href="/best/clinic/gangnam">Top Gangnam Clinics</a> &nbsp;\xB7&nbsp; <a href="/guide">All Guides</a></p><p style="margin-top:6px">\xA9 ${yr} Seoul Beauty Trip. For informational purposes only.</p></footer>
+</body></html>`);
+});
+app.get("/guide/double-eyelid-surgery-korea-foreigners", (c) => {
+  const yr = (/* @__PURE__ */ new Date()).getFullYear();
+  return c.html(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Double Eyelid Surgery in Korea for Foreigners \u2014 ${yr} Guide | Seoul Beauty Trip</title>
+<meta name="description" content="Double eyelid surgery in Korea: ${yr} guide for foreigners covering non-incisional vs incisional methods, realistic costs (\u20A9500K\u2013\u20A92M), recovery, and top Gangnam clinics.">
+<link rel="canonical" href="https://seoulbeautytrip.com/guide/double-eyelid-surgery-korea-foreigners">
+${GUIDE_COMMON_CSS}
+</head>
+<body>
+<nav class="gp-nav"><a href="/">Home</a><span>\u203A</span><a href="/guide">Guides</a><span>\u203A</span><span style="color:#2d6a4f;font-weight:600">Double Eyelid Surgery Korea \u2014 Foreigners Guide</span></nav>
+<header class="gp-hero">
+  <h1>Double Eyelid Surgery in Korea<br><span style="font-size:.65em;opacity:.85">${yr} Complete Guide for Foreign Visitors</span></h1>
+  <p>Korea's most-performed cosmetic surgery \u2014 non-incisional and incisional methods, realistic costs, and recovery planning for international patients.</p>
+</header>
+<main class="gp-wrap">
+<div class="gp-toc">
+  <h2>\u{1F4CB} In This Guide</h2>
+  <ol>
+    <li><a href="#methods">Non-Incisional vs Incisional</a></li>
+    <li><a href="#prices">Korea Price Table</a></li>
+    <li><a href="#recovery">Recovery Timeline</a></li>
+    <li><a href="#clinics">Top Eye Clinics</a></li>
+    <li><a href="#travel">Planning Your Trip</a></li>
+    <li><a href="#faq">FAQ</a></li>
+  </ol>
+</div>
+
+<section class="gp-section" id="methods">
+  <h2>Non-Incisional vs Incisional Double Eyelid Surgery</h2>
+  <div class="gp-table-wrap">
+  <table class="gp-table">
+    <thead><tr><th>Factor</th><th>Non-Incisional (Suture)</th><th>Incisional (Full Cut)</th></tr></thead>
+    <tbody>
+      <tr><td>Method</td><td>Tiny punctures + sutures create fold</td><td>Skin excised; crease surgically created</td></tr>
+      <tr><td>Scarring</td><td>Virtually none (points heal invisibly)</td><td>Fine line along crease (hidden when open)</td></tr>
+      <tr><td>Recovery</td><td>1\u20132 weeks swelling</td><td>3\u20136 weeks significant swelling</td></tr>
+      <tr><td>Longevity</td><td>5\u201310 years (may loosen with age)</td><td>Permanent</td></tr>
+      <tr><td>Best for</td><td>Thin lids, young patients, reversibility</td><td>Hooded lids, ptosis, excess fat/skin</td></tr>
+      <tr><td>Korea price</td><td>\u20A9500,000\u2013\u20A91,200,000</td><td>\u20A9800,000\u2013\u20A92,500,000</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Korean surgeons are world leaders in both techniques. The majority of foreign visitors opt for <strong>non-incisional</strong> first as the shorter recovery fits travel schedules. Incisional is recommended by surgeons for patients with hooded or heavy eyelids where the suture method is unlikely to hold long-term.</p>
+</section>
+
+<section class="gp-section" id="prices">
+  <h2>Double Eyelid Surgery Korea Prices (${yr})</h2>
+  <div class="gp-table-wrap">
+  <table class="gp-table">
+    <thead><tr><th>Procedure</th><th>Price Range</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Non-incisional (natural crease)</td><td>\u20A9500,000\u2013\u20A91,200,000</td><td>3-point or multi-point suture; most popular</td></tr>
+      <tr><td>Incisional (full cut)</td><td>\u20A9800,000\u2013\u20A92,500,000</td><td>Includes fat repositioning if needed</td></tr>
+      <tr><td>Ptosis correction (add-on)</td><td>\u20A9400,000\u2013\u20A91,200,000</td><td>Lifts drooping upper lid; enhances eye opening</td></tr>
+      <tr><td>Epicanthoplasty (inner corner)</td><td>\u20A9300,000\u2013\u20A9800,000</td><td>Widens the eye horizontally; often combined</td></tr>
+      <tr><td>Under-eye fat repositioning</td><td>\u20A9600,000\u2013\u20A91,500,000</td><td>Removes or relocates under-eye fat bags</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="gp-section" id="recovery">
+  <h2>Recovery Timeline</h2>
+  <h3>Non-Incisional</h3>
+  <ul>
+    <li><strong>Days 1\u20133:</strong> Significant swelling; avoid public appearances if possible</li>
+    <li><strong>Days 4\u20137:</strong> Swelling reduces; most can return to work with makeup coverage</li>
+    <li><strong>Weeks 2\u20134:</strong> Swelling mostly gone; results visible but still settling</li>
+    <li><strong>Month 3:</strong> Final natural-looking result</li>
+  </ul>
+  <h3>Incisional</h3>
+  <ul>
+    <li><strong>Week 1:</strong> Significant bruising and swelling; stitches removed at day 7</li>
+    <li><strong>Weeks 2\u20133:</strong> Most social activities manageable with makeup</li>
+    <li><strong>Month 1\u20132:</strong> Visible scar fading; fold settling into natural crease</li>
+    <li><strong>Month 3\u20136:</strong> Final result \u2014 scarring becomes invisible within crease</li>
+  </ul>
+  <div class="gp-tip-box">\u2708\uFE0F <strong>Travel planning tip:</strong> For non-incisional, allow a minimum of 5\u20137 days in Seoul before flying home. For incisional, ideally stay 10\u201314 days and ensure your return flight does not require you to look presentable on arrival.</div>
+</section>
+
+<section class="gp-section" id="clinics">
+  <h2>Top Seoul Clinics for Double Eyelid Surgery</h2>
+  <div class="gp-clinic-strip">
+    <div class="gp-clinic-card"><h4>Seoul I Plastic Surgery</h4><p>4.6\u2605 \xB7 Eyelid specialist \xB7 Non-incisional &amp; incisional both available</p><a href="/shop/seoul-i-clinic-gangnam">View Clinic \u2192</a></div>
+    <div class="gp-clinic-card"><h4>Onyoo Plastic Surgery</h4><p>5.0\u2605 \xB7 Known for natural results \xB7 Boutique atmosphere</p><a href="/shop/onyoo-plastic-surgery-clinic-gangnam">View Clinic \u2192</a></div>
+    <div class="gp-clinic-card"><h4>View Plastic Surgery</h4><p>4.6\u2605 \xB7 785 reviews \xB7 Strong eyelid &amp; nose portfolio</p><a href="/shop/view-plastic-surgery-gangnam">View Clinic \u2192</a></div>
+    <div class="gp-clinic-card"><h4>Edition Plastic Surgery</h4><p>4.6\u2605 \xB7 Minimal-downtime focus \xB7 Endoscopic techniques</p><a href="/shop/edition-plastic-surgery-clinic-seocho">View Clinic \u2192</a></div>
+  </div>
+</section>
+
+<section class="gp-section" id="travel">
+  <h2>Planning Your Trip as a Foreign Patient</h2>
+  <ul>
+    <li><strong>Consultation first:</strong> Many clinics offer online pre-consultations via photo/video \u2014 arrange this before travelling to confirm you are a good candidate and get a quote</li>
+    <li><strong>Multiple consultations:</strong> It is standard in Korea to visit 2\u20133 clinics before deciding \u2014 no pressure to commit on the day</li>
+    <li><strong>Accommodation:</strong> Stay within 20 minutes of your clinic for easy follow-up visits; Gangnam and Seocho have many serviced apartments</li>
+    <li><strong>Practical items to bring:</strong> Cold gel packs, eye drops, soft food supplies for the first few days</li>
+    <li><strong>Insurance:</strong> Travel insurance covering elective medical procedures is strongly recommended</li>
+  </ul>
+</section>
+
+<section class="gp-section" id="faq">
+  <h2>FAQ</h2>
+  <div class="gp-faq-item"><p class="gp-faq-q">What if I am not happy with the result?</p><p class="gp-faq-a">Most reputable Korean clinics offer at least one free revision consultation. For non-incisional procedures, the suture can be released and the crease adjusted relatively easily. Communicate any concerns at your follow-up appointment \u2014 Korean surgeons are accustomed to working with international patients on revision expectations.</p></div>
+  <div class="gp-faq-item"><p class="gp-faq-q">Can I wear contact lenses after surgery?</p><p class="gp-faq-a">You should avoid contact lenses for at least 2 weeks after non-incisional and 3\u20134 weeks after incisional surgery. Glasses are fine. Plan accordingly if you rely on contacts daily.</p></div>
+  <div class="gp-faq-item"><p class="gp-faq-q">Is the crease height customisable?</p><p class="gp-faq-a">Yes. You and your surgeon will agree on crease height (typically 6\u20138mm for a natural look, 8\u201310mm for a higher, more dramatic crease) and shape (parallel or tapered/inside fold) before the procedure. Most surgeons draw the proposed crease on your eyelid for you to approve before incisions are made.</p></div>
+</section>
+
+<div class="gp-cta">
+  <h2>Book a Consultation for Double Eyelid Surgery</h2>
+  <p>English support \xB7 Pre-trip online consultations available</p>
+  <a href="/best/clinic/gangnam">Browse Eye Surgery Clinics \u2192</a>
+</div>
+<div class="gp-related">
+  <h2>Related Guides</h2>
+  <div class="gp-related-links">
+    <a href="/guide/rhinoplasty-korea-cost-guide">Rhinoplasty Korea</a>
+    <a href="/guide/thread-lift-korea-foreigner-guide">Thread Lift Korea</a>
+    <a href="/guide/shurink-hifu-seoul-price">HIFU Seoul</a>
+  </div>
+</div>
+</main>
+<footer class="gp-footer"><p><a href="/">Seoul Beauty Trip</a> &nbsp;\xB7&nbsp; <a href="/best/clinic/gangnam">Top Gangnam Clinics</a> &nbsp;\xB7&nbsp; <a href="/guide">All Guides</a></p><p style="margin-top:6px">\xA9 ${yr} Seoul Beauty Trip. For informational purposes only \u2014 always consult a licensed surgeon.</p></footer>
+</body></html>`);
+});
+app.get("/guide/rhinoplasty-korea-cost-guide", (c) => {
+  const yr = (/* @__PURE__ */ new Date()).getFullYear();
+  return c.html(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rhinoplasty in Korea \u2014 ${yr} Cost Guide for Foreigners | Seoul Beauty Trip</title>
+<meta name="description" content="Rhinoplasty (nose job) in Korea: complete ${yr} cost guide, types of nose surgery, Gangnam clinic recommendations, recovery planning, and honest Q&A for international patients.">
+<link rel="canonical" href="https://seoulbeautytrip.com/guide/rhinoplasty-korea-cost-guide">
+${GUIDE_COMMON_CSS}
+</head>
+<body>
+<nav class="gp-nav"><a href="/">Home</a><span>\u203A</span><a href="/guide">Guides</a><span>\u203A</span><span style="color:#2d6a4f;font-weight:600">Rhinoplasty Korea Cost Guide</span></nav>
+<header class="gp-hero">
+  <h1>Rhinoplasty in Korea<br><span style="font-size:.65em;opacity:.85">${yr} Cost Guide for Foreign Patients</span></h1>
+  <p>Korea's world-class nose surgery expertise \u2014 types, realistic prices, choosing the right surgeon, and recovery planning.</p>
+</header>
+<main class="gp-wrap">
+<div class="gp-toc">
+  <h2>\u{1F4CB} In This Guide</h2>
+  <ol>
+    <li><a href="#types">Types of Nose Surgery in Korea</a></li>
+    <li><a href="#prices">Price Breakdown</a></li>
+    <li><a href="#clinics">Top Rhinoplasty Clinics in Gangnam</a></li>
+    <li><a href="#recovery">Recovery &amp; Travel Planning</a></li>
+    <li><a href="#choosing">How to Choose a Surgeon</a></li>
+    <li><a href="#faq">FAQ</a></li>
+  </ol>
+</div>
+
+<section class="gp-section" id="types">
+  <h2>Types of Nose Surgery Performed in Korea</h2>
+  <div class="gp-table-wrap">
+  <table class="gp-table">
+    <thead><tr><th>Procedure</th><th>What It Addresses</th></tr></thead>
+    <tbody>
+      <tr><td>Tip plasty (tip only)</td><td>Refines nose tip shape; no bridge work</td></tr>
+      <tr><td>Augmentation rhinoplasty</td><td>Raises bridge height (common for East Asian patients)</td></tr>
+      <tr><td>Reduction rhinoplasty</td><td>Narrows a wide nose; reduces projection</td></tr>
+      <tr><td>Alar reduction (nostril)</td><td>Narrows flared or wide nostrils</td></tr>
+      <tr><td>Hump reduction</td><td>Removes dorsal hump for a straighter profile</td></tr>
+      <tr><td>Revision rhinoplasty</td><td>Corrects unsatisfactory previous surgery; complex</td></tr>
+      <tr><td>Septoplasty (functional)</td><td>Corrects deviated septum for improved breathing</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Korean surgeons are particularly known for augmentation rhinoplasty (using implants or cartilage grafts) and natural-looking tip refinement. Korea has also become a destination for revision rhinoplasty cases that are too complex for surgeons elsewhere.</p>
+</section>
+
+<section class="gp-section" id="prices">
+  <h2>Rhinoplasty Korea Price Breakdown (${yr})</h2>
+  <div class="gp-table-wrap">
+  <table class="gp-table">
+    <thead><tr><th>Procedure</th><th>Price Range</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Tip plasty only</td><td>\u20A9800,000\u2013\u20A92,500,000</td><td>Cartilage from ear or septum; local or general anaesthesia</td></tr>
+      <tr><td>Augmentation (bridge + tip)</td><td>\u20A91,500,000\u2013\u20A94,500,000</td><td>Silicone or Gore-Tex implant; cartilage tip</td></tr>
+      <tr><td>Alar reduction</td><td>\u20A9500,000\u2013\u20A91,200,000</td><td>Nostril narrowing; fine scar at base</td></tr>
+      <tr><td>Full rhinoplasty (open)</td><td>\u20A92,000,000\u2013\u20A96,000,000</td><td>Comprehensive reshaping; open incision technique</td></tr>
+      <tr><td>Revision rhinoplasty</td><td>\u20A93,000,000\u2013\u20A99,000,000+</td><td>Complexity-based; rib cartilage often required</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="gp-tip-box">\u{1F4A1} Korean rhinoplasty prices are typically 40\u201360% lower than equivalent procedures in the UK or USA. A full open rhinoplasty in London averages \xA36,000\u2013\xA312,000; in Seoul, \u20A92M\u2013\u20A96M (approximately \xA31,150\u2013\xA33,500).</div>
+</section>
+
+<section class="gp-section" id="clinics">
+  <h2>Top Gangnam Rhinoplasty Clinics</h2>
+  <div class="gp-clinic-strip">
+    <div class="gp-clinic-card"><h4>Sugar Plastic Surgery</h4><p>5.0\u2605 \xB7 Rhinoplasty specialist \xB7 Small clinic, high precision</p><a href="/shop/sugar-clinic-gangnam">View Clinic \u2192</a></div>
+    <div class="gp-clinic-card"><h4>Braun Plastic Surgery</h4><p>4.7\u2605 \xB7 1,555 reviews \xB7 International patients welcome</p><a href="/shop/braun-clinic-gangnam">View Clinic \u2192</a></div>
+    <div class="gp-clinic-card"><h4>Wonderful Plastic Surgery</h4><p>4.5\u2605 \xB7 Revision rhinoplasty specialists</p><a href="/shop/wonderful-clinic-gangnam">View Clinic \u2192</a></div>
+    <div class="gp-clinic-card"><h4>21 Plastic Surgery</h4><p>4.5\u2605 \xB7 Fresh team \xB7 Modern techniques</p><a href="/shop/21-plastic-surgery-gangnam">View Clinic \u2192</a></div>
+  </div>
+</section>
+
+<section class="gp-section" id="recovery">
+  <h2>Recovery &amp; Travel Planning</h2>
+  <ul>
+    <li><strong>Week 1:</strong> Splint on the nose; significant swelling and bruising around eyes; stay local</li>
+    <li><strong>Week 2:</strong> Splint removed; most visible bruising fades; some return to desk work</li>
+    <li><strong>Month 1:</strong> Presentable in public; residual swelling (especially tip) still present</li>
+    <li><strong>Month 3:</strong> 80\u201390% of final result visible</li>
+    <li><strong>Month 6\u201312:</strong> Complete final result as tip cartilage settles</li>
+  </ul>
+  <div class="gp-tip-box">\u2708\uFE0F Most surgeons recommend staying in Seoul for a minimum of <strong>10\u201314 days</strong> after rhinoplasty. Flying during the first week increases bleeding risk. Always get medical clearance before flying post-surgery.</div>
+</section>
+
+<section class="gp-section" id="choosing">
+  <h2>How to Choose the Right Surgeon</h2>
+  <ul>
+    <li>Look at before/after photos specifically matching your ethnic background and goal</li>
+    <li>Ensure the surgeon is board-certified in plastic surgery (\uB300\uD55C\uC131\uD615\uC678\uACFC\uD559\uD68C member)</li>
+    <li>Ask how many rhinoplasties they perform monthly \u2014 specialisation matters</li>
+    <li>Request a video or photo consultation before travelling</li>
+    <li>Be wary of clinics that quote extremely low prices without in-person assessment</li>
+    <li>Confirm what the revision policy is in writing before proceeding</li>
+  </ul>
+</section>
+
+<section class="gp-section" id="faq">
+  <h2>FAQ</h2>
+  <div class="gp-faq-item"><p class="gp-faq-q">Is rhinoplasty in Korea safe for foreigners?</p><p class="gp-faq-a">Yes, provided you choose a reputable board-certified clinic. Korea's medical standards for plastic surgery are among the highest globally, backed by a well-regulated healthcare system and clinics experienced in treating international patients.</p></div>
+  <div class="gp-faq-item"><p class="gp-faq-q">Can I fly home one week after surgery?</p><p class="gp-faq-a">Most surgeons advise against flying for at least 10\u201314 days post-rhinoplasty. Flying too early increases the risk of bleeding, swelling complications, and difficulties if you need to return for urgent follow-up.</p></div>
+  <div class="gp-faq-item"><p class="gp-faq-q">What if I need a revision?</p><p class="gp-faq-a">Most reputable clinics include at least one revision consultation in the fee. Physically returning for a revision typically requires another trip to Seoul \u2014 which is why choosing the right clinic from the start is essential. Some clinics work with partner clinics in your home country for minor post-operative issues.</p></div>
+</section>
+
+<div class="gp-cta">
+  <h2>Start Your Rhinoplasty Journey in Korea</h2>
+  <p>English support \xB7 Pre-trip consultations via photo/video available</p>
+  <a href="/best/clinic/gangnam">Browse Plastic Surgery Clinics \u2192</a>
+</div>
+<div class="gp-related">
+  <h2>Related Guides</h2>
+  <div class="gp-related-links">
+    <a href="/guide/double-eyelid-surgery-korea-foreigners">Double Eyelid Surgery Korea</a>
+    <a href="/guide/thread-lift-korea-foreigner-guide">Thread Lift Korea</a>
+    <a href="/guide/botox-jaw-slimming-seoul">Botox Jaw Slimming</a>
+  </div>
+</div>
+</main>
+<footer class="gp-footer"><p><a href="/">Seoul Beauty Trip</a> &nbsp;\xB7&nbsp; <a href="/best/clinic/gangnam">Top Gangnam Clinics</a> &nbsp;\xB7&nbsp; <a href="/guide">All Guides</a></p><p style="margin-top:6px">\xA9 ${yr} Seoul Beauty Trip. For informational purposes only \u2014 always consult a licensed surgeon.</p></footer>
+</body></html>`);
+});
+app.get("/guide/skin-booster-comparison-juvelook-rejuran", (c) => {
+  const yr = (/* @__PURE__ */ new Date()).getFullYear();
+  return c.html(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Juvelook vs Rejuran \u2014 ${yr} Skin Booster Comparison | Seoul Beauty Trip</title>
+<meta name="description" content="Juvelook vs Rejuran: a clear side-by-side comparison of Korea's two most popular skin boosters \u2014 ingredients, results, ${yr} Seoul prices, and who should choose which.">
+<link rel="canonical" href="https://seoulbeautytrip.com/guide/skin-booster-comparison-juvelook-rejuran">
+${GUIDE_COMMON_CSS}
+</head>
+<body>
+<nav class="gp-nav"><a href="/">Home</a><span>\u203A</span><a href="/guide">Guides</a><span>\u203A</span><span style="color:#2d6a4f;font-weight:600">Juvelook vs Rejuran Comparison</span></nav>
+<header class="gp-hero">
+  <h1>Juvelook vs Rejuran<br><span style="font-size:.65em;opacity:.85">${yr} Skin Booster Comparison \u2014 Korea</span></h1>
+  <p>Korea's two most-discussed skin boosters compared side by side \u2014 so you can walk into your Seoul clinic knowing exactly what to ask for.</p>
+</header>
+<main class="gp-wrap">
+<div class="gp-toc">
+  <h2>\u{1F4CB} In This Guide</h2>
+  <ol>
+    <li><a href="#what-each">What Each Product Is</a></li>
+    <li><a href="#comparison">Full Comparison Table</a></li>
+    <li><a href="#choose">Which Should You Choose?</a></li>
+    <li><a href="#combo">Can You Do Both?</a></li>
+    <li><a href="#prices">Seoul Prices (${yr})</a></li>
+    <li><a href="#clinics">Recommended Clinics</a></li>
+  </ol>
+</div>
+
+<section class="gp-section" id="what-each">
+  <h2>What Each Product Is</h2>
+  <h3>Rejuran Healer</h3>
+  <p>Rejuran is a <strong>PDRN (Polydeoxyribonucleotide)</strong> skin booster \u2014 salmon-derived DNA fragments that activate tissue repair pathways in the skin. It works by stimulating fibroblasts to produce collagen and elastin, improving skin texture, reducing pore size, and accelerating healing.</p>
+  <h3>Juvelook</h3>
+  <p>Juvelook is a <strong>PDLLA (Poly-D,L-Lactic Acid) + HA</strong> skin booster developed by Dexlevo in Korea. PDLLA is a biodegradable polymer that acts as a collagen stimulator \u2014 similar in principle to Sculptra but formulated for superficial injection. It also contains hyaluronic acid for immediate hydration.</p>
+</section>
+
+<section class="gp-section" id="comparison">
+  <h2>Full Side-by-Side Comparison</h2>
+  <div class="gp-table-wrap">
+  <table class="gp-table">
+    <thead><tr><th>Factor</th><th>Rejuran Healer</th><th>Juvelook</th></tr></thead>
+    <tbody>
+      <tr><td>Active ingredient</td><td>PDRN (salmon DNA)</td><td>PDLLA + HA</td></tr>
+      <tr><td>Mechanism</td><td>DNA repair signalling, collagen stimulation</td><td>Collagen biostimulation + hydration</td></tr>
+      <tr><td>Primary effects</td><td>Skin repair, texture, pore size, scars</td><td>Volume, skin quality, hydration, firmness</td></tr>
+      <tr><td>Sessions needed</td><td>3\u20134 (every 2\u20134 weeks)</td><td>1\u20132 (initial course)</td></tr>
+      <tr><td>Duration of results</td><td>6\u201312 months (after full course)</td><td>12\u201318 months</td></tr>
+      <tr><td>Onset of visible results</td><td>4\u20138 weeks</td><td>4\u20138 weeks</td></tr>
+      <tr><td>Pain level</td><td>Moderate (numbing cream used)</td><td>Moderate (numbing cream used)</td></tr>
+      <tr><td>Bruising risk</td><td>Low\u2013moderate</td><td>Low\u2013moderate</td></tr>
+      <tr><td>Seoul price per session</td><td>\u20A9200,000\u2013\u20A9400,000</td><td>\u20A9180,000\u2013\u20A9450,000</td></tr>
+      <tr><td>Best suited for</td><td>Damaged skin, acne marks, large pores</td><td>Volume loss, overall skin quality, anti-aging</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="gp-section" id="choose">
+  <h2>Which Should You Choose?</h2>
+  <p><strong>Choose Rejuran if you have:</strong></p>
+  <ul>
+    <li>Visible acne scars or post-inflammatory marks</li>
+    <li>Enlarged pores and rough skin texture</li>
+    <li>Very dehydrated or damaged barrier skin</li>
+    <li>A preference for a more gradual, course-based approach</li>
+  </ul>
+  <p><strong>Choose Juvelook if you have:</strong></p>
+  <ul>
+    <li>Early volume loss and skin laxity concerns</li>
+    <li>Generally good texture but want a glow and plumpness boost</li>
+    <li>Limited trip time (fewer sessions needed)</li>
+    <li>A preference for longer-lasting results per treatment</li>
+  </ul>
+</section>
+
+<section class="gp-section" id="combo">
+  <h2>Can You Do Both?</h2>
+  <p>Yes \u2014 and many patients in Seoul do exactly this. Because Rejuran and Juvelook work through different mechanisms, they are complementary. A popular protocol at Gangnam clinics is:</p>
+  <ol>
+    <li>Juvelook (1 session) \u2014 for structural collagen stimulation and hydration</li>
+    <li>Rejuran (2\u20133 sessions) \u2014 for texture refinement and pore reduction, spaced 2\u20134 weeks apart</li>
+  </ol>
+  <p>Some clinics offer combined same-session injections at separate depths, though many prefer to stage them. Ask your doctor which approach suits your skin concerns.</p>
+  <div class="gp-tip-box">\u{1F4A1} If budget is limited and you can only choose one: for a short trip to Seoul, <strong>Juvelook</strong> offers a strong result with fewer sessions. If you visit Seoul regularly or want targeted repair, <strong>Rejuran</strong> is the better choice over a course.</div>
+</section>
+
+<section class="gp-section" id="prices">
+  <h2>Seoul Skin Booster Prices (${yr})</h2>
+  <div class="gp-table-wrap">
+  <table class="gp-table">
+    <thead><tr><th>Product</th><th>Price per Session</th><th>Course of 4</th></tr></thead>
+    <tbody>
+      <tr><td>Rejuran Healer (full face)</td><td>\u20A9200,000\u2013\u20A9400,000</td><td>\u20A9600,000\u2013\u20A91,200,000</td></tr>
+      <tr><td>Juvelook (full face)</td><td>\u20A9180,000\u2013\u20A9450,000</td><td>\u20A9500,000\u2013\u20A91,400,000</td></tr>
+      <tr><td>Juvelook + Rejuran combo session</td><td>\u20A9350,000\u2013\u20A9700,000</td><td>N/A (typically 1\u20132 combo sessions)</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="gp-section" id="clinics">
+  <h2>Recommended Seoul Clinics</h2>
+  <div class="gp-clinic-strip">
+    <div class="gp-clinic-card"><h4>FittingClinic</h4><p>5.0\u2605 \xB7 Skin booster specialist \xB7 Juvelook + Rejuran menu</p><a href="/shop/fitting-clinic-gangnam">View Clinic \u2192</a></div>
+    <div class="gp-clinic-card"><h4>ME SEOUL CLINIC</h4><p>4.7\u2605 \xB7 Influencer favourite \xB7 Glow protocol specialists</p><a href="/shop/me-seoul-clinic-gangnam">View Clinic \u2192</a></div>
+    <div class="gp-clinic-card"><h4>GU Clinic (Seocho)</h4><p>4.8\u2605 \xB7 10K+ reviews \xB7 Full booster menu, great value</p><a href="/shop/gu-clinic-seocho">View Clinic \u2192</a></div>
+    <div class="gp-clinic-card"><h4>Jiwoo Clinic</h4><p>4.8\u2605 \xB7 Personal care \xB7 Pico + Rejuran combination popular</p><a href="/shop/jiwoo-clinic-gangnam">View Clinic \u2192</a></div>
+  </div>
+</section>
+
+<div class="gp-cta">
+  <h2>Book Your Skin Booster Session in Seoul</h2>
+  <p>English support \xB7 No Korean needed \xB7 WhatsApp booking</p>
+  <a href="/best/clinic/gangnam">Browse Top Clinics \u2192</a>
+</div>
+<div class="gp-related">
+  <h2>Related Guides</h2>
+  <div class="gp-related-links">
+    <a href="/guide/rejuran-healer-korea-guide">Rejuran Healer Full Guide</a>
+    <a href="/guide/exosome-skin-treatment-seoul">Exosome Seoul</a>
+    <a href="/guide/laser-toning-pico-laser-korea">Pico Laser Korea</a>
+    <a href="/guide/shurink-hifu-seoul-price">HIFU Seoul</a>
+  </div>
+</div>
+</main>
+<footer class="gp-footer"><p><a href="/">Seoul Beauty Trip</a> &nbsp;\xB7&nbsp; <a href="/best/clinic/gangnam">Top Gangnam Clinics</a> &nbsp;\xB7&nbsp; <a href="/guide">All Guides</a></p><p style="margin-top:6px">\xA9 ${yr} Seoul Beauty Trip. For informational purposes only.</p></footer>
+</body></html>`);
+});
+app.get("/guide/laser-toning-pico-laser-korea", (c) => {
+  const yr = (/* @__PURE__ */ new Date()).getFullYear();
+  return c.html(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pico Laser &amp; Laser Toning in Korea \u2014 ${yr} Guide | Seoul Beauty Trip</title>
+<meta name="description" content="Pico laser and laser toning in Seoul: what each treats, ${yr} price comparison, top Gangnam dermatology clinics, and who is the best candidate for each treatment.">
+<link rel="canonical" href="https://seoulbeautytrip.com/guide/laser-toning-pico-laser-korea">
+${GUIDE_COMMON_CSS}
+</head>
+<body>
+<nav class="gp-nav"><a href="/">Home</a><span>\u203A</span><a href="/guide">Guides</a><span>\u203A</span><span style="color:#2d6a4f;font-weight:600">Pico Laser &amp; Laser Toning Korea</span></nav>
+<header class="gp-hero">
+  <h1>Pico Laser &amp; Laser Toning in Korea<br><span style="font-size:.65em;opacity:.85">${yr} Guide \u2014 Pigmentation, Brightening &amp; Skin Tone</span></h1>
+  <p>Two of Seoul's most popular skin treatments explained \u2014 what they target, how they differ, and the real prices at Gangnam clinics.</p>
+</header>
+<main class="gp-wrap">
+<div class="gp-toc">
+  <h2>\u{1F4CB} In This Guide</h2>
+  <ol>
+    <li><a href="#laser-toning">What is Laser Toning?</a></li>
+    <li><a href="#pico">What is Pico Laser?</a></li>
+    <li><a href="#comparison">Laser Toning vs Pico Laser</a></li>
+    <li><a href="#prices">Seoul Prices (${yr})</a></li>
+    <li><a href="#clinics">Recommended Clinics</a></li>
+    <li><a href="#faq">FAQ</a></li>
+  </ol>
+</div>
+
+<section class="gp-section" id="laser-toning">
+  <h2>What is Laser Toning?</h2>
+  <p>Laser toning (also called low-fluence Q-switch Nd:YAG laser) uses a 1064nm wavelength at a low energy setting to gently break down melanin in the skin without damaging surrounding tissue. It is one of the most popular treatments in Korean dermatology clinics for:</p>
+  <ul>
+    <li>Overall skin brightening and glow</li>
+    <li>Melasma (hormonal pigmentation) \u2014 Korea's most studied laser for this condition</li>
+    <li>Sun damage and freckles</li>
+    <li>Reducing pore appearance</li>
+    <li>Mild acne improvement</li>
+  </ul>
+  <p>It is a walk-in, lunchtime treatment with essentially no downtime. Most patients have faint redness for a few hours. Results are cumulative \u2014 typically 6\u201310 sessions are recommended for melasma, with monthly maintenance thereafter.</p>
+</section>
+
+<section class="gp-section" id="pico">
+  <h2>What is Pico Laser?</h2>
+  <p>Pico laser (picosecond laser) fires energy pulses 1,000 times shorter than nanosecond Q-switch lasers. This ultra-short pulse delivers a photoacoustic (pressure-wave) effect that <strong>shatters pigment into smaller particles</strong> without significant heat, reducing the risk of post-inflammatory hyperpigmentation \u2014 a major concern for Asian skin tones.</p>
+  <p>Pico lasers are more powerful and versatile than laser toning:</p>
+  <ul>
+    <li>Stubborn pigmentation that has not responded to laser toning</li>
+    <li>Acne scars and textural irregularities (via FOCUS lens array)</li>
+    <li>Tattoo removal</li>
+    <li>Pore reduction and skin renewal</li>
+    <li>Dark spots, birthmarks, Hori's naevus</li>
+  </ul>
+  <p>Common devices in Seoul: Picoway (Syneron-Candela), Enlighten (Cutera), PicoSure (Cynosure), and Korean-made alternatives.</p>
+</section>
+
+<section class="gp-section" id="comparison">
+  <h2>Laser Toning vs Pico Laser</h2>
+  <div class="gp-table-wrap">
+  <table class="gp-table">
+    <thead><tr><th>Factor</th><th>Laser Toning</th><th>Pico Laser</th></tr></thead>
+    <tbody>
+      <tr><td>Technology</td><td>Q-switch Nd:YAG (nanosecond)</td><td>Picosecond laser</td></tr>
+      <tr><td>Best for</td><td>Melasma, brightening, maintenance</td><td>Stubborn pigment, scars, stronger results</td></tr>
+      <tr><td>Sessions needed</td><td>6\u201310 (initial); then monthly</td><td>3\u20136 for pigment; more for scars</td></tr>
+      <tr><td>Downtime</td><td>None (faint redness a few hours)</td><td>Mild redness 1\u20133 days</td></tr>
+      <tr><td>Pain</td><td>Mild warmth / mild discomfort</td><td>Moderate (numbing cream recommended)</td></tr>
+      <tr><td>Seoul price per session</td><td>\u20A950,000\u2013\u20A9150,000</td><td>\u20A9100,000\u2013\u20A9350,000</td></tr>
+      <tr><td>Risk for dark skin tones</td><td>Low (low fluence designed for Asian skin)</td><td>Low (picosecond safer than ns lasers)</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="gp-section" id="prices">
+  <h2>Seoul Laser Treatment Prices (${yr})</h2>
+  <div class="gp-table-wrap">
+  <table class="gp-table">
+    <thead><tr><th>Treatment</th><th>Price Range</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Laser toning (full face, 1 session)</td><td>\u20A950,000\u2013\u20A9150,000</td><td>Multiple sessions recommended; packages available</td></tr>
+      <tr><td>Laser toning (course of 10)</td><td>\u20A9350,000\u2013\u20A9900,000</td><td>Better value; commonly sold as packages</td></tr>
+      <tr><td>Pico laser (full face, 1 session)</td><td>\u20A9100,000\u2013\u20A9350,000</td><td>Device brand and clinic tier affect pricing</td></tr>
+      <tr><td>Pico FOCUS (acne scar, fractional)</td><td>\u20A9200,000\u2013\u20A9600,000</td><td>More intensive; mild peeling 2\u20133 days</td></tr>
+      <tr><td>Tattoo removal (per session, small)</td><td>\u20A950,000\u2013\u20A9200,000</td><td>Size, ink colour, and depth determine price</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="gp-tip-box">\u{1F4A1} Many visitors combine laser toning (gentle daily-life treatment) with one Pico session for a comprehensive brightening result. Ask your clinic about combination packages \u2014 these are often available at a meaningful discount.</div>
+</section>
+
+<section class="gp-section" id="clinics">
+  <h2>Top Gangnam &amp; Seocho Clinics for Laser Treatments</h2>
+  <div class="gp-clinic-strip">
+    <div class="gp-clinic-card"><h4>Orta Clinic (Seocho)</h4><p>4.8\u2605 \xB7 4,400+ reviews \xB7 Laser specialist clinic</p><a href="/shop/orta-clinic-seocho">View Clinic \u2192</a></div>
+    <div class="gp-clinic-card"><h4>Yaan Clinic</h4><p>4.6\u2605 \xB7 Brightening laser focus \xB7 Working-professional favourite</p><a href="/shop/yaan-clinic-gangnam">View Clinic \u2192</a></div>
+    <div class="gp-clinic-card"><h4>TUNE CLINIC APGUJEONG</h4><p>4.5\u2605 \xB7 Skin-tone correction specialist</p><a href="/shop/tune-clinic-apgujeong">View Clinic \u2192</a></div>
+    <div class="gp-clinic-card"><h4>D&amp;A Dermatology</h4><p>4.7\u2605 \xB7 Pigmentation &amp; acne specialist \xB7 Evidence-based</p><a href="/shop/da-derm-gangnam">View Clinic \u2192</a></div>
+  </div>
+</section>
+
+<section class="gp-section" id="faq">
+  <h2>FAQ</h2>
+  <div class="gp-faq-item"><p class="gp-faq-q">Should I avoid sun exposure before laser treatment?</p><p class="gp-faq-a">Yes. Avoid tanning and prolonged sun exposure for 2\u20134 weeks before any laser treatment. Sun-darkened skin has higher melanin levels, which can affect laser settings and increase the risk of unwanted side effects including post-inflammatory hyperpigmentation.</p></div>
+  <div class="gp-faq-item"><p class="gp-faq-q">Can I get laser treatment on the same day I arrive in Seoul?</p><p class="gp-faq-a">For laser toning, yes \u2014 it is a no-downtime treatment. For Pico laser with FOCUS (fractional), it is better to plan for at least 2\u20133 days of mild redness and peeling. Timing relative to your trip matters; discuss this with your clinic during consultation.</p></div>
+  <div class="gp-faq-item"><p class="gp-faq-q">Is laser safe for dark skin tones (Fitzpatrick IV\u2013VI)?</p><p class="gp-faq-a">Both low-fluence laser toning and picosecond lasers have been specifically developed with Asian skin tones in mind and have strong safety profiles for darker skin. Korean dermatologists see the full range of skin tones daily \u2014 make sure to disclose your skin type and any previous reactions to laser.</p></div>
+  <div class="gp-faq-item"><p class="gp-faq-q">How long does each session take?</p><p class="gp-faq-a">Laser toning: 10\u201320 minutes. Pico laser (full face): 20\u201340 minutes (including numbing time). FOCUS fractional: 30\u201350 minutes. Both are genuine walk-in lunchtime procedures \u2014 you can return to activities immediately after laser toning, and within a few hours after Pico.</p></div>
+</section>
+
+<div class="gp-cta">
+  <h2>Book Your Laser Treatment in Gangnam</h2>
+  <p>English consultation \xB7 Same-day or next-day appointments often available</p>
+  <a href="/best/clinic/gangnam">Browse Top Dermatology Clinics \u2192</a>
+</div>
+<div class="gp-related">
+  <h2>Related Guides</h2>
+  <div class="gp-related-links">
+    <a href="/guide/rejuran-healer-korea-guide">Rejuran Healer</a>
+    <a href="/guide/skin-booster-comparison-juvelook-rejuran">Juvelook vs Rejuran</a>
+    <a href="/guide/shurink-hifu-seoul-price">HIFU Seoul</a>
+    <a href="/guide/exosome-skin-treatment-seoul">Exosome Seoul</a>
+  </div>
+</div>
+</main>
+<footer class="gp-footer"><p><a href="/">Seoul Beauty Trip</a> &nbsp;\xB7&nbsp; <a href="/best/clinic/gangnam">Top Gangnam Clinics</a> &nbsp;\xB7&nbsp; <a href="/guide">All Guides</a></p><p style="margin-top:6px">\xA9 ${yr} Seoul Beauty Trip. For informational purposes only.</p></footer>
+</body></html>`);
+});
+app.get("/guide/thread-lift-korea-foreigner-guide", (c) => {
+  const yr = (/* @__PURE__ */ new Date()).getFullYear();
+  return c.html(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Thread Lift in Korea \u2014 ${yr} Foreigner Guide &amp; Prices | Seoul Beauty Trip</title>
+<meta name="description" content="Thread lift (PDO/PLLA) in Korea: ${yr} price guide, how it works, realistic longevity, top Gangnam clinics, and practical tips for international patients.">
+<link rel="canonical" href="https://seoulbeautytrip.com/guide/thread-lift-korea-foreigner-guide">
+${GUIDE_COMMON_CSS}
+</head>
+<body>
+<nav class="gp-nav"><a href="/">Home</a><span>\u203A</span><a href="/guide">Guides</a><span>\u203A</span><span style="color:#2d6a4f;font-weight:600">Thread Lift Korea \u2014 Foreigner Guide</span></nav>
+<header class="gp-hero">
+  <h1>Thread Lift in Korea<br><span style="font-size:.65em;opacity:.85">${yr} Foreigner Guide \u2014 PDO &amp; PLLA Threads</span></h1>
+  <p>Non-surgical face lifting with dissolvable threads \u2014 how it works in Seoul, realistic results, prices, and which clinics to trust.</p>
+</header>
+<main class="gp-wrap">
+<div class="gp-toc">
+  <h2>\u{1F4CB} In This Guide</h2>
+  <ol>
+    <li><a href="#how">How Thread Lifting Works</a></li>
+    <li><a href="#types">PDO vs PLLA vs PCL Threads</a></li>
+    <li><a href="#prices">Korea Price Table</a></li>
+    <li><a href="#clinics">Top Seoul Clinics</a></li>
+    <li><a href="#expect">Realistic Results &amp; Longevity</a></li>
+    <li><a href="#faq">FAQ</a></li>
+  </ol>
+</div>
+
+<section class="gp-section" id="how">
+  <h2>How Thread Lifting Works</h2>
+  <p>Thread lifting involves inserting fine biodegradable sutures (threads) beneath the skin using a blunt needle or cannula. The threads are then pulled to physically lift sagging tissue and anchored in place. As the threads dissolve over months, they stimulate collagen production \u2014 providing both an immediate mechanical lift and a gradual biological improvement in skin quality.</p>
+  <p>It is positioned between non-invasive treatments (HIFU, Thermage) and surgical facelifts. Thread lifting delivers a more immediate and pronounced lift than energy devices, while avoiding the recovery time and permanence of surgery.</p>
+  <p>Common treatment areas:</p>
+  <ul>
+    <li>Mid-face lifting (cheek and nasolabial fold)</li>
+    <li>Jawline definition and jowl reduction</li>
+    <li>Brow lifting</li>
+    <li>Neck and submental tightening</li>
+    <li>Nose (thread rhinoplasty \u2014 non-surgical nose tip lift)</li>
+  </ul>
+</section>
+
+<section class="gp-section" id="types">
+  <h2>PDO vs PLLA vs PCL Threads</h2>
+  <div class="gp-table-wrap">
+  <table class="gp-table">
+    <thead><tr><th>Thread Type</th><th>Material</th><th>Duration</th><th>Primary Use</th></tr></thead>
+    <tbody>
+      <tr><td>PDO (polydioxanone)</td><td>Absorbable suture material</td><td>3\u20136 months</td><td>Skin texture improvement, mild lift</td></tr>
+      <tr><td>PLLA (poly-L-lactic acid)</td><td>Collagen biostimulator</td><td>12\u201318 months</td><td>Lifting + volume; stronger collagen response</td></tr>
+      <tr><td>PCL (polycaprolactone)</td><td>Slow-dissolving polymer</td><td>18\u201324 months</td><td>Longest-lasting lift; structural support</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Most Seoul thread lift procedures use a combination \u2014 smooth threads for skin quality and barbed/cog threads for mechanical lifting. PLLA and PCL threads are increasingly popular for their longer-lasting collagen-stimulating properties. Your doctor will recommend the appropriate type based on your tissue laxity and desired longevity.</p>
+</section>
+
+<section class="gp-section" id="prices">
+  <h2>Thread Lift Korea Prices (${yr})</h2>
+  <div class="gp-table-wrap">
+  <table class="gp-table">
+    <thead><tr><th>Treatment</th><th>Price Range</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Mini thread lift (partial face)</td><td>\u20A9400,000\u2013\u20A9800,000</td><td>Jawline or mid-face only; 10\u201320 threads</td></tr>
+      <tr><td>Full face thread lift</td><td>\u20A9800,000\u2013\u20A92,000,000</td><td>30\u201360+ threads; most comprehensive</td></tr>
+      <tr><td>Neck + submental</td><td>\u20A9400,000\u2013\u20A9900,000</td><td>Often combined with lower face lift</td></tr>
+      <tr><td>Thread rhinoplasty (nose tip)</td><td>\u20A9200,000\u2013\u20A9500,000</td><td>Non-surgical nose tip elevation; temporary</td></tr>
+      <tr><td>Brow lift (thread)</td><td>\u20A9300,000\u2013\u20A9700,000</td><td>Subtle; 3\u20136 months typical duration</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="gp-tip-box">\u{1F4A1} Thread lift prices in Seoul are typically 40\u201360% lower than in the UK or Australia for equivalent procedures. The stronger value case is for mid-face and jawline lifts using premium PLLA or PCL threads, where Korean expertise and pricing combine to deliver excellent value.</div>
+</section>
+
+<section class="gp-section" id="clinics">
+  <h2>Top Seoul Clinics for Thread Lifting</h2>
+  <div class="gp-clinic-strip">
+    <div class="gp-clinic-card"><h4>DR.EVERS GANGNAM</h4><p>4.6\u2605 \xB7 Thread lift specialist \xB7 European-style clinic</p><a href="/shop/drevers-clinic-gangnam">View Clinic \u2192</a></div>
+    <div class="gp-clinic-card"><h4>Lienjang</h4><p>4.6\u2605 \xB7 1,461 reviews \xB7 Combined derm + plastic surgery approach</p><a href="/shop/lienjang-plastic-surgery-dermatology-gangnam">View Clinic \u2192</a></div>
+    <div class="gp-clinic-card"><h4>Cheongdam Dear Clinic</h4><p>4.7\u2605 \xB7 Luxury experience \xB7 Thread + filler combination popular</p><a href="/shop/dear-clinic-cheongdam">View Clinic \u2192</a></div>
+    <div class="gp-clinic-card"><h4>Orta Clinic (Seocho)</h4><p>4.8\u2605 \xB7 4,400+ reviews \xB7 Thread + laser packages</p><a href="/shop/orta-clinic-seocho">View Clinic \u2192</a></div>
+  </div>
+</section>
+
+<section class="gp-section" id="expect">
+  <h2>Realistic Results &amp; Longevity</h2>
+  <p>Immediately after thread lifting, patients typically see a visible lift. In the first 1\u20132 weeks, swelling and mild bruising may make the result look overcorrected \u2014 this settles to the true result as swelling resolves. Final results are clearest at 4\u20136 weeks.</p>
+  <p>Longevity depends on thread type, number of threads, and individual factors (skin quality, age, lifestyle):</p>
+  <ul>
+    <li>PDO threads: 3\u20136 months mechanical lift + 6\u201312 months collagen benefit</li>
+    <li>PLLA threads: 12\u201318 months of progressive improvement</li>
+    <li>PCL threads: Up to 18\u201324 months</li>
+  </ul>
+  <p>Thread lifting is not a substitute for a surgical facelift and works best for patients with mild to moderate sagging. Those with significant tissue laxity are better served by surgical options.</p>
+</section>
+
+<section class="gp-section" id="faq">
+  <h2>FAQ</h2>
+  <div class="gp-faq-item"><p class="gp-faq-q">Is thread lifting painful?</p><p class="gp-faq-a">Local anaesthetic is always used, making the procedure tolerable for most patients. Post-treatment soreness \u2014 similar to muscle ache \u2014 lasts 3\u20137 days. Avoid opening your mouth wide or making exaggerated facial expressions in the first few days.</p></div>
+  <div class="gp-faq-item"><p class="gp-faq-q">How soon can I fly after a thread lift?</p><p class="gp-faq-a">Most doctors recommend waiting at least 3\u20135 days before a long-haul flight. The pressure changes are not the concern \u2014 rather, you want to be able to access your clinic for the first few days should there be any asymmetry or tightness that needs adjustment.</p></div>
+  <div class="gp-faq-item"><p class="gp-faq-q">Can thread lifting be combined with HIFU or fillers?</p><p class="gp-faq-a">Yes. A popular combination in Seoul is thread lifting for mechanical support, followed by HIFU or Thermage a few weeks later to further stimulate collagen. Fillers for volume are typically placed at a separate session, at least 2\u20134 weeks after threads, to avoid disrupting the thread placement.</p></div>
+  <div class="gp-faq-item"><p class="gp-faq-q">What happens if I do not like the result?</p><p class="gp-faq-a">Because the threads are biodegradable, any asymmetry or overcorrection will naturally resolve as the threads dissolve. In rare cases where immediate correction is needed, a skilled practitioner can release tension manually in the first few days. This is why follow-up access to your clinic in the first week matters.</p></div>
+</section>
+
+<div class="gp-cta">
+  <h2>Book Your Thread Lift Consultation in Seoul</h2>
+  <p>English support \xB7 Pre-trip video consultation available</p>
+  <a href="/best/clinic/gangnam">Browse Lifting Specialists \u2192</a>
+</div>
+<div class="gp-related">
+  <h2>Related Guides</h2>
+  <div class="gp-related-links">
+    <a href="/guide/shurink-hifu-seoul-price">HIFU Seoul</a>
+    <a href="/guide/thermage-flx-korea-cost">Thermage FLX Korea</a>
+    <a href="/guide/botox-jaw-slimming-seoul">Botox Jaw Slimming</a>
+    <a href="/guide/double-eyelid-surgery-korea-foreigners">Double Eyelid Surgery</a>
+  </div>
+</div>
+</main>
+<footer class="gp-footer"><p><a href="/">Seoul Beauty Trip</a> &nbsp;\xB7&nbsp; <a href="/best/clinic/gangnam">Top Gangnam Clinics</a> &nbsp;\xB7&nbsp; <a href="/guide">All Guides</a></p><p style="margin-top:6px">\xA9 ${yr} Seoul Beauty Trip. For informational purposes only \u2014 always consult a licensed medical professional.</p></footer>
+</body></html>`);
+});
 app.get("/sitemap.xml", async (c) => {
   await ensureDb(c.env);
   const sql = getDb(c.env);
@@ -9400,24 +11087,27 @@ app.get("/sitemap.xml", async (c) => {
   const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
   const bestPages = [];
   try {
-    const shopRows = await sql`
-      SELECT category, LOWER(location) as loc FROM shops WHERE active=true
+    const countRows = await sql`
+      SELECT category, LOWER(location) as loc, COUNT(*)::int as cnt FROM shops WHERE active=true GROUP BY category, location
     `;
-    const hasCatArea = /* @__PURE__ */ new Set();
-    for (const r of shopRows) {
+    const catAreaCount = {};
+    for (const r of countRows) {
       const cat = r.category;
       for (const [areaKey, areaLabel] of Object.entries(AREA_LABELS)) {
         if (areaKey === "seoul") continue;
         if ((r.loc || "").includes(areaLabel.toLowerCase())) {
-          hasCatArea.add(`${cat}|${areaKey}`);
+          const key = `${cat}|${areaKey}`;
+          catAreaCount[key] = (catAreaCount[key] || 0) + Number(r.cnt);
         }
       }
     }
+    bestPages.push(`<url><loc>${base}/best/clinic/gangnam</loc><changefreq>monthly</changefreq><priority>0.95</priority><lastmod>${today}</lastmod></url>`);
     for (const cat of Object.keys(CATEGORY_LABELS)) {
       bestPages.push(`<url><loc>${base}/best/${cat}/seoul</loc><changefreq>weekly</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`);
       for (const area of Object.keys(AREA_LABELS)) {
         if (area === "seoul") continue;
-        if (hasCatArea.has(`${cat}|${area}`)) {
+        if (cat === "clinic" && area === "gangnam") continue;
+        if ((catAreaCount[`${cat}|${area}`] || 0) >= 3) {
           bestPages.push(`<url><loc>${base}/best/${cat}/${area}</loc><changefreq>weekly</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`);
         }
       }
@@ -9442,7 +11132,17 @@ app.get("/sitemap.xml", async (c) => {
     "/guide",
     "/guide/seoul-beauty-trip-itinerary",
     "/guide/k-beauty-treatment-guide",
-    "/guide/seoul-beauty-faq"
+    "/guide/seoul-beauty-faq",
+    "/guide/shurink-hifu-seoul-price",
+    "/guide/rejuran-healer-korea-guide",
+    "/guide/exosome-skin-treatment-seoul",
+    "/guide/thermage-flx-korea-cost",
+    "/guide/botox-jaw-slimming-seoul",
+    "/guide/double-eyelid-surgery-korea-foreigners",
+    "/guide/rhinoplasty-korea-cost-guide",
+    "/guide/skin-booster-comparison-juvelook-rejuran",
+    "/guide/laser-toning-pico-laser-korea",
+    "/guide/thread-lift-korea-foreigner-guide"
   ].map((p) => `<url><loc>${base}${p}</loc><changefreq>monthly</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`);
   const urls = [
     `<url><loc>${base}/</loc><changefreq>daily</changefreq><priority>1.0</priority><lastmod>${today}</lastmod></url>`,
