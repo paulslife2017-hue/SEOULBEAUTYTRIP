@@ -16497,6 +16497,8 @@ document.querySelectorAll('.quick-topic-btn').forEach(function(btn){
   });
 });
 
+}); // DOMContentLoaded
+
 // ══════════════════════════════════════════════════════
 // 방문자 행동 분석 탭 — JavaScript
 // ══════════════════════════════════════════════════════
