@@ -15040,9 +15040,11 @@ function buildMap() {
     attributionControl: false
   });
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  // CartoDB Voyager — 항상 영어 표기, 무료, API 키 불필요
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
     maxZoom: 19,
-    attribution: '© OpenStreetMap'
+    subdomains: 'abcd',
+    attribution: '© OpenStreetMap © CARTO'
   }).addTo(_leafletMap);
 
   // 지도 클릭 → 패널 닫기
