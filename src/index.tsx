@@ -14328,113 +14328,85 @@ var _mapShops = [];
 var _TAB_COLORS = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa',tattoo:'#e879f9'};
 var _TAB_ICONS  = {skincare:'&#127807;',headspa:'&#128134;',hair:'&#9986;',clinic:'&#128137;',makeup:'&#128132;',spa:'&#9992;',tattoo:'&#9999;'};
 
-document.addEventListener('DOMContentLoaded', function() {
-(function initTabs() {
-  var _activeTab   = 'reels';
-  var _browseBuilt = false;
-  var _mapBuilt    = false;
-  var _isPC        = window.innerWidth >= 1024;
+// ── 탭 상태 전역 변수 ──
+var _activeTab   = 'reels';
+var _browseBuilt = false;
+var _mapBuilt    = false;
+var _isPC        = false;
 
-  // 초기화: 찾기/맵 뷰 명시적으로 숨김 (CSS display:none 재확인)
-  var _vb = document.getElementById('view-browse');
-  var _vm = document.getElementById('view-map');
-  if (_vb) { _vb.classList.remove('active'); _vb.style.display = 'none'; }
-  if (_vm) { _vm.classList.remove('active'); _vm.style.display = 'none'; }
+function _isPC_check() { return window.innerWidth >= 1024; }
 
-  function isPC() { return window.innerWidth >= 1024; }
+function _setNavActive(tab) {
+  document.querySelectorAll('.btab').forEach(function(b){ b.classList.toggle('active', b.dataset.tab === tab); });
+  document.querySelectorAll('.pnav-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.tab === tab); });
+}
 
-  function setNavActive(tab) {
-    // 모바일 탭바
-    document.querySelectorAll('.btab').forEach(function(b){
-      b.classList.toggle('active', b.dataset.tab === tab);
-    });
-    // PC 사이드네비
-    document.querySelectorAll('.pnav-btn').forEach(function(b){
-      b.classList.toggle('active', b.dataset.tab === tab);
-    });
-  }
-
-  function switchTab(tab) {
-    if (_activeTab === tab) return;
-    _activeTab = tab;
-    setNavActive(tab);
-
-    var pcLayout    = document.getElementById('pc-layout');
-    var hd          = document.getElementById('hd');
-    var pcPanel     = document.getElementById('pc-content-panel');
-    var viewBrowse  = document.getElementById('view-browse');
-    var viewMap     = document.getElementById('view-map');
-
-    if (tab === 'reels') {
-      // ── 찾기/맵 숨기기 ──
-      if (viewBrowse) { viewBrowse.classList.remove('active'); viewBrowse.style.display = 'none'; }
-      if (viewMap)    { viewMap.classList.remove('active');    viewMap.style.display    = 'none'; }
-      if (pcPanel)    pcPanel.classList.remove('active');
-      // ── 피드 + 헤더 보이기 ──
-      if (pcLayout)   pcLayout.style.display  = 'block';
-      if (hd)         hd.style.display        = '';
-      // ── 영상 재개 (렌더 완료 후 실행) ──
-      setTimeout(function() {
-        var cur = document.querySelector('.slide.current video');
-        if (cur) { try { cur.play(); } catch(e){} }
-      }, 80);
-
+function switchTab(tab) {
+  if (_activeTab === tab) return;
+  _activeTab = tab;
+  _setNavActive(tab);
+  var pcLayout   = document.getElementById('pc-layout');
+  var hd         = document.getElementById('hd');
+  var pcPanel    = document.getElementById('pc-content-panel');
+  var viewBrowse = document.getElementById('view-browse');
+  var viewMap    = document.getElementById('view-map');
+  if (tab === 'reels') {
+    if (viewBrowse) { viewBrowse.classList.remove('active'); viewBrowse.style.display = 'none'; }
+    if (viewMap)    { viewMap.classList.remove('active');    viewMap.style.display    = 'none'; }
+    if (pcPanel)    pcPanel.classList.remove('active');
+    if (pcLayout)   pcLayout.style.display = 'block';
+    if (hd)         hd.style.display = '';
+    setTimeout(function() {
+      var cur = document.querySelector('.slide.current video');
+      if (cur) { try { cur.play(); } catch(e){} }
+    }, 80);
+  } else {
+    document.querySelectorAll('#feed video').forEach(function(v){ try{v.pause();}catch(e){} });
+    if (pcLayout) pcLayout.style.display = 'none';
+    if (hd)       hd.style.display = 'none';
+    if (_isPC_check()) {
+      if (pcPanel) pcPanel.classList.add('active');
+      if (tab === 'browse') {
+        if (viewMap)    { viewMap.classList.remove('active');    viewMap.style.display = 'none'; }
+        if (viewBrowse) { viewBrowse.classList.add('active');    viewBrowse.style.display = 'flex'; }
+        if (!_browseBuilt) { _browseBuilt = true; buildBrowse(); }
+      } else if (tab === 'map') {
+        if (viewBrowse) { viewBrowse.classList.remove('active'); viewBrowse.style.display = 'none'; }
+        if (viewMap)    { viewMap.classList.add('active');       viewMap.style.display = 'flex'; }
+        if (!_mapBuilt) { _mapBuilt = true; buildMap(); }
+      }
     } else {
-      // ── 영상 전체 정지 ──
-      document.querySelectorAll('#feed video').forEach(function(v){ try{v.pause();}catch(e){} });
-      // ── 피드 + 헤더 숨기기 ──
-      if (pcLayout) pcLayout.style.display = 'none';
-      if (hd)       hd.style.display       = 'none';
-
-      if (isPC()) {
-        // ── PC: pc-content-panel 활성화 ──
-        if (pcPanel) pcPanel.classList.add('active');
-        if (tab === 'browse') {
-          if (viewMap)    { viewMap.classList.remove('active');    viewMap.style.display    = 'none'; }
-          if (viewBrowse) { viewBrowse.classList.add('active');    viewBrowse.style.display = 'flex'; }
-          if (!_browseBuilt) { _browseBuilt = true; buildBrowse(); }
-        } else if (tab === 'map') {
-          if (viewBrowse) { viewBrowse.classList.remove('active'); viewBrowse.style.display = 'none'; }
-          if (viewMap)    { viewMap.classList.add('active');       viewMap.style.display    = 'flex'; }
-          if (!_mapBuilt) { _mapBuilt = true; buildMap(); }
-        }
-      } else {
-        // ── 모바일: position:fixed 전체화면 ──
-        if (tab === 'browse') {
-          if (viewMap)    { viewMap.classList.remove('active');    viewMap.style.display    = 'none'; }
-          if (viewBrowse) { viewBrowse.classList.add('active');    viewBrowse.style.display = 'flex'; }
-          if (!_browseBuilt) { _browseBuilt = true; buildBrowse(); }
-        } else if (tab === 'map') {
-          if (viewBrowse) { viewBrowse.classList.remove('active'); viewBrowse.style.display = 'none'; }
-          if (viewMap)    { viewMap.classList.add('active');       viewMap.style.display    = 'flex'; }
-          if (!_mapBuilt) { _mapBuilt = true; buildMap(); }
-        }
+      if (tab === 'browse') {
+        if (viewMap)    { viewMap.classList.remove('active');    viewMap.style.display = 'none'; }
+        if (viewBrowse) { viewBrowse.classList.add('active');    viewBrowse.style.display = 'flex'; }
+        if (!_browseBuilt) { _browseBuilt = true; buildBrowse(); }
+      } else if (tab === 'map') {
+        if (viewBrowse) { viewBrowse.classList.remove('active'); viewBrowse.style.display = 'none'; }
+        if (viewMap)    { viewMap.classList.add('active');       viewMap.style.display = 'flex'; }
+        if (!_mapBuilt) { _mapBuilt = true; buildMap(); }
       }
     }
   }
+}
+window.switchTab = switchTab;
 
-  // 이벤트 등록 (모바일 탭바 + PC 사이드네비 통합)
+// ── DOM 준비 후 탭 이벤트 등록 ──
+document.addEventListener('DOMContentLoaded', function() {
+  _isPC = _isPC_check();
+  var vb = document.getElementById('view-browse');
+  var vm = document.getElementById('view-map');
+  if (vb) vb.style.display = 'none';
+  if (vm) vm.style.display = 'none';
   document.querySelectorAll('.btab, .pnav-btn').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      switchTab(btn.dataset.tab || 'reels');
-    });
+    btn.addEventListener('click', function() { switchTab(btn.dataset.tab || 'reels'); });
   });
-
-  // 화면 크기 변경 시 탭 상태 재적용
   window.addEventListener('resize', function() {
-    var nowPC = window.innerWidth >= 1024;
+    var nowPC = _isPC_check();
     if (nowPC !== _isPC) {
       _isPC = nowPC;
-      if (_activeTab !== 'reels') {
-        var t = _activeTab;
-        _activeTab = 'reels'; // 강제 재전환
-        switchTab(t);
-      }
+      if (_activeTab !== 'reels') { var t = _activeTab; _activeTab = 'reels'; switchTab(t); }
     }
   });
-
-  window.switchTab = switchTab;
-})();
 }); // DOMContentLoaded
 
 // ══════════════════════════════════════════════════════
