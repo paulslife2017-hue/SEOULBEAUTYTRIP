@@ -11279,7 +11279,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .slide video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;background:#000}
 .ov{position:absolute;inset:0;z-index:2;background:linear-gradient(to bottom,rgba(0,0,0,.08) 0%,transparent 25%,transparent 40%,rgba(0,0,0,.2) 60%,rgba(0,0,0,.7) 80%,rgba(0,0,0,.92) 100%);cursor:pointer}
 /* ── 슬라이드 정보 영역 ── */
-.info{position:absolute;bottom:0;left:0;right:0;padding:12px 16px calc(16px + env(safe-area-inset-bottom, 0px));z-index:3;display:flex;flex-direction:column;gap:0;padding-bottom:calc(20px + env(safe-area-inset-bottom, 0px))}
+.info{position:absolute;bottom:0;left:0;right:0;padding:12px 16px 20px;z-index:3;display:flex;flex-direction:column;gap:0}
+@media(max-width:1023px){.info{padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))}}
 .slide-cat-badge{display:none}
 .shop-info-block{flex:1;overflow:hidden;min-width:0;margin-right:10px}
 .shop-info-name{display:flex;align-items:center;gap:5px;font-size:14px;font-weight:900;color:#fff;text-shadow:0 2px 16px rgba(0,0,0,.9);letter-spacing:-.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
@@ -11851,13 +11852,13 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 /* 카드 본문 */
 .bw-card-body{padding:11px 13px 13px;flex:1;display:flex;flex-direction:column;gap:5px}
 .bw-card-name{font-size:13px;font-weight:800;color:#fff;line-height:1.35;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
 .bw-card-addr{
   font-size:10px;color:rgba(255,255,255,.4);
   display:flex;align-items:flex-start;gap:4px;
   line-height:1.4;
 }
-.bw-card-addr span{overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.bw-card-addr span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;display:block}
 .bw-card-footer{display:flex;align-items:center;justify-content:space-between;margin-top:auto;padding-top:6px;border-top:1px solid rgba(255,255,255,.05)}
 .bw-card-stars{display:flex;align-items:center;gap:2px;font-size:10px;font-weight:700;color:#f59e0b}
 .bw-card-reviews{font-size:9px;color:rgba(255,255,255,.3);font-weight:500;margin-left:2px}
@@ -11896,9 +11897,10 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 }
 @media(max-width:1023px){
   #map-body{flex-direction:column}
+  #map-iframe-wrap{height:45%;flex-shrink:0;flex:none}
   #map-shop-list{
     border-left:none;border-top:1px solid rgba(255,255,255,.08);
-    width:100%!important;height:42%;flex-shrink:0;
+    width:100%!important;flex:1;height:auto;
   }
 }
 @media(min-width:1024px){
@@ -14272,19 +14274,14 @@ document.addEventListener('DOMContentLoaded', function(){
     catsEl.addEventListener('mouseleave', function(){ isDragging = false; catsEl.style.cursor = 'grab'; });
   }
 
-  // ── PC 카탈로그 패널 (항상 로드, CSS로 표시/숨김 제어) ──
-  fetch('/api/shops').then(function(r){ return r.json(); }).then(function(d){
-    allShopsData = d.shops || [];
-    _injectVideoIntoShops(); // 검색 카드용 videoUrl/videoThumb 주입
-    renderShopPanel('all');
-  });
-  document.querySelectorAll('#sp-filter .sp-flt').forEach(function(btn){
-    btn.addEventListener('click', function(){
-      document.querySelectorAll('#sp-filter .sp-flt').forEach(function(b){ b.classList.remove('on'); });
-      btn.classList.add('on');
-      renderShopPanel(btn.getAttribute('data-cat'));
+  // ── 업체 데이터 사전 로드 (검색 등에 활용) ──
+  if (Object.keys(shopCache).length === 0) {
+    fetch('/api/shops').then(function(r){ return r.json(); }).then(function(d){
+      allShopsData = d.shops || [];
+      allShopsData.forEach(function(s){ if(s && s.id) shopCache[s.id] = s; });
+      _injectVideoIntoShops();
     });
-  });
+  }
 });
 
 function renderShopPanel(cat) {
@@ -14564,10 +14561,15 @@ function renderBrowseGrid(shops) {
     var color   = _TAB_COLORS[s.category] || '#aaa';
     var icon    = _TAB_ICONS[s.category]  || '&#10024;';
     var loc     = (s.location||'Seoul').split(',')[0].trim();
-    // 주소 정제: "서울시 강남구 ..." → 영문 또는 한글 주소 그대로 사용
-    var addr    = s.address
-      ? s.address.replace(/, South Korea$/i,'').replace(/, Republic of Korea$/i,'')
-      : (loc ? loc + ', Seoul' : 'Seoul, Korea');
+    // 주소 간략화: 동/구 단위만 표시
+    var addr = loc || 'Seoul';
+    if (s.address) {
+      var _a = s.address.replace(/, ?(South Korea|Republic of Korea)$/i,'');
+      // "Nonhyeon-ro, Gangnam District, Seoul" → "Gangnam · Seoul"
+      var _parts = _a.split(',').map(function(p){ return p.trim(); }).filter(Boolean);
+      if (_parts.length >= 2) addr = _parts[_parts.length-2] + ', ' + _parts[_parts.length-1];
+      else addr = _parts[0] || loc;
+    }
     var href    = s.slug ? '/shop/' + s.slug : '#';
     var rating  = s.rating  ? parseFloat(s.rating).toFixed(1)  : '';
     var reviews = s.reviewCount ? s.reviewCount : '';
@@ -14716,9 +14718,13 @@ function renderMapList(shops) {
     var color  = _TAB_COLORS[s.category] || '#aaa';
     var icon   = _TAB_ICONS[s.category]  || '&#10024;';
     var href   = s.slug ? '/shop/' + s.slug : '#';
-    var addr   = s.address
-      ? s.address.replace(/, South Korea$/i,'').replace(/, Republic of Korea$/i,'')
-      : (s.location||'Seoul');
+    var addr = (s.location||'Seoul').split(',')[0].trim();
+    if (s.address) {
+      var _ma = s.address.replace(/, ?(South Korea|Republic of Korea)$/i,'');
+      var _mp = _ma.split(',').map(function(p){ return p.trim(); }).filter(Boolean);
+      if (_mp.length >= 2) addr = _mp[_mp.length-2] + ', ' + _mp[_mp.length-1];
+      else addr = _mp[0] || addr;
+    }
     var hasGeo = s.lat && s.lng;
     var rating = s.rating ? parseFloat(s.rating).toFixed(1) : '';
     var catLabel = s.category ? (s.category.charAt(0).toUpperCase() + s.category.slice(1)) : '';
