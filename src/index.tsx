@@ -17937,7 +17937,7 @@ function renderKwTable(keywords, resultEl) {
     + '<th style="padding:7px 8px;text-align:center">블로그 생성</th>'
     + '</tr></thead><tbody>';
   keywords.forEach(function(k) {
-    var safekw = (k.keyword || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    var safekw = (k.keyword || '').split('\\').join('\\\\').split("'").join("\\'").split('"').join('&quot;');
     var dispkw = escHtml(k.keyword || '');
     var volCell = '';
     if (hasTrend) {
@@ -18011,7 +18011,7 @@ window.kwIdeas = async function kwIdeas() {
       qHtml += '<div style="font-size:11px;color:rgba(255,255,255,.35);margin-bottom:8px">💬 People Also Ask — 블로그 테마 아이디어 (' + d.questions.length + '개)</div>';
       qHtml += '<div style="display:flex;flex-direction:column;gap:6px">';
       d.questions.forEach(function(q) {
-        var safeQ = (q || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        var safeQ = (q || '').split('\\').join('\\\\').split("'").join("\\'").split('"').join('&quot;');
         qHtml += '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:7px">';
         qHtml += '<span style="font-size:12px;color:#e2e8f0;flex:1">' + escHtml(q) + '</span>';
         qHtml += '<button onclick="kwToBlog(\'' + safeQ + '\')" style="flex-shrink:0;padding:4px 10px;background:rgba(255,77,141,.15);border:1px solid rgba(255,77,141,.3);border-radius:6px;color:#f9a8d4;font-size:11px;cursor:pointer"><i class="fas fa-magic"></i> 생성</button>';
