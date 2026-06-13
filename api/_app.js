@@ -15644,7 +15644,10 @@ function buildMap() {
     '</div>',
     '</div>',
     '<div id="map-body">',
-    '<div id="map-iframe-wrap"><iframe id="map-iframe" src="" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade" title="Seoul Beauty Map"></iframe></div>',
+    '<div id="map-iframe-wrap">',
+    '<iframe id="map-iframe" src="" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade" title="Seoul Beauty Map"></iframe>',
+    '<div id="map-shop-info" style="display:none;position:absolute;bottom:0;left:0;right:0;background:rgba(10,10,20,.97);backdrop-filter:blur(16px);padding:12px 16px;border-top:1px solid rgba(255,255,255,.1);z-index:10"></div>',
+    '</div>',
     '<div id="map-shop-list">',
     '<div class="map-list-header"><div class="map-list-count" id="map-list-count">Loading shops...</div></div>',
     '<div class="map-list-scroll" id="map-pin-list"><div style="padding:32px 16px;color:rgba(255,255,255,.3);text-align:center">Loading...</div></div>',
@@ -15715,7 +15718,8 @@ function setMapIframe(geoShops) {
     iframe.src = 'https://www.google.com/maps/embed/v1/search?key=' + apiKey
       + '&q=' + encodeURIComponent('beauty ' + (_mapArea !== 'all' ? _mapArea : 'Seoul') + ' Korea')
       + '&center=' + center.lat + ',' + center.lng
-      + '&zoom=' + zoom;
+      + '&zoom=' + zoom
+      + '&language=en&region=KR';
   } else {
     iframe.src = 'https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d'
       + Math.round(15000 / Math.pow(2, zoom - 10))
@@ -15786,27 +15790,46 @@ function renderMapList(shops) {
   };
 }
 
-// \uC5C5\uCCB4 \uD074\uB9AD \uC2DC \uC9C0\uB3C4 \uC774\uB3D9 (SEO \uD398\uC774\uC9C0\uB294 href\uB85C \uC774\uB3D9, \uC6B0\uD074\uB9AD/\uC0C8\uD0ED\uC740 \uC815\uC0C1)
+// \uC5C5\uCCB4 \uCE74\uB4DC \uD074\uB9AD \u2192 \uC9C0\uB3C4 \uD574\uB2F9 \uC704\uCE58\uB85C \uC774\uB3D9 + \uD558\uB2E8 \uC815\uBCF4 \uD328\uB110 \uD45C\uC2DC
 window.updateMapToShop = function(e, slug, lat, lng, nameEnc) {
-  // \uC9C0\uB3C4 \uC5C5\uB370\uC774\uD2B8
+  e.preventDefault();
+  // \uC120\uD0DD \uD45C\uC2DC
   document.querySelectorAll('.map-pin-card').forEach(function(c){ c.classList.remove('selected'); });
   var card = document.querySelector('.map-pin-card[data-slug="' + slug + '"]');
-  if (card) card.classList.add('selected');
+  if (card) { card.classList.add('selected'); card.scrollIntoView({behavior:'smooth',block:'nearest'}); }
+  // \uC9C0\uB3C4\uB97C \uD574\uB2F9 \uC5C5\uCCB4 \uC88C\uD45C\uB85C \uC774\uB3D9
   var iframe = document.getElementById('map-iframe');
   if (iframe) {
     var apiKey2 = window.__GMAP_KEY__ || '';
     if (apiKey2) {
-      var name2 = decodeURIComponent(nameEnc);
       iframe.src = 'https://www.google.com/maps/embed/v1/place?key=' + apiKey2
-        + '&q=' + encodeURIComponent(name2 + ' Seoul Korea')
-        + '&center=' + lat + ',' + lng + '&zoom=17';
-    } else {
-      iframe.src = 'https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d1000'
-        + '!2d' + lng + '!3d' + lat
-        + '!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sen!2skr!4v1';
+        + '&q=' + encodeURIComponent(decodeURIComponent(nameEnc) + ' Seoul')
+        + '&center=' + lat + ',' + lng
+        + '&zoom=17&language=en&region=KR';
     }
-    setTimeout(function(){ location.href = '/shop/' + slug; }, 700);
-    e.preventDefault();
+  }
+  // \uD558\uB2E8 \uC5C5\uCCB4 \uC815\uBCF4 \uD31D\uC5C5 \uD45C\uC2DC
+  var info = document.getElementById('map-shop-info');
+  if (info && card) {
+    var name = decodeURIComponent(nameEnc);
+    var imgEl = card.querySelector('img');
+    var imgSrc = imgEl ? imgEl.src : '';
+    var catEl = card.querySelector('.map-pin-cat');
+    var catTxt = catEl ? catEl.textContent : '';
+    var addrEl = card.querySelector('.map-pin-addr span');
+    var addrTxt = addrEl ? addrEl.textContent : '';
+    var ratingEl = card.querySelector('.map-pin-rating');
+    var ratingTxt = ratingEl ? ratingEl.textContent.trim() : '';
+    info.innerHTML = '<div style="display:flex;align-items:center;gap:12px">'
+      + (imgSrc ? '<img src="'+imgSrc+'" style="width:56px;height:56px;border-radius:10px;object-fit:cover;flex-shrink:0" onerror="this.style.display=&quot;none&quot;">' : '')
+      + '<div style="flex:1;min-width:0">'
+      + '<div style="font-size:14px;font-weight:800;color:#fff;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(name)+'</div>'
+      + '<div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:6px">'+esc(catTxt)+' \xB7 '+esc(addrTxt)+'</div>'
+      + (ratingTxt ? '<div style="font-size:11px;color:#f59e0b;font-weight:700">'+esc(ratingTxt)+'</div>' : '')
+      + '</div>'
+      + '<a href="/shop/'+slug+'" style="flex-shrink:0;padding:8px 14px;background:#FF4D8D;color:#fff;border-radius:10px;font-size:12px;font-weight:800;text-decoration:none">View</a>'
+      + '</div>';
+    info.style.display = 'block';
   }
 };
 
