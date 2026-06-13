@@ -14718,7 +14718,7 @@ function _showMapPanel(shop) {
   panel.querySelector('#map-shop-panel-inner').innerHTML =
     '<div class="msp-handle"></div>'
     + '<div class="msp-row">'
-    + (img ? '<img class="msp-img" src="' + esc(img) + '" alt="' + esc(shop.name) + '" loading="lazy" onerror="this.style.display=\'none\'">' : '')
+    + (img ? '<img class="msp-img" src="' + esc(img) + '" alt="' + esc(shop.name) + '" loading="lazy" onerror="this.style.display=&quot;none&quot;">' : '')
     + '<div class="msp-info">'
     + '<div class="msp-name">' + esc(shop.name) + '</div>'
     + '<div class="msp-cat" style="color:' + color + '">' + esc(catLabel) + '</div>'
@@ -14795,8 +14795,7 @@ function _buildMarkers(shops) {
       { autoPan: false, closeButton: false, maxWidth: 200 }
     );
     marker.on('click', function() { _selectMarker(s); });
-    marker.on('mouseover', function() { marker.openPopup(); });
-    marker.on('mouseout',  function() { marker.closePopup(); });
+    (function(m){ m.on('mouseover', function() { m.openPopup(); }); m.on('mouseout', function() { m.closePopup(); }); })(marker);
     if (_leafletMap) marker.addTo(_leafletMap);
     _leafletMarkers[s.slug] = marker;
   });
@@ -14826,7 +14825,7 @@ function renderMapList(shops) {
       + (hasGeo ? ' data-lat="' + s.lat + '" data-lng="' + s.lng + '"' : '')
       + '>'
       + '<div class="map-pin-img-wrap">'
-      + '<img src="' + esc(s.thumbnail || '') + '" alt="' + esc(s.name) + '" loading="lazy" onerror="this.style.background=\'#13132a\'">'
+      + '<img src="' + esc(s.thumbnail || '') + '" alt="' + esc(s.name) + '" loading="lazy" onerror="this.style.background=&quot;#13132a&quot;">'
       + (hasGeo ? '<div class="map-pin-geo-dot"></div>' : '')
       + '</div>'
       + '<div class="map-pin-card-body">'
@@ -14836,7 +14835,7 @@ function renderMapList(shops) {
       + '</div>'
       + '<div class="map-pin-action">'
       + (hasGeo
-        ? '<div class="map-pin-link-map" style="background:rgba(' + color.replace('#','').match(/.{2}/g).map(function(h){return parseInt(h,16)}).join(',') + ',.15);border-color:rgba(' + color.replace('#','').match(/.{2}/g).map(function(h){return parseInt(h,16)}).join(',') + ',.3);color:' + color + '"><i class="fas fa-map-marker-alt"></i></div>'
+        ? '<div class="map-pin-link-map" style="color:' + color + '"><i class="fas fa-map-marker-alt"></i></div>'
         : '<div class="map-pin-link-info"><i class="fas fa-info-circle"></i></div>')
       + (rating ? '<div class="map-pin-rating"><i class="fas fa-star" style="font-size:8px;color:#f59e0b"></i> ' + esc(rating) + '</div>' : '')
       + '</div>'
