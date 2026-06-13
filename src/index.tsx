@@ -12118,7 +12118,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .lf-popup-sub{font-size:10px;color:rgba(255,255,255,.4)}
 </style>
 <!-- Google Maps JavaScript API -->
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCcM03wGoZrSkmCMOS-Vib-JR1oKNPsSkY&libraries=marker" async defer></script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCcM03wGoZrSkmCMOS-Vib-JR1oKNPsSkY&loading=async&callback=__gmapsReady"></script>
+<script>function __gmapsReady(){ window.__gmapsLoaded = true; }</script>
 </head>
 <body>
 <div id="ld">
@@ -15010,18 +15011,12 @@ function buildMap() {
     '</div>'
   ].join('');
 
-  // ── Google Maps 초기화 ──
-  if (typeof google === 'undefined' || typeof google.maps === 'undefined') {
+  // ── Google Maps 초기화 — 로드 대기 ──
+  if (!window.__gmapsLoaded || typeof google === 'undefined' || !google.maps) {
     if (!buildMap._retries) buildMap._retries = 0;
     buildMap._retries++;
-    if (buildMap._retries <= 15) {
-      setTimeout(function(){
-        var lf = document.getElementById('map-leaflet');
-        if (lf) {
-          if (typeof google !== 'undefined' && google.maps) { buildMap._retries = 0; buildMap(); }
-          else setTimeout(arguments.callee, 400);
-        }
-      }, 400);
+    if (buildMap._retries <= 20) {
+      setTimeout(buildMap, 300);
     } else {
       var pl = document.getElementById('map-pin-list');
       if (pl) pl.innerHTML = '<div style="padding:32px;text-align:center;color:rgba(255,255,255,.3)"><div style="font-size:24px;margin-bottom:8px">🗺️</div>Map failed to load.<br><small>Please check your internet connection.</small></div>';
