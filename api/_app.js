@@ -11401,7 +11401,7 @@ app.get("/", async (c) => {
     const initVideosFirst = initVideos.slice(0, 10);
     const gmapKey = getGoogleKey(c.env);
     const inlineScript = `${videoLdScript}<script>window.__INIT_VIDEOS__=${safeJson(initVideosFirst)};window.__INIT_VIDEOS_ALL__=${safeJson(initVideos)};window.__INIT_PLATFORM__=${safeJson(initPlatform)};window.__INIT_SHOPS__=${safeJson(initShops)};window.__GMAP_KEY__=${safeJson(gmapKey)};</script>`;
-    const html = MAIN_HTML.replace("__INLINE_DATA_PLACEHOLDER__", inlineScript).replace("__SSR_SHOP_COUNT__", ssrCountText).replace("__SSR_FILTER_BTNS__", ssrFilterBtns).replace("__SSR_SHOP_CARDS__", ssrShopCards);
+    const html = MAIN_HTML.replace("__INLINE_DATA_PLACEHOLDER__", inlineScript);
     c.header("Cache-Control", "public, s-maxage=10, stale-while-revalidate=60");
     return c.html(html);
   } catch (e) {
@@ -12825,38 +12825,29 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   </div>
 </div>
 
-<!-- PC \uB808\uC774\uC544\uC6C3 \uB798\uD37C -->
+<!-- \uD53C\uB4DC \uB798\uD37C -->
 <div id="pc-layout">
   <div id="feed-col" style="position:relative">
     <div id="dots" aria-hidden="true"></div>
     <div id="feed" role="feed" aria-label="Beauty videos"></div>
     <div id="cat-loading"><div class="cat-spin"></div></div>
   </div>
-  <!-- PC \uC6B0\uCE21 \uC5C5\uCCB4 \uCE74\uD0C8\uB85C\uADF8 -->
-  <aside id="shop-panel" aria-label="Shop catalog">
-    <div class="sp-header">
-      <div class="sp-title">Seoul Beauty Catalog</div>
-      <div class="sp-subtitle" id="sp-count">__SSR_SHOP_COUNT__</div>
-    </div>
-    <div class="sp-filter" id="sp-filter">__SSR_FILTER_BTNS__</div>
-    <div class="sp-grid" id="sp-grid">__SSR_SHOP_CARDS__</div>
-  </aside>
 </div>
 <div id="toast" role="status" aria-live="polite"></div>
 
 <!-- \u2500\u2500 \uD558\uB2E8 \uD0ED\uBC14 (\uBAA8\uBC14\uC77C \uC804\uC6A9) \u2500\u2500 -->
 <nav id="bottom-tabs" aria-label="Main navigation">
-  <button class="btab active" id="btab-reels" onclick="switchTab('reels')" aria-label="Reels">
-    <i class="fas fa-play-circle"></i>
-    <span>Reels</span>
+  <button class="btab active" id="btab-reels" onclick="switchTab('reels')" aria-label="\uD648">
+    <i class="fas fa-home"></i>
+    <span>\uD648</span>
   </button>
-  <button class="btab" id="btab-browse" onclick="switchTab('browse')" aria-label="Browse">
-    <i class="fas fa-th-large"></i>
-    <span>Browse</span>
+  <button class="btab" id="btab-browse" onclick="switchTab('browse')" aria-label="\uCC3E\uAE30">
+    <i class="fas fa-search"></i>
+    <span>\uCC3E\uAE30</span>
   </button>
-  <button class="btab" id="btab-map" onclick="switchTab('map')" aria-label="Map">
-    <i class="fas fa-map-marker-alt"></i>
-    <span>Map</span>
+  <button class="btab" id="btab-map" onclick="switchTab('map')" aria-label="\uB9F5">
+    <i class="fas fa-map-marked-alt"></i>
+    <span>\uB9F5</span>
   </button>
 </nav>
 

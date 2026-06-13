@@ -10220,9 +10220,6 @@ app.get('/', async (c) => {
     // SSR placeholders를 실제 콘텐츠로 교체
     const html = MAIN_HTML
       .replace('__INLINE_DATA_PLACEHOLDER__', inlineScript)
-      .replace('__SSR_SHOP_COUNT__', ssrCountText)
-      .replace('__SSR_FILTER_BTNS__', ssrFilterBtns)
-      .replace('__SSR_SHOP_CARDS__', ssrShopCards)
 
     // Vercel CDN 캐시: s-maxage=10 + stale-while-revalidate=60
     // 10초 캐시 → TTFB ~50ms, 60초 백그라운드 갱신으로 데이터 신선도 유지
@@ -11783,38 +11780,29 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   </div>
 </div>
 
-<!-- PC 레이아웃 래퍼 -->
+<!-- 피드 래퍼 -->
 <div id="pc-layout">
   <div id="feed-col" style="position:relative">
     <div id="dots" aria-hidden="true"></div>
     <div id="feed" role="feed" aria-label="Beauty videos"></div>
     <div id="cat-loading"><div class="cat-spin"></div></div>
   </div>
-  <!-- PC 우측 업체 카탈로그 -->
-  <aside id="shop-panel" aria-label="Shop catalog">
-    <div class="sp-header">
-      <div class="sp-title">Seoul Beauty Catalog</div>
-      <div class="sp-subtitle" id="sp-count">__SSR_SHOP_COUNT__</div>
-    </div>
-    <div class="sp-filter" id="sp-filter">__SSR_FILTER_BTNS__</div>
-    <div class="sp-grid" id="sp-grid">__SSR_SHOP_CARDS__</div>
-  </aside>
 </div>
 <div id="toast" role="status" aria-live="polite"></div>
 
 <!-- ── 하단 탭바 (모바일 전용) ── -->
 <nav id="bottom-tabs" aria-label="Main navigation">
-  <button class="btab active" id="btab-reels" onclick="switchTab('reels')" aria-label="Reels">
-    <i class="fas fa-play-circle"></i>
-    <span>Reels</span>
+  <button class="btab active" id="btab-reels" onclick="switchTab('reels')" aria-label="홈">
+    <i class="fas fa-home"></i>
+    <span>홈</span>
   </button>
-  <button class="btab" id="btab-browse" onclick="switchTab('browse')" aria-label="Browse">
-    <i class="fas fa-th-large"></i>
-    <span>Browse</span>
+  <button class="btab" id="btab-browse" onclick="switchTab('browse')" aria-label="찾기">
+    <i class="fas fa-search"></i>
+    <span>찾기</span>
   </button>
-  <button class="btab" id="btab-map" onclick="switchTab('map')" aria-label="Map">
-    <i class="fas fa-map-marker-alt"></i>
-    <span>Map</span>
+  <button class="btab" id="btab-map" onclick="switchTab('map')" aria-label="맵">
+    <i class="fas fa-map-marked-alt"></i>
+    <span>맵</span>
   </button>
 </nav>
 
