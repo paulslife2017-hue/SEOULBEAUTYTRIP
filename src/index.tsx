@@ -11923,13 +11923,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
     width:100%!important;flex:1;min-height:0;
   }
   .map-list-scroll{-webkit-overflow-scrolling:touch}
-  /* 모바일: 패널이 지도 위에 슬라이드업 */
-  #map-shop-panel{max-height:60%}
 }
 @media(min-width:1024px){
   #map-shop-list{width:360px;flex-shrink:0}
-  /* PC: 패널이 지도 영역 내 하단에 표시 */
-  #map-shop-panel{max-height:45%}
 }
 .map-list-header{
   flex-shrink:0;padding:12px 16px 8px;
@@ -11996,45 +11992,86 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .lf-pin svg{width:32px;height:40px}
 .lf-pin.selected{filter:drop-shadow(0 4px 12px rgba(255,77,141,.7));transform:scale(1.25) translateY(-4px)}
 /* 업체 정보 패널 (하단 슬라이드업) */
-#map-shop-panel{
-  position:absolute;bottom:0;left:0;right:0;z-index:500;
-  background:rgba(10,10,20,.97);backdrop-filter:blur(20px);
-  border-top:1px solid rgba(255,255,255,.1);
-  border-radius:16px 16px 0 0;
-  padding:0 0 env(safe-area-inset-bottom,0px);
-  transform:translateY(100%);transition:transform .3s cubic-bezier(.32,1.15,.7,1);
-  max-height:50%;overflow-y:auto;
+/* ── 지도 위 업체 팝업 카드 ── */
+#map-shop-popup{
+  position:absolute;
+  bottom:16px;left:50%;transform:translateX(-50%) translateY(24px);
+  z-index:600;width:min(340px,calc(100vw - 32px));
+  background:rgba(10,10,20,.97);backdrop-filter:blur(24px);
+  border:1px solid rgba(255,255,255,.13);border-radius:20px;
+  box-shadow:0 16px 48px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.05);
+  opacity:0;pointer-events:none;
+  transition:opacity .25s ease,transform .28s cubic-bezier(.32,1.15,.7,1);
+  overflow:hidden;
 }
-#map-shop-panel.open{transform:translateY(0)}
-#map-shop-panel-inner{padding:16px 16px 12px}
-.msp-handle{width:36px;height:4px;border-radius:2px;background:rgba(255,255,255,.15);margin:0 auto 14px}
-.msp-row{display:flex;align-items:flex-start;gap:14px}
-.msp-img{width:64px;height:64px;border-radius:12px;object-fit:cover;background:#13132a;flex-shrink:0}
-.msp-info{flex:1;min-width:0}
-.msp-name{font-size:15px;font-weight:800;color:#fff;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.msp-cat{font-size:11px;font-weight:700;margin-bottom:4px}
-.msp-addr{font-size:11px;color:rgba(255,255,255,.4);display:flex;align-items:flex-start;gap:4px;line-height:1.4}
-.msp-rating{font-size:11px;font-weight:700;color:#f59e0b;margin-top:4px;display:flex;align-items:center;gap:3px}
-.msp-btns{display:flex;gap:8px;margin-top:14px}
+#map-shop-popup.open{
+  opacity:1;pointer-events:auto;
+  transform:translateX(-50%) translateY(0);
+}
+@media(min-width:1024px){
+  /* PC: 지도 좌측 하단에 고정 */
+  #map-shop-popup{left:16px;transform:translateY(24px);bottom:20px}
+  #map-shop-popup.open{transform:translateY(0)}
+}
+/* 썸네일 히어로 */
+.msp-hero{position:relative;width:100%;height:160px;overflow:hidden;flex-shrink:0}
+.msp-hero img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s}
+#map-shop-popup.open .msp-hero img{transform:scale(1.03)}
+.msp-hero-ov{
+  position:absolute;inset:0;
+  background:linear-gradient(to bottom,rgba(0,0,0,.05) 0%,rgba(0,0,0,.6) 100%);
+}
+/* 닫기 버튼 */
+.msp-close-btn{
+  position:absolute;top:10px;right:10px;
+  width:28px;height:28px;border-radius:50%;
+  background:rgba(0,0,0,.55);backdrop-filter:blur(6px);
+  border:1px solid rgba(255,255,255,.15);
+  color:#fff;font-size:12px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .15s;z-index:2;
+}
+.msp-close-btn:hover{background:rgba(0,0,0,.8)}
+/* 카테고리 배지 (이미지 위) */
+.msp-cat-badge{
+  position:absolute;bottom:10px;left:12px;
+  padding:3px 10px;border-radius:20px;font-size:9px;font-weight:800;
+  letter-spacing:.7px;text-transform:uppercase;
+  backdrop-filter:blur(8px);background:rgba(0,0,0,.45);
+  border:1px solid;z-index:2;
+}
+/* 본문 */
+.msp-body{padding:14px 16px 16px}
+.msp-name{font-size:16px;font-weight:900;color:#fff;margin-bottom:6px;
+  line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.msp-meta{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.msp-rating{display:flex;align-items:center;gap:3px;font-size:12px;font-weight:800;color:#f59e0b}
+.msp-reviews{font-size:10px;color:rgba(255,255,255,.3);font-weight:500}
+.msp-addr{font-size:11px;color:rgba(255,255,255,.42);display:flex;align-items:flex-start;gap:4px;line-height:1.4;margin-bottom:10px}
+.msp-addr span{overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+/* 설명 텍스트 */
+.msp-desc{font-size:11.5px;color:rgba(255,255,255,.5);line-height:1.55;
+  margin-bottom:14px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+/* 버튼 */
 .msp-btn-view{
-  flex:1;padding:11px 0;background:linear-gradient(135deg,#FF4D8D,#e8414a);
-  color:#fff;border:none;border-radius:12px;font-size:13px;font-weight:800;
-  cursor:pointer;text-decoration:none;text-align:center;display:block;
+  display:block;width:100%;padding:13px;
+  background:linear-gradient(135deg,#FF4D8D,#e8414a);
+  color:#fff;border:none;border-radius:12px;
+  font-size:14px;font-weight:800;cursor:pointer;
+  text-decoration:none;text-align:center;
+  box-shadow:0 4px 20px rgba(255,77,141,.35);
+  transition:opacity .15s,transform .12s;
 }
-.msp-btn-view:hover{opacity:.9}
-.msp-btn-close{
-  padding:11px 16px;background:rgba(255,255,255,.07);color:rgba(255,255,255,.55);
-  border:1px solid rgba(255,255,255,.1);border-radius:12px;font-size:13px;font-weight:700;
-  cursor:pointer;white-space:nowrap;
-}
-/* Leaflet 팝업 오버라이드 */
+.msp-btn-view:hover{opacity:.92;transform:translateY(-1px)}
+.msp-btn-view:active{transform:scale(.98)}
+/* Leaflet 기본 팝업 비활성화 (hover용 작은 툴팁만 유지) */
 .leaflet-popup-content-wrapper{
-  background:rgba(10,10,20,.96)!important;border:1px solid rgba(255,255,255,.12)!important;
-  border-radius:12px!important;box-shadow:0 8px 32px rgba(0,0,0,.6)!important;color:#fff!important;padding:0!important;
+  background:rgba(10,10,20,.93)!important;border:1px solid rgba(255,255,255,.1)!important;
+  border-radius:10px!important;box-shadow:0 6px 20px rgba(0,0,0,.5)!important;color:#fff!important;padding:0!important;
 }
-.leaflet-popup-tip{background:rgba(10,10,20,.96)!important}
-.leaflet-popup-content{margin:12px 14px!important;font-size:12px!important;color:#fff!important}
-.lf-popup-name{font-size:13px;font-weight:800;color:#fff;margin-bottom:3px;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis}
+.leaflet-popup-tip{background:rgba(10,10,20,.93)!important}
+.leaflet-popup-content{margin:9px 12px!important;font-size:11px!important;color:#fff!important}
+.lf-popup-name{font-size:12px;font-weight:800;color:#fff;margin-bottom:2px;white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis}
 .lf-popup-sub{font-size:10px;color:rgba(255,255,255,.4)}
 .leaflet-control-attribution{display:none!important}
 .leaflet-control-zoom a{background:rgba(10,10,20,.92)!important;color:#fff!important;border-color:rgba(255,255,255,.12)!important}
@@ -14704,39 +14741,57 @@ function _fmtAddr(s) {
   return addr;
 }
 
-/* 하단 업체 정보 패널 표시 */
+/* 지도 위 팝업 카드 표시 */
 function _showMapPanel(shop) {
-  var panel = document.getElementById('map-shop-panel');
-  if (!panel) return;
-  var color  = _getPinColor(shop.category);
+  var popup = document.getElementById('map-shop-popup');
+  if (!popup) return;
+  var color    = _getPinColor(shop.category);
   var catLabel = shop.category ? (shop.category.charAt(0).toUpperCase() + shop.category.slice(1)) : '';
-  var rating = shop.rating ? parseFloat(shop.rating).toFixed(1) : '';
-  var addr   = _fmtAddr(shop);
-  var img    = shop.thumbnail || '';
-  var slug   = shop.slug || '';
+  var catIcon  = _TAB_ICONS[shop.category] || '✨';
+  var rating   = shop.rating ? parseFloat(shop.rating).toFixed(1) : '';
+  var reviews  = shop.reviewCount || shop.review_count || '';
+  var addr     = _fmtAddr(shop);
+  var img      = shop.thumbnail || '';
+  var slug     = shop.slug || '';
+  // 설명: description 우선, 없으면 address 전체
+  var desc     = shop.description || shop.metaDescription || shop.meta_description || '';
+  if (desc.length > 160) desc = desc.slice(0, 157) + '...';
 
-  panel.querySelector('#map-shop-panel-inner').innerHTML =
-    '<div class="msp-handle"></div>'
-    + '<div class="msp-row">'
-    + (img ? '<img class="msp-img" src="' + esc(img) + '" alt="' + esc(shop.name) + '" loading="lazy" onerror="this.style.display=&quot;none&quot;">' : '')
-    + '<div class="msp-info">'
+  // 별점 HTML
+  var starsHtml = '';
+  if (rating) {
+    var rNum = parseFloat(rating);
+    for (var si = 1; si <= 5; si++) {
+      starsHtml += '<i class="fas fa-star" style="font-size:10px;color:' + (si <= Math.round(rNum) ? '#f59e0b' : 'rgba(255,255,255,.15)') + '"></i>';
+    }
+  }
+
+  popup.innerHTML =
+    // 썸네일 히어로
+    '<div class="msp-hero">'
+    + (img ? '<img src="' + esc(img) + '" alt="' + esc(shop.name) + '" loading="lazy" onerror="this.style.display=&quot;none&quot;">' : '<div style="width:100%;height:100%;background:#13132a"></div>')
+    + '<div class="msp-hero-ov"></div>'
+    + '<button class="msp-close-btn" onclick="closeMapPanel()"><i class="fas fa-times"></i></button>'
+    + '<div class="msp-cat-badge" style="color:' + color + ';border-color:' + color + '">' + catIcon + ' ' + esc(catLabel) + '</div>'
+    + '</div>'
+    // 본문
+    + '<div class="msp-body">'
     + '<div class="msp-name">' + esc(shop.name) + '</div>'
-    + '<div class="msp-cat" style="color:' + color + '">' + esc(catLabel) + '</div>'
+    + '<div class="msp-meta">'
+    + (rating ? '<div class="msp-rating">' + starsHtml + '<span style="margin-left:4px">' + esc(rating) + '</span></div>' : '')
+    + (reviews ? '<div class="msp-reviews">(' + esc(String(reviews)) + ' reviews)</div>' : '')
+    + '</div>'
     + '<div class="msp-addr"><i class="fas fa-map-marker-alt" style="color:' + color + ';font-size:9px;margin-top:2px;flex-shrink:0"></i><span>' + esc(addr) + ', Seoul</span></div>'
-    + (rating ? '<div class="msp-rating"><i class="fas fa-star" style="color:#f59e0b;font-size:9px"></i> ' + esc(rating) + '</div>' : '')
-    + '</div>'
-    + '</div>'
-    + '<div class="msp-btns">'
-    + (slug ? '<a href="/shop/' + esc(slug) + '?from=map" class="msp-btn-view">View Full Details →</a>' : '')
-    + '<button class="msp-btn-close" onclick="closeMapPanel()">✕ Close</button>'
+    + (desc ? '<div class="msp-desc">' + esc(desc) + '</div>' : '')
+    + (slug ? '<a href="/shop/' + esc(slug) + '?from=map" class="msp-btn-view"><i class="fas fa-store" style="margin-right:6px;font-size:12px"></i>View Full Details →</a>' : '')
     + '</div>';
 
-  panel.classList.add('open');
+  popup.classList.add('open');
 }
 
 window.closeMapPanel = function() {
-  var panel = document.getElementById('map-shop-panel');
-  if (panel) panel.classList.remove('open');
+  var popup = document.getElementById('map-shop-popup');
+  if (popup) popup.classList.remove('open');
   // 마커 선택 해제
   if (_leafletSelectedSlug && _leafletMarkers[_leafletSelectedSlug]) {
     var shop = _mapShops.find(function(s){ return s.slug === _leafletSelectedSlug; });
@@ -14879,7 +14934,7 @@ function buildMap() {
     '<div id="map-body">',
     '<div id="map-iframe-wrap" style="position:relative;flex:1;overflow:hidden">',
     '<div id="map-leaflet"></div>',
-    '<div id="map-shop-panel"><div id="map-shop-panel-inner"></div></div>',
+    '<div id="map-shop-popup"></div>',
     '</div>',
     '<div id="map-shop-list">',
     '<div class="map-list-header"><div class="map-list-count" id="map-list-count">Loading shops...</div></div>',
