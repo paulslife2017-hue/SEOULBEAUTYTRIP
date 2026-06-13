@@ -15935,11 +15935,25 @@ function buildMap() {
 
   // \u2500\u2500 Leaflet \uCD08\uAE30\uD654 \u2500\u2500
   if (typeof L === 'undefined') {
-    document.getElementById('map-pin-list').innerHTML = '<div style="padding:32px;text-align:center;color:rgba(255,255,255,.4)">Map is loading... please wait.</div>';
-    // Leaflet\uC774 \uC544\uC9C1 \uB85C\uB4DC \uC548 \uB410\uC73C\uBA74 100ms \uD6C4 \uC7AC\uC2DC\uB3C4
-    setTimeout(buildMap, 200);
+    // Leaflet CDN\uC774 \uC544\uC9C1 \uB85C\uB4DC \uC548 \uB410\uC73C\uBA74 \uB300\uAE30 (\uCD5C\uB300 10\uD68C)
+    if (!buildMap._retries) buildMap._retries = 0;
+    buildMap._retries++;
+    if (buildMap._retries <= 10) {
+      setTimeout(function(){
+        var lf = document.getElementById('map-leaflet');
+        if (lf) { // HTML \uBF08\uB300\uB294 \uC720\uC9C0, \uCD08\uAE30\uD654\uB9CC \uC7AC\uC2DC\uB3C4
+          if (typeof L !== 'undefined') { buildMap._retries = 0; buildMap(); }
+          else setTimeout(arguments.callee, 300);
+        }
+      }, 300);
+    } else {
+      // CDN \uB85C\uB4DC \uC2E4\uD328 \u2192 \uC624\uB958 \uBA54\uC2DC\uC9C0
+      var pl = document.getElementById('map-pin-list');
+      if (pl) pl.innerHTML = '<div style="padding:32px;text-align:center;color:rgba(255,255,255,.3)"><div style="font-size:24px;margin-bottom:8px">\u{1F5FA}\uFE0F</div>Map library failed to load.<br><small style="color:rgba(255,255,255,.2)">Please check your internet connection.</small></div>';
+    }
     return;
   }
+  buildMap._retries = 0;
 
   if (_leafletMap) {
     _leafletMap.remove();

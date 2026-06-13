@@ -14890,11 +14890,25 @@ function buildMap() {
 
   // ── Leaflet 초기화 ──
   if (typeof L === 'undefined') {
-    document.getElementById('map-pin-list').innerHTML = '<div style="padding:32px;text-align:center;color:rgba(255,255,255,.4)">Map is loading... please wait.</div>';
-    // Leaflet이 아직 로드 안 됐으면 100ms 후 재시도
-    setTimeout(buildMap, 200);
+    // Leaflet CDN이 아직 로드 안 됐으면 대기 (최대 10회)
+    if (!buildMap._retries) buildMap._retries = 0;
+    buildMap._retries++;
+    if (buildMap._retries <= 10) {
+      setTimeout(function(){
+        var lf = document.getElementById('map-leaflet');
+        if (lf) { // HTML 뼈대는 유지, 초기화만 재시도
+          if (typeof L !== 'undefined') { buildMap._retries = 0; buildMap(); }
+          else setTimeout(arguments.callee, 300);
+        }
+      }, 300);
+    } else {
+      // CDN 로드 실패 → 오류 메시지
+      var pl = document.getElementById('map-pin-list');
+      if (pl) pl.innerHTML = '<div style="padding:32px;text-align:center;color:rgba(255,255,255,.3)"><div style="font-size:24px;margin-bottom:8px">🗺️</div>Map library failed to load.<br><small style="color:rgba(255,255,255,.2)">Please check your internet connection.</small></div>';
+    }
     return;
   }
+  buildMap._retries = 0;
 
   if (_leafletMap) {
     _leafletMap.remove();
