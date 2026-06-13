@@ -12324,7 +12324,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .slide video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;background:#000}
 .ov{position:absolute;inset:0;z-index:2;background:linear-gradient(to bottom,rgba(0,0,0,.08) 0%,transparent 25%,transparent 40%,rgba(0,0,0,.2) 60%,rgba(0,0,0,.7) 80%,rgba(0,0,0,.92) 100%);cursor:pointer}
 /* \u2500\u2500 \uC2AC\uB77C\uC774\uB4DC \uC815\uBCF4 \uC601\uC5ED \u2500\u2500 */
-.info{position:absolute;bottom:0;left:0;right:0;padding:12px 16px calc(16px + env(safe-area-inset-bottom, 0px));z-index:3;display:flex;flex-direction:column;gap:0;padding-bottom:calc(20px + env(safe-area-inset-bottom, 0px))}
+.info{position:absolute;bottom:0;left:0;right:0;padding:12px 16px 20px;z-index:3;display:flex;flex-direction:column;gap:0}
+@media(max-width:1023px){.info{padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))}}
 .slide-cat-badge{display:none}
 .shop-info-block{flex:1;overflow:hidden;min-width:0;margin-right:10px}
 .shop-info-name{display:flex;align-items:center;gap:5px;font-size:14px;font-weight:900;color:#fff;text-shadow:0 2px 16px rgba(0,0,0,.9);letter-spacing:-.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
@@ -12795,14 +12796,14 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 
 /* --- \uBAA8\uBC14\uC77C \uC804\uCCB4\uD654\uBA74 --- */
 #view-browse{
-  display:none;position:fixed;inset:0 0 56px 0;
-  background:#0a0a14;z-index:450;overflow-y:auto;flex-direction:column;
+  display:none;position:fixed;top:0;left:0;right:0;bottom:56px;
+  background:#0a0a14;z-index:450;flex-direction:column;overflow:hidden;
 }
 #view-browse.active{display:flex}
 
 #view-map{
-  display:none;position:fixed;inset:0 0 56px 0;
-  background:#0a0a14;z-index:450;flex-direction:column;
+  display:none;position:fixed;top:0;left:0;right:0;bottom:56px;
+  background:#0a0a14;z-index:450;flex-direction:column;overflow:hidden;
 }
 #view-map.active{display:flex}
 
@@ -12813,13 +12814,12 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
     flex:1;height:100%;overflow:hidden;
   }
   #view-browse.active,#view-map.active{display:flex}
-  /* \uBAA8\uBC14\uC77C \uD0ED\uBC14 \uC228\uAE40 */
   #bottom-tabs{display:none!important}
   body{padding-bottom:0}
 }
 
 /* \u2500\u2500 Browse \uB0B4\uBD80 \uC2A4\uD0C0\uC77C \u2500\u2500 */
-.bw-layout{display:flex;flex-direction:column;height:100%;overflow:hidden}
+.bw-layout{display:flex;flex-direction:column;width:100%;flex:1;overflow:hidden;min-height:0}
 .bw-header{
   flex-shrink:0;position:sticky;top:0;z-index:10;
   background:rgba(10,10,20,.98);backdrop-filter:blur(20px);
@@ -12842,7 +12842,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 }
 .bw-chip:hover{background:rgba(255,255,255,.06);color:rgba(255,255,255,.7)}
 .bw-chip.on{background:rgba(255,77,141,.15);border-color:#FF4D8D;color:#FF4D8D}
-.bw-body{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,77,141,.2) transparent}
+.bw-body{flex:1;overflow-y:auto;min-height:0;scrollbar-width:thin;scrollbar-color:rgba(255,77,141,.2) transparent}
 .bw-body::-webkit-scrollbar{width:4px}
 .bw-body::-webkit-scrollbar-thumb{background:rgba(255,77,141,.2);border-radius:2px}
 .bw-section-label{
@@ -12896,13 +12896,13 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 /* \uCE74\uB4DC \uBCF8\uBB38 */
 .bw-card-body{padding:11px 13px 13px;flex:1;display:flex;flex-direction:column;gap:5px}
 .bw-card-name{font-size:13px;font-weight:800;color:#fff;line-height:1.35;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
 .bw-card-addr{
   font-size:10px;color:rgba(255,255,255,.4);
   display:flex;align-items:flex-start;gap:4px;
   line-height:1.4;
 }
-.bw-card-addr span{overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.bw-card-addr span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;display:block}
 .bw-card-footer{display:flex;align-items:center;justify-content:space-between;margin-top:auto;padding-top:6px;border-top:1px solid rgba(255,255,255,.05)}
 .bw-card-stars{display:flex;align-items:center;gap:2px;font-size:10px;font-weight:700;color:#f59e0b}
 .bw-card-reviews{font-size:9px;color:rgba(255,255,255,.3);font-weight:500;margin-left:2px}
@@ -12927,7 +12927,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   transition:all .15s;-webkit-tap-highlight-color:transparent
 }
 .map-area-chip.on{background:rgba(255,77,141,.15);border-color:#FF4D8D;color:#FF4D8D}
-#map-body{flex:1;display:flex;overflow:hidden}
+#map-body{flex:1;display:flex;overflow:hidden;min-height:0}
 
 /* \uC9C0\uB3C4 iframe \uB798\uD37C */
 #map-iframe-wrap{flex:1;position:relative;overflow:hidden}
@@ -12941,10 +12941,12 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 }
 @media(max-width:1023px){
   #map-body{flex-direction:column}
+  #map-iframe-wrap{height:40%;flex-shrink:0;flex:none;min-height:180px}
   #map-shop-list{
     border-left:none;border-top:1px solid rgba(255,255,255,.08);
-    width:100%!important;height:42%;flex-shrink:0;
+    width:100%!important;flex:1;min-height:0;
   }
+  .map-list-scroll{-webkit-overflow-scrolling:touch}
 }
 @media(min-width:1024px){
   #map-shop-list{width:320px;flex-shrink:0}
@@ -15317,19 +15319,14 @@ document.addEventListener('DOMContentLoaded', function(){
     catsEl.addEventListener('mouseleave', function(){ isDragging = false; catsEl.style.cursor = 'grab'; });
   }
 
-  // \u2500\u2500 PC \uCE74\uD0C8\uB85C\uADF8 \uD328\uB110 (\uD56D\uC0C1 \uB85C\uB4DC, CSS\uB85C \uD45C\uC2DC/\uC228\uAE40 \uC81C\uC5B4) \u2500\u2500
-  fetch('/api/shops').then(function(r){ return r.json(); }).then(function(d){
-    allShopsData = d.shops || [];
-    _injectVideoIntoShops(); // \uAC80\uC0C9 \uCE74\uB4DC\uC6A9 videoUrl/videoThumb \uC8FC\uC785
-    renderShopPanel('all');
-  });
-  document.querySelectorAll('#sp-filter .sp-flt').forEach(function(btn){
-    btn.addEventListener('click', function(){
-      document.querySelectorAll('#sp-filter .sp-flt').forEach(function(b){ b.classList.remove('on'); });
-      btn.classList.add('on');
-      renderShopPanel(btn.getAttribute('data-cat'));
+  // \u2500\u2500 \uC5C5\uCCB4 \uB370\uC774\uD130 \uC0AC\uC804 \uB85C\uB4DC (\uAC80\uC0C9 \uB4F1\uC5D0 \uD65C\uC6A9) \u2500\u2500
+  if (Object.keys(shopCache).length === 0) {
+    fetch('/api/shops').then(function(r){ return r.json(); }).then(function(d){
+      allShopsData = d.shops || [];
+      allShopsData.forEach(function(s){ if(s && s.id) shopCache[s.id] = s; });
+      _injectVideoIntoShops();
     });
-  });
+  }
 });
 
 function renderShopPanel(cat) {
@@ -15376,6 +15373,7 @@ var _mapShops = [];
 var _TAB_COLORS = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa',tattoo:'#e879f9'};
 var _TAB_ICONS  = {skincare:'&#127807;',headspa:'&#128134;',hair:'&#9986;',clinic:'&#128137;',makeup:'&#128132;',spa:'&#9992;',tattoo:'&#9999;'};
 
+document.addEventListener('DOMContentLoaded', function() {
 (function initTabs() {
   var _activeTab   = 'reels';
   var _browseBuilt = false;
@@ -15482,6 +15480,7 @@ var _TAB_ICONS  = {skincare:'&#127807;',headspa:'&#128134;',hair:'&#9986;',clini
 
   window.switchTab = switchTab;
 })();
+}); // DOMContentLoaded
 
 // \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 // Browse (\uCC3E\uAE30) \uBE4C\uB4DC
@@ -15609,10 +15608,15 @@ function renderBrowseGrid(shops) {
     var color   = _TAB_COLORS[s.category] || '#aaa';
     var icon    = _TAB_ICONS[s.category]  || '&#10024;';
     var loc     = (s.location||'Seoul').split(',')[0].trim();
-    // \uC8FC\uC18C \uC815\uC81C: "\uC11C\uC6B8\uC2DC \uAC15\uB0A8\uAD6C ..." \u2192 \uC601\uBB38 \uB610\uB294 \uD55C\uAE00 \uC8FC\uC18C \uADF8\uB300\uB85C \uC0AC\uC6A9
-    var addr    = s.address
-      ? s.address.replace(/, South Korea$/i,'').replace(/, Republic of Korea$/i,'')
-      : (loc ? loc + ', Seoul' : 'Seoul, Korea');
+    // \uC8FC\uC18C \uAC04\uB7B5\uD654: \uB3D9/\uAD6C \uB2E8\uC704\uB9CC \uD45C\uC2DC
+    var addr = loc || 'Seoul';
+    if (s.address) {
+      var _a = s.address.replace(/, ?(South Korea|Republic of Korea)$/i,'');
+      // "Nonhyeon-ro, Gangnam District, Seoul" \u2192 "Gangnam \xB7 Seoul"
+      var _parts = _a.split(',').map(function(p){ return p.trim(); }).filter(Boolean);
+      if (_parts.length >= 2) addr = _parts[_parts.length-2] + ', ' + _parts[_parts.length-1];
+      else addr = _parts[0] || loc;
+    }
     var href    = s.slug ? '/shop/' + s.slug : '#';
     var rating  = s.rating  ? parseFloat(s.rating).toFixed(1)  : '';
     var reviews = s.reviewCount ? s.reviewCount : '';
@@ -15733,17 +15737,19 @@ function setMapIframe(geoShops) {
   var iframe = document.getElementById('map-iframe');
   if (!iframe) return;
   var apiKey = window.__GMAP_KEY__ || '';
-  if (!apiKey || !geoShops.length) {
-    // API \uD0A4 \uC5C6\uC73C\uBA74 OpenStreetMap \uC784\uBCA0\uB4DC
-    iframe.src = 'https://www.openstreetmap.org/export/embed.html?bbox=126.85,37.45,127.15,37.65&layer=mapnik&marker=37.5172,127.0473';
-    return;
+  var center = (geoShops && geoShops.length) ? getMapCenter(geoShops) : {lat:37.5172, lng:127.0473};
+  var zoom = (geoShops && geoShops.length === 1) ? 16 : (_mapArea !== 'all' ? 15 : 13);
+  if (apiKey && geoShops && geoShops.length) {
+    iframe.src = 'https://www.google.com/maps/embed/v1/search?key=' + apiKey
+      + '&q=' + encodeURIComponent('beauty ' + (_mapArea !== 'all' ? _mapArea : 'Seoul') + ' Korea')
+      + '&center=' + center.lat + ',' + center.lng
+      + '&zoom=' + zoom;
+  } else {
+    iframe.src = 'https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d'
+      + Math.round(15000 / Math.pow(2, zoom - 10))
+      + '!2d' + center.lng + '!3d' + center.lat
+      + '!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sen!2skr!4v1';
   }
-  var center = getMapCenter(geoShops);
-  var zoom = geoShops.length === 1 ? 16 : (_mapArea !== 'all' ? 15 : 13);
-  iframe.src = 'https://www.google.com/maps/embed/v1/search?key=' + apiKey
-    + '&q=' + encodeURIComponent('beauty clinic ' + (_mapArea !== 'all' ? _mapArea : 'Seoul') + ' Korea')
-    + '&center=' + center.lat + ',' + center.lng
-    + '&zoom=' + zoom;
 }
 
 function renderMapList(shops) {
@@ -15761,9 +15767,13 @@ function renderMapList(shops) {
     var color  = _TAB_COLORS[s.category] || '#aaa';
     var icon   = _TAB_ICONS[s.category]  || '&#10024;';
     var href   = s.slug ? '/shop/' + s.slug : '#';
-    var addr   = s.address
-      ? s.address.replace(/, South Korea$/i,'').replace(/, Republic of Korea$/i,'')
-      : (s.location||'Seoul');
+    var addr = (s.location||'Seoul').split(',')[0].trim();
+    if (s.address) {
+      var _ma = s.address.replace(/, ?(South Korea|Republic of Korea)$/i,'');
+      var _mp = _ma.split(',').map(function(p){ return p.trim(); }).filter(Boolean);
+      if (_mp.length >= 2) addr = _mp[_mp.length-2] + ', ' + _mp[_mp.length-1];
+      else addr = _mp[0] || addr;
+    }
     var hasGeo = s.lat && s.lng;
     var rating = s.rating ? parseFloat(s.rating).toFixed(1) : '';
     var catLabel = s.category ? (s.category.charAt(0).toUpperCase() + s.category.slice(1)) : '';
@@ -15811,17 +15821,21 @@ window.updateMapToShop = function(e, slug, lat, lng, nameEnc) {
   var card = document.querySelector('.map-pin-card[data-slug="' + slug + '"]');
   if (card) card.classList.add('selected');
   var iframe = document.getElementById('map-iframe');
-  var apiKey = window.__GMAP_KEY__ || '';
-  var name = decodeURIComponent(nameEnc);
-  if (iframe && apiKey) {
-    iframe.src = 'https://www.google.com/maps/embed/v1/place?key=' + apiKey
-      + '&q=' + encodeURIComponent(name + ' Seoul Korea')
-      + '&center=' + lat + ',' + lng + '&zoom=17';
-    // SEO \uD398\uC774\uC9C0\uB85C \uC774\uB3D9 (500ms \uD6C4, \uC9C0\uB3C4 \uC560\uB2C8\uBA54\uC774\uC158 \uBCF4\uACE0 \uB098\uC11C)
+  if (iframe) {
+    var apiKey2 = window.__GMAP_KEY__ || '';
+    if (apiKey2) {
+      var name2 = decodeURIComponent(nameEnc);
+      iframe.src = 'https://www.google.com/maps/embed/v1/place?key=' + apiKey2
+        + '&q=' + encodeURIComponent(name2 + ' Seoul Korea')
+        + '&center=' + lat + ',' + lng + '&zoom=17';
+    } else {
+      iframe.src = 'https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d1000'
+        + '!2d' + lng + '!3d' + lat
+        + '!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sen!2skr!4v1';
+    }
     setTimeout(function(){ location.href = '/shop/' + slug; }, 700);
     e.preventDefault();
   }
-  // apiKey \uC5C6\uC73C\uBA74 href \uADF8\uB300\uB85C \uC774\uB3D9
 };
 
 // \uD638\uD658\uC131 \uC720\uC9C0
