@@ -12404,22 +12404,86 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   .modal{max-width:420px}
   .hint{display:none}
 }
-/* \u2500\u2500 PC \uC0AC\uC774\uB4DC \uCE74\uD0C8\uB85C\uADF8 \uC644\uC804 \uC81C\uAC70 \u2500\u2500 */
+/* \u2500\u2500 PC \uB808\uC774\uC544\uC6C3: \uC88C\uCE21 \uC0AC\uC774\uB4DC\uB124\uBE44 + \uC911\uC559 \uD53C\uB4DC + \uC6B0\uCE21 \uD328\uB110 \u2500\u2500 */
 #shop-panel{display:none!important}
 #pc-layout{display:block!important}
 #feed-col{width:100%}
-/* \u2500\u2500 PC \uBC18\uC751\uD615 (1200px+) \u2500\u2500 */
-@media(min-width:1200px){
-  body{overflow:hidden}
-  /* pc-layout: \uD53C\uB4DC(\uC88C) + \uCE74\uD0C8\uB85C\uADF8(\uC6B0) \uB098\uB780\uD788 */
-  #hd{padding:16px 0 0;left:50%;transform:translateX(-50%);width:420px;max-width:420px;padding-left:16px;padding-right:16px}
+
+/* PC \uC0AC\uC774\uB4DC \uB124\uBE44 (\u22651024px) */
+#pc-sidenav{display:none}
+@media(min-width:1024px){
+  #pc-sidenav{
+    display:flex;flex-direction:column;align-items:center;
+    position:fixed;left:0;top:0;bottom:0;width:72px;
+    background:rgba(8,8,16,.97);backdrop-filter:blur(20px);
+    border-right:1px solid rgba(255,255,255,.07);
+    z-index:300;padding:24px 0 20px;gap:4px;
+  }
+  #pc-sidenav .pnav-logo{
+    font-size:18px;color:#FF4D8D;margin-bottom:16px;
+    width:42px;height:42px;
+    background:linear-gradient(135deg,rgba(232,65,122,.2),rgba(168,85,247,.15));
+    border:1px solid rgba(232,65,122,.25);
+    border-radius:14px;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 4px 16px rgba(232,65,122,.2);
+  }
+  .pnav-btn{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:4px;width:58px;height:58px;border-radius:14px;border:none;
+    background:transparent;cursor:pointer;color:rgba(255,255,255,.3);
+    transition:all .2s cubic-bezier(.22,1,.36,1);-webkit-tap-highlight-color:transparent;
+    position:relative;
+  }
+  .pnav-btn:hover{background:rgba(255,255,255,.07);color:rgba(255,255,255,.75)}
+  .pnav-btn.active{
+    background:linear-gradient(135deg,rgba(232,65,122,.18),rgba(168,85,247,.12));
+    color:#FF4D8D;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.06);
+  }
+  .pnav-btn.active::before{
+    content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);
+    width:3px;height:24px;background:linear-gradient(180deg,#FF4D8D,#a855f7);
+    border-radius:0 3px 3px 0;
+  }
+  .pnav-btn i{font-size:18px;transition:transform .2s}
+  .pnav-btn:hover i{transform:scale(1.1)}
+  .pnav-btn.active i{transform:scale(1.12)}
+  .pnav-btn span{font-size:9px;font-weight:700;letter-spacing:.03em}
+
+  /* \uD53C\uB4DC \uC601\uC5ED: \uC0AC\uC774\uB4DC\uB124\uBE44 \uB108\uBE44\uB9CC\uD07C \uC624\uB978\uCABD\uC73C\uB85C */
+  body{padding-left:72px}
+  #pc-layout{margin-left:0}
+  #hd{left:calc(50% + 36px);transform:translateX(-50%)}
+
+  /* PC\uC5D0\uC11C\uB294 \uD53C\uB4DC \uC911\uC559 \uC815\uB82C \uC720\uC9C0, overflow \uC81C\uAC70 */
   #feed{background:#040408}
   .slide{width:420px;max-width:420px;height:100vh;box-shadow:0 0 80px rgba(232,65,122,.06)}
-  #dots{left:calc(50% - 234px)}
+  #dots{left:calc(50% + 36px - 234px)}
   .modal{max-width:420px}
   .hint{display:none}
 }
-/* \u2500\u2500 PC \uCE74\uD0C8\uB85C\uADF8 \uD328\uB110 \u2500\u2500 */
+@media(min-width:1200px){
+  #hd{left:calc(50% + 36px);transform:translateX(-50%);width:420px;max-width:420px}
+}
+
+/* PC \uC804\uC6A9 \uCF58\uD150\uCE20 \uD328\uB110 (\uCC3E\uAE30/\uB9F5) */
+#pc-content-panel{
+  display:none;
+  position:fixed;left:72px;top:0;right:0;bottom:0;
+  background:#0a0a14;z-index:200;overflow:hidden;
+}
+@media(min-width:1024px){
+  #pc-content-panel.active{display:flex;flex-direction:column}
+}
+#pc-panel-header{
+  flex-shrink:0;display:flex;align-items:center;gap:12px;
+  padding:20px 28px 14px;border-bottom:1px solid rgba(255,255,255,.07);
+  background:rgba(10,10,20,.98);backdrop-filter:blur(16px);
+}
+#pc-panel-title{font-size:22px;font-weight:900;color:#fff;letter-spacing:-.03em}
+#pc-panel-body{flex:1;overflow:hidden;display:flex}
+
+/* pc-layout \uAE30\uC874 \uD328\uB110 CSS (\uC7AC\uC0AC\uC6A9) */
 #pc-layout{display:block;width:100%}
 #feed-col{position:relative}
 #shop-panel{display:none;flex:1;height:100vh;overflow-y:auto;background:#0d0d18;border-left:1px solid rgba(255,255,255,.06);padding:16px;scrollbar-width:thin;scrollbar-color:rgba(255,77,141,.3) transparent}
@@ -12690,16 +12754,21 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 #toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%) translateY(12px);background:rgba(232,65,122,.92);color:#fff;padding:8px 18px;border-radius:18px;font-size:12px;font-weight:700;z-index:600;opacity:0;transition:all .28s;white-space:nowrap;pointer-events:none;backdrop-filter:blur(8px)}
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 
-/* \u2500\u2500 \uD558\uB2E8 \uD0ED\uBC14 \u2500\u2500 */
-/* \u2500\u2500 \uD558\uB2E8 \uD0ED\uBC14: \uBAA8\uBC14\uC77C(<1024px)\uC5D0\uC11C\uB9CC \uD45C\uC2DC \u2500\u2500 */
-#bottom-tabs{position:fixed;bottom:0;left:0;right:0;height:56px;
+/* \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+   \uD558\uB2E8 \uD0ED\uBC14: \uBAA8\uBC14\uC77C(<1024px)\uC5D0\uC11C\uB9CC \uD45C\uC2DC
+   \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
+#bottom-tabs{
+  position:fixed;bottom:0;left:0;right:0;height:56px;
   background:rgba(10,10,20,.97);backdrop-filter:blur(20px);
   border-top:1px solid rgba(255,255,255,.1);
   display:none;align-items:stretch;z-index:9999;
-  box-shadow:0 -4px 20px rgba(0,0,0,.4)}
+  box-shadow:0 -4px 20px rgba(0,0,0,.4)
+}
 @media(max-width:1023px){
   #bottom-tabs{display:flex}
   body{padding-bottom:56px}
+  /* \uBAA8\uBC14\uC77C\uC5D0\uC11C \uC0AC\uC774\uB4DC\uB124\uBE44 \uC228\uAE40 */
+  #pc-sidenav{display:none!important}
 }
 .btab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:3px;border:none;background:transparent;cursor:pointer;
@@ -12713,70 +12782,219 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   transform:translateX(-50%);width:32px;height:2px;
   background:linear-gradient(90deg,#FF4D8D,#a855f7);border-radius:0 0 3px 3px}
 
-/* \u2500\u2500 Browse \uBDF0 (\uBAA8\uBC14\uC77C \uC804\uC6A9 \uC804\uCCB4\uD654\uBA74) \u2500\u2500 */
-#view-browse{display:none;position:fixed;inset:0 0 56px 0;
-  background:#0a0a14;z-index:450;overflow-y:auto}
-@media(min-width:1024px){#view-browse{display:none!important}}
-#view-browse.active{display:block}
-.bw-header{position:sticky;top:0;z-index:10;background:rgba(10,10,20,.96);
-  backdrop-filter:blur(16px);padding:14px 16px 10px;
-  border-bottom:1px solid rgba(255,255,255,.07)}
-.bw-title{font-size:17px;font-weight:900;color:#fff;letter-spacing:-.02em}
-.bw-filters{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-top:10px;padding-bottom:2px}
-.bw-filters::-webkit-scrollbar{display:none}
-.bw-chip{flex-shrink:0;padding:5px 13px;border-radius:20px;
-  border:1px solid rgba(255,255,255,.12);background:transparent;
-  color:rgba(255,255,255,.5);font-size:11px;font-weight:700;cursor:pointer;
-  transition:all .15s;-webkit-tap-highlight-color:transparent}
-.bw-chip.on{background:rgba(255,77,141,.15);border-color:#FF4D8D;color:#FF4D8D}
-.bw-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px}
-.bw-card{background:rgba(255,255,255,.04);border-radius:14px;overflow:hidden;
-  border:1px solid rgba(255,255,255,.07);cursor:pointer;
-  transition:transform .15s,border-color .15s;
-  -webkit-tap-highlight-color:transparent;text-decoration:none;display:block}
-.bw-card:active{transform:scale(.97)}
-.bw-card-img{width:100%;aspect-ratio:1/1;object-fit:cover;background:#13132a;display:block}
-.bw-card-body{padding:9px 10px 10px}
-.bw-card-name{font-size:12px;font-weight:800;color:#fff;line-height:1.3;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.bw-card-tag{font-size:10px;font-weight:600;margin-top:4px;display:flex;align-items:center;gap:3px}
-.bw-card-meta{display:flex;align-items:center;justify-content:space-between;margin-top:5px}
-.bw-card-loc{font-size:10px;color:rgba(255,255,255,.35);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.bw-card-rating{font-size:10px;font-weight:700;color:#f59e0b;flex-shrink:0}
+/* \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+   Browse / Map \uBDF0
+   \uBAA8\uBC14\uC77C: position:fixed \uC804\uCCB4\uD654\uBA74
+   PC: pc-content-panel \uC548\uC5D0\uC11C \uD45C\uC2DC
+   \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
 
-/* \u2500\u2500 Map \uBDF0 (\uBAA8\uBC14\uC77C \uC804\uC6A9 \uC804\uCCB4\uD654\uBA74) \u2500\u2500 */
-#view-map{display:none;position:fixed;inset:0 0 56px 0;
-  background:#0a0a14;z-index:450;flex-direction:column}
-@media(min-width:1024px){#view-map{display:none!important}}
+/* --- \uBAA8\uBC14\uC77C \uC804\uCCB4\uD654\uBA74 --- */
+#view-browse{
+  display:none;position:fixed;inset:0 0 56px 0;
+  background:#0a0a14;z-index:450;overflow-y:auto;flex-direction:column;
+}
+#view-browse.active{display:flex}
+
+#view-map{
+  display:none;position:fixed;inset:0 0 56px 0;
+  background:#0a0a14;z-index:450;flex-direction:column;
+}
 #view-map.active{display:flex}
-#map-iframe-wrap{flex:1;position:relative;overflow:hidden}
-#map-iframe-wrap iframe{width:100%;height:100%;border:none;display:block}
-.map-shop-drawer{position:absolute;bottom:0;left:0;right:0;
-  background:rgba(10,10,20,.97);backdrop-filter:blur(20px);
-  border-top:1px solid rgba(255,255,255,.1);border-radius:16px 16px 0 0;
-  max-height:50%;overflow-y:auto;
-  transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);z-index:10}
-.map-shop-drawer.open{transform:translateY(0)}
-.map-drawer-handle{width:36px;height:3px;background:rgba(255,255,255,.2);border-radius:2px;margin:10px auto 6px;cursor:pointer}
-.map-pin-list{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:6px 12px 14px}
-.map-pin-list::-webkit-scrollbar{display:none}
-.map-pin-card{flex-shrink:0;width:140px;background:rgba(255,255,255,.05);border-radius:12px;
-  overflow:hidden;cursor:pointer;border:1px solid rgba(255,255,255,.08);
-  transition:border-color .15s;-webkit-tap-highlight-color:transparent}
-.map-pin-card.selected{border-color:#FF4D8D}
-.map-pin-card img{width:100%;height:80px;object-fit:cover;background:#13132a;display:block}
-.map-pin-card-body{padding:7px 8px 8px}
-.map-pin-name{font-size:11px;font-weight:700;color:#fff;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.3}
-.map-pin-cat{font-size:9px;color:rgba(255,255,255,.4);margin-top:2px}
-.map-area-filters{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:10px 12px 0}
+
+/* --- PC\uC5D0\uC11C\uB294 fixed \uD574\uC81C, \uD328\uB110 \uB0B4\uBD80\uC5D0\uC11C flex --- */
+@media(min-width:1024px){
+  #view-browse,#view-map{
+    position:static;inset:auto;
+    flex:1;height:100%;overflow:hidden;
+  }
+  #view-browse.active,#view-map.active{display:flex}
+  /* \uBAA8\uBC14\uC77C \uD0ED\uBC14 \uC228\uAE40 */
+  #bottom-tabs{display:none!important}
+  body{padding-bottom:0}
+}
+
+/* \u2500\u2500 Browse \uB0B4\uBD80 \uC2A4\uD0C0\uC77C \u2500\u2500 */
+.bw-layout{display:flex;flex-direction:column;height:100%;overflow:hidden}
+.bw-header{
+  flex-shrink:0;position:sticky;top:0;z-index:10;
+  background:rgba(10,10,20,.98);backdrop-filter:blur(20px);
+  padding:18px 20px 14px;border-bottom:1px solid rgba(255,255,255,.07)
+}
+.bw-header-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px}
+.bw-title{font-size:22px;font-weight:900;color:#fff;letter-spacing:-.03em;line-height:1.2}
+.bw-subtitle{font-size:11px;color:rgba(255,255,255,.35);margin-top:3px;font-weight:500}
+.bw-filter-group{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.bw-filter-group:last-child{margin-bottom:0}
+.bw-filter-row{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;flex:1}
+.bw-filter-row::-webkit-scrollbar{display:none}
+.bw-filter-label{font-size:10px;font-weight:800;color:rgba(255,255,255,.3);letter-spacing:1px;
+  text-transform:uppercase;white-space:nowrap;align-self:center;flex-shrink:0;width:52px}
+.bw-chip{
+  flex-shrink:0;padding:5px 12px;border-radius:18px;
+  border:1px solid rgba(255,255,255,.1);background:transparent;
+  color:rgba(255,255,255,.45);font-size:10.5px;font-weight:700;cursor:pointer;
+  transition:all .15s;-webkit-tap-highlight-color:transparent;white-space:nowrap
+}
+.bw-chip:hover{background:rgba(255,255,255,.06);color:rgba(255,255,255,.7)}
+.bw-chip.on{background:rgba(255,77,141,.15);border-color:#FF4D8D;color:#FF4D8D}
+.bw-body{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,77,141,.2) transparent}
+.bw-body::-webkit-scrollbar{width:4px}
+.bw-body::-webkit-scrollbar-thumb{background:rgba(255,77,141,.2);border-radius:2px}
+.bw-section-label{
+  padding:14px 20px 6px;font-size:10px;font-weight:800;
+  color:rgba(255,255,255,.28);letter-spacing:1.2px;text-transform:uppercase
+}
+.bw-grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:12px;padding:0 16px 24px
+}
+@media(min-width:768px){
+  .bw-grid{grid-template-columns:repeat(3,1fr);gap:14px;padding:0 20px 28px}
+}
+@media(min-width:1024px){
+  .bw-grid{grid-template-columns:repeat(3,1fr);gap:16px;padding:0 24px 36px}
+}
+@media(min-width:1400px){
+  .bw-grid{grid-template-columns:repeat(4,1fr);gap:18px}
+}
+.bw-card{
+  background:rgba(255,255,255,.04);border-radius:16px;overflow:hidden;
+  border:1px solid rgba(255,255,255,.07);
+  transition:transform .18s,border-color .18s,box-shadow .18s;
+  -webkit-tap-highlight-color:transparent;text-decoration:none;display:flex;flex-direction:column;
+  position:relative;
+}
+.bw-card:hover{transform:translateY(-4px);border-color:rgba(232,65,122,.4);box-shadow:0 12px 32px rgba(0,0,0,.5),0 0 0 1px rgba(232,65,122,.15)}
+.bw-card:active{transform:scale(.97)}
+/* \uC774\uBBF8\uC9C0 \uB798\uD37C \u2014 \uBC43\uC9C0 \uD3EC\uC9C0\uC154\uB2DD\uC6A9 */
+.bw-card-img-wrap{position:relative;overflow:hidden;flex-shrink:0}
+.bw-card-img{width:100%;aspect-ratio:16/10;object-fit:cover;background:#13132a;display:block;transition:transform .35s}
+.bw-card:hover .bw-card-img{transform:scale(1.04)}
+/* \uCE74\uD14C\uACE0\uB9AC \uBC43\uC9C0 (\uC774\uBBF8\uC9C0 \uC704 \uC88C\uD558\uB2E8) */
+.bw-card-cat-badge{
+  position:absolute;bottom:8px;left:8px;
+  padding:3px 8px;border-radius:10px;
+  border:1px solid;font-size:9px;font-weight:800;
+  letter-spacing:.6px;text-transform:uppercase;
+  backdrop-filter:blur(6px);background:rgba(0,0,0,.45);
+}
+/* \uD3C9\uC810 \uBC43\uC9C0 (\uC774\uBBF8\uC9C0 \uC704 \uC6B0\uC0C1\uB2E8) */
+.bw-card-rating-badge{
+  position:absolute;top:8px;right:8px;
+  display:flex;align-items:center;gap:3px;
+  padding:3px 7px;border-radius:10px;
+  background:rgba(0,0,0,.6);backdrop-filter:blur(6px);
+  font-size:11px;font-weight:800;color:#f59e0b;
+  border:1px solid rgba(245,158,11,.25);
+}
+/* \uCE74\uB4DC \uBCF8\uBB38 */
+.bw-card-body{padding:11px 13px 13px;flex:1;display:flex;flex-direction:column;gap:5px}
+.bw-card-name{font-size:13px;font-weight:800;color:#fff;line-height:1.35;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.bw-card-addr{
+  font-size:10px;color:rgba(255,255,255,.4);
+  display:flex;align-items:flex-start;gap:4px;
+  line-height:1.4;
+}
+.bw-card-addr span{overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.bw-card-footer{display:flex;align-items:center;justify-content:space-between;margin-top:auto;padding-top:6px;border-top:1px solid rgba(255,255,255,.05)}
+.bw-card-stars{display:flex;align-items:center;gap:2px;font-size:10px;font-weight:700;color:#f59e0b}
+.bw-card-reviews{font-size:9px;color:rgba(255,255,255,.3);font-weight:500;margin-left:2px}
+.bw-card-cta{font-size:10px;font-weight:700;color:rgba(232,65,122,.7);display:flex;align-items:center;gap:3px;white-space:nowrap}
+
+/* \u2500\u2500 Map \uB0B4\uBD80 \uC2A4\uD0C0\uC77C \u2500\u2500 */
+#map-top-bar{
+  flex-shrink:0;display:flex;align-items:center;gap:10px;
+  padding:16px 20px 13px;background:rgba(10,10,20,.98);
+  border-bottom:1px solid rgba(255,255,255,.07);backdrop-filter:blur(20px)
+}
+#map-top-bar-title{font-size:18px;font-weight:900;color:#fff;flex-shrink:0;white-space:nowrap}
+.map-area-filters{
+  flex:1;display:flex;gap:6px;overflow-x:auto;
+  scrollbar-width:none;padding:0
+}
 .map-area-filters::-webkit-scrollbar{display:none}
-.map-area-chip{flex-shrink:0;padding:4px 11px;border-radius:16px;
+.map-area-chip{
+  flex-shrink:0;padding:5px 12px;border-radius:16px;
   border:1px solid rgba(255,255,255,.1);background:transparent;
   color:rgba(255,255,255,.45);font-size:10px;font-weight:700;cursor:pointer;
-  transition:all .15s;-webkit-tap-highlight-color:transparent}
+  transition:all .15s;-webkit-tap-highlight-color:transparent
+}
 .map-area-chip.on{background:rgba(255,77,141,.15);border-color:#FF4D8D;color:#FF4D8D}
-.map-no-coords{padding:20px;text-align:center;color:rgba(255,255,255,.3);font-size:12px}
+#map-body{flex:1;display:flex;overflow:hidden}
+
+/* \uC9C0\uB3C4 iframe \uB798\uD37C */
+#map-iframe-wrap{flex:1;position:relative;overflow:hidden}
+#map-iframe-wrap iframe{width:100%;height:100%;border:none;display:block}
+
+/* \uC5C5\uCCB4 \uBAA9\uB85D \uC0AC\uC774\uB4DC\uBC14 (PC) / \uB4DC\uB85C\uC5B4 (\uBAA8\uBC14\uC77C) */
+#map-shop-list{
+  background:rgba(8,8,16,.98);border-left:1px solid rgba(255,255,255,.07);
+  display:flex;flex-direction:column;overflow:hidden;
+  transition:width .3s;
+}
+@media(max-width:1023px){
+  #map-body{flex-direction:column}
+  #map-shop-list{
+    border-left:none;border-top:1px solid rgba(255,255,255,.08);
+    width:100%!important;height:42%;flex-shrink:0;
+  }
+}
+@media(min-width:1024px){
+  #map-shop-list{width:320px;flex-shrink:0}
+}
+.map-list-header{
+  flex-shrink:0;padding:12px 16px 8px;
+  border-bottom:1px solid rgba(255,255,255,.06)
+}
+.map-list-count{font-size:11px;font-weight:700;color:rgba(255,255,255,.4);letter-spacing:.05em;text-transform:uppercase}
+.map-list-scroll{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,77,141,.2) transparent}
+.map-list-scroll::-webkit-scrollbar{width:4px}
+.map-list-scroll::-webkit-scrollbar-thumb{background:rgba(255,77,141,.2);border-radius:2px}
+.map-pin-card{
+  display:flex;align-items:center;gap:11px;
+  padding:11px 14px;border-bottom:1px solid rgba(255,255,255,.05);
+  cursor:pointer;transition:background .15s,border-left-color .15s;text-decoration:none;
+  -webkit-tap-highlight-color:transparent;border-left:3px solid transparent;
+}
+.map-pin-card:hover{background:rgba(255,255,255,.05);border-left-color:rgba(255,77,141,.3)}
+.map-pin-card.selected{background:rgba(232,65,122,.09);border-left-color:#FF4D8D}
+/* \uC774\uBBF8\uC9C0 \uB798\uD37C \u2014 \uC704\uCE58 dot \uC624\uBC84\uB808\uC774 */
+.map-pin-img-wrap{position:relative;flex-shrink:0;width:54px;height:54px}
+.map-pin-img-wrap img{width:54px;height:54px;border-radius:10px;object-fit:cover;background:#13132a;display:block}
+/* \uC704\uCE58 \uBCF4\uC720 \uC5C5\uCCB4: \uC6B0\uD558\uB2E8 \uB179\uC0C9 dot */
+.map-pin-geo-dot{
+  position:absolute;bottom:2px;right:2px;
+  width:10px;height:10px;border-radius:50%;
+  background:#22c55e;border:2px solid rgba(8,8,16,.9);
+}
+.map-pin-card-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.map-pin-name{font-size:12px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.map-pin-cat{font-size:10px;font-weight:700;margin-top:1px}
+.map-pin-addr{font-size:10px;color:rgba(255,255,255,.32);margin-top:2px;
+  display:flex;align-items:flex-start;gap:3px;line-height:1.4}
+.map-pin-addr span{overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+/* \uC6B0\uCE21 \uC561\uC158 \uC601\uC5ED */
+.map-pin-action{display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0}
+.map-pin-link-map{
+  width:28px;height:28px;border-radius:8px;
+  background:rgba(255,77,141,.15);border:1px solid rgba(255,77,141,.3);
+  display:flex;align-items:center;justify-content:center;
+  color:#FF4D8D;font-size:11px;transition:all .15s;
+}
+.map-pin-card:hover .map-pin-link-map{background:rgba(255,77,141,.25)}
+.map-pin-link-info{
+  width:28px;height:28px;border-radius:8px;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+  display:flex;align-items:center;justify-content:center;
+  color:rgba(255,255,255,.4);font-size:11px;
+}
+.map-pin-rating{font-size:10px;font-weight:700;color:#f59e0b;display:flex;align-items:center;gap:2px}
+.map-no-coords{padding:40px 20px;text-align:center;color:rgba(255,255,255,.25);font-size:13px}
+
+/* \uB4DC\uB85C\uC5B4 \uAD00\uB828 (\uBAA8\uBC14\uC77C \uC774\uC804 \uCF54\uB4DC \uD638\uD658) */
+.map-shop-drawer,.map-drawer-handle,.map-pin-list{display:none}
 </style>
 </head>
 <body>
@@ -12852,6 +13070,26 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   </div>
 </div>
 
+<!-- PC \uC0AC\uC774\uB4DC \uB124\uBE44 (\u22651024px) -->
+<nav id="pc-sidenav" aria-label="Site navigation">
+  <div class="pnav-logo"><i class="fas fa-star"></i></div>
+  <button class="pnav-btn active" id="pnav-reels" data-tab="reels" aria-label="\uD648 \uD53C\uB4DC">
+    <i class="fas fa-home"></i><span>\uD648</span>
+  </button>
+  <button class="pnav-btn" id="pnav-browse" data-tab="browse" aria-label="\uC5C5\uCCB4 \uCC3E\uAE30">
+    <i class="fas fa-search"></i><span>\uCC3E\uAE30</span>
+  </button>
+  <button class="pnav-btn" id="pnav-map" data-tab="map" aria-label="\uC9C0\uB3C4">
+    <i class="fas fa-map-marked-alt"></i><span>\uB9F5</span>
+  </button>
+</nav>
+
+<!-- PC \uCF58\uD150\uCE20 \uD328\uB110 (\uCC3E\uAE30/\uB9F5) -->
+<div id="pc-content-panel">
+  <div id="view-browse" role="main" aria-label="Browse clinics"></div>
+  <div id="view-map" role="main" aria-label="Map view"></div>
+</div>
+
 <!-- \uD53C\uB4DC \uB798\uD37C -->
 <div id="pc-layout">
   <div id="feed-col" style="position:relative">
@@ -12862,65 +13100,18 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 </div>
 <div id="toast" role="status" aria-live="polite"></div>
 
-<!-- \u2500\u2500 \uD558\uB2E8 \uD0ED\uBC14 (\uBAA8\uBC14\uC77C \uC804\uC6A9) \u2500\u2500 -->
+<!-- \uD558\uB2E8 \uD0ED\uBC14 (\uBAA8\uBC14\uC77C \uC804\uC6A9) -->
 <nav id="bottom-tabs" aria-label="Main navigation">
   <button class="btab active" id="btab-reels" data-tab="reels" aria-label="\uD648">
-    <i class="fas fa-home"></i>
-    <span>\uD648</span>
+    <i class="fas fa-home"></i><span>\uD648</span>
   </button>
   <button class="btab" id="btab-browse" data-tab="browse" aria-label="\uCC3E\uAE30">
-    <i class="fas fa-search"></i>
-    <span>\uCC3E\uAE30</span>
+    <i class="fas fa-search"></i><span>\uCC3E\uAE30</span>
   </button>
   <button class="btab" id="btab-map" data-tab="map" aria-label="\uB9F5">
-    <i class="fas fa-map-marked-alt"></i>
-    <span>\uB9F5</span>
+    <i class="fas fa-map-marked-alt"></i><span>\uB9F5</span>
   </button>
 </nav>
-
-<!-- \u2500\u2500 Browse \uBDF0 \u2500\u2500 -->
-<div id="view-browse" role="main" aria-label="Browse clinics">
-  <div class="bw-header">
-    <div class="bw-title">Seoul Beauty Guide</div>
-    <div class="bw-filters" id="bw-filters">
-      <button class="bw-chip on" data-cat="all">All</button>
-      <button class="bw-chip" data-cat="clinic">Clinic</button>
-      <button class="bw-chip" data-cat="headspa">Head Spa</button>
-      <button class="bw-chip" data-cat="skincare">Skincare</button>
-      <button class="bw-chip" data-cat="hair">Hair</button>
-      <button class="bw-chip" data-cat="makeup">Makeup</button>
-      <button class="bw-chip" data-cat="spa">Spa</button>
-    </div>
-  </div>
-  <div class="bw-grid" id="bw-grid"></div>
-</div>
-
-<!-- \u2500\u2500 Map \uBDF0 \u2500\u2500 -->
-<div id="view-map" role="main" aria-label="Map view">
-  <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:rgba(10,10,20,.95);border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0">
-    <div style="font-size:16px;font-weight:900;color:#fff">\u{1F4CD} Shop Map</div>
-    <div class="map-area-filters" id="map-area-filters" style="flex:1;padding:0;margin:0">
-      <button class="map-area-chip on" data-area="all">All</button>
-      <button class="map-area-chip" data-area="Gangnam">Gangnam</button>
-      <button class="map-area-chip" data-area="Hongdae">Hongdae</button>
-      <button class="map-area-chip" data-area="Myeongdong">Myeongdong</button>
-      <button class="map-area-chip" data-area="Sinsa">Sinsa</button>
-      <button class="map-area-chip" data-area="Itaewon">Itaewon</button>
-    </div>
-  </div>
-  <div id="map-iframe-wrap">
-    <iframe id="map-iframe" src="" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade" title="Seoul Beauty Map"></iframe>
-  </div>
-  <!-- \uC5C5\uCCB4 \uD540 \uBAA9\uB85D drawer -->
-  <div class="map-shop-drawer" id="map-drawer">
-    <div class="map-drawer-handle" id="mapDrawerHandle"></div>
-    <div style="padding:0 12px 4px;display:flex;align-items:center;justify-content:space-between">
-      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.05em;text-transform:uppercase" id="map-drawer-count">Shops</div>
-      <button onclick="closeMapDrawer()" style="background:transparent;border:none;color:rgba(255,255,255,.3);font-size:13px;cursor:pointer;padding:4px"><i class="fas fa-chevron-down"></i></button>
-    </div>
-    <div class="map-pin-list" id="map-pin-list"></div>
-  </div>
-</div>
 
 <!-- \uAD00\uB9AC\uC790 \uBAA8\uB2EC: JS\uB85C \uB3D9\uC801 \uC0BD\uC785 (\uD06C\uB864\uB7EC HTML\uC5D0 \uB178\uCD9C \uBC29\uC9C0) -->
 <div id="adminModal"></div>
@@ -15167,73 +15358,191 @@ function renderShopPanel(cat) {
   }).join('');
 }
 
-// \u2500\u2500 \uD558\uB2E8 \uD0ED \uCD08\uAE30\uD654 \u2500\u2500
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+// \uD0ED \uC2DC\uC2A4\uD15C: \uD648 / \uCC3E\uAE30 / \uB9F5
+// PC(\u22651024px): \uC0AC\uC774\uB4DC\uB124\uBE44 + pc-content-panel \uD328\uB110 \uC804\uD658
+// \uBAA8\uBC14\uC77C(<1024px): \uD558\uB2E8 \uD0ED\uBC14 + fixed \uC804\uCCB4\uD654\uBA74 \uC804\uD658
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+var _bwCat  = 'all';
+var _bwArea = 'all';
+var _mapArea = 'all';
+var _mapShops = [];
+var _TAB_COLORS = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa',tattoo:'#e879f9'};
+var _TAB_ICONS  = {skincare:'&#127807;',headspa:'&#128134;',hair:'&#9986;',clinic:'&#128137;',makeup:'&#128132;',spa:'&#9992;',tattoo:'&#9999;'};
+
 (function initTabs() {
-  var _activeTab = 'reels';
+  var _activeTab   = 'reels';
   var _browseBuilt = false;
-  var _mapBuilt = false;
+  var _mapBuilt    = false;
+  var _isPC        = window.innerWidth >= 1024;
+
+  function isPC() { return window.innerWidth >= 1024; }
+
+  function setNavActive(tab) {
+    // \uBAA8\uBC14\uC77C \uD0ED\uBC14
+    document.querySelectorAll('.btab').forEach(function(b){
+      b.classList.toggle('active', b.dataset.tab === tab);
+    });
+    // PC \uC0AC\uC774\uB4DC\uB124\uBE44
+    document.querySelectorAll('.pnav-btn').forEach(function(b){
+      b.classList.toggle('active', b.dataset.tab === tab);
+    });
+  }
 
   function switchTab(tab) {
     if (_activeTab === tab) return;
     _activeTab = tab;
+    setNavActive(tab);
 
-    // \uBC84\uD2BC active \uC0C1\uD0DC
-    document.querySelectorAll('.btab').forEach(function(btn) {
-      btn.classList.toggle('active', btn.dataset.tab === tab);
-    });
-
-    var pcLayout   = document.getElementById('pc-layout');
-    var hd         = document.getElementById('hd');
-    var viewBrowse = document.getElementById('view-browse');
-    var viewMap    = document.getElementById('view-map');
+    var pcLayout    = document.getElementById('pc-layout');
+    var hd          = document.getElementById('hd');
+    var pcPanel     = document.getElementById('pc-content-panel');
+    var viewBrowse  = document.getElementById('view-browse');
+    var viewMap     = document.getElementById('view-map');
 
     if (tab === 'reels') {
+      // \uCC3E\uAE30/\uB9F5 \uC228\uAE30\uAE30
       if (viewBrowse) viewBrowse.classList.remove('active');
       if (viewMap)    viewMap.classList.remove('active');
-      if (pcLayout)   pcLayout.style.display = '';
-      if (hd)         hd.style.display = '';
+      if (pcPanel)    pcPanel.classList.remove('active');
+      // \uD53C\uB4DC \uBCF4\uC774\uAE30
+      if (pcLayout) pcLayout.style.display = '';
+      if (hd)       hd.style.display = '';
+      // \uC601\uC0C1 \uC7AC\uAC1C
       var cur = document.querySelector('.slide.current video');
       if (cur) { try { cur.play(); } catch(e){} }
-    } else {
-      document.querySelectorAll('#feed video').forEach(function(v){ try{v.pause();}catch(e){} });
-      if (pcLayout) pcLayout.style.display = 'none';
-      if (hd)       hd.style.display = 'none';
 
-      if (tab === 'browse') {
-        if (viewMap)    viewMap.classList.remove('active');
-        if (viewBrowse) viewBrowse.classList.add('active');
-        if (!_browseBuilt) { _browseBuilt = true; buildBrowse(); }
-      } else if (tab === 'map') {
-        if (viewBrowse) viewBrowse.classList.remove('active');
-        if (viewMap)    viewMap.classList.add('active');
-        if (!_mapBuilt) { _mapBuilt = true; buildMap(); }
+    } else {
+      // \uC601\uC0C1 \uC815\uC9C0
+      document.querySelectorAll('#feed video').forEach(function(v){ try{v.pause();}catch(e){} });
+
+      if (isPC()) {
+        // PC: \uD53C\uB4DC\uB294 \uC720\uC9C0, pc-content-panel \uD65C\uC131\uD654
+        if (pcLayout) pcLayout.style.display = 'none';
+        if (hd)       hd.style.display = 'none';
+        if (pcPanel)  pcPanel.classList.add('active');
+        if (tab === 'browse') {
+          if (viewMap)   { viewMap.classList.remove('active'); viewMap.style.display = 'none'; }
+          if (viewBrowse){ viewBrowse.classList.add('active'); viewBrowse.style.display = ''; }
+          if (!_browseBuilt) { _browseBuilt = true; buildBrowse(); }
+        } else if (tab === 'map') {
+          if (viewBrowse){ viewBrowse.classList.remove('active'); viewBrowse.style.display = 'none'; }
+          if (viewMap)   { viewMap.classList.add('active'); viewMap.style.display = ''; }
+          if (!_mapBuilt) { _mapBuilt = true; buildMap(); }
+        }
+      } else {
+        // \uBAA8\uBC14\uC77C: fixed \uC804\uCCB4\uD654\uBA74
+        if (pcLayout) pcLayout.style.display = 'none';
+        if (hd)       hd.style.display = 'none';
+        if (tab === 'browse') {
+          if (viewMap)   viewMap.classList.remove('active');
+          if (viewBrowse)viewBrowse.classList.add('active');
+          if (!_browseBuilt) { _browseBuilt = true; buildBrowse(); }
+        } else if (tab === 'map') {
+          if (viewBrowse)viewBrowse.classList.remove('active');
+          if (viewMap)   viewMap.classList.add('active');
+          if (!_mapBuilt) { _mapBuilt = true; buildMap(); }
+        }
       }
     }
   }
 
-  document.querySelectorAll('.btab').forEach(function(btn) {
+  // \uC774\uBCA4\uD2B8 \uB4F1\uB85D (\uBAA8\uBC14\uC77C \uD0ED\uBC14 + PC \uC0AC\uC774\uB4DC\uB124\uBE44 \uD1B5\uD569)
+  document.querySelectorAll('.btab, .pnav-btn').forEach(function(btn) {
     btn.addEventListener('click', function() {
       switchTab(btn.dataset.tab || 'reels');
     });
   });
 
+  // \uD654\uBA74 \uD06C\uAE30 \uBCC0\uACBD \uC2DC \uD0ED \uC0C1\uD0DC \uC7AC\uC801\uC6A9
+  window.addEventListener('resize', function() {
+    var nowPC = window.innerWidth >= 1024;
+    if (nowPC !== _isPC) {
+      _isPC = nowPC;
+      if (_activeTab !== 'reels') {
+        var t = _activeTab;
+        _activeTab = 'reels'; // \uAC15\uC81C \uC7AC\uC804\uD658
+        switchTab(t);
+      }
+    }
+  });
+
   window.switchTab = switchTab;
 })();
 
-// \u2500\u2500 Browse \uBE4C\uB4DC \u2500\u2500
-var _bwCat = 'all';
-var catColors = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa',tattoo:'#e879f9'};
-var catIcons  = {skincare:'\u{1F33F}',headspa:'\u{1F486}',hair:'\u2702\uFE0F',clinic:'\u{1F489}',makeup:'\u{1F484}',spa:'\u2668\uFE0F',tattoo:'\u270F\uFE0F'};
-
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+// Browse (\uCC3E\uAE30) \uBE4C\uB4DC
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 function buildBrowse() {
-  var shops = (window.__INIT_SHOPS__ || []);
+  var container = document.getElementById('view-browse');
+  if (!container) return;
 
-  var chips = document.querySelectorAll('#bw-filters .bw-chip');
-  chips.forEach(function(chip) {
+  var shops = (window.__INIT_SHOPS__ || []);
+  var totalCount = shops.length;
+
+  // HTML \uC0BD\uC785
+  container.innerHTML = [
+    '<div class="bw-layout">',
+    '<div class="bw-header">',
+    // \uD5E4\uB354 \uD0C0\uC774\uD2C0 \uD589
+    '<div class="bw-header-top">',
+    '<div>',
+    '<div class="bw-title">Seoul Beauty Guide</div>',
+    '<div class="bw-subtitle">' + totalCount + ' foreigner-friendly shops in Seoul</div>',
+    '</div>',
+    '</div>',
+    // \uCE74\uD14C\uACE0\uB9AC \uD544\uD130
+    '<div class="bw-filter-group">',
+    '<span class="bw-filter-label">Category</span>',
+    '<div class="bw-filter-row" id="bw-cat-filters">',
+    '<button class="bw-chip on" data-cat="all">&#10024; All</button>',
+    '<button class="bw-chip" data-cat="clinic">&#128137; Clinic</button>',
+    '<button class="bw-chip" data-cat="headspa">&#128134; Head Spa</button>',
+    '<button class="bw-chip" data-cat="skincare">&#127807; Skincare</button>',
+    '<button class="bw-chip" data-cat="hair">&#9986; Hair</button>',
+    '<button class="bw-chip" data-cat="makeup">&#128132; Makeup</button>',
+    '<button class="bw-chip" data-cat="spa">&#9992; Spa</button>',
+    '<button class="bw-chip" data-cat="tattoo">&#9999; Tattoo</button>',
+    '</div></div>',
+    // \uC9C0\uC5ED \uD544\uD130
+    '<div class="bw-filter-group">',
+    '<span class="bw-filter-label">Area</span>',
+    '<div class="bw-filter-row" id="bw-area-filters">',
+    '<button class="bw-chip on" data-area="all">&#127758; All Seoul</button>',
+    '<button class="bw-chip" data-area="Gangnam">Gangnam</button>',
+    '<button class="bw-chip" data-area="Seocho">Seocho</button>',
+    '<button class="bw-chip" data-area="Myeongdong">Myeongdong</button>',
+    '<button class="bw-chip" data-area="Hongdae">Hongdae</button>',
+    '<button class="bw-chip" data-area="Itaewon">Itaewon</button>',
+    '<button class="bw-chip" data-area="Sinsa">Sinsa</button>',
+    '<button class="bw-chip" data-area="Apgujeong">Apgujeong</button>',
+    '</div></div>',
+    '</div>', // bw-header
+    '<div class="bw-body">',
+    '<div id="bw-section-label" class="bw-section-label"></div>',
+    '<div class="bw-grid" id="bw-grid"></div>',
+    '</div>',
+    '</div>' // bw-layout
+  ].join('');
+
+  // \uCE74\uD14C\uACE0\uB9AC \uD544\uD130 \uC774\uBCA4\uD2B8
+  var catChips = container.querySelectorAll('#bw-cat-filters .bw-chip');
+  catChips.forEach(function(chip) {
     chip.addEventListener('click', function() {
-      chips.forEach(function(c){ c.classList.remove('on'); });
+      catChips.forEach(function(c){ c.classList.remove('on'); });
       chip.classList.add('on');
       _bwCat = chip.dataset.cat || 'all';
+      renderBrowseGrid(shops);
+    });
+  });
+
+  // \uC9C0\uC5ED \uD544\uD130 \uC774\uBCA4\uD2B8
+  var areaChips = container.querySelectorAll('#bw-area-filters .bw-chip');
+  areaChips.forEach(function(chip) {
+    chip.addEventListener('click', function() {
+      areaChips.forEach(function(c){ c.classList.remove('on'); });
+      chip.classList.add('on');
+      _bwArea = chip.dataset.area || 'all';
       renderBrowseGrid(shops);
     });
   });
@@ -15242,50 +15551,105 @@ function buildBrowse() {
 }
 
 function renderBrowseGrid(shops) {
-  var grid = document.getElementById('bw-grid');
+  var grid    = document.getElementById('bw-grid');
+  var label   = document.getElementById('bw-section-label');
   if (!grid) return;
-  var filtered = _bwCat === 'all' ? shops : shops.filter(function(s){ return s.category === _bwCat; });
+
+  var filtered = shops.filter(function(s) {
+    var catOk  = _bwCat === 'all'  || s.category === _bwCat;
+    var areaOk = _bwArea === 'all' || (s.location||'').toLowerCase().includes(_bwArea.toLowerCase())
+                 || (s.address||'').toLowerCase().includes(_bwArea.toLowerCase());
+    return catOk && areaOk;
+  });
+
+  if (label) {
+    var catName  = _bwCat  === 'all' ? 'All categories' : _bwCat.charAt(0).toUpperCase() + _bwCat.slice(1);
+    var areaName = _bwArea === 'all' ? 'All Seoul'      : _bwArea;
+    label.textContent = filtered.length + ' shops \u2014 ' + catName + ' \xB7 ' + areaName;
+  }
+
   if (!filtered.length) {
-    grid.innerHTML = '<div class="so-empty">No shops found</div>';
+    grid.innerHTML = '<div style="grid-column:1/-1;padding:64px 20px;text-align:center;color:rgba(255,255,255,.25);font-size:14px"><div style="font-size:32px;margin-bottom:12px">\u{1F50D}</div>No shops found.<br><span style="font-size:12px;color:rgba(255,255,255,.18)">Try a different filter combination.</span></div>';
     return;
   }
-  grid.innerHTML = filtered.map(function(s) {
-    var color = catColors[s.category] || '#aaa';
-    var icon  = catIcons[s.category]  || '\u2728';
-    var loc   = (s.location||'Seoul').split(',')[0].trim();
-    var href  = s.slug ? '/shop/' + s.slug : '#';
-    var tagline = '';
-    if (s.reviewSummary && typeof s.reviewSummary === 'string') tagline = s.reviewSummary;
-    else if (s.whyChoose && s.whyChoose.length) { tagline = s.whyChoose[0]; while(tagline.length && !/[a-zA-Z0-9]/.test(tagline[0])){ tagline=tagline.slice(1); } }
-    if (tagline.length > 42) tagline = tagline.slice(0,41) + '\u2026';
 
-    return '<a class="bw-card" href="' + href + '">'
-      + '<img class="bw-card-img" src="' + (s.thumbnail||'') + '" alt="' + escHtml(s.name) + '" loading="lazy">'
+  grid.innerHTML = filtered.map(function(s) {
+    var color   = _TAB_COLORS[s.category] || '#aaa';
+    var icon    = _TAB_ICONS[s.category]  || '&#10024;';
+    var loc     = (s.location||'Seoul').split(',')[0].trim();
+    // \uC8FC\uC18C \uC815\uC81C: "\uC11C\uC6B8\uC2DC \uAC15\uB0A8\uAD6C ..." \u2192 \uC601\uBB38 \uB610\uB294 \uD55C\uAE00 \uC8FC\uC18C \uADF8\uB300\uB85C \uC0AC\uC6A9
+    var addr    = s.address
+      ? s.address.replace(/, South Korea$/i,'').replace(/, Republic of Korea$/i,'')
+      : (loc ? loc + ', Seoul' : 'Seoul, Korea');
+    var href    = s.slug ? '/shop/' + s.slug : '#';
+    var rating  = s.rating  ? parseFloat(s.rating).toFixed(1)  : '';
+    var reviews = s.reviewCount ? s.reviewCount : '';
+    // \uD3C9\uC810 \uBCC4 (1~5 \uC911 \uBC18\uC62C\uB9BC)
+    var starHtml = '';
+    if (rating) {
+      var r = Math.round(parseFloat(rating));
+      for (var si=0;si<5;si++) {
+        starHtml += '<i class="fas fa-star" style="font-size:8px;color:'+(si<r?'#f59e0b':'rgba(255,255,255,.15)')+'"></i>';
+      }
+    }
+    var hasGeo  = s.lat && s.lng;
+    var distBadge = hasGeo ? '' : '';
+    // \uCE74\uD14C\uACE0\uB9AC \uB808\uC774\uBE14 (\uC601\uBB38 \uCCAB\uAE00\uC790 \uB300\uBB38\uC790)
+    var catLabel = s.category ? (s.category.charAt(0).toUpperCase() + s.category.slice(1)) : '';
+    return '<a class="bw-card" href="' + href + '" aria-label="' + escHtml(s.name) + '">'
+      + '<div class="bw-card-img-wrap">'
+      + '<img class="bw-card-img" src="' + escHtml(s.thumbnail||'') + '" alt="' + escHtml(s.name) + '" loading="lazy" onerror="this.style.background=&quot;#13132a&quot;">'
+      + '<div class="bw-card-cat-badge" style="background:' + color + '20;border-color:' + color + '55;color:' + color + '">' + icon + ' ' + escHtml(catLabel) + '</div>'
+      + (rating ? '<div class="bw-card-rating-badge"><i class="fas fa-star" style="font-size:9px;color:#f59e0b"></i> ' + escHtml(rating) + '</div>' : '')
+      + '</div>'
       + '<div class="bw-card-body">'
       + '<div class="bw-card-name">' + escHtml(s.name) + '</div>'
-      + (tagline ? '<div style="font-size:10px;color:rgba(255,255,255,.45);margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.35">' + escHtml(tagline) + '</div>' : '')
-      + '<div class="bw-card-meta">'
-      + '<div class="bw-card-loc"><i class="fas fa-map-marker-alt" style="color:' + color + ';margin-right:3px;font-size:9px"></i>' + escHtml(loc) + '</div>'
-      + '<div class="bw-card-rating">\u2605' + (s.rating||'') + '</div>'
+      + '<div class="bw-card-addr"><i class="fas fa-map-marker-alt" style="color:' + color + ';font-size:9px"></i><span>' + escHtml(addr) + '</span></div>'
+      + '<div class="bw-card-footer">'
+      + (starHtml ? '<div class="bw-card-stars">' + starHtml + (reviews ? '<span class="bw-card-reviews"> ' + escHtml(reviews+'') + '</span>' : '') + '</div>' : '<div class="bw-card-stars" style="color:rgba(255,255,255,.2);font-size:10px">No reviews yet</div>')
+      + '<div class="bw-card-cta">View <i class="fas fa-chevron-right" style="font-size:8px"></i></div>'
       + '</div>'
-      + '<div class="bw-card-tag" style="color:' + color + '">' + icon + ' ' + (s.category||'') + '</div>'
       + '</div>'
       + '</a>';
   }).join('');
 }
 
-// \u2500\u2500 Map \uBE4C\uB4DC \u2500\u2500
-var _mapArea = 'all';
-var _mapShops = [];
-var _selectedShopSlug = '';
-
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+// Map (\uB9F5) \uBE4C\uB4DC
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 function buildMap() {
-  var shops = (window.__INIT_SHOPS__ || []).filter(function(s){ return s.lat && s.lng; });
-  _mapShops = shops;
+  var container = document.getElementById('view-map');
+  if (!container) return;
 
-  setMapIframe(shops);
+  var allShops = (window.__INIT_SHOPS__ || []);
+  // lat/lng \uC5C6\uB294 \uC5C5\uCCB4\uB3C4 \uBAA9\uB85D\uC5D4 \uD45C\uC2DC (\uC9C0\uB3C4 \uD540\uC740 \uC788\uB294 \uAC83\uB9CC)
+  _mapShops = allShops;
 
-  var areaChips = document.querySelectorAll('#map-area-filters .map-area-chip');
+  // HTML \uC0BD\uC785
+  container.innerHTML = [
+    '<div id="map-top-bar">',
+    '<div id="map-top-bar-title">&#128205; Shop Map</div>',
+    '<div class="map-area-filters" id="map-area-filters">',
+    '<button class="map-area-chip on" data-area="all">All Seoul</button>',
+    '<button class="map-area-chip" data-area="Gangnam">Gangnam</button>',
+    '<button class="map-area-chip" data-area="Seocho">Seocho</button>',
+    '<button class="map-area-chip" data-area="Myeongdong">Myeongdong</button>',
+    '<button class="map-area-chip" data-area="Hongdae">Hongdae</button>',
+    '<button class="map-area-chip" data-area="Itaewon">Itaewon</button>',
+    '<button class="map-area-chip" data-area="Sinsa">Sinsa</button>',
+    '</div>',
+    '</div>', // map-top-bar
+    '<div id="map-body">',
+    '<div id="map-iframe-wrap"><iframe id="map-iframe" src="" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade" title="Seoul Beauty Map"></iframe></div>',
+    '<div id="map-shop-list">',
+    '<div class="map-list-header"><div class="map-list-count" id="map-list-count">Loading shops...</div></div>',
+    '<div class="map-list-scroll" id="map-pin-list"></div>',
+    '</div>',
+    '</div>' // map-body
+  ].join('');
+
+  // \uC9C0\uC5ED \uD544\uD130 \uC774\uBCA4\uD2B8
+  var areaChips = container.querySelectorAll('.map-area-chip');
   areaChips.forEach(function(chip) {
     chip.addEventListener('click', function() {
       areaChips.forEach(function(c){ c.classList.remove('on'); });
@@ -15294,81 +15658,121 @@ function buildMap() {
       var filtered = _mapArea === 'all' ? _mapShops : _mapShops.filter(function(s){
         return (s.location||'').toLowerCase().includes(_mapArea.toLowerCase());
       });
-      setMapIframe(filtered);
-      renderMapPins(filtered);
+      setMapIframe(filtered.filter(function(s){ return s.lat && s.lng; }));
+      renderMapList(filtered);
     });
   });
 
-  var handle = document.getElementById('mapDrawerHandle');
-  if (handle) handle.addEventListener('click', function(){ toggleMapDrawer(true); });
-
-  renderMapPins(shops);
-  setTimeout(function(){ toggleMapDrawer(true); }, 1200);
+  setMapIframe(allShops.filter(function(s){ return s.lat && s.lng; }));
+  renderMapList(allShops);
 }
 
 function getMapCenter(shops) {
-  if (!shops.length) return { lat: 37.5172, lng: 127.0473 };
+  var geo = shops.filter(function(s){ return s.lat && s.lng; });
+  if (!geo.length) return { lat: 37.5172, lng: 127.0473 };
   var latSum = 0, lngSum = 0;
-  shops.forEach(function(s){ latSum += parseFloat(s.lat); lngSum += parseFloat(s.lng); });
-  return { lat: latSum/shops.length, lng: lngSum/shops.length };
+  geo.forEach(function(s){ latSum += parseFloat(s.lat); lngSum += parseFloat(s.lng); });
+  return { lat: latSum/geo.length, lng: lngSum/geo.length };
 }
 
-function setMapIframe(shops) {
+function setMapIframe(geoShops) {
   var iframe = document.getElementById('map-iframe');
   if (!iframe) return;
   var apiKey = window.__GMAP_KEY__ || '';
-  if (!shops.length) {
-    iframe.src = 'https://www.google.com/maps/embed/v1/place?key=' + apiKey + '&q=Gangnam,Seoul,Korea&zoom=14';
+  if (!apiKey || !geoShops.length) {
+    // API \uD0A4 \uC5C6\uC73C\uBA74 OpenStreetMap \uC784\uBCA0\uB4DC
+    iframe.src = 'https://www.openstreetmap.org/export/embed.html?bbox=126.85,37.45,127.15,37.65&layer=mapnik&marker=37.5172,127.0473';
     return;
   }
-  var center = getMapCenter(shops);
-  var zoom = shops.length === 1 ? 16 : (_mapArea !== 'all' ? 15 : 13);
+  var center = getMapCenter(geoShops);
+  var zoom = geoShops.length === 1 ? 16 : (_mapArea !== 'all' ? 15 : 13);
   iframe.src = 'https://www.google.com/maps/embed/v1/search?key=' + apiKey
-    + '&q=' + encodeURIComponent('Korean beauty clinic Seoul ' + (_mapArea !== 'all' ? _mapArea : ''))
+    + '&q=' + encodeURIComponent('beauty clinic ' + (_mapArea !== 'all' ? _mapArea : 'Seoul') + ' Korea')
     + '&center=' + center.lat + ',' + center.lng
     + '&zoom=' + zoom;
 }
 
-function renderMapPins(shops) {
-  var list = document.getElementById('map-pin-list');
-  var countEl = document.getElementById('map-drawer-count');
+function renderMapList(shops) {
+  var list    = document.getElementById('map-pin-list');
+  var countEl = document.getElementById('map-list-count');
   if (!list) return;
-  if (countEl) countEl.textContent = shops.length + ' shops nearby';
+  var geoCount = shops.filter(function(s){ return s.lat && s.lng; }).length;
+  if (countEl) countEl.innerHTML = '<strong style="color:#fff">' + shops.length + '</strong> shops'
+    + (geoCount < shops.length ? ' <span style="color:rgba(255,255,255,.25);font-size:9px">(' + geoCount + ' mapped)</span>' : '');
   if (!shops.length) {
-    list.innerHTML = '<div class="map-no-coords">No location data for this area</div>';
+    list.innerHTML = '<div class="map-no-coords"><div style="font-size:28px;margin-bottom:8px">\u{1F5FA}\uFE0F</div>No shops in this area</div>';
     return;
   }
   list.innerHTML = shops.map(function(s) {
-    var color = catColors[s.category] || '#aaa';
-    return '<div class="map-pin-card" data-slug="' + s.slug + '" onclick="selectMapShop(this,&quot;' + s.slug + '&quot;,&quot;' + encodeURIComponent(s.name) + '&quot;,' + s.lat + ',' + s.lng + ')">'
-      + '<img src="' + (s.thumbnail||'') + '" alt="' + escHtml(s.name) + '" loading="lazy">'
+    var color  = _TAB_COLORS[s.category] || '#aaa';
+    var icon   = _TAB_ICONS[s.category]  || '&#10024;';
+    var href   = s.slug ? '/shop/' + s.slug : '#';
+    var addr   = s.address
+      ? s.address.replace(/, South Korea$/i,'').replace(/, Republic of Korea$/i,'')
+      : (s.location||'Seoul');
+    var hasGeo = s.lat && s.lng;
+    var rating = s.rating ? parseFloat(s.rating).toFixed(1) : '';
+    var catLabel = s.category ? (s.category.charAt(0).toUpperCase() + s.category.slice(1)) : '';
+    // onclick\uC740 \uB2E8\uB530\uC634\uD45C \uCDA9\uB3CC \uBC29\uC9C0\uB97C \uC704\uD574 data \uC18D\uC131\uC73C\uB85C \uCC98\uB9AC
+    return '<a class="map-pin-card' + (hasGeo ? ' has-geo' : '') + '" href="' + href + '"'
+      + ' data-slug="' + escHtml(s.slug||'') + '"'
+      + (hasGeo ? ' data-lat="' + s.lat + '" data-lng="' + s.lng + '" data-name="' + encodeURIComponent(s.name) + '"' : '')
+      + '>'
+      + '<div class="map-pin-img-wrap">'
+      + '<img src="' + escHtml(s.thumbnail||'') + '" alt="' + escHtml(s.name) + '" loading="lazy" onerror="this.style.background=&quot;#13132a&quot;">'
+      + (hasGeo ? '<div class="map-pin-geo-dot"></div>' : '')
+      + '</div>'
       + '<div class="map-pin-card-body">'
       + '<div class="map-pin-name">' + escHtml(s.name) + '</div>'
-      + '<div class="map-pin-cat" style="color:' + color + '">' + (catIcons[s.category]||'\u2728') + ' ' + (s.category||'') + '</div>'
-      + '</div></div>';
+      + '<div class="map-pin-cat" style="color:' + color + '">' + icon + ' ' + escHtml(catLabel) + '</div>'
+      + '<div class="map-pin-addr"><i class="fas fa-map-marker-alt" style="color:' + color + ';font-size:8px"></i><span>' + escHtml(addr) + '</span></div>'
+      + '</div>'
+      + '<div class="map-pin-action">'
+      + (hasGeo
+        ? '<div class="map-pin-link-map"><i class="fas fa-map-marker-alt"></i></div>'
+        : '<div class="map-pin-link-info"><i class="fas fa-info-circle"></i></div>')
+      + (rating ? '<div class="map-pin-rating"><i class="fas fa-star" style="font-size:8px;color:#f59e0b"></i> ' + escHtml(rating) + '</div>' : '')
+      + '</div>'
+      + '</a>';
   }).join('');
+
+  // \uC774\uBCA4\uD2B8 \uC704\uC784 \uBC29\uC2DD\uC73C\uB85C \uD074\uB9AD \uCC98\uB9AC (onclick \uC778\uB77C\uC778 \uB300\uC2E0)
+  list.onclick = function(e) {
+    var card = e.target.closest('.map-pin-card.has-geo');
+    if (!card) return;
+    var slug = card.dataset.slug;
+    var lat  = card.dataset.lat;
+    var lng  = card.dataset.lng;
+    var nameEnc = card.dataset.name;
+    if (slug && lat && lng) {
+      updateMapToShop(e, slug, parseFloat(lat), parseFloat(lng), nameEnc);
+    }
+  };
 }
 
-window.selectMapShop = function(el, slug, nameEnc, lat, lng) {
+// \uC5C5\uCCB4 \uD074\uB9AD \uC2DC \uC9C0\uB3C4 \uC774\uB3D9 (SEO \uD398\uC774\uC9C0\uB294 href\uB85C \uC774\uB3D9, \uC6B0\uD074\uB9AD/\uC0C8\uD0ED\uC740 \uC815\uC0C1)
+window.updateMapToShop = function(e, slug, lat, lng, nameEnc) {
+  // \uC9C0\uB3C4 \uC5C5\uB370\uC774\uD2B8
   document.querySelectorAll('.map-pin-card').forEach(function(c){ c.classList.remove('selected'); });
-  if (el) el.classList.add('selected');
-  _selectedShopSlug = slug;
-  var name = decodeURIComponent(nameEnc);
+  var card = document.querySelector('.map-pin-card[data-slug="' + slug + '"]');
+  if (card) card.classList.add('selected');
   var iframe = document.getElementById('map-iframe');
   var apiKey = window.__GMAP_KEY__ || '';
+  var name = decodeURIComponent(nameEnc);
   if (iframe && apiKey) {
     iframe.src = 'https://www.google.com/maps/embed/v1/place?key=' + apiKey
       + '&q=' + encodeURIComponent(name + ' Seoul Korea')
-      + '&center=' + lat + ',' + lng
-      + '&zoom=17';
+      + '&center=' + lat + ',' + lng + '&zoom=17';
+    // SEO \uD398\uC774\uC9C0\uB85C \uC774\uB3D9 (500ms \uD6C4, \uC9C0\uB3C4 \uC560\uB2C8\uBA54\uC774\uC158 \uBCF4\uACE0 \uB098\uC11C)
+    setTimeout(function(){ location.href = '/shop/' + slug; }, 700);
+    e.preventDefault();
   }
+  // apiKey \uC5C6\uC73C\uBA74 href \uADF8\uB300\uB85C \uC774\uB3D9
 };
 
-window.closeMapDrawer = function() { toggleMapDrawer(false); };
-function toggleMapDrawer(open) {
-  var drawer = document.getElementById('map-drawer');
-  if (drawer) drawer.classList.toggle('open', open);
-}
+// \uD638\uD658\uC131 \uC720\uC9C0
+window.closeMapDrawer = function() {};
+window.selectMapShop  = function() {};
 </script>
 
 <!-- \u2605 Best \uB79C\uB529 \uD398\uC774\uC9C0 \uB0B4\uBD80 \uB9C1\uD06C \u2014 \uAD6C\uAE00 \uD06C\uB864\uB7EC\uAC00 \uBC1C\uACAC\uD558\uB3C4\uB85D DOM\uC5D0 \uC0BD\uC785 -->
