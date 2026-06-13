@@ -18987,7 +18987,6 @@ function renderKwTable(keywords, resultEl) {
     + '<th style="padding:7px 8px;text-align:center">\uBE14\uB85C\uADF8 \uC0DD\uC131</th>'
     + '</tr></thead><tbody>';
   keywords.forEach(function(k) {
-    var safekw = (k.keyword || '').split('\\').join('\\\\').split("'").join("\\'").split('"').join('&quot;');
     var dispkw = escHtml(k.keyword || '');
     var volCell = '';
     if (hasTrend) {
@@ -19001,7 +19000,7 @@ function renderKwTable(keywords, resultEl) {
       + '<td style="padding:7px 8px;color:#e2e8f0">' + dispkw + '</td>'
       + volCell
       + '<td style="padding:7px 8px;text-align:center">'
-      + '<button onclick="kwToBlog('' + safekw + '')" style="padding:4px 10px;background:rgba(255,77,141,.15);border:1px solid rgba(255,77,141,.3);border-radius:6px;color:#f9a8d4;font-size:11px;cursor:pointer" title="\uC774 \uD0A4\uC6CC\uB4DC\uB85C \uBE14\uB85C\uADF8 \uC0DD\uC131">'
+      + '<button class="kw-to-blog-btn" data-kw="' + escHtml(k.keyword||'')+'" style="padding:4px 10px;background:rgba(255,77,141,.15);border:1px solid rgba(255,77,141,.3);border-radius:6px;color:#f9a8d4;font-size:11px;cursor:pointer" title="\uC774 \uD0A4\uC6CC\uB4DC\uB85C \uBE14\uB85C\uADF8 \uC0DD\uC131">'
       + '<i class="fas fa-magic"></i> \uC0DD\uC131</button>'
       + '</td></tr>';
   });
@@ -19061,10 +19060,10 @@ window.kwIdeas = async function kwIdeas() {
       qHtml += '<div style="font-size:11px;color:rgba(255,255,255,.35);margin-bottom:8px">\u{1F4AC} People Also Ask \u2014 \uBE14\uB85C\uADF8 \uD14C\uB9C8 \uC544\uC774\uB514\uC5B4 (' + d.questions.length + '\uAC1C)</div>';
       qHtml += '<div style="display:flex;flex-direction:column;gap:6px">';
       d.questions.forEach(function(q) {
-        var safeQ = (q || '').split('\\').join('\\\\').split("'").join("\\'").split('"').join('&quot;');
+        // safeQ removed - using data-kw attribute
         qHtml += '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:7px">';
         qHtml += '<span style="font-size:12px;color:#e2e8f0;flex:1">' + escHtml(q) + '</span>';
-        qHtml += '<button onclick="kwToBlog('' + safeQ + '')" style="flex-shrink:0;padding:4px 10px;background:rgba(255,77,141,.15);border:1px solid rgba(255,77,141,.3);border-radius:6px;color:#f9a8d4;font-size:11px;cursor:pointer"><i class="fas fa-magic"></i> \uC0DD\uC131</button>';
+        qHtml += '<button class="kw-to-blog-btn" data-kw="' + escHtml(q)+'" style="flex-shrink:0;padding:4px 10px;background:rgba(255,77,141,.15);border:1px solid rgba(255,77,141,.3);border-radius:6px;color:#f9a8d4;font-size:11px;cursor:pointer"><i class="fas fa-magic"></i> \uC0DD\uC131</button>';
         qHtml += '</div>';
       });
       qHtml += '</div></div>';
@@ -19102,6 +19101,14 @@ window.kwToBlog = function kwToBlog(keyword) {
   document.getElementById('bl-title').scrollIntoView({ behavior:'smooth', block:'center' });
   document.getElementById('bl-title').focus();
 };
+
+/* \u2500\u2500 kw-to-blog-btn \uC774\uBCA4\uD2B8 \uC704\uC784 (data-kw \uC18D\uC131 \uBC29\uC2DD) \u2500\u2500 */
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest('.kw-to-blog-btn');
+  if (!btn) return;
+  var kw = btn.getAttribute('data-kw') || '';
+  if (kw) window.kwToBlog(kw);
+});
 
 /* \u2500\u2500 DB \uB9AC\uBDF0\uB85C AI \uC694\uC57D\uB9CC \uC0DD\uC131 (\uAD6C\uAE00 API \uD638\uCD9C \uC5C6\uC74C \u2192 \uD06C\uB808\uB527 \uCD5C\uC18C) \u2500\u2500 */
 window.fillSummaries = async function fillSummaries(ids) {

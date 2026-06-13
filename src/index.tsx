@@ -17937,7 +17937,6 @@ function renderKwTable(keywords, resultEl) {
     + '<th style="padding:7px 8px;text-align:center">블로그 생성</th>'
     + '</tr></thead><tbody>';
   keywords.forEach(function(k) {
-    var safekw = (k.keyword || '').split('\\').join('\\\\').split("'").join("\\'").split('"').join('&quot;');
     var dispkw = escHtml(k.keyword || '');
     var volCell = '';
     if (hasTrend) {
@@ -17951,7 +17950,7 @@ function renderKwTable(keywords, resultEl) {
       + '<td style="padding:7px 8px;color:#e2e8f0">' + dispkw + '</td>'
       + volCell
       + '<td style="padding:7px 8px;text-align:center">'
-      + '<button onclick="kwToBlog(\'' + safekw + '\')" style="padding:4px 10px;background:rgba(255,77,141,.15);border:1px solid rgba(255,77,141,.3);border-radius:6px;color:#f9a8d4;font-size:11px;cursor:pointer" title="이 키워드로 블로그 생성">'
+      + '<button class="kw-to-blog-btn" data-kw="' + escHtml(k.keyword||'')+'" style="padding:4px 10px;background:rgba(255,77,141,.15);border:1px solid rgba(255,77,141,.3);border-radius:6px;color:#f9a8d4;font-size:11px;cursor:pointer" title="이 키워드로 블로그 생성">'
       + '<i class="fas fa-magic"></i> 생성</button>'
       + '</td></tr>';
   });
@@ -18011,10 +18010,10 @@ window.kwIdeas = async function kwIdeas() {
       qHtml += '<div style="font-size:11px;color:rgba(255,255,255,.35);margin-bottom:8px">💬 People Also Ask — 블로그 테마 아이디어 (' + d.questions.length + '개)</div>';
       qHtml += '<div style="display:flex;flex-direction:column;gap:6px">';
       d.questions.forEach(function(q) {
-        var safeQ = (q || '').split('\\').join('\\\\').split("'").join("\\'").split('"').join('&quot;');
+        // safeQ removed - using data-kw attribute
         qHtml += '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:7px">';
         qHtml += '<span style="font-size:12px;color:#e2e8f0;flex:1">' + escHtml(q) + '</span>';
-        qHtml += '<button onclick="kwToBlog(\'' + safeQ + '\')" style="flex-shrink:0;padding:4px 10px;background:rgba(255,77,141,.15);border:1px solid rgba(255,77,141,.3);border-radius:6px;color:#f9a8d4;font-size:11px;cursor:pointer"><i class="fas fa-magic"></i> 생성</button>';
+        qHtml += '<button class="kw-to-blog-btn" data-kw="' + escHtml(q)+'" style="flex-shrink:0;padding:4px 10px;background:rgba(255,77,141,.15);border:1px solid rgba(255,77,141,.3);border-radius:6px;color:#f9a8d4;font-size:11px;cursor:pointer"><i class="fas fa-magic"></i> 생성</button>';
         qHtml += '</div>';
       });
       qHtml += '</div></div>';
@@ -18052,6 +18051,14 @@ window.kwToBlog = function kwToBlog(keyword) {
   document.getElementById('bl-title').scrollIntoView({ behavior:'smooth', block:'center' });
   document.getElementById('bl-title').focus();
 };
+
+/* ── kw-to-blog-btn 이벤트 위임 (data-kw 속성 방식) ── */
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest('.kw-to-blog-btn');
+  if (!btn) return;
+  var kw = btn.getAttribute('data-kw') || '';
+  if (kw) window.kwToBlog(kw);
+});
 
 /* ── DB 리뷰로 AI 요약만 생성 (구글 API 호출 없음 → 크레딧 최소) ── */
 window.fillSummaries = async function fillSummaries(ids) {
