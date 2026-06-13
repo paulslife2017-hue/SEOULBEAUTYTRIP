@@ -4710,7 +4710,24 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 <nav class="sp-nav" itemscope itemtype="https://schema.org/SiteNavigationElement">
   <div class="sp-nav-inner">
     <a href="/" class="sp-nav-logo" itemprop="url"><span itemprop="name">Seoul Beauty Trip</span></a>
-    <a href="/" class="sp-nav-back"><i class="fas fa-arrow-left"></i> Catalog</a>
+    <a href="/" class="sp-nav-back" id="sp-nav-back-btn"><i class="fas fa-arrow-left"></i> <span id="sp-nav-back-label">Catalog</span></a>
+<script>
+(function(){
+  var sp=new URLSearchParams(window.location.search);
+  var fr=sp.get('from');
+  if(fr==='map'){
+    var btn=document.getElementById('sp-nav-back-btn');
+    var lbl=document.getElementById('sp-nav-back-label');
+    if(btn) btn.href='/?tab=map';
+    if(lbl) lbl.textContent='Map';
+  } else if(fr==='browse'){
+    var btn2=document.getElementById('sp-nav-back-btn');
+    var lbl2=document.getElementById('sp-nav-back-label');
+    if(btn2) btn2.href='/?tab=browse';
+    if(lbl2) lbl2.textContent='Browse';
+  }
+})();
+</script>
   </div>
 </nav>
 <nav aria-label="breadcrumb" style="background:rgba(0,0,0,.35);padding:7px 16px;font-size:12px;color:rgba(255,255,255,.5);display:flex;align-items:center;gap:4px;flex-wrap:wrap">
@@ -11887,9 +11904,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .map-area-chip.on{background:rgba(255,77,141,.15);border-color:#FF4D8D;color:#FF4D8D}
 #map-body{flex:1;display:flex;overflow:hidden;min-height:0}
 
-/* 지도 iframe 래퍼 */
-#map-iframe-wrap{flex:1;position:relative;overflow:hidden}
-#map-iframe-wrap iframe{width:100%;height:100%;border:none;display:block}
+/* 지도 Leaflet 래퍼 */
+#map-iframe-wrap{flex:1;position:relative;overflow:hidden;display:flex;flex-direction:column}
+#map-leaflet{flex:1;width:100%;min-height:0}
 
 /* 업체 목록 사이드바 (PC) / 드로어 (모바일) */
 #map-shop-list{
@@ -11899,15 +11916,20 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 }
 @media(max-width:1023px){
   #map-body{flex-direction:column}
-  #map-iframe-wrap{height:40%;flex-shrink:0;flex:none;min-height:180px}
+  #map-iframe-wrap{height:45%;flex-shrink:0;flex:none;min-height:200px}
+  #map-leaflet{height:100%}
   #map-shop-list{
     border-left:none;border-top:1px solid rgba(255,255,255,.08);
     width:100%!important;flex:1;min-height:0;
   }
   .map-list-scroll{-webkit-overflow-scrolling:touch}
+  /* 모바일: 패널이 지도 위에 슬라이드업 */
+  #map-shop-panel{max-height:60%}
 }
 @media(min-width:1024px){
-  #map-shop-list{width:320px;flex-shrink:0}
+  #map-shop-list{width:360px;flex-shrink:0}
+  /* PC: 패널이 지도 영역 내 하단에 표시 */
+  #map-shop-panel{max-height:45%}
 }
 .map-list-header{
   flex-shrink:0;padding:12px 16px 8px;
@@ -11960,7 +11982,66 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 
 /* 드로어 관련 (모바일 이전 코드 호환) */
 .map-shop-drawer,.map-drawer-handle,.map-pin-list{display:none}
+/* ── Leaflet 맵 커스텀 스타일 ── */
+#map-leaflet{width:100%;height:100%;z-index:1}
+.leaflet-container{background:#0f0f1e!important;font-family:-apple-system,sans-serif}
+.leaflet-tile-pane{filter:saturate(0.75) brightness(0.85) contrast(1.1)}
+/* 커스텀 마커 핀 */
+.lf-pin{
+  width:32px;height:40px;position:relative;cursor:pointer;
+  filter:drop-shadow(0 3px 8px rgba(0,0,0,.55));
+  transition:transform .15s;
+}
+.lf-pin:hover{transform:scale(1.2) translateY(-3px)}
+.lf-pin svg{width:32px;height:40px}
+.lf-pin.selected{filter:drop-shadow(0 4px 12px rgba(255,77,141,.7));transform:scale(1.25) translateY(-4px)}
+/* 업체 정보 패널 (하단 슬라이드업) */
+#map-shop-panel{
+  position:absolute;bottom:0;left:0;right:0;z-index:500;
+  background:rgba(10,10,20,.97);backdrop-filter:blur(20px);
+  border-top:1px solid rgba(255,255,255,.1);
+  border-radius:16px 16px 0 0;
+  padding:0 0 env(safe-area-inset-bottom,0px);
+  transform:translateY(100%);transition:transform .3s cubic-bezier(.32,1.15,.7,1);
+  max-height:50%;overflow-y:auto;
+}
+#map-shop-panel.open{transform:translateY(0)}
+#map-shop-panel-inner{padding:16px 16px 12px}
+.msp-handle{width:36px;height:4px;border-radius:2px;background:rgba(255,255,255,.15);margin:0 auto 14px}
+.msp-row{display:flex;align-items:flex-start;gap:14px}
+.msp-img{width:64px;height:64px;border-radius:12px;object-fit:cover;background:#13132a;flex-shrink:0}
+.msp-info{flex:1;min-width:0}
+.msp-name{font-size:15px;font-weight:800;color:#fff;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.msp-cat{font-size:11px;font-weight:700;margin-bottom:4px}
+.msp-addr{font-size:11px;color:rgba(255,255,255,.4);display:flex;align-items:flex-start;gap:4px;line-height:1.4}
+.msp-rating{font-size:11px;font-weight:700;color:#f59e0b;margin-top:4px;display:flex;align-items:center;gap:3px}
+.msp-btns{display:flex;gap:8px;margin-top:14px}
+.msp-btn-view{
+  flex:1;padding:11px 0;background:linear-gradient(135deg,#FF4D8D,#e8414a);
+  color:#fff;border:none;border-radius:12px;font-size:13px;font-weight:800;
+  cursor:pointer;text-decoration:none;text-align:center;display:block;
+}
+.msp-btn-view:hover{opacity:.9}
+.msp-btn-close{
+  padding:11px 16px;background:rgba(255,255,255,.07);color:rgba(255,255,255,.55);
+  border:1px solid rgba(255,255,255,.1);border-radius:12px;font-size:13px;font-weight:700;
+  cursor:pointer;white-space:nowrap;
+}
+/* Leaflet 팝업 오버라이드 */
+.leaflet-popup-content-wrapper{
+  background:rgba(10,10,20,.96)!important;border:1px solid rgba(255,255,255,.12)!important;
+  border-radius:12px!important;box-shadow:0 8px 32px rgba(0,0,0,.6)!important;color:#fff!important;padding:0!important;
+}
+.leaflet-popup-tip{background:rgba(10,10,20,.96)!important}
+.leaflet-popup-content{margin:12px 14px!important;font-size:12px!important;color:#fff!important}
+.lf-popup-name{font-size:13px;font-weight:800;color:#fff;margin-bottom:3px;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis}
+.lf-popup-sub{font-size:10px;color:rgba(255,255,255,.4)}
+.leaflet-control-attribution{display:none!important}
+.leaflet-control-zoom a{background:rgba(10,10,20,.92)!important;color:#fff!important;border-color:rgba(255,255,255,.12)!important}
 </style>
+<!-- Leaflet.js CDN (OpenStreetMap, API 키 불필요) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 </head>
 <body>
 <div id="ld">
@@ -14397,6 +14478,17 @@ document.addEventListener('DOMContentLoaded', function() {
       if (_activeTab !== 'reels') { var t = _activeTab; _activeTab = 'reels'; switchTab(t); }
     }
   });
+  // URL 파라미터로 탭 자동 전환 (?tab=map, ?tab=browse)
+  (function(){
+    var sp = new URLSearchParams(window.location.search);
+    var initTab = sp.get('tab');
+    if (initTab === 'map' || initTab === 'browse') {
+      setTimeout(function(){ switchTab(initTab); }, 100);
+      // 파라미터 제거 (히스토리 오염 방지)
+      var cleanUrl = window.location.pathname + (sp.toString().replace(/tab=[^&]*/,'').replace(/^&|&$/,'') ? '?' + sp.toString().replace(/tab=[^&]*/,'').replace(/^&|&$/,'') : '');
+      try { history.replaceState(null, '', cleanUrl); } catch(e){}
+    }
+  })();
 }); // DOMContentLoaded
 
 // ══════════════════════════════════════════════════════
@@ -14568,16 +14660,213 @@ function renderBrowseGrid(shops) {
 }
 
 // ══════════════════════════════════════════════════════
-// Map (맵) 빌드
+// Map (맵) 빌드 — Leaflet.js 인터랙티브 맵
 // ══════════════════════════════════════════════════════
+var _leafletMap = null;       // Leaflet map 인스턴스
+var _leafletMarkers = {};     // { slug: L.Marker }
+var _leafletSelectedSlug = null;
+
+/* 카테고리별 핀 색상 */
+function _getPinColor(category) {
+  var map = {
+    headspa:'#a855f7', skincare:'#22c55e', hair:'#3b82f6',
+    clinic:'#f97316', nail:'#ec4899', makeup:'#f43f5e',
+    spa:'#06b6d4', tattoo:'#6366f1'
+  };
+  return map[category] || '#FF4D8D';
+}
+
+/* SVG 핀 아이콘 생성 */
+function _makePinIcon(color, selected) {
+  var size = selected ? 38 : 32;
+  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="'+size+'" height="'+(size*1.25)+'" viewBox="0 0 32 40">'
+    + '<path d="M16 0C9.37 0 4 5.37 4 12c0 9 12 28 12 28S28 21 28 12C28 5.37 22.63 0 16 0z" fill="'+color+'" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/>'
+    + '<circle cx="16" cy="12" r="5.5" fill="rgba(255,255,255,.92)"/>'
+    + '</svg>';
+  return L.divIcon({
+    html: '<div class="lf-pin' + (selected ? ' selected' : '') + '">' + svg + '</div>',
+    iconSize: [size, size * 1.25],
+    iconAnchor: [size / 2, size * 1.25],
+    popupAnchor: [0, -(size * 1.25)],
+    className: ''
+  });
+}
+
+/* 주소 정리 헬퍼 */
+function _fmtAddr(s) {
+  var addr = (s.location || 'Seoul').split(',')[0].trim();
+  if (s.address) {
+    var ma = s.address.replace(/, ?(South Korea|Republic of Korea)$/i, '');
+    var mp = ma.split(',').map(function(p){ return p.trim(); }).filter(Boolean);
+    if (mp.length >= 2) addr = mp[mp.length - 2] + ', ' + mp[mp.length - 1];
+    else addr = mp[0] || addr;
+  }
+  return addr;
+}
+
+/* 하단 업체 정보 패널 표시 */
+function _showMapPanel(shop) {
+  var panel = document.getElementById('map-shop-panel');
+  if (!panel) return;
+  var color  = _getPinColor(shop.category);
+  var catLabel = shop.category ? (shop.category.charAt(0).toUpperCase() + shop.category.slice(1)) : '';
+  var rating = shop.rating ? parseFloat(shop.rating).toFixed(1) : '';
+  var addr   = _fmtAddr(shop);
+  var img    = shop.thumbnail || '';
+  var slug   = shop.slug || '';
+
+  panel.querySelector('#map-shop-panel-inner').innerHTML =
+    '<div class="msp-handle"></div>'
+    + '<div class="msp-row">'
+    + (img ? '<img class="msp-img" src="' + esc(img) + '" alt="' + esc(shop.name) + '" loading="lazy" onerror="this.style.display=\'none\'">' : '')
+    + '<div class="msp-info">'
+    + '<div class="msp-name">' + esc(shop.name) + '</div>'
+    + '<div class="msp-cat" style="color:' + color + '">' + esc(catLabel) + '</div>'
+    + '<div class="msp-addr"><i class="fas fa-map-marker-alt" style="color:' + color + ';font-size:9px;margin-top:2px;flex-shrink:0"></i><span>' + esc(addr) + ', Seoul</span></div>'
+    + (rating ? '<div class="msp-rating"><i class="fas fa-star" style="color:#f59e0b;font-size:9px"></i> ' + esc(rating) + '</div>' : '')
+    + '</div>'
+    + '</div>'
+    + '<div class="msp-btns">'
+    + (slug ? '<a href="/shop/' + esc(slug) + '?from=map" class="msp-btn-view">View Full Details →</a>' : '')
+    + '<button class="msp-btn-close" onclick="closeMapPanel()">✕ Close</button>'
+    + '</div>';
+
+  panel.classList.add('open');
+}
+
+window.closeMapPanel = function() {
+  var panel = document.getElementById('map-shop-panel');
+  if (panel) panel.classList.remove('open');
+  // 마커 선택 해제
+  if (_leafletSelectedSlug && _leafletMarkers[_leafletSelectedSlug]) {
+    var shop = _mapShops.find(function(s){ return s.slug === _leafletSelectedSlug; });
+    if (shop) {
+      _leafletMarkers[_leafletSelectedSlug].setIcon(_makePinIcon(_getPinColor(shop.category), false));
+    }
+  }
+  _leafletSelectedSlug = null;
+  document.querySelectorAll('.map-pin-card').forEach(function(c){ c.classList.remove('selected'); });
+};
+
+/* 마커 선택 + 지도 이동 + 패널 표시 */
+function _selectMarker(shop) {
+  // 이전 선택 마커 리셋
+  if (_leafletSelectedSlug && _leafletMarkers[_leafletSelectedSlug]) {
+    var prev = _mapShops.find(function(s){ return s.slug === _leafletSelectedSlug; });
+    if (prev) _leafletMarkers[_leafletSelectedSlug].setIcon(_makePinIcon(_getPinColor(prev.category), false));
+  }
+  _leafletSelectedSlug = shop.slug;
+  // 새 마커 선택 아이콘
+  if (_leafletMarkers[shop.slug]) {
+    _leafletMarkers[shop.slug].setIcon(_makePinIcon(_getPinColor(shop.category), true));
+  }
+  // 지도 이동
+  if (_leafletMap && shop.lat && shop.lng) {
+    _leafletMap.setView([parseFloat(shop.lat), parseFloat(shop.lng)], 16, {animate: true});
+  }
+  // 카드 선택 표시
+  document.querySelectorAll('.map-pin-card').forEach(function(c){ c.classList.remove('selected'); });
+  var card = document.querySelector('.map-pin-card[data-slug="' + shop.slug + '"]');
+  if (card) { card.classList.add('selected'); card.scrollIntoView({behavior:'smooth', block:'nearest'}); }
+  // 패널 표시
+  _showMapPanel(shop);
+}
+
+/* Leaflet 마커 등록 */
+function _buildMarkers(shops) {
+  // 기존 마커 제거
+  Object.keys(_leafletMarkers).forEach(function(k){
+    if (_leafletMap) _leafletMap.removeLayer(_leafletMarkers[k]);
+  });
+  _leafletMarkers = {};
+
+  shops.forEach(function(s) {
+    if (!s.lat || !s.lng) return;
+    var color = _getPinColor(s.category);
+    var marker = L.marker([parseFloat(s.lat), parseFloat(s.lng)], {
+      icon: _makePinIcon(color, false),
+      title: s.name
+    });
+    // 간략 팝업 (hover용)
+    var catLabel = s.category ? (s.category.charAt(0).toUpperCase() + s.category.slice(1)) : '';
+    marker.bindPopup(
+      '<div class="lf-popup-name">' + esc(s.name) + '</div>'
+      + '<div class="lf-popup-sub">' + esc(catLabel) + ' · ' + esc(_fmtAddr(s)) + '</div>',
+      { autoPan: false, closeButton: false, maxWidth: 200 }
+    );
+    marker.on('click', function() { _selectMarker(s); });
+    marker.on('mouseover', function() { marker.openPopup(); });
+    marker.on('mouseout',  function() { marker.closePopup(); });
+    if (_leafletMap) marker.addTo(_leafletMap);
+    _leafletMarkers[s.slug] = marker;
+  });
+}
+
+/* 업체 목록 카드 렌더 */
+function renderMapList(shops) {
+  var list    = document.getElementById('map-pin-list');
+  var countEl = document.getElementById('map-list-count');
+  if (!list) return;
+  var geoCount = shops.filter(function(s){ return s.lat && s.lng; }).length;
+  if (countEl) countEl.innerHTML = '<strong style="color:#fff">' + shops.length + '</strong> shops'
+    + (geoCount < shops.length ? ' <span style="color:rgba(255,255,255,.25);font-size:9px">(' + geoCount + ' on map)</span>' : '');
+  if (!shops.length) {
+    list.innerHTML = '<div class="map-no-coords"><div style="font-size:28px;margin-bottom:8px">🗺️</div>No shops in this area</div>';
+    return;
+  }
+  list.innerHTML = shops.map(function(s) {
+    var color    = _getPinColor(s.category);
+    var icon     = _TAB_ICONS[s.category] || '✨';
+    var addr     = _fmtAddr(s);
+    var hasGeo   = !!(s.lat && s.lng);
+    var rating   = s.rating ? parseFloat(s.rating).toFixed(1) : '';
+    var catLabel = s.category ? (s.category.charAt(0).toUpperCase() + s.category.slice(1)) : '';
+    return '<div class="map-pin-card' + (hasGeo ? ' has-geo' : '') + '"'
+      + ' data-slug="' + esc(s.slug || '') + '"'
+      + (hasGeo ? ' data-lat="' + s.lat + '" data-lng="' + s.lng + '"' : '')
+      + '>'
+      + '<div class="map-pin-img-wrap">'
+      + '<img src="' + esc(s.thumbnail || '') + '" alt="' + esc(s.name) + '" loading="lazy" onerror="this.style.background=\'#13132a\'">'
+      + (hasGeo ? '<div class="map-pin-geo-dot"></div>' : '')
+      + '</div>'
+      + '<div class="map-pin-card-body">'
+      + '<div class="map-pin-name">' + esc(s.name) + '</div>'
+      + '<div class="map-pin-cat" style="color:' + color + '">' + icon + ' ' + esc(catLabel) + '</div>'
+      + '<div class="map-pin-addr"><i class="fas fa-map-marker-alt" style="color:' + color + ';font-size:8px"></i><span>' + esc(addr) + '</span></div>'
+      + '</div>'
+      + '<div class="map-pin-action">'
+      + (hasGeo
+        ? '<div class="map-pin-link-map" style="background:rgba(' + color.replace('#','').match(/.{2}/g).map(function(h){return parseInt(h,16)}).join(',') + ',.15);border-color:rgba(' + color.replace('#','').match(/.{2}/g).map(function(h){return parseInt(h,16)}).join(',') + ',.3);color:' + color + '"><i class="fas fa-map-marker-alt"></i></div>'
+        : '<div class="map-pin-link-info"><i class="fas fa-info-circle"></i></div>')
+      + (rating ? '<div class="map-pin-rating"><i class="fas fa-star" style="font-size:8px;color:#f59e0b"></i> ' + esc(rating) + '</div>' : '')
+      + '</div>'
+      + '</div>';
+  }).join('');
+
+  // 이벤트 위임: 카드 클릭 → 마커로 지도 이동
+  list.onclick = function(e) {
+    var card = e.target.closest('.map-pin-card');
+    if (!card) return;
+    var slug = card.dataset.slug;
+    var shop = _mapShops.find(function(s){ return s.slug === slug; });
+    if (!shop) return;
+    if (shop.lat && shop.lng) {
+      _selectMarker(shop);
+    } else {
+      // 좌표 없는 업체: 패널만 표시
+      _showMapPanel(shop);
+    }
+  };
+}
+
 function buildMap() {
   var container = document.getElementById('view-map');
   if (!container) return;
 
-  // ── HTML 뼈대 먼저 삽입 ──
+  // ── HTML 뼈대 삽입 ──
   container.innerHTML = [
     '<div id="map-top-bar">',
-    '<div id="map-top-bar-title">&#128205; Shop Map</div>',
+    '<div id="map-top-bar-title">📍 Shop Map</div>',
     '<div class="map-area-filters" id="map-area-filters">',
     '<button class="map-area-chip on" data-area="all">All Seoul</button>',
     '<button class="map-area-chip" data-area="Gangnam">Gangnam</button>',
@@ -14589,9 +14878,9 @@ function buildMap() {
     '</div>',
     '</div>',
     '<div id="map-body">',
-    '<div id="map-iframe-wrap">',
-    '<iframe id="map-iframe" src="" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade" title="Seoul Beauty Map"></iframe>',
-    '<div id="map-shop-info" style="display:none;position:absolute;bottom:0;left:0;right:0;background:rgba(10,10,20,.97);backdrop-filter:blur(16px);padding:12px 16px;border-top:1px solid rgba(255,255,255,.1);z-index:10"></div>',
+    '<div id="map-iframe-wrap" style="position:relative;flex:1;overflow:hidden">',
+    '<div id="map-leaflet"></div>',
+    '<div id="map-shop-panel"><div id="map-shop-panel-inner"></div></div>',
     '</div>',
     '<div id="map-shop-list">',
     '<div class="map-list-header"><div class="map-list-count" id="map-list-count">Loading shops...</div></div>',
@@ -14600,7 +14889,35 @@ function buildMap() {
     '</div>'
   ].join('');
 
-  // ── 지역 필터 이벤트 등록 ──
+  // ── Leaflet 초기화 ──
+  if (typeof L === 'undefined') {
+    document.getElementById('map-pin-list').innerHTML = '<div style="padding:32px;text-align:center;color:rgba(255,255,255,.4)">Map is loading... please wait.</div>';
+    // Leaflet이 아직 로드 안 됐으면 100ms 후 재시도
+    setTimeout(buildMap, 200);
+    return;
+  }
+
+  if (_leafletMap) {
+    _leafletMap.remove();
+    _leafletMap = null;
+  }
+
+  _leafletMap = L.map('map-leaflet', {
+    center: [37.5172, 127.0473],
+    zoom: 13,
+    zoomControl: true,
+    attributionControl: false
+  });
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap'
+  }).addTo(_leafletMap);
+
+  // 지도 클릭 → 패널 닫기
+  _leafletMap.on('click', function() { closeMapPanel(); });
+
+  // ── 지역 필터 이벤트 ──
   var areaChips = container.querySelectorAll('.map-area-chip');
   areaChips.forEach(function(chip) {
     chip.addEventListener('click', function() {
@@ -14608,20 +14925,34 @@ function buildMap() {
       chip.classList.add('on');
       _mapArea = chip.dataset.area || 'all';
       var filtered = _mapArea === 'all' ? _mapShops : _mapShops.filter(function(s){
-        return (s.location||'').toLowerCase().includes(_mapArea.toLowerCase());
+        return (s.location || '').toLowerCase().includes(_mapArea.toLowerCase())
+          || (s.address || '').toLowerCase().includes(_mapArea.toLowerCase());
       });
-      setMapIframe(filtered.filter(function(s){ return s.lat && s.lng; }));
+      closeMapPanel();
+      _buildMarkers(filtered);
       renderMapList(filtered);
+      // 필터된 업체 범위로 지도 자동 맞추기
+      var geo = filtered.filter(function(s){ return s.lat && s.lng; });
+      if (geo.length > 0 && _leafletMap) {
+        var latlngs = geo.map(function(s){ return [parseFloat(s.lat), parseFloat(s.lng)]; });
+        try { _leafletMap.fitBounds(L.latLngBounds(latlngs), {padding:[40,40], maxZoom:15}); } catch(e){}
+      }
     });
   });
 
   // ── 데이터 로드 후 렌더 ──
   function doMapRender(list) {
     _mapShops = list;
-    var cnt = document.getElementById('map-list-count');
-    if (cnt) cnt.textContent = list.length + ' shops';
-    setMapIframe(list.filter(function(s){ return s.lat && s.lng; }));
+    _buildMarkers(list);
     renderMapList(list);
+    // 전체 업체 범위로 지도 자동 맞추기
+    var geo = list.filter(function(s){ return s.lat && s.lng; });
+    if (geo.length > 1 && _leafletMap) {
+      var latlngs = geo.map(function(s){ return [parseFloat(s.lat), parseFloat(s.lng)]; });
+      try { _leafletMap.fitBounds(L.latLngBounds(latlngs), {padding:[50,50], maxZoom:14}); } catch(e){}
+    }
+    // Leaflet 크기 재계산 (CSS transition 후 DOM 크기 확정 대비)
+    setTimeout(function(){ if (_leafletMap) _leafletMap.invalidateSize(); }, 300);
   }
 
   // shopCache 우선 → __INIT_SHOPS__ → /api/shops fetch
@@ -14645,6 +14976,7 @@ function buildMap() {
   }
 }
 
+// 호환성 유지
 function getMapCenter(shops) {
   var geo = shops.filter(function(s){ return s.lat && s.lng; });
   if (!geo.length) return { lat: 37.5172, lng: 127.0473 };
@@ -14652,134 +14984,12 @@ function getMapCenter(shops) {
   geo.forEach(function(s){ latSum += parseFloat(s.lat); lngSum += parseFloat(s.lng); });
   return { lat: latSum/geo.length, lng: lngSum/geo.length };
 }
-
-function setMapIframe(geoShops) {
-  var iframe = document.getElementById('map-iframe');
-  if (!iframe) return;
-  var apiKey = window.__GMAP_KEY__ || '';
-  var center = (geoShops && geoShops.length) ? getMapCenter(geoShops) : {lat:37.5172, lng:127.0473};
-  var zoom = (geoShops && geoShops.length === 1) ? 16 : (_mapArea !== 'all' ? 15 : 13);
-  if (apiKey && geoShops && geoShops.length) {
-    iframe.src = 'https://www.google.com/maps/embed/v1/search?key=' + apiKey
-      + '&q=' + encodeURIComponent('beauty ' + (_mapArea !== 'all' ? _mapArea : 'Seoul') + ' Korea')
-      + '&center=' + center.lat + ',' + center.lng
-      + '&zoom=' + zoom
-      + '&language=en&region=KR';
-  } else {
-    iframe.src = 'https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d'
-      + Math.round(15000 / Math.pow(2, zoom - 10))
-      + '!2d' + center.lng + '!3d' + center.lat
-      + '!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sen!2skr!4v1';
-  }
-}
-
-function renderMapList(shops) {
-  var list    = document.getElementById('map-pin-list');
-  var countEl = document.getElementById('map-list-count');
-  if (!list) return;
-  var geoCount = shops.filter(function(s){ return s.lat && s.lng; }).length;
-  if (countEl) countEl.innerHTML = '<strong style="color:#fff">' + shops.length + '</strong> shops'
-    + (geoCount < shops.length ? ' <span style="color:rgba(255,255,255,.25);font-size:9px">(' + geoCount + ' mapped)</span>' : '');
-  if (!shops.length) {
-    list.innerHTML = '<div class="map-no-coords"><div style="font-size:28px;margin-bottom:8px">🗺️</div>No shops in this area</div>';
-    return;
-  }
-  list.innerHTML = shops.map(function(s) {
-    var color  = _TAB_COLORS[s.category] || '#aaa';
-    var icon   = _TAB_ICONS[s.category]  || '&#10024;';
-    var href   = s.slug ? '/shop/' + s.slug : '#';
-    var addr = (s.location||'Seoul').split(',')[0].trim();
-    if (s.address) {
-      var _ma = s.address.replace(/, ?(South Korea|Republic of Korea)$/i,'');
-      var _mp = _ma.split(',').map(function(p){ return p.trim(); }).filter(Boolean);
-      if (_mp.length >= 2) addr = _mp[_mp.length-2] + ', ' + _mp[_mp.length-1];
-      else addr = _mp[0] || addr;
-    }
-    var hasGeo = s.lat && s.lng;
-    var rating = s.rating ? parseFloat(s.rating).toFixed(1) : '';
-    var catLabel = s.category ? (s.category.charAt(0).toUpperCase() + s.category.slice(1)) : '';
-    // onclick은 단따옴표 충돌 방지를 위해 data 속성으로 처리
-    return '<a class="map-pin-card' + (hasGeo ? ' has-geo' : '') + '" href="' + href + '"'
-      + ' data-slug="' + esc(s.slug||'') + '"'
-      + (hasGeo ? ' data-lat="' + s.lat + '" data-lng="' + s.lng + '" data-name="' + encodeURIComponent(s.name) + '"' : '')
-      + '>'
-      + '<div class="map-pin-img-wrap">'
-      + '<img src="' + esc(s.thumbnail||'') + '" alt="' + esc(s.name) + '" loading="lazy" onerror="this.style.background=&quot;#13132a&quot;">'
-      + (hasGeo ? '<div class="map-pin-geo-dot"></div>' : '')
-      + '</div>'
-      + '<div class="map-pin-card-body">'
-      + '<div class="map-pin-name">' + esc(s.name) + '</div>'
-      + '<div class="map-pin-cat" style="color:' + color + '">' + icon + ' ' + esc(catLabel) + '</div>'
-      + '<div class="map-pin-addr"><i class="fas fa-map-marker-alt" style="color:' + color + ';font-size:8px"></i><span>' + esc(addr) + '</span></div>'
-      + '</div>'
-      + '<div class="map-pin-action">'
-      + (hasGeo
-        ? '<div class="map-pin-link-map"><i class="fas fa-map-marker-alt"></i></div>'
-        : '<div class="map-pin-link-info"><i class="fas fa-info-circle"></i></div>')
-      + (rating ? '<div class="map-pin-rating"><i class="fas fa-star" style="font-size:8px;color:#f59e0b"></i> ' + esc(rating) + '</div>' : '')
-      + '</div>'
-      + '</a>';
-  }).join('');
-
-  // 이벤트 위임 방식으로 클릭 처리 (onclick 인라인 대신)
-  list.onclick = function(e) {
-    var card = e.target.closest('.map-pin-card.has-geo');
-    if (!card) return;
-    var slug = card.dataset.slug;
-    var lat  = card.dataset.lat;
-    var lng  = card.dataset.lng;
-    var nameEnc = card.dataset.name;
-    if (slug && lat && lng) {
-      updateMapToShop(e, slug, parseFloat(lat), parseFloat(lng), nameEnc);
-    }
-  };
-}
-
-// 업체 카드 클릭 → 지도 해당 위치로 이동 + 하단 정보 패널 표시
-window.updateMapToShop = function(e, slug, lat, lng, nameEnc) {
-  e.preventDefault();
-  // 선택 표시
-  document.querySelectorAll('.map-pin-card').forEach(function(c){ c.classList.remove('selected'); });
-  var card = document.querySelector('.map-pin-card[data-slug="' + slug + '"]');
-  if (card) { card.classList.add('selected'); card.scrollIntoView({behavior:'smooth',block:'nearest'}); }
-  // 지도를 해당 업체 좌표로 이동
-  var iframe = document.getElementById('map-iframe');
-  if (iframe) {
-    var apiKey2 = window.__GMAP_KEY__ || '';
-    if (apiKey2) {
-      iframe.src = 'https://www.google.com/maps/embed/v1/place?key=' + apiKey2
-        + '&q=' + encodeURIComponent(decodeURIComponent(nameEnc) + ' Seoul')
-        + '&center=' + lat + ',' + lng
-        + '&zoom=17&language=en&region=KR';
-    }
-  }
-  // 하단 업체 정보 팝업 표시
-  var info = document.getElementById('map-shop-info');
-  if (info && card) {
-    var name = decodeURIComponent(nameEnc);
-    var imgEl = card.querySelector('img');
-    var imgSrc = imgEl ? imgEl.src : '';
-    var catEl = card.querySelector('.map-pin-cat');
-    var catTxt = catEl ? catEl.textContent : '';
-    var addrEl = card.querySelector('.map-pin-addr span');
-    var addrTxt = addrEl ? addrEl.textContent : '';
-    var ratingEl = card.querySelector('.map-pin-rating');
-    var ratingTxt = ratingEl ? ratingEl.textContent.trim() : '';
-    info.innerHTML = '<div style="display:flex;align-items:center;gap:12px">'
-      + (imgSrc ? '<img src="'+imgSrc+'" style="width:56px;height:56px;border-radius:10px;object-fit:cover;flex-shrink:0" onerror="this.style.display=&quot;none&quot;">' : '')
-      + '<div style="flex:1;min-width:0">'
-      + '<div style="font-size:14px;font-weight:800;color:#fff;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(name)+'</div>'
-      + '<div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:6px">'+esc(catTxt)+' · '+esc(addrTxt)+'</div>'
-      + (ratingTxt ? '<div style="font-size:11px;color:#f59e0b;font-weight:700">'+esc(ratingTxt)+'</div>' : '')
-      + '</div>'
-      + '<a href="/shop/'+slug+'" style="flex-shrink:0;padding:8px 14px;background:#FF4D8D;color:#fff;border-radius:10px;font-size:12px;font-weight:800;text-decoration:none">View</a>'
-      + '</div>';
-    info.style.display = 'block';
-  }
+window.updateMapToShop = function(e, slug) {
+  if (e) e.preventDefault();
+  var shop = _mapShops.find(function(s){ return s.slug === slug; });
+  if (shop) _selectMarker(shop);
 };
-
-// 호환성 유지
-window.closeMapDrawer = function() {};
+window.closeMapDrawer = function() { closeMapPanel(); };
 window.selectMapShop  = function() {};
 </script>
 
