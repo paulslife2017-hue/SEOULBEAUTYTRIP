@@ -12033,39 +12033,38 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .lf-pin:hover{transform:scale(1.2) translateY(-3px)}
 .lf-pin svg{width:32px;height:40px}
 .lf-pin.selected{filter:drop-shadow(0 4px 12px rgba(255,77,141,.7));transform:scale(1.25) translateY(-4px)}
-/* ── 업체 정보 팝업 (모바일: 하단 슬라이드업 / PC: 좌하단 플로팅 카드) ── */
+/* ── 업체 정보 팝업 (모바일: 하단 중앙 / PC: 좌하단 플로팅 카드) ── */
 #map-shop-popup{
-  /* #map-body 기준 absolute — overflow:hidden 부모 밖으로 탈출 */
   position:absolute;
   bottom:16px;left:50%;transform:translateX(-50%) translateY(24px);
   z-index:600;width:min(340px,calc(100vw - 32px));
-  max-height:calc(100% - 32px);overflow-y:auto;
+  /* 내용이 길어도 잘리지 않게: overflow-y:auto, max-height로 스크롤 */
+  max-height:calc(100% - 32px);
+  overflow-y:auto;overflow-x:hidden;
   background:rgba(10,10,20,.97);backdrop-filter:blur(24px);
   border:1px solid rgba(255,255,255,.13);border-radius:20px;
   box-shadow:0 16px 48px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.05);
   opacity:0;pointer-events:none;
   transition:opacity .25s ease,transform .28s cubic-bezier(.32,1.15,.7,1);
-  overflow:hidden;
+  scrollbar-width:thin;scrollbar-color:rgba(255,77,141,.2) transparent;
 }
+#map-shop-popup::-webkit-scrollbar{width:3px}
+#map-shop-popup::-webkit-scrollbar-thumb{background:rgba(255,77,141,.2);border-radius:2px}
 #map-shop-popup.open{
   opacity:1;pointer-events:auto;
   transform:translateX(-50%) translateY(0);
 }
 @media(min-width:1024px){
-  /* PC: 지도 좌측 하단 고정 플로팅 카드, 내용 길어도 잘리지 않게 */
+  /* PC: 지도 좌하단 — 위쪽 여백 16px 확보해서 절대 잘리지 않게 */
   #map-shop-popup{
     left:16px;
-    transform:translateY(24px);
+    /* bottom 대신 top+bottom 동시 지정으로 높이 제한 */
     bottom:20px;
+    top:auto;
     max-height:calc(100% - 40px);
-    overflow-y:auto;
-    /* 스크롤바 스타일 */
-    scrollbar-width:thin;
-    scrollbar-color:rgba(255,77,141,.2) transparent;
   }
-  #map-shop-popup::-webkit-scrollbar{width:3px}
-  #map-shop-popup::-webkit-scrollbar-thumb{background:rgba(255,77,141,.2);border-radius:2px}
-  #map-shop-popup.open{transform:translateY(0)}
+  #map-shop-popup{transform:translateX(0) translateY(24px)}
+  #map-shop-popup.open{transform:translateX(0) translateY(0)}
 }
 /* 드래그 핸들 (모바일) */
 .msp-handle{width:40px;height:4px;border-radius:2px;background:rgba(255,255,255,.18);margin:12px auto 0}
