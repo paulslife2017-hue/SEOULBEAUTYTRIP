@@ -14794,7 +14794,7 @@ window.selectMapShop  = function() {};
 </script>
 
 <!-- ★ Best 랜딩 페이지 내부 링크 — 구글 크롤러가 발견하도록 DOM에 삽입 -->
-<nav aria-label="Browse by category and area" style="background:#fff;border-top:1px solid #f0f0f0;padding:32px 16px 40px">
+<nav id="seo-nav-links" aria-label="Browse by category and area" style="display:none;background:#fff;border-top:1px solid #f0f0f0;padding:32px 16px 40px">
   <div style="max-width:700px;margin:0 auto">
     <h1 style="font-size:1.15rem;font-weight:800;color:#1a1a2e;margin-bottom:4px;text-align:center">Seoul Beauty Booking for Foreigners</h1>
     <h2 style="font-size:1rem;font-weight:700;color:#1a1a2e;margin-bottom:6px;text-align:center">Browse Korean Beauty by Area</h2>
@@ -14849,7 +14849,7 @@ window.selectMapShop  = function() {};
 </nav>
 
 <!-- ★ SEO 콘텐츠 섹션 — 구글 검색 상위 노출용 롱폼 텍스트 (보강 버전) -->
-<section aria-label="About Seoul Beauty Trip — K-Beauty Booking Platform for Foreigners" style="background:#fff;padding:40px 16px 48px;border-top:1px solid #f0f0f0">
+<section id="seo-text-section" aria-label="About Seoul Beauty Trip — K-Beauty Booking Platform for Foreigners" style="display:none;background:#fff;padding:40px 16px 48px;border-top:1px solid #f0f0f0">
   <div style="max-width:700px;margin:0 auto">
 
     <h2 style="font-size:1.25rem;font-weight:800;color:#1a1a2e;margin-bottom:12px;text-align:center">

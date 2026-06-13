@@ -15839,7 +15839,7 @@ window.selectMapShop  = function() {};
 </script>
 
 <!-- \u2605 Best \uB79C\uB529 \uD398\uC774\uC9C0 \uB0B4\uBD80 \uB9C1\uD06C \u2014 \uAD6C\uAE00 \uD06C\uB864\uB7EC\uAC00 \uBC1C\uACAC\uD558\uB3C4\uB85D DOM\uC5D0 \uC0BD\uC785 -->
-<nav aria-label="Browse by category and area" style="background:#fff;border-top:1px solid #f0f0f0;padding:32px 16px 40px">
+<nav id="seo-nav-links" aria-label="Browse by category and area" style="display:none;background:#fff;border-top:1px solid #f0f0f0;padding:32px 16px 40px">
   <div style="max-width:700px;margin:0 auto">
     <h1 style="font-size:1.15rem;font-weight:800;color:#1a1a2e;margin-bottom:4px;text-align:center">Seoul Beauty Booking for Foreigners</h1>
     <h2 style="font-size:1rem;font-weight:700;color:#1a1a2e;margin-bottom:6px;text-align:center">Browse Korean Beauty by Area</h2>
@@ -15894,7 +15894,7 @@ window.selectMapShop  = function() {};
 </nav>
 
 <!-- \u2605 SEO \uCF58\uD150\uCE20 \uC139\uC158 \u2014 \uAD6C\uAE00 \uAC80\uC0C9 \uC0C1\uC704 \uB178\uCD9C\uC6A9 \uB871\uD3FC \uD14D\uC2A4\uD2B8 (\uBCF4\uAC15 \uBC84\uC804) -->
-<section aria-label="About Seoul Beauty Trip \u2014 K-Beauty Booking Platform for Foreigners" style="background:#fff;padding:40px 16px 48px;border-top:1px solid #f0f0f0">
+<section id="seo-text-section" aria-label="About Seoul Beauty Trip \u2014 K-Beauty Booking Platform for Foreigners" style="display:none;background:#fff;padding:40px 16px 48px;border-top:1px solid #f0f0f0">
   <div style="max-width:700px;margin:0 auto">
 
     <h2 style="font-size:1.25rem;font-weight:800;color:#1a1a2e;margin-bottom:12px;text-align:center">
