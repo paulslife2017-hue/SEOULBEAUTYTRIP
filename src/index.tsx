@@ -11265,6 +11265,11 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 #feed::-webkit-scrollbar{display:none}
 /* ── 슬라이드 ── */
 .slide{height:100vh;width:100%;max-width:100%;position:relative;scroll-snap-align:start;overflow:hidden;background:#000;flex-shrink:0;touch-action:pan-y}
+/* ── 모바일: 탭바(56px) 제외한 실제 뷰포트 ── */
+@media(max-width:1023px){
+  #feed{height:calc(100vh - 56px)}
+  .slide{height:calc(100vh - 56px)}
+}
 .bg-img{
   position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;
   filter:blur(12px);transform:scale(1.06);
@@ -11361,7 +11366,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 }
 /* ── PC 레이아웃: 좌측 사이드네비 + 중앙 피드 + 우측 패널 ── */
 #shop-panel{display:none!important}
-#pc-layout{display:block!important}
+#pc-layout{display:block}
 #feed-col{width:100%}
 
 /* PC 사이드 네비 (≥1024px) */
@@ -14320,6 +14325,7 @@ function renderShopPanel(cat) {
 // ══════════════════════════════════════════════════════
 var _bwCat  = 'all';
 var _bwArea = 'all';
+var _browseShops = [];
 var _mapArea = 'all';
 var _mapShops = [];
 var _TAB_COLORS = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa',tattoo:'#e879f9'};
@@ -14330,6 +14336,12 @@ var _TAB_ICONS  = {skincare:'&#127807;',headspa:'&#128134;',hair:'&#9986;',clini
   var _browseBuilt = false;
   var _mapBuilt    = false;
   var _isPC        = window.innerWidth >= 1024;
+
+  // 초기화: 찾기/맵 뷰 명시적으로 숨김 (CSS display:none 재확인)
+  var _vb = document.getElementById('view-browse');
+  var _vm = document.getElementById('view-map');
+  if (_vb) { _vb.classList.remove('active'); _vb.style.display = 'none'; }
+  if (_vm) { _vm.classList.remove('active'); _vm.style.display = 'none'; }
 
   function isPC() { return window.innerWidth >= 1024; }
 
@@ -14356,46 +14368,47 @@ var _TAB_ICONS  = {skincare:'&#127807;',headspa:'&#128134;',hair:'&#9986;',clini
     var viewMap     = document.getElementById('view-map');
 
     if (tab === 'reels') {
-      // 찾기/맵 숨기기
-      if (viewBrowse) viewBrowse.classList.remove('active');
-      if (viewMap)    viewMap.classList.remove('active');
+      // ── 찾기/맵 숨기기 ──
+      if (viewBrowse) { viewBrowse.classList.remove('active'); viewBrowse.style.display = 'none'; }
+      if (viewMap)    { viewMap.classList.remove('active');    viewMap.style.display    = 'none'; }
       if (pcPanel)    pcPanel.classList.remove('active');
-      // 피드 보이기
-      if (pcLayout) pcLayout.style.display = '';
-      if (hd)       hd.style.display = '';
-      // 영상 재개
-      var cur = document.querySelector('.slide.current video');
-      if (cur) { try { cur.play(); } catch(e){} }
+      // ── 피드 + 헤더 보이기 ──
+      if (pcLayout)   pcLayout.style.display  = 'block';
+      if (hd)         hd.style.display        = '';
+      // ── 영상 재개 (렌더 완료 후 실행) ──
+      setTimeout(function() {
+        var cur = document.querySelector('.slide.current video');
+        if (cur) { try { cur.play(); } catch(e){} }
+      }, 80);
 
     } else {
-      // 영상 정지
+      // ── 영상 전체 정지 ──
       document.querySelectorAll('#feed video').forEach(function(v){ try{v.pause();}catch(e){} });
+      // ── 피드 + 헤더 숨기기 ──
+      if (pcLayout) pcLayout.style.display = 'none';
+      if (hd)       hd.style.display       = 'none';
 
       if (isPC()) {
-        // PC: 피드는 유지, pc-content-panel 활성화
-        if (pcLayout) pcLayout.style.display = 'none';
-        if (hd)       hd.style.display = 'none';
-        if (pcPanel)  pcPanel.classList.add('active');
+        // ── PC: pc-content-panel 활성화 ──
+        if (pcPanel) pcPanel.classList.add('active');
         if (tab === 'browse') {
-          if (viewMap)   { viewMap.classList.remove('active'); viewMap.style.display = 'none'; }
-          if (viewBrowse){ viewBrowse.classList.add('active'); viewBrowse.style.display = ''; }
+          if (viewMap)    { viewMap.classList.remove('active');    viewMap.style.display    = 'none'; }
+          if (viewBrowse) { viewBrowse.classList.add('active');    viewBrowse.style.display = 'flex'; }
           if (!_browseBuilt) { _browseBuilt = true; buildBrowse(); }
         } else if (tab === 'map') {
-          if (viewBrowse){ viewBrowse.classList.remove('active'); viewBrowse.style.display = 'none'; }
-          if (viewMap)   { viewMap.classList.add('active'); viewMap.style.display = ''; }
+          if (viewBrowse) { viewBrowse.classList.remove('active'); viewBrowse.style.display = 'none'; }
+          if (viewMap)    { viewMap.classList.add('active');       viewMap.style.display    = 'flex'; }
           if (!_mapBuilt) { _mapBuilt = true; buildMap(); }
         }
       } else {
-        // 모바일: fixed 전체화면
-        if (pcLayout) pcLayout.style.display = 'none';
-        if (hd)       hd.style.display = 'none';
+        // ── 모바일: position:fixed 전체화면 ──
         if (tab === 'browse') {
-          if (viewMap)   viewMap.classList.remove('active');
-          if (viewBrowse)viewBrowse.classList.add('active');
+          if (viewMap)    { viewMap.classList.remove('active');    viewMap.style.display    = 'none'; }
+          if (viewBrowse) { viewBrowse.classList.add('active');    viewBrowse.style.display = 'flex'; }
           if (!_browseBuilt) { _browseBuilt = true; buildBrowse(); }
         } else if (tab === 'map') {
-          if (viewBrowse)viewBrowse.classList.remove('active');
-          if (viewMap)   viewMap.classList.add('active');
+          if (viewBrowse) { viewBrowse.classList.remove('active'); viewBrowse.style.display = 'none'; }
+          if (viewMap)    { viewMap.classList.add('active');       viewMap.style.display    = 'flex'; }
           if (!_mapBuilt) { _mapBuilt = true; buildMap(); }
         }
       }
@@ -14432,21 +14445,16 @@ function buildBrowse() {
   var container = document.getElementById('view-browse');
   if (!container) return;
 
-  var shops = (window.__INIT_SHOPS__ || []);
-  var totalCount = shops.length;
-
-  // HTML 삽입
+  // ── HTML 뼈대 먼저 삽입 ──
   container.innerHTML = [
     '<div class="bw-layout">',
     '<div class="bw-header">',
-    // 헤더 타이틀 행
     '<div class="bw-header-top">',
     '<div>',
     '<div class="bw-title">Seoul Beauty Guide</div>',
-    '<div class="bw-subtitle">' + totalCount + ' foreigner-friendly shops in Seoul</div>',
+    '<div class="bw-subtitle" id="bw-subtitle">Loading shops...</div>',
     '</div>',
     '</div>',
-    // 카테고리 필터
     '<div class="bw-filter-group">',
     '<span class="bw-filter-label">Category</span>',
     '<div class="bw-filter-row" id="bw-cat-filters">',
@@ -14459,7 +14467,6 @@ function buildBrowse() {
     '<button class="bw-chip" data-cat="spa">&#9992; Spa</button>',
     '<button class="bw-chip" data-cat="tattoo">&#9999; Tattoo</button>',
     '</div></div>',
-    // 지역 필터
     '<div class="bw-filter-group">',
     '<span class="bw-filter-label">Area</span>',
     '<div class="bw-filter-row" id="bw-area-filters">',
@@ -14472,37 +14479,62 @@ function buildBrowse() {
     '<button class="bw-chip" data-area="Sinsa">Sinsa</button>',
     '<button class="bw-chip" data-area="Apgujeong">Apgujeong</button>',
     '</div></div>',
-    '</div>', // bw-header
+    '</div>',
     '<div class="bw-body">',
     '<div id="bw-section-label" class="bw-section-label"></div>',
-    '<div class="bw-grid" id="bw-grid"></div>',
+    '<div class="bw-grid" id="bw-grid"><div style="grid-column:1/-1;padding:48px 20px;text-align:center;color:rgba(255,255,255,.3)">Loading...</div></div>',
     '</div>',
-    '</div>' // bw-layout
+    '</div>'
   ].join('');
 
-  // 카테고리 필터 이벤트
-  var catChips = container.querySelectorAll('#bw-cat-filters .bw-chip');
+  // ── 필터 이벤트 등록 (데이터와 무관하게 먼저 등록) ──
+  var catChips  = container.querySelectorAll('#bw-cat-filters .bw-chip');
+  var areaChips = container.querySelectorAll('#bw-area-filters .bw-chip');
   catChips.forEach(function(chip) {
     chip.addEventListener('click', function() {
       catChips.forEach(function(c){ c.classList.remove('on'); });
       chip.classList.add('on');
       _bwCat = chip.dataset.cat || 'all';
-      renderBrowseGrid(shops);
+      renderBrowseGrid(_browseShops);
     });
   });
-
-  // 지역 필터 이벤트
-  var areaChips = container.querySelectorAll('#bw-area-filters .bw-chip');
   areaChips.forEach(function(chip) {
     chip.addEventListener('click', function() {
       areaChips.forEach(function(c){ c.classList.remove('on'); });
       chip.classList.add('on');
       _bwArea = chip.dataset.area || 'all';
-      renderBrowseGrid(shops);
+      renderBrowseGrid(_browseShops);
     });
   });
 
-  renderBrowseGrid(shops);
+  // ── 데이터 로드 후 그리드 렌더 ──
+  function doRender(list) {
+    _browseShops = list;
+    var subtitle = document.getElementById('bw-subtitle');
+    if (subtitle) subtitle.textContent = list.length + ' foreigner-friendly shops in Seoul';
+    renderBrowseGrid(list);
+  }
+
+  // shopCache 우선 → __INIT_SHOPS__ → /api/shops fetch
+  var cached = Object.keys(shopCache).length > 0 ? Object.values(shopCache) : null;
+  if (cached && cached.length > 0) {
+    doRender(cached);
+  } else if (window.__INIT_SHOPS__ && window.__INIT_SHOPS__.length) {
+    doRender(window.__INIT_SHOPS__);
+  } else {
+    // API fallback
+    fetch('/api/shops')
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var list = d.shops || d || [];
+        list.forEach(function(s){ if(s && s.id) shopCache[s.id] = s; });
+        doRender(list);
+      })
+      .catch(function(){
+        var grid = document.getElementById('bw-grid');
+        if (grid) grid.innerHTML = '<div style="grid-column:1/-1;padding:48px;text-align:center;color:rgba(255,255,255,.3)">Failed to load shops.</div>';
+      });
+  }
 }
 
 function renderBrowseGrid(shops) {
@@ -14576,11 +14608,7 @@ function buildMap() {
   var container = document.getElementById('view-map');
   if (!container) return;
 
-  var allShops = (window.__INIT_SHOPS__ || []);
-  // lat/lng 없는 업체도 목록엔 표시 (지도 핀은 있는 것만)
-  _mapShops = allShops;
-
-  // HTML 삽입
+  // ── HTML 뼈대 먼저 삽입 ──
   container.innerHTML = [
     '<div id="map-top-bar">',
     '<div id="map-top-bar-title">&#128205; Shop Map</div>',
@@ -14593,17 +14621,17 @@ function buildMap() {
     '<button class="map-area-chip" data-area="Itaewon">Itaewon</button>',
     '<button class="map-area-chip" data-area="Sinsa">Sinsa</button>',
     '</div>',
-    '</div>', // map-top-bar
+    '</div>',
     '<div id="map-body">',
     '<div id="map-iframe-wrap"><iframe id="map-iframe" src="" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade" title="Seoul Beauty Map"></iframe></div>',
     '<div id="map-shop-list">',
     '<div class="map-list-header"><div class="map-list-count" id="map-list-count">Loading shops...</div></div>',
-    '<div class="map-list-scroll" id="map-pin-list"></div>',
+    '<div class="map-list-scroll" id="map-pin-list"><div style="padding:32px 16px;color:rgba(255,255,255,.3);text-align:center">Loading...</div></div>',
     '</div>',
-    '</div>' // map-body
+    '</div>'
   ].join('');
 
-  // 지역 필터 이벤트
+  // ── 지역 필터 이벤트 등록 ──
   var areaChips = container.querySelectorAll('.map-area-chip');
   areaChips.forEach(function(chip) {
     chip.addEventListener('click', function() {
@@ -14618,8 +14646,34 @@ function buildMap() {
     });
   });
 
-  setMapIframe(allShops.filter(function(s){ return s.lat && s.lng; }));
-  renderMapList(allShops);
+  // ── 데이터 로드 후 렌더 ──
+  function doMapRender(list) {
+    _mapShops = list;
+    var cnt = document.getElementById('map-list-count');
+    if (cnt) cnt.textContent = list.length + ' shops';
+    setMapIframe(list.filter(function(s){ return s.lat && s.lng; }));
+    renderMapList(list);
+  }
+
+  // shopCache 우선 → __INIT_SHOPS__ → /api/shops fetch
+  var cached = Object.keys(shopCache).length > 0 ? Object.values(shopCache) : null;
+  if (cached && cached.length > 0) {
+    doMapRender(cached);
+  } else if (window.__INIT_SHOPS__ && window.__INIT_SHOPS__.length) {
+    doMapRender(window.__INIT_SHOPS__);
+  } else {
+    fetch('/api/shops')
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var list = d.shops || d || [];
+        list.forEach(function(s){ if(s && s.id) shopCache[s.id] = s; });
+        doMapRender(list);
+      })
+      .catch(function(){
+        var pl = document.getElementById('map-pin-list');
+        if (pl) pl.innerHTML = '<div style="padding:32px;text-align:center;color:rgba(255,255,255,.3)">Failed to load shops.</div>';
+      });
+  }
 }
 
 function getMapCenter(shops) {
