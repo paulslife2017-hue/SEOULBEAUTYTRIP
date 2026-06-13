@@ -11649,14 +11649,14 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 
 /* ── 하단 탭바 ── */
-#bottom-tabs{position:fixed;bottom:0;left:0;right:0;height:56px;background:rgba(10,10,20,.96);backdrop-filter:blur(20px);border-top:1px solid rgba(255,255,255,.08);display:flex;align-items:stretch;z-index:500}
+#bottom-tabs{position:fixed;bottom:0;left:0;right:0;height:56px;background:rgba(10,10,20,.96);backdrop-filter:blur(20px);border-top:1px solid rgba(255,255,255,.08);display:flex;align-items:stretch;z-index:9999}
 .btab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:transparent;cursor:pointer;color:rgba(255,255,255,.35);transition:color .2s;padding:0;-webkit-tap-highlight-color:transparent;position:relative}
 .btab i{font-size:18px;transition:transform .2s}
 .btab span{font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
 .btab.active{color:#FF4D8D}
 .btab.active i{transform:scale(1.12)}
 .btab.active::after{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:28px;height:2px;background:linear-gradient(90deg,#FF4D8D,#a855f7);border-radius:0 0 3px 3px}
-@media(min-width:1024px){#bottom-tabs{display:none}}
+@media(min-width:1024px){#bottom-tabs{display:none!important}}
 
 /* ── Browse 뷰 ── */
 #view-browse{display:none;position:fixed;inset:0;background:#0a0a14;z-index:400;overflow-y:auto;padding-bottom:60px}
@@ -11704,6 +11704,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 @media(max-width:1023px){
   body{padding-bottom:56px}
   #hd{padding-bottom:0}
+  #view-browse,#view-map{display:none}
+  #view-browse.active{display:block}
+  #view-map.active{display:flex}
 }
 </style>
 </head>
@@ -20457,10 +20460,7 @@ function toggleMapDrawer(open) {
   if (drawer) drawer.classList.toggle('open', open);
 }
 
-// helper
-function escHtml(s) {
-  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+// helper (escHtml은 line 16771에 이미 선언됨 — 중복 제거)
 
 }); // DOMContentLoaded
 </script>
