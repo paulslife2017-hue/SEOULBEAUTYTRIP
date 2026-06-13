@@ -2179,6 +2179,10 @@ app.use("/admin", async (c, next) => {
   const cookieToken = cookieHeader.match(/admin_token=([^;]+)/)?.[1] || "";
   const provided = bearerToken || queryToken || cookieToken;
   const isValid = provided === ADMIN_SECRET || envToken && provided === envToken;
+  if (isValid && queryToken) {
+    c.header("Set-Cookie", `admin_token=${ADMIN_SECRET}; Path=/; Max-Age=604800; HttpOnly; SameSite=Lax`);
+    return c.redirect("/admin", 302);
+  }
   if (!isValid) {
     return c.html(`<!DOCTYPE html>
 <html lang="en">
@@ -2197,6 +2201,7 @@ app.use("/admin", async (c, next) => {
   button{width:100%;padding:13px;background:linear-gradient(135deg,#a855f7,#6366f1);border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:700;cursor:pointer}
   button:hover{opacity:.9}
   .err{color:#f87171;font-size:12px;margin-top:10px;display:none}
+  .spin{display:none;margin-top:12px;color:rgba(255,255,255,.5);font-size:12px}
 </style>
 </head>
 <body>
@@ -2205,32 +2210,26 @@ app.use("/admin", async (c, next) => {
   <div class="sub">Seoul Beauty Trip</div>
   <form id="f" onsubmit="login(event)">
     <input type="password" id="pw" placeholder="Admin password" autocomplete="current-password">
-    <button type="submit">Login</button>
+    <button type="submit" id="btn">Login</button>
     <div class="err" id="err">Incorrect password</div>
+    <div class="spin" id="spin">Logging in...</div>
   </form>
 </div>
 <script>
 async function login(e) {
   e.preventDefault();
   const pw = document.getElementById('pw').value;
-  const res = await fetch('/admin?token=' + encodeURIComponent(pw));
-  if (res.ok && res.url.includes('/admin') && !res.url.includes('token=')) {
-    location.href = '/admin';
-  } else if (res.ok) {
-    // \uCFE0\uD0A4 \uBC29\uC2DD: \uC11C\uBC84\uAC00 Set-Cookie \uBC18\uD658 \uD6C4 \uB9AC\uB2E4\uC774\uB809\uD2B8
-    location.href = '/admin';
-  } else {
-    document.getElementById('err').style.display = 'block';
-  }
+  document.getElementById('err').style.display = 'none';
+  document.getElementById('spin').style.display = 'block';
+  document.getElementById('btn').disabled = true;
+  // \uC11C\uBC84\uAC00 ?token= \uAC80\uC99D \uD6C4 \uCFE0\uD0A4 \uBC1C\uAE09 + 302 \uB9AC\uB2E4\uC774\uB809\uD2B8 \u2192 \uBE0C\uB77C\uC6B0\uC800\uAC00 \uC790\uB3D9\uC73C\uB85C /admin \uC774\uB3D9
+  window.location.href = '/admin?token=' + encodeURIComponent(pw);
 }
-// ?token= \uD30C\uB77C\uBBF8\uD130\uB85C \uC654\uB294\uB370 \uD2C0\uB9B0 \uACBD\uC6B0
-const params = new URLSearchParams(location.search);
-if (params.get('token')) document.getElementById('err').style.display = 'block';
 </script>
 </body>
-</html>`, 401);
+</html>`, 200);
   }
-  c.header("Set-Cookie", `admin_token=${ADMIN_SECRET}; Path=/; Max-Age=604800; HttpOnly; SameSite=Strict`);
+  c.header("Set-Cookie", `admin_token=${ADMIN_SECRET}; Path=/; Max-Age=604800; HttpOnly; SameSite=Lax`);
   await next();
 });
 app.use("/api/admin/*", async (c, next) => {
@@ -13090,7 +13089,8 @@ document.addEventListener('DOMContentLoaded', function(){
   window.checkAdminPw = function(){
     var pw = document.getElementById('adminPwInput').value;
     if(pw === ADMIN_PW){
-      window.location.href = '/admin';
+      // ?token= \uBC29\uC2DD: \uC11C\uBC84\uAC00 \uAC80\uC99D \uD6C4 \uCFE0\uD0A4 \uBC1C\uAE09 + 302 \uB9AC\uB2E4\uC774\uB809\uD2B8
+      window.location.href = '/admin?token=' + encodeURIComponent(pw);
     } else {
       var err = document.getElementById('adminPwErr');
       if(err) err.style.display='block';

@@ -127,6 +127,13 @@ app.use('/admin', async (c, next) => {
   const provided = bearerToken || queryToken || cookieToken
   // 0907 고정 비밀번호 또는 GSK_TOKEN 둘 다 허용
   const isValid = provided === ADMIN_SECRET || (envToken && provided === envToken)
+
+  // ?token= 으로 인증 성공 시: 쿠키 발급 + 302 리다이렉트 (쿠키 없이 /admin 접근 방지)
+  if (isValid && queryToken) {
+    c.header('Set-Cookie', `admin_token=${ADMIN_SECRET}; Path=/; Max-Age=604800; HttpOnly; SameSite=Lax`)
+    return c.redirect('/admin', 302)
+  }
+
   if (!isValid) {
     // 브라우저 직접 접근 시 로그인 폼 반환
     return c.html(`<!DOCTYPE html>
@@ -146,6 +153,7 @@ app.use('/admin', async (c, next) => {
   button{width:100%;padding:13px;background:linear-gradient(135deg,#a855f7,#6366f1);border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:700;cursor:pointer}
   button:hover{opacity:.9}
   .err{color:#f87171;font-size:12px;margin-top:10px;display:none}
+  .spin{display:none;margin-top:12px;color:rgba(255,255,255,.5);font-size:12px}
 </style>
 </head>
 <body>
@@ -154,34 +162,28 @@ app.use('/admin', async (c, next) => {
   <div class="sub">Seoul Beauty Trip</div>
   <form id="f" onsubmit="login(event)">
     <input type="password" id="pw" placeholder="Admin password" autocomplete="current-password">
-    <button type="submit">Login</button>
+    <button type="submit" id="btn">Login</button>
     <div class="err" id="err">Incorrect password</div>
+    <div class="spin" id="spin">Logging in...</div>
   </form>
 </div>
 <script>
 async function login(e) {
   e.preventDefault();
   const pw = document.getElementById('pw').value;
-  const res = await fetch('/admin?token=' + encodeURIComponent(pw));
-  if (res.ok && res.url.includes('/admin') && !res.url.includes('token=')) {
-    location.href = '/admin';
-  } else if (res.ok) {
-    // 쿠키 방식: 서버가 Set-Cookie 반환 후 리다이렉트
-    location.href = '/admin';
-  } else {
-    document.getElementById('err').style.display = 'block';
-  }
+  document.getElementById('err').style.display = 'none';
+  document.getElementById('spin').style.display = 'block';
+  document.getElementById('btn').disabled = true;
+  // 서버가 ?token= 검증 후 쿠키 발급 + 302 리다이렉트 → 브라우저가 자동으로 /admin 이동
+  window.location.href = '/admin?token=' + encodeURIComponent(pw);
 }
-// ?token= 파라미터로 왔는데 틀린 경우
-const params = new URLSearchParams(location.search);
-if (params.get('token')) document.getElementById('err').style.display = 'block';
 </script>
 </body>
-</html>`, 401)
+</html>`, 200)
   }
 
-  // 인증 성공: 세션 쿠키 발급 (7일, HttpOnly, SameSite=Strict)
-  c.header('Set-Cookie', `admin_token=${ADMIN_SECRET}; Path=/; Max-Age=604800; HttpOnly; SameSite=Strict`)
+  // 인증 성공 (쿠키 방식): 세션 쿠키 갱신 후 next()
+  c.header('Set-Cookie', `admin_token=${ADMIN_SECRET}; Path=/; Max-Age=604800; HttpOnly; SameSite=Lax`)
   await next()
 })
 
@@ -12033,7 +12035,8 @@ document.addEventListener('DOMContentLoaded', function(){
   window.checkAdminPw = function(){
     var pw = document.getElementById('adminPwInput').value;
     if(pw === ADMIN_PW){
-      window.location.href = '/admin';
+      // ?token= 방식: 서버가 검증 후 쿠키 발급 + 302 리다이렉트
+      window.location.href = '/admin?token=' + encodeURIComponent(pw);
     } else {
       var err = document.getElementById('adminPwErr');
       if(err) err.style.display='block';
