@@ -12020,10 +12020,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 
 /* 드로어 관련 (모바일 이전 코드 호환) */
 .map-shop-drawer,.map-drawer-handle,.map-pin-list{display:none}
-/* ── Leaflet 맵 커스텀 스타일 ── */
+/* ── Google Maps 스타일 ── */
 #map-leaflet{width:100%;height:100%;z-index:1}
-.leaflet-container{background:#0f0f1e!important;font-family:-apple-system,sans-serif}
-.leaflet-tile-pane{filter:saturate(0.7) brightness(0.75) contrast(1.15) hue-rotate(200deg)}
 /* 커스텀 마커 핀 */
 .lf-pin{
   width:32px;height:40px;position:relative;cursor:pointer;
@@ -12112,20 +12110,15 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 }
 .msp-btn-view:hover{background:rgba(255,77,141,.22)}
 /* Leaflet hover 툴팁 */
-.leaflet-popup-content-wrapper{
-  background:rgba(10,10,20,.93)!important;border:1px solid rgba(255,255,255,.1)!important;
-  border-radius:10px!important;box-shadow:0 6px 20px rgba(0,0,0,.5)!important;color:#fff!important;padding:0!important;
-}
-.leaflet-popup-tip{background:rgba(10,10,20,.93)!important}
-.leaflet-popup-content{margin:9px 12px!important;font-size:11px!important;color:#fff!important}
+/* Google Maps 줌 버튼 다크 오버라이드 */
+.gm-bundled-control .gmnoprint button,
+.gm-control-active{background:rgba(10,10,20,.92)!important;border-color:rgba(255,255,255,.12)!important}
+/* 호버 툴팁 */
 .lf-popup-name{font-size:12px;font-weight:800;color:#fff;margin-bottom:2px;white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis}
 .lf-popup-sub{font-size:10px;color:rgba(255,255,255,.4)}
-.leaflet-control-attribution{display:none!important}
-.leaflet-control-zoom a{background:rgba(10,10,20,.92)!important;color:#fff!important;border-color:rgba(255,255,255,.12)!important}
 </style>
-<!-- Leaflet.js CDN (OpenStreetMap, API 키 불필요) -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<!-- Google Maps JavaScript API -->
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCcM03wGoZrSkmCMOS-Vib-JR1oKNPsSkY&libraries=marker" async defer></script>
 </head>
 <body>
 <div id="ld">
@@ -14746,9 +14739,10 @@ function renderBrowseGrid(shops) {
 // ══════════════════════════════════════════════════════
 // Map (맵) 빌드 — Leaflet.js 인터랙티브 맵
 // ══════════════════════════════════════════════════════
-var _leafletMap = null;       // Leaflet map 인스턴스
-var _leafletMarkers = {};     // { slug: L.Marker }
+var _gmap = null;             // Google Maps 인스턴스
+var _leafletMarkers = {};     // { slug: google.maps.Marker }
 var _leafletSelectedSlug = null;
+var _gmInfoWindow = null;     // 호버 InfoWindow
 
 /* 카테고리별 핀 색상 */
 function _getPinColor(category) {
@@ -14760,20 +14754,19 @@ function _getPinColor(category) {
   return map[category] || '#FF4D8D';
 }
 
-/* SVG 핀 아이콘 생성 */
-function _makePinIcon(color, selected) {
-  var size = selected ? 38 : 32;
-  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="'+size+'" height="'+(size*1.25)+'" viewBox="0 0 32 40">'
-    + '<path d="M16 0C9.37 0 4 5.37 4 12c0 9 12 28 12 28S28 21 28 12C28 5.37 22.63 0 16 0z" fill="'+color+'" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/>'
-    + '<circle cx="16" cy="12" r="5.5" fill="rgba(255,255,255,.92)"/>'
-    + '</svg>';
-  return L.divIcon({
-    html: '<div class="lf-pin' + (selected ? ' selected' : '') + '">' + svg + '</div>',
-    iconSize: [size, size * 1.25],
-    iconAnchor: [size / 2, size * 1.25],
-    popupAnchor: [0, -(size * 1.25)],
-    className: ''
-  });
+/* SVG 핀 아이콘 생성 (Google Maps용 SVG 문자열) */
+function _makePinSvg(color, selected) {
+  var size = selected ? 42 : 34;
+  return {
+    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="'+size+'" height="'+(size*1.25)+'" viewBox="0 0 32 40">'
+      + '<path d="M16 0C9.37 0 4 5.37 4 12c0 9 12 28 12 28S28 21 28 12C28 5.37 22.63 0 16 0z" fill="'+color+'" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/>'
+      + '<circle cx="16" cy="12" r="5.5" fill="rgba(255,255,255,.92)"/>'
+      + '</svg>'
+    ),
+    scaledSize: new google.maps.Size(size, size * 1.25),
+    anchor: new google.maps.Point(size / 2, size * 1.25)
+  };
 }
 
 /* 주소 정리 헬퍼 */
@@ -14844,7 +14837,7 @@ window.closeMapPanel = function() {
   if (_leafletSelectedSlug && _leafletMarkers[_leafletSelectedSlug]) {
     var shop = _mapShops.find(function(s){ return s.slug === _leafletSelectedSlug; });
     if (shop) {
-      _leafletMarkers[_leafletSelectedSlug].setIcon(_makePinIcon(_getPinColor(shop.category), false));
+      _leafletMarkers[_leafletSelectedSlug].setIcon(_makePinSvg(_getPinColor(shop.category), false));
     }
   }
   _leafletSelectedSlug = null;
@@ -14863,16 +14856,17 @@ function _selectMarker(shop) {
   // 이전 선택 마커 리셋
   if (_leafletSelectedSlug && _leafletMarkers[_leafletSelectedSlug]) {
     var prev = _mapShops.find(function(s){ return s.slug === _leafletSelectedSlug; });
-    if (prev) _leafletMarkers[_leafletSelectedSlug].setIcon(_makePinIcon(_getPinColor(prev.category), false));
+    if (prev) _leafletMarkers[_leafletSelectedSlug].setIcon(_makePinSvg(_getPinColor(prev.category), false));
   }
   _leafletSelectedSlug = shop.slug;
   // 새 마커 선택 아이콘
   if (_leafletMarkers[shop.slug]) {
-    _leafletMarkers[shop.slug].setIcon(_makePinIcon(_getPinColor(shop.category), true));
+    _leafletMarkers[shop.slug].setIcon(_makePinSvg(_getPinColor(shop.category), true));
   }
   // 지도 이동
-  if (_leafletMap && shop.lat && shop.lng) {
-    _leafletMap.setView([parseFloat(shop.lat), parseFloat(shop.lng)], 16, {animate: true});
+  if (_gmap && shop.lat && shop.lng) {
+    _gmap.panTo({lat: parseFloat(shop.lat), lng: parseFloat(shop.lng)});
+    _gmap.setZoom(16);
   }
   // 카드 선택 표시
   document.querySelectorAll('.map-pin-card').forEach(function(c){ c.classList.remove('selected'); });
@@ -14882,31 +14876,41 @@ function _selectMarker(shop) {
   _showMapPanel(shop);
 }
 
-/* Leaflet 마커 등록 */
+/* Google Maps 마커 등록 */
 function _buildMarkers(shops) {
   // 기존 마커 제거
   Object.keys(_leafletMarkers).forEach(function(k){
-    if (_leafletMap) _leafletMap.removeLayer(_leafletMarkers[k]);
+    _leafletMarkers[k].setMap(null);
   });
   _leafletMarkers = {};
+  if (_gmInfoWindow) { _gmInfoWindow.close(); }
+  if (!_gmap) return;
+
+  if (!_gmInfoWindow) {
+    _gmInfoWindow = new google.maps.InfoWindow({ disableAutoPan: true });
+  }
 
   shops.forEach(function(s) {
     if (!s.lat || !s.lng) return;
     var color = _getPinColor(s.category);
-    var marker = L.marker([parseFloat(s.lat), parseFloat(s.lng)], {
-      icon: _makePinIcon(color, false),
+    var marker = new google.maps.Marker({
+      position: { lat: parseFloat(s.lat), lng: parseFloat(s.lng) },
+      map: _gmap,
+      icon: _makePinSvg(color, false),
       title: s.name
     });
-    // 간략 팝업 (hover용)
     var catLabel = s.category ? (s.category.charAt(0).toUpperCase() + s.category.slice(1)) : '';
-    marker.bindPopup(
-      '<div class="lf-popup-name">' + esc(s.name) + '</div>'
-      + '<div class="lf-popup-sub">' + esc(catLabel) + ' · ' + esc(_fmtAddr(s)) + '</div>',
-      { autoPan: false, closeButton: false, maxWidth: 200 }
-    );
-    marker.on('click', function() { _selectMarker(s); });
-    (function(m){ m.on('mouseover', function() { m.openPopup(); }); m.on('mouseout', function() { m.closePopup(); }); })(marker);
-    if (_leafletMap) marker.addTo(_leafletMap);
+    marker.addListener('click', function() { _selectMarker(s); });
+    marker.addListener('mouseover', function() {
+      _gmInfoWindow.setContent(
+        '<div style="background:rgba(10,10,20,.95);padding:8px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.1)">'
+        + '<div class="lf-popup-name">' + esc(s.name) + '</div>'
+        + '<div class="lf-popup-sub">' + esc(catLabel) + ' · ' + esc(_fmtAddr(s)) + '</div>'
+        + '</div>'
+      );
+      _gmInfoWindow.open(_gmap, marker);
+    });
+    marker.addListener('mouseout', function() { _gmInfoWindow.close(); });
     _leafletMarkers[s.slug] = marker;
   });
 }
@@ -15006,49 +15010,64 @@ function buildMap() {
     '</div>'
   ].join('');
 
-  // ── Leaflet 초기화 ──
-  if (typeof L === 'undefined') {
-    // Leaflet CDN이 아직 로드 안 됐으면 대기 (최대 10회)
+  // ── Google Maps 초기화 ──
+  if (typeof google === 'undefined' || typeof google.maps === 'undefined') {
     if (!buildMap._retries) buildMap._retries = 0;
     buildMap._retries++;
-    if (buildMap._retries <= 10) {
+    if (buildMap._retries <= 15) {
       setTimeout(function(){
         var lf = document.getElementById('map-leaflet');
-        if (lf) { // HTML 뼈대는 유지, 초기화만 재시도
-          if (typeof L !== 'undefined') { buildMap._retries = 0; buildMap(); }
-          else setTimeout(arguments.callee, 300);
+        if (lf) {
+          if (typeof google !== 'undefined' && google.maps) { buildMap._retries = 0; buildMap(); }
+          else setTimeout(arguments.callee, 400);
         }
-      }, 300);
+      }, 400);
     } else {
-      // CDN 로드 실패 → 오류 메시지
       var pl = document.getElementById('map-pin-list');
-      if (pl) pl.innerHTML = '<div style="padding:32px;text-align:center;color:rgba(255,255,255,.3)"><div style="font-size:24px;margin-bottom:8px">🗺️</div>Map library failed to load.<br><small style="color:rgba(255,255,255,.2)">Please check your internet connection.</small></div>';
+      if (pl) pl.innerHTML = '<div style="padding:32px;text-align:center;color:rgba(255,255,255,.3)"><div style="font-size:24px;margin-bottom:8px">🗺️</div>Map failed to load.<br><small>Please check your internet connection.</small></div>';
     }
     return;
   }
   buildMap._retries = 0;
 
-  if (_leafletMap) {
-    _leafletMap.remove();
-    _leafletMap = null;
+  if (_gmap) {
+    // 기존 마커 정리
+    Object.keys(_leafletMarkers).forEach(function(k){ _leafletMarkers[k].setMap(null); });
+    _leafletMarkers = {};
+    _gmap = null;
   }
 
-  _leafletMap = L.map('map-leaflet', {
-    center: [37.5172, 127.0473],
+  _gmap = new google.maps.Map(document.getElementById('map-leaflet'), {
+    center: { lat: 37.5172, lng: 127.0473 },
     zoom: 13,
+    disableDefaultUI: false,
     zoomControl: true,
-    attributionControl: false
+    mapTypeControl: false,
+    streetViewControl: false,
+    fullscreenControl: false,
+    // 영어 강제 설정
+    language: 'en',
+    // 다크 모드 스타일
+    styles: [
+      {elementType:'geometry',stylers:[{color:'#1a1a2e'}]},
+      {elementType:'labels.text.fill',stylers:[{color:'#e0e0e0'}]},
+      {elementType:'labels.text.stroke',stylers:[{color:'#1a1a2e'}]},
+      {featureType:'road',elementType:'geometry',stylers:[{color:'#2d2d44'}]},
+      {featureType:'road',elementType:'geometry.stroke',stylers:[{color:'#212138'}]},
+      {featureType:'road.highway',elementType:'geometry',stylers:[{color:'#3d3d5c'}]},
+      {featureType:'road',elementType:'labels.text.fill',stylers:[{color:'#9ca5b3'}]},
+      {featureType:'water',elementType:'geometry',stylers:[{color:'#0e1626'}]},
+      {featureType:'water',elementType:'labels.text.fill',stylers:[{color:'#515c6d'}]},
+      {featureType:'poi',elementType:'labels',stylers:[{visibility:'off'}]},
+      {featureType:'poi.park',elementType:'geometry',stylers:[{color:'#1a2e1a'}]},
+      {featureType:'transit',elementType:'labels',stylers:[{visibility:'simplified'}]},
+      {featureType:'administrative',elementType:'geometry',stylers:[{color:'#2d2d44'}]},
+      {featureType:'administrative.locality',elementType:'labels.text.fill',stylers:[{color:'#d59563'}]},
+    ]
   });
 
-  // OpenStreetMap France HOT — 영어 고정, API 키 불필요
-  L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    subdomains: 'abc',
-    attribution: '© OpenStreetMap'
-  }).addTo(_leafletMap);
-
   // 지도 클릭 → 패널 닫기
-  _leafletMap.on('click', function() { closeMapPanel(); });
+  _gmap.addListener('click', function() { closeMapPanel(); });
 
   // ── 지역 필터 이벤트 ──
   var areaChips = container.querySelectorAll('.map-area-chip');
@@ -15066,9 +15085,11 @@ function buildMap() {
       renderMapList(filtered);
       // 필터된 업체 범위로 지도 자동 맞추기
       var geo = filtered.filter(function(s){ return s.lat && s.lng; });
-      if (geo.length > 0 && _leafletMap) {
-        var latlngs = geo.map(function(s){ return [parseFloat(s.lat), parseFloat(s.lng)]; });
-        try { _leafletMap.fitBounds(L.latLngBounds(latlngs), {padding:[40,40], maxZoom:15}); } catch(e){}
+      if (geo.length > 0 && _gmap) {
+        var bounds = new google.maps.LatLngBounds();
+        geo.forEach(function(s){ bounds.extend({lat:parseFloat(s.lat),lng:parseFloat(s.lng)}); });
+        _gmap.fitBounds(bounds, 50);
+        if (_gmap.getZoom() > 15) _gmap.setZoom(15);
       }
     });
   });
@@ -15080,12 +15101,14 @@ function buildMap() {
     renderMapList(list);
     // 전체 업체 범위로 지도 자동 맞추기
     var geo = list.filter(function(s){ return s.lat && s.lng; });
-    if (geo.length > 1 && _leafletMap) {
-      var latlngs = geo.map(function(s){ return [parseFloat(s.lat), parseFloat(s.lng)]; });
-      try { _leafletMap.fitBounds(L.latLngBounds(latlngs), {padding:[50,50], maxZoom:14}); } catch(e){}
+    if (geo.length > 1 && _gmap) {
+      var bounds = new google.maps.LatLngBounds();
+      geo.forEach(function(s){ bounds.extend({lat:parseFloat(s.lat),lng:parseFloat(s.lng)}); });
+      _gmap.fitBounds(bounds, 50);
+      if (_gmap.getZoom() > 14) _gmap.setZoom(14);
     }
-    // Leaflet 크기 재계산 (CSS transition 후 DOM 크기 확정 대비)
-    setTimeout(function(){ if (_leafletMap) _leafletMap.invalidateSize(); }, 300);
+    // Google Maps 크기 재계산
+    setTimeout(function(){ if (_gmap) google.maps.event.trigger(_gmap,'resize'); }, 300);
   }
 
   // shopCache 우선 → __INIT_SHOPS__ → /api/shops fetch
