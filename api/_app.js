@@ -4795,7 +4795,7 @@ app.get("/api/visitors-stats", async (c) => {
   try {
     const sql = getDb(c.env);
     const days = parseInt(c.req.query("days") || "7");
-    const [totalsRaw, byDeviceRaw, byPageRaw, topShopsRaw, hourlyRaw, waFunnelRaw] = await Promise.all([
+    const [totalsRaw, byDeviceRaw, byPageRaw, topShopsRaw, hourlyRaw, waFunnelRaw, bySourceRaw, byLangRaw, byBrowserRaw] = await Promise.all([
       sql`SELECT
         COUNT(DISTINCT visitor_id)::int AS unique_visitors,
         COUNT(*)::int AS total_sessions,
@@ -4837,7 +4837,71 @@ app.get("/api/visitors-stats", async (c) => {
           LEFT JOIN visitor_events ve ON ve.session_id = vs.session_id
           WHERE vs.started_at > NOW() - (${days} || ' days')::interval
           GROUP BY vs.session_id, vs.wa_clicked
-        ) t`
+        ) t`,
+      // ── 유입 소스 분포 ──
+      sql`SELECT
+        CASE
+          WHEN referrer ILIKE '%instagram%' OR referrer ILIKE '%l.instagram%' THEN 'Instagram'
+          WHEN referrer ILIKE '%facebook%' OR referrer ILIKE '%fb.com%' OR referrer ILIKE '%fb_iab%' OR referrer ILIKE '%fbclid%' THEN 'Facebook'
+          WHEN referrer ILIKE '%google%' THEN 'Google'
+          WHEN referrer ILIKE '%tiktok%' THEN 'TikTok'
+          WHEN referrer ILIKE '%twitter%' OR referrer ILIKE '%t.co%' THEN 'Twitter/X'
+          WHEN referrer ILIKE '%youtube%' THEN 'YouTube'
+          WHEN referrer ILIKE '%pinterest%' THEN 'Pinterest'
+          WHEN referrer IS NULL OR referrer = '' THEN 'Direct'
+          ELSE 'Other'
+        END AS source,
+        COUNT(*)::int AS cnt
+        FROM visitor_sessions
+        WHERE started_at > NOW() - (${days} || ' days')::interval
+        GROUP BY source ORDER BY cnt DESC`,
+      // ── 언어/국가 분포 (UA 파싱) ──
+      sql`SELECT
+        CASE
+          WHEN ua ILIKE '%en_US%' OR ua ILIKE '%en-US%' THEN 'en-US'
+          WHEN ua ILIKE '%en_GB%' OR ua ILIKE '%en-GB%' THEN 'en-GB'
+          WHEN ua ILIKE '%en_AU%' OR ua ILIKE '%en-AU%' THEN 'en-AU'
+          WHEN ua ILIKE '%en_CA%' OR ua ILIKE '%en-CA%' THEN 'en-CA'
+          WHEN ua ILIKE '%en_SG%' OR ua ILIKE '%en-SG%' THEN 'en-SG'
+          WHEN ua ILIKE '%en_PH%' OR ua ILIKE '%en-PH%' THEN 'en-PH'
+          WHEN ua ILIKE '%zh_CN%' OR ua ILIKE '%zh-CN%' THEN 'zh-CN'
+          WHEN ua ILIKE '%zh_TW%' OR ua ILIKE '%zh-TW%' THEN 'zh-TW'
+          WHEN ua ILIKE '%ja_JP%' OR ua ILIKE '%ja-JP%' OR ua ILIKE '% ja%' THEN 'ja'
+          WHEN ua ILIKE '%ko_KR%' OR ua ILIKE '%ko-KR%' THEN 'ko-KR'
+          WHEN ua ILIKE '%th_%' OR ua ILIKE '%th-%' THEN 'th'
+          WHEN ua ILIKE '%ms_%' OR ua ILIKE '%ms-%' THEN 'ms'
+          WHEN ua ILIKE '%id_%' OR ua ILIKE '%id-%' THEN 'id'
+          WHEN ua ILIKE '%fr_%' OR ua ILIKE '%fr-%' THEN 'fr'
+          WHEN ua ILIKE '%de_%' OR ua ILIKE '%de-%' THEN 'de'
+          WHEN (ua ILIKE '%ko%' AND ua NOT ILIKE '%en%') THEN 'ko'
+          ELSE 'other'
+        END AS lang,
+        COUNT(*)::int AS cnt
+        FROM visitor_sessions
+        WHERE started_at > NOW() - (${days} || ' days')::interval
+        GROUP BY lang ORDER BY cnt DESC`,
+      // ── 브라우저/OS 분포 ──
+      sql`SELECT
+        CASE
+          WHEN ua ILIKE '%Instagram%' THEN 'Instagram IAB'
+          WHEN ua ILIKE '%FBAV%' OR ua ILIKE '%FB_IAB%' THEN 'Facebook IAB'
+          WHEN ua ILIKE '%TikTok%' THEN 'TikTok IAB'
+          WHEN ua ILIKE '%SamsungBrowser%' THEN 'Samsung Browser'
+          WHEN ua ILIKE '%EdgA%' OR ua ILIKE '%EdgW%' THEN 'Edge Mobile'
+          WHEN ua ILIKE '%OPR%' OR ua ILIKE '%OPiOS%' THEN 'Opera'
+          WHEN ua ILIKE '%CriOS%' THEN 'Chrome iOS'
+          WHEN ua ILIKE '%FxiOS%' THEN 'Firefox iOS'
+          WHEN ua ILIKE '%Chrome%' AND ua ILIKE '%Mobile%' THEN 'Chrome Mobile'
+          WHEN ua ILIKE '%Chrome%' THEN 'Chrome'
+          WHEN ua ILIKE '%Safari%' AND ua ILIKE '%Mobile%' THEN 'Safari Mobile'
+          WHEN ua ILIKE '%Safari%' THEN 'Safari'
+          WHEN ua ILIKE '%Firefox%' THEN 'Firefox'
+          ELSE 'Other'
+        END AS browser,
+        COUNT(*)::int AS cnt
+        FROM visitor_sessions
+        WHERE started_at > NOW() - (${days} || ' days')::interval
+        GROUP BY browser ORDER BY cnt DESC LIMIT 8`
     ]);
     const t = totalsRaw[0] || {};
     const totalsNorm = {
@@ -4872,7 +4936,10 @@ app.get("/api/visitors-stats", async (c) => {
       shopViews: +(wf.viewed_shop ?? wf.shopViews ?? 0),
       waClicks: +(wf.clicked_wa ?? wf.waClicks ?? 0)
     };
-    return c.json({ totals: totalsNorm, byDevice, byPage, topShops, hourly, waFunnel });
+    const bySource = bySourceRaw.map((r) => ({ source: r.source, count: +(r.cnt ?? 0) }));
+    const byLang = byLangRaw.map((r) => ({ lang: r.lang, count: +(r.cnt ?? 0) }));
+    const byBrowser = byBrowserRaw.map((r) => ({ browser: r.browser, count: +(r.cnt ?? 0) }));
+    return c.json({ totals: totalsNorm, byDevice, byPage, topShops, hourly, waFunnel, bySource, byLang, byBrowser });
   } catch (e) {
     return c.json({ error: e.message }, 500);
   }
@@ -16514,6 +16581,36 @@ textarea{height:80px;resize:none}
     </div>
   </div>
 
+  <!-- \uC720\uC785 \uC18C\uC2A4 + \uC5B8\uC5B4 \uBD84\uD3EC -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+    <!-- \uC720\uC785 \uC18C\uC2A4 -->
+    <div class="card">
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px">
+        <i class="fas fa-share-alt" style="margin-right:6px;color:#f59e0b"></i>\uC720\uC785 \uC18C\uC2A4
+      </div>
+      <div id="vs-source" style="display:flex;flex-direction:column;gap:7px">
+        <div style="font-size:11px;color:rgba(255,255,255,.25);text-align:center;padding:10px">\uB85C\uB529 \uC911...</div>
+      </div>
+    </div>
+    <!-- \uC5B8\uC5B4 \uBD84\uD3EC -->
+    <div class="card">
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px">
+        <i class="fas fa-globe" style="margin-right:6px;color:#34d399"></i>\uC5B8\uC5B4 \uBD84\uD3EC
+      </div>
+      <div id="vs-lang" style="display:flex;flex-direction:column;gap:7px">
+        <div style="font-size:11px;color:rgba(255,255,255,.25);text-align:center;padding:10px">\uB85C\uB529 \uC911...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- \uBE0C\uB77C\uC6B0\uC800 \uBD84\uD3EC -->
+  <div class="card" style="margin-bottom:14px">
+    <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px">
+      <i class="fas fa-globe" style="margin-right:6px;color:#a78bfa"></i>\uBE0C\uB77C\uC6B0\uC800 / \uC571
+    </div>
+    <div id="vs-browser" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px"></div>
+  </div>
+
   <!-- \uC2DC\uAC04\uB300\uBCC4 \uBC29\uBB38 \uBC14 \uCC28\uD2B8 -->
   <div class="card" style="margin-bottom:14px">
     <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px">
@@ -16784,6 +16881,95 @@ window.loadVisitorStats = async function(days){
       if(hlEl) hlEl.innerHTML = d.hourly.map(function(h){
         return '<div class="vs-hour-label">'+(h.hour%6===0?h.hour:'')+'</div>';
       }).join('');
+    }
+
+    // \u2500\u2500 \uC720\uC785 \uC18C\uC2A4 \u2500\u2500
+    var srcEl = document.getElementById('vs-source');
+    if(srcEl && d.bySource && d.bySource.length){
+      var srcTotal = d.bySource.reduce(function(s,x){return s+(x.count||0);},0);
+      var srcColors = { Instagram:'#e1306c', Facebook:'#1877f2', Google:'#4285f4', Direct:'#34d399', Other:'#94a3b8' };
+      var srcIcons  = { Instagram:'fa-instagram fab', Facebook:'fa-facebook fab', Google:'fa-google fab', Direct:'fa-sign-in-alt fas', Other:'fa-ellipsis-h fas' };
+      srcEl.innerHTML = d.bySource.map(function(sv){
+        var pct = srcTotal>0 ? Math.round(sv.count/srcTotal*100) : 0;
+        var col = srcColors[sv.source] || '#94a3b8';
+        var ico = srcIcons[sv.source]  || 'fas fa-circle';
+        return '<div style="display:flex;align-items:center;gap:8px">'
+          +'<i class="'+ico+'" style="color:'+col+';width:14px;font-size:12px;text-align:center"></i>'
+          +'<div style="flex:1">'
+          +'<div style="display:flex;justify-content:space-between;margin-bottom:3px">'
+          +'<span style="font-size:11px;color:rgba(255,255,255,.65)">'+sv.source+'</span>'
+          +'<span style="font-size:11px;font-weight:700;color:#fff">'+sv.count+' <span style="color:rgba(255,255,255,.35);font-weight:400">('+pct+'%)</span></span>'
+          +'</div>'
+          +'<div style="height:4px;background:rgba(255,255,255,.08);border-radius:2px">'
+          +'<div style="height:4px;background:'+col+';border-radius:2px;width:'+pct+'%;transition:width .4s;opacity:.85"></div>'
+          +'</div></div></div>';
+      }).join('');
+    } else if(srcEl){
+      srcEl.innerHTML='<div style="font-size:11px;color:rgba(255,255,255,.25);text-align:center;padding:10px">\uB370\uC774\uD130 \uC5C6\uC74C</div>';
+    }
+
+    // \u2500\u2500 \uC5B8\uC5B4 \uBD84\uD3EC \u2500\u2500
+    var langEl = document.getElementById('vs-lang');
+    if(langEl && d.byLang && d.byLang.length){
+      var langTotal = d.byLang.reduce(function(s,x){return s+(x.count||0);},0);
+      var langColors = { 'en-US':'#60a5fa','en-GB':'#93c5fd','zh-CN':'#f87171','zh-TW':'#fca5a5','ko':'#4ade80','ja':'#fbbf24','other':'#94a3b8' };
+      var langFlags  = { 'en-US':'\u{1F1FA}\u{1F1F8}','en-GB':'\u{1F1EC}\u{1F1E7}','zh-CN':'\u{1F1E8}\u{1F1F3}','zh-TW':'\u{1F1F9}\u{1F1FC}','ko':'\u{1F1F0}\u{1F1F7}','ja':'\u{1F1EF}\u{1F1F5}','other':'\u{1F310}' };
+      langEl.innerHTML = d.byLang.map(function(lv){
+        var pct = langTotal>0 ? Math.round(lv.count/langTotal*100) : 0;
+        var col = langColors[lv.lang] || '#94a3b8';
+        var flag = langFlags[lv.lang] || '\u{1F310}';
+        return '<div style="display:flex;align-items:center;gap:8px">'
+          +'<span style="font-size:14px;line-height:1;flex-shrink:0">'+flag+'</span>'
+          +'<div style="flex:1">'
+          +'<div style="display:flex;justify-content:space-between;margin-bottom:3px">'
+          +'<span style="font-size:11px;color:rgba(255,255,255,.65)">'+lv.lang+'</span>'
+          +'<span style="font-size:11px;font-weight:700;color:#fff">'+lv.count+' <span style="color:rgba(255,255,255,.35);font-weight:400">('+pct+'%)</span></span>'
+          +'</div>'
+          +'<div style="height:4px;background:rgba(255,255,255,.08);border-radius:2px">'
+          +'<div style="height:4px;background:'+col+';border-radius:2px;width:'+pct+'%;transition:width .4s"></div>'
+          +'</div></div></div>';
+      }).join('');
+    } else if(langEl){
+      langEl.innerHTML='<div style="font-size:11px;color:rgba(255,255,255,.25);text-align:center;padding:10px">\uB370\uC774\uD130 \uC5C6\uC74C</div>';
+    }
+
+    // \u2500\u2500 \uBE0C\uB77C\uC6B0\uC800 / \uC571 \uBD84\uD3EC \u2500\u2500
+    var brEl = document.getElementById('vs-browser');
+    if(brEl && d.byBrowser && d.byBrowser.length){
+      var brTotal = d.byBrowser.reduce(function(s,x){return s+(x.count||0);},0);
+      var brIcons = {
+        'Instagram IAB':'fa-instagram fab','Facebook IAB':'fa-facebook fab',
+        'Chrome Mobile':'fa-chrome fab','Chrome':'fa-chrome fab',
+        'Safari':'fa-safari fab','Firefox':'fa-firefox-browser fab',
+        'Edge':'fa-edge fab','Samsung Internet':'fa-android fab',
+        'Other':'fa-globe fas'
+      };
+      var brColors = {
+        'Instagram IAB':'#e1306c','Facebook IAB':'#1877f2',
+        'Chrome Mobile':'#fbbc04','Chrome':'#fbbc04',
+        'Safari':'#6eb9f7','Firefox':'#ff7139',
+        'Edge':'#0078d4','Samsung Internet':'#1428a0','Other':'#94a3b8'
+      };
+      brEl.innerHTML = d.byBrowser.map(function(bv){
+        var pct = brTotal>0 ? Math.round(bv.count/brTotal*100) : 0;
+        var col = brColors[bv.browser] || '#94a3b8';
+        var ico = brIcons[bv.browser]  || 'fas fa-globe';
+        return '<div style="background:rgba(255,255,255,.04);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:5px">'
+          +'<div style="display:flex;align-items:center;gap:7px">'
+          +'<i class="'+ico+'" style="color:'+col+';font-size:15px;width:16px;text-align:center"></i>'
+          +'<span style="font-size:11px;color:rgba(255,255,255,.7);font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+bv.browser+'</span>'
+          +'</div>'
+          +'<div style="display:flex;align-items:center;gap:6px">'
+          +'<div style="flex:1;height:3px;background:rgba(255,255,255,.08);border-radius:2px">'
+          +'<div style="height:3px;background:'+col+';border-radius:2px;width:'+pct+'%;transition:width .4s;opacity:.9"></div>'
+          +'</div>'
+          +'<span style="font-size:11px;font-weight:700;color:#fff;flex-shrink:0">'+pct+'%</span>'
+          +'</div>'
+          +'<div style="font-size:10px;color:rgba(255,255,255,.35)">'+bv.count+'\uBA85</div>'
+          +'</div>';
+      }).join('');
+    } else if(brEl){
+      brEl.innerHTML='<div style="font-size:11px;color:rgba(255,255,255,.25);padding:10px;grid-column:1/-1;text-align:center">\uB370\uC774\uD130 \uC5C6\uC74C</div>';
     }
 
     // \u2500\u2500 \uC774\uD0C8 \uD589\uB3D9 \uBD84\uC11D \u2500\u2500
