@@ -11751,13 +11751,13 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 
 /* --- 모바일 전체화면 --- */
 #view-browse{
-  display:none;position:fixed;inset:0 0 56px 0;
+  display:none;position:fixed;top:0;left:0;right:0;bottom:56px;
   background:#0a0a14;z-index:450;flex-direction:column;overflow:hidden;
 }
 #view-browse.active{display:flex}
 
 #view-map{
-  display:none;position:fixed;inset:0 0 56px 0;
+  display:none;position:fixed;top:0;left:0;right:0;bottom:56px;
   background:#0a0a14;z-index:450;flex-direction:column;overflow:hidden;
 }
 #view-map.active{display:flex}
@@ -11774,7 +11774,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 }
 
 /* ── Browse 내부 스타일 ── */
-.bw-layout{display:flex;flex-direction:column;flex:1;overflow:hidden;min-height:0}
+.bw-layout{display:flex;flex-direction:column;width:100%;flex:1;overflow:hidden;min-height:0}
 .bw-header{
   flex-shrink:0;position:sticky;top:0;z-index:10;
   background:rgba(10,10,20,.98);backdrop-filter:blur(20px);
@@ -14328,6 +14328,7 @@ var _mapShops = [];
 var _TAB_COLORS = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa',tattoo:'#e879f9'};
 var _TAB_ICONS  = {skincare:'&#127807;',headspa:'&#128134;',hair:'&#9986;',clinic:'&#128137;',makeup:'&#128132;',spa:'&#9992;',tattoo:'&#9999;'};
 
+document.addEventListener('DOMContentLoaded', function() {
 (function initTabs() {
   var _activeTab   = 'reels';
   var _browseBuilt = false;
@@ -14434,6 +14435,7 @@ var _TAB_ICONS  = {skincare:'&#127807;',headspa:'&#128134;',hair:'&#9986;',clini
 
   window.switchTab = switchTab;
 })();
+}); // DOMContentLoaded
 
 // ══════════════════════════════════════════════════════
 // Browse (찾기) 빌드
