@@ -10096,7 +10096,7 @@ app.get('/', async (c) => {
         10000, []
       ),
       withTimeout(
-        sql`SELECT id, name, slug, category, location, thumbnail, rating, review_count, why_choose, description, review_summary FROM shops WHERE active=true ORDER BY rating DESC, review_count DESC`,
+        sql`SELECT id, name, slug, category, location, thumbnail, rating, review_count, why_choose, description, review_summary, lat, lng, address FROM shops WHERE active=true ORDER BY rating DESC, review_count DESC`,
         10000, []
       )
     ])
@@ -10176,7 +10176,8 @@ app.get('/', async (c) => {
       thumbnail: r.thumbnail || '', rating: r.rating || 0, reviewCount: r.review_count || 0,
       whyChoose: (() => { try { return JSON.parse(r.why_choose||'[]') } catch { return [] } })(),
       description: r.description || '',
-      reviewSummary: (() => { const rs = r.review_summary; if(!rs) return null; if(typeof rs==='string') return rs; if(typeof rs==='object') return rs; try { return JSON.parse(rs) } catch { return null } })()
+      reviewSummary: (() => { const rs = r.review_summary; if(!rs) return null; if(typeof rs==='string') return rs; if(typeof rs==='object') return rs; try { return JSON.parse(rs) } catch { return null } })(),
+      lat: r.lat || '', lng: r.lng || '', address: r.address || ''
     }))
 
     // ── SSR: 카탈로그 패널 HTML 서버에서 렌더링 (Google 크롤러가 읽을 수 있도록)
@@ -10213,7 +10214,8 @@ app.get('/', async (c) => {
 
     // 초기 로드 10개만 → HTML 크기 대폭 감소 (나머지는 JS lazy 로드)
     const initVideosFirst = initVideos.slice(0, 10)
-    const inlineScript = `${videoLdScript}<script>window.__INIT_VIDEOS__=${safeJson(initVideosFirst)};window.__INIT_VIDEOS_ALL__=${safeJson(initVideos)};window.__INIT_PLATFORM__=${safeJson(initPlatform)};window.__INIT_SHOPS__=${safeJson(initShops)};<\/script>`
+    const gmapKey = getGoogleKey(c.env)
+    const inlineScript = `${videoLdScript}<script>window.__INIT_VIDEOS__=${safeJson(initVideosFirst)};window.__INIT_VIDEOS_ALL__=${safeJson(initVideos)};window.__INIT_PLATFORM__=${safeJson(initPlatform)};window.__INIT_SHOPS__=${safeJson(initShops)};window.__GMAP_KEY__=${safeJson(gmapKey)};<\/script>`
 
     // SSR placeholders를 실제 콘텐츠로 교체
     const html = MAIN_HTML
@@ -11645,6 +11647,64 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 /* 토스트 */
 #toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%) translateY(12px);background:rgba(232,65,122,.92);color:#fff;padding:8px 18px;border-radius:18px;font-size:12px;font-weight:700;z-index:600;opacity:0;transition:all .28s;white-space:nowrap;pointer-events:none;backdrop-filter:blur(8px)}
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ── 하단 탭바 ── */
+#bottom-tabs{position:fixed;bottom:0;left:0;right:0;height:56px;background:rgba(10,10,20,.96);backdrop-filter:blur(20px);border-top:1px solid rgba(255,255,255,.08);display:flex;align-items:stretch;z-index:500;max-width:480px;margin:0 auto}
+.btab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:transparent;cursor:pointer;color:rgba(255,255,255,.35);transition:color .2s;padding:0;-webkit-tap-highlight-color:transparent;position:relative}
+.btab i{font-size:18px;transition:transform .2s}
+.btab span{font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.btab.active{color:#FF4D8D}
+.btab.active i{transform:scale(1.12)}
+.btab.active::after{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:28px;height:2px;background:linear-gradient(90deg,#FF4D8D,#a855f7);border-radius:0 0 3px 3px}
+@media(min-width:640px){#bottom-tabs{display:none}}
+
+/* ── Browse 뷰 ── */
+#view-browse{display:none;position:fixed;inset:0;background:#0a0a14;z-index:400;overflow-y:auto;padding-bottom:60px}
+#view-browse.active{display:block}
+.bw-header{position:sticky;top:0;z-index:10;background:rgba(10,10,20,.95);backdrop-filter:blur(16px);padding:12px 16px 8px;border-bottom:1px solid rgba(255,255,255,.06)}
+.bw-title{font-size:17px;font-weight:900;color:#fff;letter-spacing:-.02em}
+.bw-filters{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-top:10px;padding-bottom:2px}
+.bw-filters::-webkit-scrollbar{display:none}
+.bw-chip{flex-shrink:0;padding:5px 12px;border-radius:20px;border:1px solid rgba(255,255,255,.12);background:transparent;color:rgba(255,255,255,.5);font-size:11px;font-weight:700;cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent}
+.bw-chip.on{background:rgba(255,77,141,.15);border-color:#FF4D8D;color:#FF4D8D}
+.bw-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px}
+.bw-card{background:rgba(255,255,255,.04);border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,.06);cursor:pointer;transition:transform .15s,border-color .15s;-webkit-tap-highlight-color:transparent;text-decoration:none;display:block}
+.bw-card:active{transform:scale(.97)}
+.bw-card-img{width:100%;aspect-ratio:1/1;object-fit:cover;background:#13132a;display:block}
+.bw-card-body{padding:9px 10px 10px}
+.bw-card-name{font-size:12px;font-weight:800;color:#fff;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.bw-card-tag{font-size:10px;font-weight:600;margin-top:4px;display:flex;align-items:center;gap:3px}
+.bw-card-meta{display:flex;align-items:center;justify-content:space-between;margin-top:5px}
+.bw-card-loc{font-size:10px;color:rgba(255,255,255,.35);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bw-card-rating{font-size:10px;font-weight:700;color:#f59e0b;flex-shrink:0}
+
+/* ── Map 뷰 ── */
+#view-map{display:none;position:fixed;inset:0;background:#0a0a14;z-index:400;padding-bottom:56px;flex-direction:column}
+#view-map.active{display:flex}
+#map-iframe-wrap{flex:1;position:relative;overflow:hidden}
+#map-iframe-wrap iframe{width:100%;height:100%;border:none}
+.map-shop-drawer{position:absolute;bottom:0;left:0;right:0;background:rgba(10,10,20,.97);backdrop-filter:blur(20px);border-top:1px solid rgba(255,255,255,.1);border-radius:16px 16px 0 0;max-height:55%;overflow-y:auto;transform:translateY(100%);transition:transform .32s cubic-bezier(.4,0,.2,1);z-index:10}
+.map-shop-drawer.open{transform:translateY(0)}
+.map-drawer-handle{width:36px;height:3px;background:rgba(255,255,255,.2);border-radius:2px;margin:10px auto 6px}
+.map-pin-list{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:8px 12px 12px}
+.map-pin-list::-webkit-scrollbar{display:none}
+.map-pin-card{flex-shrink:0;width:140px;background:rgba(255,255,255,.05);border-radius:12px;overflow:hidden;cursor:pointer;border:1px solid rgba(255,255,255,.08);transition:border-color .15s;-webkit-tap-highlight-color:transparent}
+.map-pin-card.selected{border-color:#FF4D8D}
+.map-pin-card img{width:100%;height:80px;object-fit:cover;background:#13132a;display:block}
+.map-pin-card-body{padding:7px 8px 8px}
+.map-pin-name{font-size:11px;font-weight:700;color:#fff;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.3}
+.map-pin-cat{font-size:9px;color:rgba(255,255,255,.4);margin-top:2px}
+.map-area-filters{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:10px 12px 0}
+.map-area-filters::-webkit-scrollbar{display:none}
+.map-area-chip{flex-shrink:0;padding:4px 11px;border-radius:16px;border:1px solid rgba(255,255,255,.1);background:transparent;color:rgba(255,255,255,.45);font-size:10px;font-weight:700;cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent}
+.map-area-chip.on{background:rgba(255,77,141,.15);border-color:#FF4D8D;color:#FF4D8D}
+.map-no-coords{padding:20px;text-align:center;color:rgba(255,255,255,.3);font-size:12px}
+
+/* feed/header: 탭바 공간 확보 */
+@media(max-width:639px){
+  body{padding-bottom:56px}
+  #hd{padding-bottom:0}
+}
 </style>
 </head>
 <body>
@@ -11738,6 +11798,66 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   </aside>
 </div>
 <div id="toast" role="status" aria-live="polite"></div>
+
+<!-- ── 하단 탭바 (모바일 전용) ── -->
+<nav id="bottom-tabs" aria-label="Main navigation">
+  <button class="btab active" id="btab-reels" onclick="switchTab('reels')" aria-label="Reels">
+    <i class="fas fa-play-circle"></i>
+    <span>Reels</span>
+  </button>
+  <button class="btab" id="btab-browse" onclick="switchTab('browse')" aria-label="Browse">
+    <i class="fas fa-th-large"></i>
+    <span>Browse</span>
+  </button>
+  <button class="btab" id="btab-map" onclick="switchTab('map')" aria-label="Map">
+    <i class="fas fa-map-marker-alt"></i>
+    <span>Map</span>
+  </button>
+</nav>
+
+<!-- ── Browse 뷰 ── -->
+<div id="view-browse" role="main" aria-label="Browse clinics">
+  <div class="bw-header">
+    <div class="bw-title">Seoul Beauty Guide</div>
+    <div class="bw-filters" id="bw-filters">
+      <button class="bw-chip on" data-cat="all">All</button>
+      <button class="bw-chip" data-cat="clinic">Clinic</button>
+      <button class="bw-chip" data-cat="headspa">Head Spa</button>
+      <button class="bw-chip" data-cat="skincare">Skincare</button>
+      <button class="bw-chip" data-cat="hair">Hair</button>
+      <button class="bw-chip" data-cat="makeup">Makeup</button>
+      <button class="bw-chip" data-cat="spa">Spa</button>
+    </div>
+  </div>
+  <div class="bw-grid" id="bw-grid"></div>
+</div>
+
+<!-- ── Map 뷰 ── -->
+<div id="view-map" role="main" aria-label="Map view">
+  <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:rgba(10,10,20,.95);border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0">
+    <div style="font-size:16px;font-weight:900;color:#fff">📍 Shop Map</div>
+    <div class="map-area-filters" id="map-area-filters" style="flex:1;padding:0;margin:0">
+      <button class="map-area-chip on" data-area="all">All</button>
+      <button class="map-area-chip" data-area="Gangnam">Gangnam</button>
+      <button class="map-area-chip" data-area="Hongdae">Hongdae</button>
+      <button class="map-area-chip" data-area="Myeongdong">Myeongdong</button>
+      <button class="map-area-chip" data-area="Sinsa">Sinsa</button>
+      <button class="map-area-chip" data-area="Itaewon">Itaewon</button>
+    </div>
+  </div>
+  <div id="map-iframe-wrap">
+    <iframe id="map-iframe" src="" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade" title="Seoul Beauty Map"></iframe>
+  </div>
+  <!-- 업체 핀 목록 drawer -->
+  <div class="map-shop-drawer" id="map-drawer">
+    <div class="map-drawer-handle" id="mapDrawerHandle"></div>
+    <div style="padding:0 12px 4px;display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.05em;text-transform:uppercase" id="map-drawer-count">Shops</div>
+      <button onclick="closeMapDrawer()" style="background:transparent;border:none;color:rgba(255,255,255,.3);font-size:13px;cursor:pointer;padding:4px"><i class="fas fa-chevron-down"></i></button>
+    </div>
+    <div class="map-pin-list" id="map-pin-list"></div>
+  </div>
+</div>
 
 <!-- 관리자 모달: JS로 동적 삽입 (크롤러 HTML에 노출 방지) -->
 <div id="adminModal"></div>
@@ -20117,6 +20237,229 @@ window.regenSeoAll = async function regenSeoAll(force) {
   } finally {
     if (btn) { btn.disabled = false; btn.innerHTML = force ? '<i class="fas fa-sync"></i> 전체 업체 SEO 강제 재생성' : '<i class="fas fa-magic"></i> SEO 미생성 업체 일괄 생성'; }
   }
+}
+
+}); // DOMContentLoaded
+
+// ════════════════════════════════════════════════
+// ── 하단 탭 전환 ──
+// ════════════════════════════════════════════════
+var _activeTab = 'reels';
+var _browseBuilt = false;
+var _mapBuilt = false;
+
+window.switchTab = function(tab) {
+  if (_activeTab === tab) return;
+  _activeTab = tab;
+
+  // 탭 버튼 active
+  ['reels','browse','map'].forEach(function(t) {
+    var btn = document.getElementById('btab-' + t);
+    if (btn) btn.classList.toggle('active', t === tab);
+  });
+
+  // Reels: 기존 feed/header 보이기
+  var pcLayout = document.getElementById('pc-layout');
+  var hd       = document.getElementById('hd');
+  var viewBrowse = document.getElementById('view-browse');
+  var viewMap    = document.getElementById('view-map');
+
+  if (tab === 'reels') {
+    if (pcLayout) pcLayout.style.display = '';
+    if (hd)       hd.style.display = '';
+    if (viewBrowse) viewBrowse.classList.remove('active');
+    if (viewMap)    viewMap.classList.remove('active');
+    // 피드 영상 재개
+    var curSlide = document.querySelector('.slide.current');
+    if (curSlide) { var v = curSlide.querySelector('video'); if(v) { try { v.play(); } catch(e){} } }
+    window.scrollTo(0, 0);
+  } else {
+    // 영상 일시정지
+    document.querySelectorAll('#feed video').forEach(function(v){ try{ v.pause(); }catch(e){} });
+    if (pcLayout) pcLayout.style.display = 'none';
+    if (hd)       hd.style.display = 'none';
+
+    if (tab === 'browse') {
+      if (viewMap)    viewMap.classList.remove('active');
+      if (viewBrowse) viewBrowse.classList.add('active');
+      if (!_browseBuilt) buildBrowse();
+    } else if (tab === 'map') {
+      if (viewBrowse) viewBrowse.classList.remove('active');
+      if (viewMap)    viewMap.classList.add('active');
+      if (!_mapBuilt) buildMap();
+    }
+  }
+};
+
+// ── Browse 빌드 ──
+var _bwCat = 'all';
+var catColors = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa',tattoo:'#e879f9'};
+var catIcons  = {skincare:'🌿',headspa:'💆',hair:'✂️',clinic:'💉',makeup:'💄',spa:'♨️',tattoo:'✏️'};
+
+function buildBrowse() {
+  _browseBuilt = true;
+  var shops = (window.__INIT_SHOPS__ || []);
+
+  // 필터 칩 이벤트
+  var chips = document.querySelectorAll('#bw-filters .bw-chip');
+  chips.forEach(function(chip) {
+    chip.addEventListener('click', function() {
+      chips.forEach(function(c){ c.classList.remove('on'); });
+      chip.classList.add('on');
+      _bwCat = chip.dataset.cat || 'all';
+      renderBrowseGrid(shops);
+    });
+  });
+
+  renderBrowseGrid(shops);
+}
+
+function renderBrowseGrid(shops) {
+  var grid = document.getElementById('bw-grid');
+  if (!grid) return;
+  var filtered = _bwCat === 'all' ? shops : shops.filter(function(s){ return s.category === _bwCat; });
+  if (!filtered.length) {
+    grid.innerHTML = '<div class="so-empty">No shops found</div>';
+    return;
+  }
+  grid.innerHTML = filtered.map(function(s) {
+    var color = catColors[s.category] || '#aaa';
+    var icon  = catIcons[s.category]  || '✨';
+    var loc   = (s.location||'Seoul').split(',')[0].trim();
+    var href  = s.slug ? '/shop/' + s.slug : '#';
+    var tagline = '';
+    if (s.reviewSummary && typeof s.reviewSummary === 'string') tagline = s.reviewSummary;
+    else if (s.whyChoose && s.whyChoose.length) { tagline = s.whyChoose[0]; while(tagline.length && !/[a-zA-Z0-9]/.test(tagline[0])){ tagline=tagline.slice(1); } }
+    if (tagline.length > 42) tagline = tagline.slice(0,41) + '…';
+
+    return '<a class="bw-card" href="' + href + '">'
+      + '<img class="bw-card-img" src="' + (s.thumbnail||'') + '" alt="' + escHtml(s.name) + '" loading="lazy">'
+      + '<div class="bw-card-body">'
+      + '<div class="bw-card-name">' + escHtml(s.name) + '</div>'
+      + (tagline ? '<div style="font-size:10px;color:rgba(255,255,255,.45);margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.35">' + escHtml(tagline) + '</div>' : '')
+      + '<div class="bw-card-meta">'
+      + '<div class="bw-card-loc"><i class="fas fa-map-marker-alt" style="color:' + color + ';margin-right:3px;font-size:9px"></i>' + escHtml(loc) + '</div>'
+      + '<div class="bw-card-rating">★' + (s.rating||'') + '</div>'
+      + '</div>'
+      + '<div class="bw-card-tag" style="color:' + color + '">' + icon + ' ' + (s.category||'') + '</div>'
+      + '</div>'
+      + '</a>';
+  }).join('');
+}
+
+// ── Map 빌드 ──
+var _mapArea = 'all';
+var _mapShops = [];
+var _selectedShopSlug = '';
+var GMAP_KEY = '';  // 서버에서 주입됨 (inline script에서 설정)
+
+function buildMap() {
+  _mapBuilt = true;
+  var shops = (window.__INIT_SHOPS__ || []).filter(function(s){ return s.lat && s.lng; });
+  _mapShops = shops;
+
+  // 지도 iframe 초기화
+  setMapIframe(shops);
+
+  // 지역 필터 이벤트
+  var areaChips = document.querySelectorAll('#map-area-filters .map-area-chip');
+  areaChips.forEach(function(chip) {
+    chip.addEventListener('click', function() {
+      areaChips.forEach(function(c){ c.classList.remove('on'); });
+      chip.classList.add('on');
+      _mapArea = chip.dataset.area || 'all';
+      var filtered = _mapArea === 'all' ? _mapShops : _mapShops.filter(function(s){
+        return (s.location||'').toLowerCase().includes(_mapArea.toLowerCase());
+      });
+      setMapIframe(filtered);
+      renderMapPins(filtered);
+    });
+  });
+
+  // drawer 열기 버튼
+  var handle = document.getElementById('mapDrawerHandle');
+  if (handle) handle.addEventListener('click', function(){ toggleMapDrawer(true); });
+
+  renderMapPins(shops);
+  // 2초 후 drawer 살짝 열기 (안내)
+  setTimeout(function(){ toggleMapDrawer(true); }, 1200);
+}
+
+function getMapCenter(shops) {
+  if (!shops.length) return { lat: 37.5172, lng: 127.0473 }; // 강남 기본
+  var latSum = 0, lngSum = 0;
+  shops.forEach(function(s){ latSum += parseFloat(s.lat); lngSum += parseFloat(s.lng); });
+  return { lat: latSum/shops.length, lng: lngSum/shops.length };
+}
+
+function setMapIframe(shops) {
+  var iframe = document.getElementById('map-iframe');
+  if (!iframe) return;
+  var apiKey = window.__GMAP_KEY__ || '';
+  if (!shops.length) {
+    // 좌표 없는 업체는 강남 기본 지도
+    iframe.src = 'https://www.google.com/maps/embed/v1/place?key=' + apiKey + '&q=Gangnam,Seoul,Korea&zoom=14';
+    return;
+  }
+  var center = getMapCenter(shops);
+  // 핀이 1개면 place, 여러 개면 search로 표시
+  var q = shops.map(function(s){ return encodeURIComponent(s.name + ' Seoul'); }).slice(0,1).join('|');
+  // Embed Maps API — search 모드로 업체명 검색 (무료 호출)
+  var zoom = shops.length === 1 ? 16 : (_mapArea !== 'all' ? 15 : 13);
+  iframe.src = 'https://www.google.com/maps/embed/v1/search?key=' + apiKey
+    + '&q=' + encodeURIComponent('Korean beauty clinic Seoul ' + (_mapArea !== 'all' ? _mapArea : ''))
+    + '&center=' + center.lat + ',' + center.lng
+    + '&zoom=' + zoom;
+}
+
+function renderMapPins(shops) {
+  var list = document.getElementById('map-pin-list');
+  var countEl = document.getElementById('map-drawer-count');
+  if (!list) return;
+  if (countEl) countEl.textContent = shops.length + ' shops nearby';
+  if (!shops.length) {
+    list.innerHTML = '<div class="map-no-coords">No location data for this area</div>';
+    return;
+  }
+  list.innerHTML = shops.map(function(s) {
+    var color = catColors[s.category] || '#aaa';
+    var href  = s.slug ? '/shop/' + s.slug : '#';
+    return '<div class="map-pin-card" data-slug="' + s.slug + '" onclick="selectMapShop(this,\'' + s.slug + '\',\'' + encodeURIComponent(s.name) + '\',' + s.lat + ',' + s.lng + ')">'
+      + '<img src="' + (s.thumbnail||'') + '" alt="' + escHtml(s.name) + '" loading="lazy">'
+      + '<div class="map-pin-card-body">'
+      + '<div class="map-pin-name">' + escHtml(s.name) + '</div>'
+      + '<div class="map-pin-cat" style="color:' + color + '">' + (catIcons[s.category]||'✨') + ' ' + (s.category||'') + '</div>'
+      + '</div></div>';
+  }).join('');
+}
+
+window.selectMapShop = function(el, slug, nameEnc, lat, lng) {
+  // 선택된 카드 하이라이트
+  document.querySelectorAll('.map-pin-card').forEach(function(c){ c.classList.remove('selected'); });
+  if (el) el.classList.add('selected');
+  _selectedShopSlug = slug;
+  var name = decodeURIComponent(nameEnc);
+
+  // iframe을 해당 업체 위치로 이동
+  var iframe = document.getElementById('map-iframe');
+  var apiKey = window.__GMAP_KEY__ || '';
+  if (iframe && apiKey) {
+    iframe.src = 'https://www.google.com/maps/embed/v1/place?key=' + apiKey
+      + '&q=' + encodeURIComponent(name + ' Seoul Korea')
+      + '&center=' + lat + ',' + lng
+      + '&zoom=17';
+  }
+};
+
+window.closeMapDrawer = function() { toggleMapDrawer(false); };
+function toggleMapDrawer(open) {
+  var drawer = document.getElementById('map-drawer');
+  if (drawer) drawer.classList.toggle('open', open);
+}
+
+// helper
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 }); // DOMContentLoaded
