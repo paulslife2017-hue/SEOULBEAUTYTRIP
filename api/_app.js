@@ -12691,65 +12691,92 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 
 /* \u2500\u2500 \uD558\uB2E8 \uD0ED\uBC14 \u2500\u2500 */
-#bottom-tabs{position:fixed;bottom:0;left:0;right:0;height:56px;background:rgba(10,10,20,.96);backdrop-filter:blur(20px);border-top:1px solid rgba(255,255,255,.08);display:flex;align-items:stretch;z-index:9999}
-.btab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:transparent;cursor:pointer;color:rgba(255,255,255,.35);transition:color .2s;padding:0;-webkit-tap-highlight-color:transparent;position:relative}
-.btab i{font-size:18px;transition:transform .2s}
-.btab span{font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+/* \u2500\u2500 \uD558\uB2E8 \uD0ED\uBC14: \uBAA8\uBC14\uC77C(<1024px)\uC5D0\uC11C\uB9CC \uD45C\uC2DC \u2500\u2500 */
+#bottom-tabs{position:fixed;bottom:0;left:0;right:0;height:56px;
+  background:rgba(10,10,20,.97);backdrop-filter:blur(20px);
+  border-top:1px solid rgba(255,255,255,.1);
+  display:none;align-items:stretch;z-index:9999;
+  box-shadow:0 -4px 20px rgba(0,0,0,.4)}
+@media(max-width:1023px){
+  #bottom-tabs{display:flex}
+  body{padding-bottom:56px}
+}
+.btab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;border:none;background:transparent;cursor:pointer;
+  color:rgba(255,255,255,.38);transition:color .18s;padding:0;
+  -webkit-tap-highlight-color:transparent;position:relative;outline:none}
+.btab i{font-size:19px;transition:transform .18s}
+.btab span{font-size:10px;font-weight:700;letter-spacing:.02em}
 .btab.active{color:#FF4D8D}
-.btab.active i{transform:scale(1.12)}
-.btab.active::after{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:28px;height:2px;background:linear-gradient(90deg,#FF4D8D,#a855f7);border-radius:0 0 3px 3px}
-@media(min-width:1024px){#bottom-tabs{display:none!important}}
+.btab.active i{transform:scale(1.15)}
+.btab.active::after{content:'';position:absolute;top:0;left:50%;
+  transform:translateX(-50%);width:32px;height:2px;
+  background:linear-gradient(90deg,#FF4D8D,#a855f7);border-radius:0 0 3px 3px}
 
-/* \u2500\u2500 Browse \uBDF0 \u2500\u2500 */
-#view-browse{display:none;position:fixed;inset:0;background:#0a0a14;z-index:400;overflow-y:auto;padding-bottom:60px}
+/* \u2500\u2500 Browse \uBDF0 (\uBAA8\uBC14\uC77C \uC804\uC6A9 \uC804\uCCB4\uD654\uBA74) \u2500\u2500 */
+#view-browse{display:none;position:fixed;inset:0 0 56px 0;
+  background:#0a0a14;z-index:450;overflow-y:auto}
+@media(min-width:1024px){#view-browse{display:none!important}}
 #view-browse.active{display:block}
-.bw-header{position:sticky;top:0;z-index:10;background:rgba(10,10,20,.95);backdrop-filter:blur(16px);padding:12px 16px 8px;border-bottom:1px solid rgba(255,255,255,.06)}
+.bw-header{position:sticky;top:0;z-index:10;background:rgba(10,10,20,.96);
+  backdrop-filter:blur(16px);padding:14px 16px 10px;
+  border-bottom:1px solid rgba(255,255,255,.07)}
 .bw-title{font-size:17px;font-weight:900;color:#fff;letter-spacing:-.02em}
 .bw-filters{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-top:10px;padding-bottom:2px}
 .bw-filters::-webkit-scrollbar{display:none}
-.bw-chip{flex-shrink:0;padding:5px 12px;border-radius:20px;border:1px solid rgba(255,255,255,.12);background:transparent;color:rgba(255,255,255,.5);font-size:11px;font-weight:700;cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent}
+.bw-chip{flex-shrink:0;padding:5px 13px;border-radius:20px;
+  border:1px solid rgba(255,255,255,.12);background:transparent;
+  color:rgba(255,255,255,.5);font-size:11px;font-weight:700;cursor:pointer;
+  transition:all .15s;-webkit-tap-highlight-color:transparent}
 .bw-chip.on{background:rgba(255,77,141,.15);border-color:#FF4D8D;color:#FF4D8D}
 .bw-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px}
-.bw-card{background:rgba(255,255,255,.04);border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,.06);cursor:pointer;transition:transform .15s,border-color .15s;-webkit-tap-highlight-color:transparent;text-decoration:none;display:block}
+.bw-card{background:rgba(255,255,255,.04);border-radius:14px;overflow:hidden;
+  border:1px solid rgba(255,255,255,.07);cursor:pointer;
+  transition:transform .15s,border-color .15s;
+  -webkit-tap-highlight-color:transparent;text-decoration:none;display:block}
 .bw-card:active{transform:scale(.97)}
 .bw-card-img{width:100%;aspect-ratio:1/1;object-fit:cover;background:#13132a;display:block}
 .bw-card-body{padding:9px 10px 10px}
-.bw-card-name{font-size:12px;font-weight:800;color:#fff;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.bw-card-name{font-size:12px;font-weight:800;color:#fff;line-height:1.3;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .bw-card-tag{font-size:10px;font-weight:600;margin-top:4px;display:flex;align-items:center;gap:3px}
 .bw-card-meta{display:flex;align-items:center;justify-content:space-between;margin-top:5px}
 .bw-card-loc{font-size:10px;color:rgba(255,255,255,.35);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .bw-card-rating{font-size:10px;font-weight:700;color:#f59e0b;flex-shrink:0}
 
-/* \u2500\u2500 Map \uBDF0 \u2500\u2500 */
-#view-map{display:none;position:fixed;inset:0;background:#0a0a14;z-index:400;padding-bottom:56px;flex-direction:column}
+/* \u2500\u2500 Map \uBDF0 (\uBAA8\uBC14\uC77C \uC804\uC6A9 \uC804\uCCB4\uD654\uBA74) \u2500\u2500 */
+#view-map{display:none;position:fixed;inset:0 0 56px 0;
+  background:#0a0a14;z-index:450;flex-direction:column}
+@media(min-width:1024px){#view-map{display:none!important}}
 #view-map.active{display:flex}
 #map-iframe-wrap{flex:1;position:relative;overflow:hidden}
-#map-iframe-wrap iframe{width:100%;height:100%;border:none}
-.map-shop-drawer{position:absolute;bottom:0;left:0;right:0;background:rgba(10,10,20,.97);backdrop-filter:blur(20px);border-top:1px solid rgba(255,255,255,.1);border-radius:16px 16px 0 0;max-height:55%;overflow-y:auto;transform:translateY(100%);transition:transform .32s cubic-bezier(.4,0,.2,1);z-index:10}
+#map-iframe-wrap iframe{width:100%;height:100%;border:none;display:block}
+.map-shop-drawer{position:absolute;bottom:0;left:0;right:0;
+  background:rgba(10,10,20,.97);backdrop-filter:blur(20px);
+  border-top:1px solid rgba(255,255,255,.1);border-radius:16px 16px 0 0;
+  max-height:50%;overflow-y:auto;
+  transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);z-index:10}
 .map-shop-drawer.open{transform:translateY(0)}
-.map-drawer-handle{width:36px;height:3px;background:rgba(255,255,255,.2);border-radius:2px;margin:10px auto 6px}
-.map-pin-list{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:8px 12px 12px}
+.map-drawer-handle{width:36px;height:3px;background:rgba(255,255,255,.2);border-radius:2px;margin:10px auto 6px;cursor:pointer}
+.map-pin-list{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:6px 12px 14px}
 .map-pin-list::-webkit-scrollbar{display:none}
-.map-pin-card{flex-shrink:0;width:140px;background:rgba(255,255,255,.05);border-radius:12px;overflow:hidden;cursor:pointer;border:1px solid rgba(255,255,255,.08);transition:border-color .15s;-webkit-tap-highlight-color:transparent}
+.map-pin-card{flex-shrink:0;width:140px;background:rgba(255,255,255,.05);border-radius:12px;
+  overflow:hidden;cursor:pointer;border:1px solid rgba(255,255,255,.08);
+  transition:border-color .15s;-webkit-tap-highlight-color:transparent}
 .map-pin-card.selected{border-color:#FF4D8D}
 .map-pin-card img{width:100%;height:80px;object-fit:cover;background:#13132a;display:block}
 .map-pin-card-body{padding:7px 8px 8px}
-.map-pin-name{font-size:11px;font-weight:700;color:#fff;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.3}
+.map-pin-name{font-size:11px;font-weight:700;color:#fff;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.3}
 .map-pin-cat{font-size:9px;color:rgba(255,255,255,.4);margin-top:2px}
 .map-area-filters{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:10px 12px 0}
 .map-area-filters::-webkit-scrollbar{display:none}
-.map-area-chip{flex-shrink:0;padding:4px 11px;border-radius:16px;border:1px solid rgba(255,255,255,.1);background:transparent;color:rgba(255,255,255,.45);font-size:10px;font-weight:700;cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent}
+.map-area-chip{flex-shrink:0;padding:4px 11px;border-radius:16px;
+  border:1px solid rgba(255,255,255,.1);background:transparent;
+  color:rgba(255,255,255,.45);font-size:10px;font-weight:700;cursor:pointer;
+  transition:all .15s;-webkit-tap-highlight-color:transparent}
 .map-area-chip.on{background:rgba(255,77,141,.15);border-color:#FF4D8D;color:#FF4D8D}
 .map-no-coords{padding:20px;text-align:center;color:rgba(255,255,255,.3);font-size:12px}
-
-/* feed/header: \uD0ED\uBC14 \uACF5\uAC04 \uD655\uBCF4 */
-@media(max-width:1023px){
-  body{padding-bottom:56px}
-  #hd{padding-bottom:0}
-  #view-browse,#view-map{display:none}
-  #view-browse.active{display:block}
-  #view-map.active{display:flex}
-}
 </style>
 </head>
 <body>
@@ -12837,15 +12864,15 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 
 <!-- \u2500\u2500 \uD558\uB2E8 \uD0ED\uBC14 (\uBAA8\uBC14\uC77C \uC804\uC6A9) \u2500\u2500 -->
 <nav id="bottom-tabs" aria-label="Main navigation">
-  <button class="btab active" id="btab-reels" onclick="switchTab('reels')" aria-label="\uD648">
+  <button class="btab active" id="btab-reels" data-tab="reels" aria-label="\uD648">
     <i class="fas fa-home"></i>
     <span>\uD648</span>
   </button>
-  <button class="btab" id="btab-browse" onclick="switchTab('browse')" aria-label="\uCC3E\uAE30">
+  <button class="btab" id="btab-browse" data-tab="browse" aria-label="\uCC3E\uAE30">
     <i class="fas fa-search"></i>
     <span>\uCC3E\uAE30</span>
   </button>
-  <button class="btab" id="btab-map" onclick="switchTab('map')" aria-label="\uB9F5">
+  <button class="btab" id="btab-map" data-tab="map" aria-label="\uB9F5">
     <i class="fas fa-map-marked-alt"></i>
     <span>\uB9F5</span>
   </button>
@@ -15138,6 +15165,209 @@ function renderShopPanel(cat) {
       '</div>'+
     '</div>';
   }).join('');
+}
+
+// \u2500\u2500 \uD558\uB2E8 \uD0ED \uCD08\uAE30\uD654 \u2500\u2500
+(function initTabs() {
+  var _activeTab = 'reels';
+  var _browseBuilt = false;
+  var _mapBuilt = false;
+
+  function switchTab(tab) {
+    if (_activeTab === tab) return;
+    _activeTab = tab;
+
+    // \uBC84\uD2BC active \uC0C1\uD0DC
+    document.querySelectorAll('.btab').forEach(function(btn) {
+      btn.classList.toggle('active', btn.dataset.tab === tab);
+    });
+
+    var pcLayout   = document.getElementById('pc-layout');
+    var hd         = document.getElementById('hd');
+    var viewBrowse = document.getElementById('view-browse');
+    var viewMap    = document.getElementById('view-map');
+
+    if (tab === 'reels') {
+      if (viewBrowse) viewBrowse.classList.remove('active');
+      if (viewMap)    viewMap.classList.remove('active');
+      if (pcLayout)   pcLayout.style.display = '';
+      if (hd)         hd.style.display = '';
+      var cur = document.querySelector('.slide.current video');
+      if (cur) { try { cur.play(); } catch(e){} }
+    } else {
+      document.querySelectorAll('#feed video').forEach(function(v){ try{v.pause();}catch(e){} });
+      if (pcLayout) pcLayout.style.display = 'none';
+      if (hd)       hd.style.display = 'none';
+
+      if (tab === 'browse') {
+        if (viewMap)    viewMap.classList.remove('active');
+        if (viewBrowse) viewBrowse.classList.add('active');
+        if (!_browseBuilt) { _browseBuilt = true; buildBrowse(); }
+      } else if (tab === 'map') {
+        if (viewBrowse) viewBrowse.classList.remove('active');
+        if (viewMap)    viewMap.classList.add('active');
+        if (!_mapBuilt) { _mapBuilt = true; buildMap(); }
+      }
+    }
+  }
+
+  document.querySelectorAll('.btab').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      switchTab(btn.dataset.tab || 'reels');
+    });
+  });
+
+  window.switchTab = switchTab;
+})();
+
+// \u2500\u2500 Browse \uBE4C\uB4DC \u2500\u2500
+var _bwCat = 'all';
+var catColors = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa',tattoo:'#e879f9'};
+var catIcons  = {skincare:'\u{1F33F}',headspa:'\u{1F486}',hair:'\u2702\uFE0F',clinic:'\u{1F489}',makeup:'\u{1F484}',spa:'\u2668\uFE0F',tattoo:'\u270F\uFE0F'};
+
+function buildBrowse() {
+  var shops = (window.__INIT_SHOPS__ || []);
+
+  var chips = document.querySelectorAll('#bw-filters .bw-chip');
+  chips.forEach(function(chip) {
+    chip.addEventListener('click', function() {
+      chips.forEach(function(c){ c.classList.remove('on'); });
+      chip.classList.add('on');
+      _bwCat = chip.dataset.cat || 'all';
+      renderBrowseGrid(shops);
+    });
+  });
+
+  renderBrowseGrid(shops);
+}
+
+function renderBrowseGrid(shops) {
+  var grid = document.getElementById('bw-grid');
+  if (!grid) return;
+  var filtered = _bwCat === 'all' ? shops : shops.filter(function(s){ return s.category === _bwCat; });
+  if (!filtered.length) {
+    grid.innerHTML = '<div class="so-empty">No shops found</div>';
+    return;
+  }
+  grid.innerHTML = filtered.map(function(s) {
+    var color = catColors[s.category] || '#aaa';
+    var icon  = catIcons[s.category]  || '\u2728';
+    var loc   = (s.location||'Seoul').split(',')[0].trim();
+    var href  = s.slug ? '/shop/' + s.slug : '#';
+    var tagline = '';
+    if (s.reviewSummary && typeof s.reviewSummary === 'string') tagline = s.reviewSummary;
+    else if (s.whyChoose && s.whyChoose.length) { tagline = s.whyChoose[0]; while(tagline.length && !/[a-zA-Z0-9]/.test(tagline[0])){ tagline=tagline.slice(1); } }
+    if (tagline.length > 42) tagline = tagline.slice(0,41) + '\u2026';
+
+    return '<a class="bw-card" href="' + href + '">'
+      + '<img class="bw-card-img" src="' + (s.thumbnail||'') + '" alt="' + escHtml(s.name) + '" loading="lazy">'
+      + '<div class="bw-card-body">'
+      + '<div class="bw-card-name">' + escHtml(s.name) + '</div>'
+      + (tagline ? '<div style="font-size:10px;color:rgba(255,255,255,.45);margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.35">' + escHtml(tagline) + '</div>' : '')
+      + '<div class="bw-card-meta">'
+      + '<div class="bw-card-loc"><i class="fas fa-map-marker-alt" style="color:' + color + ';margin-right:3px;font-size:9px"></i>' + escHtml(loc) + '</div>'
+      + '<div class="bw-card-rating">\u2605' + (s.rating||'') + '</div>'
+      + '</div>'
+      + '<div class="bw-card-tag" style="color:' + color + '">' + icon + ' ' + (s.category||'') + '</div>'
+      + '</div>'
+      + '</a>';
+  }).join('');
+}
+
+// \u2500\u2500 Map \uBE4C\uB4DC \u2500\u2500
+var _mapArea = 'all';
+var _mapShops = [];
+var _selectedShopSlug = '';
+
+function buildMap() {
+  var shops = (window.__INIT_SHOPS__ || []).filter(function(s){ return s.lat && s.lng; });
+  _mapShops = shops;
+
+  setMapIframe(shops);
+
+  var areaChips = document.querySelectorAll('#map-area-filters .map-area-chip');
+  areaChips.forEach(function(chip) {
+    chip.addEventListener('click', function() {
+      areaChips.forEach(function(c){ c.classList.remove('on'); });
+      chip.classList.add('on');
+      _mapArea = chip.dataset.area || 'all';
+      var filtered = _mapArea === 'all' ? _mapShops : _mapShops.filter(function(s){
+        return (s.location||'').toLowerCase().includes(_mapArea.toLowerCase());
+      });
+      setMapIframe(filtered);
+      renderMapPins(filtered);
+    });
+  });
+
+  var handle = document.getElementById('mapDrawerHandle');
+  if (handle) handle.addEventListener('click', function(){ toggleMapDrawer(true); });
+
+  renderMapPins(shops);
+  setTimeout(function(){ toggleMapDrawer(true); }, 1200);
+}
+
+function getMapCenter(shops) {
+  if (!shops.length) return { lat: 37.5172, lng: 127.0473 };
+  var latSum = 0, lngSum = 0;
+  shops.forEach(function(s){ latSum += parseFloat(s.lat); lngSum += parseFloat(s.lng); });
+  return { lat: latSum/shops.length, lng: lngSum/shops.length };
+}
+
+function setMapIframe(shops) {
+  var iframe = document.getElementById('map-iframe');
+  if (!iframe) return;
+  var apiKey = window.__GMAP_KEY__ || '';
+  if (!shops.length) {
+    iframe.src = 'https://www.google.com/maps/embed/v1/place?key=' + apiKey + '&q=Gangnam,Seoul,Korea&zoom=14';
+    return;
+  }
+  var center = getMapCenter(shops);
+  var zoom = shops.length === 1 ? 16 : (_mapArea !== 'all' ? 15 : 13);
+  iframe.src = 'https://www.google.com/maps/embed/v1/search?key=' + apiKey
+    + '&q=' + encodeURIComponent('Korean beauty clinic Seoul ' + (_mapArea !== 'all' ? _mapArea : ''))
+    + '&center=' + center.lat + ',' + center.lng
+    + '&zoom=' + zoom;
+}
+
+function renderMapPins(shops) {
+  var list = document.getElementById('map-pin-list');
+  var countEl = document.getElementById('map-drawer-count');
+  if (!list) return;
+  if (countEl) countEl.textContent = shops.length + ' shops nearby';
+  if (!shops.length) {
+    list.innerHTML = '<div class="map-no-coords">No location data for this area</div>';
+    return;
+  }
+  list.innerHTML = shops.map(function(s) {
+    var color = catColors[s.category] || '#aaa';
+    return '<div class="map-pin-card" data-slug="' + s.slug + '" onclick="selectMapShop(this,&quot;' + s.slug + '&quot;,&quot;' + encodeURIComponent(s.name) + '&quot;,' + s.lat + ',' + s.lng + ')">'
+      + '<img src="' + (s.thumbnail||'') + '" alt="' + escHtml(s.name) + '" loading="lazy">'
+      + '<div class="map-pin-card-body">'
+      + '<div class="map-pin-name">' + escHtml(s.name) + '</div>'
+      + '<div class="map-pin-cat" style="color:' + color + '">' + (catIcons[s.category]||'\u2728') + ' ' + (s.category||'') + '</div>'
+      + '</div></div>';
+  }).join('');
+}
+
+window.selectMapShop = function(el, slug, nameEnc, lat, lng) {
+  document.querySelectorAll('.map-pin-card').forEach(function(c){ c.classList.remove('selected'); });
+  if (el) el.classList.add('selected');
+  _selectedShopSlug = slug;
+  var name = decodeURIComponent(nameEnc);
+  var iframe = document.getElementById('map-iframe');
+  var apiKey = window.__GMAP_KEY__ || '';
+  if (iframe && apiKey) {
+    iframe.src = 'https://www.google.com/maps/embed/v1/place?key=' + apiKey
+      + '&q=' + encodeURIComponent(name + ' Seoul Korea')
+      + '&center=' + lat + ',' + lng
+      + '&zoom=17';
+  }
+};
+
+window.closeMapDrawer = function() { toggleMapDrawer(false); };
+function toggleMapDrawer(open) {
+  var drawer = document.getElementById('map-drawer');
+  if (drawer) drawer.classList.toggle('open', open);
 }
 </script>
 
@@ -21271,227 +21501,6 @@ window.regenSeoAll = async function regenSeoAll(force) {
   }
 }
 
-}); // DOMContentLoaded
-
-// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
-// \u2500\u2500 \uD558\uB2E8 \uD0ED \uC804\uD658 \u2500\u2500
-// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
-var _activeTab = 'reels';
-var _browseBuilt = false;
-var _mapBuilt = false;
-
-window.switchTab = function(tab) {
-  if (_activeTab === tab) return;
-  _activeTab = tab;
-
-  // \uD0ED \uBC84\uD2BC active
-  ['reels','browse','map'].forEach(function(t) {
-    var btn = document.getElementById('btab-' + t);
-    if (btn) btn.classList.toggle('active', t === tab);
-  });
-
-  // Reels: \uAE30\uC874 feed/header \uBCF4\uC774\uAE30
-  var pcLayout = document.getElementById('pc-layout');
-  var hd       = document.getElementById('hd');
-  var viewBrowse = document.getElementById('view-browse');
-  var viewMap    = document.getElementById('view-map');
-
-  if (tab === 'reels') {
-    if (pcLayout) pcLayout.style.display = '';
-    if (hd)       hd.style.display = '';
-    if (viewBrowse) viewBrowse.classList.remove('active');
-    if (viewMap)    viewMap.classList.remove('active');
-    // \uD53C\uB4DC \uC601\uC0C1 \uC7AC\uAC1C
-    var curSlide = document.querySelector('.slide.current');
-    if (curSlide) { var v = curSlide.querySelector('video'); if(v) { try { v.play(); } catch(e){} } }
-    window.scrollTo(0, 0);
-  } else {
-    // \uC601\uC0C1 \uC77C\uC2DC\uC815\uC9C0
-    document.querySelectorAll('#feed video').forEach(function(v){ try{ v.pause(); }catch(e){} });
-    if (pcLayout) pcLayout.style.display = 'none';
-    if (hd)       hd.style.display = 'none';
-
-    if (tab === 'browse') {
-      if (viewMap)    viewMap.classList.remove('active');
-      if (viewBrowse) viewBrowse.classList.add('active');
-      if (!_browseBuilt) buildBrowse();
-    } else if (tab === 'map') {
-      if (viewBrowse) viewBrowse.classList.remove('active');
-      if (viewMap)    viewMap.classList.add('active');
-      if (!_mapBuilt) buildMap();
-    }
-  }
-};
-
-// \u2500\u2500 Browse \uBE4C\uB4DC \u2500\u2500
-var _bwCat = 'all';
-var catColors = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa',tattoo:'#e879f9'};
-var catIcons  = {skincare:'\u{1F33F}',headspa:'\u{1F486}',hair:'\u2702\uFE0F',clinic:'\u{1F489}',makeup:'\u{1F484}',spa:'\u2668\uFE0F',tattoo:'\u270F\uFE0F'};
-
-function buildBrowse() {
-  _browseBuilt = true;
-  var shops = (window.__INIT_SHOPS__ || []);
-
-  // \uD544\uD130 \uCE69 \uC774\uBCA4\uD2B8
-  var chips = document.querySelectorAll('#bw-filters .bw-chip');
-  chips.forEach(function(chip) {
-    chip.addEventListener('click', function() {
-      chips.forEach(function(c){ c.classList.remove('on'); });
-      chip.classList.add('on');
-      _bwCat = chip.dataset.cat || 'all';
-      renderBrowseGrid(shops);
-    });
-  });
-
-  renderBrowseGrid(shops);
-}
-
-function renderBrowseGrid(shops) {
-  var grid = document.getElementById('bw-grid');
-  if (!grid) return;
-  var filtered = _bwCat === 'all' ? shops : shops.filter(function(s){ return s.category === _bwCat; });
-  if (!filtered.length) {
-    grid.innerHTML = '<div class="so-empty">No shops found</div>';
-    return;
-  }
-  grid.innerHTML = filtered.map(function(s) {
-    var color = catColors[s.category] || '#aaa';
-    var icon  = catIcons[s.category]  || '\u2728';
-    var loc   = (s.location||'Seoul').split(',')[0].trim();
-    var href  = s.slug ? '/shop/' + s.slug : '#';
-    var tagline = '';
-    if (s.reviewSummary && typeof s.reviewSummary === 'string') tagline = s.reviewSummary;
-    else if (s.whyChoose && s.whyChoose.length) { tagline = s.whyChoose[0]; while(tagline.length && !/[a-zA-Z0-9]/.test(tagline[0])){ tagline=tagline.slice(1); } }
-    if (tagline.length > 42) tagline = tagline.slice(0,41) + '\u2026';
-
-    return '<a class="bw-card" href="' + href + '">'
-      + '<img class="bw-card-img" src="' + (s.thumbnail||'') + '" alt="' + escHtml(s.name) + '" loading="lazy">'
-      + '<div class="bw-card-body">'
-      + '<div class="bw-card-name">' + escHtml(s.name) + '</div>'
-      + (tagline ? '<div style="font-size:10px;color:rgba(255,255,255,.45);margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.35">' + escHtml(tagline) + '</div>' : '')
-      + '<div class="bw-card-meta">'
-      + '<div class="bw-card-loc"><i class="fas fa-map-marker-alt" style="color:' + color + ';margin-right:3px;font-size:9px"></i>' + escHtml(loc) + '</div>'
-      + '<div class="bw-card-rating">\u2605' + (s.rating||'') + '</div>'
-      + '</div>'
-      + '<div class="bw-card-tag" style="color:' + color + '">' + icon + ' ' + (s.category||'') + '</div>'
-      + '</div>'
-      + '</a>';
-  }).join('');
-}
-
-// \u2500\u2500 Map \uBE4C\uB4DC \u2500\u2500
-var _mapArea = 'all';
-var _mapShops = [];
-var _selectedShopSlug = '';
-var GMAP_KEY = '';  // \uC11C\uBC84\uC5D0\uC11C \uC8FC\uC785\uB428 (inline script\uC5D0\uC11C \uC124\uC815)
-
-function buildMap() {
-  _mapBuilt = true;
-  var shops = (window.__INIT_SHOPS__ || []).filter(function(s){ return s.lat && s.lng; });
-  _mapShops = shops;
-
-  // \uC9C0\uB3C4 iframe \uCD08\uAE30\uD654
-  setMapIframe(shops);
-
-  // \uC9C0\uC5ED \uD544\uD130 \uC774\uBCA4\uD2B8
-  var areaChips = document.querySelectorAll('#map-area-filters .map-area-chip');
-  areaChips.forEach(function(chip) {
-    chip.addEventListener('click', function() {
-      areaChips.forEach(function(c){ c.classList.remove('on'); });
-      chip.classList.add('on');
-      _mapArea = chip.dataset.area || 'all';
-      var filtered = _mapArea === 'all' ? _mapShops : _mapShops.filter(function(s){
-        return (s.location||'').toLowerCase().includes(_mapArea.toLowerCase());
-      });
-      setMapIframe(filtered);
-      renderMapPins(filtered);
-    });
-  });
-
-  // drawer \uC5F4\uAE30 \uBC84\uD2BC
-  var handle = document.getElementById('mapDrawerHandle');
-  if (handle) handle.addEventListener('click', function(){ toggleMapDrawer(true); });
-
-  renderMapPins(shops);
-  // 2\uCD08 \uD6C4 drawer \uC0B4\uC9DD \uC5F4\uAE30 (\uC548\uB0B4)
-  setTimeout(function(){ toggleMapDrawer(true); }, 1200);
-}
-
-function getMapCenter(shops) {
-  if (!shops.length) return { lat: 37.5172, lng: 127.0473 }; // \uAC15\uB0A8 \uAE30\uBCF8
-  var latSum = 0, lngSum = 0;
-  shops.forEach(function(s){ latSum += parseFloat(s.lat); lngSum += parseFloat(s.lng); });
-  return { lat: latSum/shops.length, lng: lngSum/shops.length };
-}
-
-function setMapIframe(shops) {
-  var iframe = document.getElementById('map-iframe');
-  if (!iframe) return;
-  var apiKey = window.__GMAP_KEY__ || '';
-  if (!shops.length) {
-    // \uC88C\uD45C \uC5C6\uB294 \uC5C5\uCCB4\uB294 \uAC15\uB0A8 \uAE30\uBCF8 \uC9C0\uB3C4
-    iframe.src = 'https://www.google.com/maps/embed/v1/place?key=' + apiKey + '&q=Gangnam,Seoul,Korea&zoom=14';
-    return;
-  }
-  var center = getMapCenter(shops);
-  // \uD540\uC774 1\uAC1C\uBA74 place, \uC5EC\uB7EC \uAC1C\uBA74 search\uB85C \uD45C\uC2DC
-  var q = shops.map(function(s){ return encodeURIComponent(s.name + ' Seoul'); }).slice(0,1).join('|');
-  // Embed Maps API \u2014 search \uBAA8\uB4DC\uB85C \uC5C5\uCCB4\uBA85 \uAC80\uC0C9 (\uBB34\uB8CC \uD638\uCD9C)
-  var zoom = shops.length === 1 ? 16 : (_mapArea !== 'all' ? 15 : 13);
-  iframe.src = 'https://www.google.com/maps/embed/v1/search?key=' + apiKey
-    + '&q=' + encodeURIComponent('Korean beauty clinic Seoul ' + (_mapArea !== 'all' ? _mapArea : ''))
-    + '&center=' + center.lat + ',' + center.lng
-    + '&zoom=' + zoom;
-}
-
-function renderMapPins(shops) {
-  var list = document.getElementById('map-pin-list');
-  var countEl = document.getElementById('map-drawer-count');
-  if (!list) return;
-  if (countEl) countEl.textContent = shops.length + ' shops nearby';
-  if (!shops.length) {
-    list.innerHTML = '<div class="map-no-coords">No location data for this area</div>';
-    return;
-  }
-  list.innerHTML = shops.map(function(s) {
-    var color = catColors[s.category] || '#aaa';
-    var href  = s.slug ? '/shop/' + s.slug : '#';
-    return '<div class="map-pin-card" data-slug="' + s.slug + '" onclick="selectMapShop(this,'' + s.slug + '','' + encodeURIComponent(s.name) + '',' + s.lat + ',' + s.lng + ')">'
-      + '<img src="' + (s.thumbnail||'') + '" alt="' + escHtml(s.name) + '" loading="lazy">'
-      + '<div class="map-pin-card-body">'
-      + '<div class="map-pin-name">' + escHtml(s.name) + '</div>'
-      + '<div class="map-pin-cat" style="color:' + color + '">' + (catIcons[s.category]||'\u2728') + ' ' + (s.category||'') + '</div>'
-      + '</div></div>';
-  }).join('');
-}
-
-window.selectMapShop = function(el, slug, nameEnc, lat, lng) {
-  // \uC120\uD0DD\uB41C \uCE74\uB4DC \uD558\uC774\uB77C\uC774\uD2B8
-  document.querySelectorAll('.map-pin-card').forEach(function(c){ c.classList.remove('selected'); });
-  if (el) el.classList.add('selected');
-  _selectedShopSlug = slug;
-  var name = decodeURIComponent(nameEnc);
-
-  // iframe\uC744 \uD574\uB2F9 \uC5C5\uCCB4 \uC704\uCE58\uB85C \uC774\uB3D9
-  var iframe = document.getElementById('map-iframe');
-  var apiKey = window.__GMAP_KEY__ || '';
-  if (iframe && apiKey) {
-    iframe.src = 'https://www.google.com/maps/embed/v1/place?key=' + apiKey
-      + '&q=' + encodeURIComponent(name + ' Seoul Korea')
-      + '&center=' + lat + ',' + lng
-      + '&zoom=17';
-  }
-};
-
-window.closeMapDrawer = function() { toggleMapDrawer(false); };
-function toggleMapDrawer(open) {
-  var drawer = document.getElementById('map-drawer');
-  if (drawer) drawer.classList.toggle('open', open);
-}
-
-// helper (escHtml\uC740 line 16771\uC5D0 \uC774\uBBF8 \uC120\uC5B8\uB428 \u2014 \uC911\uBCF5 \uC81C\uAC70)
-
-}); // DOMContentLoaded
 </script>
 </body>
 </html>`;
