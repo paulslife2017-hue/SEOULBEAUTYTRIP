@@ -14691,16 +14691,11 @@ function setMapIframe(geoShops) {
   if (!iframe) return;
   var center = (geoShops && geoShops.length) ? getMapCenter(geoShops) : {lat:37.5172, lng:127.0473};
   var zoom = (geoShops && geoShops.length === 1) ? 16 : (_mapArea !== 'all' ? 15 : 13);
-  // OpenStreetMap (무료, 키 불필요)
-  var minLat = center.lat - 0.02, maxLat = center.lat + 0.02;
-  var minLng = center.lng - 0.03, maxLng = center.lng + 0.03;
-  if (_mapArea !== 'all' || (geoShops && geoShops.length <= 5)) {
-    minLat = center.lat - 0.008; maxLat = center.lat + 0.008;
-    minLng = center.lng - 0.012; maxLng = center.lng + 0.012;
-  }
-  iframe.src = 'https://www.openstreetmap.org/export/embed.html?bbox='
-    + minLng + ',' + minLat + ',' + maxLng + ',' + maxLat
-    + '&layer=mapnik&marker=' + center.lat + ',' + center.lng;
+  // 구글맵 기본 Embed — 완전 무료 (키 불필요, 무제한)
+  iframe.src = 'https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d'
+    + Math.round(15000 / Math.pow(2, zoom - 10))
+    + '!2d' + center.lng + '!3d' + center.lat
+    + '!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sen!2skr!4v1';
 }
 
 function renderMapList(shops) {
@@ -14773,16 +14768,13 @@ window.updateMapToShop = function(e, slug, lat, lng, nameEnc) {
   if (card) card.classList.add('selected');
   var iframe = document.getElementById('map-iframe');
   if (iframe) {
-    // 업체 위치로 OSM 지도 이동
-    var d = 0.006;
-    iframe.src = 'https://www.openstreetmap.org/export/embed.html?bbox='
-      + (lng-d) + ',' + (lat-d) + ',' + (lng+d) + ',' + (lat+d)
-      + '&layer=mapnik&marker=' + lat + ',' + lng;
-    // 업체 상세 페이지로 이동
+    // 업체 위치로 구글맵 기본 Embed 이동 (무료)
+    iframe.src = 'https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d1000'
+      + '!2d' + lng + '!3d' + lat
+      + '!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sen!2skr!4v1';
     setTimeout(function(){ location.href = '/shop/' + slug; }, 700);
     e.preventDefault();
   }
-  // apiKey 없으면 href 그대로 이동
 };
 
 // 호환성 유지
