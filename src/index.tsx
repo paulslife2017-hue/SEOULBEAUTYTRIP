@@ -15044,33 +15044,44 @@ function buildMap() {
     language: 'en',
     // 다크 모드 스타일
     styles: [
-      // 배경 — 짙은 남색 대신 따뜻한 회색톤
-      {elementType:'geometry',stylers:[{color:'#242f3e'}]},
-      {elementType:'labels.text.stroke',stylers:[{color:'#242f3e'}]},
-      {elementType:'labels.text.fill',stylers:[{color:'#d4d4d4'}]},
-      // 도로 — 밝은 회색으로 가독성 확보
-      {featureType:'road',elementType:'geometry',stylers:[{color:'#38414e'}]},
-      {featureType:'road',elementType:'geometry.stroke',stylers:[{color:'#212a37'}]},
-      {featureType:'road',elementType:'labels.text.fill',stylers:[{color:'#c8c8c8'}]},
-      {featureType:'road.highway',elementType:'geometry',stylers:[{color:'#746855'}]},
-      {featureType:'road.highway',elementType:'geometry.stroke',stylers:[{color:'#1f2835'}]},
-      {featureType:'road.highway',elementType:'labels.text.fill',stylers:[{color:'#f3d19c'}]},
-      // 물 — 깊은 파란색
-      {featureType:'water',elementType:'geometry',stylers:[{color:'#17263c'}]},
-      {featureType:'water',elementType:'labels.text.fill',stylers:[{color:'#515c6d'}]},
-      // 공원 — 짙은 녹색
-      {featureType:'poi.park',elementType:'geometry',stylers:[{color:'#263c3f'}]},
-      {featureType:'poi.park',elementType:'labels.text.fill',stylers:[{color:'#6b9a76'}]},
-      // 불필요한 POI 아이콘 숨김
+      // 전체 배경 — 밝고 깨끗한 크림톤
+      {elementType:'geometry',stylers:[{color:'#f8f5f0'}]},
+      {elementType:'labels.text.stroke',stylers:[{color:'#ffffff'}]},
+      {elementType:'labels.text.fill',stylers:[{color:'#333333'}]},
+      // 도로 — 흰색 계열, 가독성 최우선
+      {featureType:'road',elementType:'geometry',stylers:[{color:'#ffffff'}]},
+      {featureType:'road',elementType:'geometry.stroke',stylers:[{color:'#e0d8cf'}]},
+      {featureType:'road',elementType:'labels.text.fill',stylers:[{color:'#555555'}]},
+      {featureType:'road',elementType:'labels.text.stroke',stylers:[{color:'#ffffff'}]},
+      // 주요 도로 — 연한 주황 강조
+      {featureType:'road.arterial',elementType:'geometry',stylers:[{color:'#ffefd5'}]},
+      // 고속도로 — 노란톤으로 눈에 띄게
+      {featureType:'road.highway',elementType:'geometry',stylers:[{color:'#ffd580'}]},
+      {featureType:'road.highway',elementType:'geometry.stroke',stylers:[{color:'#f5b942'}]},
+      {featureType:'road.highway',elementType:'labels.text.fill',stylers:[{color:'#333333'}]},
+      // 물 — 맑은 하늘색
+      {featureType:'water',elementType:'geometry',stylers:[{color:'#a8d5e8'}]},
+      {featureType:'water',elementType:'labels.text.fill',stylers:[{color:'#4a90a4'}]},
+      // 공원 — 연한 초록
+      {featureType:'poi.park',elementType:'geometry',stylers:[{color:'#c8e6c9'}]},
+      {featureType:'poi.park',elementType:'labels.text.fill',stylers:[{color:'#4a7c59'}]},
+      // POI 아이콘 숨김 (지저분함 방지)
       {featureType:'poi',elementType:'labels.icon',stylers:[{visibility:'off'}]},
-      {featureType:'poi',elementType:'labels.text.fill',stylers:[{color:'#999'}]},
-      // 지하철/대중교통 — 심플하게
-      {featureType:'transit',elementType:'geometry',stylers:[{color:'#2f3948'}]},
-      {featureType:'transit.station',elementType:'labels.text.fill',stylers:[{color:'#d59563'}]},
-      // 행정구역 경계
-      {featureType:'administrative',elementType:'geometry',stylers:[{color:'#3d4a5a'}]},
-      {featureType:'administrative.locality',elementType:'labels.text.fill',stylers:[{color:'#e8c98a'}]},
-      {featureType:'administrative.neighborhood',elementType:'labels.text.fill',stylers:[{color:'#a0aab8'}]},
+      {featureType:'poi',elementType:'labels.text.fill',stylers:[{color:'#888888'}]},
+      {featureType:'poi.business',elementType:'labels',stylers:[{visibility:'off'}]},
+      // 지하철 — 핑크 강조 (서울 지하철 느낌)
+      {featureType:'transit.line',elementType:'geometry',stylers:[{color:'#ffb3c6'}]},
+      {featureType:'transit.station',elementType:'geometry',stylers:[{color:'#ff6b9d'}]},
+      {featureType:'transit.station',elementType:'labels.text.fill',stylers:[{color:'#cc0066'}]},
+      {featureType:'transit.station',elementType:'labels.text.stroke',stylers:[{color:'#ffffff'}]},
+      // 행정구역
+      {featureType:'administrative',elementType:'geometry',stylers:[{color:'#d4c9bd'}]},
+      {featureType:'administrative.locality',elementType:'labels.text.fill',stylers:[{color:'#222222'}]},
+      {featureType:'administrative.locality',elementType:'labels.text.stroke',stylers:[{color:'#ffffff'}]},
+      {featureType:'administrative.neighborhood',elementType:'labels.text.fill',stylers:[{color:'#666666'}]},
+      // 지형
+      {featureType:'landscape',elementType:'geometry',stylers:[{color:'#f0ebe4'}]},
+      {featureType:'landscape.man_made',elementType:'geometry',stylers:[{color:'#ede8e1'}]},
     ]
   });
 
