@@ -6995,16 +6995,16 @@ app.get("/best/clinic/gangnam", (c) => {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Best 30 Skin Clinics in Gangnam &amp; Seocho ${yr} \u2014 Seoul Beauty Trip</title>
-<meta name="description" content="The definitive ${yr} guide to the top 30 skin clinics and plastic surgery centres in Gangnam and Seocho, Seoul \u2014 verified reviews, English-friendly booking, honest prices.">
+<title>Best Plastic Surgery &amp; Skin Clinics in Gangnam Seoul ${yr} \u2014 Seoul Beauty Trip</title>
+<meta name="description" content="Plastic surgery &amp; skin clinics in Gangnam Seoul \u2014 top 30 ranked by ${yr} patient reviews. Board-certified surgeons, English-friendly booking, honest prices for international visitors.">
 <link rel="canonical" href="https://seoulbeautytrip.com/best/clinic/gangnam">
-<meta property="og:title" content="Top 30 Skin Clinics in Gangnam ${yr} | Seoul Beauty Trip">
+<meta property="og:title" content="Best Plastic Surgery &amp; Skin Clinics Gangnam Seoul ${yr} | Seoul Beauty Trip">
 <meta property="og:description" content="Verified list of the 30 best aesthetic clinics in Gangnam &amp; Seocho. English booking available.">
 <meta property="og:url" content="https://seoulbeautytrip.com/best/clinic/gangnam">
 <meta property="og:type" content="article">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@graph":[
-  {"@type":"ItemList","name":"Top 30 Skin Clinics in Gangnam Seoul ${yr}","numberOfItems":30,"itemListElement":[${itemListEl}]},
+  {"@type":"ItemList","name":"Best Plastic Surgery &amp; Skin Clinics in Gangnam Seoul ${yr}","numberOfItems":30,"itemListElement":[${itemListEl}]},
   {"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://seoulbeautytrip.com"},{"@type":"ListItem","position":2,"name":"Best Clinics","item":"https://seoulbeautytrip.com/best"},{"@type":"ListItem","position":3,"name":"Skin Clinics Gangnam","item":"https://seoulbeautytrip.com/best/clinic/gangnam"}]}
 ]}
 </script>
@@ -7082,7 +7082,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#f8fafc;color:#1e293
 </nav>
 
 <header class="bcg-hero">
-  <h1>Top 30 Skin Clinics in Gangnam &amp; Seocho, Seoul (${yr})</h1>
+  <h1>Best Plastic Surgery &amp; Skin Clinics in Gangnam Seoul (${yr})</h1>
   <p>Verified by real patient reviews. English-friendly booking available via WhatsApp for all listed clinics.</p>
   <div class="bcg-hero-stats">
     <div class="bcg-stat"><div class="bcg-stat-n">30</div><div class="bcg-stat-l">Clinics Listed</div></div>
