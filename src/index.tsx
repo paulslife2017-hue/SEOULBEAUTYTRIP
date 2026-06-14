@@ -4715,16 +4715,17 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 (function(){
   var sp=new URLSearchParams(window.location.search);
   var fr=sp.get('from');
+  var btn=document.getElementById('sp-nav-back-btn');
+  var lbl=document.getElementById('sp-nav-back-label');
   if(fr==='map'){
-    var btn=document.getElementById('sp-nav-back-btn');
-    var lbl=document.getElementById('sp-nav-back-label');
     if(btn) btn.href='/?tab=map';
     if(lbl) lbl.textContent='Map';
   } else if(fr==='browse'){
-    var btn2=document.getElementById('sp-nav-back-btn');
-    var lbl2=document.getElementById('sp-nav-back-label');
-    if(btn2) btn2.href='/?tab=browse';
-    if(lbl2) lbl2.textContent='Browse';
+    if(btn) btn.href='/?tab=browse';
+    if(lbl) lbl.textContent='Browse';
+  } else if(fr==='search'){
+    if(btn) btn.href='/?search=1';
+    if(lbl) lbl.textContent='Search';
   }
 })();
 </script>
@@ -14258,7 +14259,12 @@ function openShopFromSearch(sid){
     });
   }
 
-  openShopModal(sid);
+  // slug 있으면 상세 페이지로 이동 (?from=search → 뒤로가기 시 검색으로 복귀)
+  if(sc && sc.slug) {
+    window.location.href = '/shop/' + sc.slug + '?from=search';
+  } else {
+    openShopModal(sid);
+  }
 }
 
 // 검색 카드 영상 미리보기 — 탭/호버 시 재생
@@ -14560,11 +14566,17 @@ document.addEventListener('DOMContentLoaded', function() {
   (function(){
     var sp = new URLSearchParams(window.location.search);
     var initTab = sp.get('tab');
+    var initSearch = sp.get('search');
     if (initTab === 'map' || initTab === 'browse') {
       setTimeout(function(){ switchTab(initTab); }, 100);
-      // 파라미터 제거 (히스토리 오염 방지)
-      var cleanUrl = window.location.pathname + (sp.toString().replace(/tab=[^&]*/,'').replace(/^&|&$/,'') ? '?' + sp.toString().replace(/tab=[^&]*/,'').replace(/^&|&$/,'') : '');
-      try { history.replaceState(null, '', cleanUrl); } catch(e){}
+    }
+    // ?search=1 → 검색창 자동 열기 (검색 결과에서 뒤로가기 시)
+    if (initSearch === '1') {
+      setTimeout(function(){ toggleSearch(); }, 200);
+    }
+    // 파라미터 제거 (히스토리 오염 방지)
+    if (initTab || initSearch) {
+      try { history.replaceState(null, '', window.location.pathname); } catch(e){}
     }
   })();
 }); // DOMContentLoaded
