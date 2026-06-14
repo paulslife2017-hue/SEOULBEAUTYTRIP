@@ -4955,22 +4955,25 @@ ${(()=>{
 
     // ── AI 리뷰 요약 박스 (서버사이드 렌더링) ──
     const rs = shop.reviewSummary
+    // rs가 문자열이면 vibe로만 표시, JSON 객체면 vibe+strengths+bestFor 풀 렌더링
     const summaryHtml = rs
-      ? `<div class="sp-rv-summary">`
-          +`<div class="sp-rv-summary-vibe">${rs.vibe}</div>`
-          +`<div class="sp-rv-summary-row">`
-            +`<div class="sp-rv-summary-col">`
-              +`<div class="sp-rv-summary-label">What customers love</div>`
-              +`<div class="sp-rv-summary-strengths">`
-                +(rs.strengths||[]).map((s:string)=>`<div class="sp-rv-summary-strength">${s}</div>`).join('')
+      ? (typeof rs === 'string'
+          ? `<div class="sp-rv-summary"><div class="sp-rv-summary-vibe">${rs}</div></div>`
+          : `<div class="sp-rv-summary">`
+              +(rs.vibe ? `<div class="sp-rv-summary-vibe">${rs.vibe}</div>` : '')
+              +`<div class="sp-rv-summary-row">`
+                +(rs.strengths?.length ? `<div class="sp-rv-summary-col">`
+                  +`<div class="sp-rv-summary-label">What customers love</div>`
+                  +`<div class="sp-rv-summary-strengths">`
+                    +rs.strengths.map((s:string)=>`<div class="sp-rv-summary-strength">${s}</div>`).join('')
+                  +`</div>`
+                +`</div>` : '')
+                +(rs.bestFor ? `<div class="sp-rv-summary-col" style="margin-top:12px">`
+                  +`<div class="sp-rv-summary-label">Best for</div>`
+                  +`<div class="sp-rv-summary-bestfor">👤 ${rs.bestFor}</div>`
+                +`</div>` : '')
               +`</div>`
-            +`</div>`
-            +`<div class="sp-rv-summary-col" style="margin-top:12px">`
-              +`<div class="sp-rv-summary-label">Best for</div>`
-              +`<div class="sp-rv-summary-bestfor">👤 ${rs.bestFor}</div>`
-            +`</div>`
-          +`</div>`
-        +`</div>`
+            +`</div>`)
       : ''
 
     const reviewsBlock = shopReviews2.length
