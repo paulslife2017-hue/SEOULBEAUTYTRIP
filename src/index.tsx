@@ -14469,7 +14469,7 @@ function renderShopPanel(cat) {
     var sid = s.id.replace(/'/g, '');
     var hasSlug = s.slug && s.slug.length > 0;
     var clickAttr = hasSlug
-      ? 'data-slug="/shop/'+s.slug+'" onclick="location.href=this.dataset.slug"'
+      ? 'data-slug="/shop/'+s.slug+'?from=browse" onclick="location.href=this.dataset.slug"'
       : 'onclick="openShopModal(&quot;'+sid+'&quot;)"';
     return '<div class="sp-card" '+clickAttr+'>'+
       '<img class="sp-card-img" src="'+(s.thumbnail||'')+'" alt="'+esc(s.name)+'" loading="lazy" onerror="this.style.background=&quot;#1a1a2e&quot;">'+
