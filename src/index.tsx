@@ -15040,6 +15040,8 @@ function buildMap() {
     mapTypeControl: false,
     streetViewControl: false,
     fullscreenControl: false,
+    scrollwheel: true,
+    gestureHandling: 'greedy',
     // 영어 강제 설정
     language: 'en',
     // 다크 모드 스타일
