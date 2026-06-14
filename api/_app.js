@@ -6238,16 +6238,17 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 (function(){
   var sp=new URLSearchParams(window.location.search);
   var fr=sp.get('from');
+  var btn=document.getElementById('sp-nav-back-btn');
+  var lbl=document.getElementById('sp-nav-back-label');
   if(fr==='map'){
-    var btn=document.getElementById('sp-nav-back-btn');
-    var lbl=document.getElementById('sp-nav-back-label');
     if(btn) btn.href='/?tab=map';
     if(lbl) lbl.textContent='Map';
   } else if(fr==='browse'){
-    var btn2=document.getElementById('sp-nav-back-btn');
-    var lbl2=document.getElementById('sp-nav-back-label');
-    if(btn2) btn2.href='/?tab=browse';
-    if(lbl2) lbl2.textContent='Browse';
+    if(btn) btn.href='/?tab=browse';
+    if(lbl) lbl.textContent='Browse';
+  } else if(fr==='search'){
+    if(btn) btn.href='/?search=1';
+    if(lbl) lbl.textContent='Search';
   }
 })();
 </script>
@@ -8148,8 +8149,8 @@ app.get("/shops", async (c) => {
   const shops2 = rows.map(rowToShop);
   const catColors = { skincare: "#f472b6", headspa: "#67e8f9", hair: "#60a5fa", clinic: "#fb923c", makeup: "#c084fc", spa: "#a78bfa", tattoo: "#e879f9" };
   const catIcons = { skincare: "fa-leaf", makeup: "fa-magic", hair: "fa-cut", headspa: "fa-spa", clinic: "fa-briefcase-medical", spa: "fa-hot-tub", tattoo: "fa-pen-nib" };
-  const cats = ["all", "clinic", "headspa", "skincare", "hair", "makeup", "spa", "tattoo"];
-  const catLabels = { all: "All", clinic: "Clinic", headspa: "Head Spa", skincare: "Skincare", hair: "Hair", makeup: "Makeup", spa: "Spa", tattoo: "Brow Tattoo" };
+  const cats = ["all", "clinic", "makeup", "tattoo"];
+  const catLabels = { all: "All", clinic: "Clinic", makeup: "Makeup", tattoo: "Brow Tattoo" };
   const catCountMap = {};
   shops2.forEach((s) => {
     catCountMap[s.category] = (catCountMap[s.category] || 0) + 1;
@@ -11408,7 +11409,7 @@ app.get("/", async (c) => {
     initShops.forEach((s) => {
       ssrCatCounts[s.category] = (ssrCatCounts[s.category] || 0) + 1;
     });
-    const ssrFilterBtns = ["all", "clinic", "headspa", "skincare", "hair", "makeup", "spa", "tattoo"].map((cat) => {
+    const ssrFilterBtns = ["all", "clinic", "makeup", "tattoo"].map((cat) => {
       const cnt = cat === "all" ? initShops.length : ssrCatCounts[cat] || 0;
       if (cnt === 0) return "";
       const lbl = cat === "all" ? "All" : catLabelsSSR[cat] || cat;
@@ -12947,34 +12948,76 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   transition:all .15s;-webkit-tap-highlight-color:transparent
 }
 .map-area-chip.on{background:rgba(255,77,141,.15);border-color:#FF4D8D;color:#FF4D8D}
-#map-body{flex:1;display:flex;overflow:hidden;min-height:0}
+#map-body{flex:1;display:flex;overflow:hidden;min-height:0;position:relative}
 
-/* \uC9C0\uB3C4 Leaflet \uB798\uD37C */
-#map-iframe-wrap{flex:1;position:relative;overflow:hidden;display:flex;flex-direction:column}
+/* \uC9C0\uB3C4 Leaflet \uB798\uD37C \u2014 \uD56D\uC0C1 \uC804\uCCB4 \uD06C\uAE30 */
+#map-iframe-wrap{flex:1;position:relative;overflow:hidden;display:flex;flex-direction:column;z-index:0}
 #map-leaflet{flex:1;width:100%;min-height:0}
 
-/* \uC5C5\uCCB4 \uBAA9\uB85D \uC0AC\uC774\uB4DC\uBC14 (PC) / \uB4DC\uB85C\uC5B4 (\uBAA8\uBC14\uC77C) */
+/* \u2500\u2500 \uC5C5\uCCB4 \uBAA9\uB85D: PC \uC6B0\uCE21 \uC0AC\uC774\uB4DC\uBC14 / \uBAA8\uBC14\uC77C \uD558\uB2E8 bottom sheet \u2500\u2500 */
 #map-shop-list{
-  background:rgba(8,8,16,.98);border-left:1px solid rgba(255,255,255,.07);
+  background:rgba(8,8,16,.97);border-left:1px solid rgba(255,255,255,.07);
   display:flex;flex-direction:column;overflow:hidden;
-  transition:width .3s;
 }
-@media(max-width:1023px){
-  #map-body{flex-direction:column}
-  #map-iframe-wrap{height:45%;flex-shrink:0;flex:none;min-height:200px}
-  #map-leaflet{height:100%}
-  #map-shop-list{
-    border-left:none;border-top:1px solid rgba(255,255,255,.08);
-    width:100%!important;flex:1;min-height:0;
-  }
-  .map-list-scroll{-webkit-overflow-scrolling:touch}
-}
+/* PC: \uC6B0\uCE21 360px \uC0AC\uC774\uB4DC\uBC14 */
 @media(min-width:1024px){
   #map-shop-list{width:360px;flex-shrink:0}
 }
+/* \uBAA8\uBC14\uC77C: \uC9C0\uB3C4 \uC704 bottom sheet (absolute) */
+@media(max-width:1023px){
+  #map-shop-list{
+    position:absolute;left:0;right:0;bottom:0;z-index:500;
+    border-left:none;
+    border-radius:18px 18px 0 0;
+    border-top:1px solid rgba(255,255,255,.1);
+    box-shadow:0 -8px 32px rgba(0,0,0,.6);
+    /* \uC811\uD78C \uC0C1\uD0DC: \uD578\uB4E4+\uD5E4\uB354\uB9CC \uBCF4\uC784 (~56px) */
+    height:56px;
+    transition:height .32s cubic-bezier(.32,1.15,.7,1);
+    backdrop-filter:blur(20px);
+  }
+  #map-shop-list.sheet-open{
+    height:55%;
+  }
+  #map-shop-list .map-list-scroll{
+    -webkit-overflow-scrolling:touch;
+    /* \uC811\uD78C \uC0C1\uD0DC\uC5D0\uC120 \uC2A4\uD06C\uB864 \uC228\uAE40 */
+    opacity:0;pointer-events:none;
+    transition:opacity .2s;
+  }
+  #map-shop-list.sheet-open .map-list-scroll{
+    opacity:1;pointer-events:auto;
+  }
+}
+/* \uB4DC\uB85C\uC5B4 \uD578\uB4E4 (\uBAA8\uBC14\uC77C bottom sheet \uC804\uC6A9) */
+#map-sheet-handle{
+  display:none;
+}
+@media(max-width:1023px){
+  #map-sheet-handle{
+    display:flex;flex-direction:column;align-items:center;
+    padding:10px 0 4px;cursor:pointer;flex-shrink:0;gap:3px;
+    -webkit-tap-highlight-color:transparent;
+  }
+  #map-sheet-handle-bar{
+    width:36px;height:4px;border-radius:2px;
+    background:rgba(255,255,255,.2);
+    transition:background .15s;
+  }
+  #map-sheet-handle:hover #map-sheet-handle-bar{background:rgba(255,255,255,.4)}
+  #map-sheet-handle-label{
+    font-size:10px;font-weight:700;color:rgba(255,255,255,.35);
+    letter-spacing:.05em;text-transform:uppercase;
+    transition:color .15s;
+  }
+  #map-shop-list.sheet-open #map-sheet-handle-label{color:rgba(255,255,255,.2)}
+}
 .map-list-header{
-  flex-shrink:0;padding:12px 16px 8px;
-  border-bottom:1px solid rgba(255,255,255,.06)
+  flex-shrink:0;padding:4px 16px 8px;
+  border-bottom:1px solid rgba(255,255,255,.06);
+}
+@media(max-width:1023px){
+  .map-list-header{display:none}
 }
 .map-list-count{font-size:11px;font-weight:700;color:rgba(255,255,255,.4);letter-spacing:.05em;text-transform:uppercase}
 .map-list-scroll{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,77,141,.2) transparent}
@@ -13023,10 +13066,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 
 /* \uB4DC\uB85C\uC5B4 \uAD00\uB828 (\uBAA8\uBC14\uC77C \uC774\uC804 \uCF54\uB4DC \uD638\uD658) */
 .map-shop-drawer,.map-drawer-handle,.map-pin-list{display:none}
-/* \u2500\u2500 Leaflet \uB9F5 \uCEE4\uC2A4\uD140 \uC2A4\uD0C0\uC77C \u2500\u2500 */
+/* \u2500\u2500 Google Maps \uC2A4\uD0C0\uC77C \u2500\u2500 */
 #map-leaflet{width:100%;height:100%;z-index:1}
-.leaflet-container{background:#0f0f1e!important;font-family:-apple-system,sans-serif}
-.leaflet-tile-pane{filter:saturate(0.75) brightness(0.85) contrast(1.1)}
 /* \uCEE4\uC2A4\uD140 \uB9C8\uCEE4 \uD540 */
 .lf-pin{
   width:32px;height:40px;position:relative;cursor:pointer;
@@ -13036,86 +13077,95 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .lf-pin:hover{transform:scale(1.2) translateY(-3px)}
 .lf-pin svg{width:32px;height:40px}
 .lf-pin.selected{filter:drop-shadow(0 4px 12px rgba(255,77,141,.7));transform:scale(1.25) translateY(-4px)}
-/* \u2500\u2500 \uC5C5\uCCB4 \uC815\uBCF4 \uD31D\uC5C5 (\uBAA8\uBC14\uC77C: \uD558\uB2E8 \uC2AC\uB77C\uC774\uB4DC\uC5C5 / PC: \uC6B0\uCE21 \uD328\uB110) \u2500\u2500 */
+/* \u2500\u2500 \uC5C5\uCCB4 \uC815\uBCF4 \uD31D\uC5C5 (\uBAA8\uBC14\uC77C: \uD558\uB2E8 \uC911\uC559 / PC: \uC88C\uD558\uB2E8 \uD50C\uB85C\uD305 \uCE74\uB4DC) \u2500\u2500 */
 #map-shop-popup{
-  position:absolute;left:0;right:0;bottom:0;z-index:600;
-  background:rgba(10,10,20,.98);backdrop-filter:blur(24px);
-  border-top:1px solid rgba(255,255,255,.1);
-  border-radius:20px 20px 0 0;
-  box-shadow:0 -8px 40px rgba(0,0,0,.6);
-  transform:translateY(100%);opacity:0;pointer-events:none;
-  transition:transform .32s cubic-bezier(.32,1.15,.7,1),opacity .25s ease;
-  overflow:hidden;max-height:80%;overflow-y:auto;
+  position:absolute;
+  bottom:16px;left:50%;transform:translateX(-50%) translateY(24px);
+  z-index:600;width:min(340px,calc(100vw - 32px));
+  /* \uB0B4\uC6A9\uC774 \uAE38\uC5B4\uB3C4 \uC798\uB9AC\uC9C0 \uC54A\uAC8C: overflow-y:auto, max-height\uB85C \uC2A4\uD06C\uB864 */
+  max-height:calc(100% - 32px);
+  overflow-y:auto;overflow-x:hidden;
+  background:rgba(10,10,20,.97);backdrop-filter:blur(24px);
+  border:1px solid rgba(255,255,255,.13);border-radius:20px;
+  box-shadow:0 16px 48px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.05);
+  opacity:0;pointer-events:none;
+  transition:opacity .25s ease,transform .28s cubic-bezier(.32,1.15,.7,1);
+  scrollbar-width:thin;scrollbar-color:rgba(255,77,141,.2) transparent;
 }
-#map-shop-popup.open{transform:translateY(0);opacity:1;pointer-events:auto}
+#map-shop-popup::-webkit-scrollbar{width:3px}
+#map-shop-popup::-webkit-scrollbar-thumb{background:rgba(255,77,141,.2);border-radius:2px}
+#map-shop-popup.open{
+  opacity:1;pointer-events:auto;
+  transform:translateX(-50%) translateY(0);
+}
 @media(min-width:1024px){
+  /* PC: \uC9C0\uB3C4 \uC88C\uD558\uB2E8 \u2014 \uC704\uCABD \uC5EC\uBC31 16px \uD655\uBCF4\uD574\uC11C \uC808\uB300 \uC798\uB9AC\uC9C0 \uC54A\uAC8C */
   #map-shop-popup{
-    position:absolute;top:0;right:0;bottom:0;left:auto;
-    width:300px;max-height:100%;overflow-y:auto;
-    border-radius:0;border-top:none;border-left:1px solid rgba(255,255,255,.08);
-    box-shadow:-8px 0 32px rgba(0,0,0,.5);
-    transform:translateX(110%);
+    left:16px;
+    /* bottom \uB300\uC2E0 top+bottom \uB3D9\uC2DC \uC9C0\uC815\uC73C\uB85C \uB192\uC774 \uC81C\uD55C */
+    bottom:20px;
+    top:auto;
+    max-height:calc(100% - 40px);
   }
-  #map-shop-popup.open{transform:translateX(0)}
+  #map-shop-popup{transform:translateX(0) translateY(24px)}
+  #map-shop-popup.open{transform:translateX(0) translateY(0)}
 }
 /* \uB4DC\uB798\uADF8 \uD578\uB4E4 (\uBAA8\uBC14\uC77C) */
 .msp-handle{width:40px;height:4px;border-radius:2px;background:rgba(255,255,255,.18);margin:12px auto 0}
 @media(min-width:1024px){.msp-handle{display:none}}
 /* \uD788\uC5B4\uB85C \uC774\uBBF8\uC9C0 */
-.msp-hero{position:relative;width:100%;height:180px;overflow:hidden;flex-shrink:0}
-.msp-hero img{width:100%;height:100%;object-fit:cover;display:block}
-.msp-hero-ov{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,rgba(10,10,20,.85) 100%)}
+.msp-hero{position:relative;width:100%;height:160px;overflow:hidden;flex-shrink:0}
+.msp-hero img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s}
+#map-shop-popup.open .msp-hero img{transform:scale(1.03)}
+.msp-hero-ov{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.05) 0%,rgba(0,0,0,.6) 100%)}
 /* \uB2EB\uAE30 \uBC84\uD2BC */
 .msp-close-btn{
   position:absolute;top:10px;right:10px;
-  width:30px;height:30px;border-radius:50%;
-  background:rgba(0,0,0,.6);backdrop-filter:blur(6px);
-  border:1px solid rgba(255,255,255,.2);
-  color:#fff;font-size:13px;cursor:pointer;
+  width:28px;height:28px;border-radius:50%;
+  background:rgba(0,0,0,.55);backdrop-filter:blur(6px);
+  border:1px solid rgba(255,255,255,.15);
+  color:#fff;font-size:12px;cursor:pointer;
   display:flex;align-items:center;justify-content:center;
-  transition:background .15s;z-index:3;
+  transition:background .15s;z-index:2;
 }
-.msp-close-btn:hover{background:rgba(0,0,0,.9)}
+.msp-close-btn:hover{background:rgba(0,0,0,.8)}
 /* \uCE74\uD14C\uACE0\uB9AC \uBC30\uC9C0 */
 .msp-cat-badge{
-  position:absolute;bottom:12px;left:14px;
-  padding:4px 11px;border-radius:20px;font-size:9px;font-weight:800;
+  position:absolute;bottom:10px;left:12px;
+  padding:3px 10px;border-radius:20px;font-size:9px;font-weight:800;
   letter-spacing:.7px;text-transform:uppercase;
-  backdrop-filter:blur(8px);background:rgba(0,0,0,.5);border:1px solid;z-index:2;
+  backdrop-filter:blur(8px);background:rgba(0,0,0,.45);border:1px solid;z-index:2;
 }
 /* \uBCF8\uBB38 */
-.msp-body{padding:14px 16px 20px}
-.msp-name{font-size:17px;font-weight:900;color:#fff;margin-bottom:7px;line-height:1.25}
+.msp-body{padding:14px 16px 16px}
+.msp-name{font-size:16px;font-weight:900;color:#fff;margin-bottom:6px;line-height:1.25}
 .msp-meta{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
 .msp-rating{display:flex;align-items:center;gap:3px;font-size:12px;font-weight:800;color:#f59e0b}
 .msp-reviews{font-size:10px;color:rgba(255,255,255,.3);font-weight:500}
-.msp-addr{font-size:11.5px;color:rgba(255,255,255,.45);display:flex;align-items:flex-start;gap:5px;line-height:1.45;margin-bottom:12px}
-/* \uC124\uBA85 \u2014 \uD575\uC2EC: \uCDA9\uBD84\uD788 \uBCF4\uC774\uAC8C */
-.msp-desc{font-size:12.5px;color:rgba(255,255,255,.65);line-height:1.6;margin-bottom:16px}
-/* \uD558\uB2E8 \uB9C1\uD06C */
+.msp-addr{font-size:11px;color:rgba(255,255,255,.42);display:flex;align-items:flex-start;gap:4px;line-height:1.4;margin-bottom:10px}
+.msp-addr span{overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+/* \uC124\uBA85 \u2014 \uD074\uB7A8\uD504 \uC5C6\uC774 \uC804\uCCB4 \uD45C\uC2DC */
+.msp-desc{font-size:11.5px;color:rgba(255,255,255,.55);line-height:1.55;margin-bottom:14px}
+/* \uBC84\uD2BC */
 .msp-btn-view{
   display:flex;align-items:center;justify-content:center;gap:6px;
-  width:100%;padding:12px;
-  background:rgba(255,77,141,.15);border:1px solid rgba(255,77,141,.35);
+  width:100%;padding:11px;
+  background:rgba(255,77,141,.12);border:1px solid rgba(255,77,141,.3);
   color:#FF4D8D;border-radius:12px;font-size:13px;font-weight:700;
   cursor:pointer;text-decoration:none;transition:background .15s;
 }
-.msp-btn-view:hover{background:rgba(255,77,141,.25)}
+.msp-btn-view:hover{background:rgba(255,77,141,.22)}
 /* Leaflet hover \uD234\uD301 */
-.leaflet-popup-content-wrapper{
-  background:rgba(10,10,20,.93)!important;border:1px solid rgba(255,255,255,.1)!important;
-  border-radius:10px!important;box-shadow:0 6px 20px rgba(0,0,0,.5)!important;color:#fff!important;padding:0!important;
-}
-.leaflet-popup-tip{background:rgba(10,10,20,.93)!important}
-.leaflet-popup-content{margin:9px 12px!important;font-size:11px!important;color:#fff!important}
+/* Google Maps \uC90C \uBC84\uD2BC \uB2E4\uD06C \uC624\uBC84\uB77C\uC774\uB4DC */
+.gm-bundled-control .gmnoprint button,
+.gm-control-active{background:rgba(10,10,20,.92)!important;border-color:rgba(255,255,255,.12)!important}
+/* \uD638\uBC84 \uD234\uD301 */
 .lf-popup-name{font-size:12px;font-weight:800;color:#fff;margin-bottom:2px;white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis}
 .lf-popup-sub{font-size:10px;color:rgba(255,255,255,.4)}
-.leaflet-control-attribution{display:none!important}
-.leaflet-control-zoom a{background:rgba(10,10,20,.92)!important;color:#fff!important;border-color:rgba(255,255,255,.12)!important}
 </style>
-<!-- Leaflet.js CDN (OpenStreetMap, API \uD0A4 \uBD88\uD544\uC694) -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<!-- Google Maps JavaScript API -->
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCcM03wGoZrSkmCMOS-Vib-JR1oKNPsSkY&language=en&region=KR&loading=async&callback=__gmapsReady"></script>
+<script>function __gmapsReady(){ window.__gmapsLoaded = true; }</script>
 </head>
 <body>
 <div id="ld">
@@ -15254,7 +15304,12 @@ function openShopFromSearch(sid){
     });
   }
 
-  openShopModal(sid);
+  // slug \uC788\uC73C\uBA74 \uC0C1\uC138 \uD398\uC774\uC9C0\uB85C \uC774\uB3D9 (?from=search \u2192 \uB4A4\uB85C\uAC00\uAE30 \uC2DC \uAC80\uC0C9\uC73C\uB85C \uBCF5\uADC0)
+  if(sc && sc.slug) {
+    window.location.href = '/shop/' + sc.slug + '?from=search';
+  } else {
+    openShopModal(sid);
+  }
 }
 
 // \uAC80\uC0C9 \uCE74\uB4DC \uC601\uC0C1 \uBBF8\uB9AC\uBCF4\uAE30 \u2014 \uD0ED/\uD638\uBC84 \uC2DC \uC7AC\uC0DD
@@ -15459,7 +15514,7 @@ function renderShopPanel(cat) {
     var sid = s.id.replace(/'/g, '');
     var hasSlug = s.slug && s.slug.length > 0;
     var clickAttr = hasSlug
-      ? 'data-slug="/shop/'+s.slug+'" onclick="location.href=this.dataset.slug"'
+      ? 'data-slug="/shop/'+s.slug+'?from=browse" onclick="location.href=this.dataset.slug"'
       : 'onclick="openShopModal(&quot;'+sid+'&quot;)"';
     return '<div class="sp-card" '+clickAttr+'>'+
       '<img class="sp-card-img" src="'+(s.thumbnail||'')+'" alt="'+esc(s.name)+'" loading="lazy" onerror="this.style.background=&quot;#1a1a2e&quot;">'+
@@ -15556,11 +15611,17 @@ document.addEventListener('DOMContentLoaded', function() {
   (function(){
     var sp = new URLSearchParams(window.location.search);
     var initTab = sp.get('tab');
+    var initSearch = sp.get('search');
     if (initTab === 'map' || initTab === 'browse') {
       setTimeout(function(){ switchTab(initTab); }, 100);
-      // \uD30C\uB77C\uBBF8\uD130 \uC81C\uAC70 (\uD788\uC2A4\uD1A0\uB9AC \uC624\uC5FC \uBC29\uC9C0)
-      var cleanUrl = window.location.pathname + (sp.toString().replace(/tab=[^&]*/,'').replace(/^&|&$/,'') ? '?' + sp.toString().replace(/tab=[^&]*/,'').replace(/^&|&$/,'') : '');
-      try { history.replaceState(null, '', cleanUrl); } catch(e){}
+    }
+    // ?search=1 \u2192 \uAC80\uC0C9\uCC3D \uC790\uB3D9 \uC5F4\uAE30 (\uAC80\uC0C9 \uACB0\uACFC\uC5D0\uC11C \uB4A4\uB85C\uAC00\uAE30 \uC2DC)
+    if (initSearch === '1') {
+      setTimeout(function(){ toggleSearch(); }, 200);
+    }
+    // \uD30C\uB77C\uBBF8\uD130 \uC81C\uAC70 (\uD788\uC2A4\uD1A0\uB9AC \uC624\uC5FC \uBC29\uC9C0)
+    if (initTab || initSearch) {
+      try { history.replaceState(null, '', window.location.pathname); } catch(e){}
     }
   })();
 }); // DOMContentLoaded
@@ -15587,11 +15648,7 @@ function buildBrowse() {
     '<div class="bw-filter-row" id="bw-cat-filters">',
     '<button class="bw-chip on" data-cat="all">&#10024; All</button>',
     '<button class="bw-chip" data-cat="clinic">&#128137; Clinic</button>',
-    '<button class="bw-chip" data-cat="headspa">&#128134; Head Spa</button>',
-    '<button class="bw-chip" data-cat="skincare">&#127807; Skincare</button>',
-    '<button class="bw-chip" data-cat="hair">&#9986; Hair</button>',
     '<button class="bw-chip" data-cat="makeup">&#128132; Makeup</button>',
-    '<button class="bw-chip" data-cat="spa">&#9992; Spa</button>',
     '<button class="bw-chip" data-cat="tattoo">&#9999; Tattoo</button>',
     '</div></div>',
     '<div class="bw-filter-group">',
@@ -15700,7 +15757,7 @@ function renderBrowseGrid(shops) {
       if (_parts.length >= 2) addr = _parts[_parts.length-2] + ', ' + _parts[_parts.length-1];
       else addr = _parts[0] || loc;
     }
-    var href    = s.slug ? '/shop/' + s.slug : '#';
+    var href    = s.slug ? '/shop/' + s.slug + '?from=browse' : '#';
     var rating  = s.rating  ? parseFloat(s.rating).toFixed(1)  : '';
     var reviews = s.reviewCount ? s.reviewCount : '';
     // \uD3C9\uC810 \uBCC4 (1~5 \uC911 \uBC18\uC62C\uB9BC)
@@ -15736,9 +15793,10 @@ function renderBrowseGrid(shops) {
 // \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 // Map (\uB9F5) \uBE4C\uB4DC \u2014 Leaflet.js \uC778\uD130\uB799\uD2F0\uBE0C \uB9F5
 // \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
-var _leafletMap = null;       // Leaflet map \uC778\uC2A4\uD134\uC2A4
-var _leafletMarkers = {};     // { slug: L.Marker }
+var _gmap = null;             // Google Maps \uC778\uC2A4\uD134\uC2A4
+var _leafletMarkers = {};     // { slug: google.maps.Marker }
 var _leafletSelectedSlug = null;
+var _gmInfoWindow = null;     // \uD638\uBC84 InfoWindow
 
 /* \uCE74\uD14C\uACE0\uB9AC\uBCC4 \uD540 \uC0C9\uC0C1 */
 function _getPinColor(category) {
@@ -15750,20 +15808,19 @@ function _getPinColor(category) {
   return map[category] || '#FF4D8D';
 }
 
-/* SVG \uD540 \uC544\uC774\uCF58 \uC0DD\uC131 */
-function _makePinIcon(color, selected) {
-  var size = selected ? 38 : 32;
-  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="'+size+'" height="'+(size*1.25)+'" viewBox="0 0 32 40">'
-    + '<path d="M16 0C9.37 0 4 5.37 4 12c0 9 12 28 12 28S28 21 28 12C28 5.37 22.63 0 16 0z" fill="'+color+'" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/>'
-    + '<circle cx="16" cy="12" r="5.5" fill="rgba(255,255,255,.92)"/>'
-    + '</svg>';
-  return L.divIcon({
-    html: '<div class="lf-pin' + (selected ? ' selected' : '') + '">' + svg + '</div>',
-    iconSize: [size, size * 1.25],
-    iconAnchor: [size / 2, size * 1.25],
-    popupAnchor: [0, -(size * 1.25)],
-    className: ''
-  });
+/* SVG \uD540 \uC544\uC774\uCF58 \uC0DD\uC131 (Google Maps\uC6A9 SVG \uBB38\uC790\uC5F4) */
+function _makePinSvg(color, selected) {
+  var size = selected ? 42 : 34;
+  return {
+    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="'+size+'" height="'+(size*1.25)+'" viewBox="0 0 32 40">'
+      + '<path d="M16 0C9.37 0 4 5.37 4 12c0 9 12 28 12 28S28 21 28 12C28 5.37 22.63 0 16 0z" fill="'+color+'" stroke="rgba(0,0,0,.3)" stroke-width="1.5"/>'
+      + '<circle cx="16" cy="12" r="5.5" fill="rgba(255,255,255,.92)"/>'
+      + '</svg>'
+    ),
+    scaledSize: new google.maps.Size(size, size * 1.25),
+    anchor: new google.maps.Point(size / 2, size * 1.25)
+  };
 }
 
 /* \uC8FC\uC18C \uC815\uB9AC \uD5EC\uD37C */
@@ -15821,29 +15878,31 @@ function _showMapPanel(shop) {
     + (slug ? '<a href="/shop/' + esc(slug) + '?from=map" class="msp-btn-view"><i class="fas fa-arrow-right" style="font-size:11px"></i> Go to Shop Page</a>' : '')
     + '</div>';
 
-  // PC\uC5D0\uC11C \uC9C0\uB3C4 \uC5EC\uBC31 \uCD94\uAC00
-  var wrap = document.getElementById('map-iframe-wrap');
-  if (wrap) wrap.classList.add('popup-open');
   popup.classList.add('open');
-  // \uD31D\uC5C5 \uC5F4\uB9B4 \uB54C Leaflet \uD06C\uAE30 \uC7AC\uACC4\uC0B0
-  setTimeout(function(){ if(_leafletMap) _leafletMap.invalidateSize(); }, 350);
+  // \uD31D\uC5C5 \uC5F4\uB9B4 \uB54C bottom sheet \uB2EB\uAE30 (\uACB9\uCE68 \uBC29\uC9C0)
+  var sheet = document.getElementById('map-shop-list');
+  if (sheet) sheet.classList.remove('sheet-open');
 }
 
 window.closeMapPanel = function() {
   var popup = document.getElementById('map-shop-popup');
   if (popup) popup.classList.remove('open');
-  var wrap = document.getElementById('map-iframe-wrap');
-  if (wrap) wrap.classList.remove('popup-open');
-  setTimeout(function(){ if(_leafletMap) _leafletMap.invalidateSize(); }, 350);
   // \uB9C8\uCEE4 \uC120\uD0DD \uD574\uC81C
   if (_leafletSelectedSlug && _leafletMarkers[_leafletSelectedSlug]) {
     var shop = _mapShops.find(function(s){ return s.slug === _leafletSelectedSlug; });
     if (shop) {
-      _leafletMarkers[_leafletSelectedSlug].setIcon(_makePinIcon(_getPinColor(shop.category), false));
+      _leafletMarkers[_leafletSelectedSlug].setIcon(_makePinSvg(_getPinColor(shop.category), false));
     }
   }
   _leafletSelectedSlug = null;
   document.querySelectorAll('.map-pin-card').forEach(function(c){ c.classList.remove('selected'); });
+};
+
+/* \uBAA8\uBC14\uC77C bottom sheet \uD1A0\uAE00 */
+window.toggleMapSheet = function() {
+  var sheet = document.getElementById('map-shop-list');
+  if (!sheet) return;
+  sheet.classList.toggle('sheet-open');
 };
 
 /* \uB9C8\uCEE4 \uC120\uD0DD + \uC9C0\uB3C4 \uC774\uB3D9 + \uD328\uB110 \uD45C\uC2DC */
@@ -15851,16 +15910,17 @@ function _selectMarker(shop) {
   // \uC774\uC804 \uC120\uD0DD \uB9C8\uCEE4 \uB9AC\uC14B
   if (_leafletSelectedSlug && _leafletMarkers[_leafletSelectedSlug]) {
     var prev = _mapShops.find(function(s){ return s.slug === _leafletSelectedSlug; });
-    if (prev) _leafletMarkers[_leafletSelectedSlug].setIcon(_makePinIcon(_getPinColor(prev.category), false));
+    if (prev) _leafletMarkers[_leafletSelectedSlug].setIcon(_makePinSvg(_getPinColor(prev.category), false));
   }
   _leafletSelectedSlug = shop.slug;
   // \uC0C8 \uB9C8\uCEE4 \uC120\uD0DD \uC544\uC774\uCF58
   if (_leafletMarkers[shop.slug]) {
-    _leafletMarkers[shop.slug].setIcon(_makePinIcon(_getPinColor(shop.category), true));
+    _leafletMarkers[shop.slug].setIcon(_makePinSvg(_getPinColor(shop.category), true));
   }
   // \uC9C0\uB3C4 \uC774\uB3D9
-  if (_leafletMap && shop.lat && shop.lng) {
-    _leafletMap.setView([parseFloat(shop.lat), parseFloat(shop.lng)], 16, {animate: true});
+  if (_gmap && shop.lat && shop.lng) {
+    _gmap.panTo({lat: parseFloat(shop.lat), lng: parseFloat(shop.lng)});
+    _gmap.setZoom(16);
   }
   // \uCE74\uB4DC \uC120\uD0DD \uD45C\uC2DC
   document.querySelectorAll('.map-pin-card').forEach(function(c){ c.classList.remove('selected'); });
@@ -15870,31 +15930,41 @@ function _selectMarker(shop) {
   _showMapPanel(shop);
 }
 
-/* Leaflet \uB9C8\uCEE4 \uB4F1\uB85D */
+/* Google Maps \uB9C8\uCEE4 \uB4F1\uB85D */
 function _buildMarkers(shops) {
   // \uAE30\uC874 \uB9C8\uCEE4 \uC81C\uAC70
   Object.keys(_leafletMarkers).forEach(function(k){
-    if (_leafletMap) _leafletMap.removeLayer(_leafletMarkers[k]);
+    _leafletMarkers[k].setMap(null);
   });
   _leafletMarkers = {};
+  if (_gmInfoWindow) { _gmInfoWindow.close(); }
+  if (!_gmap) return;
+
+  if (!_gmInfoWindow) {
+    _gmInfoWindow = new google.maps.InfoWindow({ disableAutoPan: true });
+  }
 
   shops.forEach(function(s) {
     if (!s.lat || !s.lng) return;
     var color = _getPinColor(s.category);
-    var marker = L.marker([parseFloat(s.lat), parseFloat(s.lng)], {
-      icon: _makePinIcon(color, false),
+    var marker = new google.maps.Marker({
+      position: { lat: parseFloat(s.lat), lng: parseFloat(s.lng) },
+      map: _gmap,
+      icon: _makePinSvg(color, false),
       title: s.name
     });
-    // \uAC04\uB7B5 \uD31D\uC5C5 (hover\uC6A9)
     var catLabel = s.category ? (s.category.charAt(0).toUpperCase() + s.category.slice(1)) : '';
-    marker.bindPopup(
-      '<div class="lf-popup-name">' + esc(s.name) + '</div>'
-      + '<div class="lf-popup-sub">' + esc(catLabel) + ' \xB7 ' + esc(_fmtAddr(s)) + '</div>',
-      { autoPan: false, closeButton: false, maxWidth: 200 }
-    );
-    marker.on('click', function() { _selectMarker(s); });
-    (function(m){ m.on('mouseover', function() { m.openPopup(); }); m.on('mouseout', function() { m.closePopup(); }); })(marker);
-    if (_leafletMap) marker.addTo(_leafletMap);
+    marker.addListener('click', function() { _selectMarker(s); });
+    marker.addListener('mouseover', function() {
+      _gmInfoWindow.setContent(
+        '<div style="background:rgba(10,10,20,.95);padding:8px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.1)">'
+        + '<div class="lf-popup-name">' + esc(s.name) + '</div>'
+        + '<div class="lf-popup-sub">' + esc(catLabel) + ' \xB7 ' + esc(_fmtAddr(s)) + '</div>'
+        + '</div>'
+      );
+      _gmInfoWindow.open(_gmap, marker);
+    });
+    marker.addListener('mouseout', function() { _gmInfoWindow.close(); });
     _leafletMarkers[s.slug] = marker;
   });
 }
@@ -15902,10 +15972,14 @@ function _buildMarkers(shops) {
 /* \uC5C5\uCCB4 \uBAA9\uB85D \uCE74\uB4DC \uB80C\uB354 */
 function renderMapList(shops) {
   var list    = document.getElementById('map-pin-list');
-  var countEl = document.getElementById('map-list-count');
   if (!list) return;
   var geoCount = shops.filter(function(s){ return s.lat && s.lng; }).length;
-  if (countEl) countEl.innerHTML = '<strong style="color:#fff">' + shops.length + '</strong> shops'
+  // \uBAA8\uBC14\uC77C \uD578\uB4E4 \uB808\uC774\uBE14
+  var handleLabel = document.getElementById('map-sheet-handle-label');
+  if (handleLabel) handleLabel.textContent = shops.length + ' shops nearby';
+  // PC \uD5E4\uB354 \uCE74\uC6B4\uD2B8
+  var countPc = document.getElementById('map-list-count-pc');
+  if (countPc) countPc.innerHTML = '<strong style="color:#fff">' + shops.length + '</strong> shops'
     + (geoCount < shops.length ? ' <span style="color:rgba(255,255,255,.25);font-size:9px">(' + geoCount + ' on map)</span>' : '');
   if (!shops.length) {
     list.innerHTML = '<div class="map-no-coords"><div style="font-size:28px;margin-bottom:8px">\u{1F5FA}\uFE0F</div>No shops in this area</div>';
@@ -15977,56 +16051,97 @@ function buildMap() {
     '<div id="map-body">',
     '<div id="map-iframe-wrap" style="position:relative;flex:1;overflow:hidden">',
     '<div id="map-leaflet"></div>',
-    '<div id="map-shop-popup"></div>',
     '</div>',
+    '<div id="map-shop-popup"></div>',
     '<div id="map-shop-list">',
-    '<div class="map-list-header"><div class="map-list-count" id="map-list-count">Loading shops...</div></div>',
+    '<div id="map-sheet-handle" onclick="toggleMapSheet()">',
+    '<div id="map-sheet-handle-bar"></div>',
+    '<div id="map-sheet-handle-label" id="map-list-count">\u2014 shops nearby \u2014</div>',
+    '</div>',
+    '<div class="map-list-header"><div class="map-list-count" id="map-list-count-pc">Shops</div></div>',
     '<div class="map-list-scroll" id="map-pin-list"><div style="padding:32px 16px;color:rgba(255,255,255,.3);text-align:center">Loading...</div></div>',
     '</div>',
     '</div>'
   ].join('');
 
-  // \u2500\u2500 Leaflet \uCD08\uAE30\uD654 \u2500\u2500
-  if (typeof L === 'undefined') {
-    // Leaflet CDN\uC774 \uC544\uC9C1 \uB85C\uB4DC \uC548 \uB410\uC73C\uBA74 \uB300\uAE30 (\uCD5C\uB300 10\uD68C)
+  // \u2500\u2500 Google Maps \uCD08\uAE30\uD654 \u2014 \uB85C\uB4DC \uB300\uAE30 \u2500\u2500
+  if (!window.__gmapsLoaded || typeof google === 'undefined' || !google.maps) {
     if (!buildMap._retries) buildMap._retries = 0;
     buildMap._retries++;
-    if (buildMap._retries <= 10) {
-      setTimeout(function(){
-        var lf = document.getElementById('map-leaflet');
-        if (lf) { // HTML \uBF08\uB300\uB294 \uC720\uC9C0, \uCD08\uAE30\uD654\uB9CC \uC7AC\uC2DC\uB3C4
-          if (typeof L !== 'undefined') { buildMap._retries = 0; buildMap(); }
-          else setTimeout(arguments.callee, 300);
-        }
-      }, 300);
+    if (buildMap._retries <= 20) {
+      setTimeout(buildMap, 300);
     } else {
-      // CDN \uB85C\uB4DC \uC2E4\uD328 \u2192 \uC624\uB958 \uBA54\uC2DC\uC9C0
       var pl = document.getElementById('map-pin-list');
-      if (pl) pl.innerHTML = '<div style="padding:32px;text-align:center;color:rgba(255,255,255,.3)"><div style="font-size:24px;margin-bottom:8px">\u{1F5FA}\uFE0F</div>Map library failed to load.<br><small style="color:rgba(255,255,255,.2)">Please check your internet connection.</small></div>';
+      if (pl) pl.innerHTML = '<div style="padding:32px;text-align:center;color:rgba(255,255,255,.3)"><div style="font-size:24px;margin-bottom:8px">\u{1F5FA}\uFE0F</div>Map failed to load.<br><small>Please check your internet connection.</small></div>';
     }
     return;
   }
   buildMap._retries = 0;
 
-  if (_leafletMap) {
-    _leafletMap.remove();
-    _leafletMap = null;
+  if (_gmap) {
+    // \uAE30\uC874 \uB9C8\uCEE4 \uC815\uB9AC
+    Object.keys(_leafletMarkers).forEach(function(k){ _leafletMarkers[k].setMap(null); });
+    _leafletMarkers = {};
+    _gmap = null;
   }
 
-  _leafletMap = L.map('map-leaflet', {
-    center: [37.5172, 127.0473],
+  _gmap = new google.maps.Map(document.getElementById('map-leaflet'), {
+    center: { lat: 37.5172, lng: 127.0473 },
     zoom: 13,
+    disableDefaultUI: false,
     zoomControl: true,
-    attributionControl: false
+    mapTypeControl: false,
+    streetViewControl: false,
+    fullscreenControl: false,
+    scrollwheel: true,
+    gestureHandling: 'greedy',
+    // \uC601\uC5B4 \uAC15\uC81C \uC124\uC815
+    language: 'en',
+    // \uB2E4\uD06C \uBAA8\uB4DC \uC2A4\uD0C0\uC77C
+    styles: [
+      // \uC804\uCCB4 \uBC30\uACBD \u2014 \uBC1D\uACE0 \uAE68\uB057\uD55C \uD06C\uB9BC\uD1A4
+      {elementType:'geometry',stylers:[{color:'#f8f5f0'}]},
+      {elementType:'labels.text.stroke',stylers:[{color:'#ffffff'}]},
+      {elementType:'labels.text.fill',stylers:[{color:'#333333'}]},
+      // \uB3C4\uB85C \u2014 \uD770\uC0C9 \uACC4\uC5F4, \uAC00\uB3C5\uC131 \uCD5C\uC6B0\uC120
+      {featureType:'road',elementType:'geometry',stylers:[{color:'#ffffff'}]},
+      {featureType:'road',elementType:'geometry.stroke',stylers:[{color:'#e0d8cf'}]},
+      {featureType:'road',elementType:'labels.text.fill',stylers:[{color:'#555555'}]},
+      {featureType:'road',elementType:'labels.text.stroke',stylers:[{color:'#ffffff'}]},
+      // \uC8FC\uC694 \uB3C4\uB85C \u2014 \uC5F0\uD55C \uC8FC\uD669 \uAC15\uC870
+      {featureType:'road.arterial',elementType:'geometry',stylers:[{color:'#ffefd5'}]},
+      // \uACE0\uC18D\uB3C4\uB85C \u2014 \uB178\uB780\uD1A4\uC73C\uB85C \uB208\uC5D0 \uB744\uAC8C
+      {featureType:'road.highway',elementType:'geometry',stylers:[{color:'#ffd580'}]},
+      {featureType:'road.highway',elementType:'geometry.stroke',stylers:[{color:'#f5b942'}]},
+      {featureType:'road.highway',elementType:'labels.text.fill',stylers:[{color:'#333333'}]},
+      // \uBB3C \u2014 \uB9D1\uC740 \uD558\uB298\uC0C9
+      {featureType:'water',elementType:'geometry',stylers:[{color:'#a8d5e8'}]},
+      {featureType:'water',elementType:'labels.text.fill',stylers:[{color:'#4a90a4'}]},
+      // \uACF5\uC6D0 \u2014 \uC5F0\uD55C \uCD08\uB85D
+      {featureType:'poi.park',elementType:'geometry',stylers:[{color:'#c8e6c9'}]},
+      {featureType:'poi.park',elementType:'labels.text.fill',stylers:[{color:'#4a7c59'}]},
+      // POI \uC544\uC774\uCF58 \uC228\uAE40 (\uC9C0\uC800\uBD84\uD568 \uBC29\uC9C0)
+      {featureType:'poi',elementType:'labels.icon',stylers:[{visibility:'off'}]},
+      {featureType:'poi',elementType:'labels.text.fill',stylers:[{color:'#888888'}]},
+      {featureType:'poi.business',elementType:'labels',stylers:[{visibility:'off'}]},
+      // \uC9C0\uD558\uCCA0 \u2014 \uD551\uD06C \uAC15\uC870 (\uC11C\uC6B8 \uC9C0\uD558\uCCA0 \uB290\uB08C)
+      {featureType:'transit.line',elementType:'geometry',stylers:[{color:'#ffb3c6'}]},
+      {featureType:'transit.station',elementType:'geometry',stylers:[{color:'#ff6b9d'}]},
+      {featureType:'transit.station',elementType:'labels.text.fill',stylers:[{color:'#cc0066'}]},
+      {featureType:'transit.station',elementType:'labels.text.stroke',stylers:[{color:'#ffffff'}]},
+      // \uD589\uC815\uAD6C\uC5ED
+      {featureType:'administrative',elementType:'geometry',stylers:[{color:'#d4c9bd'}]},
+      {featureType:'administrative.locality',elementType:'labels.text.fill',stylers:[{color:'#222222'}]},
+      {featureType:'administrative.locality',elementType:'labels.text.stroke',stylers:[{color:'#ffffff'}]},
+      {featureType:'administrative.neighborhood',elementType:'labels.text.fill',stylers:[{color:'#666666'}]},
+      // \uC9C0\uD615
+      {featureType:'landscape',elementType:'geometry',stylers:[{color:'#f0ebe4'}]},
+      {featureType:'landscape.man_made',elementType:'geometry',stylers:[{color:'#ede8e1'}]},
+    ]
   });
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '\xA9 OpenStreetMap'
-  }).addTo(_leafletMap);
-
   // \uC9C0\uB3C4 \uD074\uB9AD \u2192 \uD328\uB110 \uB2EB\uAE30
-  _leafletMap.on('click', function() { closeMapPanel(); });
+  _gmap.addListener('click', function() { closeMapPanel(); });
 
   // \u2500\u2500 \uC9C0\uC5ED \uD544\uD130 \uC774\uBCA4\uD2B8 \u2500\u2500
   var areaChips = container.querySelectorAll('.map-area-chip');
@@ -16044,9 +16159,11 @@ function buildMap() {
       renderMapList(filtered);
       // \uD544\uD130\uB41C \uC5C5\uCCB4 \uBC94\uC704\uB85C \uC9C0\uB3C4 \uC790\uB3D9 \uB9DE\uCD94\uAE30
       var geo = filtered.filter(function(s){ return s.lat && s.lng; });
-      if (geo.length > 0 && _leafletMap) {
-        var latlngs = geo.map(function(s){ return [parseFloat(s.lat), parseFloat(s.lng)]; });
-        try { _leafletMap.fitBounds(L.latLngBounds(latlngs), {padding:[40,40], maxZoom:15}); } catch(e){}
+      if (geo.length > 0 && _gmap) {
+        var bounds = new google.maps.LatLngBounds();
+        geo.forEach(function(s){ bounds.extend({lat:parseFloat(s.lat),lng:parseFloat(s.lng)}); });
+        _gmap.fitBounds(bounds, 50);
+        if (_gmap.getZoom() > 15) _gmap.setZoom(15);
       }
     });
   });
@@ -16058,12 +16175,14 @@ function buildMap() {
     renderMapList(list);
     // \uC804\uCCB4 \uC5C5\uCCB4 \uBC94\uC704\uB85C \uC9C0\uB3C4 \uC790\uB3D9 \uB9DE\uCD94\uAE30
     var geo = list.filter(function(s){ return s.lat && s.lng; });
-    if (geo.length > 1 && _leafletMap) {
-      var latlngs = geo.map(function(s){ return [parseFloat(s.lat), parseFloat(s.lng)]; });
-      try { _leafletMap.fitBounds(L.latLngBounds(latlngs), {padding:[50,50], maxZoom:14}); } catch(e){}
+    if (geo.length > 1 && _gmap) {
+      var bounds = new google.maps.LatLngBounds();
+      geo.forEach(function(s){ bounds.extend({lat:parseFloat(s.lat),lng:parseFloat(s.lng)}); });
+      _gmap.fitBounds(bounds, 50);
+      if (_gmap.getZoom() > 14) _gmap.setZoom(14);
     }
-    // Leaflet \uD06C\uAE30 \uC7AC\uACC4\uC0B0 (CSS transition \uD6C4 DOM \uD06C\uAE30 \uD655\uC815 \uB300\uBE44)
-    setTimeout(function(){ if (_leafletMap) _leafletMap.invalidateSize(); }, 300);
+    // Google Maps \uD06C\uAE30 \uC7AC\uACC4\uC0B0
+    setTimeout(function(){ if (_gmap) google.maps.event.trigger(_gmap,'resize'); }, 300);
   }
 
   // shopCache \uC6B0\uC120 \u2192 __INIT_SHOPS__ \u2192 /api/shops fetch
@@ -16987,12 +17106,8 @@ textarea{height:80px;resize:none}
         <label>\uCE74\uD14C\uACE0\uB9AC *</label>
         <select id="sh-cat">
           <option value="clinic">\uD074\uB9AC\uB2C9 (\uC758\uC6D0)</option>
-          <option value="skincare">\uC2A4\uD0A8\uCF00\uC5B4</option>
           <option value="makeup">\uBA54\uC774\uD06C\uC5C5</option>
-          <option value="hair">\uD5E4\uC5B4</option>
-          <option value="headspa">\uD5E4\uB4DC\uC2A4\uD30C</option>
           <option value="tattoo">\uB208\uC379 \uD0C0\uD22C\xB7\uBC18\uC601\uAD6C</option>
-          <option value="spa">\uC2A4\uD30C\xB7\uB9C8\uC0AC\uC9C0</option>
         </select>
       </div>
       <div>
@@ -17092,12 +17207,8 @@ textarea{height:80px;resize:none}
         style="padding:9px 10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:10px;color:rgba(255,255,255,.7);font-size:12px;cursor:pointer">
         <option value="">\uC804\uCCB4 \uCE74\uD14C\uACE0\uB9AC</option>
         <option value="clinic">\u{1F3E5} \uD074\uB9AC\uB2C9</option>
-        <option value="skincare">\u2728 \uC2A4\uD0A8\uCF00\uC5B4</option>
-        <option value="headspa">\u{1F9D6} \uD5E4\uB4DC\uC2A4\uD30C</option>
-        <option value="hair">\u{1F487} \uD5E4\uC5B4</option>
         <option value="makeup">\u{1F484} \uBA54\uC774\uD06C\uC5C5</option>
         <option value="tattoo">\u2712\uFE0F \uD0C0\uD22C</option>
-        <option value="spa">\u{1F6C1} \uC2A4\uD30C</option>
       </select>
       <button onclick="filterShopList(''); document.getElementById('shop-search-input').value=''; document.getElementById('shop-search-cat').value='';"
         style="padding:9px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:rgba(255,255,255,.4);font-size:12px;cursor:pointer;white-space:nowrap">
@@ -17131,12 +17242,8 @@ textarea{height:80px;resize:none}
         <label>\uCE74\uD14C\uACE0\uB9AC</label>
         <select id="edit-sh-cat">
           <option value="clinic">\uD074\uB9AC\uB2C9 (\uC758\uC6D0)</option>
-          <option value="skincare">\uC2A4\uD0A8\uCF00\uC5B4</option>
           <option value="makeup">\uBA54\uC774\uD06C\uC5C5</option>
-          <option value="hair">\uD5E4\uC5B4</option>
-          <option value="headspa">\uD5E4\uB4DC\uC2A4\uD30C</option>
           <option value="tattoo">\uB208\uC379 \uD0C0\uD22C\xB7\uBC18\uC601\uAD6C</option>
-          <option value="spa">\uC2A4\uD30C\xB7\uB9C8\uC0AC\uC9C0</option>
         </select>
       </div>
       <div><label>\uC9C0\uC5ED</label><input id="edit-sh-loc" placeholder="\uC608: Gangnam, Seoul"></div>
