@@ -6816,12 +6816,9 @@ function closeMapOverlay(){
 </html>`);
 });
 var CATEGORY_LABELS = {
-  skincare: "Skincare",
   makeup: "Makeup",
-  hair: "Hair Salon",
   headspa: "Head Spa",
   clinic: "Skin Clinic",
-  spa: "Spa & Massage",
   tattoo: "Eyebrow Tattoo"
 };
 var AREA_LABELS = {
@@ -7283,7 +7280,10 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#f8fafc;color:#1e293
 var BEST_CAT_REDIRECTS = {
   "plastic-surgery": "clinic",
   "dermatology": "clinic",
-  "nail": "makeup"
+  "nail": "makeup",
+  "skincare": "clinic",
+  "hair": "headspa",
+  "spa": "headspa"
 };
 app.get("/best/:category/:area", async (c) => {
   const catSlug = c.req.param("category").toLowerCase();
@@ -7318,7 +7318,10 @@ app.get("/best/:category/:area", async (c) => {
     }
   }
   if (shops2.length === 0) return c.notFound();
-  if (shops2.length <= 2) {
+  if (shops2.length <= 2 && areaSlug !== "seoul") {
+    return c.redirect(`/best/${catSlug}/seoul`, 301);
+  }
+  if (false) {
     const _base = "https://seoulbeautytrip.com";
     let _areaShopCounts = {};
     try {
@@ -7505,7 +7508,7 @@ ${SB_TRACKER_SCRIPT}
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${titleMain} | Seoul Beauty Trip</title>
 <meta name="description" content="${metaDesc}">
-<meta name="robots" content="${shops2.length <= 2 ? "noindex, follow" : "index, follow"}">
+<meta name="robots" content="index, follow">
 <link rel="canonical" href="${pageUrl}">
 <meta property="og:type" content="website">
 <meta property="og:title" content="${titleMain} | Seoul Beauty Trip">

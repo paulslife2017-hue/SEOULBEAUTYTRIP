@@ -5407,8 +5407,8 @@ function closeMapOverlay(){
 // ── /best/:category/:area  카테고리×지역 랜딩 페이지 ──
 // ══════════════════════════════════════════════════════
 const CATEGORY_LABELS: Record<string,string> = {
-  skincare:'Skincare', makeup:'Makeup', hair:'Hair Salon',
-  headspa:'Head Spa', clinic:'Skin Clinic', spa:'Spa & Massage', tattoo:'Eyebrow Tattoo'
+  makeup:'Makeup',
+  headspa:'Head Spa', clinic:'Skin Clinic', tattoo:'Eyebrow Tattoo'
 }
 const AREA_LABELS: Record<string,string> = {
   gangnam:'Gangnam', hongdae:'Hongdae', itaewon:'Itaewon',
@@ -5873,6 +5873,9 @@ const BEST_CAT_REDIRECTS: Record<string, string> = {
   'plastic-surgery': 'clinic',
   'dermatology':     'clinic',
   'nail':            'makeup',
+  'skincare':        'clinic',
+  'hair':            'headspa',
+  'spa':             'headspa',
 }
 
 app.get('/best/:category/:area', async (c) => {
@@ -5924,8 +5927,11 @@ app.get('/best/:category/:area', async (c) => {
   // 업체 없는 경우 → 404 반환 (크롤링 제외)
   if (shops.length === 0) return c.notFound()
 
-  // 업체 1~2개 → Coming Soon 페이지 렌더링 (noindex)
-  if (shops.length <= 2) {
+  // 업체 1~2개 → /best/:cat/seoul 로 301 redirect (noindex 페이지 제거)
+  if (shops.length <= 2 && areaSlug !== 'seoul') {
+    return c.redirect(`/best/${catSlug}/seoul`, 301)
+  }
+  if (false) { // 하위 호환용 블록 (dead code)
     const _base = 'https://seoulbeautytrip.com'
     // 같은 카테고리에서 업체 있는 다른 지역 링크 모아주기
     // 업체 있는 지역만 링크 (0개 지역 제외)
@@ -6218,7 +6224,7 @@ ${SB_TRACKER_SCRIPT}
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${titleMain} | Seoul Beauty Trip</title>
 <meta name="description" content="${metaDesc}">
-<meta name="robots" content="${shops.length <= 2 ? 'noindex, follow' : 'index, follow'}">
+<meta name="robots" content="index, follow">
 <link rel="canonical" href="${pageUrl}">
 <meta property="og:type" content="website">
 <meta property="og:title" content="${titleMain} | Seoul Beauty Trip">
