@@ -14803,8 +14803,13 @@ function _showMapPanel(shop) {
   var addr     = _fmtAddr(shop);
   var img      = shop.thumbnail || '';
   var slug     = shop.slug || '';
-  // 설명: 길이 제한 없이 전체 표시
-  var desc = shop.description || shop.metaDescription || shop.meta_description || '';
+  // 설명: description → metaDescription → seoText → 자동 생성 fallback
+  var desc = shop.description || shop.metaDescription || shop.meta_description || shop.seoText || '';
+  if (!desc && shop.name) {
+    var _catLbl = shop.category === 'clinic' ? 'skin clinic' : shop.category === 'headspa' ? 'head spa' : shop.category === 'makeup' ? 'makeup studio' : shop.category === 'tattoo' ? 'eyebrow tattoo studio' : 'beauty salon';
+    var _locLbl = (shop.location || '').replace(', Seoul','').replace(', South Korea','');
+    desc = shop.name + ' is a highly rated ' + _catLbl + ' in ' + _locLbl + ', Seoul. Rated ' + (shop.rating||'5.0') + '/5 with ' + (shop.reviewCount||shop.review_count||0) + '+ verified reviews. English-friendly booking available via WhatsApp with Seoul Beauty Trip.';
+  }
 
   // 별점 아이콘
   var starsHtml = '';
