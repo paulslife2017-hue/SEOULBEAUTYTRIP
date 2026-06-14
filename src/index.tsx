@@ -14716,7 +14716,7 @@ function renderBrowseGrid(shops) {
       if (_parts.length >= 2) addr = _parts[_parts.length-2] + ', ' + _parts[_parts.length-1];
       else addr = _parts[0] || loc;
     }
-    var href    = s.slug ? '/shop/' + s.slug : '#';
+    var href    = s.slug ? '/shop/' + s.slug + '?from=browse' : '#';
     var rating  = s.rating  ? parseFloat(s.rating).toFixed(1)  : '';
     var reviews = s.reviewCount ? s.reviewCount : '';
     // 평점 별 (1~5 중 반올림)
