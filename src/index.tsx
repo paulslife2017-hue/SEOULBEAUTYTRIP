@@ -4194,7 +4194,6 @@ const SLUG_REDIRECTS: Record<string, string> = {
   'ppeum-global-clinic-myeongdong':       'ppeum-clinic-myeongdong',
   'reone-dermatology-clinic-sinsa':       'reone-dermatology-gangnam',
   'dr-evers-gangnam-2':                   'drevers-clinic-gangnam',
-  'me-seoul-clinic-gangnam':              'me-seoul-clinic-gangnam',
   'sugar-plastic-surgery-seocho':         'sugar-clinic-gangnam',
   'barog-clinic-gangnam-2-review-2026-foreigners': 'barog-clinic-gangnam',
 }
@@ -5049,7 +5048,8 @@ ${(()=>{
     }
     /* fallback: DB seo_text 없을 때 템플릿 — 업체별 다양화 (AI 호출 없음) */
     const area3   = (shop.location||'Seoul').split(',')[0].trim();
-    const svcList = shop.services && shop.services.length > 0 ? shop.services.slice(0,4).join(', ') : 'beauty treatments';
+    const cat3    = ({clinic:'Skin Clinic',headspa:'Head Spa',hair:'Hair Salon',skincare:'Skincare',makeup:'Makeup',tattoo:'Eyebrow Tattoo',spa:'Spa',nail:'Nail Studio',dental:'Dental Clinic'} as Record<string,string>)[shop.category] || (shop.category.charAt(0).toUpperCase()+shop.category.slice(1));
+    const svcList = shop.services && shop.services.length > 0 ? shop.services.slice(0,4).join(', ') : cat3+' treatments';
     const areaGn  = (['cheongdam','apgujeong','sinsa','nonhyeon'].some(a=>area3.toLowerCase().includes(a))) ? 'Gangnam' : area3;
     const revTxt  = shop.reviewCount > 10 ? ' With '+shop.reviewCount+'+ verified reviews and a '+shop.rating+'-star rating, it' : ' It';
     // 업체명 기반 clinic 세부 타입 (Travel Guide 텍스트도 일관성 유지)
@@ -5883,8 +5883,14 @@ app.get('/best/:category/:area', async (c) => {
   const areaSlug = c.req.param('area').toLowerCase()
 
   // 카테고리 리디렉션 (plastic-surgery → clinic 등)
+  // 단, hair→headspa / spa→headspa / nail→makeup 은 지역별 페이지가 없는 경우가 많으므로
+  // seoul(전체)로 리다이렉트 — 404 방지
   if (BEST_CAT_REDIRECTS[catSlug]) {
-    return c.redirect(`/best/${BEST_CAT_REDIRECTS[catSlug]}/${areaSlug}`, 301)
+    const targetCat = BEST_CAT_REDIRECTS[catSlug]
+    const safeArea = (targetCat === 'headspa' && areaSlug !== 'seoul') ? 'seoul'
+      : (targetCat === 'makeup' && areaSlug !== 'seoul' && areaSlug !== 'gangnam') ? 'seoul'
+      : areaSlug
+    return c.redirect(`/best/${targetCat}/${safeArea}`, 301)
   }
 
   const catLabel  = CATEGORY_LABELS[catSlug]
@@ -5924,10 +5930,13 @@ app.get('/best/:category/:area', async (c) => {
     } catch(e) {}
   }
 
-  // 업체 없는 경우 → 404 반환 (크롤링 제외)
-  if (shops.length === 0) return c.notFound()
+  // 업체 없는 경우 → /best/:cat/seoul 로 301 redirect (404 방지 — SEO 크롤러 낭비 제거)
+  if (shops.length === 0) {
+    if (areaSlug === 'seoul') return c.notFound()  // seoul도 없으면 진짜 404
+    return c.redirect(`/best/${catSlug}/seoul`, 301)
+  }
 
-  // 업체 1~2개 → /best/:cat/seoul 로 301 redirect (noindex 페이지 제거)
+  // 업체 1~2개 → /best/:cat/seoul 로 301 redirect (thin content 방지)
   if (shops.length <= 2 && areaSlug !== 'seoul') {
     return c.redirect(`/best/${catSlug}/seoul`, 301)
   }
@@ -9975,10 +9984,14 @@ app.get('/sitemap.xml', async (c) => {
   let blogSlugs: string[] = []
   try {
     const rows = await sql`SELECT slug FROM shops WHERE active=true AND slug IS NOT NULL AND slug!=''`
+    // SLUG_REDIRECTS 키(구 slug)는 sitemap 제외 — 301 리다이렉트 URL이 색인되지 않도록
+    const _redirectSlugs = new Set(Object.keys(SLUG_REDIRECTS))
     shopSlugs = rows.map((r: any) => r.slug).filter((s: string) => {
       // 비정상 slug 필터링: 하이픈으로 시작하거나, 숫자로만 끝나는 이상한 slug 제외
       if (!s || s.startsWith('-')) return false
       if (/^-/.test(s)) return false
+      // 리다이렉트 대상 slug 제외
+      if (_redirectSlugs.has(s)) return false
       return true
     })
   } catch(e) {}
@@ -15192,47 +15205,24 @@ window.selectMapShop  = function() {};
     <p style="font-size:.82rem;color:#888;text-align:center;margin-bottom:20px">Foreigner-friendly salons in Seoul — find your area</p>
     <div style="display:flex;flex-direction:column;gap:14px">
       <div>
-        <div style="font-size:.75rem;font-weight:700;color:#9ca3af;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">🧖 Head Spa</div>
+        <div style="font-size:.75rem;font-weight:700;color:#9ca3af;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">🏥 Skin Clinic &amp; Plastic Surgery</div>
         <div style="display:flex;flex-wrap:wrap;gap:6px">
-          <a href="/best/headspa/gangnam" style="background:#fdf2f8;color:#be185d;border-radius:20px;padding:5px 14px;font-size:.8rem;font-weight:600;text-decoration:none">Gangnam</a>
-          <a href="/best/headspa/hongdae" style="background:#fdf2f8;color:#be185d;border-radius:20px;padding:5px 14px;font-size:.8rem;font-weight:600;text-decoration:none">Hongdae</a>
-          <a href="/best/headspa/itaewon" style="background:#fdf2f8;color:#be185d;border-radius:20px;padding:5px 14px;font-size:.8rem;font-weight:600;text-decoration:none">Itaewon</a>
-          <a href="/best/headspa/myeongdong" style="background:#fdf2f8;color:#be185d;border-radius:20px;padding:5px 14px;font-size:.8rem;font-weight:600;text-decoration:none">Myeongdong</a>
-          <a href="/best/headspa/apgujeong" style="background:#fdf2f8;color:#be185d;border-radius:20px;padding:5px 14px;font-size:.8rem;font-weight:600;text-decoration:none">Apgujeong</a>
-          <a href="/best/headspa/seoul" style="background:#fdf2f8;color:#be185d;border-radius:20px;padding:5px 14px;font-size:.8rem;font-weight:600;text-decoration:none">All Seoul</a>
+          <a href="/best/clinic/gangnam" style="background:#fff7ed;color:#c2410c;border-radius:20px;padding:5px 14px;font-size:.8rem;font-weight:600;text-decoration:none">Gangnam (28)</a>
+          <a href="/best/clinic/myeongdong" style="background:#fff7ed;color:#c2410c;border-radius:20px;padding:5px 14px;font-size:.8rem;font-weight:600;text-decoration:none">Myeongdong (3)</a>
+          <a href="/best/clinic/seoul" style="background:#fff7ed;color:#c2410c;border-radius:20px;padding:5px 14px;font-size:.8rem;font-weight:600;text-decoration:none">All Seoul</a>
         </div>
       </div>
       <div>
-        <div style="font-size:.75rem;font-weight:700;color:#9ca3af;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">🌿 Skincare</div>
+        <div style="font-size:.75rem;font-weight:700;color:#9ca3af;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">🧖 Head Spa &amp; Scalp Treatment</div>
         <div style="display:flex;flex-wrap:wrap;gap:6px">
-          <a href="/best/skincare/gangnam" style="background:#f0fdf4;color:#15803d;border-radius:20px;padding:5px 14px;font-size:.8rem;font-weight:600;text-decoration:none">Gangnam</a>
-          <a href="/best/skincare/hongdae" style="background:#f0fdf4;color:#15803d;border-radius:20px;padding:5px 14px;font-size:.8rem;font-weight:600;text-decoration:none">Hongdae</a>
-          <a href="/best/skincare/itaewon" style="background:#f0fdf4;color:#15803d;border-radius:20px;padding:5px 14px;font-size:.8rem;font-weight:600;text-decoration:none">Itaewon</a>
-          <a href="/best/skincare/myeongdong" style="background:#f0fdf4;color:#15803d;border-radius:20px;padding:5px 14px;font-size:.8rem;font-weight:600;text-decoration:none">Myeongdong</a>
-          <a href="/best/skincare/seoul" style="background:#f0fdf4;color:#15803d;border-radius:20px;padding:5px 14px;font-size:.8rem;font-weight:600;text-decoration:none">All Seoul</a>
+          <a href="/best/headspa/seoul" style="background:#fdf2f8;color:#be185d;border-radius:20px;padding:5px 14px;font-size:.8rem;font-weight:600;text-decoration:none">All Seoul Head Spas</a>
         </div>
       </div>
       <div>
-        <div style="font-size:.75rem;font-weight:700;color:#9ca3af;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">💇 Hair Salon</div>
+        <div style="font-size:.75rem;font-weight:700;color:#9ca3af;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">💋 Makeup &amp; Color Analysis · 🎨 Eyebrow Tattoo</div>
         <div style="display:flex;flex-wrap:wrap;gap:6px">
-          <a href="/best/hair/gangnam" style="background:#eff6ff;color:#1d4ed8;border-radius:20px;padding:5px 14px;font-size:.8rem;font-weight:600;text-decoration:none">Gangnam</a>
-          <a href="/best/hair/hongdae" style="background:#eff6ff;color:#1d4ed8;border-radius:20px;padding:5px 14px;font-size:.8rem;font-weight:600;text-decoration:none">Hongdae</a>
-          <a href="/best/hair/itaewon" style="background:#eff6ff;color:#1d4ed8;border-radius:20px;padding:5px 14px;font-size:.8rem;font-weight:600;text-decoration:none">Itaewon</a>
-          <a href="/best/hair/sinchon" style="background:#eff6ff;color:#1d4ed8;border-radius:20px;padding:5px 14px;font-size:.8rem;font-weight:600;text-decoration:none">Sinchon</a>
-          <a href="/best/hair/seoul" style="background:#eff6ff;color:#1d4ed8;border-radius:20px;padding:5px 14px;font-size:.8rem;font-weight:600;text-decoration:none">All Seoul</a>
-        </div>
-      </div>
-      <div>
-        <div style="font-size:.75rem;font-weight:700;color:#9ca3af;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">💅 Nail · 🏥 Clinic · 💋 Makeup · 🛁 Spa</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px">
-          <a href="/best/nail/hongdae" style="background:#faf5ff;color:#7c3aed;border-radius:20px;padding:5px 14px;font-size:.8rem;font-weight:600;text-decoration:none">💅 Nail Hongdae</a>
-          <a href="/best/nail/gangnam" style="background:#faf5ff;color:#7c3aed;border-radius:20px;padding:5px 14px;font-size:.8rem;font-weight:600;text-decoration:none">💅 Nail Gangnam</a>
-          <a href="/best/clinic/gangnam" style="background:#fff7ed;color:#c2410c;border-radius:20px;padding:5px 14px;font-size:.8rem;font-weight:600;text-decoration:none">🏥 Clinic Gangnam</a>
-          <a href="/best/clinic/apgujeong" style="background:#fff7ed;color:#c2410c;border-radius:20px;padding:5px 14px;font-size:.8rem;font-weight:600;text-decoration:none">🏥 Clinic Apgujeong</a>
-          <a href="/best/makeup/hongdae" style="background:#fff1f2;color:#be123c;border-radius:20px;padding:5px 14px;font-size:.8rem;font-weight:600;text-decoration:none">💋 Makeup Hongdae</a>
-          <a href="/best/makeup/myeongdong" style="background:#fff1f2;color:#be123c;border-radius:20px;padding:5px 14px;font-size:.8rem;font-weight:600;text-decoration:none">💋 Makeup Myeongdong</a>
-          <a href="/best/spa/itaewon" style="background:#f0f9ff;color:#0369a1;border-radius:20px;padding:5px 14px;font-size:.8rem;font-weight:600;text-decoration:none">🛁 Spa Itaewon</a>
-          <a href="/best/spa/gangnam" style="background:#f0f9ff;color:#0369a1;border-radius:20px;padding:5px 14px;font-size:.8rem;font-weight:600;text-decoration:none">🛁 Spa Gangnam</a>
+          <a href="/best/makeup/seoul" style="background:#fff1f2;color:#be123c;border-radius:20px;padding:5px 14px;font-size:.8rem;font-weight:600;text-decoration:none">💋 Makeup Seoul</a>
+          <a href="/best/tattoo/seoul" style="background:#faf5ff;color:#7c3aed;border-radius:20px;padding:5px 14px;font-size:.8rem;font-weight:600;text-decoration:none">🎨 Eyebrow Tattoo Seoul</a>
         </div>
       </div>
     </div>
@@ -15701,13 +15691,13 @@ textarea{height:80px;resize:none}
     <div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.06)">
       <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.45);margin-bottom:10px">📍 카테고리×지역 랜딩 페이지 (Google 상위노출 타겟)</div>
       <div style="display:flex;flex-wrap:wrap;gap:6px" id="best-pages-grid">
-        <a href="/best/headspa/gangnam" target="_blank" class="btn-sm btn-blue" style="font-size:10px">🧖 Head Spa Gangnam</a>
-        <a href="/best/headspa/hongdae" target="_blank" class="btn-sm btn-blue" style="font-size:10px">🧖 Head Spa Hongdae</a>
-        <a href="/best/skincare/gangnam" target="_blank" class="btn-sm btn-blue" style="font-size:10px">🌿 Skincare Gangnam</a>
-        <a href="/best/hair/gangnam" target="_blank" class="btn-sm btn-blue" style="font-size:10px">💇 Hair Gangnam</a>
         <a href="/best/clinic/gangnam" target="_blank" class="btn-sm btn-blue" style="font-size:10px">🏥 Clinic Gangnam</a>
-        <a href="/best/spa/itaewon" target="_blank" class="btn-sm btn-blue" style="font-size:10px">🛁 Spa Itaewon</a>
-        <a href="/best/makeup/myeongdong" target="_blank" class="btn-sm btn-blue" style="font-size:10px">💋 Makeup Myeongdong</a>
+        <a href="/best/clinic/myeongdong" target="_blank" class="btn-sm btn-blue" style="font-size:10px">🏥 Clinic Myeongdong</a>
+        <a href="/best/clinic/seoul" target="_blank" class="btn-sm btn-blue" style="font-size:10px">🏥 Clinic Seoul</a>
+        <a href="/best/headspa/myeongdong" target="_blank" class="btn-sm btn-blue" style="font-size:10px">🧖 Head Spa Myeongdong</a>
+        <a href="/best/headspa/seoul" target="_blank" class="btn-sm btn-blue" style="font-size:10px">🧖 Head Spa Seoul</a>
+        <a href="/best/makeup/gangnam" target="_blank" class="btn-sm btn-blue" style="font-size:10px">💋 Makeup Gangnam</a>
+        <a href="/best/tattoo/seoul" target="_blank" class="btn-sm btn-blue" style="font-size:10px">🎨 Tattoo Seoul</a>
       </div>
     </div>
   </div>
