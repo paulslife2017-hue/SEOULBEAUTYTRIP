@@ -2160,6 +2160,15 @@ var AI_BOT_PATTERNS = [
   "YouBot"
 ];
 app.use("*", async (c, next) => {
+  const path = new URL(c.req.url).pathname;
+  if (path !== "/" && path.endsWith("/")) {
+    const clean = path.replace(/\/+$/, "") || "/";
+    const qs = new URL(c.req.url).search;
+    return c.redirect(clean + qs, 301);
+  }
+  await next();
+});
+app.use("*", async (c, next) => {
   await next();
   c.res.headers.set("X-Frame-Options", "SAMEORIGIN");
   c.res.headers.set("X-Content-Type-Options", "nosniff");
@@ -7011,6 +7020,13 @@ app.get("/best/clinic/gangnam", (c) => {
 <meta property="og:description" content="Verified list of the 30 best aesthetic clinics in Gangnam &amp; Seocho. English booking available.">
 <meta property="og:url" content="https://seoulbeautytrip.com/best/clinic/gangnam">
 <meta property="og:type" content="article">
+<meta property="og:image" content="https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:alt" content="Best Plastic Surgery Clinics in Gangnam Seoul \u2014 Seoul Beauty Trip">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@graph":[
   {"@type":"ItemList","name":"Best Plastic Surgery &amp; Skin Clinics in Gangnam Seoul ${yr}","numberOfItems":30,"itemListElement":[${itemListEl}]},
@@ -11444,12 +11460,19 @@ app.get("/", async (c) => {
     const initVideosFirst = initVideos.slice(0, 10);
     const gmapKey = getGoogleKey(c.env);
     const inlineScript = `${videoLdScript}<script>window.__INIT_VIDEOS__=${safeJson(initVideosFirst)};window.__INIT_VIDEOS_ALL__=${safeJson(initVideos)};window.__INIT_PLATFORM__=${safeJson(initPlatform)};window.__INIT_SHOPS__=${safeJson(initShops)};window.__GMAP_KEY__=${safeJson(gmapKey)};</script>`;
-    const html = MAIN_HTML.replace("__INLINE_DATA_PLACEHOLDER__", inlineScript);
+    const catIconMap = { clinic: "\u{1F3E5}", headspa: "\u{1F9D6}", makeup: "\u{1F484}", tattoo: "\u270F\uFE0F", hair: "\u{1F487}", skincare: "\u{1F33F}", spa: "\u2668\uFE0F", dental: "\u{1F9B7}" };
+    const ssrFeaturedHtml = initShops.slice(0, 8).map((s) => {
+      const icon = catIconMap[s.category] || "\u2B50";
+      const loc = (s.location || "Seoul").split(",")[0].trim();
+      return `<a href="/shop/${s.slug}" style="display:inline-flex;align-items:center;gap:6px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:20px;padding:4px 12px;font-size:.78rem;color:#374151;text-decoration:none;margin:3px">${icon} ${s.name} <span style="color:#94a3b8">(${loc})</span></a>`;
+    }).join("");
+    const ssrFeaturedBlock = initShops.length > 0 ? `<div style="margin-top:20px"><div style="font-size:.75rem;font-weight:700;color:#9ca3af;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">\u2B50 Featured Salons</div><div style="display:flex;flex-wrap:wrap;gap:2px">${ssrFeaturedHtml}</div></div>` : "";
+    const html = MAIN_HTML.replace("__INLINE_DATA_PLACEHOLDER__", inlineScript).replace("__SSR_FEATURED__", ssrFeaturedBlock);
     c.header("Cache-Control", "public, s-maxage=10, stale-while-revalidate=60");
     return c.html(html);
   } catch (e) {
     console.error("[/ route error]", e?.message || e);
-    return c.html(MAIN_HTML.replace("__INLINE_DATA_PLACEHOLDER__", "").replace("__SSR_SHOP_COUNT__", "K-beauty shops").replace("__SSR_FILTER_BTNS__", '<button class="sp-flt on" data-cat="all">All</button>').replace("__SSR_SHOP_CARDS__", ""));
+    return c.html(MAIN_HTML.replace("__INLINE_DATA_PLACEHOLDER__", "").replace("__SSR_SHOP_COUNT__", "K-beauty shops").replace("__SSR_FILTER_BTNS__", '<button class="sp-flt on" data-cat="all">All</button>').replace("__SSR_SHOP_CARDS__", "").replace("__SSR_FEATURED__", ""));
   }
 });
 app.get("/admin", (c) => {
@@ -11985,6 +12008,78 @@ app.post("/api/admin/regen-shop-blog", async (c) => {
   } catch (e) {
     return c.json({ error: e.message }, 500);
   }
+});
+app.notFound((c) => {
+  const requestedPath = new URL(c.req.url).pathname;
+  return c.html(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Page Not Found | Seoul Beauty Trip</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="canonical" href="https://seoulbeautytrip.com/">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#f8fafc;color:#1e293b;min-height:100vh;display:flex;flex-direction:column}
+.nf-header{background:#0f1a2e;padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
+.nf-logo{color:#fff;font-weight:800;font-size:1.1rem;text-decoration:none;letter-spacing:-.01em}
+.nf-logo span{color:#FF4D8D}
+.nf-hero{background:linear-gradient(135deg,#0f1a2e 0%,#1a2a45 60%,#1e3a5f 100%);color:#fff;padding:64px 24px 56px;text-align:center;flex:1}
+.nf-code{font-size:6rem;font-weight:900;line-height:1;background:linear-gradient(135deg,#FF4D8D,#ff8fab);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:16px}
+.nf-title{font-size:1.6rem;font-weight:700;margin-bottom:12px}
+.nf-sub{font-size:1rem;opacity:.7;max-width:480px;margin:0 auto 32px;line-height:1.6}
+.nf-path{display:inline-block;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:6px 16px;font-family:monospace;font-size:.85rem;color:#94a3b8;margin-bottom:32px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nf-btn-wrap{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:48px}
+.nf-btn{display:inline-flex;align-items:center;gap:8px;padding:12px 24px;border-radius:10px;font-weight:600;font-size:.95rem;text-decoration:none;transition:transform .15s,opacity .15s}
+.nf-btn:hover{transform:translateY(-1px);opacity:.9}
+.nf-btn-primary{background:#FF4D8D;color:#fff}
+.nf-btn-secondary{background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2)}
+.nf-popular{background:#fff;padding:40px 24px;max-width:900px;margin:0 auto;width:100%}
+.nf-popular h2{font-size:1.05rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin-bottom:20px;text-align:center}
+.nf-links{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.nf-link{display:flex;align-items:center;gap:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;text-decoration:none;color:#1e293b;font-size:.88rem;font-weight:500;transition:background .15s,border-color .15s}
+.nf-link:hover{background:#fff0f5;border-color:#FF4D8D}
+.nf-link-icon{font-size:1.1rem;flex-shrink:0}
+.nf-footer{background:#0f1a2e;color:rgba(255,255,255,.4);text-align:center;padding:16px;font-size:.8rem}
+</style>
+</head>
+<body>
+<header class="nf-header">
+  <a class="nf-logo" href="/"><span>Seoul</span>BeautyTrip</a>
+  <a href="/" style="color:rgba(255,255,255,.6);text-decoration:none;font-size:.85rem">\u2190 Back to Home</a>
+</header>
+
+<main class="nf-hero">
+  <div class="nf-code">404</div>
+  <h1 class="nf-title">Page Not Found</h1>
+  <p class="nf-sub">The page you're looking for doesn't exist or has been moved. Try one of the popular pages below.</p>
+  <div class="nf-path">${requestedPath}</div>
+  <div class="nf-btn-wrap">
+    <a href="/" class="nf-btn nf-btn-primary">\u{1F3E0} Go to Home</a>
+    <a href="https://wa.me/821058947690?text=Hi!%20I%20need%20help%20finding%20a%20page%20on%20Seoul%20Beauty%20Trip." class="nf-btn nf-btn-secondary" target="_blank" rel="noopener">\u{1F4AC} Ask via WhatsApp</a>
+  </div>
+</main>
+
+<section class="nf-popular">
+  <h2>Popular Pages</h2>
+  <nav class="nf-links">
+    <a href="/best/clinic/gangnam" class="nf-link"><span class="nf-link-icon">\u{1F3E5}</span>Best Clinics \xB7 Gangnam</a>
+    <a href="/best/clinic/seoul" class="nf-link"><span class="nf-link-icon">\u{1F489}</span>Best Clinics \xB7 Seoul</a>
+    <a href="/best/headspa/seoul" class="nf-link"><span class="nf-link-icon">\u{1F486}</span>Best Head Spa \xB7 Seoul</a>
+    <a href="/best/makeup/seoul" class="nf-link"><span class="nf-link-icon">\u{1F484}</span>Best Makeup \xB7 Seoul</a>
+    <a href="/best/tattoo/seoul" class="nf-link"><span class="nf-link-icon">\u270F\uFE0F</span>Best Tattoo \xB7 Seoul</a>
+    <a href="/blog" class="nf-link"><span class="nf-link-icon">\u{1F4D6}</span>K-Beauty Blog</a>
+    <a href="/blog/best-botox-filler-clinics-gangnam-foreigners-2026" class="nf-link"><span class="nf-link-icon">\u2B50</span>Botox &amp; Filler Guide</a>
+    <a href="/blog/korean-head-spa-experience-foreigners-guide" class="nf-link"><span class="nf-link-icon">\u{1F9D6}</span>Head Spa Guide</a>
+    <a href="/about" class="nf-link"><span class="nf-link-icon">\u2139\uFE0F</span>About Seoul Beauty Trip</a>
+    <a href="/privacy" class="nf-link"><span class="nf-link-icon">\u{1F512}</span>Privacy Policy</a>
+  </nav>
+</section>
+
+<footer class="nf-footer">\xA9 ${(/* @__PURE__ */ new Date()).getFullYear()} Seoul Beauty Trip \xB7 English booking for Korean beauty</footer>
+</body>
+</html>`, 404);
 });
 var index_default = app;
 var SB_TRACKER_SCRIPT = `<script>
@@ -16279,6 +16374,8 @@ window.selectMapShop  = function() {};
         </div>
       </div>
     </div>
+    <!-- \u2605 \uC8FC\uC694 \uC0B4\uB871 SSR \uB9C1\uD06C \u2014 \uAD6C\uAE00 \uD06C\uB864\uB7EC\uAC00 \uC0B4\uB871\uBA85 \uD0A4\uC6CC\uB4DC \uBC1C\uACAC \uAC00\uB2A5 -->
+    __SSR_FEATURED__
   </div>
 </nav>
 
