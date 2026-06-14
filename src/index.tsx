@@ -6864,8 +6864,8 @@ app.get('/shops', async (c) => {
   const shops = rows.map(rowToShop)
   const catColors: Record<string,string> = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa',tattoo:'#e879f9'}
   const catIcons:  Record<string,string> = {skincare:'fa-leaf',makeup:'fa-magic',hair:'fa-cut',headspa:'fa-spa',clinic:'fa-briefcase-medical',spa:'fa-hot-tub',tattoo:'fa-pen-nib'}
-  const cats      = ['all','clinic','makeup','tattoo']
-  const catLabels: Record<string,string> = {all:'All',clinic:'Clinic',makeup:'Makeup',tattoo:'Brow Tattoo'}
+  const cats      = ['all','clinic','headspa','makeup','tattoo']
+  const catLabels: Record<string,string> = {all:'All',clinic:'Clinic',headspa:'Head Spa',makeup:'Makeup',tattoo:'Brow Tattoo'}
 
   const catCountMap: Record<string,number> = {}
   shops.forEach((s: any) => { catCountMap[s.category] = (catCountMap[s.category]||0)+1 })
@@ -10221,7 +10221,7 @@ app.get('/', async (c) => {
 
     const ssrCatCounts: Record<string,number> = {}
     initShops.forEach((s: any) => { ssrCatCounts[s.category] = (ssrCatCounts[s.category]||0)+1 })
-    const ssrFilterBtns = ['all','clinic','makeup','tattoo'].map(cat => {
+    const ssrFilterBtns = ['all','clinic','headspa','makeup','tattoo'].map(cat => {
       const cnt = cat === 'all' ? initShops.length : (ssrCatCounts[cat]||0)
       if(cnt === 0) return ''
       const lbl = cat === 'all' ? 'All' : catLabelsSSR[cat] || cat
@@ -14603,6 +14603,7 @@ function buildBrowse() {
     '<div class="bw-filter-row" id="bw-cat-filters">',
     '<button class="bw-chip on" data-cat="all">&#10024; All</button>',
     '<button class="bw-chip" data-cat="clinic">&#128137; Clinic</button>',
+    '<button class="bw-chip" data-cat="headspa">&#128134; Head Spa</button>',
     '<button class="bw-chip" data-cat="makeup">&#128132; Makeup</button>',
     '<button class="bw-chip" data-cat="tattoo">&#9999; Tattoo</button>',
     '</div></div>',
@@ -16065,6 +16066,7 @@ textarea{height:80px;resize:none}
         <label>카테고리 *</label>
         <select id="sh-cat">
           <option value="clinic">클리닉 (의원)</option>
+          <option value="headspa">헤드스파</option>
           <option value="makeup">메이크업</option>
           <option value="tattoo">눈썹 타투·반영구</option>
         </select>
@@ -16166,6 +16168,7 @@ textarea{height:80px;resize:none}
         style="padding:9px 10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:10px;color:rgba(255,255,255,.7);font-size:12px;cursor:pointer">
         <option value="">전체 카테고리</option>
         <option value="clinic">🏥 클리닉</option>
+        <option value="headspa">🧖 헤드스파</option>
         <option value="makeup">💄 메이크업</option>
         <option value="tattoo">✒️ 타투</option>
       </select>
@@ -16201,6 +16204,7 @@ textarea{height:80px;resize:none}
         <label>카테고리</label>
         <select id="edit-sh-cat">
           <option value="clinic">클리닉 (의원)</option>
+          <option value="headspa">헤드스파</option>
           <option value="makeup">메이크업</option>
           <option value="tattoo">눈썹 타투·반영구</option>
         </select>

@@ -8149,8 +8149,8 @@ app.get("/shops", async (c) => {
   const shops2 = rows.map(rowToShop);
   const catColors = { skincare: "#f472b6", headspa: "#67e8f9", hair: "#60a5fa", clinic: "#fb923c", makeup: "#c084fc", spa: "#a78bfa", tattoo: "#e879f9" };
   const catIcons = { skincare: "fa-leaf", makeup: "fa-magic", hair: "fa-cut", headspa: "fa-spa", clinic: "fa-briefcase-medical", spa: "fa-hot-tub", tattoo: "fa-pen-nib" };
-  const cats = ["all", "clinic", "makeup", "tattoo"];
-  const catLabels = { all: "All", clinic: "Clinic", makeup: "Makeup", tattoo: "Brow Tattoo" };
+  const cats = ["all", "clinic", "headspa", "makeup", "tattoo"];
+  const catLabels = { all: "All", clinic: "Clinic", headspa: "Head Spa", makeup: "Makeup", tattoo: "Brow Tattoo" };
   const catCountMap = {};
   shops2.forEach((s) => {
     catCountMap[s.category] = (catCountMap[s.category] || 0) + 1;
@@ -11409,7 +11409,7 @@ app.get("/", async (c) => {
     initShops.forEach((s) => {
       ssrCatCounts[s.category] = (ssrCatCounts[s.category] || 0) + 1;
     });
-    const ssrFilterBtns = ["all", "clinic", "makeup", "tattoo"].map((cat) => {
+    const ssrFilterBtns = ["all", "clinic", "headspa", "makeup", "tattoo"].map((cat) => {
       const cnt = cat === "all" ? initShops.length : ssrCatCounts[cat] || 0;
       if (cnt === 0) return "";
       const lbl = cat === "all" ? "All" : catLabelsSSR[cat] || cat;
@@ -15648,6 +15648,7 @@ function buildBrowse() {
     '<div class="bw-filter-row" id="bw-cat-filters">',
     '<button class="bw-chip on" data-cat="all">&#10024; All</button>',
     '<button class="bw-chip" data-cat="clinic">&#128137; Clinic</button>',
+    '<button class="bw-chip" data-cat="headspa">&#128134; Head Spa</button>',
     '<button class="bw-chip" data-cat="makeup">&#128132; Makeup</button>',
     '<button class="bw-chip" data-cat="tattoo">&#9999; Tattoo</button>',
     '</div></div>',
@@ -17106,6 +17107,7 @@ textarea{height:80px;resize:none}
         <label>\uCE74\uD14C\uACE0\uB9AC *</label>
         <select id="sh-cat">
           <option value="clinic">\uD074\uB9AC\uB2C9 (\uC758\uC6D0)</option>
+          <option value="headspa">\uD5E4\uB4DC\uC2A4\uD30C</option>
           <option value="makeup">\uBA54\uC774\uD06C\uC5C5</option>
           <option value="tattoo">\uB208\uC379 \uD0C0\uD22C\xB7\uBC18\uC601\uAD6C</option>
         </select>
@@ -17207,6 +17209,7 @@ textarea{height:80px;resize:none}
         style="padding:9px 10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:10px;color:rgba(255,255,255,.7);font-size:12px;cursor:pointer">
         <option value="">\uC804\uCCB4 \uCE74\uD14C\uACE0\uB9AC</option>
         <option value="clinic">\u{1F3E5} \uD074\uB9AC\uB2C9</option>
+        <option value="headspa">\u{1F9D6} \uD5E4\uB4DC\uC2A4\uD30C</option>
         <option value="makeup">\u{1F484} \uBA54\uC774\uD06C\uC5C5</option>
         <option value="tattoo">\u2712\uFE0F \uD0C0\uD22C</option>
       </select>
@@ -17242,6 +17245,7 @@ textarea{height:80px;resize:none}
         <label>\uCE74\uD14C\uACE0\uB9AC</label>
         <select id="edit-sh-cat">
           <option value="clinic">\uD074\uB9AC\uB2C9 (\uC758\uC6D0)</option>
+          <option value="headspa">\uD5E4\uB4DC\uC2A4\uD30C</option>
           <option value="makeup">\uBA54\uC774\uD06C\uC5C5</option>
           <option value="tattoo">\uB208\uC379 \uD0C0\uD22C\xB7\uBC18\uC601\uAD6C</option>
         </select>
