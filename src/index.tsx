@@ -96,6 +96,21 @@ const AI_BOT_PATTERNS = [
   'PerplexityBot', 'YouBot',
 ]
 
+// ── 보안 헤더 미들웨어 ──
+app.use('*', async (c, next) => {
+  await next()
+  // 클릭재킹 방지
+  c.res.headers.set('X-Frame-Options', 'SAMEORIGIN')
+  // MIME 스니핑 방지
+  c.res.headers.set('X-Content-Type-Options', 'nosniff')
+  // Referrer 정책 (외부 링크 시 origin만 전달)
+  c.res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+  // HSTS (HTTPS 강제, 1년)
+  c.res.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+  // CSP — CDN/외부 리소스 허용하되 inline script 차단 완화 (기존 inline JS 보호)
+  c.res.headers.set('Permissions-Policy', 'geolocation=(), camera=(), microphone=()')
+})
+
 app.use('*', async (c, next) => {
   const ua = c.req.header('User-Agent') || ''
   const isAiBot = AI_BOT_PATTERNS.some(pattern =>
@@ -4419,6 +4434,7 @@ ${SB_TRACKER_SCRIPT}
         return '';
       })()}
       ${shop.priceRange?`"priceRange":"${shop.priceRange}",`:''}
+      ${(shop.rating && Number(shop.rating) > 0 && shop.reviewCount && Number(shop.reviewCount) > 0) ? `"aggregateRating":{"@type":"AggregateRating","ratingValue":"${Number(shop.rating).toFixed(1)}","bestRating":"5","worstRating":"1","ratingCount":${shop.reviewCount}},` : ''}
       "currenciesAccepted":"KRW",
       "paymentAccepted":"Cash, Credit Card",
       "areaServed":{"@type":"City","name":"Seoul"},
@@ -5584,10 +5600,10 @@ app.get('/best/clinic/gangnam', (c) => {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Best Plastic Surgery &amp; Skin Clinics in Gangnam Seoul ${yr} — Seoul Beauty Trip</title>
+<title>Best Plastic Surgery Clinics Gangnam Seoul ${yr} | Seoul Beauty Trip</title>
 <meta name="description" content="Plastic surgery &amp; skin clinics in Gangnam Seoul — top 30 ranked by ${yr} patient reviews. Board-certified surgeons, English-friendly booking, honest prices for international visitors.">
 <link rel="canonical" href="https://seoulbeautytrip.com/best/clinic/gangnam">
-<meta property="og:title" content="Best Plastic Surgery &amp; Skin Clinics Gangnam Seoul ${yr} | Seoul Beauty Trip">
+<meta property="og:title" content="Best Plastic Surgery Clinics Gangnam Seoul ${yr} | Seoul Beauty Trip">
 <meta property="og:description" content="Verified list of the 30 best aesthetic clinics in Gangnam &amp; Seocho. English booking available.">
 <meta property="og:url" content="https://seoulbeautytrip.com/best/clinic/gangnam">
 <meta property="og:type" content="article">
@@ -5597,7 +5613,6 @@ app.get('/best/clinic/gangnam', (c) => {
   {"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://seoulbeautytrip.com"},{"@type":"ListItem","position":2,"name":"Best Clinics","item":"https://seoulbeautytrip.com/best"},{"@type":"ListItem","position":3,"name":"Skin Clinics Gangnam","item":"https://seoulbeautytrip.com/best/clinic/gangnam"}]}
 ]}
 </script>
-<script src="https://cdn.tailwindcss.com"></script>
 <style>
 :root{--gn:#2d6a4f;--gn2:#1b4332;--gold:#f59e0b;--seocho:#7c3aed}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:#f8fafc;color:#1e293b;margin:0}
@@ -7496,7 +7511,7 @@ app.get('/blog/:slug', async (c) => {
   gtag('config', 'G-1N9ZQRHLJ0');
 </script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${post.title} | Seoul Beauty Trip Blog</title>
+<title>${(()=>{ const t=post.title||''; const suffix=' | Seoul Beauty Trip'; const full=t+suffix; if(full.length<=60) return full; if(t.length<=55) return t+suffix; const cut=t.substring(0,52); const sp=cut.lastIndexOf(' '); return (sp>40?cut.substring(0,sp):cut)+'...' })()}</title>
 <meta name="description" content="${post.meta_description||post.excerpt||''}">
 <meta name="robots" content="${(!post.title || post.slug.startsWith('test-') || (!post.meta_description && !post.excerpt)) ? 'noindex, follow' : 'index, follow'}">
 <link rel="canonical" href="${canonicalUrl}">
