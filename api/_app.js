@@ -9227,12 +9227,10 @@ footer a{color:#FF4D8D;text-decoration:none}
     <a href="/best/clinic/gangnam" class="browse-card"><span>\u{1F3E5}</span> Skin Clinics</a>
     <a href="/best/clinic/gangnam" class="browse-card"><span>\u{1F489}</span> Dermatology</a>
     <a href="/best/headspa/gangnam" class="browse-card"><span>\u{1F9D6}</span> Head Spa</a>
-    <a href="/best/hair/hongdae" class="browse-card"><span>\u2702\uFE0F</span> Hair Salons</a>
-    <a href="/best/makeup/hongdae" class="browse-card"><span>\u{1F48B}</span> Color Analysis</a>
-    <a href="/best/spa/gangnam" class="browse-card"><span>\u{1F6C1}</span> Spa & Wellness</a>
+    <a href="/best/makeup/gangnam" class="browse-card"><span>\u{1F48B}</span> Color Analysis</a>
+    <a href="/best/tattoo/gangnam" class="browse-card"><span>\u2712\uFE0F</span> Brow Tattoo</a>
     <a href="/best/clinic/myeongdong" class="browse-card"><span>\u{1F4CD}</span> Myeongdong</a>
     <a href="/best/clinic/itaewon" class="browse-card"><span>\u{1F4CD}</span> Itaewon</a>
-    <a href="/best/hair/seoul" class="browse-card"><span>\u{1F4CD}</span> All Seoul</a>
   </nav>
 
   <h2>What We Cover</h2>
@@ -13202,10 +13200,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
     <button class="cat on" data-cat="all"><i class="fas fa-star"></i> All</button>
     <button class="cat" data-cat="clinic"><i class="fas fa-briefcase-medical"></i> Clinic</button>
     <button class="cat" data-cat="headspa"><i class="fas fa-spa"></i> Head Spa</button>
-    <button class="cat" data-cat="skincare"><i class="fas fa-leaf"></i> Skincare</button>
-    <button class="cat" data-cat="hair"><i class="fas fa-cut"></i> Hair</button>
     <button class="cat" data-cat="makeup"><i class="fas fa-magic"></i> Makeup</button>
-    <button class="cat" data-cat="spa"><i class="fas fa-hot-tub"></i> Spa</button>
+    <button class="cat" data-cat="tattoo"><i class="fas fa-pen-nib"></i> Tattoo</button>
   </nav>
 </header>
 
@@ -13223,10 +13219,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
     <button class="so-chip on" data-filter="all">All</button>
     <button class="so-chip" data-filter="clinic">Clinic</button>
     <button class="so-chip" data-filter="headspa">Head Spa</button>
-    <button class="so-chip" data-filter="skincare">Skincare</button>
-    <button class="so-chip" data-filter="hair">Hair</button>
     <button class="so-chip" data-filter="makeup">Makeup</button>
-    <button class="so-chip" data-filter="spa">Spa</button>
+    <button class="so-chip" data-filter="tattoo">Tattoo</button>
     <button class="so-chip" data-filter="Gangnam">Gangnam</button>
     <button class="so-chip" data-filter="Hongdae">Hongdae</button>
     <button class="so-chip" data-filter="Myeongdong">Myeongdong</button>
