@@ -7566,8 +7566,20 @@ app.get('/blog/:slug', async (c) => {
     } catch { /* 사진 없으면 갤러리 생략 */ }
   }
 
-  // 관련 글 (같은 카테고리, 최대 3개)
-  const related = await sql`SELECT slug,title,excerpt,category,area,created_at FROM blog_posts WHERE status='published' AND slug!=${slug} AND category=${post.category||''} ORDER BY created_at DESC LIMIT 3`
+  // 관련 글 크로스링크: 같은 카테고리 3개 + guide 카테고리 1개 + 같은 area 1개 (중복 제거)
+  const relatedSameCat = await sql`SELECT slug,title,excerpt,category,area,created_at FROM blog_posts WHERE status='published' AND slug!=${slug} AND category=${post.category||''} ORDER BY created_at DESC LIMIT 3`
+  // guide 카테고리 cross-link (skincare/clinic 글은 headspa guide, headspa 글은 skincare guide 등)
+  const crossCatMap: Record<string,string> = { headspa:'skincare', skincare:'headspa', clinic:'hair', hair:'clinic', nail:'spa', spa:'nail', tattoo:'skincare', makeup:'hair' }
+  const crossCat = crossCatMap[post.category||''] || 'headspa'
+  const relatedCross = await sql`SELECT slug,title,excerpt,category,area,created_at FROM blog_posts WHERE status='published' AND slug!=${slug} AND category=${crossCat} ORDER BY RANDOM() LIMIT 2`
+  // 같은 area cross-link
+  const relatedArea = await sql`SELECT slug,title,excerpt,category,area,created_at FROM blog_posts WHERE status='published' AND slug!=${slug} AND area=${post.area||'Seoul'} AND category!=${post.category||''} ORDER BY created_at DESC LIMIT 2`
+  // 중복 제거하여 최대 5개로 합치기
+  const seenSlugs = new Set<string>()
+  const related: any[] = []
+  for (const r of [...relatedSameCat, ...relatedArea, ...relatedCross]) {
+    if (!seenSlugs.has(r.slug) && related.length < 5) { seenSlugs.add(r.slug); related.push(r) }
+  }
 
   const base = 'https://seoulbeautytrip.com'
   const catLabel: Record<string,string> = { headspa:'Head Spa', skincare:'Skincare', hair:'Hair Salon', nail:'Nail Art', clinic:'Skin Clinic', makeup:'Makeup', spa:'Spa', tattoo:'Eyebrow Tattoo' }
@@ -7591,7 +7603,7 @@ app.get('/blog/:slug', async (c) => {
 
   const relatedHtml = related.length ? `
   <aside class="related-posts">
-    <h3>📚 Related Articles</h3>
+    <h3>📚 You Might Also Like</h3>
     <div class="related-grid">
       ${related.map((r: any) => `
       <a href="/blog/${r.slug}" class="related-card">
