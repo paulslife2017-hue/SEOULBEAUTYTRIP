@@ -8775,7 +8775,7 @@ app.get("/blog/:slug", async (c) => {
     return (sp > 40 ? cut.substring(0, sp) : cut) + "...";
   })()}</title>
 <meta name="description" content="${post.meta_description || post.excerpt || ""}">
-<meta name="robots" content="${!post.title || post.slug.startsWith("test-") || !post.meta_description && !post.excerpt ? "noindex, follow" : "index, follow"}">
+<meta name="robots" content="${!post.title || post.slug.startsWith("test-") || !post.meta_description && !post.excerpt || !post.content || post.content.trim().length < 200 ? "noindex, follow" : "index, follow"}">
 <link rel="canonical" href="${canonicalUrl}">
 <meta property="og:title" content="${post.title}">
 <meta property="og:description" content="${post.meta_description || post.excerpt || ""}">
@@ -8808,7 +8808,18 @@ app.get("/blog/:slug", async (c) => {
     "keywords": tags.join(", "),
     "articleSection": cat,
     "inLanguage": "en",
+    "mainEntityOfPage": { "@type": "WebPage", "@id": canonicalUrl },
     ...post.cover_image ? { "image": { "@type": "ImageObject", "url": post.cover_image, "width": 1200, "height": 630 } } : {}
+  })}</script>
+<script type="application/ld+json">${JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://seoulbeautytrip.com" },
+      { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://seoulbeautytrip.com/blog" },
+      { "@type": "ListItem", "position": 3, "name": cat, "item": `https://seoulbeautytrip.com/blog/category/${post.category || "guide"}` },
+      { "@type": "ListItem", "position": 4, "name": post.title, "item": canonicalUrl }
+    ]
   })}</script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
 <style>
@@ -11286,6 +11297,7 @@ app.get("/sitemap.xml", async (c) => {
       const d = r.meta_description || r.content || "";
       if (s.startsWith("test-") || t.startsWith("test ")) return false;
       if (!d || d.trim().length < 20) return false;
+      if (!r.content || r.content.trim().length < 200) return false;
       return true;
     }).map((r) => r.slug);
   } catch (e) {
