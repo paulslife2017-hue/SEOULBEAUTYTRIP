@@ -4267,6 +4267,15 @@ app.get('/shop/:slug', async (c) => {
     if (!_crossMap[r.category]) _crossMap[r.category] = r
   }
   const nearbyCrossShops = Object.values(_crossMap).slice(0, 4)
+
+  // 이 업체를 리뷰한 blog 포스트 조회 (shop_id 기반) → schema reviewedBy + HTML 링크용
+  const reviewBlogRows = await withTimeout(
+    sql`SELECT slug, title FROM blog_posts WHERE shop_id=${shop.id} AND status='published' ORDER BY created_at DESC LIMIT 1`,
+    5000, []
+  )
+  const reviewBlogSlug  = reviewBlogRows[0]?.slug  || ''
+  const reviewBlogTitle = reviewBlogRows[0]?.title || ''
+
   const shopArea = shop.location ? ` (${shop.location.split(',')[0].trim()})` : ''
   const shopAddrLine = shop.address ? `\nAddress: ${shop.address}` : ''
   const waMsg = encodeURIComponent(`[ Booking Request ]\nShop: ${shop.name}${shopArea}${shopAddrLine}\n\nDate: \nTime: \nService: \nName: \nPeople: `)
@@ -4467,6 +4476,7 @@ ${SB_TRACKER_SCRIPT}
         "https://www.instagram.com/seoulbeautytrip/"
       ],
       "keywords":"${(shop.seoKeywords||shop.name+' Seoul, '+shop.name+' booking, '+shop.name+' review, '+shop.name+' foreigners').replace(/Seoul,?\s*Seoul/g,'Seoul')}"
+      ${reviewBlogSlug ? `,"subjectOf":{"@type":"Article","@id":"${base}/blog/${reviewBlogSlug}","url":"${base}/blog/${reviewBlogSlug}","headline":"${(reviewBlogTitle||'').replace(/"/g,"'")}","publisher":{"@type":"Organization","name":"Seoul Beauty Trip","url":"${base}"}}` : ''}
     },
     {
       "@type":"BreadcrumbList",
@@ -5178,6 +5188,21 @@ ${(()=>{
         </a>`
       }).join('')}
     </div>
+  </div>` : ''}
+
+  <!-- 리뷰 블로그 포스트 배너 (shop_id 연결된 경우만) -->
+  ${reviewBlogSlug ? `
+  <div style="padding:0 20px 16px">
+    <a href="/blog/${reviewBlogSlug}" style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:linear-gradient(135deg,rgba(232,65,122,.12),rgba(249,115,22,.08));border:1px solid rgba(232,65,122,.25);border-radius:14px;text-decoration:none">
+      <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#e8417a,#f97316);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <i class="fas fa-file-alt" style="color:#fff;font-size:14px"></i>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.4);letter-spacing:1px;text-transform:uppercase;margin-bottom:2px">Full Honest Review</div>
+        <div style="font-size:12.5px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(reviewBlogTitle||'').replace(/"/g,"'")}</div>
+      </div>
+      <i class="fas fa-chevron-right" style="color:rgba(255,255,255,.3);font-size:11px;flex-shrink:0"></i>
+    </a>
   </div>` : ''}
 
   <!-- 내부 SEO 링크 세션: 구글이 페이지 주제와 사이트 구조를 파악하도록 돕는 다차원 링크 -->
@@ -5955,6 +5980,8 @@ app.get('/best/:category/:area', async (c) => {
   const areaLabel = AREA_LABELS[areaSlug]
   // 유효하지 않은 카테고리/지역이면 404
   if (!catLabel || !areaLabel) return c.notFound()
+  // areaLabel이 있으면서 slug이 없는 경우 - area slug 검증
+  if (!AREA_LABELS[areaSlug]) return c.notFound()
   // areaLabel이 'Seoul'이면 ", Seoul" / " Seoul" 중복 방지용 헬퍼
   const _isSeoul = areaLabel.toLowerCase() === 'seoul'
   // "in {areaLabel} Seoul" → areaLabel이 Seoul이면 "in Seoul"만
@@ -5994,10 +6021,11 @@ app.get('/best/:category/:area', async (c) => {
     return c.redirect(`/best/${catSlug}/seoul`, 301)
   }
 
-  // 업체 1~2개 → /best/:cat/seoul 로 301 redirect (thin content 방지)
-  if (shops.length <= 2 && areaSlug !== 'seoul') {
-    return c.redirect(`/best/${catSlug}/seoul`, 301)
-  }
+  // 업체 1~2개 → thin content 처리
+  // ★ GSC에 이미 indexed된 URL은 301하면 인덱스 주스 손실 → 2개라도 200으로 렌더링
+  // 단, 0개인 경우만 seoul로 301 (위에서 처리)
+  // makeup/gangnam(2개), headspa/myeongdong(2개), headspa/gangnam(1개) 모두 200 허용
+  // → 아래 렌더링 로직에서 noindex 처리로 SEO 보호 (업체 수 <3 → noindex)
   if (false) { // 하위 호환용 블록 (dead code)
     const _base = 'https://seoulbeautytrip.com'
     // 같은 카테고리에서 업체 있는 다른 지역 링크 모아주기
@@ -6291,7 +6319,7 @@ ${SB_TRACKER_SCRIPT}
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${titleMain} | Seoul Beauty Trip</title>
 <meta name="description" content="${metaDesc}">
-<meta name="robots" content="index, follow">
+<meta name="robots" content="${shops.length >= 3 ? 'index, follow' : 'noindex, follow'}">
 <link rel="canonical" href="${pageUrl}">
 <meta property="og:type" content="website">
 <meta property="og:title" content="${titleMain} | Seoul Beauty Trip">
@@ -7473,13 +7501,28 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;min-height:
   return c.html(html)
 })
 
+// \uc911\ubcf5(superseded) slug \ub9f5 \u2014 \uad6c\ubc84\uc804 slug \u2192 \uc2e0\ubc84\uc804 slug\ub85c 301
+// \uc774 \ubaa9\ub85d\uc5d0 \uc788\ub294 slug\ub294 \uc2e0\ubc84\uc804\uc73c\ub85c \ub9ac\ub514\ub809\ud2b8
+const BLOG_SLUG_REDIRECTS: Record<string,string> = {
+  // is-head-spa-worth-it-seoul-honest-guide-2026 \u2192 \ub354 \uc644\uc131\ub41c \ubc84\uc804\uc73c\ub85c
+  'is-head-spa-worth-it-seoul-honest-guide-2026': 'is-korean-head-spa-worth-it-seoul-honest-review-2026',
+  // reyou-clinic \uc911\ubcf5: \uad6c\ubc84\uc804 \u2192 \uc2e0\ubc84\uc804
+  'reyou-clinic-gangnam-review-2026-foreigners': 'reyou-clinic-gangnam-skincare-foreigners-review-2026',
+}
+
 app.get('/blog/:slug', async (c) => {
   await ensureDb(c.env)
   const sql = getDb(c.env)
   const slug = c.req.param('slug')
+
+  // \uc911\ubcf5 slug \ub9ac\ub514\ub809\uc158 (\uad6c\ubc84\uc804 \u2192 \uc2e0\ubc84\uc804 301)
+  if (BLOG_SLUG_REDIRECTS[slug]) {
+    return c.redirect(`/blog/${BLOG_SLUG_REDIRECTS[slug]}`, 301)
+  }
+
   const rows = await sql`SELECT * FROM blog_posts WHERE slug=${slug} AND status='published'`
   if (!rows.length) {
-    // draft/삭제된 글 → 410 Gone (구글에게 영구 제거 신호 — 404보다 빠른 인덱스 제거)
+    // draft/\uc0ad\uc81c\ub41c \uae00 \u2192 410 Gone (\uad6c\uae00\uc5d0\uac8c \uc601\uad6c \uc81c\uac70 \uc2e0\ud638 \u2014 404\ubcf4\ub2e4 \ube60\ub978 \uc778\ub371\uc2a4 \uc81c\uac70)
     const draftRows = await sql`SELECT id FROM blog_posts WHERE slug=${slug}`
     if (draftRows.length) {
       return c.html(`<!DOCTYPE html><html><head>
@@ -10182,45 +10225,56 @@ app.get('/sitemap.xml', async (c) => {
   const base = 'https://seoulbeautytrip.com'
   const today = new Date().toISOString().split('T')[0]
 
-  // 카테고리×지역 조합 — 실제 업체가 있는 페이지만 sitemap 포함
-  // (업체 없는 지역은 /best/:cat/seoul 로 301 redirect → sitemap 중복/thin 제거)
+  // 카테고리×지역 조합 sitemap 규칙:
+  // - /best/:cat/seoul → 항상 포함 (cat마다 전체 서울 페이지)
+  // - /best/:cat/:area (특정 지역) → 업체 1개 이상이면 포함
+  //   * 3개↑: index, follow (충분한 콘텐츠)
+  //   * 1~2개: 200 렌더링되지만 noindex → sitemap에는 포함시켜 크롤은 유도
+  //     (GSC에 이미 indexed된 URL 제외 방지 + 크롤 예산 관리)
+  // - 업체 0개: 301→seoul → sitemap 제외
   const bestPages: string[] = []
   try {
-    // 업체 3개 이상인 카테고리+지역 조합만 sitemap 포함 (2개 이하 = noindex 페이지 제외)
     const countRows = await sql`
-      SELECT category, LOWER(location) as loc, COUNT(*)::int as cnt FROM shops WHERE active=true GROUP BY category, location
+      SELECT category, location, COUNT(*)::int as cnt FROM shops WHERE active=true GROUP BY category, location
     `
+    // cat|area → 업체 수 합산
     const catAreaCount: Record<string,number> = {}
     for (const r of countRows) {
       const cat = r.category as string
       for (const [areaKey, areaLabel] of Object.entries(AREA_LABELS)) {
         if (areaKey === 'seoul') continue
-        if ((r.loc as string || '').includes(areaLabel.toLowerCase())) {
+        if ((r.location as string || '').toLowerCase().includes(areaLabel.toLowerCase())) {
           const key = `${cat}|${areaKey}`
           catAreaCount[key] = (catAreaCount[key] || 0) + Number(r.cnt)
         }
       }
     }
-    // /best/clinic/gangnam 전용 라우트는 항상 포함 (30개 클리닉)
+    // cat 전체 업체 수 (seoul 페이지용)
+    const catTotalCount: Record<string,number> = {}
+    for (const r of countRows) {
+      const cat = r.category as string
+      catTotalCount[cat] = (catTotalCount[cat] || 0) + Number(r.cnt)
+    }
+    // /best/clinic/gangnam 전용 하드코딩 라우트는 항상 최우선 포함
     bestPages.push(`<url><loc>${base}/best/clinic/gangnam</loc><changefreq>monthly</changefreq><priority>0.95</priority><lastmod>${today}</lastmod></url>`)
     for (const cat of Object.keys(CATEGORY_LABELS)) {
-      // seoul (전체) 항상 포함
-      bestPages.push(`<url><loc>${base}/best/${cat}/seoul</loc><changefreq>weekly</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`)
-      // 업체 3개 이상인 특정 지역만 포함 (2개 이하는 noindex 페이지이므로 sitemap 제외)
+      // seoul: 업체 1개 이상인 카테고리만 포함 (0개면 404이므로 제외)
+      if ((catTotalCount[cat] || 0) >= 1) {
+        bestPages.push(`<url><loc>${base}/best/${cat}/seoul</loc><changefreq>weekly</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`)
+      }
+      // 특정 지역: 업체 1개 이상이면 sitemap 포함 (noindex여도 크롤은 허용)
       for (const area of Object.keys(AREA_LABELS)) {
         if (area === 'seoul') continue
-        if (cat === 'clinic' && area === 'gangnam') continue // 전용 라우트 위에서 이미 추가
-        if ((catAreaCount[`${cat}|${area}`] || 0) >= 3) {
-          bestPages.push(`<url><loc>${base}/best/${cat}/${area}</loc><changefreq>weekly</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`)
+        if (cat === 'clinic' && area === 'gangnam') continue // 위에서 추가
+        if ((catAreaCount[`${cat}|${area}`] || 0) >= 1) {
+          bestPages.push(`<url><loc>${base}/best/${cat}/${area}</loc><changefreq>monthly</changefreq><priority>0.8</priority><lastmod>${today}</lastmod></url>`)
         }
       }
     }
   } catch(e) {
-    // fallback: 기존 방식
+    // fallback
     for (const cat of Object.keys(CATEGORY_LABELS)) {
-      for (const area of Object.keys(AREA_LABELS)) {
-        bestPages.push(`<url><loc>${base}/best/${cat}/${area}</loc><changefreq>weekly</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`)
-      }
+      bestPages.push(`<url><loc>${base}/best/${cat}/seoul</loc><changefreq>weekly</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`)
     }
   }
 

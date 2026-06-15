@@ -5763,6 +5763,13 @@ app.get("/shop/:slug", async (c) => {
     if (!_crossMap[r.category]) _crossMap[r.category] = r;
   }
   const nearbyCrossShops = Object.values(_crossMap).slice(0, 4);
+  const reviewBlogRows = await withTimeout(
+    sql`SELECT slug, title FROM blog_posts WHERE shop_id=${shop.id} AND status='published' ORDER BY created_at DESC LIMIT 1`,
+    5e3,
+    []
+  );
+  const reviewBlogSlug = reviewBlogRows[0]?.slug || "";
+  const reviewBlogTitle = reviewBlogRows[0]?.title || "";
   const shopArea = shop.location ? ` (${shop.location.split(",")[0].trim()})` : "";
   const shopAddrLine = shop.address ? `
 Address: ${shop.address}` : "";
@@ -5980,6 +5987,7 @@ ${SB_TRACKER_SCRIPT}
         "https://www.instagram.com/seoulbeautytrip/"
       ],
       "keywords":"${(shop.seoKeywords || shop.name + " Seoul, " + shop.name + " booking, " + shop.name + " review, " + shop.name + " foreigners").replace(/Seoul,?\s*Seoul/g, "Seoul")}"
+      ${reviewBlogSlug ? `,"subjectOf":{"@type":"Article","@id":"${base}/blog/${reviewBlogSlug}","url":"${base}/blog/${reviewBlogSlug}","headline":"${(reviewBlogTitle || "").replace(/"/g, "'")}","publisher":{"@type":"Organization","name":"Seoul Beauty Trip","url":"${base}"}}` : ""}
     },
     {
       "@type":"BreadcrumbList",
@@ -6578,6 +6586,21 @@ ${(() => {
         </a>`;
   }).join("")}
     </div>
+  </div>` : ""}
+
+  <!-- \uB9AC\uBDF0 \uBE14\uB85C\uADF8 \uD3EC\uC2A4\uD2B8 \uBC30\uB108 (shop_id \uC5F0\uACB0\uB41C \uACBD\uC6B0\uB9CC) -->
+  ${reviewBlogSlug ? `
+  <div style="padding:0 20px 16px">
+    <a href="/blog/${reviewBlogSlug}" style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:linear-gradient(135deg,rgba(232,65,122,.12),rgba(249,115,22,.08));border:1px solid rgba(232,65,122,.25);border-radius:14px;text-decoration:none">
+      <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#e8417a,#f97316);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <i class="fas fa-file-alt" style="color:#fff;font-size:14px"></i>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.4);letter-spacing:1px;text-transform:uppercase;margin-bottom:2px">Full Honest Review</div>
+        <div style="font-size:12.5px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(reviewBlogTitle || "").replace(/"/g, "'")}</div>
+      </div>
+      <i class="fas fa-chevron-right" style="color:rgba(255,255,255,.3);font-size:11px;flex-shrink:0"></i>
+    </a>
   </div>` : ""}
 
   <!-- \uB0B4\uBD80 SEO \uB9C1\uD06C \uC138\uC158: \uAD6C\uAE00\uC774 \uD398\uC774\uC9C0 \uC8FC\uC81C\uC640 \uC0AC\uC774\uD2B8 \uAD6C\uC870\uB97C \uD30C\uC545\uD558\uB3C4\uB85D \uB3D5\uB294 \uB2E4\uCC28\uC6D0 \uB9C1\uD06C -->
@@ -7337,6 +7360,7 @@ app.get("/best/:category/:area", async (c) => {
   const catLabel = CATEGORY_LABELS[catSlug];
   const areaLabel = AREA_LABELS[areaSlug];
   if (!catLabel || !areaLabel) return c.notFound();
+  if (!AREA_LABELS[areaSlug]) return c.notFound();
   const _isSeoul = areaLabel.toLowerCase() === "seoul";
   const _inAreaSeoul = _isSeoul ? "in Seoul" : `in ${areaLabel}, Seoul`;
   const _areaSeoul = _isSeoul ? "Seoul" : `${areaLabel} Seoul`;
@@ -7362,9 +7386,6 @@ app.get("/best/:category/:area", async (c) => {
   }
   if (shops2.length === 0) {
     if (areaSlug === "seoul") return c.notFound();
-    return c.redirect(`/best/${catSlug}/seoul`, 301);
-  }
-  if (shops2.length <= 2 && areaSlug !== "seoul") {
     return c.redirect(`/best/${catSlug}/seoul`, 301);
   }
   if (false) {
@@ -7554,7 +7575,7 @@ ${SB_TRACKER_SCRIPT}
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${titleMain} | Seoul Beauty Trip</title>
 <meta name="description" content="${metaDesc}">
-<meta name="robots" content="index, follow">
+<meta name="robots" content="${shops2.length >= 3 ? "index, follow" : "noindex, follow"}">
 <link rel="canonical" href="${pageUrl}">
 <meta property="og:type" content="website">
 <meta property="og:title" content="${titleMain} | Seoul Beauty Trip">
@@ -8714,10 +8735,19 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;min-height:
 </html>`;
   return c.html(html);
 });
+var BLOG_SLUG_REDIRECTS = {
+  // is-head-spa-worth-it-seoul-honest-guide-2026 \u2192 \ub354 \uc644\uc131\ub41c \ubc84\uc804\uc73c\ub85c
+  "is-head-spa-worth-it-seoul-honest-guide-2026": "is-korean-head-spa-worth-it-seoul-honest-review-2026",
+  // reyou-clinic \uc911\ubcf5: \uad6c\ubc84\uc804 \u2192 \uc2e0\ubc84\uc804
+  "reyou-clinic-gangnam-review-2026-foreigners": "reyou-clinic-gangnam-skincare-foreigners-review-2026"
+};
 app.get("/blog/:slug", async (c) => {
   await ensureDb(c.env);
   const sql = getDb(c.env);
   const slug = c.req.param("slug");
+  if (BLOG_SLUG_REDIRECTS[slug]) {
+    return c.redirect(`/blog/${BLOG_SLUG_REDIRECTS[slug]}`, 301);
+  }
   const rows = await sql`SELECT * FROM blog_posts WHERE slug=${slug} AND status='published'`;
   if (!rows.length) {
     const draftRows = await sql`SELECT id FROM blog_posts WHERE slug=${slug}`;
@@ -11342,35 +11372,40 @@ app.get("/sitemap.xml", async (c) => {
   const bestPages = [];
   try {
     const countRows = await sql`
-      SELECT category, LOWER(location) as loc, COUNT(*)::int as cnt FROM shops WHERE active=true GROUP BY category, location
+      SELECT category, location, COUNT(*)::int as cnt FROM shops WHERE active=true GROUP BY category, location
     `;
     const catAreaCount = {};
     for (const r of countRows) {
       const cat = r.category;
       for (const [areaKey, areaLabel] of Object.entries(AREA_LABELS)) {
         if (areaKey === "seoul") continue;
-        if ((r.loc || "").includes(areaLabel.toLowerCase())) {
+        if ((r.location || "").toLowerCase().includes(areaLabel.toLowerCase())) {
           const key = `${cat}|${areaKey}`;
           catAreaCount[key] = (catAreaCount[key] || 0) + Number(r.cnt);
         }
       }
     }
+    const catTotalCount = {};
+    for (const r of countRows) {
+      const cat = r.category;
+      catTotalCount[cat] = (catTotalCount[cat] || 0) + Number(r.cnt);
+    }
     bestPages.push(`<url><loc>${base}/best/clinic/gangnam</loc><changefreq>monthly</changefreq><priority>0.95</priority><lastmod>${today}</lastmod></url>`);
     for (const cat of Object.keys(CATEGORY_LABELS)) {
-      bestPages.push(`<url><loc>${base}/best/${cat}/seoul</loc><changefreq>weekly</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`);
+      if ((catTotalCount[cat] || 0) >= 1) {
+        bestPages.push(`<url><loc>${base}/best/${cat}/seoul</loc><changefreq>weekly</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`);
+      }
       for (const area of Object.keys(AREA_LABELS)) {
         if (area === "seoul") continue;
         if (cat === "clinic" && area === "gangnam") continue;
-        if ((catAreaCount[`${cat}|${area}`] || 0) >= 3) {
-          bestPages.push(`<url><loc>${base}/best/${cat}/${area}</loc><changefreq>weekly</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`);
+        if ((catAreaCount[`${cat}|${area}`] || 0) >= 1) {
+          bestPages.push(`<url><loc>${base}/best/${cat}/${area}</loc><changefreq>monthly</changefreq><priority>0.8</priority><lastmod>${today}</lastmod></url>`);
         }
       }
     }
   } catch (e) {
     for (const cat of Object.keys(CATEGORY_LABELS)) {
-      for (const area of Object.keys(AREA_LABELS)) {
-        bestPages.push(`<url><loc>${base}/best/${cat}/${area}</loc><changefreq>weekly</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`);
-      }
+      bestPages.push(`<url><loc>${base}/best/${cat}/seoul</loc><changefreq>weekly</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`);
     }
   }
   const blogCatSet = /* @__PURE__ */ new Set();
