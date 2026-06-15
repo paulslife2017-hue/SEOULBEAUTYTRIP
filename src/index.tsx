@@ -10731,6 +10731,7 @@ app.get('/api/search-console/page-keywords', async (c) => {
 })
 
 // ── GSC URL Inspection API — URL 색인 상태 직접 확인 ──
+// URL Inspection API는 webmasters (full scope) 필요 - readonly로는 403 발생
 app.get('/api/search-console/inspect', async (c) => {
   try {
     const saKey = (c.env as any)?.GA4_SERVICE_ACCOUNT_KEY
@@ -10740,18 +10741,38 @@ app.get('/api/search-console/inspect', async (c) => {
     const inspectUrl = c.req.query('url')
     if (!inspectUrl) return c.json({ error: 'url param required (full URL)' }, 400)
 
-    const siteUrl = 'https://seoulbeautytrip.com'
-    const token = await getGa4Token(saKey, 'https://www.googleapis.com/auth/webmasters.readonly')
+    // URL Inspection API는 webmasters full scope 필요 (readonly X)
+    const token = await getGa4Token(saKey, 'https://www.googleapis.com/auth/webmasters')
 
-    const res = await fetch(
-      'https://searchconsole.googleapis.com/v1/urlInspection/index:inspect',
-      {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inspectionUrl: inspectUrl, siteUrl })
+    // GSC 속성 형식 두 가지 모두 시도
+    // sc-domain: → 도메인 속성 (DNS 인증), https:// → URL 접두어 속성
+    const siteUrlCandidates = [
+      'sc-domain:seoulbeautytrip.com',
+      'https://seoulbeautytrip.com/'
+    ]
+
+    let data: any = null
+    let usedSiteUrl = ''
+
+    for (const siteUrl of siteUrlCandidates) {
+      const res = await fetch(
+        'https://searchconsole.googleapis.com/v1/urlInspection/index:inspect',
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ inspectionUrl: inspectUrl, siteUrl })
+        }
+      )
+      const d: any = await res.json()
+      // 403이면 다음 siteUrl 형식 시도
+      if (d?.error?.code === 403 || d?.error?.status === 'PERMISSION_DENIED') {
+        data = d
+        continue
       }
-    )
-    const data: any = await res.json()
+      data = d
+      usedSiteUrl = siteUrl
+      break
+    }
 
     // 핵심 필드만 추출해서 읽기 쉽게 반환
     const ir = data?.inspectionResult
@@ -10761,6 +10782,7 @@ app.get('/api/search-console/inspect', async (c) => {
 
     return c.json({
       url: inspectUrl,
+      siteUrlUsed: usedSiteUrl || '(all failed - check GSC owner permission)',
       verdict: ii?.verdict,                          // PASS / FAIL / NEUTRAL / EXCLUDED
       coverageState: ii?.coverageState,              // Submitted and indexed / Discovered... 등
       robotsTxtState: ii?.robotsTxtState,            // ALLOWED / DISALLOWED
@@ -10792,8 +10814,35 @@ app.get('/api/search-console/coverage', async (c) => {
     if (!urls) return c.json({ error: 'urls param required (comma-separated full URLs)' }, 400)
 
     const urlList = urls.split(',').map(u => u.trim()).filter(Boolean).slice(0, 10) // 최대 10개
-    const siteUrl = 'https://seoulbeautytrip.com'
-    const token = await getGa4Token(saKey, 'https://www.googleapis.com/auth/webmasters.readonly')
+
+    // URL Inspection API는 webmasters full scope 필요
+    const token = await getGa4Token(saKey, 'https://www.googleapis.com/auth/webmasters')
+
+    // sc-domain 형식 우선 시도, 실패시 https:// 형식
+    const siteUrlCandidates = [
+      'sc-domain:seoulbeautytrip.com',
+      'https://seoulbeautytrip.com/'
+    ]
+
+    // 작동하는 siteUrl 형식 먼저 확인 (첫 번째 URL로 probe)
+    let activeSiteUrl = siteUrlCandidates[0]
+    if (urlList.length > 0) {
+      for (const siteUrl of siteUrlCandidates) {
+        const probeRes = await fetch(
+          'https://searchconsole.googleapis.com/v1/urlInspection/index:inspect',
+          {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ inspectionUrl: urlList[0], siteUrl })
+          }
+        )
+        const probeData: any = await probeRes.json()
+        if (!probeData?.error || probeData?.error?.code !== 403) {
+          activeSiteUrl = siteUrl
+          break
+        }
+      }
+    }
 
     const results = await Promise.all(urlList.map(async (inspectUrl) => {
       try {
@@ -10802,13 +10851,15 @@ app.get('/api/search-console/coverage', async (c) => {
           {
             method: 'POST',
             headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ inspectionUrl: inspectUrl, siteUrl })
+            body: JSON.stringify({ inspectionUrl: inspectUrl, siteUrl: activeSiteUrl })
           }
         )
         const data: any = await res.json()
+        if (data?.error) return { url: inspectUrl, error: `${data.error.code}: ${data.error.message}`, siteUrlUsed: activeSiteUrl }
         const ii = data?.inspectionResult?.indexStatusResult
         return {
           url: inspectUrl,
+          siteUrlUsed: activeSiteUrl,
           verdict: ii?.verdict,
           coverageState: ii?.coverageState,
           googleCanonical: ii?.googleCanonical,
@@ -10822,7 +10873,7 @@ app.get('/api/search-console/coverage', async (c) => {
       }
     }))
 
-    return c.json({ results, checkedAt: new Date().toISOString() })
+    return c.json({ results, siteUrlUsed: activeSiteUrl, checkedAt: new Date().toISOString() })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
   }

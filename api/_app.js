@@ -11848,23 +11848,38 @@ app.get("/api/search-console/inspect", async (c) => {
     const saKey = c.env?.GA4_SERVICE_ACCOUNT_KEY || (typeof process !== "undefined" ? process.env.GA4_SERVICE_ACCOUNT_KEY : void 0) || GA4_SA_KEY_DEFAULT;
     const inspectUrl = c.req.query("url");
     if (!inspectUrl) return c.json({ error: "url param required (full URL)" }, 400);
-    const siteUrl = "https://seoulbeautytrip.com";
-    const token = await getGa4Token(saKey, "https://www.googleapis.com/auth/webmasters.readonly");
-    const res = await fetch(
-      "https://searchconsole.googleapis.com/v1/urlInspection/index:inspect",
-      {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ inspectionUrl: inspectUrl, siteUrl })
+    const token = await getGa4Token(saKey, "https://www.googleapis.com/auth/webmasters");
+    const siteUrlCandidates = [
+      "sc-domain:seoulbeautytrip.com",
+      "https://seoulbeautytrip.com/"
+    ];
+    let data = null;
+    let usedSiteUrl = "";
+    for (const siteUrl of siteUrlCandidates) {
+      const res = await fetch(
+        "https://searchconsole.googleapis.com/v1/urlInspection/index:inspect",
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ inspectionUrl: inspectUrl, siteUrl })
+        }
+      );
+      const d = await res.json();
+      if (d?.error?.code === 403 || d?.error?.status === "PERMISSION_DENIED") {
+        data = d;
+        continue;
       }
-    );
-    const data = await res.json();
+      data = d;
+      usedSiteUrl = siteUrl;
+      break;
+    }
     const ir = data?.inspectionResult;
     const ii = ir?.indexStatusResult;
     const ri = ir?.richResultsResult;
     const mobile = ir?.mobileUsabilityResult;
     return c.json({
       url: inspectUrl,
+      siteUrlUsed: usedSiteUrl || "(all failed - check GSC owner permission)",
       verdict: ii?.verdict,
       // PASS / FAIL / NEUTRAL / EXCLUDED
       coverageState: ii?.coverageState,
@@ -11898,8 +11913,29 @@ app.get("/api/search-console/coverage", async (c) => {
     const urls = c.req.query("urls");
     if (!urls) return c.json({ error: "urls param required (comma-separated full URLs)" }, 400);
     const urlList = urls.split(",").map((u) => u.trim()).filter(Boolean).slice(0, 10);
-    const siteUrl = "https://seoulbeautytrip.com";
-    const token = await getGa4Token(saKey, "https://www.googleapis.com/auth/webmasters.readonly");
+    const token = await getGa4Token(saKey, "https://www.googleapis.com/auth/webmasters");
+    const siteUrlCandidates = [
+      "sc-domain:seoulbeautytrip.com",
+      "https://seoulbeautytrip.com/"
+    ];
+    let activeSiteUrl = siteUrlCandidates[0];
+    if (urlList.length > 0) {
+      for (const siteUrl of siteUrlCandidates) {
+        const probeRes = await fetch(
+          "https://searchconsole.googleapis.com/v1/urlInspection/index:inspect",
+          {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ inspectionUrl: urlList[0], siteUrl })
+          }
+        );
+        const probeData = await probeRes.json();
+        if (!probeData?.error || probeData?.error?.code !== 403) {
+          activeSiteUrl = siteUrl;
+          break;
+        }
+      }
+    }
     const results = await Promise.all(urlList.map(async (inspectUrl) => {
       try {
         const res = await fetch(
@@ -11907,13 +11943,15 @@ app.get("/api/search-console/coverage", async (c) => {
           {
             method: "POST",
             headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ inspectionUrl: inspectUrl, siteUrl })
+            body: JSON.stringify({ inspectionUrl: inspectUrl, siteUrl: activeSiteUrl })
           }
         );
         const data = await res.json();
+        if (data?.error) return { url: inspectUrl, error: `${data.error.code}: ${data.error.message}`, siteUrlUsed: activeSiteUrl };
         const ii = data?.inspectionResult?.indexStatusResult;
         return {
           url: inspectUrl,
+          siteUrlUsed: activeSiteUrl,
           verdict: ii?.verdict,
           coverageState: ii?.coverageState,
           googleCanonical: ii?.googleCanonical,
@@ -11926,7 +11964,7 @@ app.get("/api/search-console/coverage", async (c) => {
         return { url: inspectUrl, error: e.message };
       }
     }));
-    return c.json({ results, checkedAt: (/* @__PURE__ */ new Date()).toISOString() });
+    return c.json({ results, siteUrlUsed: activeSiteUrl, checkedAt: (/* @__PURE__ */ new Date()).toISOString() });
   } catch (e) {
     return c.json({ error: e.message }, 500);
   }
