@@ -6842,6 +6842,7 @@ var CATEGORY_LABELS = {
 };
 var AREA_LABELS = {
   gangnam: "Gangnam",
+  seocho: "Seocho",
   hongdae: "Hongdae",
   itaewon: "Itaewon",
   myeongdong: "Myeongdong",
@@ -6922,7 +6923,17 @@ app.get("/video/:id", async (c) => {
     SELECT s.slug as shop_slug
     FROM videos v LEFT JOIN shops s ON v.shop_id=s.id
     WHERE v.id=${vid}`;
-  if (!rows.length) return c.redirect("/", 301);
+  if (!rows.length) {
+    return c.html(`<!DOCTYPE html><html><head>
+<meta charset="UTF-8">
+<title>Video Removed | Seoul Beauty Trip</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="canonical" href="https://seoulbeautytrip.com/">
+</head><body>
+<h1>Video no longer available</h1>
+<p><a href="/">Browse Seoul Beauty Trip</a></p>
+</body></html>`, 410);
+  }
   const r = rows[0];
   return c.redirect(r.shop_slug ? `/shop/${r.shop_slug}` : "/", 301);
 });
@@ -7306,7 +7317,11 @@ var BEST_CAT_REDIRECTS = {
   "plastic-surgery": "clinic",
   "dermatology": "clinic",
   "nail": "makeup",
+  // 'skincare' 제거 — DB에 skincare 카테고리 업체 없으나 구글이 이미 인덱싱한 URL이라
+  // clinic으로 리디렉트 시 clinic/area 가 thin content(1개)면 또 다른 404/301 체인 유발
+  // → 직접 /best/clinic/seoul 로 보내도록 아래 safeArea 로직에서 처리
   "skincare": "clinic",
+  // clinic/area 업체 없으면 seoul로 fallback
   "hair": "headspa",
   "spa": "headspa"
 };
@@ -7315,7 +7330,8 @@ app.get("/best/:category/:area", async (c) => {
   const areaSlug = c.req.param("area").toLowerCase();
   if (BEST_CAT_REDIRECTS[catSlug]) {
     const targetCat = BEST_CAT_REDIRECTS[catSlug];
-    const safeArea = targetCat === "headspa" && areaSlug !== "seoul" ? "seoul" : targetCat === "makeup" && areaSlug !== "seoul" && areaSlug !== "gangnam" ? "seoul" : areaSlug;
+    const CLINIC_OK_AREAS = ["gangnam", "seocho", "myeongdong", "seoul"];
+    const safeArea = targetCat === "headspa" && areaSlug !== "seoul" ? "seoul" : targetCat === "makeup" && areaSlug !== "gangnam" && areaSlug !== "seoul" ? "seoul" : targetCat === "clinic" && catSlug === "skincare" && !CLINIC_OK_AREAS.includes(areaSlug) ? "seoul" : areaSlug;
     return c.redirect(`/best/${targetCat}/${safeArea}`, 301);
   }
   const catLabel = CATEGORY_LABELS[catSlug];
@@ -8703,16 +8719,33 @@ app.get("/blog/:slug", async (c) => {
   const sql = getDb(c.env);
   const slug = c.req.param("slug");
   const rows = await sql`SELECT * FROM blog_posts WHERE slug=${slug} AND status='published'`;
-  if (!rows.length) return c.notFound();
+  if (!rows.length) {
+    const draftRows = await sql`SELECT id FROM blog_posts WHERE slug=${slug}`;
+    if (draftRows.length) {
+      return c.html(`<!DOCTYPE html><html><head>
+<meta charset="UTF-8"><title>Article Removed | Seoul Beauty Trip</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="canonical" href="https://seoulbeautytrip.com/blog">
+</head><body>
+<h1>This article has been removed.</h1>
+<p><a href="/blog">Browse all Seoul beauty guides</a></p>
+</body></html>`, 410);
+    }
+    return c.notFound();
+  }
   const post = rows[0];
   const tags = Array.isArray(post.tags) ? post.tags : typeof post.tags === "string" ? JSON.parse(post.tags || "[]") : [];
   sql`UPDATE blog_posts SET views=views+1 WHERE slug=${slug}`.catch(() => {
   });
   let shopPhotoUrls = [];
+  let relatedShopSlug = "";
+  let relatedShopName = "";
   if (post.shop_id) {
     try {
-      const shopRow = await sql`SELECT thumbnail, photos FROM shops WHERE id=${post.shop_id} LIMIT 1`;
+      const shopRow = await sql`SELECT slug, name, thumbnail, photos FROM shops WHERE id=${post.shop_id} LIMIT 1`;
       if (shopRow.length > 0) {
+        relatedShopSlug = shopRow[0].slug || "";
+        relatedShopName = shopRow[0].name || "";
         const rawPhotos = shopRow[0].photos;
         const photoArr = Array.isArray(rawPhotos) ? rawPhotos : typeof rawPhotos === "string" ? JSON.parse(rawPhotos || "[]") : [];
         const validPhotos = photoArr.map((u) => String(u || "").trim()).filter((u) => u.startsWith("http"));
@@ -8809,7 +8842,9 @@ app.get("/blog/:slug", async (c) => {
     "articleSection": cat,
     "inLanguage": "en",
     "mainEntityOfPage": { "@type": "WebPage", "@id": canonicalUrl },
-    ...post.cover_image ? { "image": { "@type": "ImageObject", "url": post.cover_image, "width": 1200, "height": 630 } } : {}
+    ...post.cover_image ? { "image": { "@type": "ImageObject", "url": post.cover_image, "width": 1200, "height": 630 } } : {},
+    // shop_id가 있으면 mentions로 shop 페이지 연결 (중복 canonical 방지 + 관계 명시)
+    ...relatedShopSlug ? { "mentions": { "@type": "LocalBusiness", "@id": `${base}/shop/${relatedShopSlug}`, "url": `${base}/shop/${relatedShopSlug}`, "name": relatedShopName } } : {}
   })}</script>
 <script type="application/ld+json">${JSON.stringify({
     "@context": "https://schema.org",
@@ -11804,6 +11839,94 @@ app.get("/api/search-console/page-keywords", async (c) => {
       rows = resFB.rows || [];
     }
     return c.json({ page: pageUrl, keywords: { rows, responseAggregationType: "byPage" }, startDate, endDate });
+  } catch (e) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+app.get("/api/search-console/inspect", async (c) => {
+  try {
+    const saKey = c.env?.GA4_SERVICE_ACCOUNT_KEY || (typeof process !== "undefined" ? process.env.GA4_SERVICE_ACCOUNT_KEY : void 0) || GA4_SA_KEY_DEFAULT;
+    const inspectUrl = c.req.query("url");
+    if (!inspectUrl) return c.json({ error: "url param required (full URL)" }, 400);
+    const siteUrl = "https://seoulbeautytrip.com";
+    const token = await getGa4Token(saKey, "https://www.googleapis.com/auth/webmasters.readonly");
+    const res = await fetch(
+      "https://searchconsole.googleapis.com/v1/urlInspection/index:inspect",
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ inspectionUrl: inspectUrl, siteUrl })
+      }
+    );
+    const data = await res.json();
+    const ir = data?.inspectionResult;
+    const ii = ir?.indexStatusResult;
+    const ri = ir?.richResultsResult;
+    const mobile = ir?.mobileUsabilityResult;
+    return c.json({
+      url: inspectUrl,
+      verdict: ii?.verdict,
+      // PASS / FAIL / NEUTRAL / EXCLUDED
+      coverageState: ii?.coverageState,
+      // Submitted and indexed / Discovered... 등
+      robotsTxtState: ii?.robotsTxtState,
+      // ALLOWED / DISALLOWED
+      indexingState: ii?.indexingState,
+      // INDEXING_ALLOWED / BLOCKED_BY_META_TAG 등
+      lastCrawlTime: ii?.lastCrawlTime,
+      pageFetchState: ii?.pageFetchState,
+      // SUCCESSFUL / SOFT_404 등
+      googleCanonical: ii?.googleCanonical,
+      // ★ 구글이 선택한 canonical URL
+      userCanonical: ii?.userDeclaredCanonical,
+      // 우리가 선언한 canonical URL
+      sitemap: ii?.sitemap,
+      referringUrls: ii?.referringUrls,
+      crawledAs: ii?.crawledAs,
+      mobileVerdict: mobile?.verdict,
+      richResultsVerdict: ri?.verdict,
+      raw: data
+      // 전체 raw 데이터도 포함
+    });
+  } catch (e) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+app.get("/api/search-console/coverage", async (c) => {
+  try {
+    const saKey = c.env?.GA4_SERVICE_ACCOUNT_KEY || (typeof process !== "undefined" ? process.env.GA4_SERVICE_ACCOUNT_KEY : void 0) || GA4_SA_KEY_DEFAULT;
+    const urls = c.req.query("urls");
+    if (!urls) return c.json({ error: "urls param required (comma-separated full URLs)" }, 400);
+    const urlList = urls.split(",").map((u) => u.trim()).filter(Boolean).slice(0, 10);
+    const siteUrl = "https://seoulbeautytrip.com";
+    const token = await getGa4Token(saKey, "https://www.googleapis.com/auth/webmasters.readonly");
+    const results = await Promise.all(urlList.map(async (inspectUrl) => {
+      try {
+        const res = await fetch(
+          "https://searchconsole.googleapis.com/v1/urlInspection/index:inspect",
+          {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ inspectionUrl: inspectUrl, siteUrl })
+          }
+        );
+        const data = await res.json();
+        const ii = data?.inspectionResult?.indexStatusResult;
+        return {
+          url: inspectUrl,
+          verdict: ii?.verdict,
+          coverageState: ii?.coverageState,
+          googleCanonical: ii?.googleCanonical,
+          userCanonical: ii?.userDeclaredCanonical,
+          lastCrawlTime: ii?.lastCrawlTime,
+          indexingState: ii?.indexingState,
+          pageFetchState: ii?.pageFetchState
+        };
+      } catch (e) {
+        return { url: inspectUrl, error: e.message };
+      }
+    }));
+    return c.json({ results, checkedAt: (/* @__PURE__ */ new Date()).toISOString() });
   } catch (e) {
     return c.json({ error: e.message }, 500);
   }
@@ -17697,6 +17820,32 @@ textarea{height:80px;resize:none}
     <div id="bl-gen-result" style="display:none;margin-top:12px;padding:12px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);border-radius:10px;font-size:13px;color:#6ee7b7"></div>
   </div>
 
+  <!-- GSC URL \uC778\uB371\uC2F1 \uC0C1\uD0DC \uC9C1\uC811 \uD655\uC778 -->
+  <div class="card" style="margin-bottom:16px;border-color:rgba(251,191,36,.25);background:rgba(251,191,36,.04)">
+    <div class="card-header">
+      <div class="card-title"><i class="fas fa-search-plus" style="color:#fbbf24"></i> GSC URL \uC778\uB371\uC2F1 \uC0C1\uD0DC \uD655\uC778</div>
+      <button onclick="gscCheckCoverage()" style="padding:6px 12px;background:rgba(251,191,36,.15);border:1px solid rgba(251,191,36,.3);border-radius:8px;color:#fde68a;font-size:12px;cursor:pointer"><i class="fas fa-check-circle"></i> \uBB38\uC81C URL \uC810\uAC80</button>
+    </div>
+    <p style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:12px">
+      GSC\uC5D0\uC11C "\uC911\uBCF5 canonical" "\uBC1C\uACAC\uB428-\uC0C9\uC778\uBBF8\uC0DD\uC131" \uB4F1\uC758 \uC774\uC288\uAC00 \uC788\uB294 URL\uC744 \uC9C1\uC811 URL Inspection API\uB85C \uD655\uC778\uD569\uB2C8\uB2E4.<br>
+      \uAD6C\uAE00\uC774 \uC120\uD0DD\uD55C canonical, \uB9C8\uC9C0\uB9C9 \uD06C\uB864 \uC2DC\uAC04, \uC0C9\uC778 \uC0C1\uD0DC\uB97C \uC2E4\uC2DC\uAC04\uC73C\uB85C \uC870\uD68C\uD569\uB2C8\uB2E4.
+    </p>
+    <div style="margin-bottom:12px">
+      <label style="font-size:11px;color:rgba(255,255,255,.4);display:block;margin-bottom:4px">URL \uBAA9\uB85D (\uC904\uBC14\uAFC8 \uB610\uB294 \uC27C\uD45C \uAD6C\uBD84, \uCD5C\uB300 10\uAC1C)</label>
+      <textarea id="gsc-inspect-urls" rows="4" style="width:100%;padding:10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;font-size:12px;font-family:monospace;resize:vertical" placeholder="https://seoulbeautytrip.com/shop/forena-clinic-hongdae
+https://seoulbeautytrip.com/video/v1780959694882
+https://seoulbeautytrip.com/video/v1780525137389
+https://seoulbeautytrip.com/video/v178051515735">https://seoulbeautytrip.com/shop/forena-clinic-hongdae
+https://seoulbeautytrip.com/video/v1780959694882
+https://seoulbeautytrip.com/video/v1780525137389
+https://seoulbeautytrip.com/video/v178051515735</textarea>
+    </div>
+    <button onclick="gscCheckCoverage()" style="width:100%;padding:11px;background:linear-gradient(135deg,#d97706,#b45309);border:none;border-radius:10px;color:#fff;font-weight:700;font-size:14px;cursor:pointer">
+      <i class="fas fa-radar"></i> URL \uC778\uB371\uC2F1 \uC0C1\uD0DC \uC870\uD68C
+    </button>
+    <div id="gsc-coverage-result" style="display:none;margin-top:12px"></div>
+  </div>
+
   <!-- GSC \uC2E4\uAC80\uC0C9\uC5B4 \uAE30\uBC18 \uB871\uD14C\uC77C \uBE14\uB85C\uADF8 \uC790\uB3D9 \uC0DD\uC131 -->
   <div class="card" style="margin-bottom:16px;border-color:rgba(52,211,153,.25);background:rgba(52,211,153,.04)">
     <div class="card-header">
@@ -19161,6 +19310,68 @@ window.genBlogBatch = async function genBlogBatch(){
 // \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 
 // GSC \uD0A4\uC6CC\uB4DC \uBBF8\uB9AC\uBCF4\uAE30 (\uB4DC\uB77C\uC774\uB7F0 \uC5C6\uC774 \uD0A4\uC6CC\uB4DC \uBAA9\uB85D\uB9CC \uD655\uC778)
+// \u2500\u2500 GSC URL \uC778\uB371\uC2F1 \uC0C1\uD0DC \uBC30\uCE58 \uD655\uC778 \u2500\u2500
+window.gscCheckCoverage = async function gscCheckCoverage() {
+  var resultEl = document.getElementById('gsc-coverage-result');
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = '<div style="text-align:center;padding:16px;color:rgba(255,255,255,.4);font-size:13px">\u23F3 URL Inspection API \uC870\uD68C \uC911... (\uCD5C\uB300 20\uCD08)</div>';
+
+  var textarea = document.getElementById('gsc-inspect-urls').value;
+  var urls = textarea.split(/[
+,]+/).map(function(u){return u.trim();}).filter(Boolean);
+  if (!urls.length) {
+    resultEl.innerHTML = '<div style="color:#f87171;padding:10px">URL\uC744 \uC785\uB825\uD574\uC8FC\uC138\uC694.</div>';
+    return;
+  }
+
+  try {
+    var res = await fetch('/api/search-console/coverage?urls=' + encodeURIComponent(urls.join(',')));
+    var data = await res.json();
+    if (data.error) {
+      resultEl.innerHTML = '<div style="color:#f87171;padding:10px">\uC624\uB958: ' + data.error + '</div>';
+      return;
+    }
+
+    var verdictColor = {PASS:'#34d399', FAIL:'#f87171', NEUTRAL:'#fbbf24', EXCLUDED:'#9ca3af'};
+    var html = '<div style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:10px">\uC870\uD68C \uC2DC\uAC01: ' + new Date(data.checkedAt).toLocaleString('ko-KR') + '</div>';
+    html += '<div style="display:flex;flex-direction:column;gap:10px">';
+
+    for (var r of data.results) {
+      var vc = verdictColor[r.verdict] || '#9ca3af';
+      var canonicalMatch = r.googleCanonical === r.userCanonical;
+      var canonicalStatus = canonicalMatch
+        ? '<span style="color:#34d399">\u2713 \uC77C\uCE58</span>'
+        : '<span style="color:#f87171">\u2717 \uBD88\uC77C\uCE58 \u2014 \uAD6C\uAE00\uC774 \uB2E4\uB978 URL \uC120\uD0DD</span>';
+
+      html += '<div style="padding:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:10px;border-left:3px solid ' + vc + '">';
+      html += '<div style="font-size:13px;font-weight:700;color:#e2e8f0;margin-bottom:8px;word-break:break-all">' + (r.url || '') + '</div>';
+      if (r.error) {
+        html += '<div style="color:#f87171;font-size:12px">\u26A0 ' + r.error + '</div>';
+      } else {
+        html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px">';
+        html += '<div><span style="color:rgba(255,255,255,.4)">\uD310\uC815: </span><span style="color:' + vc + ';font-weight:700">' + (r.verdict||'\u2014') + '</span></div>';
+        html += '<div><span style="color:rgba(255,255,255,.4)">\uCEE4\uBC84\uB9AC\uC9C0: </span><span style="color:#e2e8f0">' + (r.coverageState||'\u2014') + '</span></div>';
+        html += '<div><span style="color:rgba(255,255,255,.4)">\uC0C9\uC778 \uC0C1\uD0DC: </span><span style="color:#e2e8f0">' + (r.indexingState||'\u2014') + '</span></div>';
+        html += '<div><span style="color:rgba(255,255,255,.4)">\uD06C\uB864 \uACB0\uACFC: </span><span style="color:#e2e8f0">' + (r.pageFetchState||'\u2014') + '</span></div>';
+        html += '<div style="grid-column:span 2"><span style="color:rgba(255,255,255,.4)">\uB9C8\uC9C0\uB9C9 \uD06C\uB864: </span><span style="color:#e2e8f0">' + (r.lastCrawlTime ? new Date(r.lastCrawlTime).toLocaleString('ko-KR') : '\u2014') + '</span></div>';
+        html += '<div style="grid-column:span 2"><span style="color:rgba(255,255,255,.4)">Canonical \uC77C\uCE58: </span>' + canonicalStatus + '</div>';
+        if (!canonicalMatch) {
+          html += '<div style="grid-column:span 2;padding:6px;background:rgba(248,113,113,.1);border-radius:6px;margin-top:4px">';
+          html += '<div style="color:#fca5a5;font-size:11px">\uB0B4 \uC120\uC5B8: ' + (r.userCanonical||'\u2014') + '</div>';
+          html += '<div style="color:#fca5a5;font-size:11px">\uAD6C\uAE00 \uC120\uD0DD: ' + (r.googleCanonical||'\u2014') + '</div>';
+          html += '</div>';
+        }
+        html += '</div>';
+      }
+      html += '</div>';
+    }
+    html += '</div>';
+    resultEl.innerHTML = html;
+  } catch(e) {
+    resultEl.innerHTML = '<div style="color:#f87171;padding:10px">\uB124\uD2B8\uC6CC\uD06C \uC624\uB958: ' + e.message + '</div>';
+  }
+};
+
 window.gscQueryPreview = async function gscQueryPreview() {
   var previewEl = document.getElementById('gsc-preview-table');
   var resultEl  = document.getElementById('gsc-gen-result');
