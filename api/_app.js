@@ -8784,7 +8784,19 @@ app.get("/blog/:slug", async (c) => {
     } catch {
     }
   }
-  const related = await sql`SELECT slug,title,excerpt,category,area,created_at FROM blog_posts WHERE status='published' AND slug!=${slug} AND category=${post.category || ""} ORDER BY created_at DESC LIMIT 3`;
+  const relatedSameCat = await sql`SELECT slug,title,excerpt,category,area,created_at FROM blog_posts WHERE status='published' AND slug!=${slug} AND category=${post.category || ""} ORDER BY created_at DESC LIMIT 3`;
+  const crossCatMap = { headspa: "skincare", skincare: "headspa", clinic: "hair", hair: "clinic", nail: "spa", spa: "nail", tattoo: "skincare", makeup: "hair" };
+  const crossCat = crossCatMap[post.category || ""] || "headspa";
+  const relatedCross = await sql`SELECT slug,title,excerpt,category,area,created_at FROM blog_posts WHERE status='published' AND slug!=${slug} AND category=${crossCat} ORDER BY RANDOM() LIMIT 2`;
+  const relatedArea = await sql`SELECT slug,title,excerpt,category,area,created_at FROM blog_posts WHERE status='published' AND slug!=${slug} AND area=${post.area || "Seoul"} AND category!=${post.category || ""} ORDER BY created_at DESC LIMIT 2`;
+  const seenSlugs = /* @__PURE__ */ new Set();
+  const related = [];
+  for (const r of [...relatedSameCat, ...relatedArea, ...relatedCross]) {
+    if (!seenSlugs.has(r.slug) && related.length < 5) {
+      seenSlugs.add(r.slug);
+      related.push(r);
+    }
+  }
   const base = "https://seoulbeautytrip.com";
   const catLabel = { headspa: "Head Spa", skincare: "Skincare", hair: "Hair Salon", nail: "Nail Art", clinic: "Skin Clinic", makeup: "Makeup", spa: "Spa", tattoo: "Eyebrow Tattoo" };
   const cat = catLabel[post.category] || post.category || "Beauty";
@@ -8804,7 +8816,7 @@ app.get("/blog/:slug", async (c) => {
   const canonicalUrl = `${base}/blog/${slug}`;
   const relatedHtml = related.length ? `
   <aside class="related-posts">
-    <h3>\u{1F4DA} Related Articles</h3>
+    <h3>\u{1F4DA} You Might Also Like</h3>
     <div class="related-grid">
       ${related.map((r) => `
       <a href="/blog/${r.slug}" class="related-card">
