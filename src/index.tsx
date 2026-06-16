@@ -19886,7 +19886,7 @@ ${SB_TRACKER_SCRIPT}
   var b = document.createElement('div')
   b.id = 'ja-banner'
   b.style.cssText = 'position:fixed;bottom:72px;left:50%;transform:translateX(-50%);background:#1a1a2e;border:1px solid rgba(244,114,182,.3);border-radius:14px;padding:12px 16px;font-size:13px;color:rgba(255,255,255,.85);z-index:9999;display:flex;gap:10px;align-items:center;max-width:340px;width:calc(100% - 32px);box-shadow:0 4px 24px rgba(0,0,0,.4)'
-  b.innerHTML = '<span>🇯🇵 日本語版もあります</span><a href="/ja" style="color:#f472b6;font-weight:700;white-space:nowrap;text-decoration:none">日本語へ →</a><button onclick="document.getElementById(\'ja-banner\').remove()" style="background:none;border:none;color:rgba(255,255,255,.3);cursor:pointer;font-size:18px;padding:0 4px;line-height:1;flex-shrink:0">✕</button>'
+  b.innerHTML = '<span>\uD83C\uDDEF\uD83C\uDDF5 \u65E5\u672C\u8A9E\u7248\u3082\u3042\u308A\u307E\u3059<\/span><a href="/ja" style="color:#f472b6;font-weight:700;white-space:nowrap;text-decoration:none">\u65E5\u672C\u8A9E\u3078 \u2192<\/a><button onclick="this.parentNode.remove()" style="background:none;border:none;color:rgba(255,255,255,.3);cursor:pointer;font-size:18px;padding:0 4px;line-height:1;flex-shrink:0">\u2715<\/button>'
   document.body.appendChild(b)
 })()
 </script>
