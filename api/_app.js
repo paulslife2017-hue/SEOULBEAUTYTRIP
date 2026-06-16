@@ -5762,50 +5762,51 @@ var SLUG_REDIRECTS = {
   "barog-clinic-gangnam-2-review-2026-foreigners": "barog-clinic-gangnam"
 };
 app.get("/shop/:slug", async (c) => {
-  const slug = c.req.param("slug");
-  if (SLUG_REDIRECTS[slug]) return c.redirect("/shop/" + SLUG_REDIRECTS[slug], 301);
-  const sql = getDb(c.env);
-  const shopRows = await withTimeout(sql`SELECT * FROM shops WHERE slug=${slug}`, 15e3, []);
-  if (!shopRows.length) return c.notFound();
-  const shop = rowToShop(shopRows[0]);
-  const vidRows = await withTimeout(sql`SELECT * FROM videos WHERE shop_id=${shop.id} ORDER BY views DESC`, 15e3, []);
-  const shopVideos = vidRows.map((r) => rowToVideo({ ...r, shop_name: shop.name }));
-  const relatedPool = await withTimeout(sql`
+  try {
+    const slug = c.req.param("slug");
+    if (SLUG_REDIRECTS[slug]) return c.redirect("/shop/" + SLUG_REDIRECTS[slug], 301);
+    const sql = getDb(c.env);
+    const shopRows = await withTimeout(sql`SELECT * FROM shops WHERE slug=${slug}`, 15e3, []);
+    if (!shopRows.length) return c.notFound();
+    const shop = rowToShop(shopRows[0]);
+    const vidRows = await withTimeout(sql`SELECT * FROM videos WHERE shop_id=${shop.id} ORDER BY views DESC`, 15e3, []);
+    const shopVideos = vidRows.map((r) => rowToVideo({ ...r, shop_name: shop.name }));
+    const relatedPool = await withTimeout(sql`
     SELECT id, name, slug, category, location, thumbnail, rating, review_count, description
     FROM shops
     WHERE category=${shop.category} AND id != ${shop.id} AND slug IS NOT NULL AND active = true`, 15e3, []);
-  const _shuffleArr = (arr) => {
-    const a = [...arr];
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
-  };
-  const relatedShops = _shuffleArr(relatedPool).slice(0, 6).map((r) => rowToShop(r));
-  const _shopAreaRaw = shop.location ? shop.location.split(",")[0].trim() : "";
-  const _otherCats = ["clinic", "hair", "headspa", "skincare", "makeup", "tattoo"].filter((c2) => c2 !== shop.category);
-  const nearbyCrossRows = await withTimeout(sql`
+    const _shuffleArr = (arr) => {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    };
+    const relatedShops = _shuffleArr(relatedPool).slice(0, 6).map((r) => rowToShop(r));
+    const _shopAreaRaw = shop.location ? shop.location.split(",")[0].trim() : "";
+    const _otherCats = ["clinic", "hair", "headspa", "skincare", "makeup", "tattoo"].filter((c2) => c2 !== shop.category);
+    const nearbyCrossRows = await withTimeout(sql`
     SELECT id, name, slug, category, location, thumbnail, rating, review_count
     FROM shops
     WHERE location ILIKE ${"%" + _shopAreaRaw + "%"} AND id != ${shop.id} AND slug IS NOT NULL AND active = true
       AND category = ANY(${_otherCats}::text[])`, 8e3, []);
-  const _crossMap = {};
-  for (const r of _shuffleArr(nearbyCrossRows)) {
-    if (!_crossMap[r.category]) _crossMap[r.category] = r;
-  }
-  const nearbyCrossShops = Object.values(_crossMap).slice(0, 4);
-  const reviewBlogRows = await withTimeout(
-    sql`SELECT slug, title FROM blog_posts WHERE shop_id=${shop.id} AND status='published' ORDER BY created_at DESC LIMIT 1`,
-    5e3,
-    []
-  );
-  const reviewBlogSlug = reviewBlogRows[0]?.slug || "";
-  const reviewBlogTitle = reviewBlogRows[0]?.title || "";
-  const shopArea = shop.location ? ` (${shop.location.split(",")[0].trim()})` : "";
-  const shopAddrLine = shop.address ? `
+    const _crossMap = {};
+    for (const r of _shuffleArr(nearbyCrossRows)) {
+      if (!_crossMap[r.category]) _crossMap[r.category] = r;
+    }
+    const nearbyCrossShops = Object.values(_crossMap).slice(0, 4);
+    const reviewBlogRows = await withTimeout(
+      sql`SELECT slug, title FROM blog_posts WHERE shop_id=${shop.id} AND status='published' ORDER BY created_at DESC LIMIT 1`,
+      5e3,
+      []
+    );
+    const reviewBlogSlug = reviewBlogRows[0]?.slug || "";
+    const reviewBlogTitle = reviewBlogRows[0]?.title || "";
+    const shopArea = shop.location ? ` (${shop.location.split(",")[0].trim()})` : "";
+    const shopAddrLine = shop.address ? `
 Address: ${shop.address}` : "";
-  const waMsg = encodeURIComponent(`[ Booking Request ]
+    const waMsg = encodeURIComponent(`[ Booking Request ]
 Shop: ${shop.name}${shopArea}${shopAddrLine}
 
 Date: 
@@ -5813,112 +5814,112 @@ Time:
 Service: 
 Name: 
 People: `);
-  const waUrl = `https://wa.me/${PLATFORM.whatsapp}?text=${waMsg}`;
-  const base = "https://seoulbeautytrip.com";
-  const canonicalUrl = `${base}/shop/${shop.slug}`;
-  const ogImage = shop.thumbnail ? shop.thumbnail.startsWith("http") ? shop.thumbnail : `${base}${shop.thumbnail}` : `https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg`;
-  const catEmoji = { skincare: "\u{1F33F}", makeup: "\u{1F48B}", hair: "\u{1F487}", headspa: "\u{1F9D6}", clinic: "\u{1F3E5}", tattoo: "\u2712\uFE0F" };
-  const catIcon = catEmoji[shop.category] || "\u2728";
-  const _shopArea = shop.location.split(",")[0].trim();
-  const _shopCat = shop.category;
-  const _clinicSubtype = (() => {
-    const nm = (shop.name || "").toLowerCase();
-    if (nm.includes("plastic surgery")) return "Plastic Surgery Clinic";
-    if (nm.includes("aesthetic")) return "Aesthetic Clinic";
-    if (nm.includes("dental") || nm.includes("dentist")) return "Dental Clinic";
-    if (nm.includes("dermatology") || nm.includes("derma")) return "Dermatology Clinic";
-    return "Skin Clinic";
-  })();
-  const _catTitleLabels = {
-    clinic: _clinicSubtype,
-    hair: "Hair Salon",
-    headspa: "Head Spa",
-    skincare: "Skincare",
-    makeup: "Makeup & Color Analysis",
-    dental: "Dental Clinic",
-    tattoo: "Eyebrow Tattoo & Microblading"
-  };
-  const _catLabel = _catTitleLabels[_shopCat] || _shopCat.charAt(0).toUpperCase() + _shopCat.slice(1);
-  const _areaFinal = ["cheongdam", "apgujeong", "sinsa", "nonhyeon"].some((a) => _shopArea.toLowerCase().includes(a)) ? "Gangnam" : _shopArea;
-  const _pageTitle = shop.name + " \u2014 " + _areaFinal + " " + _catLabel + " Seoul | Seoul Beauty Trip";
-  const _metaDescLabels = {
-    clinic: _clinicSubtype.toLowerCase(),
-    hair: "hair salon",
-    headspa: "head spa & scalp clinic",
-    skincare: "skincare studio",
-    makeup: "personal color & makeup",
-    dental: "dental clinic",
-    tattoo: "eyebrow tattoo & microblading studio"
-  };
-  const _catLbl2 = _metaDescLabels[_shopCat] || _shopCat;
-  const _rating = shop.rating ? shop.rating + "\u2605" : "";
-  const _revs = shop.reviewCount > 10 ? shop.reviewCount + "+ verified reviews" : shop.reviewCount > 0 ? shop.reviewCount + " reviews" : "";
-  const _svc1 = shop.services && shop.services.length > 0 ? shop.services[0] : "";
-  const _svc2 = shop.services && shop.services.length > 1 ? shop.services[1] : "";
-  const _svcPart = _svc1 ? _svc2 ? _svc1 + " & " + _svc2 : _svc1 : "";
-  const _areaClean = _shopArea.replace(", Seoul", "").trim();
-  const _metaDesc = shop.metaDescription && shop.metaDescription.trim().length > 30 ? trimDesc(shop.metaDescription.replace(/([\w][\w\s,]*?)\s+Seoul\s+Seoul/g, "$1, Seoul").replace(/Seoul,\s*Seoul/g, "Seoul"), 160) : trimDesc(shop.name + " is a " + _rating + " foreigner-friendly " + _catLbl2 + " in " + _areaClean + ", Seoul." + (_revs ? " " + _revs + "." : "") + (_svcPart ? " Specializing in " + _svcPart + "." : "") + " English booking via WhatsApp. Same-day appointments available.", 160);
-  const _areaGn = _shopArea.toLowerCase().includes("cheongdam") || _shopArea.toLowerCase().includes("apgujeong") ? "Gangnam" : _shopArea;
-  const _n = shop.name;
-  const _catKwMap = {
-    clinic: [_areaGn + " dermatology clinic foreigners", _areaGn + " skin clinic Seoul", "laser clinic Seoul English", "Korean dermatology foreigners", "aesthetic clinic Seoul booking", "skin treatment " + _areaGn + " Seoul"],
-    hair: [_areaGn + " hair salon foreigners", "hair salon Seoul English speaking", "Korean hair salon foreigners", "hair color Seoul English", _areaGn + " hair color Seoul"],
-    headspa: [_areaGn + " head spa foreigners", "scalp treatment Seoul English", "head spa Seoul foreigners", "Korean head spa English", _areaGn + " scalp care Seoul"],
-    skincare: [_areaGn + " skincare foreigners", "facial Seoul English speaking", "skincare Seoul foreigners", "Korean facial treatment English", _areaGn + " glow treatment Seoul"],
-    makeup: [_areaGn + " personal color analysis", "color analysis Seoul English", "makeup Seoul foreigners", "personal color Seoul English", _areaGn + " makeup consultation"],
-    dental: [_areaGn + " dental clinic foreigners", "dentist Seoul English speaking", "dental Seoul foreigners", "Korean dentist English", _areaGn + " tooth whitening Seoul"]
-  };
-  const _extras = _catKwMap[_shopCat] || [];
-  const _svcKw = shop.services.slice(0, 3);
-  const _base2 = [_n, _n + " Seoul", _n + " " + _areaGn, _n + " review", _n + " booking", _n + " foreigners", _n + " English", "best " + _shopCat + " " + _areaGn + " Seoul"];
-  const _year2026kw = [_n + " Seoul 2026", "best " + _shopCat + " " + _areaGn + " Seoul 2026", _shopCat + " Seoul foreigners 2026"];
-  const _keywords = shop.seoKeywords && shop.seoKeywords.trim().length > 20 ? shop.seoKeywords.includes("2026") ? shop.seoKeywords : shop.seoKeywords + ", " + _year2026kw.join(", ") : [..._base2, ..._extras, ..._svcKw, ..._year2026kw].join(", ");
-  const _ogCatLabels = {
-    clinic: "Dermatology Clinic",
-    hair: "Hair Salon",
-    headspa: "Head Spa",
-    skincare: "Skincare",
-    makeup: "Makeup",
-    dental: "Dental",
-    tattoo: "Eyebrow Tattoo"
-  };
-  const _ogCatLabel = _ogCatLabels[_shopCat] || _shopCat;
-  const _ogTitle = shop.name + " | " + _shopArea.replace("Cheongdam", "Gangnam").replace("Apgujeong", "Gangnam") + " " + _ogCatLabel + " Seoul";
-  const _schemaTypeMap = {
-    clinic: '["MedicalClinic","HealthAndBeautyBusiness","LocalBusiness"]',
-    hair: '["HairSalon","BeautySalon","LocalBusiness"]',
-    headspa: '["BeautySalon","HealthClub","LocalBusiness"]',
-    skincare: '["BeautySalon","LocalBusiness"]',
-    makeup: '["BeautySalon","LocalBusiness"]',
-    dental: '["Dentist","MedicalClinic","LocalBusiness"]'
-  };
-  const _schemaType = _schemaTypeMap[_shopCat] || '["LocalBusiness","BeautySalon"]';
-  const _breadcrumbCatLabels = {
-    clinic: _clinicSubtype + " Seoul",
-    hair: "Hair Salon Seoul",
-    headspa: "Head Spa Seoul",
-    skincare: "Skincare Seoul",
-    makeup: "Makeup Seoul",
-    dental: "Dental Clinic Seoul",
-    tattoo: "Eyebrow Tattoo Seoul"
-  };
-  const _bcCatName = _breadcrumbCatLabels[_shopCat] || _shopCat;
-  const _bcAreaSlugRaw = _shopArea.toLowerCase().replace(/\s+/g, "-").replace("cheongdam", "gangnam").replace("apgujeong", "gangnam").replace("sinsa", "gangnam");
-  const _bcAreaSlug = typeof AREA_LABELS !== "undefined" && AREA_LABELS[_bcAreaSlugRaw] ? _bcAreaSlugRaw : "seoul";
-  const _bcCatSlug = _shopCat;
-  const _bcAreaItem = `{"@type":"ListItem","position":3,"name":"${_shopArea}","item":"${base}/best/${_bcCatSlug}/${_bcAreaSlug}"}`;
-  const _wpCatLabels = {
-    clinic: "Dermatology Clinic",
-    hair: "Hair Salon",
-    headspa: "Head Spa",
-    skincare: "Skincare Studio",
-    makeup: "Makeup & Color Analysis",
-    dental: "Dental Clinic",
-    tattoo: "Eyebrow Tattoo Studio"
-  };
-  const _wpCatLabel = _wpCatLabels[_shopCat] || _shopCat;
-  const _wpName = shop.name + " \u2014 " + _shopArea + " " + _wpCatLabel + " Seoul";
-  return c.html(`<!DOCTYPE html>
+    const waUrl = `https://wa.me/${PLATFORM.whatsapp}?text=${waMsg}`;
+    const base = "https://seoulbeautytrip.com";
+    const canonicalUrl = `${base}/shop/${shop.slug}`;
+    const ogImage = shop.thumbnail ? shop.thumbnail.startsWith("http") ? shop.thumbnail : `${base}${shop.thumbnail}` : `https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg`;
+    const catEmoji = { skincare: "\u{1F33F}", makeup: "\u{1F48B}", hair: "\u{1F487}", headspa: "\u{1F9D6}", clinic: "\u{1F3E5}", tattoo: "\u2712\uFE0F" };
+    const catIcon = catEmoji[shop.category] || "\u2728";
+    const _shopArea = shop.location.split(",")[0].trim();
+    const _shopCat = shop.category;
+    const _clinicSubtype = (() => {
+      const nm = (shop.name || "").toLowerCase();
+      if (nm.includes("plastic surgery")) return "Plastic Surgery Clinic";
+      if (nm.includes("aesthetic")) return "Aesthetic Clinic";
+      if (nm.includes("dental") || nm.includes("dentist")) return "Dental Clinic";
+      if (nm.includes("dermatology") || nm.includes("derma")) return "Dermatology Clinic";
+      return "Skin Clinic";
+    })();
+    const _catTitleLabels = {
+      clinic: _clinicSubtype,
+      hair: "Hair Salon",
+      headspa: "Head Spa",
+      skincare: "Skincare",
+      makeup: "Makeup & Color Analysis",
+      dental: "Dental Clinic",
+      tattoo: "Eyebrow Tattoo & Microblading"
+    };
+    const _catLabel = _catTitleLabels[_shopCat] || _shopCat.charAt(0).toUpperCase() + _shopCat.slice(1);
+    const _areaFinal = ["cheongdam", "apgujeong", "sinsa", "nonhyeon"].some((a) => _shopArea.toLowerCase().includes(a)) ? "Gangnam" : _shopArea;
+    const _pageTitle = shop.name + " \u2014 " + _areaFinal + " " + _catLabel + " Seoul | Seoul Beauty Trip";
+    const _metaDescLabels = {
+      clinic: _clinicSubtype.toLowerCase(),
+      hair: "hair salon",
+      headspa: "head spa & scalp clinic",
+      skincare: "skincare studio",
+      makeup: "personal color & makeup",
+      dental: "dental clinic",
+      tattoo: "eyebrow tattoo & microblading studio"
+    };
+    const _catLbl2 = _metaDescLabels[_shopCat] || _shopCat;
+    const _rating = shop.rating ? shop.rating + "\u2605" : "";
+    const _revs = shop.reviewCount > 10 ? shop.reviewCount + "+ verified reviews" : shop.reviewCount > 0 ? shop.reviewCount + " reviews" : "";
+    const _svc1 = shop.services && shop.services.length > 0 ? shop.services[0] : "";
+    const _svc2 = shop.services && shop.services.length > 1 ? shop.services[1] : "";
+    const _svcPart = _svc1 ? _svc2 ? _svc1 + " & " + _svc2 : _svc1 : "";
+    const _areaClean = _shopArea.replace(", Seoul", "").trim();
+    const _metaDesc = shop.metaDescription && shop.metaDescription.trim().length > 30 ? trimDesc(shop.metaDescription.replace(/([\w][\w\s,]*?)\s+Seoul\s+Seoul/g, "$1, Seoul").replace(/Seoul,\s*Seoul/g, "Seoul"), 160) : trimDesc(shop.name + " is a " + _rating + " foreigner-friendly " + _catLbl2 + " in " + _areaClean + ", Seoul." + (_revs ? " " + _revs + "." : "") + (_svcPart ? " Specializing in " + _svcPart + "." : "") + " English booking via WhatsApp. Same-day appointments available.", 160);
+    const _areaGn = _shopArea.toLowerCase().includes("cheongdam") || _shopArea.toLowerCase().includes("apgujeong") ? "Gangnam" : _shopArea;
+    const _n = shop.name;
+    const _catKwMap = {
+      clinic: [_areaGn + " dermatology clinic foreigners", _areaGn + " skin clinic Seoul", "laser clinic Seoul English", "Korean dermatology foreigners", "aesthetic clinic Seoul booking", "skin treatment " + _areaGn + " Seoul"],
+      hair: [_areaGn + " hair salon foreigners", "hair salon Seoul English speaking", "Korean hair salon foreigners", "hair color Seoul English", _areaGn + " hair color Seoul"],
+      headspa: [_areaGn + " head spa foreigners", "scalp treatment Seoul English", "head spa Seoul foreigners", "Korean head spa English", _areaGn + " scalp care Seoul"],
+      skincare: [_areaGn + " skincare foreigners", "facial Seoul English speaking", "skincare Seoul foreigners", "Korean facial treatment English", _areaGn + " glow treatment Seoul"],
+      makeup: [_areaGn + " personal color analysis", "color analysis Seoul English", "makeup Seoul foreigners", "personal color Seoul English", _areaGn + " makeup consultation"],
+      dental: [_areaGn + " dental clinic foreigners", "dentist Seoul English speaking", "dental Seoul foreigners", "Korean dentist English", _areaGn + " tooth whitening Seoul"]
+    };
+    const _extras = _catKwMap[_shopCat] || [];
+    const _svcKw = shop.services.slice(0, 3);
+    const _base2 = [_n, _n + " Seoul", _n + " " + _areaGn, _n + " review", _n + " booking", _n + " foreigners", _n + " English", "best " + _shopCat + " " + _areaGn + " Seoul"];
+    const _year2026kw = [_n + " Seoul 2026", "best " + _shopCat + " " + _areaGn + " Seoul 2026", _shopCat + " Seoul foreigners 2026"];
+    const _keywords = shop.seoKeywords && shop.seoKeywords.trim().length > 20 ? shop.seoKeywords.includes("2026") ? shop.seoKeywords : shop.seoKeywords + ", " + _year2026kw.join(", ") : [..._base2, ..._extras, ..._svcKw, ..._year2026kw].join(", ");
+    const _ogCatLabels = {
+      clinic: "Dermatology Clinic",
+      hair: "Hair Salon",
+      headspa: "Head Spa",
+      skincare: "Skincare",
+      makeup: "Makeup",
+      dental: "Dental",
+      tattoo: "Eyebrow Tattoo"
+    };
+    const _ogCatLabel = _ogCatLabels[_shopCat] || _shopCat;
+    const _ogTitle = shop.name + " | " + _shopArea.replace("Cheongdam", "Gangnam").replace("Apgujeong", "Gangnam") + " " + _ogCatLabel + " Seoul";
+    const _schemaTypeMap = {
+      clinic: '["MedicalClinic","HealthAndBeautyBusiness","LocalBusiness"]',
+      hair: '["HairSalon","BeautySalon","LocalBusiness"]',
+      headspa: '["BeautySalon","HealthClub","LocalBusiness"]',
+      skincare: '["BeautySalon","LocalBusiness"]',
+      makeup: '["BeautySalon","LocalBusiness"]',
+      dental: '["Dentist","MedicalClinic","LocalBusiness"]'
+    };
+    const _schemaType = _schemaTypeMap[_shopCat] || '["LocalBusiness","BeautySalon"]';
+    const _breadcrumbCatLabels = {
+      clinic: _clinicSubtype + " Seoul",
+      hair: "Hair Salon Seoul",
+      headspa: "Head Spa Seoul",
+      skincare: "Skincare Seoul",
+      makeup: "Makeup Seoul",
+      dental: "Dental Clinic Seoul",
+      tattoo: "Eyebrow Tattoo Seoul"
+    };
+    const _bcCatName = _breadcrumbCatLabels[_shopCat] || _shopCat;
+    const _bcAreaSlugRaw = _shopArea.toLowerCase().replace(/\s+/g, "-").replace("cheongdam", "gangnam").replace("apgujeong", "gangnam").replace("sinsa", "gangnam");
+    const _bcAreaSlug = typeof AREA_LABELS !== "undefined" && AREA_LABELS[_bcAreaSlugRaw] ? _bcAreaSlugRaw : "seoul";
+    const _bcCatSlug = _shopCat;
+    const _bcAreaItem = `{"@type":"ListItem","position":3,"name":"${_shopArea}","item":"${base}/best/${_bcCatSlug}/${_bcAreaSlug}"}`;
+    const _wpCatLabels = {
+      clinic: "Dermatology Clinic",
+      hair: "Hair Salon",
+      headspa: "Head Spa",
+      skincare: "Skincare Studio",
+      makeup: "Makeup & Color Analysis",
+      dental: "Dental Clinic",
+      tattoo: "Eyebrow Tattoo Studio"
+    };
+    const _wpCatLabel = _wpCatLabels[_shopCat] || _shopCat;
+    const _wpName = shop.name + " \u2014 " + _shopArea + " " + _wpCatLabel + " Seoul";
+    return c.html(`<!DOCTYPE html>
 <html lang="en" itemscope itemtype="https://schema.org/LocalBusiness">
 <head>
 <meta charset="UTF-8">
@@ -5961,9 +5962,9 @@ ${SB_TRACKER_SCRIPT}
       "alternateName":"${shop.name} Seoul",
       "description":"${(shop.description || "").replace(/"/g, "'")}",
       "image":${(() => {
-    const imgs = [ogImage, ...(shop.photos || []).map((p) => p.startsWith("http") ? p : base + p)].filter(Boolean);
-    return JSON.stringify(imgs.map((u) => ({ "@type": "ImageObject", "url": u, "thumbnailUrl": u })));
-  })()},
+      const imgs = [ogImage, ...(shop.photos || []).map((p) => p.startsWith("http") ? p : base + p)].filter(Boolean);
+      return JSON.stringify(imgs.map((u) => ({ "@type": "ImageObject", "url": u, "thumbnailUrl": u })));
+    })()},
       "url":"${canonicalUrl}",
       "address":{
         "@type":"PostalAddress",
@@ -5975,28 +5976,28 @@ ${SB_TRACKER_SCRIPT}
       ${shop.lat && shop.lng ? `"geo":{"@type":"GeoCoordinates","latitude":"${shop.lat}","longitude":"${shop.lng}"},` : ""}
       "openingHours":"${shop.hours.replace(/"/g, "'")}",
       ${(() => {
-    const _days = { monday: "Monday", tuesday: "Tuesday", wednesday: "Wednesday", thursday: "Thursday", friday: "Friday", saturday: "Saturday", sunday: "Sunday", mon: "Monday", tue: "Tuesday", wed: "Wednesday", thu: "Thursday", fri: "Friday", sat: "Saturday", sun: "Sunday" };
-    const _hrs = shop.hours.toLowerCase();
-    const _specs = [];
-    const _p1 = _hrs.matchAll(/([a-z]+):\s*(\d+):(\d+)\s*(am|pm)?\s*[\u2013\-~]+\s*(\d+):(\d+)\s*(am|pm)?/gi);
-    for (const m of _p1) {
-      const day = _days[m[1].toLowerCase()];
-      if (!day) continue;
-      let oh = parseInt(m[2]);
-      const om = m[3];
-      const oap = (m[4] || "").toLowerCase();
-      let ch = parseInt(m[5]);
-      const cm = m[6];
-      const cap = (m[7] || "").toLowerCase();
-      if (oap === "pm" && oh !== 12) oh += 12;
-      if (oap === "am" && oh === 12) oh = 0;
-      if (cap === "pm" && ch !== 12) ch += 12;
-      if (cap === "am" && ch === 12) ch = 0;
-      _specs.push('{"@type":"OpeningHoursSpecification","dayOfWeek":"https://schema.org/' + day + '","opens":"' + String(oh).padStart(2, "0") + ":" + om + '","closes":"' + String(ch).padStart(2, "0") + ":" + cm + '"}');
-    }
-    if (_specs.length > 0) return '"openingHoursSpecification":[' + _specs.join(",") + "],";
-    return "";
-  })()}
+      const _days = { monday: "Monday", tuesday: "Tuesday", wednesday: "Wednesday", thursday: "Thursday", friday: "Friday", saturday: "Saturday", sunday: "Sunday", mon: "Monday", tue: "Tuesday", wed: "Wednesday", thu: "Thursday", fri: "Friday", sat: "Saturday", sun: "Sunday" };
+      const _hrs = shop.hours.toLowerCase();
+      const _specs = [];
+      const _p1 = _hrs.matchAll(/([a-z]+):\s*(\d+):(\d+)\s*(am|pm)?\s*[\u2013\-~]+\s*(\d+):(\d+)\s*(am|pm)?/gi);
+      for (const m of _p1) {
+        const day = _days[m[1].toLowerCase()];
+        if (!day) continue;
+        let oh = parseInt(m[2]);
+        const om = m[3];
+        const oap = (m[4] || "").toLowerCase();
+        let ch = parseInt(m[5]);
+        const cm = m[6];
+        const cap = (m[7] || "").toLowerCase();
+        if (oap === "pm" && oh !== 12) oh += 12;
+        if (oap === "am" && oh === 12) oh = 0;
+        if (cap === "pm" && ch !== 12) ch += 12;
+        if (cap === "am" && ch === 12) ch = 0;
+        _specs.push('{"@type":"OpeningHoursSpecification","dayOfWeek":"https://schema.org/' + day + '","opens":"' + String(oh).padStart(2, "0") + ":" + om + '","closes":"' + String(ch).padStart(2, "0") + ":" + cm + '"}');
+      }
+      if (_specs.length > 0) return '"openingHoursSpecification":[' + _specs.join(",") + "],";
+      return "";
+    })()}
       ${shop.priceRange ? `"priceRange":"${shop.priceRange}",` : ""}
       ${shop.rating && Number(shop.rating) > 0 && shop.reviewCount && Number(shop.reviewCount) > 0 ? `"aggregateRating":{"@type":"AggregateRating","ratingValue":"${Number(shop.rating).toFixed(1)}","bestRating":"5","worstRating":"1","ratingCount":${shop.reviewCount}},` : ""}
       "currenciesAccepted":"KRW",
@@ -6073,22 +6074,22 @@ ${SB_TRACKER_SCRIPT}
       "speakable":{"@type":"SpeakableSpecification","cssSelector":".sp-title,.sp-desc-text,.sp-seo-block"}
     }
     ${shopVideos.length > 0 ? "," + shopVideos.map((v) => {
-    const vUrl = v.videoUrl || "";
-    const thumb = v.thumbnail || shop.thumbnail || "";
-    const vTitle = v.title && !/^[a-zA-Z0-9_.~-]{8,}$/.test(v.title) ? v.title : shop.name + " \u2014 Seoul Beauty";
-    const uploadDate = v.createdAt ? new Date(v.createdAt).toISOString().slice(0, 10) : (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-    return JSON.stringify({
-      "@type": "VideoObject",
-      "name": vTitle,
-      "description": (shop.description || vTitle).slice(0, 300),
-      "thumbnailUrl": thumb,
-      "uploadDate": uploadDate,
-      "contentUrl": vUrl,
-      "embedUrl": `${base}/video/${v.id}`,
-      "publisher": { "@type": "Organization", "name": "Seoul Beauty Trip", "url": base },
-      "inLanguage": "en"
-    });
-  }).join(",") : ""}
+      const vUrl = v.videoUrl || "";
+      const thumb = v.thumbnail || shop.thumbnail || "";
+      const vTitle = v.title && !/^[a-zA-Z0-9_.~-]{8,}$/.test(v.title) ? v.title : shop.name + " \u2014 Seoul Beauty";
+      const uploadDate = v.createdAt ? new Date(v.createdAt).toISOString().slice(0, 10) : (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+      return JSON.stringify({
+        "@type": "VideoObject",
+        "name": vTitle,
+        "description": (shop.description || vTitle).slice(0, 300),
+        "thumbnailUrl": thumb,
+        "uploadDate": uploadDate,
+        "contentUrl": vUrl,
+        "embedUrl": `${base}/video/${v.id}`,
+        "publisher": { "@type": "Organization", "name": "Seoul Beauty Trip", "url": base },
+        "inLanguage": "en"
+      });
+    }).join(",") : ""}
   ]
 }
 </script>
@@ -6347,239 +6348,239 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 </div>
 
 ${(() => {
-    const allP = [shop.thumbnail, ...(shop.photos || []).filter((p) => p && p !== shop.thumbnail)];
-    if (allP.length < 2) return "";
-    const _catAltMap = {
-      clinic: ["skin booster treatment room", "laser toning procedure at clinic", "RF lifting facial treatment", "dermatology consultation room", "skin analysis & treatment area", "micro-needling procedure", "Shurink HIFU lifting session", "reception & waiting lounge"],
-      hair: ["hair coloring & bleaching station", "Korean perm treatment styling", "hair cut & styling chair", "scalp treatment & hair care", "balayage color highlight session", "hair styling result showcase", "hair wash & conditioning area", "consultation & color mixing zone"],
-      headspa: ["18-step Korean head spa treatment", "scalp massage & oil treatment", "head spa relaxation room", "hair & scalp analysis station", "deep cleansing scalp scrub", "hair mask & steam treatment", "premium scalp care station", "head spa treatment setup"],
-      skincare: ["Korean facial treatment room", "hydrating skin care session", "glass skin facial treatment", "pore cleansing & exfoliation", "LED light therapy session", "oxygen facial treatment room", "Korean skincare consultation", "moisturizing mask & treatment"],
-      makeup: ["Korean makeup studio & transformation", "K-beauty makeup application", "color analysis consultation room", "bridal & special occasion makeup", "contouring & highlighting session", "K-pop inspired makeup look", "makeup tools & product display", "before-after Korean makeup result"],
-      tattoo: ["eyebrow microblading procedure", "semi-permanent eyebrow tattoo", "brow design & mapping session", "eyebrow tattoo healing result", "nano-brow treatment close-up", "eyebrow shape consultation", "lip tint semi-permanent treatment", "eyeliner tattoo procedure"],
-      spa: ["luxury spa treatment room", "body massage & relaxation", "aromatherapy spa session", "hot stone massage therapy", "deep tissue body treatment", "spa lounge & ambiance", "foot spa & reflexology", "premium body wrap treatment"]
-    };
-    const _altL = _catAltMap[shop.category] || ["interior and atmosphere", "treatment room", "service area for foreigners", "professional staff and setup", "entrance and reception", "treatment in progress", "relaxing ambiance", "reception and booking area"];
-    const thumbs = allP.map((url, i) => {
-      const _cls = "sp-gthumb" + (i === 0 ? " active" : "");
-      const _lbl = _altL[i] || _altL[i % _altL.length] || "beauty treatment";
-      const _alt = shop.name + " \u2014 " + _lbl + " | " + _catLabel + " in " + _areaFinal + ", Seoul (foreigner-friendly)";
-      return '<div class="' + _cls + `" onclick="setHero('` + url + `',this)"><img src="` + url + '" alt="' + _alt + '" loading="lazy" width="120" height="160"></div>';
-    }).join("");
-    return '<div class="sp-gallery">' + thumbs + "</div>";
-  })()}
+      const allP = [shop.thumbnail, ...(shop.photos || []).filter((p) => p && p !== shop.thumbnail)];
+      if (allP.length < 2) return "";
+      const _catAltMap = {
+        clinic: ["skin booster treatment room", "laser toning procedure at clinic", "RF lifting facial treatment", "dermatology consultation room", "skin analysis & treatment area", "micro-needling procedure", "Shurink HIFU lifting session", "reception & waiting lounge"],
+        hair: ["hair coloring & bleaching station", "Korean perm treatment styling", "hair cut & styling chair", "scalp treatment & hair care", "balayage color highlight session", "hair styling result showcase", "hair wash & conditioning area", "consultation & color mixing zone"],
+        headspa: ["18-step Korean head spa treatment", "scalp massage & oil treatment", "head spa relaxation room", "hair & scalp analysis station", "deep cleansing scalp scrub", "hair mask & steam treatment", "premium scalp care station", "head spa treatment setup"],
+        skincare: ["Korean facial treatment room", "hydrating skin care session", "glass skin facial treatment", "pore cleansing & exfoliation", "LED light therapy session", "oxygen facial treatment room", "Korean skincare consultation", "moisturizing mask & treatment"],
+        makeup: ["Korean makeup studio & transformation", "K-beauty makeup application", "color analysis consultation room", "bridal & special occasion makeup", "contouring & highlighting session", "K-pop inspired makeup look", "makeup tools & product display", "before-after Korean makeup result"],
+        tattoo: ["eyebrow microblading procedure", "semi-permanent eyebrow tattoo", "brow design & mapping session", "eyebrow tattoo healing result", "nano-brow treatment close-up", "eyebrow shape consultation", "lip tint semi-permanent treatment", "eyeliner tattoo procedure"],
+        spa: ["luxury spa treatment room", "body massage & relaxation", "aromatherapy spa session", "hot stone massage therapy", "deep tissue body treatment", "spa lounge & ambiance", "foot spa & reflexology", "premium body wrap treatment"]
+      };
+      const _altL = _catAltMap[shop.category] || ["interior and atmosphere", "treatment room", "service area for foreigners", "professional staff and setup", "entrance and reception", "treatment in progress", "relaxing ambiance", "reception and booking area"];
+      const thumbs = allP.map((url, i) => {
+        const _cls = "sp-gthumb" + (i === 0 ? " active" : "");
+        const _lbl = _altL[i] || _altL[i % _altL.length] || "beauty treatment";
+        const _alt = shop.name + " \u2014 " + _lbl + " | " + _catLabel + " in " + _areaFinal + ", Seoul (foreigner-friendly)";
+        return '<div class="' + _cls + `" onclick="setHero('` + url + `',this)"><img src="` + url + '" alt="' + _alt + '" loading="lazy" width="120" height="160"></div>';
+      }).join("");
+      return '<div class="sp-gallery">' + thumbs + "</div>";
+    })()}
 
 <div class="sp-wrap">
 
   ${(() => {
-    const addrHtml2 = shop.address ? `<div class="sp-addr-row"><i class="fas fa-location-dot"></i><span itemprop="address">${shop.address}</span></div>` : "";
-    let infoCards2 = "";
-    const locArea2 = shop.location ? shop.location.split(",")[0].trim() : "";
-    if (locArea2) infoCards2 += `<div class="sp-ig-card"><div class="sp-ig-label">Area</div><div class="sp-ig-val"><i class="fas fa-map-marker-alt"></i>${locArea2}</div></div>`;
-    if (shop.reviewCount && shop.reviewCount > 0) {
-      const starsHtml2 = "\u2605".repeat(Math.min(5, Math.round(Number(shop.rating || 5)))) + "\u2606".repeat(Math.max(0, 5 - Math.round(Number(shop.rating || 5))));
-      infoCards2 += `<div class="sp-ig-card"><div class="sp-ig-label">Rating</div><div class="sp-ig-val"><span class="sp-ig-stars">${starsHtml2}</span>&nbsp;${shop.rating}</div></div>`;
-    }
-    const infoGridHtml2 = infoCards2 ? `<div class="sp-info-grid">${infoCards2}</div>` : "";
-    const descHtml2 = shop.description ? (() => {
-      const _rating2 = shop.rating ? Number(shop.rating).toFixed(1) : "";
-      const _reviews2 = shop.reviewCount ? Number(shop.reviewCount).toLocaleString() : "";
-      const _tags = [];
-      _tags.push(`<span class="sp-about-tag tag-en"><i class="fas fa-comments" style="margin-right:3px"></i>English OK</span>`);
-      _tags.push(`<span class="sp-about-tag tag-intl"><i class="fas fa-globe" style="margin-right:3px"></i>Foreigner Friendly</span>`);
-      if (_rating2) _tags.push(`<span class="sp-about-tag tag-trust"><i class="fas fa-star" style="margin-right:3px"></i>${_rating2}\u2605${_reviews2 ? " \xB7 " + _reviews2 + " reviews" : ""}</span>`);
-      return `<div class="sp-about-box"><div class="sp-about-head"><div class="sp-about-icon"><i class="fas fa-store"></i></div><div class="sp-about-title">About</div></div><div class="sp-about-text" itemprop="description">${shop.description}</div><div class="sp-about-tags">${_tags.join("")}</div></div>`;
-    })() : "";
-    const editorNoteVal = (shop.editor_note || shop.editorNote || "").trim();
-    const editorNoteHtml2 = editorNoteVal ? `<div class="sp-editor-note"><div class="sp-editor-note-head"><i class="fas fa-pen-nib"></i><span>Editor's Note</span><span class="sp-editor-verified"><i class="fas fa-circle-check"></i> Verified by Seoul Beauty Trip</span></div><p class="sp-editor-note-text">${editorNoteVal}</p></div>` : "";
-    let hoursHtml2 = "";
-    if (shop.hours) {
-      const days2 = shop.hours.split(/\s*[|]\s*|\s*\/\s*/).map((s) => s.trim()).filter(Boolean);
-      const dayNames2 = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-      const today2 = (/* @__PURE__ */ new Date()).getDay();
-      if (days2.length > 1) {
-        const rows2 = days2.map((line) => {
-          const col2 = line.indexOf(":");
-          const dayP = col2 > -1 ? line.slice(0, col2).trim() : line;
-          const timeP = col2 > -1 ? line.slice(col2 + 1).trim() : "";
-          const isToday2 = dayNames2[today2] && dayP.toLowerCase().startsWith(dayNames2[today2].toLowerCase());
-          const isClosed2 = timeP.toLowerCase().includes("closed");
-          return `<tr class="${isToday2 ? "sp-hours-today" : ""}"><td class="sp-hours-day">${dayP.slice(0, 3).toUpperCase()}</td><td class="sp-hours-time${isClosed2 ? " closed" : ""}">${timeP || "Closed"}</td></tr>`;
-        }).join("");
-        hoursHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-clock" style="color:var(--gold);margin-right:4px"></i>Hours</div><div class="sp-hours-wrap"><table class="sp-hours-table">${rows2}</table></div></div>`;
-      } else {
-        hoursHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-clock" style="color:var(--gold);margin-right:4px"></i>Hours</div><div class="sp-sec-body" itemprop="openingHours">${shop.hours}</div></div>`;
+      const addrHtml2 = shop.address ? `<div class="sp-addr-row"><i class="fas fa-location-dot"></i><span itemprop="address">${shop.address}</span></div>` : "";
+      let infoCards2 = "";
+      const locArea2 = shop.location ? shop.location.split(",")[0].trim() : "";
+      if (locArea2) infoCards2 += `<div class="sp-ig-card"><div class="sp-ig-label">Area</div><div class="sp-ig-val"><i class="fas fa-map-marker-alt"></i>${locArea2}</div></div>`;
+      if (shop.reviewCount && shop.reviewCount > 0) {
+        const starsHtml2 = "\u2605".repeat(Math.min(5, Math.round(Number(shop.rating || 5)))) + "\u2606".repeat(Math.max(0, 5 - Math.round(Number(shop.rating || 5))));
+        infoCards2 += `<div class="sp-ig-card"><div class="sp-ig-label">Rating</div><div class="sp-ig-val"><span class="sp-ig-stars">${starsHtml2}</span>&nbsp;${shop.rating}</div></div>`;
       }
-    }
-    let priceHtml2 = "";
-    if (shop.servicePrices && shop.servicePrices.length > 0) {
-      const rows3 = shop.servicePrices.map((p) => `<div class="sp-price-item"><span class="sp-price-name">${p.name}</span><span class="sp-price-val" itemprop="priceRange">${p.price}</span></div>`).join("");
-      priceHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-won-sign" style="color:var(--gold);margin-right:4px"></i>Price List</div><div class="sp-price-list">${rows3}</div></div>`;
-    } else {
-      priceHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-won-sign" style="color:var(--gold);margin-right:4px"></i>Pricing</div><div class="sp-sec-body">Prices vary by treatment &amp; consultation. <span style="color:rgba(255,255,255,.35)">Contact us via WhatsApp below for a free quote.</span></div></div>`;
-    }
-    const svcHtml2 = shop.services && shop.services.length > 0 ? (() => {
-      const svcIcoMap = { clinic: "fa-syringe", headspa: "fa-spa", hair: "fa-scissors", tattoo: "fa-pen-nib", makeup: "fa-wand-magic-sparkles", skincare: "fa-droplet", dental: "fa-tooth", plastic_surgery: "fa-star-of-life" };
-      const svcIco = svcIcoMap[shop.category] || "fa-sparkles";
-      const tags = shop.services.map((s) => `<span class="sp-svc-tag"><i class="fas ${svcIco}"></i>${s}</span>`).join("");
-      return `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-list-check" style="color:var(--gold);margin-right:5px"></i>Services</div><div class="sp-svc-tags">${tags}</div></div>`;
-    })() : "";
-    const mapHtml2 = (() => {
-      if (!shop.lat || !shop.lng) return shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : "";
-      const mlat2 = parseFloat(shop.lat), mlng2 = parseFloat(shop.lng), z = 16;
-      const tx = Math.floor((mlng2 + 180) / 360 * Math.pow(2, z)), ty = Math.floor((1 - Math.log(Math.tan(mlat2 * Math.PI / 180) + 1 / Math.cos(mlat2 * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, z));
-      const t1 = `https://tile.openstreetmap.org/${z}/${tx}/${ty}.png`, t2 = `https://tile.openstreetmap.org/${z}/${tx + 1}/${ty}.png`;
-      const gLink = `https://maps.google.com/?q=${mlat2},${mlng2}&hl=en`;
-      return `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map" style="cursor:pointer;overflow:hidden;position:relative" data-map-url="${gLink}" onclick="openMapUrl(this)"><div style="display:flex;height:100%;filter:saturate(0.8) brightness(0.75)"><img src="${t1}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"><img src="${t2}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"></div><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none"><i class="fas fa-map-marker-alt" style="font-size:32px;color:#e8414a;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6))"></i></div>${shop.address || shop.location ? `<div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);backdrop-filter:blur(4px);color:#fff;font-size:11px;padding:4px 10px;border-radius:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:88%;pointer-events:none"><i class="fas fa-map-marker-alt" style="margin-right:4px;color:#FF4D8D"></i>${(shop.address || shop.location).trim()}</div>` : ""}</div></div>`;
-    })();
-    return addrHtml2 + infoGridHtml2 + descHtml2 + editorNoteHtml2 + priceHtml2 + svcHtml2 + hoursHtml2;
-  })()}
-
-  ${(() => {
-    const shopReviews2 = shop.reviews || [];
-    if (!shopReviews2.length) return "";
-    const reviewCards2 = shopReviews2.map((rv) => {
-      const rvR = Number(rv.rating) || 5;
-      const rvStars = "\u2605".repeat(Math.min(5, Math.max(0, rvR))) + "\u2606".repeat(Math.max(0, 5 - rvR));
-      return `<div class="sp-review-card"><div class="sp-review-top"><span class="sp-review-author">${rv.author || rv.author_name || "Guest"}</span><span class="sp-review-stars">${rvStars}</span></div><div class="sp-review-text">${rv.text || ""}</div>${rv.time ? `<div class="sp-review-time">${rv.time}</div>` : ""}</div>`;
-    }).join("");
-    const mapHtml3 = (() => {
-      if (!shop.lat || !shop.lng) return shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : "";
-      const mlat3 = parseFloat(shop.lat), mlng3 = parseFloat(shop.lng), z = 16;
-      const tx = Math.floor((mlng3 + 180) / 360 * Math.pow(2, z)), ty = Math.floor((1 - Math.log(Math.tan(mlat3 * Math.PI / 180) + 1 / Math.cos(mlat3 * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, z));
-      const t1 = `https://tile.openstreetmap.org/${z}/${tx}/${ty}.png`, t2 = `https://tile.openstreetmap.org/${z}/${tx + 1}/${ty}.png`;
-      const gLink = `https://maps.google.com/?q=${mlat3},${mlng3}&hl=en`;
-      return `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map" style="cursor:pointer;overflow:hidden;position:relative" data-map-url="${gLink}" onclick="openMapUrl(this)"><div style="display:flex;height:100%;filter:saturate(0.8) brightness(0.75)"><img src="${t1}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"><img src="${t2}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"></div><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none"><i class="fas fa-map-marker-alt" style="font-size:32px;color:#e8414a;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6))"></i></div>${shop.address || shop.location ? `<div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);backdrop-filter:blur(4px);color:#fff;font-size:11px;padding:4px 10px;border-radius:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:88%;pointer-events:none"><i class="fas fa-map-marker-alt" style="margin-right:4px;color:#FF4D8D"></i>${(shop.address || shop.location).trim()}</div>` : ""}</div></div>`;
-    })();
-    const avatarColors = ["#e8414a", "#e87b41", "#c9a84c", "#41a8e8", "#7b41e8", "#41e87b", "#e841c9", "#41e8c9"];
-    const reviewCardsEnhanced = shopReviews2.map((rv, ri) => {
-      const rvR = Math.min(5, Math.max(1, Number(rv.rating) || 5));
-      const rvStars = "\u2605".repeat(rvR) + (rvR < 5 ? "\u2606".repeat(5 - rvR) : "");
-      const initials = (rv.author || rv.author_name || "G").trim().split(" ").map((w) => w[0] || "").slice(0, 2).join("").toUpperCase() || "G";
-      const avColor = avatarColors[ri % avatarColors.length];
-      const hiddenClass = ri >= 3 ? " sp-rv-hidden" : "";
-      return `<div class="sp-review-card${hiddenClass}"><div class="sp-review-avatar" style="background:${avColor}">${initials}</div><div class="sp-review-body"><div class="sp-review-top"><span class="sp-review-author">${rv.author || rv.author_name || "Guest"}</span><span class="sp-review-stars">${rvStars}</span></div><div class="sp-review-text">${rv.text || ""}</div>` + (rv.relative_time || rv.time ? `<div class="sp-review-time">${rv.relative_time || (typeof rv.time === "number" ? new Date(rv.time * 1e3).toLocaleDateString("en-US", { year: "numeric", month: "short" }) : rv.time) || ""}</div>` : "") + `</div></div>`;
-    }).join("");
-    const hasMore2 = shopReviews2.length > 3;
-    const bigRating = Number(shop.rating || 0).toFixed(1);
-    const totalCnt = shop.reviewCount ? Number(shop.reviewCount).toLocaleString() : "";
-    const starFull = `<svg viewBox="0 0 24 24" fill="#fbbf24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`;
-    const ratingNum = parseFloat(String(shop.rating || 0));
-    let starsBarHtml = "";
-    for (let si = 0; si < 5; si++) {
-      const fill = Math.max(0, Math.min(1, ratingNum - si));
-      if (fill >= 1) starsBarHtml += `<span class="sp-reviews-star">${starFull}</span>`;
-      else if (fill > 0) starsBarHtml += `<span class="sp-reviews-star"><svg viewBox="0 0 24 24"><defs><linearGradient id="sg${si}"><stop offset="${Math.round(fill * 100)}%" stop-color="#fbbf24"/><stop offset="${Math.round(fill * 100)}%" stop-color="rgba(255,255,255,.18)"/></linearGradient></defs><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="url(#sg${si})"/></svg></span>`;
-      else starsBarHtml += `<span class="sp-reviews-star"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="rgba(255,255,255,.18)"/></svg></span>`;
-    }
-    const rs = shop.reviewSummary;
-    const summaryHtml = rs ? typeof rs === "string" ? `<div class="sp-rv-summary"><div class="sp-rv-summary-vibe">${rs}</div></div>` : `<div class="sp-rv-summary">` + (rs.vibe ? `<div class="sp-rv-summary-vibe">${rs.vibe}</div>` : "") + `<div class="sp-rv-summary-row">` + (rs.strengths?.length ? `<div class="sp-rv-summary-col"><div class="sp-rv-summary-label">What customers love</div><div class="sp-rv-summary-strengths">` + rs.strengths.map((s) => `<div class="sp-rv-summary-strength">${s}</div>`).join("") + `</div></div>` : "") + (rs.bestFor ? `<div class="sp-rv-summary-col" style="margin-top:12px"><div class="sp-rv-summary-label">Best for</div><div class="sp-rv-summary-bestfor">\u{1F464} ${rs.bestFor}</div></div>` : "") + `</div></div>` : "";
-    const reviewsBlock = shopReviews2.length ? `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-star" style="color:var(--gold);margin-right:4px"></i>Google Reviews</div>` + (bigRating !== "0.0" ? `<div class="sp-reviews-header"><div class="sp-reviews-score"><div class="sp-reviews-big-num">${bigRating}</div><div class="sp-reviews-score-right"><div class="sp-reviews-stars-row">${starsBarHtml}</div>` + (totalCnt ? `<div class="sp-reviews-total">${totalCnt} Google reviews</div>` : "") + `</div></div></div>` : "") + summaryHtml + `<div class="sp-reviews-wrap">` + reviewCardsEnhanced + (hasMore2 ? `<button class="sp-reviews-toggle" onclick="spToggleReviews(this)"><i class="fas fa-chevron-down"></i> Show all ${shopReviews2.length} reviews</button>` : "") + `</div></div>` : "";
-    return reviewsBlock + mapHtml3;
-  })()}
-
-  ${(() => {
-    if (!shopVideos.length) return "";
-    const cardsHtml = shopVideos.map((v, vi) => {
-      const thumb = v.thumbnail || "";
-      const vidUrl = v.videoUrl || "";
-      let displayTitle = (v.title || "").trim();
-      if (!displayTitle || displayTitle === shop.name || /^[a-zA-Z0-9_.~-]{8,}$/.test(displayTitle)) displayTitle = shop.name;
-      const instUrl = v.instagramUrl || "";
-      return '<div class="sp-vid-card" data-vid-url="' + vidUrl + '" data-vid-thumb="' + thumb + '" data-vid-instagram="' + instUrl + '" onclick="playSpVid(' + vi + ')">' + (vidUrl ? '<video class="sp-vid-inline" data-src="' + vidUrl + '" poster="' + thumb + '" loop muted playsinline preload="metadata" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px;display:block"></video>' : "") + (thumb ? '<img class="sp-vid-poster" src="' + thumb + '" alt="' + displayTitle + '" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px;transition:opacity .4s">' : '<div class="sp-vid-poster" style="position:absolute;inset:0;background:#111;border-radius:14px"></div>') + '<div class="sp-play-ic"><i class="fas fa-play" style="font-size:14px;color:#fff;margin-left:2px"></i></div><div class="sp-vid-card-ov"><div class="sp-vid-card-title">' + displayTitle + "</div></div></div>";
-    }).join("");
-    const gridClass = shopVideos.length === 1 ? "sp-vid-grid single-vid" : "sp-vid-grid";
-    return '<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-play-circle" style="color:var(--pk);margin-right:4px"></i>Videos <span style="font-size:10px;color:rgba(255,255,255,.3);font-weight:400;letter-spacing:0">(' + shopVideos.length + ')</span></div><div class="' + gridClass + '">' + cardsHtml + "</div></div>";
-  })()}
-
-  ${(() => {
-    const wc = shop.whyChoose || [];
-    if (!wc.length) return "";
-    const wcIcons = ["fa-star", "fa-shield-halved", "fa-language", "fa-calendar-check", "fa-syringe", "fa-award", "fa-heart", "fa-clock"];
-    const items = wc.map((b, bi) => {
-      const ico = wcIcons[bi % wcIcons.length];
-      return `<div class="sp-why-item"><i class="fas ${ico} sp-why-icon"></i><span class="sp-why-text">${b}</span></div>`;
-    }).join("");
-    return `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-trophy" style="color:var(--gold);margin-right:5px"></i>Why Choose ${shop.name}</div><div class="sp-why-list">${items}</div></div>`;
-  })()}
-
-  ${(() => {
-    if (shop.seoText && shop.seoText.trim()) {
-      let cleanSeo = shop.seoText.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ").replace(/&mdash;/g, "\u2014").replace(/&ndash;/g, "\u2013").replace(/&hellip;/g, "\u2026");
-      cleanSeo = cleanSeo.replace(/[^<]*offers a comprehensive range of[^<]*<\/p>/g, "</p>").replace(/<p[^>]*>\s*<\/p>/g, "");
-      cleanSeo = cleanSeo.replace(/<h2[^>]*>Why (?:Foreigners |Travelers )?Choose [^<]*<\/h2>\s*<p[^>]*>[^<]*<\/p>/g, "");
-      if (!cleanSeo.includes("<h2")) {
-        const _area = (shop.location || "Seoul").split(",")[0].trim();
-        const _cat = shop.category.charAt(0).toUpperCase() + shop.category.slice(1);
-        const _areaLabel = _area.toLowerCase().includes("cheongdam") || _area.toLowerCase().includes("apgujeong") ? "Gangnam" : _area;
-        const _catLabel2 = { skincare: "Skincare", makeup: "Makeup", hair: "Hair Salon", clinic: "Dermatology Clinic", headspa: "Head Spa", spa: "Spa", tattoo: "Eyebrow Tattoo" };
-        const _catName = _catLabel2[shop.category] || _cat;
-        const _paras = cleanSeo.match(/<p[^>]*>[\s\S]*?<\/p>/g) || [];
-        const _h2titles = [
-          shop.name + " \u2014 " + _catName + " in " + _areaLabel + ", Seoul",
-          "Foreigner-Friendly " + _catName + " in " + _areaLabel,
-          "How to Book " + shop.name + " for Foreign Visitors"
-        ];
-        if (_paras.length >= 2) {
-          cleanSeo = _paras.map(function(p, i) {
-            return '<h2 class="sp-seo-h2">' + (_h2titles[i] || shop.name + " \u2014 " + _catName) + "</h2>" + p;
+      const infoGridHtml2 = infoCards2 ? `<div class="sp-info-grid">${infoCards2}</div>` : "";
+      const descHtml2 = shop.description ? (() => {
+        const _rating2 = shop.rating ? Number(shop.rating).toFixed(1) : "";
+        const _reviews2 = shop.reviewCount ? Number(shop.reviewCount).toLocaleString() : "";
+        const _tags = [];
+        _tags.push(`<span class="sp-about-tag tag-en"><i class="fas fa-comments" style="margin-right:3px"></i>English OK</span>`);
+        _tags.push(`<span class="sp-about-tag tag-intl"><i class="fas fa-globe" style="margin-right:3px"></i>Foreigner Friendly</span>`);
+        if (_rating2) _tags.push(`<span class="sp-about-tag tag-trust"><i class="fas fa-star" style="margin-right:3px"></i>${_rating2}\u2605${_reviews2 ? " \xB7 " + _reviews2 + " reviews" : ""}</span>`);
+        return `<div class="sp-about-box"><div class="sp-about-head"><div class="sp-about-icon"><i class="fas fa-store"></i></div><div class="sp-about-title">About</div></div><div class="sp-about-text" itemprop="description">${shop.description}</div><div class="sp-about-tags">${_tags.join("")}</div></div>`;
+      })() : "";
+      const editorNoteVal = (shop.editor_note || shop.editorNote || "").trim();
+      const editorNoteHtml2 = editorNoteVal ? `<div class="sp-editor-note"><div class="sp-editor-note-head"><i class="fas fa-pen-nib"></i><span>Editor's Note</span><span class="sp-editor-verified"><i class="fas fa-circle-check"></i> Verified by Seoul Beauty Trip</span></div><p class="sp-editor-note-text">${editorNoteVal}</p></div>` : "";
+      let hoursHtml2 = "";
+      if (shop.hours) {
+        const days2 = shop.hours.split(/\s*[|]\s*|\s*\/\s*/).map((s) => s.trim()).filter(Boolean);
+        const dayNames2 = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        const today2 = (/* @__PURE__ */ new Date()).getDay();
+        if (days2.length > 1) {
+          const rows2 = days2.map((line) => {
+            const col2 = line.indexOf(":");
+            const dayP = col2 > -1 ? line.slice(0, col2).trim() : line;
+            const timeP = col2 > -1 ? line.slice(col2 + 1).trim() : "";
+            const isToday2 = dayNames2[today2] && dayP.toLowerCase().startsWith(dayNames2[today2].toLowerCase());
+            const isClosed2 = timeP.toLowerCase().includes("closed");
+            return `<tr class="${isToday2 ? "sp-hours-today" : ""}"><td class="sp-hours-day">${dayP.slice(0, 3).toUpperCase()}</td><td class="sp-hours-time${isClosed2 ? " closed" : ""}">${timeP || "Closed"}</td></tr>`;
           }).join("");
+          hoursHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-clock" style="color:var(--gold);margin-right:4px"></i>Hours</div><div class="sp-hours-wrap"><table class="sp-hours-table">${rows2}</table></div></div>`;
         } else {
-          cleanSeo = '<h2 class="sp-seo-h2">' + _h2titles[0] + "</h2>" + cleanSeo;
+          hoursHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-clock" style="color:var(--gold);margin-right:4px"></i>Hours</div><div class="sp-sec-body" itemprop="openingHours">${shop.hours}</div></div>`;
         }
       }
-      const _howIdx = cleanSeo.indexOf("How to Book");
-      if (_howIdx > 0) {
-        const _h2start = cleanSeo.lastIndexOf("<h2", _howIdx);
-        if (_h2start >= 0) {
-          const _nextH2 = cleanSeo.indexOf("<h2", _h2start + 4);
-          cleanSeo = cleanSeo.slice(0, _h2start) + (_nextH2 > 0 ? cleanSeo.slice(_nextH2) : "");
-        }
+      let priceHtml2 = "";
+      if (shop.servicePrices && shop.servicePrices.length > 0) {
+        const rows3 = shop.servicePrices.map((p) => `<div class="sp-price-item"><span class="sp-price-name">${p.name}</span><span class="sp-price-val" itemprop="priceRange">${p.price}</span></div>`).join("");
+        priceHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-won-sign" style="color:var(--gold);margin-right:4px"></i>Price List</div><div class="sp-price-list">${rows3}</div></div>`;
+      } else {
+        priceHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-won-sign" style="color:var(--gold);margin-right:4px"></i>Pricing</div><div class="sp-sec-body">Prices vary by treatment &amp; consultation. <span style="color:rgba(255,255,255,.35)">Contact us via WhatsApp below for a free quote.</span></div></div>`;
       }
-      const _seoHead = '<div class="sp-seo-block-head"><i class="fas fa-magnifying-glass"></i><span>Travel Guide</span></div>';
-      return '<div class="sp-seo-block">' + _seoHead + cleanSeo + "</div>";
-    }
-    const area3 = (shop.location || "Seoul").split(",")[0].trim();
-    const cat3 = { clinic: "Skin Clinic", headspa: "Head Spa", hair: "Hair Salon", skincare: "Skincare", makeup: "Makeup", tattoo: "Eyebrow Tattoo", spa: "Spa", nail: "Nail Studio", dental: "Dental Clinic" }[shop.category] || shop.category.charAt(0).toUpperCase() + shop.category.slice(1);
-    const svcList = shop.services && shop.services.length > 0 ? shop.services.slice(0, 4).join(", ") : cat3 + " treatments";
-    const areaGn = ["cheongdam", "apgujeong", "sinsa", "nonhyeon"].some((a) => area3.toLowerCase().includes(a)) ? "Gangnam" : area3;
-    const revTxt = shop.reviewCount > 10 ? " With " + shop.reviewCount + "+ verified reviews and a " + shop.rating + "-star rating, it" : " It";
-    const _fbClinicType = (() => {
-      const nm = (shop.name || "").toLowerCase();
-      if (nm.includes("plastic surgery")) return "plastic surgery clinic";
-      if (nm.includes("aesthetic")) return "aesthetic clinic";
-      if (nm.includes("dental") || nm.includes("dentist")) return "dental clinic";
-      if (nm.includes("dermatology") || nm.includes("derma")) return "dermatology clinic";
-      return "skin clinic";
-    })();
-    const _fbClinicTypeTitle = _fbClinicType.replace(/\b\w/g, (c2) => c2.toUpperCase());
-    const _svc0 = shop.services && shop.services.length > 0 ? shop.services[0] : "";
-    const _svc1b = shop.services && shop.services.length > 1 ? shop.services[1] : "";
-    const _introVariants = [
-      shop.name + " is a foreigner-friendly " + _fbClinicType + " in " + area3 + ", Seoul." + revTxt + " is highly recommended by international visitors for its English-speaking staff and transparent pricing.",
-      "Located in the heart of " + areaGn + ", " + shop.name + " is one of Seoul's most accessible " + _fbClinicType + "s for foreign patients. " + (_svc0 ? "Specializing in " + _svc0 + (_svc1b ? " and " + _svc1b : "") + ", the" : "The") + " clinic offers consultations in English and seamless WhatsApp booking.",
-      "International patients consistently praise " + shop.name + " for its professional care and English-friendly environment. Situated in " + area3 + ", this " + _fbClinicType + " makes quality Korean treatments accessible without the language barrier."
-    ];
-    const _introIdx = Math.abs(shop.name.charCodeAt(0) + shop.name.charCodeAt(1)) % 3;
-    const _introTxt = _introVariants[_introIdx];
-    const _fbHead = '<div class="sp-seo-block-head"><i class="fas fa-magnifying-glass"></i><span>Travel Guide</span></div>';
-    if (shop.category === "clinic") {
-      const treatments = shop.services && shop.services.length > 0 ? shop.services.slice(0, 6).join(", ") : "laser toning, skin booster injections, RF lifting, acne treatment, chemical peels";
-      return '<div class="sp-seo-block">' + _fbHead + '<h2 class="sp-seo-h2">' + shop.name + " \u2014 " + _fbClinicTypeTitle + " in " + areaGn + ' for Foreigners (2026)</h2><p class="sp-seo-p">' + _introTxt + '</p><h2 class="sp-seo-h2">Treatments at ' + shop.name + '</h2><p class="sp-seo-p">' + shop.name + " offers a range of treatments popular with foreign visitors: " + treatments + ". Korean clinics use KFDA-approved equipment, with results often 40\u201360% more affordable than equivalent treatments in the US, UK, or Australia.</p></div>";
-    }
-    return '<div class="sp-seo-block">' + _fbHead + '<h2 class="sp-seo-h2">' + shop.name + " \u2014 " + cat3 + " in " + area3 + ', Seoul</h2><p class="sp-seo-p">Looking for the best ' + shop.category + " experience in " + area3 + ", Seoul? " + shop.name + " welcomes foreign visitors with English-friendly service and easy WhatsApp booking." + revTxt + ' offers an authentic Korean beauty experience tailored for international guests.</p><h2 class="sp-seo-h2">Foreigner-Friendly ' + cat3 + " in " + area3 + '</h2><p class="sp-seo-p">Located in ' + area3 + ", one of the top beauty districts in Seoul, " + shop.name + " specializes in " + svcList + ". The team provides English support throughout your visit \u2014 from consultation to aftercare \u2014 so you can relax and enjoy your treatment without language barriers. Book easily via WhatsApp through Seoul Beauty Trip.</p></div>";
-  })()}
+      const svcHtml2 = shop.services && shop.services.length > 0 ? (() => {
+        const svcIcoMap = { clinic: "fa-syringe", headspa: "fa-spa", hair: "fa-scissors", tattoo: "fa-pen-nib", makeup: "fa-wand-magic-sparkles", skincare: "fa-droplet", dental: "fa-tooth", plastic_surgery: "fa-star-of-life" };
+        const svcIco = svcIcoMap[shop.category] || "fa-sparkles";
+        const tags = shop.services.map((s) => `<span class="sp-svc-tag"><i class="fas ${svcIco}"></i>${s}</span>`).join("");
+        return `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-list-check" style="color:var(--gold);margin-right:5px"></i>Services</div><div class="sp-svc-tags">${tags}</div></div>`;
+      })() : "";
+      const mapHtml2 = (() => {
+        if (!shop.lat || !shop.lng) return shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : "";
+        const mlat2 = parseFloat(shop.lat), mlng2 = parseFloat(shop.lng), z = 16;
+        const tx = Math.floor((mlng2 + 180) / 360 * Math.pow(2, z)), ty = Math.floor((1 - Math.log(Math.tan(mlat2 * Math.PI / 180) + 1 / Math.cos(mlat2 * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, z));
+        const t1 = `https://tile.openstreetmap.org/${z}/${tx}/${ty}.png`, t2 = `https://tile.openstreetmap.org/${z}/${tx + 1}/${ty}.png`;
+        const gLink = `https://maps.google.com/?q=${mlat2},${mlng2}&hl=en`;
+        return `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map" style="cursor:pointer;overflow:hidden;position:relative" data-map-url="${gLink}" onclick="openMapUrl(this)"><div style="display:flex;height:100%;filter:saturate(0.8) brightness(0.75)"><img src="${t1}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"><img src="${t2}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"></div><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none"><i class="fas fa-map-marker-alt" style="font-size:32px;color:#e8414a;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6))"></i></div>${shop.address || shop.location ? `<div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);backdrop-filter:blur(4px);color:#fff;font-size:11px;padding:4px 10px;border-radius:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:88%;pointer-events:none"><i class="fas fa-map-marker-alt" style="margin-right:4px;color:#FF4D8D"></i>${(shop.address || shop.location).trim()}</div>` : ""}</div></div>`;
+      })();
+      return addrHtml2 + infoGridHtml2 + descHtml2 + editorNoteHtml2 + priceHtml2 + svcHtml2 + hoursHtml2;
+    })()}
+
+  ${(() => {
+      const shopReviews2 = shop.reviews || [];
+      if (!shopReviews2.length) return "";
+      const reviewCards2 = shopReviews2.map((rv) => {
+        const rvR = Number(rv.rating) || 5;
+        const rvStars = "\u2605".repeat(Math.min(5, Math.max(0, rvR))) + "\u2606".repeat(Math.max(0, 5 - rvR));
+        return `<div class="sp-review-card"><div class="sp-review-top"><span class="sp-review-author">${rv.author || rv.author_name || "Guest"}</span><span class="sp-review-stars">${rvStars}</span></div><div class="sp-review-text">${rv.text || ""}</div>${rv.time ? `<div class="sp-review-time">${rv.time}</div>` : ""}</div>`;
+      }).join("");
+      const mapHtml3 = (() => {
+        if (!shop.lat || !shop.lng) return shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : "";
+        const mlat3 = parseFloat(shop.lat), mlng3 = parseFloat(shop.lng), z = 16;
+        const tx = Math.floor((mlng3 + 180) / 360 * Math.pow(2, z)), ty = Math.floor((1 - Math.log(Math.tan(mlat3 * Math.PI / 180) + 1 / Math.cos(mlat3 * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, z));
+        const t1 = `https://tile.openstreetmap.org/${z}/${tx}/${ty}.png`, t2 = `https://tile.openstreetmap.org/${z}/${tx + 1}/${ty}.png`;
+        const gLink = `https://maps.google.com/?q=${mlat3},${mlng3}&hl=en`;
+        return `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map" style="cursor:pointer;overflow:hidden;position:relative" data-map-url="${gLink}" onclick="openMapUrl(this)"><div style="display:flex;height:100%;filter:saturate(0.8) brightness(0.75)"><img src="${t1}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"><img src="${t2}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"></div><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none"><i class="fas fa-map-marker-alt" style="font-size:32px;color:#e8414a;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6))"></i></div>${shop.address || shop.location ? `<div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);backdrop-filter:blur(4px);color:#fff;font-size:11px;padding:4px 10px;border-radius:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:88%;pointer-events:none"><i class="fas fa-map-marker-alt" style="margin-right:4px;color:#FF4D8D"></i>${(shop.address || shop.location).trim()}</div>` : ""}</div></div>`;
+      })();
+      const avatarColors = ["#e8414a", "#e87b41", "#c9a84c", "#41a8e8", "#7b41e8", "#41e87b", "#e841c9", "#41e8c9"];
+      const reviewCardsEnhanced = shopReviews2.map((rv, ri) => {
+        const rvR = Math.min(5, Math.max(1, Number(rv.rating) || 5));
+        const rvStars = "\u2605".repeat(rvR) + (rvR < 5 ? "\u2606".repeat(5 - rvR) : "");
+        const initials = (rv.author || rv.author_name || "G").trim().split(" ").map((w) => w[0] || "").slice(0, 2).join("").toUpperCase() || "G";
+        const avColor = avatarColors[ri % avatarColors.length];
+        const hiddenClass = ri >= 3 ? " sp-rv-hidden" : "";
+        return `<div class="sp-review-card${hiddenClass}"><div class="sp-review-avatar" style="background:${avColor}">${initials}</div><div class="sp-review-body"><div class="sp-review-top"><span class="sp-review-author">${rv.author || rv.author_name || "Guest"}</span><span class="sp-review-stars">${rvStars}</span></div><div class="sp-review-text">${rv.text || ""}</div>` + (rv.relative_time || rv.time ? `<div class="sp-review-time">${rv.relative_time || (typeof rv.time === "number" ? new Date(rv.time * 1e3).toLocaleDateString("en-US", { year: "numeric", month: "short" }) : rv.time) || ""}</div>` : "") + `</div></div>`;
+      }).join("");
+      const hasMore2 = shopReviews2.length > 3;
+      const bigRating = Number(shop.rating || 0).toFixed(1);
+      const totalCnt = shop.reviewCount ? Number(shop.reviewCount).toLocaleString() : "";
+      const starFull = `<svg viewBox="0 0 24 24" fill="#fbbf24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`;
+      const ratingNum = parseFloat(String(shop.rating || 0));
+      let starsBarHtml = "";
+      for (let si = 0; si < 5; si++) {
+        const fill = Math.max(0, Math.min(1, ratingNum - si));
+        if (fill >= 1) starsBarHtml += `<span class="sp-reviews-star">${starFull}</span>`;
+        else if (fill > 0) starsBarHtml += `<span class="sp-reviews-star"><svg viewBox="0 0 24 24"><defs><linearGradient id="sg${si}"><stop offset="${Math.round(fill * 100)}%" stop-color="#fbbf24"/><stop offset="${Math.round(fill * 100)}%" stop-color="rgba(255,255,255,.18)"/></linearGradient></defs><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="url(#sg${si})"/></svg></span>`;
+        else starsBarHtml += `<span class="sp-reviews-star"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="rgba(255,255,255,.18)"/></svg></span>`;
+      }
+      const rs = shop.reviewSummary;
+      const summaryHtml = rs ? typeof rs === "string" ? `<div class="sp-rv-summary"><div class="sp-rv-summary-vibe">${rs}</div></div>` : `<div class="sp-rv-summary">` + (rs.vibe ? `<div class="sp-rv-summary-vibe">${rs.vibe}</div>` : "") + `<div class="sp-rv-summary-row">` + (rs.strengths?.length ? `<div class="sp-rv-summary-col"><div class="sp-rv-summary-label">What customers love</div><div class="sp-rv-summary-strengths">` + rs.strengths.map((s) => `<div class="sp-rv-summary-strength">${s}</div>`).join("") + `</div></div>` : "") + (rs.bestFor ? `<div class="sp-rv-summary-col" style="margin-top:12px"><div class="sp-rv-summary-label">Best for</div><div class="sp-rv-summary-bestfor">\u{1F464} ${rs.bestFor}</div></div>` : "") + `</div></div>` : "";
+      const reviewsBlock = shopReviews2.length ? `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-star" style="color:var(--gold);margin-right:4px"></i>Google Reviews</div>` + (bigRating !== "0.0" ? `<div class="sp-reviews-header"><div class="sp-reviews-score"><div class="sp-reviews-big-num">${bigRating}</div><div class="sp-reviews-score-right"><div class="sp-reviews-stars-row">${starsBarHtml}</div>` + (totalCnt ? `<div class="sp-reviews-total">${totalCnt} Google reviews</div>` : "") + `</div></div></div>` : "") + summaryHtml + `<div class="sp-reviews-wrap">` + reviewCardsEnhanced + (hasMore2 ? `<button class="sp-reviews-toggle" onclick="spToggleReviews(this)"><i class="fas fa-chevron-down"></i> Show all ${shopReviews2.length} reviews</button>` : "") + `</div></div>` : "";
+      return reviewsBlock + mapHtml3;
+    })()}
+
+  ${(() => {
+      if (!shopVideos.length) return "";
+      const cardsHtml = shopVideos.map((v, vi) => {
+        const thumb = v.thumbnail || "";
+        const vidUrl = v.videoUrl || "";
+        let displayTitle = (v.title || "").trim();
+        if (!displayTitle || displayTitle === shop.name || /^[a-zA-Z0-9_.~-]{8,}$/.test(displayTitle)) displayTitle = shop.name;
+        const instUrl = v.instagramUrl || "";
+        return '<div class="sp-vid-card" data-vid-url="' + vidUrl + '" data-vid-thumb="' + thumb + '" data-vid-instagram="' + instUrl + '" onclick="playSpVid(' + vi + ')">' + (vidUrl ? '<video class="sp-vid-inline" data-src="' + vidUrl + '" poster="' + thumb + '" loop muted playsinline preload="metadata" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px;display:block"></video>' : "") + (thumb ? '<img class="sp-vid-poster" src="' + thumb + '" alt="' + displayTitle + '" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px;transition:opacity .4s">' : '<div class="sp-vid-poster" style="position:absolute;inset:0;background:#111;border-radius:14px"></div>') + '<div class="sp-play-ic"><i class="fas fa-play" style="font-size:14px;color:#fff;margin-left:2px"></i></div><div class="sp-vid-card-ov"><div class="sp-vid-card-title">' + displayTitle + "</div></div></div>";
+      }).join("");
+      const gridClass = shopVideos.length === 1 ? "sp-vid-grid single-vid" : "sp-vid-grid";
+      return '<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-play-circle" style="color:var(--pk);margin-right:4px"></i>Videos <span style="font-size:10px;color:rgba(255,255,255,.3);font-weight:400;letter-spacing:0">(' + shopVideos.length + ')</span></div><div class="' + gridClass + '">' + cardsHtml + "</div></div>";
+    })()}
+
+  ${(() => {
+      const wc = shop.whyChoose || [];
+      if (!wc.length) return "";
+      const wcIcons = ["fa-star", "fa-shield-halved", "fa-language", "fa-calendar-check", "fa-syringe", "fa-award", "fa-heart", "fa-clock"];
+      const items = wc.map((b, bi) => {
+        const ico = wcIcons[bi % wcIcons.length];
+        return `<div class="sp-why-item"><i class="fas ${ico} sp-why-icon"></i><span class="sp-why-text">${b}</span></div>`;
+      }).join("");
+      return `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-trophy" style="color:var(--gold);margin-right:5px"></i>Why Choose ${shop.name}</div><div class="sp-why-list">${items}</div></div>`;
+    })()}
+
+  ${(() => {
+      if (shop.seoText && shop.seoText.trim()) {
+        let cleanSeo = shop.seoText.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ").replace(/&mdash;/g, "\u2014").replace(/&ndash;/g, "\u2013").replace(/&hellip;/g, "\u2026");
+        cleanSeo = cleanSeo.replace(/[^<]*offers a comprehensive range of[^<]*<\/p>/g, "</p>").replace(/<p[^>]*>\s*<\/p>/g, "");
+        cleanSeo = cleanSeo.replace(/<h2[^>]*>Why (?:Foreigners |Travelers )?Choose [^<]*<\/h2>\s*<p[^>]*>[^<]*<\/p>/g, "");
+        if (!cleanSeo.includes("<h2")) {
+          const _area = (shop.location || "Seoul").split(",")[0].trim();
+          const _cat = shop.category.charAt(0).toUpperCase() + shop.category.slice(1);
+          const _areaLabel = _area.toLowerCase().includes("cheongdam") || _area.toLowerCase().includes("apgujeong") ? "Gangnam" : _area;
+          const _catLabel2 = { skincare: "Skincare", makeup: "Makeup", hair: "Hair Salon", clinic: "Dermatology Clinic", headspa: "Head Spa", spa: "Spa", tattoo: "Eyebrow Tattoo" };
+          const _catName = _catLabel2[shop.category] || _cat;
+          const _paras = cleanSeo.match(/<p[^>]*>[\s\S]*?<\/p>/g) || [];
+          const _h2titles = [
+            shop.name + " \u2014 " + _catName + " in " + _areaLabel + ", Seoul",
+            "Foreigner-Friendly " + _catName + " in " + _areaLabel,
+            "How to Book " + shop.name + " for Foreign Visitors"
+          ];
+          if (_paras.length >= 2) {
+            cleanSeo = _paras.map(function(p, i) {
+              return '<h2 class="sp-seo-h2">' + (_h2titles[i] || shop.name + " \u2014 " + _catName) + "</h2>" + p;
+            }).join("");
+          } else {
+            cleanSeo = '<h2 class="sp-seo-h2">' + _h2titles[0] + "</h2>" + cleanSeo;
+          }
+        }
+        const _howIdx = cleanSeo.indexOf("How to Book");
+        if (_howIdx > 0) {
+          const _h2start = cleanSeo.lastIndexOf("<h2", _howIdx);
+          if (_h2start >= 0) {
+            const _nextH2 = cleanSeo.indexOf("<h2", _h2start + 4);
+            cleanSeo = cleanSeo.slice(0, _h2start) + (_nextH2 > 0 ? cleanSeo.slice(_nextH2) : "");
+          }
+        }
+        const _seoHead = '<div class="sp-seo-block-head"><i class="fas fa-magnifying-glass"></i><span>Travel Guide</span></div>';
+        return '<div class="sp-seo-block">' + _seoHead + cleanSeo + "</div>";
+      }
+      const area3 = (shop.location || "Seoul").split(",")[0].trim();
+      const cat3 = { clinic: "Skin Clinic", headspa: "Head Spa", hair: "Hair Salon", skincare: "Skincare", makeup: "Makeup", tattoo: "Eyebrow Tattoo", spa: "Spa", nail: "Nail Studio", dental: "Dental Clinic" }[shop.category] || shop.category.charAt(0).toUpperCase() + shop.category.slice(1);
+      const svcList = shop.services && shop.services.length > 0 ? shop.services.slice(0, 4).join(", ") : cat3 + " treatments";
+      const areaGn = ["cheongdam", "apgujeong", "sinsa", "nonhyeon"].some((a) => area3.toLowerCase().includes(a)) ? "Gangnam" : area3;
+      const revTxt = shop.reviewCount > 10 ? " With " + shop.reviewCount + "+ verified reviews and a " + shop.rating + "-star rating, it" : " It";
+      const _fbClinicType = (() => {
+        const nm = (shop.name || "").toLowerCase();
+        if (nm.includes("plastic surgery")) return "plastic surgery clinic";
+        if (nm.includes("aesthetic")) return "aesthetic clinic";
+        if (nm.includes("dental") || nm.includes("dentist")) return "dental clinic";
+        if (nm.includes("dermatology") || nm.includes("derma")) return "dermatology clinic";
+        return "skin clinic";
+      })();
+      const _fbClinicTypeTitle = _fbClinicType.replace(/\b\w/g, (c2) => c2.toUpperCase());
+      const _svc0 = shop.services && shop.services.length > 0 ? shop.services[0] : "";
+      const _svc1b = shop.services && shop.services.length > 1 ? shop.services[1] : "";
+      const _introVariants = [
+        shop.name + " is a foreigner-friendly " + _fbClinicType + " in " + area3 + ", Seoul." + revTxt + " is highly recommended by international visitors for its English-speaking staff and transparent pricing.",
+        "Located in the heart of " + areaGn + ", " + shop.name + " is one of Seoul's most accessible " + _fbClinicType + "s for foreign patients. " + (_svc0 ? "Specializing in " + _svc0 + (_svc1b ? " and " + _svc1b : "") + ", the" : "The") + " clinic offers consultations in English and seamless WhatsApp booking.",
+        "International patients consistently praise " + shop.name + " for its professional care and English-friendly environment. Situated in " + area3 + ", this " + _fbClinicType + " makes quality Korean treatments accessible without the language barrier."
+      ];
+      const _introIdx = Math.abs(shop.name.charCodeAt(0) + shop.name.charCodeAt(1)) % 3;
+      const _introTxt = _introVariants[_introIdx];
+      const _fbHead = '<div class="sp-seo-block-head"><i class="fas fa-magnifying-glass"></i><span>Travel Guide</span></div>';
+      if (shop.category === "clinic") {
+        const treatments = shop.services && shop.services.length > 0 ? shop.services.slice(0, 6).join(", ") : "laser toning, skin booster injections, RF lifting, acne treatment, chemical peels";
+        return '<div class="sp-seo-block">' + _fbHead + '<h2 class="sp-seo-h2">' + shop.name + " \u2014 " + _fbClinicTypeTitle + " in " + areaGn + ' for Foreigners (2026)</h2><p class="sp-seo-p">' + _introTxt + '</p><h2 class="sp-seo-h2">Treatments at ' + shop.name + '</h2><p class="sp-seo-p">' + shop.name + " offers a range of treatments popular with foreign visitors: " + treatments + ". Korean clinics use KFDA-approved equipment, with results often 40\u201360% more affordable than equivalent treatments in the US, UK, or Australia.</p></div>";
+      }
+      return '<div class="sp-seo-block">' + _fbHead + '<h2 class="sp-seo-h2">' + shop.name + " \u2014 " + cat3 + " in " + area3 + ', Seoul</h2><p class="sp-seo-p">Looking for the best ' + shop.category + " experience in " + area3 + ", Seoul? " + shop.name + " welcomes foreign visitors with English-friendly service and easy WhatsApp booking." + revTxt + ' offers an authentic Korean beauty experience tailored for international guests.</p><h2 class="sp-seo-h2">Foreigner-Friendly ' + cat3 + " in " + area3 + '</h2><p class="sp-seo-p">Located in ' + area3 + ", one of the top beauty districts in Seoul, " + shop.name + " specializes in " + svcList + ". The team provides English support throughout your visit \u2014 from consultation to aftercare \u2014 so you can relax and enjoy your treatment without language barriers. Book easily via WhatsApp through Seoul Beauty Trip.</p></div>";
+    })()}
 
   ${relatedShops.length > 0 ? `
   <div class="sp-related">
     <div class="sp-related-title"><i class="fas fa-th-large"></i> More ${shop.category.charAt(0).toUpperCase() + shop.category.slice(1)} in Seoul</div>
     <div class="sp-rel-grid">
       ${relatedShops.map((r) => {
-    const rArea = (r.location || "").split(",")[0].trim();
-    const rRating = r.rating ? `<span class="sp-rel-rating"><i class="fas fa-star" style="font-size:8px"></i>${Number(r.rating).toFixed(1)}</span>` : "";
-    const rThumb = r.thumbnail || "";
-    const rCatL = { clinic: "Clinic", hair: "Hair Salon", headspa: "Head Spa", skincare: "Skincare", makeup: "Makeup", spa: "Spa", tattoo: "Eyebrow Tattoo" };
-    const rCatLabel = rCatL[r.category] || r.category;
-    return `<a class="sp-rel-card" href="/shop/${r.slug}">
+      const rArea = (r.location || "").split(",")[0].trim();
+      const rRating = r.rating ? `<span class="sp-rel-rating"><i class="fas fa-star" style="font-size:8px"></i>${Number(r.rating).toFixed(1)}</span>` : "";
+      const rThumb = r.thumbnail || "";
+      const rCatL = { clinic: "Clinic", hair: "Hair Salon", headspa: "Head Spa", skincare: "Skincare", makeup: "Makeup", spa: "Spa", tattoo: "Eyebrow Tattoo" };
+      const rCatLabel = rCatL[r.category] || r.category;
+      return `<a class="sp-rel-card" href="/shop/${r.slug}">
           ${rThumb ? `<img class="sp-rel-thumb" src="${rThumb}" alt="${r.name} ${rCatLabel} ${rArea} Seoul" loading="lazy">` : `<div class="sp-rel-thumb" style="background:#111"></div>`}
           <div class="sp-rel-ov"></div>
           <div class="sp-rel-info">
@@ -6590,7 +6591,7 @@ ${(() => {
             </div>
           </div>
         </a>`;
-  }).join("")}
+    }).join("")}
     </div>
   </div>` : ""}
 
@@ -6603,14 +6604,14 @@ ${(() => {
     </div>
     <div style="display:flex;flex-direction:column;gap:8px">
       ${nearbyCrossShops.map((r) => {
-    const _rArea = (r.location || "").split(",")[0].trim();
-    const _rCatLabels = { clinic: "Derma Clinic", hair: "Hair Salon", headspa: "Head Spa", skincare: "Skincare", makeup: "Makeup", tattoo: "Eyebrow Tattoo" };
-    const _rCatLabel = _rCatLabels[r.category] || r.category;
-    const _rCatIcons = { clinic: "fa-briefcase-medical", hair: "fa-cut", headspa: "fa-spa", skincare: "fa-leaf", makeup: "fa-magic", tattoo: "fa-pen-nib" };
-    const _rIcon = _rCatIcons[r.category] || "fa-star";
-    const _rRating = r.rating ? Number(r.rating).toFixed(1) : "";
-    const _rThumb = r.thumbnail || "";
-    return `<a href="/shop/${r.slug}" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:12px;text-decoration:none;transition:background .15s" onmouseover="this.style.background='rgba(255,255,255,.06)'" onmouseout="this.style.background='rgba(255,255,255,.03)'" title="${r.name} ${_rCatLabel} in ${_rArea} Seoul">
+      const _rArea = (r.location || "").split(",")[0].trim();
+      const _rCatLabels = { clinic: "Derma Clinic", hair: "Hair Salon", headspa: "Head Spa", skincare: "Skincare", makeup: "Makeup", tattoo: "Eyebrow Tattoo" };
+      const _rCatLabel = _rCatLabels[r.category] || r.category;
+      const _rCatIcons = { clinic: "fa-briefcase-medical", hair: "fa-cut", headspa: "fa-spa", skincare: "fa-leaf", makeup: "fa-magic", tattoo: "fa-pen-nib" };
+      const _rIcon = _rCatIcons[r.category] || "fa-star";
+      const _rRating = r.rating ? Number(r.rating).toFixed(1) : "";
+      const _rThumb = r.thumbnail || "";
+      return `<a href="/shop/${r.slug}" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:12px;text-decoration:none;transition:background .15s" onmouseover="this.style.background='rgba(255,255,255,.06)'" onmouseout="this.style.background='rgba(255,255,255,.03)'" title="${r.name} ${_rCatLabel} in ${_rArea} Seoul">
           ${_rThumb ? `<img src="${_rThumb}" alt="${r.name} ${_rCatLabel} ${_rArea} Seoul" style="width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0" loading="lazy">` : `<div style="width:40px;height:40px;border-radius:8px;background:rgba(255,255,255,.06);flex-shrink:0;display:flex;align-items:center;justify-content:center"><i class="fas ${_rIcon}" style="color:var(--pk2);font-size:14px"></i></div>`}
           <div style="flex:1;min-width:0">
             <div style="font-size:12.5px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.name}</div>
@@ -6618,7 +6619,7 @@ ${(() => {
           </div>
           <i class="fas fa-chevron-right" style="color:rgba(255,255,255,.2);font-size:10px;flex-shrink:0"></i>
         </a>`;
-  }).join("")}
+    }).join("")}
     </div>
   </div>` : ""}
 
@@ -6890,6 +6891,9 @@ function closeMapOverlay(){
 </div>
 </body>
 </html>`);
+  } catch (e) {
+    return c.html("<h1>Service temporarily unavailable</h1>", 500);
+  }
 });
 var CATEGORY_LABELS = {
   makeup: "Makeup",
