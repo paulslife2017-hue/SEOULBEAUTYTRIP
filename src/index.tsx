@@ -1481,6 +1481,7 @@ Return ONLY a single valid JSON object — no markdown, no explanation:
 
 
 app.post('/api/shops', async (c) => {
+  try {
   const sql = getDb(c.env)
   const body = await c.req.json()
 
@@ -1584,9 +1585,13 @@ app.post('/api/shops', async (c) => {
     ${_insertSummary ? JSON.stringify(_insertSummary) : null}::jsonb
   ) ON CONFLICT DO NOTHING`
   return c.json({ ok: true, id: newId, seoGenerated: !body.description, summarized: !!_insertSummary })
+  } catch(e: any) {
+    return c.json({ error: 'db_error', message: e?.message || 'unknown' }, 500)
+  }
 })
 
 app.put('/api/shops/:id', async (c) => {
+  try {
   const sql = getDb(c.env)
   const body = await c.req.json()
 
@@ -1677,22 +1682,34 @@ app.put('/api/shops/:id', async (c) => {
     editor_note=${body.editorNote||''}
     WHERE id=${c.req.param('id')}`
   return c.json({ ok: true, seoGenerated: !body.description || !!body.regenerateSeo })
+  } catch(e: any) {
+    return c.json({ error: 'db_error', message: e?.message || 'unknown' }, 500)
+  }
 })
 app.delete('/api/shops/:id', async (c) => {
-  const sql = getDb(c.env)
-  await sql`DELETE FROM shops WHERE id=${c.req.param('id')}`
-  return c.json({ ok: true })
+  try {
+    const sql = getDb(c.env)
+    await sql`DELETE FROM shops WHERE id=${c.req.param('id')}`
+    return c.json({ ok: true })
+  } catch(e: any) {
+    return c.json({ error: 'db_error', message: e?.message || 'unknown' }, 500)
+  }
 })
 
 // 빈 레코드(name='') 일괄 삭제
 app.delete('/api/admin/cleanup-empty-shops', async (c) => {
-  const sql = getDb(c.env)
-  const result = await sql`DELETE FROM shops WHERE (name IS NULL OR TRIM(name) = '') RETURNING id`
-  return c.json({ ok: true, deleted: result.length, ids: result.map((r: any) => r.id) })
+  try {
+    const sql = getDb(c.env)
+    const result = await sql`DELETE FROM shops WHERE (name IS NULL OR TRIM(name) = '') RETURNING id`
+    return c.json({ ok: true, deleted: result.length, ids: result.map((r: any) => r.id) })
+  } catch(e: any) {
+    return c.json({ error: 'db_error', message: e?.message || 'unknown' }, 500)
+  }
 })
 
 // 업체 복구용 — 지정 ID로 INSERT (복구 전용, 기존 ID 유지)
 app.post('/api/admin/restore-shop', async (c) => {
+  try {
   const sql = getDb(c.env)
   const body = await c.req.json()
   if (!body.id || !body.name) return c.json({ ok: false, error: 'id and name required' }, 400)
@@ -1712,6 +1729,9 @@ app.post('/api/admin/restore-shop', async (c) => {
     ${body.placeId||''},${body.whatsapp||''}
   ) ON CONFLICT (id) DO NOTHING`
   return c.json({ ok: true, id: body.id, slug })
+  } catch(e: any) {
+    return c.json({ error: 'db_error', message: e?.message || 'unknown' }, 500)
+  }
 })
 
 app.post('/api/videos', async (c) => {
@@ -3708,26 +3728,35 @@ Also provide (after the HTML content, separated by ---JSON---):
 
 // GET /api/blogs — 목록
 app.get('/api/blogs', async (c) => {
-  await ensureDb(c.env)
-  const sql = getDb(c.env)
-  const status = c.req.query('status') || ''
-  const rows = status
-    ? await sql`SELECT id,slug,title,meta_description,excerpt,content,category,area,tags,cover_image,status,views,created_at,updated_at FROM blog_posts WHERE status=${status} ORDER BY created_at DESC`
-    : await sql`SELECT id,slug,title,meta_description,excerpt,content,category,area,tags,cover_image,status,views,created_at,updated_at FROM blog_posts ORDER BY created_at DESC`
-  return c.json(rows)
+  try {
+    await ensureDb(c.env)
+    const sql = getDb(c.env)
+    const status = c.req.query('status') || ''
+    const rows = status
+      ? await sql`SELECT id,slug,title,meta_description,excerpt,content,category,area,tags,cover_image,status,views,created_at,updated_at FROM blog_posts WHERE status=${status} ORDER BY created_at DESC`
+      : await sql`SELECT id,slug,title,meta_description,excerpt,content,category,area,tags,cover_image,status,views,created_at,updated_at FROM blog_posts ORDER BY created_at DESC`
+    return c.json(rows)
+  } catch(e: any) {
+    return c.json({ error: 'db_error', message: e?.message || 'unknown' }, 500)
+  }
 })
 
 // GET /api/blogs/:slug — 단건
 app.get('/api/blogs/:slug', async (c) => {
-  await ensureDb(c.env)
-  const sql = getDb(c.env)
-  const rows = await sql`SELECT * FROM blog_posts WHERE slug=${c.req.param('slug')}`
-  if (!rows.length) return c.json({ error: 'not found' }, 404)
-  return c.json(rows[0])
+  try {
+    await ensureDb(c.env)
+    const sql = getDb(c.env)
+    const rows = await sql`SELECT * FROM blog_posts WHERE slug=${c.req.param('slug')}`
+    if (!rows.length) return c.json({ error: 'not found' }, 404)
+    return c.json(rows[0])
+  } catch(e: any) {
+    return c.json({ error: 'db_error', message: e?.message || 'unknown' }, 500)
+  }
 })
 
 // POST /api/blogs — 생성 (AI 자동생성 or 직접입력)
 app.post('/api/blogs', async (c) => {
+  try {
   await ensureDb(c.env)
   const sql = getDb(c.env)
   const body = await c.req.json()
@@ -3765,6 +3794,9 @@ app.post('/api/blogs', async (c) => {
     ON CONFLICT (slug) DO NOTHING`
 
   return c.json({ ok: true, id, slug, aiGenerated: !body.content })
+  } catch(e: any) {
+    return c.json({ error: 'db_error', message: 'unknown' }, 500)
+  }
 })
 
 // PUT /api/blogs/:id — 수정
@@ -6964,6 +6996,7 @@ details[open] .faq-q::after{transform:rotate(180deg)}
 
 // ── /shops 카탈로그 전용 페이지 ──
 app.get('/shops', async (c) => {
+  try {
   const sql = getDb(c.env)
   const rows = await sql`SELECT * FROM shops WHERE active=true ORDER BY rating DESC, created_at DESC`
   const shops = rows.map(rowToShop)
@@ -7265,6 +7298,9 @@ render();
 </script>
 </body>
 </html>`)
+  } catch(e: any) {
+    return c.html('<h1>Service temporarily unavailable</h1>', 500)
+  }
 })
 // ── sitemap.xml ──
 // ════════════════════════════════════════════
@@ -7272,9 +7308,10 @@ render();
 // ════════════════════════════════════════════
 
 app.get('/blog', async (c) => {
+  try {
   await ensureDb(c.env)
   const sql = getDb(c.env)
-  const posts = await sql`SELECT id,slug,title,meta_description,excerpt,category,area,tags,cover_image,views,created_at FROM blog_posts WHERE status='published' ORDER BY created_at DESC`
+  const posts = await sql`SELECT id,slug,title,meta_description,excerpt,content,category,area,tags,cover_image,status,views,created_at FROM blog_posts WHERE status='published' ORDER BY created_at DESC`
   const base = 'https://seoulbeautytrip.com'
 
   const postCards = posts.map((p: any) => {
@@ -7381,10 +7418,14 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;min-height:
 </body>
 </html>`
   return c.html(html)
+  } catch(e: any) {
+    return c.html('<h1>Service temporarily unavailable</h1>', 500)
+  }
 })
 
 // ── 블로그 카테고리 페이지 /blog/category/:cat ──
 app.get('/blog/category/:cat', async (c) => {
+  try {
   await ensureDb(c.env)
   const sql = getDb(c.env)
   const cat = c.req.param('cat').toLowerCase()
@@ -7505,6 +7546,9 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;min-height:
 </body>
 </html>`
   return c.html(html)
+  } catch(e: any) {
+    return c.redirect('/blog', 302)
+  }
 })
 
 // \uc911\ubcf5(superseded) slug \ub9f5 \u2014 \uad6c\ubc84\uc804 slug \u2192 \uc2e0\ubc84\uc804 slug\ub85c 301

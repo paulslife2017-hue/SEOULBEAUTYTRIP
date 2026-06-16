@@ -3472,72 +3472,73 @@ Return ONLY a single valid JSON object \u2014 no markdown, no explanation:
   }
 }
 app.post("/api/shops", async (c) => {
-  const sql = getDb(c.env);
-  const body = await c.req.json();
-  const _normName = (s) => s.toLowerCase().replace(/[\s\-_.,'()]/g, "").replace(/[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]/g, "");
-  const _pid = body.googlePlaceId || body.placeId || "";
-  if (_pid) {
-    const _pr = await sql`SELECT id,name,slug FROM shops WHERE google_place_id=${_pid} AND active=true LIMIT 1`;
-    if (_pr.length > 0) return c.json({ error: "already_exists", message: `\uC774\uBBF8 \uB4F1\uB85D\uB41C \uC5C5\uCCB4\uC785\uB2C8\uB2E4: "${_pr[0].name}"`, existingId: _pr[0].id, existingSlug: _pr[0].slug, existingName: _pr[0].name }, 409);
-  }
-  const _nm = _normName(body.name || "");
-  if (_nm.length > 2) {
-    const _nr = await sql`SELECT id,name,slug FROM shops WHERE active=true`;
-    const _match = _nr.find((r) => _normName(r.name) === _nm);
-    if (_match) return c.json({ error: "already_exists", message: `\uC774\uBBF8 \uB4F1\uB85D\uB41C \uC5C5\uCCB4\uC785\uB2C8\uB2E4: "${_match.name}"`, existingId: _match.id, existingSlug: _match.slug, existingName: _match.name }, 409);
-  }
-  const newId = "s" + Date.now();
-  const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
-  let description = body.description || "";
-  let metaDescription = body.metaDescription || "";
-  let seoKeywords = body.seoKeywords || "";
-  let whyChoose = Array.isArray(body.whyChoose) ? body.whyChoose : [];
-  let seoText = body.seoText || "";
-  const needsSeo = !description || !seoText || !whyChoose.length;
-  if (needsSeo) {
-    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
-    const seo = await autoGenSeo(body, apiKey);
-    if (seo) {
-      description = description || seo.description || "";
-      metaDescription = metaDescription || seo.metaDescription || "";
-      seoKeywords = seoKeywords || (Array.isArray(seo.keywords) ? seo.keywords.join(", ") : "");
-      if (!whyChoose.length) whyChoose = Array.isArray(seo.whyChoose) ? seo.whyChoose : [];
-      seoText = seoText || seo.seoText || "";
+  try {
+    const sql = getDb(c.env);
+    const body = await c.req.json();
+    const _normName = (s) => s.toLowerCase().replace(/[\s\-_.,'()]/g, "").replace(/[\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]/g, "");
+    const _pid = body.googlePlaceId || body.placeId || "";
+    if (_pid) {
+      const _pr = await sql`SELECT id,name,slug FROM shops WHERE google_place_id=${_pid} AND active=true LIMIT 1`;
+      if (_pr.length > 0) return c.json({ error: "already_exists", message: `\uC774\uBBF8 \uB4F1\uB85D\uB41C \uC5C5\uCCB4\uC785\uB2C8\uB2E4: "${_pr[0].name}"`, existingId: _pr[0].id, existingSlug: _pr[0].slug, existingName: _pr[0].name }, 409);
     }
-    if (!whyChoose.length) {
-      const _area = (body.location || "Seoul").split(",")[0].trim();
-      const _cat = body.category || "beauty";
-      whyChoose = [
-        `\u{1F310} English-friendly service and easy WhatsApp booking for international visitors`,
-        `\u2B50 Rated ${body.rating || 5}/5 with ${body.reviewCount || 0}+ verified Google reviews`,
-        `\u{1F468}\u200D\u2695\uFE0F Expert team with proven experience serving international patients`,
-        `\u{1F4CD} Conveniently located in ${_area}, Seoul \u2014 easily accessible from major transit hubs`,
-        `\u{1F4AC} Dedicated English support from first consultation through aftercare`
-      ];
+    const _nm = _normName(body.name || "");
+    if (_nm.length > 2) {
+      const _nr = await sql`SELECT id,name,slug FROM shops WHERE active=true`;
+      const _match = _nr.find((r) => _normName(r.name) === _nm);
+      if (_match) return c.json({ error: "already_exists", message: `\uC774\uBBF8 \uB4F1\uB85D\uB41C \uC5C5\uCCB4\uC785\uB2C8\uB2E4: "${_match.name}"`, existingId: _match.id, existingSlug: _match.slug, existingName: _match.name }, 409);
     }
-    if (!description) {
-      const _cat2 = body.category || "beauty", _loc2 = body.location || "Seoul";
-      description = `${body.name || "This shop"} is a highly rated ${_cat2} in ${_loc2}, Seoul. Rated ${body.rating || 5}/5 with ${body.reviewCount || 0}+ verified reviews. English consultations available. Book via WhatsApp with Seoul Beauty Trip.`;
+    const newId = "s" + Date.now();
+    const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+    let description = body.description || "";
+    let metaDescription = body.metaDescription || "";
+    let seoKeywords = body.seoKeywords || "";
+    let whyChoose = Array.isArray(body.whyChoose) ? body.whyChoose : [];
+    let seoText = body.seoText || "";
+    const needsSeo = !description || !seoText || !whyChoose.length;
+    if (needsSeo) {
+      const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
+      const seo = await autoGenSeo(body, apiKey);
+      if (seo) {
+        description = description || seo.description || "";
+        metaDescription = metaDescription || seo.metaDescription || "";
+        seoKeywords = seoKeywords || (Array.isArray(seo.keywords) ? seo.keywords.join(", ") : "");
+        if (!whyChoose.length) whyChoose = Array.isArray(seo.whyChoose) ? seo.whyChoose : [];
+        seoText = seoText || seo.seoText || "";
+      }
+      if (!whyChoose.length) {
+        const _area = (body.location || "Seoul").split(",")[0].trim();
+        const _cat = body.category || "beauty";
+        whyChoose = [
+          `\u{1F310} English-friendly service and easy WhatsApp booking for international visitors`,
+          `\u2B50 Rated ${body.rating || 5}/5 with ${body.reviewCount || 0}+ verified Google reviews`,
+          `\u{1F468}\u200D\u2695\uFE0F Expert team with proven experience serving international patients`,
+          `\u{1F4CD} Conveniently located in ${_area}, Seoul \u2014 easily accessible from major transit hubs`,
+          `\u{1F4AC} Dedicated English support from first consultation through aftercare`
+        ];
+      }
+      if (!description) {
+        const _cat2 = body.category || "beauty", _loc2 = body.location || "Seoul";
+        description = `${body.name || "This shop"} is a highly rated ${_cat2} in ${_loc2}, Seoul. Rated ${body.rating || 5}/5 with ${body.reviewCount || 0}+ verified reviews. English consultations available. Book via WhatsApp with Seoul Beauty Trip.`;
+      }
+      if (!metaDescription)
+        metaDescription = `${body.name || ""} ${body.location || ""} Seoul \u2014 Premium ${body.category || "beauty"} for foreigners. English-speaking staff. Book via WhatsApp.`;
+      if (!seoKeywords)
+        seoKeywords = `${body.name || ""} Seoul, best ${body.category || "beauty"} ${(body.location || "Seoul").split(",")[0]} Seoul, ${body.category || "beauty"} Seoul English speaking`;
+      if (!seoText) {
+        const _catLbl = { clinic: "aesthetic & skin clinic", skincare: "skincare clinic", hair: "hair salon", headspa: "head spa", tattoo: "permanent makeup studio", makeup: "color analysis studio", dental: "dental clinic" };
+        const _cl3 = _catLbl[body.category || ""] || (body.category || "beauty");
+        const _ll3 = (body.location || "Seoul").includes("Seoul") ? body.location || "Seoul" : `${body.location || "Seoul"}, Seoul`;
+        const _rt3 = String(body.rating || 5), _rc3 = Number(body.reviewCount || 0).toLocaleString();
+        seoText = `<h2 class="sp-seo-h2">${body.name || ""} \u2014 ${_cl3.charAt(0).toUpperCase() + _cl3.slice(1)} in ${_ll3}</h2><p class="sp-seo-p">${body.name || ""} is a highly rated ${_cl3} in ${_ll3}, holding a <strong>${_rt3}/5.0 rating</strong> from over <strong>${_rc3} verified reviews</strong>. Consistently recommended by international visitors to Seoul in 2026 for its quality treatments and English-friendly service.</p><h2 class="sp-seo-h2">Why Travelers Choose ${body.name || ""}</h2><ul class="sp-seo-ul">${whyChoose.slice(0, 5).map((w) => `<li>${w}</li>`).join("")}</ul><h2 class="sp-seo-h2">Treatments &amp; Services at ${body.name || ""}</h2><p class="sp-seo-p">${body.name || ""} specializes in ${_cl3} services in ${_ll3}, Seoul \u2014 a top choice for international visitors seeking quality Korean beauty treatments in 2026.</p><h2 class="sp-seo-h2">How to Book ${body.name || ""} as a Foreign Visitor</h2><p class="sp-seo-p">Booking takes under 2 minutes \u2014 tap the WhatsApp button, describe your desired treatment, and our English-speaking team confirms your appointment and explains pricing. Located in ${_ll3}, easily accessible by subway. No Korean needed.</p>`;
+      }
     }
-    if (!metaDescription)
-      metaDescription = `${body.name || ""} ${body.location || ""} Seoul \u2014 Premium ${body.category || "beauty"} for foreigners. English-speaking staff. Book via WhatsApp.`;
-    if (!seoKeywords)
-      seoKeywords = `${body.name || ""} Seoul, best ${body.category || "beauty"} ${(body.location || "Seoul").split(",")[0]} Seoul, ${body.category || "beauty"} Seoul English speaking`;
-    if (!seoText) {
-      const _catLbl = { clinic: "aesthetic & skin clinic", skincare: "skincare clinic", hair: "hair salon", headspa: "head spa", tattoo: "permanent makeup studio", makeup: "color analysis studio", dental: "dental clinic" };
-      const _cl3 = _catLbl[body.category || ""] || (body.category || "beauty");
-      const _ll3 = (body.location || "Seoul").includes("Seoul") ? body.location || "Seoul" : `${body.location || "Seoul"}, Seoul`;
-      const _rt3 = String(body.rating || 5), _rc3 = Number(body.reviewCount || 0).toLocaleString();
-      seoText = `<h2 class="sp-seo-h2">${body.name || ""} \u2014 ${_cl3.charAt(0).toUpperCase() + _cl3.slice(1)} in ${_ll3}</h2><p class="sp-seo-p">${body.name || ""} is a highly rated ${_cl3} in ${_ll3}, holding a <strong>${_rt3}/5.0 rating</strong> from over <strong>${_rc3} verified reviews</strong>. Consistently recommended by international visitors to Seoul in 2026 for its quality treatments and English-friendly service.</p><h2 class="sp-seo-h2">Why Travelers Choose ${body.name || ""}</h2><ul class="sp-seo-ul">${whyChoose.slice(0, 5).map((w) => `<li>${w}</li>`).join("")}</ul><h2 class="sp-seo-h2">Treatments &amp; Services at ${body.name || ""}</h2><p class="sp-seo-p">${body.name || ""} specializes in ${_cl3} services in ${_ll3}, Seoul \u2014 a top choice for international visitors seeking quality Korean beauty treatments in 2026.</p><h2 class="sp-seo-h2">How to Book ${body.name || ""} as a Foreign Visitor</h2><p class="sp-seo-p">Booking takes under 2 minutes \u2014 tap the WhatsApp button, describe your desired treatment, and our English-speaking team confirms your appointment and explains pricing. Located in ${_ll3}, easily accessible by subway. No Korean needed.</p>`;
-    }
-  }
-  const slug = await makeShopSlug(sql, body.name || "", body.location || "", body.category || "");
-  const cleanPhotos = sanitizePhotos(body.photos || []);
-  const cleanThumb = sanitizeThumb(body.thumbnail || "", cleanPhotos);
-  const _insertReviews = Array.isArray(body.reviews) ? body.reviews : [];
-  const _insertGeminiKey = c.env?.GEMINI_API_KEY || GEMINI_API_KEY_DEFAULT;
-  const _insertSummary = _insertReviews.length > 0 ? await genReviewSummary(body.name || "", _insertReviews, "", _insertGeminiKey) : null;
-  await sql`INSERT INTO shops (id,name,slug,category,location,address,google_map_url,google_map_embed,lat,lng,price_range,hours,services,service_prices,description,meta_description,seo_keywords,seo_text,why_choose,rating,review_count,thumbnail,photos,commission,active,created_at,reviews,review_summary) VALUES (
+    const slug = await makeShopSlug(sql, body.name || "", body.location || "", body.category || "");
+    const cleanPhotos = sanitizePhotos(body.photos || []);
+    const cleanThumb = sanitizeThumb(body.thumbnail || "", cleanPhotos);
+    const _insertReviews = Array.isArray(body.reviews) ? body.reviews : [];
+    const _insertGeminiKey = c.env?.GEMINI_API_KEY || GEMINI_API_KEY_DEFAULT;
+    const _insertSummary = _insertReviews.length > 0 ? await genReviewSummary(body.name || "", _insertReviews, "", _insertGeminiKey) : null;
+    await sql`INSERT INTO shops (id,name,slug,category,location,address,google_map_url,google_map_embed,lat,lng,price_range,hours,services,service_prices,description,meta_description,seo_keywords,seo_text,why_choose,rating,review_count,thumbnail,photos,commission,active,created_at,reviews,review_summary) VALUES (
     ${newId},${body.name || ""},${slug},${body.category || ""},${body.location || ""},${body.address || ""},
     ${body.googleMapUrl || ""},${body.googleMapEmbed || ""},${body.lat || ""},${body.lng || ""},
     ${body.priceRange || ""},${body.hours || ""},
@@ -3548,52 +3549,56 @@ app.post("/api/shops", async (c) => {
     ${JSON.stringify(_insertReviews)}::jsonb,
     ${_insertSummary ? JSON.stringify(_insertSummary) : null}::jsonb
   ) ON CONFLICT DO NOTHING`;
-  return c.json({ ok: true, id: newId, seoGenerated: !body.description, summarized: !!_insertSummary });
+    return c.json({ ok: true, id: newId, seoGenerated: !body.description, summarized: !!_insertSummary });
+  } catch (e) {
+    return c.json({ error: "db_error", message: e?.message || "unknown" }, 500);
+  }
 });
 app.put("/api/shops/:id", async (c) => {
-  const sql = getDb(c.env);
-  const body = await c.req.json();
-  let description = body.description || "";
-  let metaDescription = body.metaDescription || "";
-  let seoKeywords = body.seoKeywords || "";
-  let whyChoose = Array.isArray(body.whyChoose) ? body.whyChoose : [];
-  let seoTextPut = body.seoText || "";
-  const _putNeedsSeo = body.regenerateSeo || !description || !whyChoose.length || !seoTextPut;
-  if (_putNeedsSeo) {
-    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
-    const seo = await autoGenSeo(body, apiKey);
-    if (seo) {
-      description = description || seo.description || "";
-      metaDescription = metaDescription || seo.metaDescription || "";
-      seoKeywords = seoKeywords || (Array.isArray(seo.keywords) ? seo.keywords.join(", ") : "");
-      if (!whyChoose.length) whyChoose = Array.isArray(seo.whyChoose) ? seo.whyChoose : [];
-      if (!seoTextPut) seoTextPut = seo.seoText || "";
+  try {
+    const sql = getDb(c.env);
+    const body = await c.req.json();
+    let description = body.description || "";
+    let metaDescription = body.metaDescription || "";
+    let seoKeywords = body.seoKeywords || "";
+    let whyChoose = Array.isArray(body.whyChoose) ? body.whyChoose : [];
+    let seoTextPut = body.seoText || "";
+    const _putNeedsSeo = body.regenerateSeo || !description || !whyChoose.length || !seoTextPut;
+    if (_putNeedsSeo) {
+      const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
+      const seo = await autoGenSeo(body, apiKey);
+      if (seo) {
+        description = description || seo.description || "";
+        metaDescription = metaDescription || seo.metaDescription || "";
+        seoKeywords = seoKeywords || (Array.isArray(seo.keywords) ? seo.keywords.join(", ") : "");
+        if (!whyChoose.length) whyChoose = Array.isArray(seo.whyChoose) ? seo.whyChoose : [];
+        if (!seoTextPut) seoTextPut = seo.seoText || "";
+      }
+      if (!whyChoose.length) {
+        const _area = (body.location || "Seoul").split(",")[0].trim();
+        whyChoose = [
+          `\u{1F310} English-friendly service and easy WhatsApp booking for international visitors`,
+          `\u2B50 Rated ${body.rating || 5}/5 with ${body.reviewCount || 0}+ verified Google reviews`,
+          `\u{1F468}\u200D\u2695\uFE0F Expert team with proven experience serving international patients`,
+          `\u{1F4CD} Conveniently located in ${_area}, Seoul \u2014 easily accessible from major transit hubs`,
+          `\u{1F4AC} Dedicated English support from first consultation through aftercare`
+        ];
+      }
+      if (!description) {
+        description = `${body.name || ""} is a highly rated ${body.category || "beauty"} in ${body.location || "Seoul"}. Rated ${body.rating || 5}/5 with ${body.reviewCount || 0}+ verified reviews. English consultations available. Book via WhatsApp with Seoul Beauty Trip.`;
+      }
+      if (!seoTextPut) {
+        const _catLbl2 = { clinic: "aesthetic & skin clinic", skincare: "skincare clinic", hair: "hair salon", headspa: "head spa", tattoo: "permanent makeup studio", makeup: "color analysis studio", dental: "dental clinic" };
+        const _cl4 = _catLbl2[body.category || ""] || (body.category || "beauty");
+        const _ll4 = (body.location || "Seoul").includes("Seoul") ? body.location || "Seoul" : `${body.location || "Seoul"}, Seoul`;
+        const _rt4 = String(body.rating || 5), _rc4 = Number(body.reviewCount || 0).toLocaleString();
+        seoTextPut = `<h2 class="sp-seo-h2">${body.name || ""} \u2014 ${_cl4.charAt(0).toUpperCase() + _cl4.slice(1)} in ${_ll4}</h2><p class="sp-seo-p">${body.name || ""} is a highly rated ${_cl4} in ${_ll4}, holding a <strong>${_rt4}/5.0 rating</strong> from over <strong>${_rc4} verified reviews</strong>. Consistently recommended by international visitors to Seoul in 2026 for its quality treatments and English-friendly service.</p><h2 class="sp-seo-h2">Why Travelers Choose ${body.name || ""}</h2><ul class="sp-seo-ul">${whyChoose.slice(0, 5).map((w) => `<li>${w}</li>`).join("")}</ul><h2 class="sp-seo-h2">Treatments &amp; Services at ${body.name || ""}</h2><p class="sp-seo-p">${body.name || ""} specializes in ${_cl4} services in ${_ll4}, Seoul \u2014 consistently recommended by international visitors in 2026 for quality and English-friendly care.</p><h2 class="sp-seo-h2">How to Book ${body.name || ""} as a Foreign Visitor</h2><p class="sp-seo-p">Booking takes under 2 minutes \u2014 tap the WhatsApp button, describe your desired treatment, and our English-speaking team confirms your appointment and explains pricing. Located in ${_ll4}, easily accessible by subway. No Korean needed.</p>`;
+      }
     }
-    if (!whyChoose.length) {
-      const _area = (body.location || "Seoul").split(",")[0].trim();
-      whyChoose = [
-        `\u{1F310} English-friendly service and easy WhatsApp booking for international visitors`,
-        `\u2B50 Rated ${body.rating || 5}/5 with ${body.reviewCount || 0}+ verified Google reviews`,
-        `\u{1F468}\u200D\u2695\uFE0F Expert team with proven experience serving international patients`,
-        `\u{1F4CD} Conveniently located in ${_area}, Seoul \u2014 easily accessible from major transit hubs`,
-        `\u{1F4AC} Dedicated English support from first consultation through aftercare`
-      ];
-    }
-    if (!description) {
-      description = `${body.name || ""} is a highly rated ${body.category || "beauty"} in ${body.location || "Seoul"}. Rated ${body.rating || 5}/5 with ${body.reviewCount || 0}+ verified reviews. English consultations available. Book via WhatsApp with Seoul Beauty Trip.`;
-    }
-    if (!seoTextPut) {
-      const _catLbl2 = { clinic: "aesthetic & skin clinic", skincare: "skincare clinic", hair: "hair salon", headspa: "head spa", tattoo: "permanent makeup studio", makeup: "color analysis studio", dental: "dental clinic" };
-      const _cl4 = _catLbl2[body.category || ""] || (body.category || "beauty");
-      const _ll4 = (body.location || "Seoul").includes("Seoul") ? body.location || "Seoul" : `${body.location || "Seoul"}, Seoul`;
-      const _rt4 = String(body.rating || 5), _rc4 = Number(body.reviewCount || 0).toLocaleString();
-      seoTextPut = `<h2 class="sp-seo-h2">${body.name || ""} \u2014 ${_cl4.charAt(0).toUpperCase() + _cl4.slice(1)} in ${_ll4}</h2><p class="sp-seo-p">${body.name || ""} is a highly rated ${_cl4} in ${_ll4}, holding a <strong>${_rt4}/5.0 rating</strong> from over <strong>${_rc4} verified reviews</strong>. Consistently recommended by international visitors to Seoul in 2026 for its quality treatments and English-friendly service.</p><h2 class="sp-seo-h2">Why Travelers Choose ${body.name || ""}</h2><ul class="sp-seo-ul">${whyChoose.slice(0, 5).map((w) => `<li>${w}</li>`).join("")}</ul><h2 class="sp-seo-h2">Treatments &amp; Services at ${body.name || ""}</h2><p class="sp-seo-p">${body.name || ""} specializes in ${_cl4} services in ${_ll4}, Seoul \u2014 consistently recommended by international visitors in 2026 for quality and English-friendly care.</p><h2 class="sp-seo-h2">How to Book ${body.name || ""} as a Foreign Visitor</h2><p class="sp-seo-p">Booking takes under 2 minutes \u2014 tap the WhatsApp button, describe your desired treatment, and our English-speaking team confirms your appointment and explains pricing. Located in ${_ll4}, easily accessible by subway. No Korean needed.</p>`;
-    }
-  }
-  const slugVal = body.slug || await makeShopSlug(sql, body.name || "", body.location || "", body.category || "");
-  const cleanPhotosU = sanitizePhotos(body.photos || []);
-  const cleanThumbU = sanitizeThumb(body.thumbnail || "", cleanPhotosU);
-  await sql`UPDATE shops SET
+    const slugVal = body.slug || await makeShopSlug(sql, body.name || "", body.location || "", body.category || "");
+    const cleanPhotosU = sanitizePhotos(body.photos || []);
+    const cleanThumbU = sanitizeThumb(body.thumbnail || "", cleanPhotosU);
+    await sql`UPDATE shops SET
     name=${body.name || ""},
     slug=${slugVal},
     category=${body.category || ""},
@@ -3623,27 +3628,39 @@ app.put("/api/shops/:id", async (c) => {
     menu_items=${JSON.stringify(body.menuItems || [])},
     editor_note=${body.editorNote || ""}
     WHERE id=${c.req.param("id")}`;
-  return c.json({ ok: true, seoGenerated: !body.description || !!body.regenerateSeo });
+    return c.json({ ok: true, seoGenerated: !body.description || !!body.regenerateSeo });
+  } catch (e) {
+    return c.json({ error: "db_error", message: e?.message || "unknown" }, 500);
+  }
 });
 app.delete("/api/shops/:id", async (c) => {
-  const sql = getDb(c.env);
-  await sql`DELETE FROM shops WHERE id=${c.req.param("id")}`;
-  return c.json({ ok: true });
+  try {
+    const sql = getDb(c.env);
+    await sql`DELETE FROM shops WHERE id=${c.req.param("id")}`;
+    return c.json({ ok: true });
+  } catch (e) {
+    return c.json({ error: "db_error", message: e?.message || "unknown" }, 500);
+  }
 });
 app.delete("/api/admin/cleanup-empty-shops", async (c) => {
-  const sql = getDb(c.env);
-  const result = await sql`DELETE FROM shops WHERE (name IS NULL OR TRIM(name) = '') RETURNING id`;
-  return c.json({ ok: true, deleted: result.length, ids: result.map((r) => r.id) });
+  try {
+    const sql = getDb(c.env);
+    const result = await sql`DELETE FROM shops WHERE (name IS NULL OR TRIM(name) = '') RETURNING id`;
+    return c.json({ ok: true, deleted: result.length, ids: result.map((r) => r.id) });
+  } catch (e) {
+    return c.json({ error: "db_error", message: e?.message || "unknown" }, 500);
+  }
 });
 app.post("/api/admin/restore-shop", async (c) => {
-  const sql = getDb(c.env);
-  const body = await c.req.json();
-  if (!body.id || !body.name) return c.json({ ok: false, error: "id and name required" }, 400);
-  const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
-  const slug = await makeShopSlug(sql, body.name, body.location || "", body.category || "clinic");
-  const cleanPhotos = sanitizePhotos(body.photos || []);
-  const cleanThumb = sanitizeThumb(body.thumbnail || "", cleanPhotos);
-  await sql`INSERT INTO shops (id,name,slug,category,location,address,google_map_url,google_map_embed,lat,lng,price_range,hours,services,service_prices,description,meta_description,seo_keywords,seo_text,why_choose,rating,review_count,thumbnail,photos,commission,active,created_at,place_id,whatsapp) VALUES (
+  try {
+    const sql = getDb(c.env);
+    const body = await c.req.json();
+    if (!body.id || !body.name) return c.json({ ok: false, error: "id and name required" }, 400);
+    const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+    const slug = await makeShopSlug(sql, body.name, body.location || "", body.category || "clinic");
+    const cleanPhotos = sanitizePhotos(body.photos || []);
+    const cleanThumb = sanitizeThumb(body.thumbnail || "", cleanPhotos);
+    await sql`INSERT INTO shops (id,name,slug,category,location,address,google_map_url,google_map_embed,lat,lng,price_range,hours,services,service_prices,description,meta_description,seo_keywords,seo_text,why_choose,rating,review_count,thumbnail,photos,commission,active,created_at,place_id,whatsapp) VALUES (
     ${body.id},${body.name},${slug},${body.category || "clinic"},${body.location || "Seoul"},${body.address || ""},
     ${body.googleMapUrl || ""},${body.googleMapEmbed || ""},${body.lat || ""},${body.lng || ""},
     ${body.priceRange || ""},${body.hours || ""},
@@ -3654,7 +3671,10 @@ app.post("/api/admin/restore-shop", async (c) => {
     ${JSON.stringify(cleanPhotos)},${body.commission || 15},true,${today},
     ${body.placeId || ""},${body.whatsapp || ""}
   ) ON CONFLICT (id) DO NOTHING`;
-  return c.json({ ok: true, id: body.id, slug });
+    return c.json({ ok: true, id: body.id, slug });
+  } catch (e) {
+    return c.json({ error: "db_error", message: e?.message || "unknown" }, 500);
+  }
 });
 app.post("/api/videos", async (c) => {
   const sql = getDb(c.env);
@@ -5315,51 +5335,63 @@ Also provide (after the HTML content, separated by ---JSON---):
   }
 }
 app.get("/api/blogs", async (c) => {
-  await ensureDb(c.env);
-  const sql = getDb(c.env);
-  const status = c.req.query("status") || "";
-  const rows = status ? await sql`SELECT id,slug,title,meta_description,excerpt,content,category,area,tags,cover_image,status,views,created_at,updated_at FROM blog_posts WHERE status=${status} ORDER BY created_at DESC` : await sql`SELECT id,slug,title,meta_description,excerpt,content,category,area,tags,cover_image,status,views,created_at,updated_at FROM blog_posts ORDER BY created_at DESC`;
-  return c.json(rows);
+  try {
+    await ensureDb(c.env);
+    const sql = getDb(c.env);
+    const status = c.req.query("status") || "";
+    const rows = status ? await sql`SELECT id,slug,title,meta_description,excerpt,content,category,area,tags,cover_image,status,views,created_at,updated_at FROM blog_posts WHERE status=${status} ORDER BY created_at DESC` : await sql`SELECT id,slug,title,meta_description,excerpt,content,category,area,tags,cover_image,status,views,created_at,updated_at FROM blog_posts ORDER BY created_at DESC`;
+    return c.json(rows);
+  } catch (e) {
+    return c.json({ error: "db_error", message: e?.message || "unknown" }, 500);
+  }
 });
 app.get("/api/blogs/:slug", async (c) => {
-  await ensureDb(c.env);
-  const sql = getDb(c.env);
-  const rows = await sql`SELECT * FROM blog_posts WHERE slug=${c.req.param("slug")}`;
-  if (!rows.length) return c.json({ error: "not found" }, 404);
-  return c.json(rows[0]);
+  try {
+    await ensureDb(c.env);
+    const sql = getDb(c.env);
+    const rows = await sql`SELECT * FROM blog_posts WHERE slug=${c.req.param("slug")}`;
+    if (!rows.length) return c.json({ error: "not found" }, 404);
+    return c.json(rows[0]);
+  } catch (e) {
+    return c.json({ error: "db_error", message: e?.message || "unknown" }, 500);
+  }
 });
 app.post("/api/blogs", async (c) => {
-  await ensureDb(c.env);
-  const sql = getDb(c.env);
-  const body = await c.req.json();
-  const id = "b" + Date.now();
-  const now = (/* @__PURE__ */ new Date()).toISOString();
-  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
-  let title = body.title || "";
-  let content = body.content || "";
-  let excerpt = body.excerpt || "";
-  let metaDescription = body.metaDescription || "";
-  let tags = body.tags || [];
-  const category = body.category || "";
-  const area = body.area || "";
-  const keywords = body.keywords || [];
-  const coverImage = body.coverImage || "";
-  const status = body.status || "published";
-  if (!content && title && apiKey) {
-    const gen = await autoGenBlog({ title, category, area, keywords }, apiKey);
-    if (gen) {
-      content = gen.content;
-      excerpt = excerpt || gen.excerpt;
-      metaDescription = metaDescription || gen.metaDescription;
-      tags = tags.length ? tags : gen.tags;
+  try {
+    await ensureDb(c.env);
+    const sql = getDb(c.env);
+    const body = await c.req.json();
+    const id = "b" + Date.now();
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
+    let title = body.title || "";
+    let content = body.content || "";
+    let excerpt = body.excerpt || "";
+    let metaDescription = body.metaDescription || "";
+    let tags = body.tags || [];
+    const category = body.category || "";
+    const area = body.area || "";
+    const keywords = body.keywords || [];
+    const coverImage = body.coverImage || "";
+    const status = body.status || "published";
+    if (!content && title && apiKey) {
+      const gen = await autoGenBlog({ title, category, area, keywords }, apiKey);
+      if (gen) {
+        content = gen.content;
+        excerpt = excerpt || gen.excerpt;
+        metaDescription = metaDescription || gen.metaDescription;
+        tags = tags.length ? tags : gen.tags;
+      }
     }
-  }
-  const slug = body.slug || makeBlogSlug(title);
-  await sql`INSERT INTO blog_posts
+    const slug = body.slug || makeBlogSlug(title);
+    await sql`INSERT INTO blog_posts
     (id,slug,title,meta_description,content,excerpt,category,area,tags,cover_image,status,views,created_at,updated_at)
     VALUES (${id},${slug},${title},${metaDescription},${content},${excerpt},${category},${area},${JSON.stringify(tags)},${coverImage},${status},0,${now},${now})
     ON CONFLICT (slug) DO NOTHING`;
-  return c.json({ ok: true, id, slug, aiGenerated: !body.content });
+    return c.json({ ok: true, id, slug, aiGenerated: !body.content });
+  } catch (e) {
+    return c.json({ error: "db_error", message: "unknown" }, 500);
+  }
 });
 app.put("/api/blogs/:id", async (c) => {
   await ensureDb(c.env);
@@ -8218,24 +8250,25 @@ details[open] .faq-q::after{transform:rotate(180deg)}
 </html>`);
 });
 app.get("/shops", async (c) => {
-  const sql = getDb(c.env);
-  const rows = await sql`SELECT * FROM shops WHERE active=true ORDER BY rating DESC, created_at DESC`;
-  const shops2 = rows.map(rowToShop);
-  const catColors = { skincare: "#f472b6", headspa: "#67e8f9", hair: "#60a5fa", clinic: "#fb923c", makeup: "#c084fc", spa: "#a78bfa", tattoo: "#e879f9" };
-  const catIcons = { skincare: "fa-leaf", makeup: "fa-magic", hair: "fa-cut", headspa: "fa-spa", clinic: "fa-briefcase-medical", spa: "fa-hot-tub", tattoo: "fa-pen-nib" };
-  const cats = ["all", "clinic", "headspa", "makeup", "tattoo"];
-  const catLabels = { all: "All", clinic: "Clinic", headspa: "Head Spa", makeup: "Makeup", tattoo: "Brow Tattoo" };
-  const catCountMap = {};
-  shops2.forEach((s) => {
-    catCountMap[s.category] = (catCountMap[s.category] || 0) + 1;
-  });
-  const cardsHtml = shops2.map((shop) => {
-    const col = catColors[shop.category] || "#aaa";
-    const icon = catIcons[shop.category] || "fa-star";
-    const href = shop.slug ? `/shop/${shop.slug}` : "#";
-    const loc = (shop.location || "").split(",")[0].trim();
-    const nameL = shop.name.toLowerCase().replace(/"/g, "");
-    return `<a class="sc-card" href="${href}" data-cat="${shop.category}" data-name="${nameL}" data-loc="${loc.toLowerCase()}">
+  try {
+    const sql = getDb(c.env);
+    const rows = await sql`SELECT * FROM shops WHERE active=true ORDER BY rating DESC, created_at DESC`;
+    const shops2 = rows.map(rowToShop);
+    const catColors = { skincare: "#f472b6", headspa: "#67e8f9", hair: "#60a5fa", clinic: "#fb923c", makeup: "#c084fc", spa: "#a78bfa", tattoo: "#e879f9" };
+    const catIcons = { skincare: "fa-leaf", makeup: "fa-magic", hair: "fa-cut", headspa: "fa-spa", clinic: "fa-briefcase-medical", spa: "fa-hot-tub", tattoo: "fa-pen-nib" };
+    const cats = ["all", "clinic", "headspa", "makeup", "tattoo"];
+    const catLabels = { all: "All", clinic: "Clinic", headspa: "Head Spa", makeup: "Makeup", tattoo: "Brow Tattoo" };
+    const catCountMap = {};
+    shops2.forEach((s) => {
+      catCountMap[s.category] = (catCountMap[s.category] || 0) + 1;
+    });
+    const cardsHtml = shops2.map((shop) => {
+      const col = catColors[shop.category] || "#aaa";
+      const icon = catIcons[shop.category] || "fa-star";
+      const href = shop.slug ? `/shop/${shop.slug}` : "#";
+      const loc = (shop.location || "").split(",")[0].trim();
+      const nameL = shop.name.toLowerCase().replace(/"/g, "");
+      return `<a class="sc-card" href="${href}" data-cat="${shop.category}" data-name="${nameL}" data-loc="${loc.toLowerCase()}">
   <div class="sc-img" id="scimg-${shop.id}"><img src="${shop.thumbnail || ""}" alt="" loading="lazy" decoding="async" onload="parentLoaded(this)" onerror="parentLoaded(this)"></div>
   <div class="sc-info">
     <div class="sc-cat" style="color:${col}"><i class="fas ${icon}"></i>${catLabels[shop.category] || shop.category}</div>
@@ -8244,13 +8277,13 @@ app.get("/shops", async (c) => {
   </div>
   <div class="sc-rating-wrap"><i class="fas fa-star"></i>${shop.rating}</div>
 </a>`;
-  }).join("");
-  const filterBtns = cats.map((cat) => {
-    const cnt = cat === "all" ? shops2.length : catCountMap[cat] || 0;
-    if (cnt === 0) return "";
-    return `<button class="sc-flt${cat === "all" ? " on" : ""}" data-cat="${cat}">${catLabels[cat]} <span class="sc-flt-n">${cnt}</span></button>`;
-  }).join("");
-  return c.html(`<!DOCTYPE html>
+    }).join("");
+    const filterBtns = cats.map((cat) => {
+      const cnt = cat === "all" ? shops2.length : catCountMap[cat] || 0;
+      if (cnt === 0) return "";
+      return `<button class="sc-flt${cat === "all" ? " on" : ""}" data-cat="${cat}">${catLabels[cat]} <span class="sc-flt-n">${cnt}</span></button>`;
+    }).join("");
+    return c.html(`<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -8517,18 +8550,22 @@ render();
 </script>
 </body>
 </html>`);
+  } catch (e) {
+    return c.html("<h1>Service temporarily unavailable</h1>", 500);
+  }
 });
 app.get("/blog", async (c) => {
-  await ensureDb(c.env);
-  const sql = getDb(c.env);
-  const posts = await sql`SELECT id,slug,title,meta_description,excerpt,category,area,tags,cover_image,views,created_at FROM blog_posts WHERE status='published' ORDER BY created_at DESC`;
-  const base = "https://seoulbeautytrip.com";
-  const postCards = posts.map((p) => {
-    const tags = Array.isArray(p.tags) ? p.tags : typeof p.tags === "string" ? JSON.parse(p.tags || "[]") : [];
-    const catLabel = { headspa: "Head Spa", skincare: "Skincare", hair: "Hair Salon", nail: "Nail Art", clinic: "Skin Clinic", makeup: "Makeup", spa: "Spa", tattoo: "Eyebrow Tattoo" };
-    const cat = catLabel[p.category] || p.category || "Beauty";
-    const dateStr = p.created_at ? new Date(p.created_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "";
-    return `
+  try {
+    await ensureDb(c.env);
+    const sql = getDb(c.env);
+    const posts = await sql`SELECT id,slug,title,meta_description,excerpt,content,category,area,tags,cover_image,status,views,created_at FROM blog_posts WHERE status='published' ORDER BY created_at DESC`;
+    const base = "https://seoulbeautytrip.com";
+    const postCards = posts.map((p) => {
+      const tags = Array.isArray(p.tags) ? p.tags : typeof p.tags === "string" ? JSON.parse(p.tags || "[]") : [];
+      const catLabel = { headspa: "Head Spa", skincare: "Skincare", hair: "Hair Salon", nail: "Nail Art", clinic: "Skin Clinic", makeup: "Makeup", spa: "Spa", tattoo: "Eyebrow Tattoo" };
+      const cat = catLabel[p.category] || p.category || "Beauty";
+      const dateStr = p.created_at ? new Date(p.created_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "";
+      return `
     <article class="blog-card" onclick="location.href='/blog/${p.slug}'">
       <div class="blog-card-img" style="${p.cover_image ? `background-image:url('${p.cover_image}')` : "background:linear-gradient(135deg,#ff4d8d22,#9b59b622)"}">
         <span class="blog-cat-badge">${cat}</span>
@@ -8543,13 +8580,13 @@ app.get("/blog", async (c) => {
         </div>
       </div>
     </article>`;
-  }).join("");
-  const emptyState = !posts.length ? `
+    }).join("");
+    const emptyState = !posts.length ? `
     <div style="text-align:center;padding:60px 20px;color:rgba(255,255,255,.4)">
       <div style="font-size:48px;margin-bottom:16px">\u270D\uFE0F</div>
       <p style="font-size:16px">No blog posts yet.<br>Add some from the admin panel!</p>
     </div>` : "";
-  const html = `<!DOCTYPE html>
+    const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -8624,35 +8661,39 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;min-height:
 <div class="blog-grid">${postCards}${emptyState}</div>
 </body>
 </html>`;
-  return c.html(html);
+    return c.html(html);
+  } catch (e) {
+    return c.html("<h1>Service temporarily unavailable</h1>", 500);
+  }
 });
 app.get("/blog/category/:cat", async (c) => {
-  await ensureDb(c.env);
-  const sql = getDb(c.env);
-  const cat = c.req.param("cat").toLowerCase();
-  const base = "https://seoulbeautytrip.com";
-  const CAT_LABELS = {
-    headspa: "Head Spa",
-    skincare: "Skincare",
-    hair: "Hair Salon",
-    nail: "Nail Art",
-    clinic: "Skin Clinic",
-    makeup: "Makeup",
-    spa: "Spa",
-    tattoo: "Eyebrow Tattoo"
-  };
-  const catLabel = CAT_LABELS[cat] || cat.charAt(0).toUpperCase() + cat.slice(1);
-  const posts = await sql`
+  try {
+    await ensureDb(c.env);
+    const sql = getDb(c.env);
+    const cat = c.req.param("cat").toLowerCase();
+    const base = "https://seoulbeautytrip.com";
+    const CAT_LABELS = {
+      headspa: "Head Spa",
+      skincare: "Skincare",
+      hair: "Hair Salon",
+      nail: "Nail Art",
+      clinic: "Skin Clinic",
+      makeup: "Makeup",
+      spa: "Spa",
+      tattoo: "Eyebrow Tattoo"
+    };
+    const catLabel = CAT_LABELS[cat] || cat.charAt(0).toUpperCase() + cat.slice(1);
+    const posts = await sql`
     SELECT id,slug,title,meta_description,excerpt,category,area,tags,cover_image,views,created_at
     FROM blog_posts
     WHERE status='published' AND category=${cat}
     ORDER BY created_at DESC
   `;
-  if (!posts.length) return c.redirect("/blog", 301);
-  const postCards = posts.map((p) => {
-    const tags = Array.isArray(p.tags) ? p.tags : typeof p.tags === "string" ? JSON.parse(p.tags || "[]") : [];
-    const dateStr = p.created_at ? new Date(p.created_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "";
-    return `
+    if (!posts.length) return c.redirect("/blog", 301);
+    const postCards = posts.map((p) => {
+      const tags = Array.isArray(p.tags) ? p.tags : typeof p.tags === "string" ? JSON.parse(p.tags || "[]") : [];
+      const dateStr = p.created_at ? new Date(p.created_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "";
+      return `
     <article class="blog-card" onclick="location.href='/blog/${p.slug}'">
       <div class="blog-card-img" style="${p.cover_image ? `background-image:url('${p.cover_image}')` : "background:linear-gradient(135deg,#ff4d8d22,#9b59b622)"}">
         <span class="blog-cat-badge">${catLabel}</span>
@@ -8667,11 +8708,11 @@ app.get("/blog/category/:cat", async (c) => {
         </div>
       </div>
     </article>`;
-  }).join("");
-  const otherCats = Object.entries(CAT_LABELS).filter(([k]) => k !== cat).map(([k, v]) => `<a href="/blog/category/${k}" style="display:inline-flex;align-items:center;padding:6px 14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.6);text-decoration:none;font-size:12px;font-weight:600;transition:all .2s" onmouseover="this.style.background='rgba(255,77,141,.15)';this.style.borderColor='rgba(255,77,141,.3)';this.style.color='#FF4D8D'" onmouseout="this.style.background='rgba(255,255,255,.06)';this.style.borderColor='rgba(255,255,255,.1)';this.style.color='rgba(255,255,255,.6)'">${v}</a>`).join("");
-  const metaDesc = `Best ${catLabel} guides for foreigners in Seoul. Expert tips, salon reviews, pricing, and English-friendly booking \u2014 updated ${(/* @__PURE__ */ new Date()).getFullYear()}.`;
-  const canonicalUrl = `${base}/blog/category/${cat}`;
-  const html = `<!DOCTYPE html>
+    }).join("");
+    const otherCats = Object.entries(CAT_LABELS).filter(([k]) => k !== cat).map(([k, v]) => `<a href="/blog/category/${k}" style="display:inline-flex;align-items:center;padding:6px 14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.6);text-decoration:none;font-size:12px;font-weight:600;transition:all .2s" onmouseover="this.style.background='rgba(255,77,141,.15)';this.style.borderColor='rgba(255,77,141,.3)';this.style.color='#FF4D8D'" onmouseout="this.style.background='rgba(255,255,255,.06)';this.style.borderColor='rgba(255,255,255,.1)';this.style.color='rgba(255,255,255,.6)'">${v}</a>`).join("");
+    const metaDesc = `Best ${catLabel} guides for foreigners in Seoul. Expert tips, salon reviews, pricing, and English-friendly booking \u2014 updated ${(/* @__PURE__ */ new Date()).getFullYear()}.`;
+    const canonicalUrl = `${base}/blog/category/${cat}`;
+    const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -8739,7 +8780,10 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;min-height:
 </footer>
 </body>
 </html>`;
-  return c.html(html);
+    return c.html(html);
+  } catch (e) {
+    return c.redirect("/blog", 302);
+  }
 });
 var BLOG_SLUG_REDIRECTS = {
   // is-head-spa-worth-it-seoul-honest-guide-2026 \u2192 \ub354 \uc644\uc131\ub41c \ubc84\uc804\uc73c\ub85c
