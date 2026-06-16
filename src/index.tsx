@@ -4259,6 +4259,7 @@ const SLUG_REDIRECTS: Record<string, string> = {
 
 // ── SEO 업체 상세 페이지 ──
 app.get('/shop/:slug', async (c) => {
+  try {
   const slug = c.req.param('slug')
   // 301 리다이렉트: 구 slug → 신 slug
   if (SLUG_REDIRECTS[slug]) return c.redirect('/shop/' + SLUG_REDIRECTS[slug], 301)
@@ -5492,6 +5493,9 @@ function closeMapOverlay(){
 </div>
 </body>
 </html>`)
+  } catch(e: any) {
+    return c.html('<h1>Service temporarily unavailable</h1>', 500)
+  }
 })
 
 // ══════════════════════════════════════════════════════
