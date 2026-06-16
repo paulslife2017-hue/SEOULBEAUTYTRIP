@@ -2800,6 +2800,94 @@ async function initDb(env) {
       await sql`CREATE INDEX IF NOT EXISTS idx_vs_started ON visitor_sessions(started_at DESC)`;
     } catch (e) {
     }
+    await sql`CREATE TABLE IF NOT EXISTS shops_ja (
+      id TEXT PRIMARY KEY, name TEXT NOT NULL, slug TEXT, category TEXT,
+      location TEXT, address TEXT, google_map_url TEXT, google_map_embed TEXT,
+      price_range TEXT, hours TEXT, services JSONB DEFAULT '[]',
+      service_prices JSONB DEFAULT '[]', description TEXT,
+      meta_description TEXT DEFAULT '', seo_keywords TEXT DEFAULT '',
+      seo_text TEXT DEFAULT '', why_choose JSONB DEFAULT '[]',
+      rating REAL DEFAULT 5.0, review_count INTEGER DEFAULT 0,
+      thumbnail TEXT, photos JSONB DEFAULT '[]', commission INTEGER DEFAULT 15,
+      active BOOLEAN DEFAULT true, created_at TEXT,
+      lat TEXT DEFAULT '', lng TEXT DEFAULT '',
+      reviews JSONB DEFAULT '[]', google_place_id TEXT DEFAULT '',
+      menu_items JSONB DEFAULT '[]', review_summary JSONB DEFAULT NULL,
+      editor_note TEXT DEFAULT '', whatsapp TEXT DEFAULT ''
+    )`;
+    try {
+      await sql`ALTER TABLE shops_ja ADD COLUMN IF NOT EXISTS lat TEXT DEFAULT ''`;
+    } catch (e) {
+    }
+    try {
+      await sql`ALTER TABLE shops_ja ADD COLUMN IF NOT EXISTS lng TEXT DEFAULT ''`;
+    } catch (e) {
+    }
+    try {
+      await sql`ALTER TABLE shops_ja ADD COLUMN IF NOT EXISTS reviews JSONB DEFAULT '[]'`;
+    } catch (e) {
+    }
+    try {
+      await sql`ALTER TABLE shops_ja ADD COLUMN IF NOT EXISTS google_place_id TEXT DEFAULT ''`;
+    } catch (e) {
+    }
+    try {
+      await sql`ALTER TABLE shops_ja ADD COLUMN IF NOT EXISTS meta_description TEXT DEFAULT ''`;
+    } catch (e) {
+    }
+    try {
+      await sql`ALTER TABLE shops_ja ADD COLUMN IF NOT EXISTS seo_keywords TEXT DEFAULT ''`;
+    } catch (e) {
+    }
+    try {
+      await sql`ALTER TABLE shops_ja ADD COLUMN IF NOT EXISTS seo_text TEXT DEFAULT ''`;
+    } catch (e) {
+    }
+    try {
+      await sql`ALTER TABLE shops_ja ADD COLUMN IF NOT EXISTS why_choose JSONB DEFAULT '[]'`;
+    } catch (e) {
+    }
+    try {
+      await sql`ALTER TABLE shops_ja ADD COLUMN IF NOT EXISTS menu_items JSONB DEFAULT '[]'`;
+    } catch (e) {
+    }
+    try {
+      await sql`ALTER TABLE shops_ja ADD COLUMN IF NOT EXISTS review_summary JSONB DEFAULT NULL`;
+    } catch (e) {
+    }
+    try {
+      await sql`ALTER TABLE shops_ja ADD COLUMN IF NOT EXISTS editor_note TEXT DEFAULT ''`;
+    } catch (e) {
+    }
+    try {
+      await sql`ALTER TABLE shops_ja ADD COLUMN IF NOT EXISTS whatsapp TEXT DEFAULT ''`;
+    } catch (e) {
+    }
+    try {
+      await sql`ALTER TABLE shops_ja ADD COLUMN IF NOT EXISTS google_map_embed TEXT DEFAULT ''`;
+    } catch (e) {
+    }
+    try {
+      await sql`ALTER TABLE shops_ja ADD COLUMN IF NOT EXISTS photos JSONB DEFAULT '[]'`;
+    } catch (e) {
+    }
+    await sql`CREATE TABLE IF NOT EXISTS blog_posts_ja (
+      id TEXT PRIMARY KEY,
+      slug TEXT UNIQUE NOT NULL,
+      title TEXT NOT NULL,
+      meta_description TEXT DEFAULT '',
+      content TEXT DEFAULT '',
+      excerpt TEXT DEFAULT '',
+      category TEXT DEFAULT '',
+      area TEXT DEFAULT '',
+      tags JSONB DEFAULT '[]',
+      cover_image TEXT DEFAULT '',
+      status TEXT DEFAULT 'draft',
+      views INTEGER DEFAULT 0,
+      shop_id TEXT DEFAULT NULL,
+      created_at TEXT,
+      updated_at TEXT
+    )`;
     const cnt = await sql`SELECT COUNT(*) as c FROM shops`;
     if (Number(cnt[0].c) === 0) {
       for (const s of shops) {
@@ -5437,6 +5525,1010 @@ app.delete("/api/blogs/:id", async (c) => {
   const sql = getDb(c.env);
   await sql`DELETE FROM blog_posts WHERE id=${c.req.param("id")}`;
   return c.json({ ok: true });
+});
+app.get("/api/ja/shops", async (c) => {
+  try {
+    await ensureDb(c.env);
+    const sql = getDb(c.env);
+    const rows = await sql`SELECT * FROM shops_ja WHERE active=true ORDER BY created_at DESC`;
+    return c.json({ shops: rows.map(rowToShop) });
+  } catch (e) {
+    return c.json({ error: "db_error", message: e?.message || "unknown" }, 500);
+  }
+});
+app.get("/api/ja/shops/:id", async (c) => {
+  try {
+    await ensureDb(c.env);
+    const sql = getDb(c.env);
+    const rows = await sql`SELECT * FROM shops_ja WHERE id=${c.req.param("id")}`;
+    if (!rows.length) return c.json({ error: "Not found" }, 404);
+    return c.json({ shop: rowToShop(rows[0]) });
+  } catch (e) {
+    return c.json({ error: "db_error", message: e?.message || "unknown" }, 500);
+  }
+});
+app.post("/api/ja/shops", async (c) => {
+  try {
+    await ensureDb(c.env);
+    const sql = getDb(c.env);
+    const body = await c.req.json();
+    const id = "s" + Date.now();
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    const slug = body.slug || makeShopSlug(body.name || "", body.category || "", body.location || "");
+    await sql`INSERT INTO shops_ja (
+      id,name,slug,category,location,address,google_map_url,google_map_embed,
+      price_range,hours,services,service_prices,description,
+      meta_description,seo_keywords,seo_text,why_choose,
+      rating,review_count,thumbnail,photos,commission,active,created_at,
+      lat,lng,reviews,google_place_id,menu_items,editor_note,whatsapp
+    ) VALUES (
+      ${id},${body.name || ""},${slug},${body.category || ""},${body.location || ""},${body.address || ""},
+      ${body.googleMapUrl || ""},${body.googleMapEmbed || ""},${body.priceRange || ""},${body.hours || ""},
+      ${JSON.stringify(body.services || [])},${JSON.stringify(body.servicePrices || [])},${body.description || ""},
+      ${body.metaDescription || ""},${body.seoKeywords || ""},${body.seoText || ""},${JSON.stringify(body.whyChoose || [])},
+      ${body.rating || 5},${body.reviewCount || 0},${body.thumbnail || ""},${JSON.stringify(body.photos || [])},
+      ${body.commission || 15},${body.active !== false},${now},
+      ${body.lat || ""},${body.lng || ""},${JSON.stringify(body.reviews || [])},${body.googlePlaceId || ""},
+      ${JSON.stringify(body.menuItems || [])},${body.editorNote || ""},${body.whatsapp || ""}
+    ) ON CONFLICT (id) DO NOTHING`;
+    return c.json({ ok: true, id, slug });
+  } catch (e) {
+    return c.json({ error: "db_error", message: e?.message || "unknown" }, 500);
+  }
+});
+app.put("/api/ja/shops/:id", async (c) => {
+  try {
+    await ensureDb(c.env);
+    const sql = getDb(c.env);
+    const body = await c.req.json();
+    const slug = body.slug || makeShopSlug(body.name || "", body.category || "", body.location || "");
+    await sql`UPDATE shops_ja SET
+      name=${body.name || ""},slug=${slug},category=${body.category || ""},
+      location=${body.location || ""},address=${body.address || ""},
+      google_map_url=${body.googleMapUrl || ""},google_map_embed=${body.googleMapEmbed || ""},
+      price_range=${body.priceRange || ""},hours=${body.hours || ""},
+      services=${JSON.stringify(body.services || [])},
+      service_prices=${JSON.stringify(body.servicePrices || [])},
+      description=${body.description || ""},
+      meta_description=${body.metaDescription || ""},
+      seo_keywords=${body.seoKeywords || ""},seo_text=${body.seoText || ""},
+      why_choose=${JSON.stringify(body.whyChoose || [])},
+      rating=${body.rating || 5},review_count=${body.reviewCount || 0},
+      thumbnail=${body.thumbnail || ""},photos=${JSON.stringify(body.photos || [])},
+      commission=${body.commission || 15},active=${body.active !== false},
+      lat=${body.lat || ""},lng=${body.lng || ""},
+      reviews=${JSON.stringify(body.reviews || [])},
+      google_place_id=${body.googlePlaceId || ""},
+      menu_items=${JSON.stringify(body.menuItems || [])},
+      editor_note=${body.editorNote || ""},whatsapp=${body.whatsapp || ""}
+      WHERE id=${c.req.param("id")}`;
+    return c.json({ ok: true });
+  } catch (e) {
+    return c.json({ error: "db_error", message: e?.message || "unknown" }, 500);
+  }
+});
+app.delete("/api/ja/shops/:id", async (c) => {
+  try {
+    await ensureDb(c.env);
+    const sql = getDb(c.env);
+    await sql`DELETE FROM shops_ja WHERE id=${c.req.param("id")}`;
+    return c.json({ ok: true });
+  } catch (e) {
+    return c.json({ error: "db_error", message: e?.message || "unknown" }, 500);
+  }
+});
+app.get("/api/ja/blogs", async (c) => {
+  try {
+    await ensureDb(c.env);
+    const sql = getDb(c.env);
+    const status = c.req.query("status") || "";
+    const rows = status ? await sql`SELECT id,slug,title,meta_description,excerpt,content,category,area,tags,cover_image,status,views,created_at,updated_at FROM blog_posts_ja WHERE status=${status} ORDER BY created_at DESC` : await sql`SELECT id,slug,title,meta_description,excerpt,content,category,area,tags,cover_image,status,views,created_at,updated_at FROM blog_posts_ja ORDER BY created_at DESC`;
+    return c.json(rows);
+  } catch (e) {
+    return c.json({ error: "db_error", message: e?.message || "unknown" }, 500);
+  }
+});
+app.get("/api/ja/blogs/:slug", async (c) => {
+  try {
+    await ensureDb(c.env);
+    const sql = getDb(c.env);
+    const rows = await sql`SELECT * FROM blog_posts_ja WHERE slug=${c.req.param("slug")}`;
+    if (!rows.length) return c.json({ error: "not found" }, 404);
+    return c.json(rows[0]);
+  } catch (e) {
+    return c.json({ error: "db_error", message: e?.message || "unknown" }, 500);
+  }
+});
+app.post("/api/ja/blogs", async (c) => {
+  try {
+    await ensureDb(c.env);
+    const sql = getDb(c.env);
+    const body = await c.req.json();
+    const id = "b" + Date.now();
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    const slug = body.slug || makeBlogSlug(body.title || "");
+    await sql`INSERT INTO blog_posts_ja
+      (id,slug,title,meta_description,content,excerpt,category,area,tags,cover_image,status,views,created_at,updated_at)
+      VALUES (${id},${slug},${body.title || ""},${body.metaDescription || ""},${body.content || ""},
+      ${body.excerpt || ""},${body.category || ""},${body.area || ""},${JSON.stringify(body.tags || [])},
+      ${body.coverImage || ""},${body.status || "published"},0,${now},${now})
+      ON CONFLICT (slug) DO NOTHING`;
+    return c.json({ ok: true, id, slug });
+  } catch (e) {
+    return c.json({ error: "db_error", message: e?.message || "unknown" }, 500);
+  }
+});
+app.put("/api/ja/blogs/:id", async (c) => {
+  try {
+    await ensureDb(c.env);
+    const sql = getDb(c.env);
+    const body = await c.req.json();
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    await sql`UPDATE blog_posts_ja SET
+      title=${body.title || ""},
+      slug=${body.slug || makeBlogSlug(body.title || "")},
+      meta_description=${body.metaDescription || ""},
+      content=${body.content || ""},
+      excerpt=${body.excerpt || ""},
+      category=${body.category || ""},
+      area=${body.area || ""},
+      tags=${JSON.stringify(body.tags || [])},
+      cover_image=${body.coverImage || ""},
+      status=${body.status || "published"},
+      updated_at=${now}
+      WHERE id=${c.req.param("id")}`;
+    return c.json({ ok: true });
+  } catch (e) {
+    return c.json({ error: "db_error", message: e?.message || "unknown" }, 500);
+  }
+});
+app.delete("/api/ja/blogs/:id", async (c) => {
+  try {
+    await ensureDb(c.env);
+    const sql = getDb(c.env);
+    await sql`DELETE FROM blog_posts_ja WHERE id=${c.req.param("id")}`;
+    return c.json({ ok: true });
+  } catch (e) {
+    return c.json({ error: "db_error", message: e?.message || "unknown" }, 500);
+  }
+});
+function jaLangNav(currentLang, currentPath) {
+  const enPath = currentPath.replace(/^\/ja/, "") || "/";
+  const jaPath = currentPath.startsWith("/ja") ? currentPath : "/ja" + currentPath;
+  const enActive = currentLang === "en";
+  const jaActive = currentLang === "ja";
+  return `<nav style="background:#13132a;border-bottom:1px solid rgba(255,77,141,.15);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100">
+  <a href="${currentLang === "ja" ? "/ja" : "/"}">
+    <span style="font-size:15px;font-weight:900;background:linear-gradient(135deg,#FF4D8D,#FF85B3);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-decoration:none">\u2728 Seoul Beauty</span>
+  </a>
+  <div style="display:flex;align-items:center;gap:8px">
+    <a href="${jaPath}" style="font-size:11px;font-weight:700;padding:4px 9px;border-radius:12px;text-decoration:none;${jaActive ? "background:rgba(255,77,141,.25);color:#FF85B3;border:1px solid rgba(255,77,141,.5)" : "background:transparent;color:rgba(255,255,255,.35);border:1px solid rgba(255,255,255,.12)"}">JA</a>
+    <a href="${enPath}" style="font-size:11px;font-weight:700;padding:4px 9px;border-radius:12px;text-decoration:none;${enActive ? "background:rgba(255,77,141,.25);color:#FF85B3;border:1px solid rgba(255,77,141,.5)" : "background:transparent;color:rgba(255,255,255,.35);border:1px solid rgba(255,255,255,.12)"}">EN</a>
+  </div>
+</nav>`;
+}
+app.get("/ja/", (c) => c.redirect("/ja", 301));
+app.get("/ja", async (c) => {
+  try {
+    await ensureDb(c.env);
+    const sql = getDb(c.env);
+    const [shopRows, blogRows] = await Promise.all([
+      withTimeout(sql`SELECT id,name,slug,category,location,thumbnail,rating,review_count,description FROM shops_ja WHERE active=true ORDER BY rating DESC,review_count DESC LIMIT 20`, 8e3, []),
+      withTimeout(sql`SELECT id,slug,title,excerpt,category,cover_image,created_at FROM blog_posts_ja WHERE status='published' ORDER BY created_at DESC LIMIT 6`, 8e3, [])
+    ]);
+    const catLabelsJa = { skincare: "\u30B9\u30AD\u30F3\u30B1\u30A2", makeup: "\u30E1\u30A4\u30AF", hair: "\u30D8\u30A2\u30B5\u30ED\u30F3", headspa: "\u30D8\u30C3\u30C9\u30B9\u30D1", clinic: "\u30AF\u30EA\u30CB\u30C3\u30AF", spa: "\u30B9\u30D1", tattoo: "\u7709\u30A2\u30FC\u30C8" };
+    const catColors = { skincare: "#f472b6", headspa: "#67e8f9", hair: "#60a5fa", clinic: "#fb923c", makeup: "#c084fc", spa: "#a78bfa", tattoo: "#e879f9" };
+    const shopCardsHtml = shopRows.map((s) => {
+      const col = catColors[s.category] || "#aaa";
+      const lbl = catLabelsJa[s.category] || s.category;
+      return `<a href="/ja/shop/${s.slug || s.id}" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;text-decoration:none;border-bottom:1px solid rgba(255,255,255,.04);transition:background .15s" onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background=''">
+  <div style="width:44px;height:44px;border-radius:10px;overflow:hidden;flex-shrink:0;background:rgba(255,255,255,.06)"><img src="${s.thumbnail || ""}" alt="${s.name}" style="width:100%;height:100%;object-fit:cover" loading="lazy"></div>
+  <div style="flex:1;min-width:0">
+    <div style="font-size:12px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</div>
+    <div style="font-size:10px;color:${col};margin-top:2px">${lbl} \xB7 ${(s.location || "").split(",")[0]}</div>
+  </div>
+  <div style="font-size:11px;color:rgba(255,255,255,.4);flex-shrink:0">\u2605${s.rating || 5}</div>
+</a>`;
+    }).join("");
+    const blogCardsHtml = blogRows.map((p) => {
+      const dateStr = p.created_at ? new Date(p.created_at).toLocaleDateString("ja-JP", { year: "numeric", month: "short", day: "numeric" }) : "";
+      const catJa = catLabelsJa[p.category] || p.category || "\u30D3\u30E5\u30FC\u30C6\u30A3\u30FC";
+      return `<a href="/ja/blog/${p.slug}" style="text-decoration:none;display:block;background:#13132a;border:1px solid rgba(255,255,255,.07);border-radius:14px;overflow:hidden;transition:transform .2s,border-color .2s" onmouseover="this.style.transform='translateY(-2px)';this.style.borderColor='rgba(255,77,141,.3)'" onmouseout="this.style.transform='';this.style.borderColor='rgba(255,255,255,.07)'">
+  ${p.cover_image ? `<div style="height:130px;background:url('${p.cover_image}') center/cover"></div>` : '<div style="height:130px;background:linear-gradient(135deg,#ff4d8d22,#9b59b622)"></div>'}
+  <div style="padding:12px">
+    <div style="font-size:10px;color:#FF4D8D;font-weight:700;margin-bottom:5px">${catJa} \xB7 ${dateStr}</div>
+    <div style="font-size:13px;font-weight:800;color:#fff;line-height:1.4;margin-bottom:6px">${p.title}</div>
+    <div style="font-size:11px;color:rgba(255,255,255,.4);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${p.excerpt || ""}</div>
+  </div>
+</a>`;
+    }).join("");
+    const html = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>\u30BD\u30A6\u30EB\u30D3\u30E5\u30FC\u30C6\u30A3\u30FC\u30C8\u30EA\u30C3\u30D7 \u2014 \u97D3\u56FD\u7F8E\u5BB9\u30FB\u30D8\u30C3\u30C9\u30B9\u30D1\u30FB\u30D8\u30A2\u30B5\u30ED\u30F3\u5B8C\u5168\u30AC\u30A4\u30C9</title>
+<meta name="description" content="\u30BD\u30A6\u30EB\u306E\u30D8\u30C3\u30C9\u30B9\u30D1\u3001\u30D8\u30A2\u30B5\u30ED\u30F3\u3001\u30B9\u30AD\u30F3\u30B1\u30A2\u30AF\u30EA\u30CB\u30C3\u30AF\u3092\u82F1\u8A9E\u5BFE\u5FDC\u3067\u4E88\u7D04\u3002\u5916\u56FD\u4EBA\u89B3\u5149\u5BA2\u5411\u3051\u97D3\u56FD\u7F8E\u5BB9\u5B8C\u5168\u30AC\u30A4\u30C9\u3002">
+<meta name="robots" content="index, follow">
+<link rel="alternate" hreflang="ja" href="https://seoulbeautytrip.com/ja">
+<link rel="alternate" hreflang="en" href="https://seoulbeautytrip.com/">
+<link rel="canonical" href="https://seoulbeautytrip.com/ja">
+<meta property="og:title" content="\u30BD\u30A6\u30EB\u30D3\u30E5\u30FC\u30C6\u30A3\u30FC\u30C8\u30EA\u30C3\u30D7 \u2014 \u97D3\u56FD\u7F8E\u5BB9\u30AC\u30A4\u30C9">
+<meta property="og:description" content="\u30BD\u30A6\u30EB\u306E\u30D8\u30C3\u30C9\u30B9\u30D1\u30FB\u30D8\u30A2\u30B5\u30ED\u30F3\u30FB\u30AF\u30EA\u30CB\u30C3\u30AF\u3092\u82F1\u8A9E\u5BFE\u5FDC\u3067\u4E88\u7D04\u3067\u304D\u307E\u3059\u3002">
+<meta property="og:url" content="https://seoulbeautytrip.com/ja">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="ja_JP">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0d0d18;color:#fff;font-family:"Hiragino Sans","Yu Gothic",sans-serif;min-height:100vh}
+.hero{padding:40px 20px 32px;text-align:center;background:linear-gradient(180deg,rgba(255,77,141,.1) 0%,transparent 100%)}
+.hero h1{font-size:clamp(1.5rem,5vw,2.2rem);font-weight:900;background:linear-gradient(135deg,#fff,rgba(255,255,255,.7));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:10px}
+.hero p{color:rgba(255,255,255,.5);font-size:.95rem;line-height:1.6;max-width:480px;margin:0 auto 20px}
+.hero-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.hero-btn{display:inline-block;padding:10px 22px;border-radius:22px;font-size:13px;font-weight:700;text-decoration:none;transition:all .2s}
+.hero-btn.primary{background:linear-gradient(135deg,#FF4D8D,#FF85B3);color:#fff}
+.hero-btn.secondary{background:transparent;color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.2)}
+.hero-btn:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(255,77,141,.3)}
+.section{padding:24px 20px;max-width:700px;margin:0 auto}
+.section-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.section-hd h2{font-size:15px;font-weight:900;color:#fff}
+.section-hd a{font-size:12px;color:#FF4D8D;text-decoration:none;font-weight:700}
+.shop-panel{background:#13132a;border:1px solid rgba(255,255,255,.07);border-radius:14px;overflow:hidden}
+.blog-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+.cats{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:0 20px 20px}
+.cat-btn{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 14px;background:#13132a;border:1px solid rgba(255,255,255,.07);border-radius:12px;text-decoration:none;transition:all .2s;font-size:11px;color:rgba(255,255,255,.6);font-weight:700}
+.cat-btn:hover{border-color:rgba(255,77,141,.4);color:#fff;background:rgba(255,77,141,.08)}
+.cat-btn i{font-size:18px}
+.empty{text-align:center;padding:40px 20px;color:rgba(255,255,255,.3);font-size:13px}
+</style>
+</head>
+<body>
+${jaLangNav("ja", "/ja")}
+<section class="hero">
+  <h1>\u2728 \u30BD\u30A6\u30EB\u30D3\u30E5\u30FC\u30C6\u30A3\u30FC\u30C8\u30EA\u30C3\u30D7</h1>
+  <p>\u30BD\u30A6\u30EB\u306E\u30D8\u30C3\u30C9\u30B9\u30D1\u30FB\u30D8\u30A2\u30B5\u30ED\u30F3\u30FB\u30B9\u30AD\u30F3\u30AF\u30EA\u30CB\u30C3\u30AF\u3092\u53B3\u9078\u7D39\u4ECB\u3002<br>\u82F1\u8A9E & WhatsApp\u3067\u7C21\u5358\u4E88\u7D04 \u{1F338}</p>
+  <div class="hero-btns">
+    <a href="/ja/shops" class="hero-btn primary"><i class="fas fa-store" style="margin-right:5px"></i>\u30B5\u30ED\u30F3\u3092\u63A2\u3059</a>
+    <a href="/ja/blog" class="hero-btn secondary"><i class="fas fa-book-open" style="margin-right:5px"></i>\u30AC\u30A4\u30C9\u3092\u8AAD\u3080</a>
+  </div>
+</section>
+
+<div class="cats">
+  <a href="/ja/shops?cat=headspa" class="cat-btn"><i class="fas fa-spa" style="color:#67e8f9"></i>\u30D8\u30C3\u30C9\u30B9\u30D1</a>
+  <a href="/ja/shops?cat=hair" class="cat-btn"><i class="fas fa-cut" style="color:#60a5fa"></i>\u30D8\u30A2\u30B5\u30ED\u30F3</a>
+  <a href="/ja/shops?cat=skincare" class="cat-btn"><i class="fas fa-leaf" style="color:#f472b6"></i>\u30B9\u30AD\u30F3\u30B1\u30A2</a>
+  <a href="/ja/shops?cat=clinic" class="cat-btn"><i class="fas fa-briefcase-medical" style="color:#fb923c"></i>\u30AF\u30EA\u30CB\u30C3\u30AF</a>
+  <a href="/ja/shops?cat=makeup" class="cat-btn"><i class="fas fa-magic" style="color:#c084fc"></i>\u30E1\u30A4\u30AF</a>
+  <a href="/ja/shops?cat=tattoo" class="cat-btn"><i class="fas fa-pen-nib" style="color:#e879f9"></i>\u7709\u30A2\u30FC\u30C8</a>
+</div>
+
+<div class="section">
+  <div class="section-hd"><h2>\u{1F3EA} \u304A\u3059\u3059\u3081\u30B5\u30ED\u30F3</h2><a href="/ja/shops">\u3059\u3079\u3066\u898B\u308B \u2192</a></div>
+  <div class="shop-panel">
+    ${shopCardsHtml || '<div class="empty">\u30B5\u30ED\u30F3\u60C5\u5831\u3092\u6E96\u5099\u4E2D\u3067\u3059...</div>'}
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-hd"><h2>\u270D\uFE0F \u7F8E\u5BB9\u30AC\u30A4\u30C9</h2><a href="/ja/blog">\u3059\u3079\u3066\u898B\u308B \u2192</a></div>
+  <div class="blog-grid">
+    ${blogCardsHtml || '<div class="empty" style="grid-column:1/-1">\u30AC\u30A4\u30C9\u8A18\u4E8B\u3092\u6E96\u5099\u4E2D\u3067\u3059...</div>'}
+  </div>
+</div>
+
+<footer style="text-align:center;padding:32px 20px;color:rgba(255,255,255,.25);font-size:11px;border-top:1px solid rgba(255,255,255,.05);margin-top:20px">
+  <p>\xA9 2025 Seoul Beauty Trip \xB7 <a href="/" style="color:rgba(255,77,141,.5);text-decoration:none">\u82F1\u8A9E\u7248\u3078</a></p>
+</footer>
+<script>
+// \u30D6\u30E9\u30A6\u30B6\u8A00\u8A9E\u304C\u82F1\u8A9E\u570F\u306A\u3089EN\u306B\u30EA\u30C0\u30A4\u30EC\u30AF\u30C8 (\u30AF\u30C3\u30AD\u30FC\u30671\u56DE\u306E\u307F)
+(function(){
+  var ck = document.cookie;
+  if(ck.indexOf('lang_pref=ja')!==-1) return;
+  document.cookie='lang_pref=ja;path=/;max-age=31536000';
+})();
+</script>
+</body>
+</html>`;
+    return c.html(html);
+  } catch (e) {
+    return c.html("<h1>\u4E00\u6642\u7684\u306A\u30A8\u30E9\u30FC\u304C\u767A\u751F\u3057\u307E\u3057\u305F</h1>", 500);
+  }
+});
+app.get("/ja/shops", async (c) => {
+  try {
+    await ensureDb(c.env);
+    const sql = getDb(c.env);
+    const catFilter = c.req.query("cat") || "";
+    const shops2 = catFilter ? await sql`SELECT id,name,slug,category,location,address,thumbnail,rating,review_count,price_range,hours,description,why_choose FROM shops_ja WHERE active=true AND category=${catFilter} ORDER BY rating DESC,review_count DESC` : await sql`SELECT id,name,slug,category,location,address,thumbnail,rating,review_count,price_range,hours,description,why_choose FROM shops_ja WHERE active=true ORDER BY rating DESC,review_count DESC`;
+    const catLabelsJa = { skincare: "\u30B9\u30AD\u30F3\u30B1\u30A2", makeup: "\u30E1\u30A4\u30AF", hair: "\u30D8\u30A2\u30B5\u30ED\u30F3", headspa: "\u30D8\u30C3\u30C9\u30B9\u30D1", clinic: "\u30AF\u30EA\u30CB\u30C3\u30AF", spa: "\u30B9\u30D1", tattoo: "\u7709\u30A2\u30FC\u30C8" };
+    const catColors = { skincare: "#f472b6", headspa: "#67e8f9", hair: "#60a5fa", clinic: "#fb923c", makeup: "#c084fc", spa: "#a78bfa", tattoo: "#e879f9" };
+    const catIcons = { skincare: "fa-leaf", makeup: "fa-magic", hair: "fa-cut", headspa: "fa-spa", clinic: "fa-briefcase-medical", spa: "fa-hot-tub", tattoo: "fa-pen-nib" };
+    const cardsHtml = shops2.map((s) => {
+      const col = catColors[s.category] || "#aaa";
+      const lbl = catLabelsJa[s.category] || s.category;
+      const icon = catIcons[s.category] || "fa-star";
+      const loc = (s.location || "").split(",")[0].trim();
+      return `<a class="sc-card" href="/ja/shop/${s.slug || s.id}" data-cat="${s.category}" data-name="${(s.name || "").toLowerCase()}" data-loc="${loc.toLowerCase()}">
+  <div class="sc-img"><img src="${s.thumbnail || ""}" alt="${s.name}" loading="lazy" onload="parentLoaded(this)">
+    <div class="sc-rating-wrap"><i class="fas fa-star"></i>${s.rating || 5}</div>
+  </div>
+  <div class="sc-info">
+    <div class="sc-cat" style="color:${col}"><i class="fas ${icon}"></i>${lbl}</div>
+    <div class="sc-name">${s.name}</div>
+    <div class="sc-loc"><i class="fas fa-map-marker-alt"></i>${loc}</div>
+  </div>
+</a>`;
+    }).join("");
+    const cats = ["all", "headspa", "hair", "skincare", "clinic", "makeup", "spa", "tattoo"];
+    const catCounts = { all: shops2.length };
+    shops2.forEach((s) => {
+      catCounts[s.category] = (catCounts[s.category] || 0) + 1;
+    });
+    const filterBtns = cats.map((cat) => {
+      const cnt = catCounts[cat] || 0;
+      if (cat !== "all" && cnt === 0) return "";
+      const lbl = cat === "all" ? `\u3059\u3079\u3066 (${catCounts.all})` : catLabelsJa[cat] || cat;
+      const active = cat === "all" && !catFilter ? " on" : cat === catFilter ? " on" : "";
+      return `<button class="sc-flt${active}" data-cat="${cat}" onclick="filterCat(this)">${lbl}${cnt > 0 && cat !== "all" ? ` <span class="sp-flt-n">${cnt}</span>` : ""}</button>`;
+    }).filter(Boolean).join("");
+    const html = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>\u30BD\u30A6\u30EB\u7F8E\u5BB9\u30B5\u30ED\u30F3\u4E00\u89A7 | \u30BD\u30A6\u30EB\u30D3\u30E5\u30FC\u30C6\u30A3\u30FC\u30C8\u30EA\u30C3\u30D7</title>
+<meta name="description" content="\u30BD\u30A6\u30EB\u306E\u30D8\u30C3\u30C9\u30B9\u30D1\u30FB\u30D8\u30A2\u30B5\u30ED\u30F3\u30FB\u30B9\u30AD\u30F3\u30AF\u30EA\u30CB\u30C3\u30AF\u3092\u53B3\u9078\u7D39\u4ECB\u3002\u82F1\u8A9E\u5BFE\u5FDC\u30FBWhatsApp\u4E88\u7D04OK\u3002">
+<link rel="canonical" href="https://seoulbeautytrip.com/ja/shops">
+<link rel="alternate" hreflang="ja" href="https://seoulbeautytrip.com/ja/shops">
+<link rel="alternate" hreflang="en" href="https://seoulbeautytrip.com/shops">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0d0d18;color:#fff;font-family:"Hiragino Sans","Yu Gothic",sans-serif;min-height:100vh}
+:root{--pk:#FF4D8D}
+.sc-ctrl{padding:12px 14px;display:flex;flex-direction:column;gap:8px;background:#0d0d18;position:sticky;top:58px;z-index:90}
+.sc-srch{display:flex;align-items:center;gap:8px;background:#13132a;border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:8px 12px}
+.sc-srch input{flex:1;background:none;border:none;outline:none;color:#fff;font-size:13px}
+.sc-srch input::placeholder{color:rgba(255,255,255,.3)}
+.sc-srch-x{display:none;background:none;border:none;color:rgba(255,255,255,.3);cursor:pointer;font-size:13px;padding:0}
+.sc-srch-x.on{display:block}
+.sc-flts{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+.sc-flts::-webkit-scrollbar{display:none}
+.sc-flt{flex-shrink:0;padding:5px 12px;background:rgba(255,255,255,.06);border:none;border-radius:16px;color:rgba(255,255,255,.5);font-size:11px;font-weight:700;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:4px}
+.sc-flt.on{background:rgba(255,77,141,.2);color:#FF85B3;border:1px solid rgba(255,77,141,.4)}
+.sp-flt-n{background:rgba(255,255,255,.1);border-radius:8px;padding:1px 5px;font-size:10px}
+.sc-area{padding:12px 10px;overflow-x:auto}
+.sc-grid{display:grid;grid-template-rows:1fr 1fr;grid-auto-flow:column;gap:8px;width:max-content;min-width:100%}
+.sc-card{background:#0d0d1f;border:1px solid rgba(255,255,255,.07);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;transition:border-color .18s,transform .18s;text-decoration:none;width:130px}
+.sc-card:hover{border-color:rgba(232,65,122,.35);transform:scale(1.02)}
+.sc-card.hide{display:none}
+.sc-img{height:90px;overflow:hidden;position:relative;background:#12122a;flex-shrink:0}
+.sc-img img{width:100%;height:100%;object-fit:cover;display:block;filter:blur(4px);transform:scale(1.04);transition:filter .4s,transform .4s}
+.sc-img.loaded img{filter:blur(0);transform:scale(1)}
+.sc-rating-wrap{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.7);border-radius:7px;padding:2px 5px;font-size:9px;font-weight:800;color:#fbbf24;display:flex;align-items:center;gap:2px}
+.sc-info{padding:5px 7px 6px;display:flex;flex-direction:column;gap:2px;background:#0d0d1f}
+.sc-cat{font-size:8px;font-weight:800;text-transform:uppercase;display:flex;align-items:center;gap:3px;opacity:.85}
+.sc-cat i{font-size:7px}
+.sc-name{font-size:11px;font-weight:800;color:#fff;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sc-loc{display:flex;align-items:center;gap:3px;font-size:9px;color:rgba(255,255,255,.28)}
+.sc-loc i{color:var(--pk);font-size:7px}
+.sc-empty{display:none;grid-column:1/-1;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:rgba(255,255,255,.2);font-size:13px;padding:40px}
+.sc-empty.show{display:flex}
+@media(max-width:480px){.sc-card{width:115px}.sc-img{height:80px}}
+</style>
+</head>
+<body>
+${jaLangNav("ja", "/ja/shops")}
+<div class="sc-ctrl">
+  <div class="sc-srch">
+    <i class="fas fa-search" style="color:rgba(255,255,255,.3);font-size:13px"></i>
+    <input id="scQ" type="search" placeholder="\u30B5\u30ED\u30F3\u540D\u30FB\u30A8\u30EA\u30A2\u30FB\u30AB\u30C6\u30B4\u30EA\u30FC..." oninput="doFilter(this.value)">
+    <button class="sc-srch-x" id="scX" onclick="clearQ()"><i class="fas fa-times"></i></button>
+  </div>
+  <div class="sc-flts">${filterBtns}</div>
+</div>
+<div class="sc-area">
+  <div class="sc-grid" id="scGrid">
+    ${cardsHtml || ""}
+    <div class="sc-empty" id="scEmpty"><i class="fas fa-search"></i>\u30B5\u30ED\u30F3\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093</div>
+  </div>
+</div>
+<script>
+function parentLoaded(el){if(el&&el.parentElement)el.parentElement.classList.add('loaded');}
+var _cat='${catFilter || "all"}',_q='';
+function filterCat(btn){
+  document.querySelectorAll('.sc-flt').forEach(function(b){b.classList.remove('on')});
+  btn.classList.add('on');_cat=btn.dataset.cat;render();
+}
+function doFilter(v){_q=v.toLowerCase().trim();document.getElementById('scX').classList.toggle('on',!!_q);render();}
+function clearQ(){document.getElementById('scQ').value='';document.getElementById('scX').classList.remove('on');_q='';render();}
+function render(){
+  var cards=document.querySelectorAll('.sc-card'),vis=0;
+  cards.forEach(function(c){
+    var ok=(_cat==='all'||c.dataset.cat===_cat)&&(!_q||(c.dataset.name||'').includes(_q)||(c.dataset.loc||'').includes(_q)||(c.dataset.cat||'').includes(_q));
+    c.classList.toggle('hide',!ok);if(ok)vis++;
+  });
+  document.getElementById('scEmpty').classList.toggle('show',vis===0);
+  var grid=document.getElementById('scGrid'),isMobile=window.innerWidth<700;
+  if(vis===0){grid.style.gridTemplateRows='1fr';grid.style.gridAutoColumns='auto';return;}
+  var rows=isMobile?(vis<=3?1:vis<=6?2:3):(vis<=4?1:2);
+  var cols=Math.ceil(vis/rows);
+  grid.style.gridTemplateRows='repeat('+rows+',1fr)';
+  grid.style.gridAutoColumns=(isMobile?'115px':'130px');
+}
+render();
+</script>
+</body>
+</html>`;
+    return c.html(html);
+  } catch (e) {
+    return c.html("<h1>\u4E00\u6642\u7684\u306A\u30A8\u30E9\u30FC\u304C\u767A\u751F\u3057\u307E\u3057\u305F</h1>", 500);
+  }
+});
+app.get("/ja/blog", async (c) => {
+  try {
+    await ensureDb(c.env);
+    const sql = getDb(c.env);
+    const posts = await sql`SELECT id,slug,title,meta_description,excerpt,category,area,tags,cover_image,created_at FROM blog_posts_ja WHERE status='published' ORDER BY created_at DESC`;
+    const catLabelsJa = { headspa: "\u30D8\u30C3\u30C9\u30B9\u30D1", skincare: "\u30B9\u30AD\u30F3\u30B1\u30A2", hair: "\u30D8\u30A2\u30B5\u30ED\u30F3", nail: "\u30CD\u30A4\u30EB", clinic: "\u30AF\u30EA\u30CB\u30C3\u30AF", makeup: "\u30E1\u30A4\u30AF", spa: "\u30B9\u30D1", tattoo: "\u7709\u30A2\u30FC\u30C8" };
+    const postCards = posts.map((p) => {
+      const tags = Array.isArray(p.tags) ? p.tags : typeof p.tags === "string" ? JSON.parse(p.tags || "[]") : [];
+      const cat = catLabelsJa[p.category] || p.category || "\u30D3\u30E5\u30FC\u30C6\u30A3\u30FC";
+      const dateStr = p.created_at ? new Date(p.created_at).toLocaleDateString("ja-JP", { year: "numeric", month: "short", day: "numeric" }) : "";
+      return `<article class="blog-card" onclick="location.href='/ja/blog/${p.slug}'">
+  <div class="blog-card-img" style="${p.cover_image ? `background-image:url('${p.cover_image}')` : " background:linear-gradient(135deg,#ff4d8d22,#9b59b622)"}">
+    <span class="blog-cat-badge">${cat}</span>
+  </div>
+  <div class="blog-card-body">
+    <div class="blog-meta"><span class="blog-area">${p.area || "\u30BD\u30A6\u30EB"}</span><span class="blog-date">${dateStr}</span></div>
+    <h2 class="blog-title">${p.title}</h2>
+    <p class="blog-excerpt">${p.excerpt || p.meta_description || ""}</p>
+    <div class="blog-footer">
+      <div class="blog-tags">${tags.slice(0, 3).map((t) => `<span class="blog-tag">#${t}</span>`).join("")}</div>
+      <span class="blog-read">\u7D9A\u304D\u3092\u8AAD\u3080 \u2192</span>
+    </div>
+  </div>
+</article>`;
+    }).join("");
+    const html = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>\u30BD\u30A6\u30EB\u7F8E\u5BB9\u30D6\u30ED\u30B0 \u2014 \u97D3\u56FD\u7F8E\u5BB9\u30AC\u30A4\u30C9\uFF06\u30D2\u30F3\u30C8 | \u30BD\u30A6\u30EB\u30D3\u30E5\u30FC\u30C6\u30A3\u30FC\u30C8\u30EA\u30C3\u30D7</title>
+<meta name="description" content="\u30BD\u30A6\u30EB\u306E\u30D8\u30C3\u30C9\u30B9\u30D1\u30FB\u30D8\u30A2\u30B5\u30ED\u30F3\u30FB\u30B9\u30AD\u30F3\u30AF\u30EA\u30CB\u30C3\u30AF\u306E\u5C02\u9580\u30AC\u30A4\u30C9\u3002\u5916\u56FD\u4EBA\u89B3\u5149\u5BA2\u5411\u3051\u306B\u82F1\u8A9E\u5BFE\u5FDC\u60C5\u5831\u3092\u304A\u5C4A\u3051\u3002">
+<link rel="canonical" href="https://seoulbeautytrip.com/ja/blog">
+<link rel="alternate" hreflang="ja" href="https://seoulbeautytrip.com/ja/blog">
+<link rel="alternate" hreflang="en" href="https://seoulbeautytrip.com/blog">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0d0d18;color:#fff;font-family:"Hiragino Sans","Yu Gothic",sans-serif;min-height:100vh}
+.blog-hero{padding:36px 20px 20px;text-align:center;background:linear-gradient(180deg,rgba(255,77,141,.08) 0%,transparent 100%)}
+.blog-hero h1{font-size:clamp(1.4rem,5vw,2.2rem);font-weight:900;background:linear-gradient(135deg,#fff,rgba(255,255,255,.7));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px}
+.blog-hero p{color:rgba(255,255,255,.5);font-size:.9rem;max-width:480px;margin:0 auto}
+.blog-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:18px;padding:18px;max-width:1100px;margin:0 auto}
+.blog-card{background:#13132a;border:1px solid rgba(255,255,255,.07);border-radius:14px;overflow:hidden;cursor:pointer;transition:transform .2s,border-color .2s}
+.blog-card:hover{transform:translateY(-3px);border-color:rgba(255,77,141,.3)}
+.blog-card-img{height:170px;background:#1c1c30;background-size:cover;background-position:center;position:relative}
+.blog-cat-badge{position:absolute;top:10px;left:10px;background:rgba(255,77,141,.9);color:#fff;font-size:10px;font-weight:700;padding:3px 9px;border-radius:18px}
+.blog-card-body{padding:14px}
+.blog-meta{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}
+.blog-area{font-size:10px;color:#FF4D8D;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.blog-date{font-size:10px;color:rgba(255,255,255,.35)}
+.blog-title{font-size:14px;font-weight:800;line-height:1.4;margin-bottom:7px;color:#fff}
+.blog-excerpt{font-size:12px;color:rgba(255,255,255,.45);line-height:1.6;margin-bottom:10px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.blog-footer{display:flex;justify-content:space-between;align-items:center}
+.blog-tags{display:flex;gap:4px;flex-wrap:wrap}
+.blog-tag{font-size:10px;color:rgba(255,255,255,.3);background:rgba(255,255,255,.06);padding:2px 6px;border-radius:7px}
+.blog-read{font-size:11px;color:#FF4D8D;font-weight:700;white-space:nowrap}
+@media(max-width:480px){.blog-grid{grid-template-columns:1fr;padding:12px}}
+</style>
+</head>
+<body>
+${jaLangNav("ja", "/ja/blog")}
+<section class="blog-hero">
+  <h1>\u270D\uFE0F \u97D3\u56FD\u7F8E\u5BB9\u30AC\u30A4\u30C9</h1>
+  <p>\u30BD\u30A6\u30EB\u306E\u7F8E\u5BB9\u30B9\u30DD\u30C3\u30C8\u3092\u5FB9\u5E95\u89E3\u8AAC \u2014 \u5916\u56FD\u4EBA\u65C5\u884C\u8005\u5411\u3051\u5B8C\u5168\u30AC\u30A4\u30C9</p>
+</section>
+<div class="blog-grid">${postCards || '<div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:rgba(255,255,255,.35);font-size:14px">\u{1F4DD} \u30AC\u30A4\u30C9\u8A18\u4E8B\u3092\u6E96\u5099\u4E2D\u3067\u3059</div>'}</div>
+</body>
+</html>`;
+    return c.html(html);
+  } catch (e) {
+    return c.html("<h1>\u4E00\u6642\u7684\u306A\u30A8\u30E9\u30FC\u304C\u767A\u751F\u3057\u307E\u3057\u305F</h1>", 500);
+  }
+});
+app.get("/ja/blog/:slug", async (c) => {
+  try {
+    await ensureDb(c.env);
+    const sql = getDb(c.env);
+    const slug = c.req.param("slug");
+    const rows = await sql`SELECT * FROM blog_posts_ja WHERE slug=${slug} AND status='published'`;
+    if (!rows.length) return c.notFound();
+    const post = rows[0];
+    const tags = Array.isArray(post.tags) ? post.tags : typeof post.tags === "string" ? JSON.parse(post.tags || "[]") : [];
+    sql`UPDATE blog_posts_ja SET views=views+1 WHERE slug=${slug}`.catch(() => {
+    });
+    const catLabelsJa = { headspa: "\u30D8\u30C3\u30C9\u30B9\u30D1", skincare: "\u30B9\u30AD\u30F3\u30B1\u30A2", hair: "\u30D8\u30A2\u30B5\u30ED\u30F3", nail: "\u30CD\u30A4\u30EB", clinic: "\u30AF\u30EA\u30CB\u30C3\u30AF", makeup: "\u30E1\u30A4\u30AF", spa: "\u30B9\u30D1", tattoo: "\u7709\u30A2\u30FC\u30C8" };
+    const cat = catLabelsJa[post.category] || post.category || "\u30D3\u30E5\u30FC\u30C6\u30A3\u30FC";
+    const dateStr = post.created_at ? new Date(post.created_at).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" }) : "";
+    const base = "https://seoulbeautytrip.com";
+    const related = await sql`SELECT slug,title,excerpt,category,cover_image FROM blog_posts_ja WHERE status='published' AND slug!=${slug} AND category=${post.category || ""} ORDER BY created_at DESC LIMIT 3`;
+    const relatedHtml = related.map((r) => {
+      const rCat = catLabelsJa[r.category] || r.category;
+      return `<a href="/ja/blog/${r.slug}" style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.05);text-decoration:none;transition:opacity .2s" onmouseover="this.style.opacity='.7'" onmouseout="this.style.opacity='1'">
+  ${r.cover_image ? `<img src="${r.cover_image}" style="width:60px;height:60px;object-fit:cover;border-radius:8px;flex-shrink:0" loading="lazy">` : '<div style="width:60px;height:60px;background:#1c1c30;border-radius:8px;flex-shrink:0"></div>'}
+  <div>
+    <div style="font-size:10px;color:#FF4D8D;font-weight:700;margin-bottom:3px">${rCat}</div>
+    <div style="font-size:13px;font-weight:700;color:#fff;line-height:1.4">${r.title}</div>
+  </div>
+</a>`;
+    }).join("");
+    const html = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${post.title} | \u30BD\u30A6\u30EB\u30D3\u30E5\u30FC\u30C6\u30A3\u30FC\u30C8\u30EA\u30C3\u30D7</title>
+<meta name="description" content="${post.meta_description || post.excerpt || ""}">
+<link rel="canonical" href="${base}/ja/blog/${slug}">
+<link rel="alternate" hreflang="ja" href="${base}/ja/blog/${slug}">
+<meta property="og:title" content="${post.title}">
+<meta property="og:description" content="${post.meta_description || post.excerpt || ""}">
+<meta property="og:url" content="${base}/ja/blog/${slug}">
+<meta property="og:type" content="article">
+<meta property="og:locale" content="ja_JP">
+${post.cover_image ? `<meta property="og:image" content="${post.cover_image}">` : ""}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0d0d18;color:#fff;font-family:"Hiragino Sans","Yu Gothic",sans-serif;min-height:100vh;line-height:1.7}
+.article-wrap{max-width:760px;margin:0 auto;padding:28px 20px 60px}
+.article-cat{display:inline-block;background:rgba(255,77,141,.15);color:#FF85B3;font-size:11px;font-weight:700;padding:4px 11px;border-radius:14px;margin-bottom:14px}
+.article-title{font-size:clamp(1.4rem,4vw,2rem);font-weight:900;line-height:1.35;color:#fff;margin-bottom:12px}
+.article-meta{display:flex;gap:12px;align-items:center;color:rgba(255,255,255,.4);font-size:12px;margin-bottom:20px;flex-wrap:wrap}
+.article-cover{width:100%;max-height:400px;object-fit:cover;border-radius:14px;margin-bottom:28px}
+.article-body h2{font-size:1.2rem;font-weight:800;color:#fff;margin:28px 0 12px;padding-bottom:6px;border-bottom:1px solid rgba(255,77,141,.2)}
+.article-body h3{font-size:1rem;font-weight:700;color:rgba(255,255,255,.9);margin:20px 0 8px}
+.article-body p{color:rgba(255,255,255,.7);margin-bottom:14px;font-size:14.5px}
+.article-body ul,.article-body ol{color:rgba(255,255,255,.7);margin:0 0 14px 20px;font-size:14.5px}
+.article-body li{margin-bottom:6px}
+.article-body strong{color:#fff;font-weight:700}
+.article-body a{color:#FF85B3;text-decoration:underline}
+.article-body blockquote{background:rgba(255,77,141,.08);border-left:3px solid #FF4D8D;padding:12px 16px;border-radius:0 8px 8px 0;margin:16px 0;color:rgba(255,255,255,.8);font-style:italic}
+.tags-section{margin-top:28px;display:flex;gap:6px;flex-wrap:wrap}
+.tag{font-size:11px;color:rgba(255,255,255,.4);background:rgba(255,255,255,.07);padding:4px 10px;border-radius:10px}
+.related-section{margin-top:36px;padding-top:24px;border-top:1px solid rgba(255,255,255,.07)}
+.related-section h3{font-size:14px;font-weight:800;color:#fff;margin-bottom:14px}
+.shop-cta{margin:28px 0;background:linear-gradient(135deg,rgba(255,77,141,.12),rgba(155,89,182,.08));border:1px solid rgba(255,77,141,.25);border-radius:14px;padding:20px;text-align:center}
+.shop-cta h3{font-size:16px;font-weight:900;margin-bottom:8px}
+.shop-cta p{font-size:13px;color:rgba(255,255,255,.6);margin-bottom:14px}
+.cta-btn{display:inline-block;background:linear-gradient(135deg,#FF4D8D,#FF85B3);color:#fff;font-size:13px;font-weight:700;padding:10px 22px;border-radius:20px;text-decoration:none;transition:transform .2s,box-shadow .2s}
+.cta-btn:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(255,77,141,.4)}
+</style>
+</head>
+<body>
+${jaLangNav("ja", "/ja/blog/" + slug)}
+<article class="article-wrap">
+  <span class="article-cat">${cat}</span>
+  <h1 class="article-title">${post.title}</h1>
+  <div class="article-meta">
+    <span><i class="fas fa-calendar" style="margin-right:4px;color:#FF4D8D"></i>${dateStr}</span>
+    <span><i class="fas fa-map-marker-alt" style="margin-right:4px;color:#FF4D8D"></i>${post.area || "\u30BD\u30A6\u30EB"}</span>
+    <span><i class="fas fa-eye" style="margin-right:4px;color:rgba(255,255,255,.3)"></i>${post.views || 0} views</span>
+  </div>
+  ${post.cover_image ? `<img class="article-cover" src="${post.cover_image}" alt="${post.title}" loading="lazy">` : ""}
+  <div class="article-body">${post.content || ""}</div>
+  ${tags.length ? `<div class="tags-section">${tags.map((t) => `<span class="tag">#${t}</span>`).join("")}</div>` : ""}
+  <div class="shop-cta">
+    <h3>\u{1F338} \u30BD\u30A6\u30EB\u306E\u30B5\u30ED\u30F3\u3092\u4E88\u7D04\u3057\u3088\u3046</h3>
+    <p>\u82F1\u8A9E & WhatsApp\u5BFE\u5FDC \u2014 \u5916\u56FD\u4EBA\u65C5\u884C\u8005\u3067\u3082\u7C21\u5358\u4E88\u7D04</p>
+    <a href="/ja/shops" class="cta-btn">\u{1F3EA} \u30B5\u30ED\u30F3\u4E00\u89A7\u3092\u898B\u308B</a>
+  </div>
+  ${related.length ? `<div class="related-section"><h3>\u{1F4DA} \u95A2\u9023\u30AC\u30A4\u30C9</h3>${relatedHtml}</div>` : ""}
+</article>
+</body>
+</html>`;
+    return c.html(html);
+  } catch (e) {
+    return c.html("<h1>\u4E00\u6642\u7684\u306A\u30A8\u30E9\u30FC\u304C\u767A\u751F\u3057\u307E\u3057\u305F</h1>", 500);
+  }
+});
+app.get("/ja/shop/:slug", async (c) => {
+  try {
+    await ensureDb(c.env);
+    const sql = getDb(c.env);
+    const slug = c.req.param("slug");
+    const rows = await sql`SELECT * FROM shops_ja WHERE (slug=${slug} OR id=${slug}) AND active=true`;
+    if (!rows.length) return c.notFound();
+    const shop = rowToShop(rows[0]);
+    const base = "https://seoulbeautytrip.com";
+    const catLabelsJa = { skincare: "\u30B9\u30AD\u30F3\u30B1\u30A2", makeup: "\u30E1\u30A4\u30AF", hair: "\u30D8\u30A2\u30B5\u30ED\u30F3", headspa: "\u30D8\u30C3\u30C9\u30B9\u30D1", clinic: "\u30AF\u30EA\u30CB\u30C3\u30AF", spa: "\u30B9\u30D1", tattoo: "\u7709\u30A2\u30FC\u30C8" };
+    const catColors = { skincare: "#f472b6", headspa: "#67e8f9", hair: "#60a5fa", clinic: "#fb923c", makeup: "#c084fc", spa: "#a78bfa", tattoo: "#e879f9" };
+    const catIcons = { skincare: "fa-leaf", makeup: "fa-magic", hair: "fa-cut", headspa: "fa-spa", clinic: "fa-briefcase-medical", spa: "fa-hot-tub", tattoo: "fa-pen-nib" };
+    const catLabel = catLabelsJa[shop.category] || shop.category;
+    const catColor = catColors[shop.category] || "#FF4D8D";
+    const catIcon = catIcons[shop.category] || "fa-star";
+    const servicesHtml = (shop.services || []).map((s, i) => {
+      const price = shop.servicePrices?.[i] || "";
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.05)">
+  <span style="font-size:13px;color:rgba(255,255,255,.85)">${s}</span>
+  ${price ? `<span style="font-size:13px;font-weight:700;color:#fbbf24">${price}</span>` : ""}
+</div>`;
+    }).join("");
+    const photosHtml = (shop.photos || []).filter((p) => p?.startsWith("http")).slice(0, 6).map(
+      (p) => `<div style="aspect-ratio:1;overflow:hidden;border-radius:8px;background:#1c1c30"><img src="${p}" alt="${shop.name}" style="width:100%;height:100%;object-fit:cover" loading="lazy"></div>`
+    ).join("");
+    const whyChooseHtml = (shop.whyChoose || []).map(
+      (w) => `<div style="display:flex;gap:8px;align-items:flex-start;padding:8px 0">
+  <i class="fas fa-check-circle" style="color:#34d399;margin-top:2px;flex-shrink:0"></i>
+  <span style="font-size:13px;color:rgba(255,255,255,.8)">${w}</span>
+</div>`
+    ).join("");
+    const html = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${shop.name} | \u30BD\u30A6\u30EB\u30D3\u30E5\u30FC\u30C6\u30A3\u30FC\u30C8\u30EA\u30C3\u30D7</title>
+<meta name="description" content="${shop.metaDescription || shop.description || ""}">
+<link rel="canonical" href="${base}/ja/shop/${slug}">
+<link rel="alternate" hreflang="ja" href="${base}/ja/shop/${slug}">
+<link rel="alternate" hreflang="en" href="${base}/shop/${slug}">
+<meta property="og:title" content="${shop.name} \u2014 \u30BD\u30A6\u30EB\u30D3\u30E5\u30FC\u30C6\u30A3\u30FC">
+<meta property="og:description" content="${shop.description || ""}">
+<meta property="og:url" content="${base}/ja/shop/${slug}">
+<meta property="og:type" content="place">
+<meta property="og:locale" content="ja_JP">
+${shop.thumbnail ? `<meta property="og:image" content="${shop.thumbnail}">` : ""}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0d0d18;color:#fff;font-family:"Hiragino Sans","Yu Gothic",sans-serif;min-height:100vh}
+.sp-hero{position:relative;height:260px;overflow:hidden}
+.sp-hero-img{width:100%;height:100%;object-fit:cover}
+.sp-hero-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(13,13,24,0) 30%,rgba(13,13,24,.95))}
+.sp-hero-info{position:absolute;bottom:0;left:0;right:0;padding:16px 20px}
+.sp-cat-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:700;margin-bottom:8px}
+.sp-name{font-size:1.5rem;font-weight:900;color:#fff;line-height:1.2;margin-bottom:6px}
+.sp-meta{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.sp-rating{display:flex;align-items:center;gap:4px;font-size:12px;color:#fbbf24;font-weight:700}
+.sp-loc{font-size:12px;color:rgba(255,255,255,.55);display:flex;align-items:center;gap:4px}
+.sp-body{max-width:760px;margin:0 auto;padding:20px}
+.sp-section{background:#13132a;border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:18px;margin-bottom:14px}
+.sp-section-title{font-size:13px;font-weight:800;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.sp-section-title i{font-size:12px}
+.book-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;background:linear-gradient(135deg,#25D366,#128C7E);color:#fff;font-size:14px;font-weight:700;border-radius:12px;text-decoration:none;margin-top:6px;transition:opacity .2s}
+.book-btn:hover{opacity:.9}
+.photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+</style>
+</head>
+<body>
+${jaLangNav("ja", "/ja/shop/" + slug)}
+<div class="sp-hero">
+  ${shop.thumbnail ? `<img class="sp-hero-img" src="${shop.thumbnail}" alt="${shop.name}" loading="eager">` : '<div class="sp-hero-img" style="background:linear-gradient(135deg,#1c1c30,#0d0d18)"></div>'}
+  <div class="sp-hero-overlay"></div>
+  <div class="sp-hero-info">
+    <div class="sp-cat-badge" style="background:${catColor}22;color:${catColor};border:1px solid ${catColor}44">
+      <i class="fas ${catIcon}"></i>${catLabel}
+    </div>
+    <h1 class="sp-name">${shop.name}</h1>
+    <div class="sp-meta">
+      <div class="sp-rating"><i class="fas fa-star"></i>${shop.rating} (${shop.reviewCount}\u4EF6)</div>
+      <div class="sp-loc"><i class="fas fa-map-marker-alt"></i>${shop.location}</div>
+    </div>
+  </div>
+</div>
+
+<div class="sp-body">
+  ${shop.whatsapp ? `<a href="https://wa.me/${shop.whatsapp.replace(/\D/g, "")}" target="_blank" rel="noopener" class="book-btn"><i class="fab fa-whatsapp" style="font-size:18px"></i>WhatsApp\u3067\u4E88\u7D04\u3059\u308B</a>` : ""}
+
+  ${shop.description ? `<div class="sp-section">
+    <div class="sp-section-title"><i class="fas fa-info-circle"></i>\u30B5\u30ED\u30F3\u306B\u3064\u3044\u3066</div>
+    <p style="font-size:13.5px;color:rgba(255,255,255,.7);line-height:1.7">${shop.description}</p>
+  </div>` : ""}
+
+  ${whyChooseHtml ? `<div class="sp-section">
+    <div class="sp-section-title"><i class="fas fa-star"></i>\u304A\u3059\u3059\u3081\u30DD\u30A4\u30F3\u30C8</div>
+    ${whyChooseHtml}
+  </div>` : ""}
+
+  ${servicesHtml ? `<div class="sp-section">
+    <div class="sp-section-title"><i class="fas fa-list"></i>\u30E1\u30CB\u30E5\u30FC\u30FB\u6599\u91D1</div>
+    ${servicesHtml}
+  </div>` : ""}
+
+  <div class="sp-section">
+    <div class="sp-section-title"><i class="fas fa-clock"></i>\u57FA\u672C\u60C5\u5831</div>
+    ${shop.hours ? `<div style="display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)"><i class="fas fa-clock" style="color:#60a5fa;flex-shrink:0;margin-top:2px"></i><span style="font-size:13px;color:rgba(255,255,255,.8)">${shop.hours}</span></div>` : ""}
+    ${shop.address ? `<div style="display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)"><i class="fas fa-map-marker-alt" style="color:#f472b6;flex-shrink:0;margin-top:2px"></i><span style="font-size:13px;color:rgba(255,255,255,.8)">${shop.address}</span></div>` : ""}
+    ${shop.priceRange ? `<div style="display:flex;gap:8px;align-items:flex-start;padding:8px 0"><i class="fas fa-won-sign" style="color:#fbbf24;flex-shrink:0;margin-top:2px"></i><span style="font-size:13px;color:rgba(255,255,255,.8)">${shop.priceRange}</span></div>` : ""}
+  </div>
+
+  ${shop.googleMapEmbed ? `<div class="sp-section">
+    <div class="sp-section-title"><i class="fas fa-map"></i>\u30A2\u30AF\u30BB\u30B9</div>
+    <div style="border-radius:10px;overflow:hidden;height:220px">${shop.googleMapEmbed}</div>
+  </div>` : ""}
+
+  ${photosHtml ? `<div class="sp-section">
+    <div class="sp-section-title"><i class="fas fa-images"></i>\u30D5\u30A9\u30C8\u30AE\u30E3\u30E9\u30EA\u30FC</div>
+    <div class="photo-grid">${photosHtml}</div>
+  </div>` : ""}
+
+  ${shop.whatsapp ? `<a href="https://wa.me/${shop.whatsapp.replace(/\D/g, "")}" target="_blank" rel="noopener" class="book-btn" style="margin-top:6px"><i class="fab fa-whatsapp" style="font-size:18px"></i>WhatsApp\u3067\u4E88\u7D04\u3059\u308B</a>` : ""}
+</div>
+</body>
+</html>`;
+    return c.html(html);
+  } catch (e) {
+    return c.html("<h1>\u4E00\u6642\u7684\u306A\u30A8\u30E9\u30FC\u304C\u767A\u751F\u3057\u307E\u3057\u305F</h1>", 500);
+  }
+});
+app.get("/ja/admin", async (c) => {
+  const cookieHeader = c.req.header("Cookie") || "";
+  const cookieToken = cookieHeader.match(/admin_token=([^;]+)/)?.[1] || "";
+  const ADMIN_SECRET2 = "0907";
+  if (cookieToken !== ADMIN_SECRET2) {
+    const token = c.req.query("token") || "";
+    if (token !== ADMIN_SECRET2) {
+      return c.html(`<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>\u30ED\u30B0\u30A4\u30F3 | JA\u7BA1\u7406\u753B\u9762</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0d0d18;color:#fff;font-family:"Hiragino Sans",sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center}.card{background:#13132a;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:32px;width:90%;max-width:360px}h1{font-size:1.2rem;font-weight:800;margin-bottom:6px;text-align:center}p{font-size:12px;color:rgba(255,255,255,.4);text-align:center;margin-bottom:22px}input{width:100%;background:#0d0d18;border:1px solid rgba(255,255,255,.12);border-radius:10px;color:#fff;padding:11px 14px;font-size:14px;outline:none;margin-bottom:12px}button{width:100%;background:linear-gradient(135deg,#FF4D8D,#FF85B3);color:#fff;font-weight:700;padding:12px;border:none;border-radius:10px;font-size:14px;cursor:pointer}.err{color:#ef4444;font-size:12px;text-align:center;margin-top:8px;display:none}</style>
+</head>
+<body>
+<div class="card">
+<h1>\u{1F338} JA\u7BA1\u7406\u753B\u9762</h1>
+<p>\u30D1\u30B9\u30EF\u30FC\u30C9\u3092\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044</p>
+<form onsubmit="login(event)">
+<input type="password" id="pw" placeholder="\u30D1\u30B9\u30EF\u30FC\u30C9" autofocus>
+<button type="submit">\u30ED\u30B0\u30A4\u30F3</button>
+<p class="err" id="err">\u30D1\u30B9\u30EF\u30FC\u30C9\u304C\u6B63\u3057\u304F\u3042\u308A\u307E\u305B\u3093</p>
+</form>
+</div>
+<script>async function login(e){e.preventDefault();window.location.href='/ja/admin?token='+encodeURIComponent(document.getElementById('pw').value);}</script>
+</body>
+</html>`, 200);
+    }
+    c.header("Set-Cookie", `admin_token=${ADMIN_SECRET2}; Path=/; Max-Age=604800; HttpOnly; SameSite=Lax`);
+    return c.redirect("/ja/admin", 302);
+  }
+  return c.html(`<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JA\u7BA1\u7406\u753B\u9762 | \u30BD\u30A6\u30EB\u30D3\u30E5\u30FC\u30C6\u30A3\u30FC\u30C8\u30EA\u30C3\u30D7</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0d0d18;color:#fff;font-family:"Hiragino Sans","Yu Gothic",sans-serif;min-height:100vh}
+.adm-header{background:#13132a;border-bottom:1px solid rgba(255,77,141,.2);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.adm-logo{font-size:15px;font-weight:900;background:linear-gradient(135deg,#FF4D8D,#FF85B3);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.adm-nav{display:flex;gap:8px}
+.adm-nav-btn{padding:6px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.6);font-size:12px;font-weight:700;cursor:pointer;background:none;transition:all .15s}
+.adm-nav-btn.active{background:rgba(255,77,141,.2);color:#FF85B3;border-color:rgba(255,77,141,.4)}
+.adm-body{max-width:900px;margin:0 auto;padding:20px}
+.panel{background:#13132a;border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:20px;margin-bottom:16px}
+.panel-title{font-size:14px;font-weight:800;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.form-row.full{grid-template-columns:1fr}
+label{font-size:11px;color:rgba(255,255,255,.4);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;display:block}
+input,textarea,select{width:100%;background:#0d0d18;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:9px 12px;font-size:13px;outline:none;font-family:inherit;transition:border-color .15s}
+input:focus,textarea:focus{border-color:rgba(255,77,141,.4)}
+textarea{min-height:100px;resize:vertical}
+.btn{padding:9px 18px;border-radius:9px;border:none;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:linear-gradient(135deg,#FF4D8D,#FF85B3);color:#fff}
+.btn-primary:hover{opacity:.9}
+.btn-secondary{background:rgba(255,255,255,.08);color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.12)}
+.btn-danger{background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3)}
+.btn-sm{padding:5px 10px;font-size:11px}
+.shop-list,.blog-list{display:flex;flex-direction:column;gap:8px}
+.shop-item,.blog-item{background:#0d0d18;border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:12px;display:flex;align-items:center;gap:12px}
+.shop-thumb{width:48px;height:48px;border-radius:8px;object-fit:cover;flex-shrink:0}
+.shop-info{flex:1;min-width:0}
+.shop-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shop-meta{font-size:11px;color:rgba(255,255,255,.4);margin-top:2px}
+.shop-actions,.blog-actions{display:flex;gap:6px;flex-shrink:0}
+.tab-content{display:none}
+.tab-content.active{display:block}
+.msg{padding:10px 14px;border-radius:8px;font-size:12px;margin-bottom:12px;display:none}
+.msg.ok{background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.3);color:#34d399}
+.msg.err{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:#ef4444}
+@media(max-width:600px){.form-row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="adm-header">
+  <div class="adm-logo">\u{1F338} JA\u7BA1\u7406\u753B\u9762</div>
+  <div class="adm-nav">
+    <button class="adm-nav-btn active" onclick="switchTab('shops')"><i class="fas fa-store"></i> \u30B5\u30ED\u30F3</button>
+    <button class="adm-nav-btn" onclick="switchTab('blogs')"><i class="fas fa-blog"></i> \u30D6\u30ED\u30B0</button>
+    <a href="/ja" style="text-decoration:none"><button class="adm-nav-btn"><i class="fas fa-eye"></i> \u8868\u793A</button></a>
+    <a href="/admin" style="text-decoration:none"><button class="adm-nav-btn"><i class="fas fa-language"></i> EN\u7BA1\u7406</button></a>
+  </div>
+</div>
+<div class="adm-body">
+
+<!-- SHOPS TAB -->
+<div id="tab-shops" class="tab-content active">
+  <div class="panel">
+    <div class="panel-title"><i class="fas fa-plus-circle" style="color:#FF4D8D"></i>\u30B5\u30ED\u30F3\u8FFD\u52A0</div>
+    <div id="shop-msg" class="msg"></div>
+    <div class="form-row">
+      <div><label>\u30B5\u30ED\u30F3\u540D *</label><input id="sh-name" placeholder="\u4F8B: \u6E05\u6DBC\u91CC\u30D8\u30C3\u30C9\u30B9\u30D1"></div>
+      <div><label>\u30AB\u30C6\u30B4\u30EA\u30FC *</label><select id="sh-cat"><option value="headspa">\u30D8\u30C3\u30C9\u30B9\u30D1</option><option value="hair">\u30D8\u30A2\u30B5\u30ED\u30F3</option><option value="skincare">\u30B9\u30AD\u30F3\u30B1\u30A2</option><option value="clinic">\u30AF\u30EA\u30CB\u30C3\u30AF</option><option value="makeup">\u30E1\u30A4\u30AF</option><option value="spa">\u30B9\u30D1</option><option value="tattoo">\u7709\u30A2\u30FC\u30C8</option></select></div>
+    </div>
+    <div class="form-row">
+      <div><label>\u30A8\u30EA\u30A2</label><input id="sh-loc" placeholder="\u4F8B: Hongdae, Seoul"></div>
+      <div><label>WhatsApp\u756A\u53F7</label><input id="sh-wa" placeholder="\u4F8B: 821012345678"></div>
+    </div>
+    <div class="form-row">
+      <div><label>\u4FA1\u683C\u5E2F</label><input id="sh-price" placeholder="\u4F8B: \u20A950,000\u301C\u20A9120,000"></div>
+      <div><label>\u55B6\u696D\u6642\u9593</label><input id="sh-hours" placeholder="\u4F8B: \u6BCE\u65E5 10:00-20:00"></div>
+    </div>
+    <div class="form-row full"><label>\u30B5\u30E0\u30CD\u30A4\u30EBURL</label><input id="sh-thumb" placeholder="https://..."></div>
+    <div class="form-row full"><label>\u30B5\u30ED\u30F3\u8AAC\u660E</label><textarea id="sh-desc" placeholder="\u30B5\u30ED\u30F3\u306E\u7279\u5FB4\u3084\u96F0\u56F2\u6C17\u3092\u8AAC\u660E\u3057\u3066\u304F\u3060\u3055\u3044..."></textarea></div>
+    <div class="form-row full"><label>\u30E1\u30CB\u30E5\u30FC (1\u884C1\u54C1\u76EE)</label><textarea id="sh-svcs" placeholder="\u30D8\u30C3\u30C9\u30B9\u30D1 60\u5206&#10;\u30A2\u30ED\u30DE\u30C8\u30EA\u30FC\u30C8\u30E1\u30F3\u30C8&#10;\u982D\u76AE\u30B1\u30A2" style="min-height:80px"></textarea></div>
+    <div class="form-row full"><label>\u6599\u91D1 (\u30E1\u30CB\u30E5\u30FC\u3068\u540C\u3058\u9806\u756A)</label><textarea id="sh-prices" placeholder="\u20A970,000&#10;\u20A955,000&#10;\u20A945,000" style="min-height:80px"></textarea></div>
+    <button class="btn btn-primary" onclick="addShop()"><i class="fas fa-plus"></i> \u30B5\u30ED\u30F3\u3092\u8FFD\u52A0</button>
+  </div>
+  <div class="panel">
+    <div class="panel-title"><i class="fas fa-list" style="color:#60a5fa"></i>\u30B5\u30ED\u30F3\u4E00\u89A7 (<span id="shop-count">0</span>\u4EF6)</div>
+    <div class="shop-list" id="shop-list"><div style="text-align:center;padding:20px;color:rgba(255,255,255,.3);font-size:13px">\u8AAD\u307F\u8FBC\u307F\u4E2D...</div></div>
+  </div>
+</div>
+
+<!-- BLOGS TAB -->
+<div id="tab-blogs" class="tab-content">
+  <div class="panel">
+    <div class="panel-title"><i class="fas fa-plus-circle" style="color:#FF4D8D"></i>\u8A18\u4E8B\u8FFD\u52A0</div>
+    <div id="blog-msg" class="msg"></div>
+    <div class="form-row">
+      <div><label>\u30BF\u30A4\u30C8\u30EB *</label><input id="bl-title" placeholder="\u4F8B: \u30BD\u30A6\u30EB\u306E\u30D8\u30C3\u30C9\u30B9\u30D1\u5B8C\u5168\u30AC\u30A4\u30C9"></div>
+      <div><label>\u30AB\u30C6\u30B4\u30EA\u30FC</label><select id="bl-cat"><option value="headspa">\u30D8\u30C3\u30C9\u30B9\u30D1</option><option value="hair">\u30D8\u30A2\u30B5\u30ED\u30F3</option><option value="skincare">\u30B9\u30AD\u30F3\u30B1\u30A2</option><option value="clinic">\u30AF\u30EA\u30CB\u30C3\u30AF</option><option value="makeup">\u30E1\u30A4\u30AF</option><option value="spa">\u30B9\u30D1</option><option value="tattoo">\u7709\u30A2\u30FC\u30C8</option></select></div>
+    </div>
+    <div class="form-row">
+      <div><label>\u30B9\u30E9\u30C3\u30B0 (URL)</label><input id="bl-slug" placeholder="seoul-headspa-guide-ja"></div>
+      <div><label>\u30A8\u30EA\u30A2</label><input id="bl-area" placeholder="\u4F8B: \u30BD\u30A6\u30EB\u5168\u57DF"></div>
+    </div>
+    <div class="form-row full"><label>\u629C\u7C8B (\u4E00\u89A7\u8868\u793A\u7528)</label><textarea id="bl-excerpt" placeholder="\u8A18\u4E8B\u306E\u7C21\u5358\u306A\u8AAC\u660E..." style="min-height:70px"></textarea></div>
+    <div class="form-row full"><label>\u30AB\u30D0\u30FC\u753B\u50CFURL</label><input id="bl-cover" placeholder="https://..."></div>
+    <div class="form-row full"><label>\u672C\u6587 (HTML\u30BF\u30B0\u4F7F\u7528\u53EF)</label><textarea id="bl-content" placeholder="<h2>\u898B\u51FA\u3057</h2><p>\u672C\u6587...</p>" style="min-height:200px"></textarea></div>
+    <div class="form-row">
+      <div><label>\u30B9\u30C6\u30FC\u30BF\u30B9</label><select id="bl-status"><option value="draft">\u4E0B\u66F8\u304D</option><option value="published">\u516C\u958B</option></select></div>
+      <div><label>\u30BF\u30B0 (\u30AB\u30F3\u30DE\u533A\u5207\u308A)</label><input id="bl-tags" placeholder="headspa,seoul,k-beauty"></div>
+    </div>
+    <button class="btn btn-primary" onclick="addBlog()"><i class="fas fa-plus"></i> \u8A18\u4E8B\u3092\u8FFD\u52A0</button>
+  </div>
+  <div class="panel">
+    <div class="panel-title"><i class="fas fa-list" style="color:#60a5fa"></i>\u8A18\u4E8B\u4E00\u89A7 (<span id="blog-count">0</span>\u4EF6)</div>
+    <div class="blog-list" id="blog-list"><div style="text-align:center;padding:20px;color:rgba(255,255,255,.3);font-size:13px">\u8AAD\u307F\u8FBC\u307F\u4E2D...</div></div>
+  </div>
+</div>
+
+</div><!-- /adm-body -->
+<script>
+var _token = '0907';
+var _shops = [], _blogs = [];
+
+function switchTab(t) {
+  document.querySelectorAll('.tab-content').forEach(function(el){el.classList.remove('active')});
+  document.querySelectorAll('.adm-nav-btn').forEach(function(el){el.classList.remove('active')});
+  document.getElementById('tab-'+t).classList.add('active');
+  if(t==='shops') { document.querySelectorAll('.adm-nav-btn')[0].classList.add('active'); loadShops(); }
+  else { document.querySelectorAll('.adm-nav-btn')[1].classList.add('active'); loadBlogs(); }
+}
+
+function showMsg(elId, type, text) {
+  var el = document.getElementById(elId);
+  el.className = 'msg '+type;
+  el.textContent = text;
+  el.style.display = 'block';
+  setTimeout(function(){el.style.display='none';}, 4000);
+}
+
+async function loadShops() {
+  var res = await fetch('/api/ja/shops', {headers:{'Authorization':'Bearer '+_token}});
+  var data = await res.json();
+  _shops = data.shops || [];
+  document.getElementById('shop-count').textContent = _shops.length;
+  var html = _shops.length ? _shops.map(function(s) {
+    return '<div class="shop-item">'
+      + (s.thumbnail ? '<img class="shop-thumb" src="'+s.thumbnail+'" onerror="this.style.display=\\'none\\'">' : '<div class="shop-thumb" style="background:#1c1c30;border-radius:8px"></div>')
+      + '<div class="shop-info"><div class="shop-name">'+s.name+'</div>'
+      + '<div class="shop-meta">'+s.category+' \xB7 '+(s.location||'')+'</div></div>'
+      + '<div class="shop-actions">'
+      + '<a href="/ja/shop/'+(s.slug||s.id)+'" target="_blank"><button class="btn btn-secondary btn-sm"><i class="fas fa-eye"></i></button></a>'
+      + '<button class="btn btn-danger btn-sm" onclick="delShop(\\''+s.id+'\\')"><i class="fas fa-trash"></i></button>'
+      + '</div></div>';
+  }).join('') : '<div style="text-align:center;padding:20px;color:rgba(255,255,255,.3);font-size:13px">\u30B5\u30ED\u30F3\u304C\u3042\u308A\u307E\u305B\u3093</div>';
+  document.getElementById('shop-list').innerHTML = html;
+}
+
+async function addShop() {
+  var name = document.getElementById('sh-name').value.trim();
+  if(!name){showMsg('shop-msg','err','\u30B5\u30ED\u30F3\u540D\u3092\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044');return;}
+  var services = document.getElementById('sh-svcs').value.split('\\n').map(function(s){return s.trim()}).filter(Boolean);
+  var prices = document.getElementById('sh-prices').value.split('\\n').map(function(s){return s.trim()}).filter(Boolean);
+  var body = {
+    name:name,category:document.getElementById('sh-cat').value,
+    location:document.getElementById('sh-loc').value.trim(),
+    whatsapp:document.getElementById('sh-wa').value.trim(),
+    priceRange:document.getElementById('sh-price').value.trim(),
+    hours:document.getElementById('sh-hours').value.trim(),
+    thumbnail:document.getElementById('sh-thumb').value.trim(),
+    description:document.getElementById('sh-desc').value.trim(),
+    services:services,servicePrices:prices,active:true
+  };
+  var res = await fetch('/api/ja/shops',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+_token},body:JSON.stringify(body)});
+  var data = await res.json();
+  if(res.ok){showMsg('shop-msg','ok','\u2705 \u30B5\u30ED\u30F3\u3092\u8FFD\u52A0\u3057\u307E\u3057\u305F');['sh-name','sh-loc','sh-wa','sh-price','sh-hours','sh-thumb','sh-desc','sh-svcs','sh-prices'].forEach(function(id){document.getElementById(id).value='';});loadShops();}
+  else showMsg('shop-msg','err','\u274C \u30A8\u30E9\u30FC: '+(data.message||data.error));
+}
+
+async function delShop(id) {
+  if(!confirm('\u3053\u306E\u30B5\u30ED\u30F3\u3092\u524A\u9664\u3057\u307E\u3059\u304B\uFF1F')) return;
+  var res = await fetch('/api/ja/shops/'+id,{method:'DELETE',headers:{'Authorization':'Bearer '+_token}});
+  if(res.ok) loadShops();
+}
+
+async function loadBlogs() {
+  var res = await fetch('/api/ja/blogs',{headers:{'Authorization':'Bearer '+_token}});
+  var data = await res.json();
+  _blogs = data.posts || [];
+  document.getElementById('blog-count').textContent = _blogs.length;
+  var catLbl = {headspa:'\u30D8\u30C3\u30C9\u30B9\u30D1',hair:'\u30D8\u30A2\u30B5\u30ED\u30F3',skincare:'\u30B9\u30AD\u30F3\u30B1\u30A2',clinic:'\u30AF\u30EA\u30CB\u30C3\u30AF',makeup:'\u30E1\u30A4\u30AF',spa:'\u30B9\u30D1',tattoo:'\u7709\u30A2\u30FC\u30C8'};
+  var statusLbl = {published:'\u516C\u958B\u4E2D',draft:'\u4E0B\u66F8\u304D'};
+  var html = _blogs.length ? _blogs.map(function(p) {
+    return '<div class="blog-item" style="align-items:flex-start">'
+      + '<div style="flex:1;min-width:0"><div class="shop-name">'+p.title+'</div>'
+      + '<div class="shop-meta">'+(catLbl[p.category]||p.category)+' \xB7 '+(statusLbl[p.status]||p.status)+'</div></div>'
+      + '<div class="blog-actions">'
+      + '<a href="/ja/blog/'+p.slug+'" target="_blank"><button class="btn btn-secondary btn-sm"><i class="fas fa-eye"></i></button></a>'
+      + '<button class="btn btn-danger btn-sm" onclick="delBlog(\\''+p.id+'\\')"><i class="fas fa-trash"></i></button>'
+      + '</div></div>';
+  }).join('') : '<div style="text-align:center;padding:20px;color:rgba(255,255,255,.3);font-size:13px">\u8A18\u4E8B\u304C\u3042\u308A\u307E\u305B\u3093</div>';
+  document.getElementById('blog-list').innerHTML = html;
+}
+
+async function addBlog() {
+  var title = document.getElementById('bl-title').value.trim();
+  if(!title){showMsg('blog-msg','err','\u30BF\u30A4\u30C8\u30EB\u3092\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044');return;}
+  var slug = document.getElementById('bl-slug').value.trim() || title.toLowerCase().replace(/[^a-z0-9\\u3000-\\u9fff]+/g,'-').replace(/^-|-$/g,'') + '-ja';
+  var tags = document.getElementById('bl-tags').value.split(',').map(function(t){return t.trim()}).filter(Boolean);
+  var body = {
+    title:title,slug:slug,
+    category:document.getElementById('bl-cat').value,
+    area:document.getElementById('bl-area').value.trim(),
+    excerpt:document.getElementById('bl-excerpt').value.trim(),
+    content:document.getElementById('bl-content').value.trim(),
+    coverImage:document.getElementById('bl-cover').value.trim(),
+    status:document.getElementById('bl-status').value,
+    tags:tags
+  };
+  var res = await fetch('/api/ja/blogs',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+_token},body:JSON.stringify(body)});
+  var data = await res.json();
+  if(res.ok){showMsg('blog-msg','ok','\u2705 \u8A18\u4E8B\u3092\u8FFD\u52A0\u3057\u307E\u3057\u305F');['bl-title','bl-slug','bl-area','bl-excerpt','bl-cover','bl-content','bl-tags'].forEach(function(id){document.getElementById(id).value='';});loadBlogs();}
+  else showMsg('blog-msg','err','\u274C \u30A8\u30E9\u30FC: '+(data.message||data.error));
+}
+
+async function delBlog(id) {
+  if(!confirm('\u3053\u306E\u8A18\u4E8B\u3092\u524A\u9664\u3057\u307E\u3059\u304B\uFF1F')) return;
+  var res = await fetch('/api/ja/blogs/'+id,{method:'DELETE',headers:{'Authorization':'Bearer '+_token}});
+  if(res.ok) loadBlogs();
+}
+
+// \u521D\u671F\u30ED\u30FC\u30C9
+loadShops();
+</script>
+</body>
+</html>`);
 });
 app.post("/api/admin/sync-reviews", async (c) => {
   await ensureDb(c.env);
@@ -8467,6 +9559,7 @@ a{text-decoration:none;color:inherit}
   <div class="sc-title">Seoul Beauty</div>
   <div class="sc-spacer"></div>
   <div class="sc-badge" id="scBadge">${shops2.length} shops</div>
+  <a href="/ja/shops" style="font-size:10px;color:rgba(255,255,255,.3);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:3px 8px;margin-left:6px;text-decoration:none">JA</a>
 </nav>
 
 <div class="sc-ctrl">
@@ -8656,7 +9749,10 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;min-height:
 <body>
 <nav class="nav">
   <a href="/" class="nav-logo">\u2728 Seoul Beauty Trip</a>
-  <a href="/" class="nav-back"><i class="fas fa-arrow-left"></i> Back</a>
+  <div style="display:flex;align-items:center;gap:8px">
+    <a href="/" class="nav-back"><i class="fas fa-arrow-left"></i> Back</a>
+    <a href="/ja/blog" style="font-size:11px;color:rgba(255,255,255,.35);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:4px 10px;text-decoration:none">JA</a>
+  </div>
 </nav>
 <section class="blog-hero">
   <h1>\u270D\uFE0F Seoul Beauty Blog</h1>
@@ -13664,6 +14760,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
       </div>
     </div>
     <div class="hd-right">
+      <a href="/ja/" id="ja-toggle-btn" onclick="localStorage.removeItem('_sb_lang_pref')" style="display:inline-flex;align-items:center;padding:4px 9px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.55);font-size:11px;font-weight:700;text-decoration:none;letter-spacing:.02em;transition:all .2s" title="\u65E5\u672C\u8A9E\u7248\u3078">\u{1F1EF}\u{1F1F5} JA</a>
       <button class="srch-btn" id="srchToggle" onclick="toggleSearch()" aria-label="Search shops"><i class="fas fa-search"></i></button>
       <button class="mute-btn" id="muteBtn" onclick="toggleMute()"><i class="fas fa-volume-mute"></i></button>
     </div>
@@ -13780,6 +14877,21 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 
 __INLINE_DATA_PLACEHOLDER__
 <script>
+// \u2500\u2500 \uBE0C\uB77C\uC6B0\uC800 \uC5B8\uC5B4 \uC790\uB3D9\uAC10\uC9C0: \uC77C\uBCF8\uC5B4 \uC0AC\uC6A9\uC790\uB97C /ja/\uB85C \uB9AC\uB2E4\uC774\uB809\uD2B8 \u2500\u2500
+(function(){
+  try {
+    var lang = navigator.language || navigator.userLanguage || '';
+    // \uC774\uBBF8 /ja/ \uC5D0\uC11C \uC628 \uACBD\uC6B0 \uC2A4\uD0B5 (referer \uCCB4\uD06C)
+    var ref = document.referrer || '';
+    if (ref.includes('/ja')) return;
+    // \uC774\uBBF8 \uD55C\uBC88 \uAC10\uC9C0\uD574\uC11C EN \uC120\uD0DD\uD55C \uACBD\uC6B0 \uC2A4\uD0B5 (localStorage \uD50C\uB798\uADF8)
+    if (localStorage.getItem('_sb_lang_pref') === 'en') return;
+    if (lang.startsWith('ja')) {
+      // \uC77C\uBCF8\uC5B4 \uBE0C\uB77C\uC6B0\uC800: /ja/ \uB85C \uB9AC\uB2E4\uC774\uB809\uD2B8
+      window.location.replace('/ja/');
+    }
+  } catch(e) {}
+})();
 var vids = [], isMuted = true, liked = {}, platform = {}, allShopsData = [];
 var shopCache = {}; // \uBAA8\uB2EC \uCE90\uC2DC: shopId \u2192 shop \uAC1D\uCCB4
 var catIcons = {skincare:'&#127807;',makeup:'&#128139;',hair:'&#128135;',headspa:'&#129496;',clinic:'&#127973;',spa:'&#129510;',tattoo:'&#9998;'};
@@ -16899,6 +18011,21 @@ window.selectMapShop  = function() {};
 </div>
 
 ${SB_TRACKER_SCRIPT}
+
+<script>
+// \uC77C\uBCF8\uC5B4 \uBE0C\uB77C\uC6B0\uC800 \uC0AC\uC6A9\uC790\uC5D0\uAC8C /ja \uC720\uB3C4 \uBC30\uB108 (\uC138\uC158\uB2F9 1\uD68C)
+(function(){
+  if(sessionStorage.getItem('ja_redirect_shown')) return
+  var lang = (navigator.language || (navigator.languages && navigator.languages[0]) || '').toLowerCase()
+  if(!lang.startsWith('ja')) return
+  sessionStorage.setItem('ja_redirect_shown', '1')
+  var b = document.createElement('div')
+  b.id = 'ja-banner'
+  b.style.cssText = 'position:fixed;bottom:72px;left:50%;transform:translateX(-50%);background:#1a1a2e;border:1px solid rgba(244,114,182,.3);border-radius:14px;padding:12px 16px;font-size:13px;color:rgba(255,255,255,.85);z-index:9999;display:flex;gap:10px;align-items:center;max-width:340px;width:calc(100% - 32px);box-shadow:0 4px 24px rgba(0,0,0,.4)'
+  b.innerHTML = '<span>\u{1F1EF}\u{1F1F5} \u65E5\u672C\u8A9E\u7248\u3082\u3042\u308A\u307E\u3059</span><a href="/ja" style="color:#f472b6;font-weight:700;white-space:nowrap;text-decoration:none">\u65E5\u672C\u8A9E\u3078 \u2192</a><button onclick="document.getElementById('ja-banner').remove()" style="background:none;border:none;color:rgba(255,255,255,.3);cursor:pointer;font-size:18px;padding:0 4px;line-height:1;flex-shrink:0">\u2715</button>'
+  document.body.appendChild(b)
+})()
+</script>
 </body>
 </html>`;
 var ADMIN_HTML = `<!DOCTYPE html>
