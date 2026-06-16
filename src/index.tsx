@@ -4192,7 +4192,83 @@ app.get('/ja', async (c) => {
     // /shops → /ja/shops, /blog → /ja/blog (링크만)
     html = html.replace(/href="\/shops"/g, 'href="/ja/shops"')
     html = html.replace(/href="\/blog"/g, 'href="/ja/blog"')
-    // shop 개별 링크: /shop/ → /ja/shop/ (ssrFeaturedBlock은 이미 /ja/shop 사용)
+
+    // ── 일본어화 replace 체인 ──
+    // lang
+    html = html.replace('<html lang="en">', '<html lang="ja">')
+    // title / meta
+    html = html.replace(
+      '<title>Seoul Skin Clinic &amp; Beauty Salon for Foreigners | Seoul Beauty Trip</title>',
+      '<title>ソウルの美容・クリニック予約 | Seoul Beauty Trip</title>'
+    )
+    html = html.replace(
+      '<title>Seoul Skin Clinic & Beauty Salon for Foreigners | Seoul Beauty Trip</title>',
+      '<title>ソウルの美容・クリニック予約 | Seoul Beauty Trip</title>'
+    )
+    // 검색 placeholder
+    html = html.replace(
+      'placeholder="Search shops, area, category..."',
+      'placeholder="店舗・エリア・カテゴリーを検索..."'
+    )
+    // 필터 버튼 (상단 카테고리 탭)
+    html = html.replace(
+      '<button class="cat on" data-cat="all"><i class="fas fa-star"></i> All</button>',
+      '<button class="cat on" data-cat="all"><i class="fas fa-star"></i> すべて</button>'
+    )
+    html = html.replace(
+      '<button class="cat" data-cat="clinic"><i class="fas fa-briefcase-medical"></i> Clinic</button>',
+      '<button class="cat" data-cat="clinic"><i class="fas fa-briefcase-medical"></i> クリニック</button>'
+    )
+    html = html.replace(
+      '<button class="cat" data-cat="headspa"><i class="fas fa-spa"></i> Head Spa</button>',
+      '<button class="cat" data-cat="headspa"><i class="fas fa-spa"></i> ヘッドスパ</button>'
+    )
+    html = html.replace(
+      '<button class="cat" data-cat="makeup"><i class="fas fa-magic"></i> Makeup</button>',
+      '<button class="cat" data-cat="makeup"><i class="fas fa-magic"></i> メイク</button>'
+    )
+    html = html.replace(
+      '<button class="cat" data-cat="tattoo"><i class="fas fa-pen-nib"></i> Tattoo</button>',
+      '<button class="cat" data-cat="tattoo"><i class="fas fa-pen-nib"></i> 眉アート</button>'
+    )
+    // 검색 오버레이 so-chip
+    html = html.replace(
+      '<button class="so-chip on" data-filter="all">All</button>',
+      '<button class="so-chip on" data-filter="all">すべて</button>'
+    )
+    html = html.replace(
+      '<button class="so-chip" data-filter="clinic">Clinic</button>',
+      '<button class="so-chip" data-filter="clinic">クリニック</button>'
+    )
+    html = html.replace(
+      '<button class="so-chip" data-filter="headspa">Head Spa</button>',
+      '<button class="so-chip" data-filter="headspa">ヘッドスパ</button>'
+    )
+    html = html.replace(
+      '<button class="so-chip" data-filter="makeup">Makeup</button>',
+      '<button class="so-chip" data-filter="makeup">メイク</button>'
+    )
+    html = html.replace(
+      '<button class="so-chip" data-filter="tattoo">Tattoo</button>',
+      '<button class="so-chip" data-filter="tattoo">眉アート</button>'
+    )
+    // soBackLabel (검색 오버레이 Back)
+    html = html.replace(
+      '<span id="soBackLabel">Main</span>',
+      '<span id="soBackLabel">メイン</span>'
+    )
+    // 모달 Back 버튼
+    html = html.replace(
+      '<button class="modal-back-btn" onclick="closeModal()" aria-label="Back"><i class="fas fa-arrow-left" style="font-size:11px"></i> <span>Back</span></button>',
+      '<button class="modal-back-btn" onclick="closeModal()" aria-label="Back"><i class="fas fa-arrow-left" style="font-size:11px"></i> <span>戻る</span></button>'
+    )
+    // prefetchShops → /api/ja/shops (인라인 데이터 없을 때 폴백)
+    html = html.replace("fetch('/api/shops')\n    .then(function(r){ return r.json(); })\n    .then(function(d){\n      var list = d.shops || [];", "fetch('/api/ja/shops')\n    .then(function(r){ return r.json(); })\n    .then(function(d){\n      var list = d.shops || [];")
+    // JS _catLabel 일본어화
+    html = html.replace(
+      "var _catLabel = {skincare:'Skincare',makeup:'Makeup',hair:'Hair Salon',nail:'Nail',clinic:'Dermatology Clinic',headspa:'Head Spa',spa:'Spa',tattoo:'Eyebrow Tattoo'};",
+      "var _catLabel = {skincare:'スキンケア',makeup:'メイク',hair:'ヘアサロン',nail:'ネイル',clinic:'皮膚科クリニック',headspa:'ヘッドスパ',spa:'スパ',tattoo:'眉アート'};"
+    )
 
     return c.html(html)
   } catch(e: any) {
