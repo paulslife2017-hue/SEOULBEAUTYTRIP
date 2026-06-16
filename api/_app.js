@@ -13715,8 +13715,9 @@ var MAIN_HTML = `<!DOCTYPE html>
 <meta name="robots" content="index, follow">
 <meta name="msvalidate.01" content="DD5A8D9AA094B888C8A409EADE4610E9">
 <link rel="canonical" href="https://seoulbeautytrip.com/">
-<!-- hreflang: English-only targeting -->
+<!-- hreflang: EN + JA targeting -->
 <link rel="alternate" hreflang="en" href="https://seoulbeautytrip.com/">
+<link rel="alternate" hreflang="ja" href="https://seoulbeautytrip.com/ja">
 <link rel="alternate" hreflang="x-default" href="https://seoulbeautytrip.com/">
 <!-- Open Graph -->
 <meta property="og:type" content="website">
