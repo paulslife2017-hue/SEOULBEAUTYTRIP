@@ -5778,6 +5778,93 @@ app.get("/ja", async (c) => {
     let html = MAIN_HTML.replace("__INLINE_DATA_PLACEHOLDER__", inlineScript).replace("__SSR_FEATURED__", ssrFeaturedBlock);
     html = html.replace(/href="\/shops"/g, 'href="/ja/shops"');
     html = html.replace(/href="\/blog"/g, 'href="/ja/blog"');
+    html = html.replace('<html lang="en">', '<html lang="ja">');
+    html = html.replace(
+      "<title>Seoul Skin Clinic &amp; Beauty Salon for Foreigners | Seoul Beauty Trip</title>",
+      "<title>\u30BD\u30A6\u30EB\u306E\u7F8E\u5BB9\u30FB\u30AF\u30EA\u30CB\u30C3\u30AF\u4E88\u7D04 | Seoul Beauty Trip</title>"
+    );
+    html = html.replace(
+      "<title>Seoul Skin Clinic & Beauty Salon for Foreigners | Seoul Beauty Trip</title>",
+      "<title>\u30BD\u30A6\u30EB\u306E\u7F8E\u5BB9\u30FB\u30AF\u30EA\u30CB\u30C3\u30AF\u4E88\u7D04 | Seoul Beauty Trip</title>"
+    );
+    html = html.replace(
+      'placeholder="Search shops, area, category..."',
+      'placeholder="\u5E97\u8217\u30FB\u30A8\u30EA\u30A2\u30FB\u30AB\u30C6\u30B4\u30EA\u30FC\u3092\u691C\u7D22..."'
+    );
+    html = html.replace(
+      '<button class="cat on" data-cat="all"><i class="fas fa-star"></i> All</button>',
+      '<button class="cat on" data-cat="all"><i class="fas fa-star"></i> \u3059\u3079\u3066</button>'
+    );
+    html = html.replace(
+      '<button class="cat" data-cat="clinic"><i class="fas fa-briefcase-medical"></i> Clinic</button>',
+      '<button class="cat" data-cat="clinic"><i class="fas fa-briefcase-medical"></i> \u30AF\u30EA\u30CB\u30C3\u30AF</button>'
+    );
+    html = html.replace(
+      '<button class="cat" data-cat="headspa"><i class="fas fa-spa"></i> Head Spa</button>',
+      '<button class="cat" data-cat="headspa"><i class="fas fa-spa"></i> \u30D8\u30C3\u30C9\u30B9\u30D1</button>'
+    );
+    html = html.replace(
+      '<button class="cat" data-cat="makeup"><i class="fas fa-magic"></i> Makeup</button>',
+      '<button class="cat" data-cat="makeup"><i class="fas fa-magic"></i> \u30E1\u30A4\u30AF</button>'
+    );
+    html = html.replace(
+      '<button class="cat" data-cat="tattoo"><i class="fas fa-pen-nib"></i> Tattoo</button>',
+      '<button class="cat" data-cat="tattoo"><i class="fas fa-pen-nib"></i> \u7709\u30A2\u30FC\u30C8</button>'
+    );
+    html = html.replace(
+      '<button class="so-chip on" data-filter="all">All</button>',
+      '<button class="so-chip on" data-filter="all">\u3059\u3079\u3066</button>'
+    );
+    html = html.replace(
+      '<button class="so-chip" data-filter="clinic">Clinic</button>',
+      '<button class="so-chip" data-filter="clinic">\u30AF\u30EA\u30CB\u30C3\u30AF</button>'
+    );
+    html = html.replace(
+      '<button class="so-chip" data-filter="headspa">Head Spa</button>',
+      '<button class="so-chip" data-filter="headspa">\u30D8\u30C3\u30C9\u30B9\u30D1</button>'
+    );
+    html = html.replace(
+      '<button class="so-chip" data-filter="makeup">Makeup</button>',
+      '<button class="so-chip" data-filter="makeup">\u30E1\u30A4\u30AF</button>'
+    );
+    html = html.replace(
+      '<button class="so-chip" data-filter="tattoo">Tattoo</button>',
+      '<button class="so-chip" data-filter="tattoo">\u7709\u30A2\u30FC\u30C8</button>'
+    );
+    html = html.replace(
+      '<span id="soBackLabel">Main</span>',
+      '<span id="soBackLabel">\u30E1\u30A4\u30F3</span>'
+    );
+    html = html.replace(
+      '<button class="modal-back-btn" onclick="closeModal()" aria-label="Back"><i class="fas fa-arrow-left" style="font-size:11px"></i> <span>Back</span></button>',
+      '<button class="modal-back-btn" onclick="closeModal()" aria-label="Back"><i class="fas fa-arrow-left" style="font-size:11px"></i> <span>\u623B\u308B</span></button>'
+    );
+    html = html.replace("fetch('/api/shops')\n    .then(function(r){ return r.json(); })\n    .then(function(d){\n      var list = d.shops || [];", "fetch('/api/ja/shops')\n    .then(function(r){ return r.json(); })\n    .then(function(d){\n      var list = d.shops || [];");
+    html = html.replace(
+      "var _catLabel = {skincare:'Skincare',makeup:'Makeup',hair:'Hair Salon',nail:'Nail',clinic:'Dermatology Clinic',headspa:'Head Spa',spa:'Spa',tattoo:'Eyebrow Tattoo'};",
+      "var _catLabel = {skincare:'\u30B9\u30AD\u30F3\u30B1\u30A2',makeup:'\u30E1\u30A4\u30AF',hair:'\u30D8\u30A2\u30B5\u30ED\u30F3',nail:'\u30CD\u30A4\u30EB',clinic:'\u76AE\u819A\u79D1\u30AF\u30EA\u30CB\u30C3\u30AF',headspa:'\u30D8\u30C3\u30C9\u30B9\u30D1',spa:'\u30B9\u30D1',tattoo:'\u7709\u30A2\u30FC\u30C8'};"
+    );
+    html = html.replace(
+      `<script>
+// \u2500\u2500 \uBE0C\uB77C\uC6B0\uC800 \uC5B8\uC5B4 \uC790\uB3D9\uAC10\uC9C0: \uC77C\uBCF8\uC5B4 \uC0AC\uC6A9\uC790\uB97C /ja/\uB85C \uB9AC\uB2E4\uC774\uB809\uD2B8 \u2500\u2500
+(function(){
+  try {
+    var lang = navigator.language || navigator.userLanguage || '';
+    // \uC774\uBBF8 /ja/ \uC5D0\uC11C \uC628 \uACBD\uC6B0 \uC2A4\uD0B5 (referer \uCCB4\uD06C)
+    var ref = document.referrer || '';
+    if (ref.includes('/ja')) return;
+    // \uC774\uBBF8 \uD55C\uBC88 \uAC10\uC9C0\uD574\uC11C EN \uC120\uD0DD\uD55C \uACBD\uC6B0 \uC2A4\uD0B5 (localStorage \uD50C\uB798\uADF8)
+    if (localStorage.getItem('_sb_lang_pref') === 'en') return;
+    if (lang.startsWith('ja')) {
+      // \uC77C\uBCF8\uC5B4 \uBE0C\uB77C\uC6B0\uC800: /ja/ \uB85C \uB9AC\uB2E4\uC774\uB809\uD2B8
+      window.location.replace('/ja/');
+    }
+  } catch(e) {}
+})();`,
+      `<script>
+// /ja \uD398\uC774\uC9C0 \u2014 \uC5B8\uC5B4 \uAC10\uC9C0 \uBD88\uD544\uC694, ja \uC120\uD0DD \uAE30\uB85D
+try { localStorage.setItem('_sb_lang_pref','ja'); } catch(e) {}`
+    );
     return c.html(html);
   } catch (e) {
     console.error("[/ja route error]", e?.message || e);
@@ -17204,7 +17291,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
       </div>
     </div>
     <div class="hd-right">
-      <a href="/ja/" id="ja-toggle-btn" onclick="localStorage.removeItem('_sb_lang_pref')" style="display:inline-flex;align-items:center;padding:4px 9px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.55);font-size:11px;font-weight:700;text-decoration:none;letter-spacing:.02em;transition:all .2s" title="\u65E5\u672C\u8A9E\u7248\u3078">\u{1F1EF}\u{1F1F5} JA</a>
+      <a href="/ja/" id="ja-toggle-btn" onclick="localStorage.setItem('_sb_lang_pref','ja')" style="display:inline-flex;align-items:center;padding:4px 9px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.55);font-size:11px;font-weight:700;text-decoration:none;letter-spacing:.02em;transition:all .2s" title="\u65E5\u672C\u8A9E\u7248\u3078">\u{1F1EF}\u{1F1F5} JA</a>
       <button class="srch-btn" id="srchToggle" onclick="toggleSearch()" aria-label="Search shops"><i class="fas fa-search"></i></button>
       <button class="mute-btn" id="muteBtn" onclick="toggleMute()"><i class="fas fa-volume-mute"></i></button>
     </div>
@@ -17266,7 +17353,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   <button class="pnav-btn" id="pnav-map" data-tab="map" aria-label="\uC9C0\uB3C4">
     <i class="fas fa-map-marked-alt"></i><span>\uB9F5</span>
   </button>
-  <a href="/ja/" onclick="localStorage.removeItem('_sb_lang_pref')" title="\u65E5\u672C\u8A9E\u7248\u3078" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 0;width:100%;color:rgba(255,255,255,.45);text-decoration:none;font-size:10px;font-weight:700;letter-spacing:.03em;margin-top:auto;border-top:1px solid rgba(255,255,255,.06);padding-top:16px;transition:color .2s" onmouseover="this.style.color='#FF4D8D'" onmouseout="this.style.color='rgba(255,255,255,.45)'">
+  <a href="/ja/" onclick="localStorage.setItem('_sb_lang_pref','ja')" title="\u65E5\u672C\u8A9E\u7248\u3078" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 0;width:100%;color:rgba(255,255,255,.45);text-decoration:none;font-size:10px;font-weight:700;letter-spacing:.03em;margin-top:auto;border-top:1px solid rgba(255,255,255,.06);padding-top:16px;transition:color .2s" onmouseover="this.style.color='#FF4D8D'" onmouseout="this.style.color='rgba(255,255,255,.45)'">
     <span style="font-size:18px;line-height:1">\u{1F1EF}\u{1F1F5}</span>
     <span>JA</span>
   </a>
@@ -17325,17 +17412,18 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 
 __INLINE_DATA_PLACEHOLDER__
 <script>
-// \u2500\u2500 \uBE0C\uB77C\uC6B0\uC800 \uC5B8\uC5B4 \uC790\uB3D9\uAC10\uC9C0: \uC77C\uBCF8\uC5B4 \uC0AC\uC6A9\uC790\uB97C /ja/\uB85C \uB9AC\uB2E4\uC774\uB809\uD2B8 \u2500\u2500
+// \u2500\u2500 \uC5B8\uC5B4 \uB9AC\uB2E4\uC774\uB809\uD2B8 \u2500\u2500
 (function(){
   try {
+    var pref = localStorage.getItem('_sb_lang_pref');
+    // \uBA85\uC2DC\uC801\uC73C\uB85C ja \uC120\uD0DD\uD588\uC73C\uBA74 /ja\uB85C \uC774\uB3D9
+    if (pref === 'ja') { window.location.replace('/ja/'); return; }
+    // \uBA85\uC2DC\uC801\uC73C\uB85C en \uC120\uD0DD\uD588\uC73C\uBA74 \uC720\uC9C0
+    if (pref === 'en') return;
+    // \uCCAB \uBC29\uBB38: \uBE0C\uB77C\uC6B0\uC800 \uC5B8\uC5B4 \uAC10\uC9C0
     var lang = navigator.language || navigator.userLanguage || '';
-    // \uC774\uBBF8 /ja/ \uC5D0\uC11C \uC628 \uACBD\uC6B0 \uC2A4\uD0B5 (referer \uCCB4\uD06C)
-    var ref = document.referrer || '';
-    if (ref.includes('/ja')) return;
-    // \uC774\uBBF8 \uD55C\uBC88 \uAC10\uC9C0\uD574\uC11C EN \uC120\uD0DD\uD55C \uACBD\uC6B0 \uC2A4\uD0B5 (localStorage \uD50C\uB798\uADF8)
-    if (localStorage.getItem('_sb_lang_pref') === 'en') return;
     if (lang.startsWith('ja')) {
-      // \uC77C\uBCF8\uC5B4 \uBE0C\uB77C\uC6B0\uC800: /ja/ \uB85C \uB9AC\uB2E4\uC774\uB809\uD2B8
+      localStorage.setItem('_sb_lang_pref','ja');
       window.location.replace('/ja/');
     }
   } catch(e) {}
@@ -20470,7 +20558,7 @@ ${SB_TRACKER_SCRIPT}
   var b = document.createElement('div')
   b.id = 'ja-banner'
   b.style.cssText = 'position:fixed;bottom:72px;left:50%;transform:translateX(-50%);background:#1a1a2e;border:1px solid rgba(244,114,182,.3);border-radius:14px;padding:12px 16px;font-size:13px;color:rgba(255,255,255,.85);z-index:9999;display:flex;gap:10px;align-items:center;max-width:340px;width:calc(100% - 32px);box-shadow:0 4px 24px rgba(0,0,0,.4)'
-  b.innerHTML = '<span>\u{1F1EF}\u{1F1F5} \u65E5\u672C\u8A9E\u7248\u3082\u3042\u308A\u307E\u3059</span><a href="/ja" style="color:#f472b6;font-weight:700;white-space:nowrap;text-decoration:none">\u65E5\u672C\u8A9E\u3078 \u2192</a><button onclick="document.getElementById('ja-banner').remove()" style="background:none;border:none;color:rgba(255,255,255,.3);cursor:pointer;font-size:18px;padding:0 4px;line-height:1;flex-shrink:0">\u2715</button>'
+  b.innerHTML = '<span>\u{1F1EF}\u{1F1F5} \u65E5\u672C\u8A9E\u7248\u3082\u3042\u308A\u307E\u3059</span><a href="/ja" style="color:#f472b6;font-weight:700;white-space:nowrap;text-decoration:none">\u65E5\u672C\u8A9E\u3078 \u2192</a><button onclick="this.parentNode.remove()" style="background:none;border:none;color:rgba(255,255,255,.3);cursor:pointer;font-size:18px;padding:0 4px;line-height:1;flex-shrink:0">\u2715</button>'
   document.body.appendChild(b)
 })()
 </script>
@@ -23035,8 +23123,7 @@ window.gscCheckCoverage = async function gscCheckCoverage() {
   resultEl.innerHTML = '<div style="text-align:center;padding:16px;color:rgba(255,255,255,.4);font-size:13px">\u23F3 URL Inspection API \uC870\uD68C \uC911... (\uCD5C\uB300 20\uCD08)</div>';
 
   var textarea = document.getElementById('gsc-inspect-urls').value;
-  var urls = textarea.split(/[
-,]+/).map(function(u){return u.trim();}).filter(Boolean);
+  var urls = textarea.split(String.fromCharCode(10)).join(',').split(String.fromCharCode(13)).join(',').split(',').map(function(u){return u.trim();}).filter(Boolean);
   if (!urls.length) {
     resultEl.innerHTML = '<div style="color:#f87171;padding:10px">URL\uC744 \uC785\uB825\uD574\uC8FC\uC138\uC694.</div>';
     return;
