@@ -4107,8 +4107,8 @@ function jaLangNav(currentLang: 'en'|'ja', currentPath: string): string {
     <span style="font-size:15px;font-weight:900;background:linear-gradient(135deg,#FF4D8D,#FF85B3);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-decoration:none">✨ Seoul Beauty</span>
   </a>
   <div style="display:flex;align-items:center;gap:8px">
-    <a href="${jaPath}" style="font-size:11px;font-weight:700;padding:4px 9px;border-radius:12px;text-decoration:none;${jaActive?'background:rgba(255,77,141,.25);color:#FF85B3;border:1px solid rgba(255,77,141,.5)':'background:transparent;color:rgba(255,255,255,.35);border:1px solid rgba(255,255,255,.12)'}">JA</a>
-    <a href="${enPath}" style="font-size:11px;font-weight:700;padding:4px 9px;border-radius:12px;text-decoration:none;${enActive?'background:rgba(255,77,141,.25);color:#FF85B3;border:1px solid rgba(255,77,141,.5)':'background:transparent;color:rgba(255,255,255,.35);border:1px solid rgba(255,255,255,.12)'}">EN</a>
+    <a href="${jaPath}" onclick="localStorage.setItem('_sb_lang_pref','ja')" style="font-size:11px;font-weight:700;padding:4px 9px;border-radius:12px;text-decoration:none;${jaActive?'background:rgba(255,77,141,.25);color:#FF85B3;border:1px solid rgba(255,77,141,.5)':'background:transparent;color:rgba(255,255,255,.35);border:1px solid rgba(255,255,255,.12)'}">JA</a>
+    <a href="${enPath}" onclick="localStorage.setItem('_sb_lang_pref','en')" style="font-size:11px;font-weight:700;padding:4px 9px;border-radius:12px;text-decoration:none;${enActive?'background:rgba(255,77,141,.25);color:#FF85B3;border:1px solid rgba(255,77,141,.5)':'background:transparent;color:rgba(255,255,255,.35);border:1px solid rgba(255,255,255,.12)'}">EN</a>
   </div>
 </nav>`
 }
@@ -4269,7 +4269,12 @@ app.get('/ja', async (c) => {
       "var _catLabel = {skincare:'Skincare',makeup:'Makeup',hair:'Hair Salon',nail:'Nail',clinic:'Dermatology Clinic',headspa:'Head Spa',spa:'Spa',tattoo:'Eyebrow Tattoo'};",
       "var _catLabel = {skincare:'スキンケア',makeup:'メイク',hair:'ヘアサロン',nail:'ネイル',clinic:'皮膚科クリニック',headspa:'ヘッドスパ',spa:'スパ',tattoo:'眉アート'};"
     )
-
+    // ── /ja 홈에서 언어감지 리다이렉트 스크립트 제거 ──
+    // 이미 /ja 페이지에 있으므로 EN으로 튕기는 로직 불필요
+    html = html.replace(
+      `<script>\n// ── 브라우저 언어 자동감지: 일본어 사용자를 /ja/로 리다이렉트 ──\n(function(){\n  try {\n    var lang = navigator.language || navigator.userLanguage || '';\n    // 이미 /ja/ 에서 온 경우 스킵 (referer 체크)\n    var ref = document.referrer || '';\n    if (ref.includes('/ja')) return;\n    // 이미 한번 감지해서 EN 선택한 경우 스킵 (localStorage 플래그)\n    if (localStorage.getItem('_sb_lang_pref') === 'en') return;\n    if (lang.startsWith('ja')) {\n      // 일본어 브라우저: /ja/ 로 리다이렉트\n      window.location.replace('/ja/');\n    }\n  } catch(e) {}\n})();`,
+      `<script>\n// /ja 페이지 — 언어 감지 불필요, ja 선택 기록\ntry { localStorage.setItem('_sb_lang_pref','ja'); } catch(e) {}`
+    )
     return c.html(html)
   } catch(e: any) {
     console.error('[/ja route error]', e?.message || e)
@@ -16614,7 +16619,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
       </div>
     </div>
     <div class="hd-right">
-      <a href="/ja/" id="ja-toggle-btn" onclick="localStorage.removeItem('_sb_lang_pref')" style="display:inline-flex;align-items:center;padding:4px 9px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.55);font-size:11px;font-weight:700;text-decoration:none;letter-spacing:.02em;transition:all .2s" title="日本語版へ">🇯🇵 JA</a>
+      <a href="/ja/" id="ja-toggle-btn" onclick="localStorage.setItem('_sb_lang_pref','ja')" style="display:inline-flex;align-items:center;padding:4px 9px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.55);font-size:11px;font-weight:700;text-decoration:none;letter-spacing:.02em;transition:all .2s" title="日本語版へ">🇯🇵 JA</a>
       <button class="srch-btn" id="srchToggle" onclick="toggleSearch()" aria-label="Search shops"><i class="fas fa-search"></i></button>
       <button class="mute-btn" id="muteBtn" onclick="toggleMute()"><i class="fas fa-volume-mute"></i></button>
     </div>
@@ -16676,7 +16681,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   <button class="pnav-btn" id="pnav-map" data-tab="map" aria-label="지도">
     <i class="fas fa-map-marked-alt"></i><span>맵</span>
   </button>
-  <a href="/ja/" onclick="localStorage.removeItem('_sb_lang_pref')" title="日本語版へ" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 0;width:100%;color:rgba(255,255,255,.45);text-decoration:none;font-size:10px;font-weight:700;letter-spacing:.03em;margin-top:auto;border-top:1px solid rgba(255,255,255,.06);padding-top:16px;transition:color .2s" onmouseover="this.style.color='#FF4D8D'" onmouseout="this.style.color='rgba(255,255,255,.45)'">
+  <a href="/ja/" onclick="localStorage.setItem('_sb_lang_pref','ja')" title="日本語版へ" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 0;width:100%;color:rgba(255,255,255,.45);text-decoration:none;font-size:10px;font-weight:700;letter-spacing:.03em;margin-top:auto;border-top:1px solid rgba(255,255,255,.06);padding-top:16px;transition:color .2s" onmouseover="this.style.color='#FF4D8D'" onmouseout="this.style.color='rgba(255,255,255,.45)'">
     <span style="font-size:18px;line-height:1">🇯🇵</span>
     <span>JA</span>
   </a>
@@ -16735,17 +16740,18 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 
 __INLINE_DATA_PLACEHOLDER__
 <script>
-// ── 브라우저 언어 자동감지: 일본어 사용자를 /ja/로 리다이렉트 ──
+// ── 언어 리다이렉트 ──
 (function(){
   try {
+    var pref = localStorage.getItem('_sb_lang_pref');
+    // 명시적으로 ja 선택했으면 /ja로 이동
+    if (pref === 'ja') { window.location.replace('/ja/'); return; }
+    // 명시적으로 en 선택했으면 유지
+    if (pref === 'en') return;
+    // 첫 방문: 브라우저 언어 감지
     var lang = navigator.language || navigator.userLanguage || '';
-    // 이미 /ja/ 에서 온 경우 스킵 (referer 체크)
-    var ref = document.referrer || '';
-    if (ref.includes('/ja')) return;
-    // 이미 한번 감지해서 EN 선택한 경우 스킵 (localStorage 플래그)
-    if (localStorage.getItem('_sb_lang_pref') === 'en') return;
     if (lang.startsWith('ja')) {
-      // 일본어 브라우저: /ja/ 로 리다이렉트
+      localStorage.setItem('_sb_lang_pref','ja');
       window.location.replace('/ja/');
     }
   } catch(e) {}
