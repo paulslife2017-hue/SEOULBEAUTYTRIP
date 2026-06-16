@@ -11727,7 +11727,9 @@ app.get('/', async (c) => {
     // 초기 로드 10개만 → HTML 크기 대폭 감소 (나머지는 JS lazy 로드)
     const initVideosFirst = initVideos.slice(0, 10)
     const gmapKey = getGoogleKey(c.env)
-    const inlineScript = `${videoLdScript}<script>window.__INIT_VIDEOS__=${safeJson(initVideosFirst)};window.__INIT_VIDEOS_ALL__=${safeJson(initVideos)};window.__INIT_PLATFORM__=${safeJson(initPlatform)};window.__INIT_SHOPS__=${safeJson(initShops)};window.__GMAP_KEY__=${safeJson(gmapKey)};<\/script>`
+    // 브라우저 언어 자동감지: 일본어 사용자 → /ja 자동 리다이렉트 (1회만, 쿠키로 관리)
+    const langDetectScript = `<script>(function(){var ck=document.cookie;if(ck.indexOf('lang_pref=')!==-1)return;var lang=navigator.language||navigator.userLanguage||'';if(lang.startsWith('ja')){document.cookie='lang_pref=ja;path=/;max-age=31536000';window.location.href='/ja';}else{document.cookie='lang_pref=en;path=/;max-age=31536000';}})()</script>`
+    const inlineScript = `${videoLdScript}${langDetectScript}<script>window.__INIT_VIDEOS__=${safeJson(initVideosFirst)};window.__INIT_VIDEOS_ALL__=${safeJson(initVideos)};window.__INIT_PLATFORM__=${safeJson(initPlatform)};window.__INIT_SHOPS__=${safeJson(initShops)};window.__GMAP_KEY__=${safeJson(gmapKey)};<\/script>`
 
     // SSR placeholders를 실제 콘텐츠로 교체
     // 상위 8개 살롱을 정적 HTML 링크로 삽입 (구글 봇이 살롱명 키워드 발견 가능)
@@ -12774,8 +12776,9 @@ const MAIN_HTML = `<!DOCTYPE html>
 <meta name="robots" content="index, follow">
 <meta name="msvalidate.01" content="DD5A8D9AA094B888C8A409EADE4610E9">
 <link rel="canonical" href="https://seoulbeautytrip.com/">
-<!-- hreflang: English-only targeting -->
+<!-- hreflang: EN + JA targeting -->
 <link rel="alternate" hreflang="en" href="https://seoulbeautytrip.com/">
+<link rel="alternate" hreflang="ja" href="https://seoulbeautytrip.com/ja">
 <link rel="alternate" hreflang="x-default" href="https://seoulbeautytrip.com/">
 <!-- Open Graph -->
 <meta property="og:type" content="website">
