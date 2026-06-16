@@ -13937,6 +13937,10 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   <button class="pnav-btn" id="pnav-map" data-tab="map" aria-label="지도">
     <i class="fas fa-map-marked-alt"></i><span>맵</span>
   </button>
+  <a href="/ja/" onclick="localStorage.removeItem('_sb_lang_pref')" title="日本語版へ" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 0;width:100%;color:rgba(255,255,255,.45);text-decoration:none;font-size:10px;font-weight:700;letter-spacing:.03em;margin-top:auto;border-top:1px solid rgba(255,255,255,.06);padding-top:16px;transition:color .2s" onmouseover="this.style.color='#FF4D8D'" onmouseout="this.style.color='rgba(255,255,255,.45)'">
+    <span style="font-size:18px;line-height:1">🇯🇵</span>
+    <span>JA</span>
+  </a>
 </nav>
 
 <!-- PC 콘텐츠 패널 (찾기/맵) -->

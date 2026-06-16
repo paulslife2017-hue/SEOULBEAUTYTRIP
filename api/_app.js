@@ -14876,6 +14876,10 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   <button class="pnav-btn" id="pnav-map" data-tab="map" aria-label="\uC9C0\uB3C4">
     <i class="fas fa-map-marked-alt"></i><span>\uB9F5</span>
   </button>
+  <a href="/ja/" onclick="localStorage.removeItem('_sb_lang_pref')" title="\u65E5\u672C\u8A9E\u7248\u3078" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 0;width:100%;color:rgba(255,255,255,.45);text-decoration:none;font-size:10px;font-weight:700;letter-spacing:.03em;margin-top:auto;border-top:1px solid rgba(255,255,255,.06);padding-top:16px;transition:color .2s" onmouseover="this.style.color='#FF4D8D'" onmouseout="this.style.color='rgba(255,255,255,.45)'">
+    <span style="font-size:18px;line-height:1">\u{1F1EF}\u{1F1F5}</span>
+    <span>JA</span>
+  </a>
 </nav>
 
 <!-- PC \uCF58\uD150\uCE20 \uD328\uB110 (\uCC3E\uAE30/\uB9F5) -->
