@@ -4116,643 +4116,3797 @@ function jaLangNav(currentLang: 'en'|'ja', currentPath: string): string {
 // ── /ja/ 홈 (trailing slash redirect) ──
 app.get('/ja/', (c) => c.redirect('/ja', 301))
 
-// ── /ja/ 홈 ──
+// ── /ja 홈 ── (EN 홈과 동일 UI, shops_ja 데이터)
 app.get('/ja', async (c) => {
+  const sql = getDb(c.env)
   try {
-    await ensureDb(c.env)
-    const sql = getDb(c.env)
-    const [shopRows, blogRows] = await Promise.all([
-      withTimeout(sql`SELECT id,name,slug,category,location,thumbnail,rating,review_count,description FROM shops_ja WHERE active=true ORDER BY rating DESC,review_count DESC LIMIT 20`, 8000, []),
-      withTimeout(sql`SELECT id,slug,title,excerpt,category,cover_image,created_at FROM blog_posts_ja WHERE status='published' ORDER BY created_at DESC LIMIT 6`, 8000, [])
+    const [shopRows] = await Promise.all([
+      withTimeout(
+        sql`SELECT id, name, slug, category, location, thumbnail, rating, review_count, why_choose, description, review_summary, lat, lng, address FROM shops_ja WHERE active=true ORDER BY rating DESC, review_count DESC`,
+        10000, []
+      )
     ])
+    const initPlatform = { whatsapp: PLATFORM.whatsapp, name: PLATFORM.name, instagram: PLATFORM.instagram }
+    const safeJson = (obj: any) => JSON.stringify(obj).replace(/<\/script>/gi, '<\\/script>').replace(/<!--/g, '<\\!--')
 
-    const catLabelsJa: Record<string,string> = {skincare:'スキンケア',makeup:'メイク',hair:'ヘアサロン',headspa:'ヘッドスパ',clinic:'クリニック',spa:'スパ',tattoo:'眉アート'}
-    const catColors: Record<string,string> = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa',tattoo:'#e879f9'}
+    const initShops = shopRows.map((r: any) => ({
+      id: r.id, name: r.name, slug: r.slug || '',
+      category: r.category || 'beauty', location: r.location || 'Seoul',
+      thumbnail: r.thumbnail || '', rating: r.rating || 0, reviewCount: r.review_count || 0,
+      whyChoose: (() => { try { return JSON.parse(r.why_choose||'[]') } catch { return [] } })(),
+      description: r.description || '',
+      reviewSummary: (() => { const rs = r.review_summary; if(!rs) return null; if(typeof rs==='string') return rs; if(typeof rs==='object') return rs; try { return JSON.parse(rs) } catch { return null } })(),
+      lat: r.lat || '', lng: r.lng || '', address: r.address || ''
+    }))
 
-    const shopCardsHtml = (shopRows as any[]).map((s: any) => {
-      const col = catColors[s.category] || '#aaa'
-      const lbl = catLabelsJa[s.category] || s.category
-      return `<a href="/ja/shop/${s.slug||s.id}" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;text-decoration:none;border-bottom:1px solid rgba(255,255,255,.04);transition:background .15s" onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background=''">
+    const catColorsSSR: Record<string,string> = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa',tattoo:'#e879f9'}
+    const catFaIconsSSR: Record<string,string> = {skincare:'fa-leaf',makeup:'fa-magic',hair:'fa-cut',headspa:'fa-spa',clinic:'fa-briefcase-medical',spa:'fa-hot-tub',tattoo:'fa-pen-nib'}
+    const catLabelsSSR: Record<string,string> = {skincare:'スキンケア',makeup:'メイク',hair:'ヘアサロン',headspa:'ヘッドスパ',clinic:'クリニック',spa:'スパ',tattoo:'眉アート'}
+
+    const ssrShopCards = initShops.map((s: any) => {
+      const col  = catColorsSSR[s.category] || '#aaa'
+      const icon = catFaIconsSSR[s.category] || 'fa-star'
+      const lbl  = catLabelsSSR[s.category] || s.category
+      const loc  = (s.location || '').split(',')[0].trim()
+      const href = s.slug ? `/ja/shop/${s.slug}` : '#'
+      return `<a class="sp-card" href="${href}" data-cat="${s.category}" data-name="${s.name.toLowerCase().replace(/"/g,'')}" data-loc="${loc.toLowerCase()}" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;text-decoration:none;border-bottom:1px solid rgba(255,255,255,.04);transition:background .15s" onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background=''">
   <div style="width:44px;height:44px;border-radius:10px;overflow:hidden;flex-shrink:0;background:rgba(255,255,255,.06)"><img src="${s.thumbnail||''}" alt="${s.name}" style="width:100%;height:100%;object-fit:cover" loading="lazy"></div>
   <div style="flex:1;min-width:0">
     <div style="font-size:12px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</div>
-    <div style="font-size:10px;color:${col};margin-top:2px">${lbl} · ${(s.location||'').split(',')[0]}</div>
+    <div style="font-size:10px;color:${col};margin-top:2px"><i class="fas ${icon}" style="margin-right:3px"></i>${lbl} · ${loc}</div>
   </div>
-  <div style="font-size:11px;color:rgba(255,255,255,.4);flex-shrink:0">★${s.rating||5}</div>
+  <div style="font-size:11px;color:rgba(255,255,255,.4);flex-shrink:0">★${s.rating}</div>
 </a>`
     }).join('')
 
-    const blogCardsHtml = (blogRows as any[]).map((p: any) => {
-      const dateStr = p.created_at ? new Date(p.created_at).toLocaleDateString('ja-JP',{year:'numeric',month:'short',day:'numeric'}) : ''
-      const catJa = catLabelsJa[p.category] || p.category || 'ビューティー'
-      return `<a href="/ja/blog/${p.slug}" style="text-decoration:none;display:block;background:#13132a;border:1px solid rgba(255,255,255,.07);border-radius:14px;overflow:hidden;transition:transform .2s,border-color .2s" onmouseover="this.style.transform='translateY(-2px)';this.style.borderColor='rgba(255,77,141,.3)'" onmouseout="this.style.transform='';this.style.borderColor='rgba(255,255,255,.07)'">
-  ${p.cover_image?`<div style="height:130px;background:url('${p.cover_image}') center/cover"></div>`:'<div style="height:130px;background:linear-gradient(135deg,#ff4d8d22,#9b59b622)"></div>'}
-  <div style="padding:12px">
-    <div style="font-size:10px;color:#FF4D8D;font-weight:700;margin-bottom:5px">${catJa} · ${dateStr}</div>
-    <div style="font-size:13px;font-weight:800;color:#fff;line-height:1.4;margin-bottom:6px">${p.title}</div>
-    <div style="font-size:11px;color:rgba(255,255,255,.4);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${p.excerpt||''}</div>
-  </div>
-</a>`
+    const ssrCatCounts: Record<string,number> = {}
+    initShops.forEach((s: any) => { ssrCatCounts[s.category] = (ssrCatCounts[s.category]||0)+1 })
+    const ssrFilterBtns = ['all','clinic','headspa','makeup','tattoo'].map(cat => {
+      const cnt = cat === 'all' ? initShops.length : (ssrCatCounts[cat]||0)
+      if(cnt === 0) return ''
+      const lbl = cat === 'all' ? 'すべて' : catLabelsSSR[cat] || cat
+      return `<button class="sp-flt${cat==='all'?' on':''}" data-cat="${cat}" onclick="filterSpGrid(this)">${lbl} <span class="sp-flt-n">${cnt}</span></button>`
     }).join('')
 
-    const html = `<!DOCTYPE html>
-<html lang="ja">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ソウルビューティートリップ — 韓国美容・ヘッドスパ・ヘアサロン完全ガイド</title>
-<meta name="description" content="ソウルのヘッドスパ、ヘアサロン、スキンケアクリニックを英語対応で予約。外国人観光客向け韓国美容完全ガイド。">
-<meta name="robots" content="index, follow">
-<link rel="alternate" hreflang="ja" href="https://seoulbeautytrip.com/ja">
-<link rel="alternate" hreflang="en" href="https://seoulbeautytrip.com/">
-<link rel="canonical" href="https://seoulbeautytrip.com/ja">
-<meta property="og:title" content="ソウルビューティートリップ — 韓国美容ガイド">
-<meta property="og:description" content="ソウルのヘッドスパ・ヘアサロン・クリニックを英語対応で予約できます。">
-<meta property="og:url" content="https://seoulbeautytrip.com/ja">
-<meta property="og:type" content="website">
-<meta property="og:locale" content="ja_JP">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" media="print" onload="this.media='all'">
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:#0d0d18;color:#fff;font-family:"Hiragino Sans","Yu Gothic",sans-serif;min-height:100vh}
-.hero{padding:40px 20px 32px;text-align:center;background:linear-gradient(180deg,rgba(255,77,141,.1) 0%,transparent 100%)}
-.hero h1{font-size:clamp(1.5rem,5vw,2.2rem);font-weight:900;background:linear-gradient(135deg,#fff,rgba(255,255,255,.7));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:10px}
-.hero p{color:rgba(255,255,255,.5);font-size:.95rem;line-height:1.6;max-width:480px;margin:0 auto 20px}
-.hero-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
-.hero-btn{display:inline-block;padding:10px 22px;border-radius:22px;font-size:13px;font-weight:700;text-decoration:none;transition:all .2s}
-.hero-btn.primary{background:linear-gradient(135deg,#FF4D8D,#FF85B3);color:#fff}
-.hero-btn.secondary{background:transparent;color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.2)}
-.hero-btn:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(255,77,141,.3)}
-.section{padding:24px 20px;max-width:700px;margin:0 auto}
-.section-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
-.section-hd h2{font-size:15px;font-weight:900;color:#fff}
-.section-hd a{font-size:12px;color:#FF4D8D;text-decoration:none;font-weight:700}
-.shop-panel{background:#13132a;border:1px solid rgba(255,255,255,.07);border-radius:14px;overflow:hidden}
-.blog-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
-.cats{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:0 20px 20px}
-.cat-btn{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 14px;background:#13132a;border:1px solid rgba(255,255,255,.07);border-radius:12px;text-decoration:none;transition:all .2s;font-size:11px;color:rgba(255,255,255,.6);font-weight:700}
-.cat-btn:hover{border-color:rgba(255,77,141,.4);color:#fff;background:rgba(255,77,141,.08)}
-.cat-btn i{font-size:18px}
-.empty{text-align:center;padding:40px 20px;color:rgba(255,255,255,.3);font-size:13px}
-</style>
-</head>
-<body>
-${jaLangNav('ja', '/ja')}
-<section class="hero">
-  <h1>✨ ソウルビューティートリップ</h1>
-  <p>ソウルのヘッドスパ・ヘアサロン・スキンクリニックを厳選紹介。<br>英語 & WhatsAppで簡単予約 🌸</p>
-  <div class="hero-btns">
-    <a href="/ja/shops" class="hero-btn primary"><i class="fas fa-store" style="margin-right:5px"></i>サロンを探す</a>
-    <a href="/ja/blog" class="hero-btn secondary"><i class="fas fa-book-open" style="margin-right:5px"></i>ガイドを読む</a>
-  </div>
-</section>
+    const ssrCountText = `${initShops.length} 店舗`
 
-<div class="cats">
-  <a href="/ja/shops?cat=headspa" class="cat-btn"><i class="fas fa-spa" style="color:#67e8f9"></i>ヘッドスパ</a>
-  <a href="/ja/shops?cat=hair" class="cat-btn"><i class="fas fa-cut" style="color:#60a5fa"></i>ヘアサロン</a>
-  <a href="/ja/shops?cat=skincare" class="cat-btn"><i class="fas fa-leaf" style="color:#f472b6"></i>スキンケア</a>
-  <a href="/ja/shops?cat=clinic" class="cat-btn"><i class="fas fa-briefcase-medical" style="color:#fb923c"></i>クリニック</a>
-  <a href="/ja/shops?cat=makeup" class="cat-btn"><i class="fas fa-magic" style="color:#c084fc"></i>メイク</a>
-  <a href="/ja/shops?cat=tattoo" class="cat-btn"><i class="fas fa-pen-nib" style="color:#e879f9"></i>眉アート</a>
-</div>
+    const gmapKey = getGoogleKey(c.env)
+    const inlineScript = `<script>window.__INIT_VIDEOS__=[];window.__INIT_VIDEOS_ALL__=[];window.__INIT_PLATFORM__=${safeJson(initPlatform)};window.__INIT_SHOPS__=${safeJson(initShops)};window.__GMAP_KEY__=${safeJson(gmapKey)};<\/script>`
 
-<div class="section">
-  <div class="section-hd"><h2>🏪 おすすめサロン</h2><a href="/ja/shops">すべて見る →</a></div>
-  <div class="shop-panel">
-    ${shopCardsHtml || '<div class="empty">サロン情報を準備中です...</div>'}
-  </div>
-</div>
+    const catIconMap: Record<string,string> = {clinic:'🏥',headspa:'🧖',makeup:'💄',tattoo:'✏️',hair:'💇',skincare:'🌿',spa:'♨️',dental:'🦷'}
+    const ssrFeaturedHtml = initShops.slice(0, 8).map((s: any) => {
+      const icon = catIconMap[s.category] || '⭐'
+      const loc = (s.location||'Seoul').split(',')[0].trim()
+      return `<a href="/ja/shop/${s.slug}" style="display:inline-flex;align-items:center;gap:6px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:20px;padding:4px 12px;font-size:.78rem;color:#374151;text-decoration:none;margin:3px">${icon} ${s.name} <span style="color:#94a3b8">(${loc})</span></a>`
+    }).join('')
+    const ssrFeaturedBlock = initShops.length > 0
+      ? `<div style="margin-top:20px"><div style="font-size:.75rem;font-weight:700;color:#9ca3af;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">⭐ Featured Salons</div><div style="display:flex;flex-wrap:wrap;gap:2px">${ssrFeaturedHtml}</div></div>`
+      : ''
 
-<div class="section">
-  <div class="section-hd"><h2>✍️ 美容ガイド</h2><a href="/ja/blog">すべて見る →</a></div>
-  <div class="blog-grid">
-    ${blogCardsHtml || '<div class="empty" style="grid-column:1/-1">ガイド記事を準備中です...</div>'}
-  </div>
-</div>
+    // MAIN_HTML 기반 (EN과 완전히 동일한 UI)
+    // shops 링크를 /ja/shops, blog 링크를 /ja/blog 로 교체
+    let html = MAIN_HTML
+      .replace('__INLINE_DATA_PLACEHOLDER__', inlineScript)
+      .replace('__SSR_FEATURED__', ssrFeaturedBlock)
 
-<footer style="text-align:center;padding:32px 20px;color:rgba(255,255,255,.25);font-size:11px;border-top:1px solid rgba(255,255,255,.05);margin-top:20px">
-  <p>© 2025 Seoul Beauty Trip · <a href="/" style="color:rgba(255,77,141,.5);text-decoration:none">英語版へ</a></p>
-</footer>
-<script>
-// ブラウザ言語が英語圏ならENにリダイレクト (クッキーで1回のみ)
-(function(){
-  var ck = document.cookie;
-  if(ck.indexOf('lang_pref=ja')!==-1) return;
-  document.cookie='lang_pref=ja;path=/;max-age=31536000';
-})();
-</script>
-</body>
-</html>`
+    // /shops → /ja/shops, /blog → /ja/blog (링크만)
+    html = html.replace(/href="\/shops"/g, 'href="/ja/shops"')
+    html = html.replace(/href="\/blog"/g, 'href="/ja/blog"')
+    // shop 개별 링크: /shop/ → /ja/shop/ (ssrFeaturedBlock은 이미 /ja/shop 사용)
+
     return c.html(html)
   } catch(e: any) {
-    return c.html('<h1>一時的なエラーが発生しました</h1>', 500)
+    console.error('[/ja route error]', e?.message || e)
+    return c.html(MAIN_HTML
+      .replace('__INLINE_DATA_PLACEHOLDER__', '')
+      .replace('__SSR_FEATURED__', ''), 500)
   }
 })
+
 
 // ── /ja/shops ──
 app.get('/ja/shops', async (c) => {
   try {
-    await ensureDb(c.env)
-    const sql = getDb(c.env)
-    const catFilter = c.req.query('cat') || ''
-    const shops = catFilter
-      ? await sql`SELECT id,name,slug,category,location,address,thumbnail,rating,review_count,price_range,hours,description,why_choose FROM shops_ja WHERE active=true AND category=${catFilter} ORDER BY rating DESC,review_count DESC`
-      : await sql`SELECT id,name,slug,category,location,address,thumbnail,rating,review_count,price_range,hours,description,why_choose FROM shops_ja WHERE active=true ORDER BY rating DESC,review_count DESC`
+  const sql = getDb(c.env)
+  const rows = await sql`SELECT * FROM shops_ja WHERE active=true ORDER BY rating DESC, created_at DESC`
+  const shops = rows.map(rowToShop)
+  const catColors: Record<string,string> = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa',tattoo:'#e879f9'}
+  const catIcons:  Record<string,string> = {skincare:'fa-leaf',makeup:'fa-magic',hair:'fa-cut',headspa:'fa-spa',clinic:'fa-briefcase-medical',spa:'fa-hot-tub',tattoo:'fa-pen-nib'}
+  const cats      = ['all','clinic','headspa','makeup','tattoo']
+  const catLabels: Record<string,string> = {all:'すべて',clinic:'クリニック',headspa:'ヘッドスパ',makeup:'メイク',tattoo:'眉アート'}
 
-    const catLabelsJa: Record<string,string> = {skincare:'スキンケア',makeup:'メイク',hair:'ヘアサロン',headspa:'ヘッドスパ',clinic:'クリニック',spa:'スパ',tattoo:'眉アート'}
-    const catColors: Record<string,string> = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa',tattoo:'#e879f9'}
-    const catIcons: Record<string,string> = {skincare:'fa-leaf',makeup:'fa-magic',hair:'fa-cut',headspa:'fa-spa',clinic:'fa-briefcase-medical',spa:'fa-hot-tub',tattoo:'fa-pen-nib'}
+  const catCountMap: Record<string,number> = {}
+  shops.forEach((s: any) => { catCountMap[s.category] = (catCountMap[s.category]||0)+1 })
 
-    const cardsHtml = (shops as any[]).map((s: any) => {
-      const col = catColors[s.category] || '#aaa'
-      const lbl = catLabelsJa[s.category] || s.category
-      const icon = catIcons[s.category] || 'fa-star'
-      const loc = (s.location||'').split(',')[0].trim()
-      return `<a class="sc-card" href="/ja/shop/${s.slug||s.id}" data-cat="${s.category}" data-name="${(s.name||'').toLowerCase()}" data-loc="${loc.toLowerCase()}">
-  <div class="sc-img"><img src="${s.thumbnail||''}" alt="${s.name}" loading="lazy" onload="parentLoaded(this)">
-    <div class="sc-rating-wrap"><i class="fas fa-star"></i>${s.rating||5}</div>
-  </div>
+  const cardsHtml = shops.map((shop: any) => {
+    const col   = catColors[shop.category] || '#aaa'
+    const icon  = catIcons[shop.category]  || 'fa-star'
+    const href  = shop.slug ? `/shop/${shop.slug}` : '#'
+    const loc   = (shop.location||'').split(',')[0].trim()
+    const nameL = shop.name.toLowerCase().replace(/"/g,'')
+    return `<a class="sc-card" href="${href}" data-cat="${shop.category}" data-name="${nameL}" data-loc="${loc.toLowerCase()}">
+  <div class="sc-img" id="scimg-${shop.id}"><img src="${shop.thumbnail||''}" alt="" loading="lazy" decoding="async" onload="parentLoaded(this)" onerror="parentLoaded(this)"></div>
   <div class="sc-info">
-    <div class="sc-cat" style="color:${col}"><i class="fas ${icon}"></i>${lbl}</div>
-    <div class="sc-name">${s.name}</div>
+    <div class="sc-cat" style="color:${col}"><i class="fas ${icon}"></i>${catLabels[shop.category]||shop.category}</div>
+    <div class="sc-name">${shop.name}</div>
     <div class="sc-loc"><i class="fas fa-map-marker-alt"></i>${loc}</div>
   </div>
+  <div class="sc-rating-wrap"><i class="fas fa-star"></i>${shop.rating}</div>
 </a>`
-    }).join('')
+  }).join('')
 
-    const cats = ['all','headspa','hair','skincare','clinic','makeup','spa','tattoo']
-    const catCounts: Record<string,number> = {all:(shops as any[]).length}
-    ;(shops as any[]).forEach((s: any)=>{ catCounts[s.category]=(catCounts[s.category]||0)+1 })
-    const filterBtns = cats.map(cat=>{
-      const cnt = catCounts[cat]||0
-      if(cat!=='all'&&cnt===0) return ''
-      const lbl = cat==='all'?`すべて (${catCounts.all})`:catLabelsJa[cat]||cat
-      const active = cat==='all'&&!catFilter ? ' on' : (cat===catFilter?' on':'')
-      return `<button class="sc-flt${active}" data-cat="${cat}" onclick="filterCat(this)">${lbl}${cnt>0&&cat!=='all'?` <span class="sp-flt-n">${cnt}</span>`:''}</button>`
-    }).filter(Boolean).join('')
+  const filterBtns = cats.map(cat => {
+    const cnt = cat==='all' ? shops.length : (catCountMap[cat]||0)
+    if(cnt===0) return ''
+    return `<button class="sc-flt${cat==='all'?' on':''}" data-cat="${cat}">${catLabels[cat]} <span class="sc-flt-n">${cnt}</span></button>`
+  }).join('')
 
-    const html = `<!DOCTYPE html>
+  return c.html(`<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1N9ZQRHLJ0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-1N9ZQRHLJ0');
+</script>
+${SB_TRACKER_SCRIPT}
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ソウル美容サロン一覧 | ソウルビューティートリップ</title>
-<meta name="description" content="ソウルのヘッドスパ・ヘアサロン・スキンクリニックを厳選紹介。英語対応・WhatsApp予約OK。">
+<title>Seoul Beauty Catalog \u2014 All K-Beauty Shops | Seoul Beauty Trip</title>
+<meta name="description" content="Browse all Korean beauty salons in Seoul \u2014 foreigner-friendly with English support.">
 <link rel="canonical" href="https://seoulbeautytrip.com/ja/shops">
-<link rel="alternate" hreflang="ja" href="https://seoulbeautytrip.com/ja/shops">
-<link rel="alternate" hreflang="en" href="https://seoulbeautytrip.com/shops">
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"></noscript>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#0d0d18;color:#fff;font-family:"Hiragino Sans","Yu Gothic",sans-serif;min-height:100vh}
-:root{--pk:#FF4D8D}
-.sc-ctrl{padding:12px 14px;display:flex;flex-direction:column;gap:8px;background:#0d0d18;position:sticky;top:58px;z-index:90}
-.sc-srch{display:flex;align-items:center;gap:8px;background:#13132a;border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:8px 12px}
-.sc-srch input{flex:1;background:none;border:none;outline:none;color:#fff;font-size:13px}
-.sc-srch input::placeholder{color:rgba(255,255,255,.3)}
-.sc-srch-x{display:none;background:none;border:none;color:rgba(255,255,255,.3);cursor:pointer;font-size:13px;padding:0}
+:root{
+  --pk:#E8417A;--pk2:#FF6B9D;--pk3:#FFB3CC;--gold:#C9A84C;
+  --bg:#08080E;--border:rgba(255,255,255,.07);
+  --nav-h:52px;--ctrl-h:84px;
+  --ff-serif:'Playfair Display',serif;--ff-sans:'Inter',sans-serif
+}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:#fff;font-family:var(--ff-sans);display:flex;flex-direction:column}
+a{text-decoration:none;color:inherit}
+
+/* NAV */
+.sc-nav{
+  flex-shrink:0;height:var(--nav-h);
+  background:rgba(8,8,14,.97);backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);
+  padding:0 14px;
+  display:flex;align-items:center;gap:10px;
+}
+.sc-back{
+  display:flex;align-items:center;justify-content:center;
+  width:30px;height:30px;border-radius:50%;
+  border:1px solid rgba(255,255,255,.1);
+  color:rgba(255,255,255,.45);font-size:12px;
+  transition:all .18s;flex-shrink:0;
+}
+.sc-back:hover{border-color:var(--pk);color:var(--pk2)}
+.sc-title{
+  font-family:var(--ff-serif);font-size:16px;font-weight:900;
+  background:linear-gradient(100deg,#fff 20%,var(--pk3) 65%,var(--gold) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.sc-spacer{flex:1}
+.sc-badge{
+  background:rgba(232,65,122,.1);border:1px solid rgba(232,65,122,.2);
+  border-radius:14px;padding:3px 9px;
+  font-size:10px;font-weight:700;color:var(--pk2);
+}
+
+/* CONTROLS */
+.sc-ctrl{
+  flex-shrink:0;height:var(--ctrl-h);
+  background:rgba(8,8,14,.97);backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);
+  padding:8px 14px;display:flex;flex-direction:column;gap:7px;
+}
+.sc-srch{
+  display:flex;align-items:center;gap:7px;
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:9px;padding:7px 11px;
+  transition:border-color .18s;
+}
+.sc-srch:focus-within{border-color:rgba(232,65,122,.3)}
+.sc-srch i{color:rgba(255,255,255,.2);font-size:11px;flex-shrink:0}
+.sc-srch input{flex:1;background:none;border:none;outline:none;color:#fff;font-size:13px;font-family:var(--ff-sans)}
+.sc-srch input::placeholder{color:rgba(255,255,255,.18)}
+.sc-srch-x{background:none;border:none;color:rgba(255,255,255,.2);font-size:10px;cursor:pointer;padding:0;display:none}
 .sc-srch-x.on{display:block}
-.sc-flts{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+.sc-flts{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none}
 .sc-flts::-webkit-scrollbar{display:none}
-.sc-flt{flex-shrink:0;padding:5px 12px;background:rgba(255,255,255,.06);border:none;border-radius:16px;color:rgba(255,255,255,.5);font-size:11px;font-weight:700;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:4px}
-.sc-flt.on{background:rgba(255,77,141,.2);color:#FF85B3;border:1px solid rgba(255,77,141,.4)}
-.sp-flt-n{background:rgba(255,255,255,.1);border-radius:8px;padding:1px 5px;font-size:10px}
-.sc-area{padding:12px 10px;overflow-x:auto}
-.sc-grid{display:grid;grid-template-rows:1fr 1fr;grid-auto-flow:column;gap:8px;width:max-content;min-width:100%}
-.sc-card{background:#0d0d1f;border:1px solid rgba(255,255,255,.07);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;transition:border-color .18s,transform .18s;text-decoration:none;width:130px}
-.sc-card:hover{border-color:rgba(232,65,122,.35);transform:scale(1.02)}
-.sc-card.hide{display:none}
-.sc-img{height:90px;overflow:hidden;position:relative;background:#12122a;flex-shrink:0}
-.sc-img img{width:100%;height:100%;object-fit:cover;display:block;filter:blur(4px);transform:scale(1.04);transition:filter .4s,transform .4s}
+.sc-flt{
+  flex-shrink:0;padding:4px 10px;border-radius:12px;
+  border:1px solid rgba(255,255,255,.07);background:transparent;
+  color:rgba(255,255,255,.38);font-size:11px;font-weight:700;
+  cursor:pointer;transition:all .15s;white-space:nowrap;font-family:var(--ff-sans);
+}
+.sc-flt:hover{color:rgba(255,255,255,.7)}
+.sc-flt.on{background:linear-gradient(135deg,var(--pk),#7C3AED);border-color:transparent;color:#fff;box-shadow:0 2px 8px rgba(232,65,122,.3)}
+.sc-flt-n{font-size:9px;opacity:.75;margin-left:2px}
+
+/* GRID AREA - fills remaining height */
+.sc-area{
+  flex:1;overflow:hidden;
+  padding:10px 12px 10px;
+}
+.sc-grid{
+  height:100%;
+  display:grid;
+  /* PC 기본: 5열×2행 */
+  grid-template-columns:repeat(5,1fr);
+  grid-template-rows:repeat(2,1fr);
+  gap:8px;
+}
+@media(max-width:700px){
+  .sc-grid{grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr)}
+}
+
+/* CARD */
+.sc-card{
+  background:#0d0d1f;
+  border:1px solid rgba(255,255,255,.07);
+  border-radius:10px;overflow:hidden;
+  display:flex;flex-direction:column;
+  transition:border-color .18s,box-shadow .18s,transform .18s;
+  min-height:0;
+}
+.sc-card:hover{border-color:rgba(232,65,122,.35);box-shadow:0 4px 16px rgba(232,65,122,.12);transform:scale(1.02)}
+.sc-img{flex:1;overflow:hidden;min-height:0;position:relative;background:#12122a}
+/* shimmer skeleton — 이미지 로딩 전 반짝이는 플레이스홀더 */
+.sc-img::before{
+  content:'';position:absolute;inset:0;z-index:1;
+  background:linear-gradient(105deg,#12122a 40%,rgba(255,255,255,.04) 50%,#12122a 60%);
+  background-size:200% 100%;
+  animation:sc-shimmer 1.6s infinite linear;
+}
+@keyframes sc-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+/* 이미지 로드 완료 후 skeleton 숨김 */
+.sc-img.loaded::before{display:none}
+.sc-img img{
+  width:100%;height:100%;object-fit:cover;display:block;
+  /* blur-up: 처음엔 흐릿하게 → 로드 완료 후 선명하게 */
+  filter:blur(6px);transform:scale(1.04);
+  transition:filter .45s ease,transform .45s ease;
+  position:relative;z-index:2;
+}
 .sc-img.loaded img{filter:blur(0);transform:scale(1)}
-.sc-rating-wrap{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.7);border-radius:7px;padding:2px 5px;font-size:9px;font-weight:800;color:#fbbf24;display:flex;align-items:center;gap:2px}
-.sc-info{padding:5px 7px 6px;display:flex;flex-direction:column;gap:2px;background:#0d0d1f}
-.sc-cat{font-size:8px;font-weight:800;text-transform:uppercase;display:flex;align-items:center;gap:3px;opacity:.85}
+.sc-card:hover .sc-img.loaded img{transform:scale(1.06)}
+.sc-rating-wrap{
+  position:absolute;top:5px;right:5px;
+  background:rgba(0,0,0,.7);backdrop-filter:blur(4px);
+  border-radius:8px;padding:2px 5px;
+  font-size:9px;font-weight:800;color:#fbbf24;
+  display:flex;align-items:center;gap:2px;
+  pointer-events:none;
+}
+.sc-rating-wrap i{font-size:7px}
+.sc-info{
+  flex-shrink:0;padding:5px 7px 6px;
+  display:flex;flex-direction:column;gap:2px;
+  background:#0d0d1f;
+}
+.sc-cat{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;display:flex;align-items:center;gap:3px;opacity:.85}
 .sc-cat i{font-size:7px}
 .sc-name{font-size:11px;font-weight:800;color:#fff;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sc-loc{display:flex;align-items:center;gap:3px;font-size:9px;color:rgba(255,255,255,.28)}
-.sc-loc i{color:var(--pk);font-size:7px}
-.sc-empty{display:none;grid-column:1/-1;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:rgba(255,255,255,.2);font-size:13px;padding:40px}
+.sc-loc i{color:var(--pk);font-size:7px;flex-shrink:0}
+
+/* HIDDEN / EMPTY */
+.sc-card.hide{display:none}
+.sc-empty{
+  display:none;grid-column:1/-1;grid-row:1/-1;
+  align-items:center;justify-content:center;flex-direction:column;gap:8px;
+  color:rgba(255,255,255,.2);font-size:13px;
+}
 .sc-empty.show{display:flex}
-@media(max-width:480px){.sc-card{width:115px}.sc-img{height:80px}}
+.sc-empty i{font-size:32px;opacity:.2}
 </style>
 </head>
 <body>
-${jaLangNav('ja', '/ja/shops')}
+
+<nav class="sc-nav">
+  <a href="/ja" class="sc-back"><i class="fas fa-arrow-left"></i></a>
+  <div class="sc-title">Seoul Beauty</div>
+  <div class="sc-spacer"></div>
+  <div class="sc-badge" id="scBadge">${shops.length}店舗</div>
+  <a href="/shops" style="font-size:10px;color:rgba(255,255,255,.3);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:3px 8px;margin-left:6px;text-decoration:none">EN</a>
+</nav>
+
 <div class="sc-ctrl">
   <div class="sc-srch">
-    <i class="fas fa-search" style="color:rgba(255,255,255,.3);font-size:13px"></i>
-    <input id="scQ" type="search" placeholder="サロン名・エリア・カテゴリー..." oninput="doFilter(this.value)">
+    <i class="fas fa-search"></i>
+    <input id="scQ" type="search" placeholder="名前、エリア、カテゴリー..." autocomplete="off" oninput="doFilter(this.value)">
     <button class="sc-srch-x" id="scX" onclick="clearQ()"><i class="fas fa-times"></i></button>
   </div>
-  <div class="sc-flts">${filterBtns}</div>
-</div>
-<div class="sc-area">
-  <div class="sc-grid" id="scGrid">
-    ${cardsHtml || ''}
-    <div class="sc-empty" id="scEmpty"><i class="fas fa-search"></i>サロンが見つかりません</div>
+  <div class="sc-flts">
+    ${filterBtns}
   </div>
 </div>
+
+<div class="sc-area">
+  <div class="sc-grid" id="scGrid">
+    ${cardsHtml}
+    <div class="sc-empty" id="scEmpty"><i class="fas fa-search"></i>店舗が見つかりません</div>
+  </div>
+</div>
+
 <script>
-function parentLoaded(el){if(el&&el.parentElement)el.parentElement.classList.add('loaded');}
-var _cat='${catFilter||'all'}',_q='';
-function filterCat(btn){
-  document.querySelectorAll('.sc-flt').forEach(function(b){b.classList.remove('on')});
-  btn.classList.add('on');_cat=btn.dataset.cat;render();
-}
-function doFilter(v){_q=v.toLowerCase().trim();document.getElementById('scX').classList.toggle('on',!!_q);render();}
-function clearQ(){document.getElementById('scQ').value='';document.getElementById('scX').classList.remove('on');_q='';render();}
-function render(){
-  var cards=document.querySelectorAll('.sc-card'),vis=0;
-  cards.forEach(function(c){
-    var ok=(_cat==='all'||c.dataset.cat===_cat)&&(!_q||(c.dataset.name||'').includes(_q)||(c.dataset.loc||'').includes(_q)||(c.dataset.cat||'').includes(_q));
-    c.classList.toggle('hide',!ok);if(ok)vis++;
+/* 이미지 blur-up 헬퍼 */
+function parentLoaded(el){ if(el && el.parentElement) el.parentElement.classList.add('loaded'); }
+
+var _cat='all', _q='';
+
+/* 카테고리 필터 */
+document.querySelectorAll('.sc-flt').forEach(function(b){
+  b.addEventListener('click', function(){
+    document.querySelectorAll('.sc-flt').forEach(function(x){x.classList.remove('on')});
+    b.classList.add('on');
+    _cat = b.dataset.cat;
+    render();
   });
-  document.getElementById('scEmpty').classList.toggle('show',vis===0);
-  var grid=document.getElementById('scGrid'),isMobile=window.innerWidth<700;
-  if(vis===0){grid.style.gridTemplateRows='1fr';grid.style.gridAutoColumns='auto';return;}
-  var rows=isMobile?(vis<=3?1:vis<=6?2:3):(vis<=4?1:2);
-  var cols=Math.ceil(vis/rows);
-  grid.style.gridTemplateRows='repeat('+rows+',1fr)';
-  grid.style.gridAutoColumns=(isMobile?'115px':'130px');
+});
+
+/* 검색 */
+function doFilter(v){
+  _q = v.toLowerCase().trim();
+  document.getElementById('scX').classList.toggle('on', !!_q);
+  render();
 }
+function clearQ(){
+  document.getElementById('scQ').value='';
+  document.getElementById('scX').classList.remove('on');
+  _q=''; render();
+}
+
+/* 렌더 */
+function render(){
+  var cards = document.querySelectorAll('.sc-card');
+  var vis = 0;
+  cards.forEach(function(c){
+    var ok = (_cat==='all' || c.dataset.cat===_cat)
+          && (!_q || (c.dataset.name||'').indexOf(_q)!==-1
+                  || (c.dataset.loc||'').indexOf(_q)!==-1
+                  || (c.dataset.cat||'').indexOf(_q)!==-1);
+    c.classList.toggle('hide', !ok);
+    if(ok) vis++;
+  });
+
+  /* 보이는 카드 수에 맞게 그리드 레이아웃 재계산 */
+  var grid = document.getElementById('scGrid');
+  var cols, rows;
+  var isMobile = window.innerWidth < 700;
+  if(vis === 0){ cols=1; rows=1; }
+  else if(isMobile){
+    /* 모바일: 최대 3열, 필요한 만큼 행 */
+    rows = vis <= 3 ? 1 : vis <= 6 ? 2 : 3;
+    cols = Math.ceil(vis / rows);
+  } else {
+    /* PC: 항상 2행, 열 수는 카드 수에 맞게 자동 */
+    rows = vis <= 4 ? 1 : 2;
+    cols = Math.ceil(vis / rows);
+  }
+  grid.style.gridTemplateColumns = 'repeat('+cols+',1fr)';
+  grid.style.gridTemplateRows    = 'repeat('+rows+',1fr)';
+
+  document.getElementById('scEmpty').classList.toggle('show', vis===0);
+  document.getElementById('scBadge').textContent = vis+'店舗';
+}
+
+/* 초기 레이아웃 */
 render();
 </script>
 </body>
-</html>`
-    return c.html(html)
+</html>`)
   } catch(e: any) {
-    return c.html('<h1>一時的なエラーが発生しました</h1>', 500)
+    return c.html('<h1>Service temporarily unavailable</h1>', 500)
   }
 })
-
 // ── /ja/blog ──
 app.get('/ja/blog', async (c) => {
   try {
-    await ensureDb(c.env)
-    const sql = getDb(c.env)
-    const posts = await sql`SELECT id,slug,title,meta_description,excerpt,category,area,tags,cover_image,created_at FROM blog_posts_ja WHERE status='published' ORDER BY created_at DESC`
+  await ensureDb(c.env)
+  const sql = getDb(c.env)
+  const posts = await sql`SELECT id,slug,title,meta_description,excerpt,content,category,area,tags,cover_image,status,views,created_at FROM blog_posts_ja WHERE status='published' ORDER BY created_at DESC`
+  const base = 'https://seoulbeautytrip.com'
 
-    const catLabelsJa: Record<string,string> = {headspa:'ヘッドスパ',skincare:'スキンケア',hair:'ヘアサロン',nail:'ネイル',clinic:'クリニック',makeup:'メイク',spa:'スパ',tattoo:'眉アート'}
+  const postCards = posts.map((p: any) => {
+    const tags = Array.isArray(p.tags) ? p.tags : (typeof p.tags === 'string' ? JSON.parse(p.tags||'[]') : [])
+    const catLabel: Record<string,string> = { headspa:'ヘッドスパ', skincare:'スキンケア', hair:'ヘアサロン', nail:'ネイルアート', clinic:'スキンクリニック', makeup:'メイク', spa:'スパ', tattoo:'眉アート' }
+    const cat = catLabel[p.category] || p.category || 'Beauty'
+    const dateStr = p.created_at ? new Date(p.created_at).toLocaleDateString('ja-JP',{year:'numeric',month:'short',day:'numeric'}) : ''
+    return `
+    <article class="blog-card" onclick="location.href='/ja/blog/${p.slug}'">
+      <div class="blog-card-img" style="${p.cover_image ? `background-image:url('${p.cover_image}')` : 'background:linear-gradient(135deg,#ff4d8d22,#9b59b622)'}">
+        <span class="blog-cat-badge">${cat}</span>
+      </div>
+      <div class="blog-card-body">
+        <div class="blog-meta"><span class="blog-area">${p.area||'Seoul'}</span><span class="blog-date">${dateStr}</span></div>
+        <h2 class="blog-title">${p.title}</h2>
+        <p class="blog-excerpt">${p.excerpt || p.meta_description || ''}</p>
+        <div class="blog-footer">
+          <div class="blog-tags">${tags.slice(0,3).map((t:string)=>`<span class="blog-tag">#${t}</span>`).join('')}</div>
+          <span class="blog-read">続きを読む →</span>
+        </div>
+      </div>
+    </article>`
+  }).join('')
 
-    const postCards = (posts as any[]).map((p: any) => {
-      const tags: string[] = Array.isArray(p.tags) ? p.tags : (typeof p.tags === 'string' ? JSON.parse(p.tags||'[]') : [])
-      const cat = catLabelsJa[p.category] || p.category || 'ビューティー'
-      const dateStr = p.created_at ? new Date(p.created_at).toLocaleDateString('ja-JP',{year:'numeric',month:'short',day:'numeric'}) : ''
-      return `<article class="blog-card" onclick="location.href='/ja/blog/${p.slug}'">
-  <div class="blog-card-img" style="${p.cover_image?`background-image:url('${p.cover_image}')`:' background:linear-gradient(135deg,#ff4d8d22,#9b59b622)'}">
-    <span class="blog-cat-badge">${cat}</span>
-  </div>
-  <div class="blog-card-body">
-    <div class="blog-meta"><span class="blog-area">${p.area||'ソウル'}</span><span class="blog-date">${dateStr}</span></div>
-    <h2 class="blog-title">${p.title}</h2>
-    <p class="blog-excerpt">${p.excerpt||p.meta_description||''}</p>
-    <div class="blog-footer">
-      <div class="blog-tags">${tags.slice(0,3).map((t:string)=>`<span class="blog-tag">#${t}</span>`).join('')}</div>
-      <span class="blog-read">続きを読む →</span>
-    </div>
-  </div>
-</article>`
-    }).join('')
+  const emptyState = !posts.length ? `
+    <div style="text-align:center;padding:60px 20px;color:rgba(255,255,255,.4)">
+      <div style="font-size:48px;margin-bottom:16px">✍️</div>
+      <p style="font-size:16px">No blog posts yet.<br>Add some from the admin panel!</p>
+    </div>` : ''
 
-    const html = `<!DOCTYPE html>
+  const html = `<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1N9ZQRHLJ0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-1N9ZQRHLJ0');
+</script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ソウル美容ブログ — 韓国美容ガイド＆ヒント | ソウルビューティートリップ</title>
-<meta name="description" content="ソウルのヘッドスパ・ヘアサロン・スキンクリニックの専門ガイド。外国人観光客向けに英語対応情報をお届け。">
-<link rel="canonical" href="https://seoulbeautytrip.com/ja/blog">
-<link rel="alternate" hreflang="ja" href="https://seoulbeautytrip.com/ja/blog">
-<link rel="alternate" hreflang="en" href="https://seoulbeautytrip.com/blog">
+<title>ソウル美容ブログ — Kビューティーガイド＆ヒント | Seoul Beauty Trip</title>
+<meta name="description" content="ソウルの最高のヘッドスパ、ヘアサロン、スキンクリニックの専門ガイド。外国人向けKビューティーのヒント。">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="${base}/blog">
+<meta property="og:title" content="Seoul Beauty Blog — K-Beauty Guides & Tips">
+<meta property="og:description" content="Expert guides on the best head spas, hair salons, and skincare clinics in Seoul for foreign visitors.">
+<meta property="og:url" content="${base}/blog">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Seoul Beauty Trip">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:image" content="https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:alt" content="Seoul Beauty Blog — K-Beauty Guides & Tips">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Seoul Beauty Blog — K-Beauty Guides & Tips">
+<meta name="twitter:description" content="Expert guides on the best head spas, hair salons, and skincare clinics in Seoul for foreign visitors.">
+<meta name="twitter:image" content="https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Blog","url":"${base}/blog","name":"Seoul Beauty Blog","description":"K-Beauty guides and tips for foreign visitors in Seoul","publisher":{"@type":"Organization","name":"Seoul Beauty Trip","url":"${base}"}}</script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"></noscript>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#0d0d18;color:#fff;font-family:"Hiragino Sans","Yu Gothic",sans-serif;min-height:100vh}
-.blog-hero{padding:36px 20px 20px;text-align:center;background:linear-gradient(180deg,rgba(255,77,141,.08) 0%,transparent 100%)}
-.blog-hero h1{font-size:clamp(1.4rem,5vw,2.2rem);font-weight:900;background:linear-gradient(135deg,#fff,rgba(255,255,255,.7));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px}
-.blog-hero p{color:rgba(255,255,255,.5);font-size:.9rem;max-width:480px;margin:0 auto}
-.blog-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:18px;padding:18px;max-width:1100px;margin:0 auto}
-.blog-card{background:#13132a;border:1px solid rgba(255,255,255,.07);border-radius:14px;overflow:hidden;cursor:pointer;transition:transform .2s,border-color .2s}
+body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;min-height:100vh}
+.nav{background:#13132a;border-bottom:1px solid rgba(255,77,141,.15);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.nav-logo{font-size:16px;font-weight:900;background:linear-gradient(135deg,#FF4D8D,#FF85B3);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-decoration:none}
+.nav-back{color:rgba(255,255,255,.5);text-decoration:none;font-size:13px;display:flex;align-items:center;gap:5px;padding:6px 13px;border:1px solid rgba(255,255,255,.12);border-radius:16px;transition:all .2s}
+.nav-back:hover{color:#fff;border-color:rgba(255,77,141,.4)}
+.blog-hero{padding:40px 20px 24px;text-align:center;background:linear-gradient(180deg,rgba(255,77,141,.08) 0%,transparent 100%)}
+.blog-hero h1{font-size:clamp(1.6rem,5vw,2.4rem);font-weight:900;background:linear-gradient(135deg,#fff,rgba(255,255,255,.7));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:10px}
+.blog-hero p{color:rgba(255,255,255,.5);font-size:.95rem;max-width:500px;margin:0 auto}
+.blog-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px;padding:20px;max-width:1100px;margin:0 auto}
+.blog-card{background:#13132a;border:1px solid rgba(255,255,255,.07);border-radius:16px;overflow:hidden;cursor:pointer;transition:transform .2s,border-color .2s}
 .blog-card:hover{transform:translateY(-3px);border-color:rgba(255,77,141,.3)}
-.blog-card-img{height:170px;background:#1c1c30;background-size:cover;background-position:center;position:relative}
-.blog-cat-badge{position:absolute;top:10px;left:10px;background:rgba(255,77,141,.9);color:#fff;font-size:10px;font-weight:700;padding:3px 9px;border-radius:18px}
-.blog-card-body{padding:14px}
-.blog-meta{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}
-.blog-area{font-size:10px;color:#FF4D8D;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
-.blog-date{font-size:10px;color:rgba(255,255,255,.35)}
-.blog-title{font-size:14px;font-weight:800;line-height:1.4;margin-bottom:7px;color:#fff}
-.blog-excerpt{font-size:12px;color:rgba(255,255,255,.45);line-height:1.6;margin-bottom:10px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.blog-card-img{height:180px;background:#1c1c30;background-size:cover;background-position:center;position:relative}
+.blog-cat-badge{position:absolute;top:12px;left:12px;background:rgba(255,77,141,.9);color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;backdrop-filter:blur(4px)}
+.blog-card-body{padding:16px}
+.blog-meta{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.blog-area{font-size:11px;color:#FF4D8D;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.blog-date{font-size:11px;color:rgba(255,255,255,.35)}
+.blog-title{font-size:15px;font-weight:800;line-height:1.4;margin-bottom:8px;color:#fff}
+.blog-excerpt{font-size:12.5px;color:rgba(255,255,255,.45);line-height:1.6;margin-bottom:12px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .blog-footer{display:flex;justify-content:space-between;align-items:center}
 .blog-tags{display:flex;gap:4px;flex-wrap:wrap}
-.blog-tag{font-size:10px;color:rgba(255,255,255,.3);background:rgba(255,255,255,.06);padding:2px 6px;border-radius:7px}
-.blog-read{font-size:11px;color:#FF4D8D;font-weight:700;white-space:nowrap}
-@media(max-width:480px){.blog-grid{grid-template-columns:1fr;padding:12px}}
+.blog-tag{font-size:10px;color:rgba(255,255,255,.3);background:rgba(255,255,255,.06);padding:3px 7px;border-radius:8px}
+.blog-read{font-size:12px;color:#FF4D8D;font-weight:700;white-space:nowrap}
+@media(max-width:480px){.blog-grid{grid-template-columns:1fr;padding:14px}}
 </style>
 </head>
 <body>
-${jaLangNav('ja', '/ja/blog')}
+<nav class="nav">
+  <a href="/ja" class="nav-logo">✨ Seoul Beauty Trip</a>
+  <div style="display:flex;align-items:center;gap:8px">
+    <a href="/ja" class="nav-back"><i class="fas fa-arrow-left"></i> 戻る</a>
+    <a href="/blog" style="font-size:11px;color:rgba(255,255,255,.35);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:4px 10px;text-decoration:none">EN</a>
+  </div>
+</nav>
 <section class="blog-hero">
-  <h1>✍️ 韓国美容ガイド</h1>
-  <p>ソウルの美容スポットを徹底解説 — 外国人旅行者向け完全ガイド</p>
+  <h1>✍️ ソウル美容ブログ</h1>
+  <p>ソウルを訪れるKビューティー好きのためのガイド＆ヒント</p>
 </section>
-<div class="blog-grid">${postCards||'<div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:rgba(255,255,255,.35);font-size:14px">📝 ガイド記事を準備中です</div>'}</div>
+<div class="blog-grid">${postCards}${emptyState}</div>
 </body>
 </html>`
-    return c.html(html)
+  return c.html(html)
   } catch(e: any) {
-    return c.html('<h1>一時的なエラーが発生しました</h1>', 500)
+    return c.html('<h1>Service temporarily unavailable</h1>', 500)
   }
 })
-
 // ── /ja/blog/category/:cat ──
 app.get('/ja/blog/category/:cat', async (c) => {
   try {
-    await ensureDb(c.env)
-    const sql = getDb(c.env)
-    const cat = decodeURIComponent(c.req.param('cat'))
-    const posts = await sql`SELECT id,slug,title,excerpt,category,cover_image,created_at FROM blog_posts_ja WHERE status='published' AND category=${cat} ORDER BY created_at DESC`
-    const jaLangNav2 = jaLangNav('ja', `/ja/blog/category/${encodeURIComponent(cat)}`)
-    const cards = (posts as any[]).map((p: any) => `
-<a href="/ja/blog/${p.slug}" style="display:block;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;overflow:hidden;text-decoration:none;transition:transform .2s" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
-  ${p.cover_image ? `<img src="${p.cover_image}" alt="${p.title}" style="width:100%;height:140px;object-fit:cover">` : ''}
-  <div style="padding:12px 14px">
-    <div style="font-size:.7rem;color:#FF4D8D;font-weight:700;text-transform:uppercase;margin-bottom:4px">${p.category||''}</div>
-    <div style="font-size:.92rem;font-weight:700;color:#fff;line-height:1.4;margin-bottom:5px">${p.title}</div>
-    <div style="font-size:.8rem;color:rgba(255,255,255,.5);line-height:1.55">${(p.excerpt||'').slice(0,90)}${p.excerpt&&p.excerpt.length>90?'…':''}</div>
-  </div>
-</a>`).join('')
-    return c.html(`<!DOCTYPE html>
-<html lang="ja">
-<head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${cat} | 韓国美容ブログ | Seoul Beauty Trip</title>
-<meta name="description" content="${cat}カテゴリの韓国美容記事一覧。ソウルのビューティーガイド。">
-<link rel="canonical" href="https://seoulbeautytrip.com/ja/blog/category/${encodeURIComponent(cat)}">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
-<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,'Hiragino Sans',sans-serif;background:#0f1a2e;color:#e2e8f0;min-height:100vh}a{color:inherit;text-decoration:none}</style>
-</head>
-<body>
-${jaLangNav2}
-<div style="padding:10px 20px;font-size:.78rem;color:rgba(255,255,255,.4);display:flex;gap:4px">
-  <a href="/ja" style="color:rgba(255,255,255,.45)">ホーム</a> ›
-  <a href="/ja/blog" style="color:rgba(255,255,255,.45)">ブログ</a> ›
-  <span>${cat}</span>
-</div>
-<div style="background:linear-gradient(135deg,#0f1a2e,#1a2a45);padding:32px 20px 24px;text-align:center">
-  <h1 style="font-size:1.5rem;font-weight:800;margin-bottom:8px">${cat}</h1>
-  <p style="font-size:.85rem;color:rgba(255,255,255,.55)">${cat}カテゴリの記事 ${posts.length}件</p>
-</div>
-${posts.length > 0 ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;padding:20px;max-width:1100px;margin:0 auto">${cards}</div>` : `<div style="text-align:center;padding:48px 20px;color:rgba(255,255,255,.4)"><p>このカテゴリの記事はまだありません。</p><a href="/ja/blog" style="color:#FF4D8D;display:block;margin-top:8px">ブログ一覧へ</a></div>`}
-<footer style="background:#0a1220;color:rgba(255,255,255,.3);text-align:center;padding:24px;font-size:.8rem;margin-top:32px">
-  <p><a href="/ja" style="color:rgba(255,255,255,.45)">Seoul Beauty Trip 日本語版</a> · <a href="/" style="color:rgba(255,255,255,.45)">English</a></p>
-</footer>
-</body></html>`)
-  } catch(e: any) {
-    return c.html('<h1>一時的なエラーが発生しました</h1>', 500)
+  await ensureDb(c.env)
+  const sql = getDb(c.env)
+  const cat = c.req.param('cat').toLowerCase()
+  const base = 'https://seoulbeautytrip.com'
+
+  const CAT_LABELS: Record<string,string> = {
+    headspa: 'ヘッドスパ', skincare: 'スキンケア', hair: 'ヘアサロン',
+    nail: 'ネイルアート', clinic: 'スキンクリニック', makeup: 'メイク', spa: 'スパ', tattoo: '眉アート'
   }
-})
+  const catLabel = CAT_LABELS[cat] || cat.charAt(0).toUpperCase() + cat.slice(1)
 
-// ── /ja/blog/:slug ──
-app.get('/ja/blog/:slug', async (c) => {
-  try {
-    await ensureDb(c.env)
-    const sql = getDb(c.env)
-    const slug = c.req.param('slug')
-    const rows = await sql`SELECT * FROM blog_posts_ja WHERE slug=${slug} AND status='published'`
-    if (!rows.length) return c.notFound()
-    const post = rows[0]
-    const tags: string[] = Array.isArray(post.tags) ? post.tags : (typeof post.tags === 'string' ? JSON.parse(post.tags||'[]') : [])
+  // 해당 카테고리 블로그만 조회
+  const posts = await sql`
+    SELECT id,slug,title,meta_description,excerpt,category,area,tags,cover_image,views,created_at
+    FROM blog_posts_ja
+    WHERE status='published' AND category=${cat}
+    ORDER BY created_at DESC
+  `
 
-    // 조회수 +1
-    sql`UPDATE blog_posts_ja SET views=views+1 WHERE slug=${slug}`.catch(()=>{})
+  // 404 — 카테고리 없거나 글 없으면 블로그 목록으로
+  if (!posts.length) return c.redirect('/ja/blog', 301)
 
-    const catLabelsJa: Record<string,string> = {headspa:'ヘッドスパ',skincare:'スキンケア',hair:'ヘアサロン',nail:'ネイル',clinic:'クリニック',makeup:'メイク',spa:'スパ',tattoo:'眉アート'}
-    const cat = catLabelsJa[post.category] || post.category || 'ビューティー'
-    const dateStr = post.created_at ? new Date(post.created_at).toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric'}) : ''
-    const base = 'https://seoulbeautytrip.com'
+  const postCards = posts.map((p: any) => {
+    const tags = Array.isArray(p.tags) ? p.tags : (typeof p.tags === 'string' ? JSON.parse(p.tags||'[]') : [])
+    const dateStr = p.created_at ? new Date(p.created_at).toLocaleDateString('ja-JP',{year:'numeric',month:'short',day:'numeric'}) : ''
+    return `
+    <article class="blog-card" onclick="location.href='/ja/blog/${p.slug}'">
+      <div class="blog-card-img" style="${p.cover_image ? `background-image:url('${p.cover_image}')` : 'background:linear-gradient(135deg,#ff4d8d22,#9b59b622)'}">
+        <span class="blog-cat-badge">${catLabel}</span>
+      </div>
+      <div class="blog-card-body">
+        <div class="blog-meta"><span class="blog-area">${p.area||'Seoul'}</span><span class="blog-date">${dateStr}</span></div>
+        <h2 class="blog-title">${p.title}</h2>
+        <p class="blog-excerpt">${p.excerpt || p.meta_description || ''}</p>
+        <div class="blog-footer">
+          <div class="blog-tags">${tags.slice(0,3).map((t:string)=>`<span class="blog-tag">#${t}</span>`).join('')}</div>
+          <span class="blog-read">続きを読む →</span>
+        </div>
+      </div>
+    </article>`
+  }).join('')
 
-    // 관련 글 (같은 카테고리 3개)
-    const related = await sql`SELECT slug,title,excerpt,category,cover_image FROM blog_posts_ja WHERE status='published' AND slug!=${slug} AND category=${post.category||''} ORDER BY created_at DESC LIMIT 3`
+  // 다른 카테고리 링크
+  const otherCats = Object.entries(CAT_LABELS)
+    .filter(([k]) => k !== cat)
+    .map(([k,v]) => `<a href="/ja/blog/category/${k}" style="display:inline-flex;align-items:center;padding:6px 14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.6);text-decoration:none;font-size:12px;font-weight:600;transition:all .2s" onmouseover="this.style.background='rgba(255,77,141,.15)';this.style.borderColor='rgba(255,77,141,.3)';this.style.color='#FF4D8D'" onmouseout="this.style.background='rgba(255,255,255,.06)';this.style.borderColor='rgba(255,255,255,.1)';this.style.color='rgba(255,255,255,.6)'">${v}</a>`)
+    .join('')
 
-    const relatedHtml = (related as any[]).map((r: any) => {
-      const rCat = catLabelsJa[r.category] || r.category
-      return `<a href="/ja/blog/${r.slug}" style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.05);text-decoration:none;transition:opacity .2s" onmouseover="this.style.opacity='.7'" onmouseout="this.style.opacity='1'">
-  ${r.cover_image?`<img src="${r.cover_image}" style="width:60px;height:60px;object-fit:cover;border-radius:8px;flex-shrink:0" loading="lazy">`:'<div style="width:60px;height:60px;background:#1c1c30;border-radius:8px;flex-shrink:0"></div>'}
-  <div>
-    <div style="font-size:10px;color:#FF4D8D;font-weight:700;margin-bottom:3px">${rCat}</div>
-    <div style="font-size:13px;font-weight:700;color:#fff;line-height:1.4">${r.title}</div>
-  </div>
-</a>`
-    }).join('')
+  const metaDesc = `Best ${catLabel} guides for foreigners in Seoul. Expert tips, salon reviews, pricing, and English-friendly booking — updated ${new Date().getFullYear()}.`
+  const canonicalUrl = `${base}/blog/category/${cat}`
 
-    const html = `<!DOCTYPE html>
+  const html = `<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1N9ZQRHLJ0"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-1N9ZQRHLJ0');</script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${post.title} | ソウルビューティートリップ</title>
-<meta name="description" content="${post.meta_description||post.excerpt||''}">
-<link rel="canonical" href="${base}/ja/blog/${slug}">
-<link rel="alternate" hreflang="ja" href="${base}/ja/blog/${slug}">
-<meta property="og:title" content="${post.title}">
-<meta property="og:description" content="${post.meta_description||post.excerpt||''}">
-<meta property="og:url" content="${base}/ja/blog/${slug}">
-<meta property="og:type" content="article">
-<meta property="og:locale" content="ja_JP">
-${post.cover_image?`<meta property="og:image" content="${post.cover_image}">`:'' }
+<title>${catLabel} in Seoul — K-Beauty Guides for Foreigners | Seoul Beauty Trip</title>
+<meta name="description" content="${metaDesc}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="${canonicalUrl}">
+<meta property="og:title" content="${catLabel} in Seoul — K-Beauty Guides for Foreigners">
+<meta property="og:description" content="${metaDesc}">
+<meta property="og:url" content="${canonicalUrl}">
+<meta property="og:type" content="website">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"CollectionPage","url":"${canonicalUrl}","name":"${catLabel} Seoul Guide","description":"${metaDesc}","breadcrumb":{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"${base}"},{"@type":"ListItem","position":2,"name":"Blog","item":"${base}/blog"},{"@type":"ListItem","position":3,"name":"${catLabel}","item":"${canonicalUrl}"}]}}</script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"></noscript>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#0d0d18;color:#fff;font-family:"Hiragino Sans","Yu Gothic",sans-serif;min-height:100vh;line-height:1.7}
-.article-wrap{max-width:760px;margin:0 auto;padding:28px 20px 60px}
-.article-cat{display:inline-block;background:rgba(255,77,141,.15);color:#FF85B3;font-size:11px;font-weight:700;padding:4px 11px;border-radius:14px;margin-bottom:14px}
-.article-title{font-size:clamp(1.4rem,4vw,2rem);font-weight:900;line-height:1.35;color:#fff;margin-bottom:12px}
-.article-meta{display:flex;gap:12px;align-items:center;color:rgba(255,255,255,.4);font-size:12px;margin-bottom:20px;flex-wrap:wrap}
-.article-cover{width:100%;max-height:400px;object-fit:cover;border-radius:14px;margin-bottom:28px}
-.article-body h2{font-size:1.2rem;font-weight:800;color:#fff;margin:28px 0 12px;padding-bottom:6px;border-bottom:1px solid rgba(255,77,141,.2)}
-.article-body h3{font-size:1rem;font-weight:700;color:rgba(255,255,255,.9);margin:20px 0 8px}
-.article-body p{color:rgba(255,255,255,.7);margin-bottom:14px;font-size:14.5px}
-.article-body ul,.article-body ol{color:rgba(255,255,255,.7);margin:0 0 14px 20px;font-size:14.5px}
-.article-body li{margin-bottom:6px}
-.article-body strong{color:#fff;font-weight:700}
-.article-body a{color:#FF85B3;text-decoration:underline}
-.article-body blockquote{background:rgba(255,77,141,.08);border-left:3px solid #FF4D8D;padding:12px 16px;border-radius:0 8px 8px 0;margin:16px 0;color:rgba(255,255,255,.8);font-style:italic}
-.tags-section{margin-top:28px;display:flex;gap:6px;flex-wrap:wrap}
-.tag{font-size:11px;color:rgba(255,255,255,.4);background:rgba(255,255,255,.07);padding:4px 10px;border-radius:10px}
-.related-section{margin-top:36px;padding-top:24px;border-top:1px solid rgba(255,255,255,.07)}
-.related-section h3{font-size:14px;font-weight:800;color:#fff;margin-bottom:14px}
-.shop-cta{margin:28px 0;background:linear-gradient(135deg,rgba(255,77,141,.12),rgba(155,89,182,.08));border:1px solid rgba(255,77,141,.25);border-radius:14px;padding:20px;text-align:center}
-.shop-cta h3{font-size:16px;font-weight:900;margin-bottom:8px}
-.shop-cta p{font-size:13px;color:rgba(255,255,255,.6);margin-bottom:14px}
-.cta-btn{display:inline-block;background:linear-gradient(135deg,#FF4D8D,#FF85B3);color:#fff;font-size:13px;font-weight:700;padding:10px 22px;border-radius:20px;text-decoration:none;transition:transform .2s,box-shadow .2s}
-.cta-btn:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(255,77,141,.4)}
+body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;min-height:100vh}
+.nav{background:#13132a;border-bottom:1px solid rgba(255,77,141,.15);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.nav-logo{font-size:16px;font-weight:900;background:linear-gradient(135deg,#FF4D8D,#FF85B3);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-decoration:none}
+.nav-back{color:rgba(255,255,255,.5);text-decoration:none;font-size:13px;display:flex;align-items:center;gap:5px;padding:6px 13px;border:1px solid rgba(255,255,255,.12);border-radius:16px;transition:all .2s}
+.nav-back:hover{color:#fff;border-color:rgba(255,77,141,.4)}
+.blog-hero{padding:40px 20px 24px;text-align:center;background:linear-gradient(180deg,rgba(255,77,141,.08) 0%,transparent 100%)}
+.blog-hero h1{font-size:clamp(22px,5vw,34px);font-weight:900;margin-bottom:8px}
+.blog-hero p{color:rgba(255,255,255,.5);font-size:14px;max-width:480px;margin:0 auto 16px}
+.breadcrumb{font-size:12px;color:rgba(255,255,255,.35);margin-bottom:12px}
+.breadcrumb a{color:rgba(255,255,255,.45);text-decoration:none}
+.breadcrumb a:hover{color:#FF4D8D}
+.cat-nav{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:20px;padding:0 20px}
+.blog-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px;padding:20px;max-width:1100px;margin:0 auto}
+.blog-card{background:rgba(255,255,255,.04);border-radius:16px;overflow:hidden;cursor:pointer;transition:transform .2s,box-shadow .2s;border:1px solid rgba(255,255,255,.07)}
+.blog-card:hover{transform:translateY(-3px);box-shadow:0 8px 30px rgba(255,77,141,.12);border-color:rgba(255,77,141,.2)}
+.blog-card-img{height:180px;background-size:cover;background-position:center;position:relative}
+.blog-cat-badge{position:absolute;top:12px;left:12px;background:rgba(255,77,141,.85);backdrop-filter:blur(6px);color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:12px}
+.blog-card-body{padding:16px}
+.blog-meta{display:flex;justify-content:space-between;margin-bottom:8px}
+.blog-area{font-size:11px;color:#FF4D8D;font-weight:700}
+.blog-date{font-size:11px;color:rgba(255,255,255,.3)}
+.blog-title{font-size:16px;font-weight:800;line-height:1.4;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.blog-excerpt{font-size:13px;color:rgba(255,255,255,.5);line-height:1.6;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:12px}
+.blog-footer{display:flex;justify-content:space-between;align-items:center}
+.blog-tags{display:flex;gap:4px;flex-wrap:wrap}
+.blog-tag{font-size:10px;color:rgba(255,255,255,.3);background:rgba(255,255,255,.06);padding:3px 7px;border-radius:8px}
+.blog-read{font-size:12px;color:#FF4D8D;font-weight:700;white-space:nowrap}
+@media(max-width:480px){.blog-grid{grid-template-columns:1fr;padding:14px}}
 </style>
 </head>
 <body>
-${jaLangNav('ja', '/ja/blog/'+slug)}
-<article class="article-wrap">
-  <span class="article-cat">${cat}</span>
-  <h1 class="article-title">${post.title}</h1>
-  <div class="article-meta">
-    <span><i class="fas fa-calendar" style="margin-right:4px;color:#FF4D8D"></i>${dateStr}</span>
-    <span><i class="fas fa-map-marker-alt" style="margin-right:4px;color:#FF4D8D"></i>${post.area||'ソウル'}</span>
-    <span><i class="fas fa-eye" style="margin-right:4px;color:rgba(255,255,255,.3)"></i>${post.views||0} views</span>
+<nav class="nav">
+  <a href="/ja" class="nav-logo">Seoul Beauty Trip</a>
+  <div style="display:flex;align-items:center;gap:8px">
+    <a href="/ja/blog" class="nav-back"><i class="fas fa-arrow-left"></i> All Posts</a>
+    <a href="/ja/blog" style="font-size:11px;color:rgba(255,255,255,.35);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:4px 10px;text-decoration:none">EN</a>
   </div>
-  ${post.cover_image?`<img class="article-cover" src="${post.cover_image}" alt="${post.title}" loading="lazy">`:''}
-  <div class="article-body">${post.content||''}</div>
-  ${tags.length?`<div class="tags-section">${tags.map((t:string)=>`<span class="tag">#${t}</span>`).join('')}</div>`:'' }
-  <div class="shop-cta">
-    <h3>🌸 ソウルのサロンを予約しよう</h3>
-    <p>英語 & WhatsApp対応 — 外国人旅行者でも簡単予約</p>
-    <a href="/ja/shops" class="cta-btn">🏪 サロン一覧を見る</a>
-  </div>
-  ${related.length?`<div class="related-section"><h3>📚 関連ガイド</h3>${relatedHtml}</div>`:''}
-</article>
+</nav>
+<header class="blog-hero">
+  <div class="breadcrumb"><a href="/">Home</a> › <a href="/ja/blog">Blog</a> › ${catLabel}</div>
+  <h1><i class="fas fa-${cat==='headspa'?'spa':cat==='clinic'?'stethoscope':cat==='hair'?'cut':cat==='nail'?'hand-sparkles':cat==='makeup'?'star':cat==='skincare'?'leaf':cat==='tattoo'?'pen-nib':'hot-tub'}" style="color:#FF4D8D;margin-right:8px"></i>${catLabel} in Seoul</h1>
+  <p>外国人向け専門ガイド — 日本語対応サロン、正直なレビュー＆実際の料金</p>
+  <div class="cat-nav">${otherCats}</div>
+</header>
+<main class="blog-grid">${postCards}</main>
+<footer style="text-align:center;padding:32px 20px;color:rgba(255,255,255,.25);font-size:12px;border-top:1px solid rgba(255,255,255,.06);margin-top:20px">
+  <a href="/ja/blog" style="color:#FF4D8D;text-decoration:none;font-weight:700">← ソウル美容ガイド一覧</a>
+  <p style="margin-top:8px">© ${new Date().getFullYear()} Seoul Beauty Trip. All rights reserved. &nbsp;|&nbsp; <a href="/" style="color:#FF4D8D;text-decoration:none">About</a> &nbsp;|&nbsp; <a href="/" style="color:#FF4D8D;text-decoration:none">Privacy</a></p>
+</footer>
 </body>
 </html>`
-    return c.html(html)
+  return c.html(html)
   } catch(e: any) {
-    return c.html('<h1>一時的なエラーが発生しました</h1>', 500)
+    return c.redirect('/ja/blog', 302)
   }
 })
+// ── /ja/blog/:slug ──
+app.get('/ja/blog/:slug', async (c) => {
+  await ensureDb(c.env)
+  const sql = getDb(c.env)
+  const slug = c.req.param('slug')
 
+  // \uc911\ubcf5 slug \ub9ac\ub514\ub809\uc158 (\uad6c\ubc84\uc804 \u2192 \uc2e0\ubc84\uc804 301)
+  if (BLOG_SLUG_REDIRECTS[slug]) {
+    return c.redirect(`/blog/${BLOG_SLUG_REDIRECTS[slug]}`, 301)
+  }
+
+  const rows = await sql`SELECT * FROM blog_posts_ja WHERE slug=${slug} AND status='published'`
+  if (!rows.length) {
+    // draft/\uc0ad\uc81c\ub41c \uae00 \u2192 410 Gone (\uad6c\uae00\uc5d0\uac8c \uc601\uad6c \uc81c\uac70 \uc2e0\ud638 \u2014 404\ubcf4\ub2e4 \ube60\ub978 \uc778\ub371\uc2a4 \uc81c\uac70)
+    const draftRows = await sql`SELECT id FROM blog_posts_ja WHERE slug=${slug}`
+    if (draftRows.length) {
+      return c.html(`<!DOCTYPE html><html><head>
+<meta charset="UTF-8"><title>Article Removed | Seoul Beauty Trip</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="canonical" href="https://seoulbeautytrip.com/ja/blog">
+</head><body>
+<h1>This article has been removed.</h1>
+<p><a href="/ja/blog">Browse all Seoul beauty guides</a></p>
+</body></html>`, 410)
+    }
+    return c.notFound()
+  }
+  const post = rows[0]
+  const tags = Array.isArray(post.tags) ? post.tags : (typeof post.tags === 'string' ? JSON.parse(post.tags||'[]') : [])
+
+  // 조회수 +1
+  sql`UPDATE blog_posts_ja SET views=views+1 WHERE slug=${slug}`.catch(()=>{})
+
+  // shop_id 있으면 업체 사진 + slug 조회 (포토 갤러리 + schema mentions용)
+  let shopPhotoUrls: string[] = []
+  let relatedShopSlug = ''
+  let relatedShopName = ''
+  if (post.shop_id) {
+    try {
+      const shopRow = await sql`SELECT slug, name, thumbnail, photos FROM shops_ja WHERE id=${post.shop_id} LIMIT 1`
+      if (shopRow.length > 0) {
+        relatedShopSlug = shopRow[0].slug || ''
+        relatedShopName = shopRow[0].name || ''
+        const rawPhotos = shopRow[0].photos
+        const photoArr: string[] = Array.isArray(rawPhotos)
+          ? rawPhotos
+          : (typeof rawPhotos === 'string' ? JSON.parse(rawPhotos || '[]') : [])
+        // photos 배열만 사용 (thumbnail은 cover_image로 이미 표시됨)
+        // photos[0]은 thumbnail과 같은 경우가 많으므로 index 1부터 6장
+        const validPhotos = photoArr
+          .map((u: any) => String(u || '').trim())
+          .filter((u: string) => u.startsWith('http'))
+        shopPhotoUrls = validPhotos.slice(1, 7) // photos[1..6]
+      }
+    } catch { /* 사진 없으면 갤러리 생략 */ }
+  }
+
+  // 관련 글 크로스링크: 같은 카테고리 3개 + guide 카테고리 1개 + 같은 area 1개 (중복 제거)
+  const relatedSameCat = await sql`SELECT slug,title,excerpt,category,area,created_at FROM blog_posts_ja WHERE status='published' AND slug!=${slug} AND category=${post.category||''} ORDER BY created_at DESC LIMIT 3`
+  // guide 카테고리 cross-link (skincare/clinic 글은 headspa guide, headspa 글은 skincare guide 등)
+  const crossCatMap: Record<string,string> = { headspa:'skincare', skincare:'headspa', clinic:'hair', hair:'clinic', nail:'spa', spa:'nail', tattoo:'skincare', makeup:'hair' }
+  const crossCat = crossCatMap[post.category||''] || 'headspa'
+  const relatedCross = await sql`SELECT slug,title,excerpt,category,area,created_at FROM blog_posts_ja WHERE status='published' AND slug!=${slug} AND category=${crossCat} ORDER BY RANDOM() LIMIT 2`
+  // 같은 area cross-link
+  const relatedArea = await sql`SELECT slug,title,excerpt,category,area,created_at FROM blog_posts_ja WHERE status='published' AND slug!=${slug} AND area=${post.area||'Seoul'} AND category!=${post.category||''} ORDER BY created_at DESC LIMIT 2`
+  // 중복 제거하여 최대 5개로 합치기
+  const seenSlugs = new Set<string>()
+  const related: any[] = []
+  for (const r of [...relatedSameCat, ...relatedArea, ...relatedCross]) {
+    if (!seenSlugs.has(r.slug) && related.length < 5) { seenSlugs.add(r.slug); related.push(r) }
+  }
+
+  const base = 'https://seoulbeautytrip.com'
+  const catLabel: Record<string,string> = { headspa:'ヘッドスパ', skincare:'スキンケア', hair:'ヘアサロン', nail:'ネイルアート', clinic:'スキンクリニック', makeup:'メイク', spa:'スパ', tattoo:'眉アート' }
+  const cat = catLabel[post.category] || post.category || 'Beauty'
+  const dateStr = post.created_at ? new Date(post.created_at).toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric'}) : ''
+
+  // CTA: 카테고리/타입에 따라 다르게
+  const ctaMap: Record<string,{icon:string;title:string;desc:string;btn:string}> = {
+    headspa:  { icon:'🧖', title:'ソウルのヘッドスパを探す', desc:'ソウルの人気ヘッドスパを予約 — WhatsApp日本語対応、韓国語不要。', btn:'🌿 ヘッドスパを見る' },
+    hair:     { icon:'💇', title:'日本語対応ヘアサロンを探す', desc:'ソウルのトップヘアサロン — WhatsApp日本語サポート、簡単予約。', btn:'✂️ ヘアサロンを見る' },
+    nail:     { icon:'💅', title:'Book a Nail Studio in Seoul', desc:'Discover Seoul\'s best nail art studios — K-beauty nail artists, English booking.', btn:'💅 Browse Nail Studios' },
+    clinic:   { icon:'✨', title:'ソウルのスキンクリニックを探す', desc:'ソウルのトップスキンクリニックを比較 — 日本語スタッフ、WhatsApp簡単予約。', btn:'🔬 スキンクリニックを見る' },
+    skincare: { icon:'🌟', title:'ソウルのスキンケアクリニックを探す', desc:'外国人向け人気スキンケアクリニック — 日本語サポート、WhatsApp予約。', btn:'💆 スキンケアクリニックを見る' },
+    spa:      { icon:'🛁', title:'Find a Spa in Seoul', desc:'Relax at Seoul\'s best spas — English-friendly, easy WhatsApp booking for tourists.', btn:'🛁 Browse Spas' },
+    tattoo:   { icon:'🎨', title:'ソウルの眉アートアーティストを探す', desc:'ソウルのトップ眉アート・パーマネントメイクアップアーティスト — 日本語予約対応。', btn:'🎨 アーティストを見る' },
+    dental:   { icon:'🦷', title:'日本語対応歯科クリニックを探す', desc:'外国人向け信頼の韓国歯科クリニック — 日本語サポート、簡単予約。', btn:'🦷 歯科クリニックを見る' },
+  }
+  const ctaDefault = { icon:'🌸', title:'Kビューティー体験を予約しましょう', desc:'ソウルの最高の美容クリニック＆サロンを探す — WhatsApp日本語予約、韓国語不要。', btn:'🌸 ソウル美容を探す' }
+  const cta = ctaMap[post.category||''] || ctaDefault
+  const canonicalUrl = `${base}/blog/${slug}`
+
+  const relatedHtml = related.length ? `
+  <aside class="related-posts">
+    <h3>📚 あわせて読みたい</h3>
+    <div class="related-grid">
+      ${related.map((r: any) => `
+      <a href="/ja/blog/${r.slug}" class="related-card">
+        <div class="related-cat">${catLabel[r.category]||r.category}</div>
+        <div class="related-title">${r.title}</div>
+        <div class="related-area">${r.area||'Seoul'}</div>
+      </a>`).join('')}
+    </div>
+  </aside>` : ''
+
+  const html = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1N9ZQRHLJ0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-1N9ZQRHLJ0');
+</script>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${(()=>{ const t=post.title||''; const suffix=' | Seoul Beauty Trip'; const full=t+suffix; if(full.length<=60) return full; if(t.length<=55) return t+suffix; const cut=t.substring(0,52); const sp=cut.lastIndexOf(' '); return (sp>40?cut.substring(0,sp):cut)+'...' })()}</title>
+<meta name="description" content="${post.meta_description||post.excerpt||''}">
+<meta name="robots" content="${(!post.title || post.slug.startsWith('test-') || (!post.meta_description && !post.excerpt) || !post.content || post.content.trim().length < 200) ? 'noindex, follow' : 'index, follow'}">
+<link rel="canonical" href="${canonicalUrl}">
+<meta property="og:title" content="${post.title}">
+<meta property="og:description" content="${post.meta_description||post.excerpt||''}">
+<meta property="og:url" content="${canonicalUrl}">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Seoul Beauty Trip">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:image" content="${post.cover_image || 'https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg'}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:alt" content="${post.title}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${post.title}">
+<meta name="twitter:description" content="${post.meta_description||''}">
+<meta name="twitter:image" content="${post.cover_image || 'https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg'}">
+<script type="application/ld+json">${JSON.stringify({
+  "@context":"https://schema.org",
+  "@type":"BlogPosting",
+  "headline": post.title,
+  "description": post.meta_description||post.excerpt||'',
+  "url": canonicalUrl,
+  "datePublished": post.created_at,
+  "dateModified": post.updated_at||post.created_at,
+  "author":[
+    {"@type":"Person","name":"Seoul Beauty Trip Editorial Team","url":"https://seoulbeautytrip.com/about","jobTitle":"K-Beauty Travel Editor","worksFor":{"@type":"Organization","name":"Seoul Beauty Trip"}},
+    {"@type":"Organization","name":"Seoul Beauty Trip","url":base}
+  ],
+  "publisher":{"@type":"Organization","name":"Seoul Beauty Trip","url":base,"logo":{"@type":"ImageObject","url":"https://seoulbeautytrip.com/favicon.ico"}},
+  "keywords": tags.join(', '),
+  "articleSection": cat,
+  "inLanguage":"ja",
+  "mainEntityOfPage":{"@type":"WebPage","@id":canonicalUrl},
+  ...(post.cover_image ? {"image":{"@type":"ImageObject","url":post.cover_image,"width":1200,"height":630}} : {}),
+  // shop_id가 있으면 mentions로 shop 페이지 연결 (중복 canonical 방지 + 관계 명시)
+  ...(relatedShopSlug ? {"mentions":{"@type":"LocalBusiness","@id":`${base}/shop/${relatedShopSlug}`,"url":`${base}/shop/${relatedShopSlug}`,"name":relatedShopName}} : {})
+})}</script>
+<script type="application/ld+json">${JSON.stringify({
+  "@context":"https://schema.org",
+  "@type":"BreadcrumbList",
+  "itemListElement":[
+    {"@type":"ListItem","position":1,"name":"Home","item":"https://seoulbeautytrip.com"},
+    {"@type":"ListItem","position":2,"name":"Blog","item":"https://seoulbeautytrip.com/blog"},
+    {"@type":"ListItem","position":3,"name":cat,"item":`https://seoulbeautytrip.com/blog/category/${post.category||'guide'}`},
+    {"@type":"ListItem","position":4,"name":post.title,"item":canonicalUrl}
+  ]
+})}</script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"></noscript>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;line-height:1.7}
+.nav{background:#13132a;border-bottom:1px solid rgba(255,77,141,.15);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.nav-logo{font-size:16px;font-weight:900;background:linear-gradient(135deg,#FF4D8D,#FF85B3);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-decoration:none}
+.nav-back{color:rgba(255,255,255,.5);text-decoration:none;font-size:13px;display:flex;align-items:center;gap:5px;padding:6px 13px;border:1px solid rgba(255,255,255,.12);border-radius:16px;transition:.2s}
+.nav-back:hover{color:#fff;border-color:rgba(255,77,141,.4)}
+.post-container{max-width:760px;margin:0 auto;padding:30px 20px 60px}
+.post-breadcrumb{font-size:12px;color:rgba(255,255,255,.35);margin-bottom:20px;display:flex;align-items:center;gap:6px}
+.post-breadcrumb a{color:rgba(255,255,255,.4);text-decoration:none}
+.post-breadcrumb a:hover{color:#FF4D8D}
+.post-header{margin-bottom:28px}
+.post-cats{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.post-cat-badge{background:rgba(255,77,141,.15);color:#FF4D8D;font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;border:1px solid rgba(255,77,141,.3)}
+.post-area-badge{background:rgba(155,89,182,.15);color:#c39bd3;font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;border:1px solid rgba(155,89,182,.3)}
+.post-title{font-size:clamp(1.5rem,4vw,2rem);font-weight:900;line-height:1.25;margin-bottom:14px;color:#fff}
+.post-meta{display:flex;align-items:center;gap:14px;font-size:12px;color:rgba(255,255,255,.35);margin-bottom:20px;flex-wrap:wrap}
+.post-meta i{color:rgba(255,77,141,.6)}
+.post-cover{width:100%;height:300px;object-fit:cover;border-radius:16px;margin-bottom:28px;background:linear-gradient(135deg,#ff4d8d22,#9b59b622)}
+.post-body{font-size:15px;line-height:1.85;color:rgba(255,255,255,.85)}
+.post-body h2{font-size:1.2rem;font-weight:800;color:#fff;margin:28px 0 12px;padding-bottom:8px;border-bottom:1px solid rgba(255,77,141,.2)}
+.post-body h3{font-size:1rem;font-weight:700;color:rgba(255,255,255,.9);margin:20px 0 8px}
+.post-body p{margin-bottom:16px;color:rgba(255,255,255,.75)}
+.post-body strong{color:#fff;font-weight:700}
+.post-body ul,.post-body ol{margin:12px 0 16px 20px;color:rgba(255,255,255,.75)}
+.post-body li{margin-bottom:6px}
+.post-body a{color:#FF4D8D;text-decoration:none}
+.post-body a:hover{text-decoration:underline}
+.post-body figure{display:none}
+.post-body .sp-seo-h2{font-size:1.1rem;font-weight:800;color:#fff;margin:28px 0 10px;padding:10px 14px;background:rgba(255,77,141,.07);border-left:3px solid #FF4D8D;border-radius:0 8px 8px 0;line-height:1.4}
+.post-body .sp-seo-h2:first-child{margin-top:0}
+.post-body .sp-seo-p{font-size:15px;color:rgba(255,255,255,.8);line-height:1.85;margin:0 0 16px;padding:0}
+.post-body .sp-seo-p:last-child{margin-bottom:0}
+.post-body .sp-seo-p strong{color:#fff;font-weight:700}
+.post-body .sp-seo-ul{margin:8px 0 18px 0;padding:0;list-style:none}
+.post-body .sp-seo-ul li{font-size:14px;color:rgba(255,255,255,.75);line-height:1.75;padding:6px 0 6px 22px;position:relative;border-bottom:1px solid rgba(255,255,255,.04)}
+.post-body .sp-seo-ul li:last-child{border-bottom:none}
+.post-body .sp-seo-ul li::before{content:'›';position:absolute;left:6px;color:#FF4D8D;font-weight:700}
+.post-tags{display:flex;flex-wrap:wrap;gap:8px;margin:28px 0}
+.post-tag{font-size:12px;color:rgba(255,255,255,.4);background:rgba(255,255,255,.06);padding:5px 12px;border-radius:20px;border:1px solid rgba(255,255,255,.08)}
+.cta-box{background:linear-gradient(135deg,rgba(255,77,141,.12),rgba(155,89,182,.12));border:1px solid rgba(255,77,141,.25);border-radius:16px;padding:24px;text-align:center;margin:32px 0}
+.cta-box h3{font-size:16px;font-weight:800;margin-bottom:8px}
+.cta-box p{font-size:13px;color:rgba(255,255,255,.55);margin-bottom:16px}
+.cta-btn{display:inline-block;background:linear-gradient(135deg,#FF4D8D,#9B59B6);color:#fff;font-size:14px;font-weight:700;padding:12px 28px;border-radius:30px;text-decoration:none}
+.related-posts{margin-top:40px;padding-top:28px;border-top:1px solid rgba(255,255,255,.08)}
+.related-posts h3{font-size:15px;font-weight:800;margin-bottom:16px;color:rgba(255,255,255,.8)}
+.related-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.related-card{background:#13132a;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:14px;text-decoration:none;transition:.2s}
+.related-card:hover{border-color:rgba(255,77,141,.3)}
+.related-cat{font-size:10px;color:#FF4D8D;font-weight:700;margin-bottom:6px;text-transform:uppercase}
+.related-title{font-size:12.5px;color:rgba(255,255,255,.8);font-weight:700;line-height:1.4;margin-bottom:6px}
+.related-area{font-size:11px;color:rgba(255,255,255,.3)}
+.shop-photo-gallery{margin:0 0 32px;position:relative}
+.shop-photo-gallery-label{font-size:11px;font-weight:700;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.shop-photo-strip{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;-ms-overflow-style:none;padding-bottom:4px}
+.shop-photo-strip::-webkit-scrollbar{display:none}
+.shop-photo-item{flex:0 0 auto;scroll-snap-align:start;border-radius:10px;overflow:hidden;background:#13132a}
+.shop-photo-item img{width:220px;height:165px;object-fit:cover;display:block;transition:opacity .3s}
+.shop-photo-item img:hover{opacity:.85}
+.shop-photo-single img{width:100%;max-height:360px;object-fit:cover;border-radius:12px;display:block}
+@media(max-width:600px){
+.related-grid{grid-template-columns:1fr}
+.post-cover{height:200px}
+.shop-photo-item img{width:160px;height:120px}
+.post-container{padding:16px 14px 80px}
+.post-title{font-size:1.35rem;line-height:1.3}
+.post-body{font-size:15px;line-height:1.9}
+.post-body h2{font-size:1.1rem;margin:22px 0 10px}
+.post-body h3{font-size:.95rem;margin:16px 0 7px}
+.post-meta{gap:10px;font-size:11.5px}
+.post-author-bar{font-size:11px;flex-wrap:wrap;gap:6px}
+.cta-box{padding:18px 14px;margin:24px 0}
+.cta-box h3{font-size:15px}
+.cta-btn{display:block;padding:13px 20px;font-size:14px;border-radius:12px}
+.related-card{padding:12px}
+.related-title{font-size:12px}
+.post-breadcrumb{font-size:11px;flex-wrap:wrap}
+.post-cats{gap:6px}
+.post-cat-badge,.post-area-badge{font-size:10px;padding:3px 10px}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a href="/ja" class="nav-logo">✨ Seoul Beauty Trip</a>
+  <div style="display:flex;align-items:center;gap:8px">
+    <a href="/ja/blog" class="nav-back"><i class="fas fa-arrow-left"></i> Blog</a>
+    <a href="/blog" style="font-size:11px;color:rgba(255,255,255,.35);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:4px 10px;text-decoration:none">EN</a>
+  </div>
+</nav>
+<main class="post-container">
+  <div class="post-breadcrumb">
+    <a href="/">Home</a> <span>›</span>
+    <a href="/ja/blog">Blog</a> <span>›</span>
+    <span>${post.title}</span>
+  </div>
+  <header class="post-header">
+    <div class="post-cats">
+      <span class="post-cat-badge"><i class="fas fa-tag"></i> ${cat}</span>
+      ${post.area ? `<span class="post-area-badge"><i class="fas fa-map-marker-alt"></i> ${post.area}</span>` : ''}
+    </div>
+    <h1 class="post-title">${post.title}</h1>
+    <div class="post-meta">
+      <span><i class="fas fa-calendar"></i> ${dateStr}</span>
+      ${post.updated_at && post.updated_at !== post.created_at ? `<span style="color:rgba(255,77,141,.7)"><i class="fas fa-rotate"></i> Updated ${new Date(post.updated_at).toLocaleDateString('en-US',{year:'numeric',month:'short'})}</span>` : ''}
+      <span><i class="fas fa-eye"></i> ${(post.views||0)+1} 閲覧</span>
+      <span><i class="fas fa-clock"></i> BLOG_READMIN_PLACEHOLDER 分で読める</span>
+    </div>
+    <div class="post-author-bar" style="display:flex;align-items:center;gap:8px;margin-top:10px;padding:8px 0;border-top:1px solid rgba(255,255,255,.06);font-size:12px;color:rgba(255,255,255,.45)">
+      <i class="fas fa-user-circle" style="color:rgba(255,77,141,.6)"></i>
+      <span>執筆: <strong style="color:rgba(255,255,255,.7)">Seoul Beauty Trip 編集チーム</strong></span>
+      <span style="color:rgba(255,255,255,.2)">·</span>
+      <span>地元Kビューティー専門家による監修</span>
+    </div>
+  </header>
+  BLOG_COVER_PLACEHOLDER
+  BLOG_PHOTO_GALLERY_PLACEHOLDER
+  <article class="post-body">BLOG_CONTENT_PLACEHOLDER</article>
+  <div class="post-tags">BLOG_TAGS_PLACEHOLDER</div>
+  <div class="cta-box">
+    <h3>${cta.icon} ${cta.title}</h3>
+    <p>${cta.desc}</p>
+    <a href="/" class="cta-btn">${cta.btn}</a>
+  </div>
+  BLOG_RELATED_PLACEHOLDER
+</main>
+<script>
+(function(){
+  // GA4 블로그 행동 추적
+  var _slug = '${slug}';
+  var _title = ${JSON.stringify(post.title)};
+  var _cat   = '${post.category||''}';
+  var _scrollMilestones = {25:false,50:false,75:false,100:false};
+  var _readStart = Date.now();
+  // 스크롤 깊이 추적 (25/50/75/100%)
+  function onScroll(){
+    var docH = Math.max(document.documentElement.scrollHeight - window.innerHeight, 1);
+    var pct  = Math.floor((window.scrollY / docH) * 100);
+    [25,50,75,100].forEach(function(m){
+      if(pct>=m && !_scrollMilestones[m]){
+        _scrollMilestones[m]=true;
+        if(typeof gtag==='function') gtag('event','scroll_depth',{
+          event_category:'blog',
+          blog_slug: _slug,
+          blog_title: _title,
+          blog_category: _cat,
+          percent: m,
+          page_location: window.location.href
+        });
+        // 100%까지 읽으면 blog_read_complete 이벤트
+        if(m===100){
+          var timeSpent = Math.round((Date.now()-_readStart)/1000);
+          if(typeof gtag==='function') gtag('event','blog_read_complete',{
+            event_category:'blog',
+            blog_slug: _slug,
+            blog_title: _title,
+            blog_category: _cat,
+            time_spent_sec: timeSpent,
+            page_location: window.location.href
+          });
+        }
+      }
+    });
+  }
+  window.addEventListener('scroll', onScroll, {passive:true});
+  // CTA 클릭 추적
+  document.querySelectorAll('.cta-btn,.cta-box a').forEach(function(el){
+    el.addEventListener('click', function(){
+      if(typeof gtag==='function') gtag('event','blog_cta_click',{
+        event_category:'conversion',
+        blog_slug: _slug,
+        blog_title: _title,
+        blog_category: _cat,
+        page_location: window.location.href
+      });
+    });
+  });
+  // 내부 링크 (Related Guides) 클릭 추적
+  document.querySelectorAll('a[href*="/blog/"]').forEach(function(el){
+    el.addEventListener('click', function(){
+      if(typeof gtag==='function') gtag('event','internal_link_click',{
+        event_category:'blog',
+        from_slug: _slug,
+        to_url: el.href,
+        page_location: window.location.href
+      });
+    });
+  });
+  // GA4: 페이지 진입 시 blog_view 이벤트
+  if(typeof gtag==='function') gtag('event','blog_view',{
+    event_category:'blog',
+    blog_slug: _slug,
+    blog_title: _title,
+    blog_category: _cat,
+    page_location: window.location.href
+  });
+})();
+</script>
+${SB_TRACKER_SCRIPT}
+</body>
+</html>`
+  // content/tags 등을 별도로 치환 (CF Workers 템플릿 리터럴 CPU 부담 경감)
+  const readMin = Math.ceil((post.content||'').replace(/<[^>]+>/g,'').split(' ').length / 200)
+  const coverHtml = post.cover_image
+    ? '<img src="'+post.cover_image+'" alt="'+post.title.replace(/"/g,'&quot;')+'" class="post-cover" loading="lazy">'
+    : ''
+  const tagsHtml = tags.map((t:string)=>'<span class="post-tag">#'+t+'</span>').join('')
+
+  // 포토 갤러리 HTML 생성 (shop_id 블로그만)
+  let photoGalleryHtml = ''
+  if (shopPhotoUrls.length > 0) {
+    const altBase = post.title.replace(/"/g, '&quot;')
+    if (shopPhotoUrls.length === 1) {
+      // 사진 1장: 와이드 싱글 이미지
+      photoGalleryHtml = `<div class="shop-photo-gallery shop-photo-single"><img src="${shopPhotoUrls[0]}" alt="${altBase}" loading="lazy" onerror="this.parentElement.style.display='none'"></div>`
+    } else {
+      // 2장 이상: 가로 스크롤 스트립
+      const items = shopPhotoUrls.map((u, i) =>
+        `<div class="shop-photo-item"><img src="${u}" alt="${altBase} photo ${i+1}" loading="lazy" onerror="this.parentElement.style.display='none'"></div>`
+      ).join('')
+      photoGalleryHtml = `<div class="shop-photo-gallery">
+  <div class="shop-photo-gallery-label"><i class="fas fa-camera"></i> 写真</div>
+  <div class="shop-photo-strip">${items}</div>
+</div>`
+    }
+  }
+
+  const finalHtml = html
+    .replace('BLOG_READMIN_PLACEHOLDER', String(readMin))
+    .replace('BLOG_COVER_PLACEHOLDER', coverHtml)
+    .replace('BLOG_PHOTO_GALLERY_PLACEHOLDER', photoGalleryHtml)
+    .replace('BLOG_CONTENT_PLACEHOLDER', post.content||'')
+    .replace('BLOG_TAGS_PLACEHOLDER', tagsHtml)
+    .replace('BLOG_RELATED_PLACEHOLDER', relatedHtml)
+  return c.html(finalHtml)
+})
 // ── /ja/shop/:slug ──
 app.get('/ja/shop/:slug', async (c) => {
   try {
-    await ensureDb(c.env)
-    const sql = getDb(c.env)
-    const slug = c.req.param('slug')
-    const rows = await sql`SELECT * FROM shops_ja WHERE (slug=${slug} OR id=${slug}) AND active=true`
-    if (!rows.length) return c.notFound()
-    const shop = rowToShop(rows[0])
-    const base = 'https://seoulbeautytrip.com'
+  const slug = c.req.param('slug')
+  // 301 리다이렉트: 구 slug → 신 slug
+  if (SLUG_REDIRECTS[slug]) return c.redirect('/shop/' + SLUG_REDIRECTS[slug], 301)
 
-    const catLabelsJa: Record<string,string> = {skincare:'スキンケア',makeup:'メイク',hair:'ヘアサロン',headspa:'ヘッドスパ',clinic:'クリニック',spa:'スパ',tattoo:'眉アート'}
-    const catColors: Record<string,string> = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa',tattoo:'#e879f9'}
-    const catIcons: Record<string,string> = {skincare:'fa-leaf',makeup:'fa-magic',hair:'fa-cut',headspa:'fa-spa',clinic:'fa-briefcase-medical',spa:'fa-hot-tub',tattoo:'fa-pen-nib'}
+  const sql = getDb(c.env)
+  const shopRows = await withTimeout(sql`SELECT * FROM shops_ja WHERE slug=${slug}`, 15000, [])
+  if (!shopRows.length) return c.notFound()
+  const shop = rowToShop(shopRows[0])
+  const vidRows = await withTimeout(sql`SELECT * FROM videos WHERE shop_id=${shop.id} ORDER BY views DESC`, 15000, [])
+  const shopVideos = vidRows.map((r: any) => rowToVideo({ ...r, shop_name: shop.name }))
+  // 같은 카테고리 업체 (본인 제외, 전체 풀에서 랜덤 6개 — 매 방문마다 다른 추천)
+  const relatedPool = await withTimeout(sql`
+    SELECT id, name, slug, category, location, thumbnail, rating, review_count, description
+    FROM shops_ja
+    WHERE category=${shop.category} AND id != ${shop.id} AND slug IS NOT NULL AND active = true`, 15000, [])
+  // JS 단에서 Fisher-Yates 셔플 후 6개 추출 (DB RANDOM() 는 full scan 비용)
+  const _shuffleArr = (arr: any[]) => {
+    const a = [...arr]
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]]
+    }
+    return a
+  }
+  const relatedShops = _shuffleArr(relatedPool).slice(0, 6).map((r: any) => rowToShop(r))
 
-    const catLabel = catLabelsJa[shop.category] || shop.category
-    const catColor = catColors[shop.category] || '#FF4D8D'
-    const catIcon = catIcons[shop.category] || 'fa-star'
+  // 교차 카테고리 링크: 같은 지역 내 다른 카테고리 업체 (상위 20개 풀에서 랜덤 → 카테고리별 1개씩)
+  const _shopAreaRaw = shop.location ? shop.location.split(',')[0].trim() : ''
+  const _otherCats = ['clinic','hair','headspa','skincare','makeup','tattoo'].filter(c => c !== shop.category)
+  const nearbyCrossRows = await withTimeout(sql`
+    SELECT id, name, slug, category, location, thumbnail, rating, review_count
+    FROM shops_ja
+    WHERE location ILIKE ${'%' + _shopAreaRaw + '%'} AND id != ${shop.id} AND slug IS NOT NULL AND active = true
+      AND category = ANY(${_otherCats}::text[])`, 8000, [])
+  // 셔플 후 카테고리별 top 1만 추출 (최대 4개)
+  const _crossMap: Record<string, any> = {}
+  for (const r of _shuffleArr(nearbyCrossRows)) {
+    if (!_crossMap[r.category]) _crossMap[r.category] = r
+  }
+  const nearbyCrossShops = Object.values(_crossMap).slice(0, 4)
 
-    const servicesHtml = (shop.services||[]).map((s: any, i: number) => {
-      const price = shop.servicePrices?.[i] || ''
-      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.05)">
-  <span style="font-size:13px;color:rgba(255,255,255,.85)">${s}</span>
-  ${price?`<span style="font-size:13px;font-weight:700;color:#fbbf24">${price}</span>`:''}
-</div>`
-    }).join('')
+  // 이 업체를 리뷰한 blog 포스트 조회 (shop_id 기반) → schema reviewedBy + HTML 링크용
+  const reviewBlogRows = await withTimeout(
+    sql`SELECT slug, title FROM blog_posts_ja WHERE shop_id=${shop.id} AND status='published' ORDER BY created_at DESC LIMIT 1`,
+    5000, []
+  )
+  const reviewBlogSlug  = reviewBlogRows[0]?.slug  || ''
+  const reviewBlogTitle = reviewBlogRows[0]?.title || ''
 
-    const photosHtml = ((shop.photos||[]) as string[]).filter((p:string)=>p?.startsWith('http')).slice(0,6).map((p: string) =>
-      `<div style="aspect-ratio:1;overflow:hidden;border-radius:8px;background:#1c1c30"><img src="${p}" alt="${shop.name}" style="width:100%;height:100%;object-fit:cover" loading="lazy"></div>`
-    ).join('')
+  const shopArea = shop.location ? ` (${shop.location.split(',')[0].trim()})` : ''
+  const shopAddrLine = shop.address ? `\nAddress: ${shop.address}` : ''
+  const waMsg = encodeURIComponent(`[ Booking Request ]\nShop: ${shop.name}${shopArea}${shopAddrLine}\n\nDate: \nTime: \nService: \nName: \nPeople: `)
+  const waUrl = `https://wa.me/${PLATFORM.whatsapp}?text=${waMsg}`
+  const base = 'https://seoulbeautytrip.com'
+  const canonicalUrl = `${base}/ja/shop/${shop.slug}`
+  // thumbnail이 상대경로(/api/photo...)면 절대 URL로 변환 — OG/Twitter 크롤러용
+  const ogImage = shop.thumbnail
+    ? (shop.thumbnail.startsWith('http') ? shop.thumbnail : `${base}${shop.thumbnail}`)
+    : `https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg`
+  const catEmoji: Record<string,string> = {skincare:'🌿',makeup:'💋',hair:'💇',headspa:'🧖',clinic:'🏥',tattoo:'✒️'}
+  const catIcon = catEmoji[shop.category] || '✨'
 
-    const whyChooseHtml = (shop.whyChoose||[]).map((w: string) =>
-      `<div style="display:flex;gap:8px;align-items:flex-start;padding:8px 0">
-  <i class="fas fa-check-circle" style="color:#34d399;margin-top:2px;flex-shrink:0"></i>
-  <span style="font-size:13px;color:rgba(255,255,255,.8)">${w}</span>
-</div>`
-    ).join('')
+  // ── 템플릿 밖에서 미리 계산 (esbuild: HTML 템플릿 내 object literal {} 충돌 방지) ──
+  const _shopArea  = shop.location.split(',')[0].trim()
+  const _shopCat   = shop.category
+  // name 기반 clinic 세부 타입 자동 감지 (plastic surgery vs dermatology vs aesthetic)
+  const _clinicSubtype = (()=>{
+    const nm = (shop.name||'').toLowerCase()
+    if(nm.includes('plastic surgery')) return 'Plastic Surgery Clinic'
+    if(nm.includes('aesthetic')) return 'Aesthetic Clinic'
+    if(nm.includes('dental') || nm.includes('dentist')) return 'Dental Clinic'
+    if(nm.includes('dermatology') || nm.includes('derma')) return 'Dermatology Clinic'
+    return 'Skin Clinic'
+  })()
+  const _catTitleLabels: Record<string,string> = {
+    clinic: _clinicSubtype, hair:'ヘアサロン', headspa:'ヘッドスパ',
+    skincare:'スキンケア', makeup:'メイク＆カラー分析', dental:'歯科クリニック', tattoo:'眉アート＆マイクロブレーディング'
+  }
+  const _catLabel  = _catTitleLabels[_shopCat] || (_shopCat.charAt(0).toUpperCase()+_shopCat.slice(1))
+  const _areaFinal = (['cheongdam','apgujeong','sinsa','nonhyeon'].some(a=>_shopArea.toLowerCase().includes(a))) ? 'Gangnam' : _shopArea
+  // title: 업체명 + 지역 + 카테고리 + Seoul (구글 검색 키워드 최적화)
+  const _pageTitle = shop.name+' — '+_areaFinal+' '+_catLabel+' Seoul | Seoul Beauty Trip'
 
-    const html = `<!DOCTYPE html>
+  const _metaDescLabels: Record<string,string> = {
+    clinic: _clinicSubtype.toLowerCase(), hair:'hair salon', headspa:'head spa & scalp clinic',
+    skincare:'skincare studio', makeup:'personal color & makeup', dental:'dental clinic', tattoo:'eyebrow tattoo & microblading studio'
+  }
+  const _catLbl2   = _metaDescLabels[_shopCat] || _shopCat
+  const _rating    = shop.rating ? shop.rating+'★' : ''
+  const _revs      = shop.reviewCount > 10 ? shop.reviewCount+'+ verified reviews' : shop.reviewCount > 0 ? shop.reviewCount+' reviews' : ''
+  const _svc1      = shop.services && shop.services.length > 0 ? shop.services[0] : ''
+  const _svc2      = shop.services && shop.services.length > 1 ? shop.services[1] : ''
+  const _svcPart   = _svc1 ? (_svc2 ? _svc1+' & '+_svc2 : _svc1) : ''
+  const _areaClean = _shopArea.replace(', Seoul','').trim()
+  const _metaDesc  = (shop.metaDescription && shop.metaDescription.trim().length > 30)
+    ? trimDesc(shop.metaDescription.replace(/([\w][\w\s,]*?)\s+Seoul\s+Seoul/g,'$1, Seoul').replace(/Seoul,\s*Seoul/g,'Seoul'), 160)
+    : trimDesc(shop.name+' is a '+_rating+' foreigner-friendly '+_catLbl2+' in '+_areaClean+', Seoul.'
+       +(_revs?' '+_revs+'.':'')+(_svcPart?' Specializing in '+_svcPart+'.':'')
+       +' English booking via WhatsApp. Same-day appointments available.', 160)
+
+  const _areaGn    = _shopArea.toLowerCase().includes('cheongdam')||_shopArea.toLowerCase().includes('apgujeong') ? 'Gangnam' : _shopArea
+  const _n         = shop.name
+  const _catKwMap: Record<string,string[]> = {
+    clinic:  [_areaGn+' dermatology clinic foreigners',_areaGn+' skin clinic Seoul','laser clinic Seoul English','Korean dermatology foreigners','aesthetic clinic Seoul booking','skin treatment '+_areaGn+' Seoul'],
+    hair:    [_areaGn+' hair salon foreigners','hair salon Seoul English speaking','Korean hair salon foreigners','hair color Seoul English',_areaGn+' hair color Seoul'],
+    headspa: [_areaGn+' head spa foreigners','scalp treatment Seoul English','head spa Seoul foreigners','Korean head spa English',_areaGn+' scalp care Seoul'],
+    skincare:[_areaGn+' skincare foreigners','facial Seoul English speaking','skincare Seoul foreigners','Korean facial treatment English',_areaGn+' glow treatment Seoul'],
+    makeup:  [_areaGn+' personal color analysis','color analysis Seoul English','makeup Seoul foreigners','personal color Seoul English',_areaGn+' makeup consultation'],
+    dental:  [_areaGn+' dental clinic foreigners','dentist Seoul English speaking','dental Seoul foreigners','Korean dentist English',_areaGn+' tooth whitening Seoul'],
+  }
+  const _extras    = _catKwMap[_shopCat] || []
+  const _svcKw     = shop.services.slice(0,3)
+  const _base2     = [_n,_n+' Seoul',_n+' '+_areaGn,_n+' review',_n+' booking',_n+' foreigners',_n+' English','best '+_shopCat+' '+_areaGn+' Seoul']
+  // 2026 연도 키워드 자동 포함 (SEO 갱신)
+  const _year2026kw = [_n+' Seoul 2026', 'best '+_shopCat+' '+_areaGn+' Seoul 2026', _shopCat+' Seoul foreigners 2026']
+  const _keywords  = (shop.seoKeywords && shop.seoKeywords.trim().length > 20)
+    ? shop.seoKeywords.includes('2026') ? shop.seoKeywords : shop.seoKeywords+', '+_year2026kw.join(', ')
+    : [..._base2,..._extras,..._svcKw,..._year2026kw].join(', ')
+
+  const _ogCatLabels: Record<string,string> = {
+    clinic:'Dermatology Clinic', hair:'Hair Salon', headspa:'Head Spa',
+    skincare:'Skincare', makeup:'Makeup', dental:'Dental', tattoo:'Eyebrow Tattoo'
+  }
+  const _ogCatLabel = _ogCatLabels[_shopCat] || _shopCat
+  const _ogTitle   = shop.name+' | '+_shopArea.replace('Cheongdam','Gangnam').replace('Apgujeong','Gangnam')+' '+_ogCatLabel+' Seoul'
+
+  const _schemaTypeMap: Record<string,string> = {
+    clinic:'["MedicalClinic","HealthAndBeautyBusiness","LocalBusiness"]',
+    hair:'["HairSalon","BeautySalon","LocalBusiness"]',
+    headspa:'["BeautySalon","HealthClub","LocalBusiness"]',
+    skincare:'["BeautySalon","LocalBusiness"]',
+    makeup:'["BeautySalon","LocalBusiness"]',
+    dental:'["Dentist","MedicalClinic","LocalBusiness"]',
+  }
+  const _schemaType = _schemaTypeMap[_shopCat] || '["LocalBusiness","BeautySalon"]'
+
+  const _breadcrumbCatLabels: Record<string,string> = {
+    clinic: _clinicSubtype+' Seoul', hair:'Hair Salon Seoul', headspa:'Head Spa Seoul',
+    skincare:'Skincare Seoul', makeup:'Makeup Seoul', dental:'Dental Clinic Seoul', tattoo:'Eyebrow Tattoo Seoul'
+  }
+  const _bcCatName = _breadcrumbCatLabels[_shopCat] || _shopCat
+  // BreadcrumbList: area depth URL (best 페이지 있는 카테고리만 링크)
+  const _bcAreaSlugRaw = _shopArea.toLowerCase().replace(/\s+/g,'-').replace('cheongdam','gangnam').replace('apgujeong','gangnam').replace('sinsa','gangnam')
+  const _bcAreaSlug = (typeof JA_AREA_LABELS !== 'undefined' && JA_AREA_LABELS[_bcAreaSlugRaw]) ? _bcAreaSlugRaw : 'seoul'
+  const _bcCatSlug  = _shopCat
+  const _bcAreaItem = `{"@type":"ListItem","position":3,"name":"${_shopArea}","item":"${base}/ja/shops"}`
+
+  const _wpCatLabels: Record<string,string> = {
+    clinic:'Dermatology Clinic', hair:'Hair Salon', headspa:'Head Spa',
+    skincare:'Skincare Studio', makeup:'Makeup & Color Analysis', dental:'Dental Clinic', tattoo:'Eyebrow Tattoo Studio'
+  }
+  const _wpCatLabel = _wpCatLabels[_shopCat] || _shopCat
+  const _wpName    = shop.name+' \u2014 '+_shopArea+' '+_wpCatLabel+' Seoul'
+
+  return c.html(`<!DOCTYPE html>
+<html lang="ja" itemscope itemtype="https://schema.org/LocalBusiness">
+<head>
+<meta charset="UTF-8">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1N9ZQRHLJ0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-1N9ZQRHLJ0');
+</script>
+${SB_TRACKER_SCRIPT}
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>${_pageTitle}</title>
+<meta name="description" content="${_metaDesc}">
+
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="${canonicalUrl}">
+<!-- Open Graph -->
+<meta property="og:type" content="business.business">
+<meta property="og:title" content="${_ogTitle}">
+<meta property="og:description" content="${trimDesc(shop.metaDescription||shop.description||'')}">
+<meta property="og:image" content="${ogImage}">
+<meta property="og:url" content="${canonicalUrl}">
+<meta property="og:site_name" content="Seoul Beauty Trip">
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${shop.name} | Seoul Beauty Trip">
+<meta name="twitter:description" content="${trimDesc(shop.metaDescription||shop.description||'')}">
+<meta name="twitter:image" content="${ogImage}">
+<!-- Schema.org -->
+<script type="application/ld+json">
+{
+  "@context":"https://schema.org",
+  "@graph":[
+    {
+      "@type":${_schemaType},
+      "@id":"${canonicalUrl}",
+      "name":"${shop.name}",
+      "alternateName":"${shop.name} Seoul",
+      "description":"${(shop.description||'').replace(/"/g,"'")}",
+      "image":${(()=>{const imgs=[ogImage,...(shop.photos||[]).map((p:string)=>p.startsWith('http')?p:base+p)].filter(Boolean);return JSON.stringify(imgs.map(u=>({'@type':'ImageObject','url':u,'thumbnailUrl':u})));})()},
+      "url":"${canonicalUrl}",
+      "address":{
+        "@type":"PostalAddress",
+        "streetAddress":"${shop.address.replace(/"/g,"'")}",
+        "addressLocality":"${shop.location.split(',')[0].trim()}",
+        "addressRegion":"Seoul",
+        "addressCountry":"KR"
+      },
+      ${(shop.lat&&shop.lng)?`"geo":{"@type":"GeoCoordinates","latitude":"${shop.lat}","longitude":"${shop.lng}"},`:''}
+      "openingHours":"${shop.hours.replace(/"/g,"'")}",
+      ${(()=>{
+        // openingHoursSpecification 자동 생성 (hours 문자열 파싱)
+        // 형식: "Monday: 10:00 AM – 9:00 PM / Tuesday: ..." 또는 "10:00~20:00 (Mon~Sat)"
+        const _days: Record<string,string> = {monday:'Monday',tuesday:'Tuesday',wednesday:'Wednesday',thursday:'Thursday',friday:'Friday',saturday:'Saturday',sunday:'Sunday',mon:'Monday',tue:'Tuesday',wed:'Wednesday',thu:'Thursday',fri:'Friday',sat:'Saturday',sun:'Sunday'}
+        const _hrs = shop.hours.toLowerCase()
+        const _specs: string[] = []
+        // 패턴 1: "Monday: 10:30 AM – 9:00 PM"
+        const _p1 = _hrs.matchAll(/([a-z]+):\s*(\d+):(\d+)\s*(am|pm)?\s*[\u2013\-~]+\s*(\d+):(\d+)\s*(am|pm)?/gi)
+        for (const m of _p1) {
+          const day = _days[m[1].toLowerCase()]
+          if (!day) continue
+          let oh = parseInt(m[2]); const om = m[3]; const oap = (m[4]||'').toLowerCase()
+          let ch = parseInt(m[5]); const cm = m[6]; const cap = (m[7]||'').toLowerCase()
+          if (oap==='pm' && oh!==12) oh+=12; if (oap==='am' && oh===12) oh=0
+          if (cap==='pm' && ch!==12) ch+=12; if (cap==='am' && ch===12) ch=0
+          _specs.push('{"@type":"OpeningHoursSpecification","dayOfWeek":"https://schema.org/'+day+'","opens":"'+String(oh).padStart(2,'0')+':'+om+'","closes":"'+String(ch).padStart(2,'0')+':'+cm+'"}')
+        }
+        if (_specs.length > 0) return '"openingHoursSpecification":['+_specs.join(',')+'],';
+        return '';
+      })()}
+      ${shop.priceRange?`"priceRange":"${shop.priceRange}",`:''}
+      ${(shop.rating && Number(shop.rating) > 0 && shop.reviewCount && Number(shop.reviewCount) > 0) ? `"aggregateRating":{"@type":"AggregateRating","ratingValue":"${Number(shop.rating).toFixed(1)}","bestRating":"5","worstRating":"1","ratingCount":${shop.reviewCount}},` : ''}
+      "currenciesAccepted":"KRW",
+      "paymentAccepted":"Cash, Credit Card",
+      "areaServed":{"@type":"City","name":"Seoul"},
+      "hasOfferCatalog":{
+        "@type":"OfferCatalog",
+        "name":"${shop.category} Services at ${shop.name}",
+        "itemListElement":[${shop.servicePrices.map((sp:any,i:number)=>`{"@type":"Offer","position":${i+1},"name":"${sp.name}","price":"${sp.price}","priceCurrency":"KRW","availability":"https://schema.org/InStock"}`).join(',')}]
+      },
+      "contactPoint":{
+        "@type":"ContactPoint",
+        "contactType":"reservations",
+        "availableLanguage":["English","Korean"]
+      },
+      "sameAs":[
+        "https://seoulbeautytrip.com/ja/shop/${shop.slug}",
+        ${shop.googlePlaceId ? `"https://maps.google.com/?cid=${shop.googlePlaceId}",` : ''}
+        ${shop.googlePlaceId ? `"https://www.google.com/maps/place/?q=place_id:${shop.googlePlaceId}",` : ''}
+        "https://www.instagram.com/seoulbeautytrip/"
+      ],
+      "keywords":"${(shop.seoKeywords||shop.name+' Seoul, '+shop.name+' booking, '+shop.name+' review, '+shop.name+' foreigners').replace(/Seoul,?\s*Seoul/g,'Seoul')}"
+      ${reviewBlogSlug ? `,"subjectOf":{"@type":"Article","@id":"${base}/blog/${reviewBlogSlug}","url":"${base}/blog/${reviewBlogSlug}","headline":"${(reviewBlogTitle||'').replace(/"/g,"'")}","publisher":{"@type":"Organization","name":"Seoul Beauty Trip","url":"${base}"}}` : ''}
+    },
+    {
+      "@type":"BreadcrumbList",
+      "itemListElement":[
+        {"@type":"ListItem","position":1,"name":"Home","item":"${base}/"},
+        {"@type":"ListItem","position":2,"name":"${_bcCatName}","item":"${base}/ja/shops"},
+        ${_bcAreaItem},
+        {"@type":"ListItem","position":4,"name":"${shop.name}","item":"${canonicalUrl}"}
+      ]
+    },
+    {
+      "@type":"FAQPage",
+      "mainEntity":[
+        {
+          "@type":"Question",
+          "name":"Is ${shop.name} foreigner-friendly?",
+          "acceptedAnswer":{"@type":"Answer","text":"Yes. ${shop.name} in ${shop.location.split(',')[0].trim()}, Seoul is foreigner-friendly. Seoul Beauty Trip handles all booking communication in English via WhatsApp, so no Korean is needed."}
+        },
+        {
+          "@type":"Question",
+          "name":"How do I book ${shop.name} as a foreigner in Seoul?",
+          "acceptedAnswer":{"@type":"Answer","text":"Tap the Book button on this page to open WhatsApp. Seoul Beauty Trip will confirm your appointment at ${shop.name}, explain pricing in English, and handle all coordination. Same-day bookings are often available."}
+        },
+        {
+          "@type":"Question",
+          "name":"What treatments does ${shop.name} offer?",
+          "acceptedAnswer":{"@type":"Answer","text":"${shop.name} offers ${shop.services.slice(0,6).join(', ')}${shop.services.length>6?' and more':''} in ${shop.location.split(',')[0].trim()}, Seoul. Contact us via WhatsApp for full service list and current pricing."}
+        },
+        {
+          "@type":"Question",
+          "name":"What is ${shop.name}'s rating?",
+          "acceptedAnswer":{"@type":"Answer","text":"${shop.name} is rated ${shop.rating} out of 5 based on ${shop.reviewCount}+ verified reviews. It is consistently recommended by foreign visitors to Seoul for its quality and English-friendly service."}
+        },
+        {
+          "@type":"Question",
+          "name":"Where is ${shop.name} located in Seoul?",
+          "acceptedAnswer":{"@type":"Answer","text":"${shop.name} is located in ${shop.location.split(',')[0].trim()}, Seoul.${shop.address?' Address: '+shop.address:''} Easy to reach from major tourist areas."}
+        }
+      ]
+    },
+
+    {
+      "@type":"WebPage",
+      "@id":"${canonicalUrl}#webpage",
+      "url":"${canonicalUrl}",
+      "name":"${_wpName}",
+      "description":"${trimDesc(shop.metaDescription||shop.description||'').replace(/"/g,"'")}",
+      "inLanguage":"ja",
+      "isPartOf":{"@id":"${base}/#website"},
+      "primaryImageOfPage":{"@type":"ImageObject","url":"${shop.thumbnail}","thumbnailUrl":"${shop.thumbnail}"},
+      "speakable":{"@type":"SpeakableSpecification","cssSelector":".sp-title,.sp-desc-text,.sp-seo-block"}
+    }
+    ${shopVideos.length > 0 ? ','+shopVideos.map((v:any) => {
+      const vUrl = v.videoUrl || ''
+      const thumb = v.thumbnail || shop.thumbnail || ''
+      const vTitle = (v.title && !/^[a-zA-Z0-9_.~-]{8,}$/.test(v.title)) ? v.title : shop.name + ' — Seoul Beauty'
+      const uploadDate = v.createdAt ? new Date(v.createdAt).toISOString().slice(0,10) : new Date().toISOString().slice(0,10)
+      return JSON.stringify({
+        '@type': 'VideoObject',
+        'name': vTitle,
+        'description': (shop.description||vTitle).slice(0,300),
+        'thumbnailUrl': thumb,
+        'uploadDate': uploadDate,
+        'contentUrl': vUrl,
+        'embedUrl': `${base}/video/${v.id}`,
+        'publisher': {'@type':'Organization','name':'Seoul Beauty Trip','url':base},
+        'inLanguage': 'ja'
+      })
+    }).join(',') : ''}
+  ]
+}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"></noscript>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"></noscript>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --pk:#E8417A;--pk2:#FF6B9D;--pk3:#FFB3CC;
+  --gold:#C9A84C;--gold2:#F0C96E;
+  --bg:#08080E;--bg2:#0F0F1A;--bg3:#161625;
+  --cd:#1A1A2E;--cd2:#1F1F35;
+  --border:rgba(255,255,255,.07);
+  --ff-serif:'Playfair Display',serif;
+  --ff-sans:'Inter',sans-serif;
+}
+body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh}
+/* NAV */
+.sp-nav{position:sticky;top:0;z-index:100;background:rgba(8,8,14,.92);backdrop-filter:blur(20px);border-bottom:1px solid var(--border)}
+.sp-nav-inner{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;max-width:600px;margin:0 auto}
+.sp-nav-logo{font-family:var(--ff-serif);font-size:15px;font-weight:700;background:linear-gradient(135deg,#fff,var(--pk3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-decoration:none}
+.sp-nav-back{display:flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid var(--border);border-radius:20px;color:rgba(255,255,255,.6);font-size:12px;font-weight:600;text-decoration:none;transition:all .2s;background:rgba(255,255,255,.04)}
+.sp-nav-back:hover{color:#fff;border-color:rgba(255,255,255,.2);background:rgba(255,255,255,.07)}
+/* HERO */
+.sp-hero{position:relative;height:320px;overflow:hidden;max-width:600px;margin:0 auto}
+.sp-hero-img{width:100%;height:100%;object-fit:cover}
+.sp-hero-ov{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(8,8,14,.1) 0%,transparent 30%,rgba(8,8,14,.6) 65%,var(--bg) 100%)}
+.sp-hero-info{position:absolute;bottom:0;left:0;right:0;padding:24px 20px 20px}
+.sp-cat-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 13px;border-radius:20px;background:rgba(232,65,122,.18);border:1px solid rgba(232,65,122,.35);font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--pk3);margin-bottom:8px;backdrop-filter:blur(8px)}
+.sp-title{font-family:var(--ff-serif);font-size:26px;font-weight:700;line-height:1.2;margin-bottom:6px;text-shadow:0 2px 20px rgba(0,0,0,.8)}
+.sp-loc{display:flex;align-items:center;gap:5px;font-size:13px;color:rgba(255,255,255,.65);margin-bottom:6px}
+.sp-rating{display:flex;align-items:center;gap:6px}
+.sp-stars{color:var(--gold);font-size:13px;letter-spacing:1px}
+.sp-rating-num{font-size:12px;color:rgba(255,255,255,.55)}
+/* GALLERY */
+.sp-gallery{display:flex;gap:8px;overflow-x:auto;padding:16px 20px;scrollbar-width:none;background:var(--bg);max-width:600px;margin:0 auto}
+.sp-gallery::-webkit-scrollbar{display:none}
+.sp-gthumb{flex-shrink:0;width:72px;height:72px;border-radius:10px;overflow:hidden;cursor:pointer;border:2px solid transparent;transition:border-color .2s}
+.sp-gthumb.active,.sp-gthumb:hover{border-color:var(--pk)}
+.sp-gthumb img{width:100%;height:100%;object-fit:cover}
+.sp-gthumb-vid{border-color:rgba(255,77,141,.4)}
+/* WRAP */
+.sp-wrap{max-width:600px;margin:0 auto;padding:16px 20px 100px}
+/* ACTION BTNS */
+.sp-actions{display:flex;gap:10px;margin-bottom:20px}
+.sp-wa{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:15px;background:linear-gradient(135deg,#25D366,#0EA855);border:none;border-radius:14px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;text-decoration:none;box-shadow:0 4px 20px rgba(37,211,102,.3);transition:opacity .2s}
+.sp-wa:hover{opacity:.9}
+.sp-gmap{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:15px;background:linear-gradient(135deg,#4285F4,#34A853);border:none;border-radius:14px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;text-decoration:none;transition:opacity .2s}
+.sp-gmap:hover{opacity:.9}
+/* CARDS (legacy) */
+.sp-card{background:var(--cd);border:1px solid var(--border);border-radius:18px;padding:20px;margin-bottom:14px}
+.sp-card-title{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:800;color:var(--gold);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+/* ── 통일 섹션 (모달 스타일과 동일) ── */
+.sp-addr-row{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:rgba(255,255,255,.42);margin-bottom:14px;line-height:1.5}
+.sp-addr-row i{color:var(--pk2);margin-top:2px;flex-shrink:0}
+.sp-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.sp-ig-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:10px 12px}
+.sp-ig-label{font-size:9px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:4px}
+.sp-ig-val{font-size:13px;font-weight:700;color:#fff;display:flex;align-items:center;gap:5px}
+.sp-ig-val i{color:var(--pk2);font-size:11px}
+.sp-ig-stars{color:#fbbf24;font-size:11px;letter-spacing:1px}
+.sp-sec{margin-bottom:14px}
+.sp-sec-title{font-size:11px;font-weight:800;color:var(--gold);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:4px}
+.sp-sec-body{font-size:13px;color:rgba(255,255,255,.62);line-height:1.8;letter-spacing:.1px}
+/* HOURS TABLE */
+.sp-hours-wrap{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:6px 14px}
+.sp-hours-table{width:100%;border-collapse:collapse}
+.sp-hours-day{font-size:11px;font-weight:700;color:rgba(255,255,255,.45);padding:7px 0;width:44px}
+.sp-hours-time{font-size:12px;color:rgba(255,255,255,.72);text-align:right;padding:7px 0}
+.sp-hours-time.closed{color:rgba(255,80,80,.6)}
+.sp-hours-today .sp-hours-day,.sp-hours-today .sp-hours-time{color:#fff;font-weight:800}
+/* SERVICES */
+.sp-svc-tags{display:flex;flex-wrap:wrap;gap:6px}
+.sp-svc-tag{padding:5px 11px;background:linear-gradient(135deg,rgba(232,65,122,.1),rgba(232,65,122,.04));border:1px solid rgba(232,65,122,.22);border-radius:20px;font-size:11.5px;color:var(--pk3);font-weight:700;display:flex;align-items:center;gap:4px;transition:background .2s}
+.sp-svc-tag i{font-size:9px;opacity:.8}
+/* PRICE LIST */
+.sp-price-list{display:flex;flex-direction:column;gap:0}
+.sp-price-item{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.sp-price-item:last-child{border-bottom:none}
+.sp-price-name{font-size:13px;color:rgba(255,255,255,.8);font-weight:500}
+.sp-price-val{font-size:13px;color:var(--gold);font-weight:800}
+/* MAP */
+.sp-map{border-radius:14px;overflow:hidden;height:200px;border:1px solid var(--border)}
+.sp-map iframe{width:100%;height:100%;border:0;display:block}
+.sp-map-link{display:flex;align-items:center;gap:6px;margin-top:10px;font-size:12px;color:#60a5fa;text-decoration:none}
+.sp-map-link:hover{color:#93c5fd}
+/* VIDEOS */
+.sp-vid-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;justify-items:center}
+.sp-vid-grid .sp-vid-card:nth-child(odd):last-child{grid-column:1/-1;width:180px;aspect-ratio:9/16}
+.sp-vid-grid.single-vid{display:flex;justify-content:center;align-items:flex-start}
+.sp-vid-grid.single-vid .sp-vid-card{width:180px;flex-shrink:0}
+.sp-vid-card{border-radius:14px;overflow:hidden;position:relative;cursor:pointer;aspect-ratio:9/16;background:#000}
+.sp-vid-inner{position:absolute;inset:0;border-radius:14px;overflow:hidden}
+.sp-vid-poster{transition:opacity .35s}
+.sp-vid-card.vid-on .sp-vid-poster{opacity:0}
+.sp-vid-card img{width:100%;height:100%;object-fit:cover;transition:transform .3s}
+.sp-vid-card:hover img{transform:scale(1.04)}
+.sp-vid-card-ov{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 45%,rgba(0,0,0,.85) 100%);display:flex;flex-direction:column;justify-content:flex-end;padding:12px 10px}
+.sp-vid-card-title{font-size:11px;font-weight:700;line-height:1.3;color:#fff}
+.sp-vid-views{font-size:10px;color:rgba(255,255,255,.55);margin-top:3px}
+.sp-play-ic{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:40px;height:40px;border-radius:50%;background:rgba(232,65,122,.8);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+/* FLOAT BTN — 모바일 전폭 고정 버튼 */
+.sp-float{position:fixed;bottom:0;left:0;right:0;z-index:100;padding:10px 16px 12px;background:linear-gradient(to top,rgba(8,8,14,.98) 60%,transparent);padding-bottom:calc(10px + env(safe-area-inset-bottom))}
+.sp-float a{display:flex;align-items:center;justify-content:center;gap:10px;padding:15px;background:linear-gradient(135deg,#25D366,#0EA855);border-radius:14px;color:#fff;font-size:16px;font-weight:800;text-decoration:none;box-shadow:0 4px 20px rgba(37,211,102,.4);min-height:52px}
+@media(min-width:600px){.sp-float{left:50%;right:auto;width:560px;transform:translateX(-50%);background:none;padding:0 0 20px}}
+/* REVIEWS — 상세페이지 & 모달 공통 */
+.sp-reviews-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.sp-reviews-score{display:flex;align-items:center;gap:10px}
+.sp-reviews-big-num{font-size:36px;font-weight:900;color:#fbbf24;line-height:1;letter-spacing:-1px}
+.sp-reviews-score-right{display:flex;flex-direction:column;gap:3px}
+.sp-reviews-stars-row{display:flex;gap:2px}
+.sp-reviews-star{width:14px;height:14px;position:relative;flex-shrink:0}
+.sp-reviews-star svg{width:14px;height:14px}
+.sp-reviews-total{font-size:11px;color:rgba(255,255,255,.38);font-weight:500}
+.sp-reviews-wrap{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:16px;overflow:hidden}
+.sp-review-card{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.05);display:flex;gap:10px;align-items:flex-start}
+.sp-review-card:last-child{border-bottom:none}
+.sp-review-avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff;flex-shrink:0;margin-top:1px}
+.sp-review-body{flex:1;min-width:0}
+.sp-review-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;gap:6px}
+.sp-review-author{font-size:12px;font-weight:700;color:rgba(255,255,255,.88);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sp-review-stars{font-size:11px;color:#fbbf24;letter-spacing:.5px;flex-shrink:0}
+.sp-review-text{font-size:12.5px;color:rgba(255,255,255,.62);line-height:1.72}
+.sp-review-time{font-size:10px;color:rgba(255,255,255,.26);margin-top:5px}
+/* 더보기 토글 */
+.sp-reviews-toggle{width:100%;padding:11px 16px;background:rgba(255,255,255,.03);border:none;border-top:1px solid rgba(255,255,255,.06);color:rgba(255,255,255,.5);font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;letter-spacing:.3px;transition:background .15s}
+.sp-reviews-toggle:hover{background:rgba(255,255,255,.06);color:rgba(255,255,255,.8)}
+.sp-reviews-toggle i{font-size:10px;transition:transform .2s}
+.sp-review-card.sp-rv-hidden{display:none}
+.sp-review-card.sp-rv-hidden.sp-rv-show{display:flex}
+/* REVIEW SUMMARY BOX — 상세페이지용 */
+.sp-rv-summary{background:linear-gradient(135deg,rgba(255,77,141,.07),rgba(120,80,220,.07));border:1px solid rgba(255,77,141,.18);border-radius:16px;padding:16px 18px;margin-bottom:14px}
+.sp-rv-summary-vibe{font-size:13.5px;color:rgba(255,255,255,.9);font-weight:600;line-height:1.6;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,.07)}
+.sp-rv-summary-vibe::before{content:'⭐ ';}
+.sp-rv-summary-row{display:flex;flex-direction:column;gap:10px}
+.sp-rv-summary-col{}
+.sp-rv-summary-label{font-size:10px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:rgba(255,77,141,.8);margin-bottom:6px}
+.sp-rv-summary-strengths{display:flex;flex-direction:column;gap:5px}
+.sp-rv-summary-strength{font-size:12.5px;color:rgba(255,255,255,.75);padding:5px 10px;background:rgba(255,255,255,.04);border-radius:8px;border-left:2px solid rgba(255,77,141,.4)}
+.sp-rv-summary-strength::before{content:'✓ ';color:rgba(255,77,141,.9);font-weight:700}
+.sp-rv-summary-bestfor{font-size:12.5px;color:rgba(255,255,255,.75);padding:7px 12px;background:rgba(255,255,255,.04);border-radius:8px;border:1px solid rgba(255,255,255,.07)}
+/* WHY CHOOSE */
+.sp-why-list{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media(max-width:380px){.sp-why-list{grid-template-columns:1fr}}
+.sp-why-item{font-size:12px;color:rgba(255,255,255,.8);line-height:1.55;padding:11px 12px 11px 14px;background:linear-gradient(135deg,rgba(232,65,122,.07),rgba(232,65,122,.02));border:1px solid rgba(232,65,122,.18);border-radius:13px;display:flex;align-items:flex-start;gap:8px}
+.sp-why-icon{color:var(--pk2);font-size:11px;margin-top:2px;flex-shrink:0}
+.sp-why-text{flex:1}
+/* About 섹션 강화 */
+.sp-about-box{margin-bottom:14px;background:linear-gradient(135deg,rgba(255,255,255,.04),rgba(255,255,255,.01));border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:16px;position:relative;overflow:hidden}
+.sp-about-box::before{content:'';position:absolute;top:-30px;right:-30px;width:100px;height:100px;background:radial-gradient(circle,rgba(232,65,122,.12),transparent 70%);pointer-events:none}
+.sp-about-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.sp-about-icon{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,rgba(232,65,122,.25),rgba(232,65,122,.1));display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sp-about-icon i{color:var(--pk);font-size:11px}
+.sp-about-title{font-size:11px;font-weight:800;color:var(--gold);letter-spacing:1.5px;text-transform:uppercase}
+.sp-about-text{font-size:13px;color:rgba(255,255,255,.7);line-height:1.85;letter-spacing:.1px}
+.sp-about-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.sp-about-tag{font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;letter-spacing:.5px}
+.sp-about-tag.tag-en{background:rgba(99,179,237,.12);border:1px solid rgba(99,179,237,.25);color:rgba(99,179,237,.9)}
+.sp-about-tag.tag-trust{background:rgba(72,187,120,.12);border:1px solid rgba(72,187,120,.25);color:rgba(72,187,120,.9)}
+.sp-about-tag.tag-intl{background:rgba(232,65,122,.12);border:1px solid rgba(232,65,122,.25);color:rgba(232,65,122,.9)}
+/* Editor's Note 박스 */
+.sp-editor-note{margin-bottom:14px;background:linear-gradient(135deg,rgba(244,114,182,.07),rgba(232,65,122,.03));border:1px solid rgba(244,114,182,.28);border-radius:14px;padding:14px 16px;position:relative}
+.sp-editor-note::before{content:'';position:absolute;top:-20px;right:-20px;width:80px;height:80px;background:radial-gradient(circle,rgba(244,114,182,.15),transparent 70%);pointer-events:none}
+.sp-editor-note-head{display:flex;align-items:center;gap:7px;margin-bottom:8px;font-size:12px;font-weight:800;color:rgba(244,114,182,.95);letter-spacing:.3px}
+.sp-editor-note-head i{font-size:11px}
+.sp-editor-verified{margin-left:auto;font-size:10px;font-weight:700;color:rgba(72,187,120,.9);background:rgba(72,187,120,.1);border:1px solid rgba(72,187,120,.25);border-radius:20px;padding:2px 8px;display:flex;align-items:center;gap:4px}
+.sp-editor-note-text{margin:0;font-size:13px;color:rgba(255,255,255,.82);line-height:1.6;font-style:italic}
+/* SEO 텍스트 블록 */
+.sp-seo-block{margin-bottom:14px;padding:18px 16px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:14px;border-top:2px solid rgba(232,65,122,.25)}
+.sp-seo-block-head{display:flex;align-items:center;gap:6px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.06)}
+.sp-seo-block-head i{color:rgba(232,65,122,.7);font-size:12px}
+.sp-seo-block-head span{font-size:10px;font-weight:800;color:rgba(255,255,255,.35);letter-spacing:1.5px;text-transform:uppercase}
+.sp-seo-h2{font-size:14px;font-weight:700;color:rgba(255,255,255,.88);margin:16px 0 8px 0;padding:10px 12px;background:rgba(232,65,122,.07);border-left:3px solid var(--pk2);border-radius:0 8px 8px 0;line-height:1.4}
+.sp-seo-h2:first-child{margin-top:0}
+.sp-seo-p{font-size:13px;color:rgba(255,255,255,.6);line-height:1.9;margin:0 0 14px;padding:0 2px}
+.sp-seo-p:last-child{margin-bottom:0}
+.sp-seo-p strong{color:rgba(255,255,255,.85);font-weight:600}
+.sp-seo-ul{margin:6px 0 16px 0;padding:0;list-style:none}
+.sp-seo-ul li{font-size:13px;color:rgba(255,255,255,.6);line-height:1.75;padding:5px 0 5px 20px;position:relative;border-bottom:1px solid rgba(255,255,255,.04)}
+.sp-seo-ul li:last-child{border-bottom:none}
+.sp-seo-ul li::before{content:'›';position:absolute;left:6px;color:var(--pk2);font-weight:700}
+/* ── 비슷한 업체 추천 ── */
+.sp-related{padding:0 20px 0;margin-bottom:0}
+.sp-related-title{font-size:13px;font-weight:800;color:rgba(255,255,255,.45);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:7px}
+.sp-related-title i{color:var(--pk2)}
+.sp-rel-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sp-rel-card{display:block;text-decoration:none;border-radius:16px;overflow:hidden;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);transition:border-color .18s,transform .18s;position:relative}
+.sp-rel-card:active{transform:scale(.97);border-color:rgba(232,65,122,.4)}
+.sp-rel-thumb{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+.sp-rel-ov{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,rgba(8,8,14,.92) 100%)}
+.sp-rel-info{position:absolute;bottom:0;left:0;right:0;padding:10px 10px 9px}
+.sp-rel-name{font-size:12px;font-weight:800;color:#fff;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:4px}
+.sp-rel-meta{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.sp-rel-loc{font-size:10px;color:rgba(255,255,255,.5);display:flex;align-items:center;gap:2px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sp-rel-rating{font-size:10px;color:#F59E0B;font-weight:700;display:flex;align-items:center;gap:2px;flex-shrink:0}
+</style>
+</head>
+<body>
+<nav class="sp-nav" itemscope itemtype="https://schema.org/SiteNavigationElement">
+  <div class="sp-nav-inner">
+    <a href="/" class="sp-nav-logo" itemprop="url"><span itemprop="name">Seoul Beauty Trip</span></a>
+    <a href="/" class="sp-nav-back" id="sp-nav-back-btn"><i class="fas fa-arrow-left"></i> <span id="sp-nav-back-label">Catalog</span></a>
+<script>
+(function(){
+  var sp=new URLSearchParams(window.location.search);
+  var fr=sp.get('from');
+  var btn=document.getElementById('sp-nav-back-btn');
+  var lbl=document.getElementById('sp-nav-back-label');
+  if(fr==='map'){
+    if(btn) btn.href='/?tab=map';
+    if(lbl) lbl.textContent='Map';
+  } else if(fr==='browse'){
+    if(btn) btn.href='/?tab=browse';
+    if(lbl) lbl.textContent='Browse';
+  } else if(fr==='search'){
+    if(btn) btn.href='/?search=1';
+    if(lbl) lbl.textContent='Search';
+  }
+})();
+</script>
+  </div>
+</nav>
+<nav aria-label="breadcrumb" style="background:rgba(0,0,0,.35);padding:7px 16px;font-size:12px;color:rgba(255,255,255,.5);display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+  <a href="/" style="color:rgba(255,255,255,.55);text-decoration:none">Home</a>
+  <span style="opacity:.4">›</span>
+  <a href="/best/${_bcCatSlug}/seoul" style="color:rgba(255,255,255,.55);text-decoration:none">${_bcCatName}</a>
+  <span style="opacity:.4">›</span>
+  <a href="/best/${_bcCatSlug}/${_bcAreaSlug}" style="color:rgba(255,255,255,.55);text-decoration:none">${_shopArea}</a>
+  <span style="opacity:.4">›</span>
+  <span style="color:rgba(255,255,255,.8)">${shop.name}</span>
+</nav>
+
+<div class="sp-hero">
+  <img class="sp-hero-img" src="${shop.thumbnail}" alt="${shop.name} ${_catLabel} in ${_areaFinal} Seoul — Best Korean Beauty for Foreigners" itemprop="image" width="800" height="600" fetchpriority="high">
+  <div class="sp-hero-ov"></div>
+  <div class="sp-hero-info">
+    <div class="sp-cat-badge">${catIcon} ${shop.category.charAt(0).toUpperCase()+shop.category.slice(1)} · ${_shopArea}</div>
+    <h1 class="sp-title" itemprop="name">${shop.name}</h1>
+    <div class="sp-subtitle" style="font-size:13px;color:rgba(255,255,255,.65);margin-top:4px;font-weight:500;letter-spacing:.3px">${_catLabel} &middot; ${_areaFinal}, Seoul &middot; English Booking Available</div>
+    <div class="sp-loc"><i class="fas fa-map-marker-alt" style="color:var(--pk)"></i><span itemprop="addressLocality">${shop.location.toLowerCase().includes('seoul') ? shop.location : shop.location+', Seoul'}</span></div>
+    <div style="margin-top:7px;display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.45);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.15);border-radius:20px;padding:5px 12px;width:fit-content;cursor:pointer;max-width:90vw;overflow:hidden" onclick="navigator.clipboard&&navigator.clipboard.writeText('${canonicalUrl}').then(function(){var el=document.getElementById('sp-url-copied');if(el){el.style.opacity='1';setTimeout(function(){el.style.opacity='0'},1500)}})">
+      <i class="fas fa-link" style="color:rgba(255,255,255,.5);font-size:10px;flex-shrink:0"></i>
+      <span style="font-size:11px;color:rgba(255,255,255,.7);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${canonicalUrl}</span>
+      <span id="sp-url-copied" style="font-size:10px;color:#34d399;flex-shrink:0;opacity:0;transition:opacity .3s;margin-left:2px">Copied!</span>
+    </div>
+    <div class="sp-rating">
+      <span class="sp-stars">★★★★★</span>
+      <span class="sp-rating-num">
+        ${shop.rating} (${shop.reviewCount} reviews)
+      </span>
+    </div>
+  </div>
+</div>
+
+${(()=>{
+  const allP=[shop.thumbnail,...(shop.photos||[]).filter((p:string)=>p&&p!==shop.thumbnail)];
+  if(allP.length<2)return '';
+  // 카테고리별 시술명 + 공간명 alt 설명 (구체적, 시술명 포함)
+  const _catAltMap: Record<string,string[]> = {
+    clinic:['skin booster treatment room','laser toning procedure at clinic','RF lifting facial treatment','dermatology consultation room','skin analysis & treatment area','micro-needling procedure','Shurink HIFU lifting session','reception & waiting lounge'],
+    hair:['hair coloring & bleaching station','Korean perm treatment styling','hair cut & styling chair','scalp treatment & hair care','balayage color highlight session','hair styling result showcase','hair wash & conditioning area','consultation & color mixing zone'],
+    headspa:['18-step Korean head spa treatment','scalp massage & oil treatment','head spa relaxation room','hair & scalp analysis station','deep cleansing scalp scrub','hair mask & steam treatment','premium scalp care station','head spa treatment setup'],
+    skincare:['Korean facial treatment room','hydrating skin care session','glass skin facial treatment','pore cleansing & exfoliation','LED light therapy session','oxygen facial treatment room','Korean skincare consultation','moisturizing mask & treatment'],
+    makeup:['Korean makeup studio & transformation','K-beauty makeup application','color analysis consultation room','bridal & special occasion makeup','contouring & highlighting session','K-pop inspired makeup look','makeup tools & product display','before-after Korean makeup result'],
+    tattoo:['eyebrow microblading procedure','semi-permanent eyebrow tattoo','brow design & mapping session','eyebrow tattoo healing result','nano-brow treatment close-up','eyebrow shape consultation','lip tint semi-permanent treatment','eyeliner tattoo procedure'],
+    spa:['luxury spa treatment room','body massage & relaxation','aromatherapy spa session','hot stone massage therapy','deep tissue body treatment','spa lounge & ambiance','foot spa & reflexology','premium body wrap treatment'],
+  };
+  const _altL = _catAltMap[shop.category] || ['interior and atmosphere','treatment room','service area for foreigners','professional staff and setup','entrance and reception','treatment in progress','relaxing ambiance','reception and booking area'];
+  const thumbs=allP.map((url:string,i:number)=>{
+    const _cls='sp-gthumb'+(i===0?' active':'');
+    const _lbl=_altL[i] || _altL[i % _altL.length] || 'beauty treatment';
+    const _alt=shop.name+' — '+_lbl+' | '+_catLabel+' in '+_areaFinal+', Seoul (foreigner-friendly)';
+    return '<div class="'+_cls+'" onclick="setHero(\''+url+'\',this)"><img src="'+url+'" alt="'+_alt+'" loading="lazy" width="120" height="160"></div>';
+  }).join('');
+  return '<div class="sp-gallery">'+thumbs+'</div>';
+})()}
+
+<div class="sp-wrap">
+
+  ${(()=>{
+    /* ── Address (모달과 동일) ── */
+    const addrHtml2 = shop.address
+      ? `<div class="sp-addr-row"><i class="fas fa-location-dot"></i><span itemprop="address">${shop.address}</span></div>`
+      : '';
+
+    /* ── Info Grid (Area + Rating) ── */
+    let infoCards2 = '';
+    const locArea2 = shop.location ? shop.location.split(',')[0].trim() : '';
+    if(locArea2) infoCards2 += `<div class="sp-ig-card"><div class="sp-ig-label">Area</div><div class="sp-ig-val"><i class="fas fa-map-marker-alt"></i>${locArea2}</div></div>`;
+    if(shop.reviewCount && shop.reviewCount > 0) {
+      const starsHtml2 = '★'.repeat(Math.min(5,Math.round(Number(shop.rating||5)))) + '☆'.repeat(Math.max(0,5-Math.round(Number(shop.rating||5))));
+      infoCards2 += `<div class="sp-ig-card"><div class="sp-ig-label">Rating</div><div class="sp-ig-val"><span class="sp-ig-stars">${starsHtml2}</span>&nbsp;${shop.rating}</div></div>`;
+    }
+    const infoGridHtml2 = infoCards2 ? `<div class="sp-info-grid">${infoCards2}</div>` : '';
+
+    /* ── Description (개선된 About 박스) ── */
+    const descHtml2 = shop.description ? (()=>{
+      const _rating2 = shop.rating ? Number(shop.rating).toFixed(1) : '';
+      const _reviews2 = shop.reviewCount ? Number(shop.reviewCount).toLocaleString() : '';
+      // 태그 결정
+      const _tags: string[] = [];
+      _tags.push(`<span class="sp-about-tag tag-en"><i class="fas fa-comments" style="margin-right:3px"></i>English OK</span>`);
+      _tags.push(`<span class="sp-about-tag tag-intl"><i class="fas fa-globe" style="margin-right:3px"></i>Foreigner Friendly</span>`);
+      if(_rating2) _tags.push(`<span class="sp-about-tag tag-trust"><i class="fas fa-star" style="margin-right:3px"></i>${_rating2}★${_reviews2?' · '+_reviews2+' reviews':''}</span>`);
+      return `<div class="sp-about-box"><div class="sp-about-head"><div class="sp-about-icon"><i class="fas fa-store"></i></div><div class="sp-about-title">About</div></div><div class="sp-about-text" itemprop="description">${shop.description}</div><div class="sp-about-tags">${_tags.join('')}</div></div>`;
+    })() : '';
+
+    /* ── Editor's Note (운영자 검증 메시지) ── */
+    const editorNoteVal = (shop.editor_note||shop.editorNote||'').trim();
+    const editorNoteHtml2 = editorNoteVal ? `<div class="sp-editor-note"><div class="sp-editor-note-head"><i class="fas fa-pen-nib"></i><span>Editor's Note</span><span class="sp-editor-verified"><i class="fas fa-circle-check"></i> Verified by Seoul Beauty Trip</span></div><p class="sp-editor-note-text">${editorNoteVal}</p></div>` : '';
+
+    /* ── Hours (모달과 동일 방식) ── */
+    let hoursHtml2 = '';
+    if(shop.hours) {
+      const days2 = shop.hours.split(/\s*[|]\s*|\s*\/\s*/).map((s:string)=>s.trim()).filter(Boolean);
+      const dayNames2 = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+      const today2 = new Date().getDay();
+      if(days2.length > 1) {
+        const rows2 = days2.map((line:string)=>{
+          const col2 = line.indexOf(':');
+          const dayP = col2>-1 ? line.slice(0,col2).trim() : line;
+          const timeP = col2>-1 ? line.slice(col2+1).trim() : '';
+          const isToday2 = dayNames2[today2] && dayP.toLowerCase().startsWith(dayNames2[today2].toLowerCase());
+          const isClosed2 = timeP.toLowerCase().includes('closed');
+          return `<tr class="${isToday2?'sp-hours-today':''}"><td class="sp-hours-day">${dayP.slice(0,3).toUpperCase()}</td><td class="sp-hours-time${isClosed2?' closed':''}">${timeP||'Closed'}</td></tr>`;
+        }).join('');
+        hoursHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-clock" style="color:var(--gold);margin-right:4px"></i>Hours</div><div class="sp-hours-wrap"><table class="sp-hours-table">${rows2}</table></div></div>`;
+      } else {
+        hoursHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-clock" style="color:var(--gold);margin-right:4px"></i>Hours</div><div class="sp-sec-body" itemprop="openingHours">${shop.hours}</div></div>`;
+      }
+    }
+
+    /* ── Price List ── */
+    let priceHtml2 = '';
+    if(shop.servicePrices && shop.servicePrices.length > 0) {
+      const rows3 = shop.servicePrices.map((p:any)=>`<div class="sp-price-item"><span class="sp-price-name">${p.name}</span><span class="sp-price-val" itemprop="priceRange">${p.price}</span></div>`).join('');
+      priceHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-won-sign" style="color:var(--gold);margin-right:4px"></i>Price List</div><div class="sp-price-list">${rows3}</div></div>`;
+    } else {
+      priceHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-won-sign" style="color:var(--gold);margin-right:4px"></i>Pricing</div><div class="sp-sec-body">Prices vary by treatment &amp; consultation. <span style="color:rgba(255,255,255,.35)">Contact us via WhatsApp below for a free quote.</span></div></div>`;
+    }
+
+    /* ── Services ── */
+    const svcHtml2 = shop.services && shop.services.length > 0 ? (()=>{
+      const svcIcoMap: Record<string,string> = {clinic:'fa-syringe',headspa:'fa-spa',hair:'fa-scissors',tattoo:'fa-pen-nib',makeup:'fa-wand-magic-sparkles',skincare:'fa-droplet',dental:'fa-tooth',plastic_surgery:'fa-star-of-life'};
+      const svcIco = svcIcoMap[shop.category] || 'fa-sparkles';
+      const tags = shop.services.map((s:string)=>`<span class="sp-svc-tag"><i class="fas ${svcIco}"></i>${s}</span>`).join('');
+      return `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-list-check" style="color:var(--gold);margin-right:5px"></i>Services</div><div class="sp-svc-tags">${tags}</div></div>`;
+    })() : '';
+
+    /* ── Map ── */
+    const mapHtml2 = (()=>{
+      if(!shop.lat || !shop.lng) return shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : '';
+      const mlat2=parseFloat(shop.lat), mlng2=parseFloat(shop.lng), z=16;
+      const tx=Math.floor((mlng2+180)/360*Math.pow(2,z)), ty=Math.floor((1-Math.log(Math.tan(mlat2*Math.PI/180)+1/Math.cos(mlat2*Math.PI/180))/Math.PI)/2*Math.pow(2,z));
+      const t1=`https://tile.openstreetmap.org/${z}/${tx}/${ty}.png`, t2=`https://tile.openstreetmap.org/${z}/${tx+1}/${ty}.png`;
+      const gLink=`https://maps.google.com/?q=${mlat2},${mlng2}&hl=en`;
+      return `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map" style="cursor:pointer;overflow:hidden;position:relative" data-map-url="${gLink}" onclick="openMapUrl(this)"><div style="display:flex;height:100%;filter:saturate(0.8) brightness(0.75)"><img src="${t1}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"><img src="${t2}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"></div><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none"><i class="fas fa-map-marker-alt" style="font-size:32px;color:#e8414a;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6))"></i></div>${(shop.address||shop.location)?`<div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);backdrop-filter:blur(4px);color:#fff;font-size:11px;padding:4px 10px;border-radius:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:88%;pointer-events:none"><i class="fas fa-map-marker-alt" style="margin-right:4px;color:#FF4D8D"></i>${(shop.address||shop.location).trim()}</div>`:""}</div></div>`;
+    })();
+
+    return addrHtml2 + infoGridHtml2 + descHtml2 + editorNoteHtml2 + priceHtml2 + svcHtml2 + hoursHtml2;
+  })()}
+
+  ${(()=>{
+    /* ── Google Reviews → Map 바로 위 ── */
+    const shopReviews2: any[] = shop.reviews || [];
+    if(!shopReviews2.length) return '';
+    const reviewCards2 = shopReviews2.map((rv:any)=>{
+      const rvR = Number(rv.rating)||5;
+      const rvStars = '★'.repeat(Math.min(5,Math.max(0,rvR)))+'☆'.repeat(Math.max(0,5-rvR));
+      return `<div class="sp-review-card"><div class="sp-review-top"><span class="sp-review-author">${rv.author||rv.author_name||'Guest'}</span><span class="sp-review-stars">${rvStars}</span></div><div class="sp-review-text">${rv.text||''}</div>${rv.time?`<div class="sp-review-time">${rv.time}</div>`:''}</div>`;
+    }).join('');
+    /* ── Map (리뷰 바로 뒤) ── */
+    const mapHtml3 = (()=>{
+      if(!shop.lat || !shop.lng) return shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : '';
+      const mlat3=parseFloat(shop.lat), mlng3=parseFloat(shop.lng), z=16;
+      const tx=Math.floor((mlng3+180)/360*Math.pow(2,z)), ty=Math.floor((1-Math.log(Math.tan(mlat3*Math.PI/180)+1/Math.cos(mlat3*Math.PI/180))/Math.PI)/2*Math.pow(2,z));
+      const t1=`https://tile.openstreetmap.org/${z}/${tx}/${ty}.png`, t2=`https://tile.openstreetmap.org/${z}/${tx+1}/${ty}.png`;
+      const gLink=`https://maps.google.com/?q=${mlat3},${mlng3}&hl=en`;
+      return `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map" style="cursor:pointer;overflow:hidden;position:relative" data-map-url="${gLink}" onclick="openMapUrl(this)"><div style="display:flex;height:100%;filter:saturate(0.8) brightness(0.75)"><img src="${t1}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"><img src="${t2}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"></div><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none"><i class="fas fa-map-marker-alt" style="font-size:32px;color:#e8414a;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6))"></i></div>${(shop.address||shop.location)?`<div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);backdrop-filter:blur(4px);color:#fff;font-size:11px;padding:4px 10px;border-radius:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:88%;pointer-events:none"><i class="fas fa-map-marker-alt" style="margin-right:4px;color:#FF4D8D"></i>${(shop.address||shop.location).trim()}</div>`:""}</div></div>`;
+    })();
+
+    // ── 리뷰 블록 — 아바타 + 별점 + 더보기 토글 ──
+    const avatarColors = ['#e8414a','#e87b41','#c9a84c','#41a8e8','#7b41e8','#41e87b','#e841c9','#41e8c9'];
+    const reviewCardsEnhanced = shopReviews2.map((rv:any, ri:number)=>{
+      const rvR = Math.min(5, Math.max(1, Number(rv.rating)||5));
+      const rvStars = '★'.repeat(rvR) + (rvR < 5 ? '☆'.repeat(5-rvR) : '');
+      const initials = (rv.author||rv.author_name||'G').trim().split(' ').map((w:string)=>w[0]||'').slice(0,2).join('').toUpperCase() || 'G';
+      const avColor = avatarColors[ri % avatarColors.length];
+      const hiddenClass = ri >= 3 ? ' sp-rv-hidden' : '';
+      return `<div class="sp-review-card${hiddenClass}">`
+        +`<div class="sp-review-avatar" style="background:${avColor}">${initials}</div>`
+        +`<div class="sp-review-body">`
+          +`<div class="sp-review-top">`
+            +`<span class="sp-review-author">${rv.author||rv.author_name||'Guest'}</span>`
+            +`<span class="sp-review-stars">${rvStars}</span>`
+          +`</div>`
+          +`<div class="sp-review-text">${rv.text||''}</div>`
+          +((rv.relative_time||rv.time)?`<div class="sp-review-time">${rv.relative_time||(typeof rv.time==='number'?new Date(rv.time*1000).toLocaleDateString('en-US',{year:'numeric',month:'short'}):rv.time)||''}</div>`:'')
+        +`</div>`
+      +`</div>`;
+    }).join('');
+
+    const hasMore2 = shopReviews2.length > 3;
+    const bigRating = Number(shop.rating||0).toFixed(1);
+    const totalCnt = shop.reviewCount ? Number(shop.reviewCount).toLocaleString() : '';
+    // 별 SVG (채움/빈칸 혼합)
+    const starFull = `<svg viewBox="0 0 24 24" fill="#fbbf24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`;
+    const ratingNum = parseFloat(String(shop.rating||0));
+    let starsBarHtml = '';
+    for(let si=0;si<5;si++){
+      const fill = Math.max(0,Math.min(1,ratingNum-si));
+      if(fill>=1) starsBarHtml+=`<span class="sp-reviews-star">${starFull}</span>`;
+      else if(fill>0) starsBarHtml+=`<span class="sp-reviews-star"><svg viewBox="0 0 24 24"><defs><linearGradient id="sg${si}"><stop offset="${Math.round(fill*100)}%" stop-color="#fbbf24"/><stop offset="${Math.round(fill*100)}%" stop-color="rgba(255,255,255,.18)"/></linearGradient></defs><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="url(#sg${si})"/></svg></span>`;
+      else starsBarHtml+=`<span class="sp-reviews-star"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="rgba(255,255,255,.18)"/></svg></span>`;
+    }
+
+    // ── AI 리뷰 요약 박스 (서버사이드 렌더링) ──
+    const rs = shop.reviewSummary
+    // rs가 문자열이면 vibe로만 표시, JSON 객체면 vibe+strengths+bestFor 풀 렌더링
+    const summaryHtml = rs
+      ? (typeof rs === 'string'
+          ? `<div class="sp-rv-summary"><div class="sp-rv-summary-vibe">${rs}</div></div>`
+          : `<div class="sp-rv-summary">`
+              +(rs.vibe ? `<div class="sp-rv-summary-vibe">${rs.vibe}</div>` : '')
+              +`<div class="sp-rv-summary-row">`
+                +(rs.strengths?.length ? `<div class="sp-rv-summary-col">`
+                  +`<div class="sp-rv-summary-label">What customers love</div>`
+                  +`<div class="sp-rv-summary-strengths">`
+                    +rs.strengths.map((s:string)=>`<div class="sp-rv-summary-strength">${s}</div>`).join('')
+                  +`</div>`
+                +`</div>` : '')
+                +(rs.bestFor ? `<div class="sp-rv-summary-col" style="margin-top:12px">`
+                  +`<div class="sp-rv-summary-label">Best for</div>`
+                  +`<div class="sp-rv-summary-bestfor">👤 ${rs.bestFor}</div>`
+                +`</div>` : '')
+              +`</div>`
+            +`</div>`)
+      : ''
+
+    const reviewsBlock = shopReviews2.length
+      ? `<div class="sp-sec">`
+          +`<div class="sp-sec-title"><i class="fas fa-star" style="color:var(--gold);margin-right:4px"></i>Google Reviews</div>`
+          +(bigRating!=='0.0'?`<div class="sp-reviews-header">`
+            +`<div class="sp-reviews-score">`
+              +`<div class="sp-reviews-big-num">${bigRating}</div>`
+              +`<div class="sp-reviews-score-right">`
+                +`<div class="sp-reviews-stars-row">${starsBarHtml}</div>`
+                +(totalCnt?`<div class="sp-reviews-total">${totalCnt} Google reviews</div>`:'')
+              +`</div>`
+            +`</div>`
+          +`</div>`:'')
+          +summaryHtml
+          +`<div class="sp-reviews-wrap">`
+            +reviewCardsEnhanced
+            +(hasMore2?`<button class="sp-reviews-toggle" onclick="spToggleReviews(this)"><i class="fas fa-chevron-down"></i> Show all ${shopReviews2.length} reviews</button>`:'')
+          +`</div>`
+        +`</div>`
+      : '';
+
+    return reviewsBlock + mapHtml3;
+  })()}
+
+  ${(()=>{
+    if(!shopVideos.length) return '';
+    const cardsHtml = shopVideos.map((v:any,vi:number)=>{
+      const thumb  = v.thumbnail || '';
+      const vidUrl = v.videoUrl  || '';
+      let displayTitle = (v.title||'').trim();
+      if(!displayTitle || displayTitle===shop.name || /^[a-zA-Z0-9_.~-]{8,}$/.test(displayTitle)) displayTitle = shop.name;
+      const instUrl = v.instagramUrl || '';
+      return '<div class="sp-vid-card" data-vid-url="'+vidUrl+'" data-vid-thumb="'+thumb+'" data-vid-instagram="'+instUrl+'" onclick="playSpVid('+vi+')">'
+        +(vidUrl?'<video class="sp-vid-inline" data-src="'+vidUrl+'" poster="'+thumb+'" loop muted playsinline preload="metadata" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px;display:block"></video>':'')
+        +(thumb?'<img class="sp-vid-poster" src="'+thumb+'" alt="'+displayTitle+'" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px;transition:opacity .4s">':'<div class="sp-vid-poster" style="position:absolute;inset:0;background:#111;border-radius:14px"></div>')
+        +'<div class="sp-play-ic"><i class="fas fa-play" style="font-size:14px;color:#fff;margin-left:2px"></i></div>'
+        +'<div class="sp-vid-card-ov"><div class="sp-vid-card-title">'+displayTitle+'</div></div>'
+        +'</div>';
+    }).join('');
+    const gridClass = shopVideos.length===1 ? 'sp-vid-grid single-vid' : 'sp-vid-grid';
+    return '<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-play-circle" style="color:var(--pk);margin-right:4px"></i>Videos <span style="font-size:10px;color:rgba(255,255,255,.3);font-weight:400;letter-spacing:0">('+shopVideos.length+')</span></div><div class="'+gridClass+'">'+cardsHtml+'</div></div>';
+  })()}
+
+  ${(()=>{
+    /* ── Why Choose (AI 생성 bullets) — 2열 카드 그리드 ── */
+    const wc: string[] = shop.whyChoose || [];
+    if(!wc.length) return '';
+    const wcIcons = ['fa-star','fa-shield-halved','fa-language','fa-calendar-check','fa-syringe','fa-award','fa-heart','fa-clock'];
+    const items = wc.map((b:string, bi:number)=>{
+      const ico = wcIcons[bi % wcIcons.length];
+      return `<div class="sp-why-item"><i class="fas ${ico} sp-why-icon"></i><span class="sp-why-text">${b}</span></div>`;
+    }).join('');
+    return `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-trophy" style="color:var(--gold);margin-right:5px"></i>Why Choose ${shop.name}</div><div class="sp-why-list">${items}</div></div>`;
+  })()}
+
+  ${(()=>{
+    /* ── SEO 텍스트 섹션: DB seo_text 우선, 없으면 템플릿 fallback ── */
+    if(shop.seoText && shop.seoText.trim()){
+      // DB에 &amp; 등 엔티티로 저장된 경우 복원
+      let cleanSeo = shop.seoText
+        .replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')
+        .replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&nbsp;/g,' ')
+        .replace(/&mdash;/g,'—').replace(/&ndash;/g,'–').replace(/&hellip;/g,'…');
+      // DB seo_text 보일러플레이트 정제: comprehensive range 문장 제거
+      cleanSeo = cleanSeo.replace(/[^<]*offers a comprehensive range of[^<]*<\/p>/g, '</p>')
+        .replace(/<p[^>]*>\s*<\/p>/g, '');
+      // DB seo_text 내 "Why Foreigners/Travelers Choose" H2+단락 제거 (sp-sec bullets와 중복)
+      cleanSeo = cleanSeo.replace(/<h2[^>]*>Why (?:Foreigners |Travelers )?Choose [^<]*<\/h2>\s*<p[^>]*>[^<]*<\/p>/g, '');
+      // H2가 없으면 업체명+카테고리+지역 기반 H2 자동 삽입
+      if(!cleanSeo.includes('<h2')){
+        const _area = (shop.location||'Seoul').split(',')[0].trim();
+        const _cat  = shop.category.charAt(0).toUpperCase()+shop.category.slice(1);
+        const _areaLabel = _area.toLowerCase().includes('cheongdam')||_area.toLowerCase().includes('apgujeong') ? 'Gangnam' : _area;
+        const _catLabel: Record<string,string> = {skincare:'Skincare',makeup:'Makeup',hair:'Hair Salon',clinic:'Dermatology Clinic',headspa:'Head Spa',spa:'Spa',tattoo:'Eyebrow Tattoo'};
+        const _catName = _catLabel[shop.category] || _cat;
+        // p 태그를 H2+p 쌍으로 분리 (3개 p → h2+p, h2+p, h2+p)
+        const _paras = cleanSeo.match(/<p[^>]*>[\s\S]*?<\/p>/g) || [];
+        const _h2titles = [
+          shop.name+' \u2014 '+_catName+' in '+_areaLabel+', Seoul',
+          'Foreigner-Friendly '+_catName+' in '+_areaLabel,
+          'How to Book '+shop.name+' for Foreign Visitors'
+        ];
+        if(_paras.length >= 2){
+          cleanSeo = _paras.map(function(p, i){
+            return '<h2 class="sp-seo-h2">'+(_h2titles[i] || shop.name+' \u2014 '+_catName)+'</h2>'+p;
+          }).join('');
+        } else {
+          cleanSeo = '<h2 class="sp-seo-h2">'+_h2titles[0]+'</h2>'+cleanSeo;
+        }
+      }
+      // "How to Book" H2+단락 제거 — WhatsApp 버튼이 이미 상단에 있으므로 중복
+      const _howIdx = cleanSeo.indexOf('How to Book');
+      if(_howIdx > 0){
+        const _h2start = cleanSeo.lastIndexOf('<h2', _howIdx);
+        if(_h2start >= 0){
+          // 다음 <h2 또는 끝까지 잘라냄
+          const _nextH2 = cleanSeo.indexOf('<h2', _h2start + 4);
+          cleanSeo = cleanSeo.slice(0, _h2start) + (_nextH2 > 0 ? cleanSeo.slice(_nextH2) : '');
+        }
+      }
+      const _seoHead = '<div class="sp-seo-block-head"><i class="fas fa-magnifying-glass"></i><span>Travel Guide</span></div>';
+      return '<div class="sp-seo-block">'+_seoHead+cleanSeo+'</div>';
+    }
+    /* fallback: DB seo_text 없을 때 템플릿 — 업체별 다양화 (AI 호출 없음) */
+    const area3   = (shop.location||'Seoul').split(',')[0].trim();
+    const cat3    = ({clinic:'Skin Clinic',headspa:'Head Spa',hair:'Hair Salon',skincare:'Skincare',makeup:'Makeup',tattoo:'Eyebrow Tattoo',spa:'Spa',nail:'Nail Studio',dental:'Dental Clinic'} as Record<string,string>)[shop.category] || (shop.category.charAt(0).toUpperCase()+shop.category.slice(1));
+    const svcList = shop.services && shop.services.length > 0 ? shop.services.slice(0,4).join(', ') : cat3+' treatments';
+    const areaGn  = (['cheongdam','apgujeong','sinsa','nonhyeon'].some(a=>area3.toLowerCase().includes(a))) ? 'Gangnam' : area3;
+    const revTxt  = shop.reviewCount > 10 ? ' With '+shop.reviewCount+'+ verified reviews and a '+shop.rating+'-star rating, it' : ' It';
+    // 업체명 기반 clinic 세부 타입 (Travel Guide 텍스트도 일관성 유지)
+    const _fbClinicType = (()=>{
+      const nm=(shop.name||'').toLowerCase();
+      if(nm.includes('plastic surgery')) return 'plastic surgery clinic';
+      if(nm.includes('aesthetic')) return 'aesthetic clinic';
+      if(nm.includes('dental')||nm.includes('dentist')) return 'dental clinic';
+      if(nm.includes('dermatology')||nm.includes('derma')) return 'dermatology clinic';
+      return 'skin clinic';
+    })();
+    const _fbClinicTypeTitle = _fbClinicType.replace(/\b\w/g,c=>c.toUpperCase());
+    // 서비스 목록 기반 다양한 intro (중복 콘텐츠 방지)
+    const _svc0 = shop.services&&shop.services.length>0 ? shop.services[0] : '';
+    const _svc1b = shop.services&&shop.services.length>1 ? shop.services[1] : '';
+    const _introVariants = [
+      shop.name+' is a foreigner-friendly '+_fbClinicType+' in '+area3+', Seoul.'+revTxt+' is highly recommended by international visitors for its English-speaking staff and transparent pricing.',
+      'Located in the heart of '+areaGn+', '+shop.name+' is one of Seoul\'s most accessible '+_fbClinicType+'s for foreign patients. '+(_svc0?'Specializing in '+_svc0+(_svc1b?' and '+_svc1b:'')+', the':'The')+' clinic offers consultations in English and seamless WhatsApp booking.',
+      'International patients consistently praise '+shop.name+' for its professional care and English-friendly environment. Situated in '+area3+', this '+_fbClinicType+' makes quality Korean treatments accessible without the language barrier.',
+    ];
+    const _introIdx = Math.abs(shop.name.charCodeAt(0)+shop.name.charCodeAt(1||0))%3;
+    const _introTxt = _introVariants[_introIdx];
+
+    const _fbHead = '<div class="sp-seo-block-head"><i class="fas fa-magnifying-glass"></i><span>Travel Guide</span></div>';
+    if(shop.category === 'clinic'){
+      const treatments = shop.services && shop.services.length > 0
+        ? shop.services.slice(0,6).join(', ')
+        : 'laser toning, skin booster injections, RF lifting, acne treatment, chemical peels';
+      return '<div class="sp-seo-block">'+_fbHead
+        +'<h2 class="sp-seo-h2">'+shop.name+' \u2014 '+_fbClinicTypeTitle+' in '+areaGn+' for Foreigners (2026)</h2>'
+        +'<p class="sp-seo-p">'+_introTxt+'</p>'
+        +'<h2 class="sp-seo-h2">Treatments at '+shop.name+'</h2>'
+        +'<p class="sp-seo-p">'+shop.name+' offers a range of treatments popular with foreign visitors: '+treatments+'. Korean clinics use KFDA-approved equipment, with results often 40\u201360% more affordable than equivalent treatments in the US, UK, or Australia.</p>'
+        // Why Foreigners Choose 단락 제거 — sp-sec의 whyChoose bullets와 중복
+        +'</div>';
+    }
+
+    return '<div class="sp-seo-block">'+_fbHead
+      +'<h2 class="sp-seo-h2">'+shop.name+' \u2014 '+cat3+' in '+area3+', Seoul</h2>'
+      +'<p class="sp-seo-p">Looking for the best '+shop.category+' experience in '+area3+', Seoul? '+shop.name+' welcomes foreign visitors with English-friendly service and easy WhatsApp booking.'+revTxt+' offers an authentic Korean beauty experience tailored for international guests.</p>'
+      +'<h2 class="sp-seo-h2">Foreigner-Friendly '+cat3+' in '+area3+'</h2>'
+      +'<p class="sp-seo-p">Located in '+area3+', one of the top beauty districts in Seoul, '+shop.name+' specializes in '+svcList+'. The team provides English support throughout your visit \u2014 from consultation to aftercare \u2014 so you can relax and enjoy your treatment without language barriers. Book easily via WhatsApp through Seoul Beauty Trip.</p>'
+      +'</div>';
+  })()}
+
+  ${relatedShops.length > 0 ? `
+  <div class="sp-related">
+    <div class="sp-related-title"><i class="fas fa-th-large"></i> More ${shop.category.charAt(0).toUpperCase()+shop.category.slice(1)} in Seoul</div>
+    <div class="sp-rel-grid">
+      ${relatedShops.map((r: any) => {
+        const rArea = (r.location||'').split(',')[0].trim()
+        const rRating = r.rating ? `<span class="sp-rel-rating"><i class="fas fa-star" style="font-size:8px"></i>${Number(r.rating).toFixed(1)}</span>` : ''
+        const rThumb = r.thumbnail || ''
+        const rCatL: Record<string,string> = {clinic:'Clinic',hair:'Hair Salon',headspa:'Head Spa',skincare:'Skincare',makeup:'Makeup',spa:'Spa',tattoo:'Eyebrow Tattoo'}
+        const rCatLabel = rCatL[r.category] || r.category
+        return `<a class="sp-rel-card" href="/ja/shop/${r.slug}">
+          ${rThumb ? `<img class="sp-rel-thumb" src="${rThumb}" alt="${r.name} ${rCatLabel} ${rArea} Seoul" loading="lazy">` : `<div class="sp-rel-thumb" style="background:#111"></div>`}
+          <div class="sp-rel-ov"></div>
+          <div class="sp-rel-info">
+            <div class="sp-rel-name">${r.name}</div>
+            <div class="sp-rel-meta">
+              <span class="sp-rel-loc"><i class="fas fa-map-marker-alt" style="font-size:7px;color:#FF4D8D"></i>${rArea}</span>
+              ${rRating}
+            </div>
+          </div>
+        </a>`
+      }).join('')}
+    </div>
+  </div>` : ''}
+
+  <!-- 교차 카테고리 내부 링크: 같은 지역의 다른 카테고리 추천 업체 -->
+  ${nearbyCrossShops.length > 0 ? `
+  <div style="padding:0 20px 20px">
+    <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.35);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:6px">
+      <i class="fas fa-map-marker-alt" style="color:var(--pk2);font-size:10px"></i>
+      Also in ${_shopAreaRaw || _areaFinal}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${nearbyCrossShops.map((r: any) => {
+        const _rArea = (r.location || '').split(',')[0].trim()
+        const _rCatLabels: Record<string,string> = {clinic:'Derma Clinic',hair:'Hair Salon',headspa:'Head Spa',skincare:'Skincare',makeup:'Makeup',tattoo:'Eyebrow Tattoo'}
+        const _rCatLabel = _rCatLabels[r.category] || r.category
+        const _rCatIcons: Record<string,string> = {clinic:'fa-briefcase-medical',hair:'fa-cut',headspa:'fa-spa',skincare:'fa-leaf',makeup:'fa-magic',tattoo:'fa-pen-nib'}
+        const _rIcon = _rCatIcons[r.category] || 'fa-star'
+        const _rRating = r.rating ? Number(r.rating).toFixed(1) : ''
+        const _rThumb = r.thumbnail || ''
+        return `<a href="/ja/shop/${r.slug}" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:12px;text-decoration:none;transition:background .15s" onmouseover="this.style.background='rgba(255,255,255,.06)'" onmouseout="this.style.background='rgba(255,255,255,.03)'" title="${r.name} ${_rCatLabel} in ${_rArea} Seoul">
+          ${_rThumb ? `<img src="${_rThumb}" alt="${r.name} ${_rCatLabel} ${_rArea} Seoul" style="width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0" loading="lazy">` : `<div style="width:40px;height:40px;border-radius:8px;background:rgba(255,255,255,.06);flex-shrink:0;display:flex;align-items:center;justify-content:center"><i class="fas ${_rIcon}" style="color:var(--pk2);font-size:14px"></i></div>`}
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12.5px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.name}</div>
+            <div style="font-size:10.5px;color:rgba(255,255,255,.45);margin-top:2px"><i class="fas ${_rIcon}" style="color:var(--pk2);font-size:8px;margin-right:3px"></i>${_rCatLabel}${_rRating ? ` · ★${_rRating}` : ''}</div>
+          </div>
+          <i class="fas fa-chevron-right" style="color:rgba(255,255,255,.2);font-size:10px;flex-shrink:0"></i>
+        </a>`
+      }).join('')}
+    </div>
+  </div>` : ''}
+
+  <!-- 리뷰 블로그 포스트 배너 (shop_id 연결된 경우만) -->
+  ${reviewBlogSlug ? `
+  <div style="padding:0 20px 16px">
+    <a href="/ja/blog/${reviewBlogSlug}" style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:linear-gradient(135deg,rgba(232,65,122,.12),rgba(249,115,22,.08));border:1px solid rgba(232,65,122,.25);border-radius:14px;text-decoration:none">
+      <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#e8417a,#f97316);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <i class="fas fa-file-alt" style="color:#fff;font-size:14px"></i>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.4);letter-spacing:1px;text-transform:uppercase;margin-bottom:2px">Full Honest Review</div>
+        <div style="font-size:12.5px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(reviewBlogTitle||'').replace(/"/g,"'")}</div>
+      </div>
+      <i class="fas fa-chevron-right" style="color:rgba(255,255,255,.3);font-size:11px;flex-shrink:0"></i>
+    </a>
+  </div>` : ''}
+
+  <!-- 내부 SEO 링크 세션: 구글이 페이지 주제와 사이트 구조를 파악하도록 돕는 다차원 링크 -->
+  <div class="sp-seo-links" style="padding:0 20px 16px;margin-bottom:0">
+    <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.3);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:10px">Explore More in Seoul</div>
+    <div style="display:flex;flex-wrap:wrap;gap:7px">
+      <a href="/best/${shop.category}/seoul" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.65);font-size:11.5px;text-decoration:none" title="Best ${_catLabel} in Seoul for Foreigners"><i class="fas fa-crown" style="color:var(--pk);font-size:9px"></i>Best ${_catLabel} in Seoul</a>
+      ${_areaFinal !== 'Seoul' ? `<a href="/best/${shop.category}/${_areaFinal.toLowerCase()}" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.65);font-size:11.5px;text-decoration:none" title="Best ${_catLabel} in ${_areaFinal} Seoul"><i class="fas fa-map-marker-alt" style="color:var(--pk2);font-size:9px"></i>Best ${_catLabel} in ${_areaFinal}</a>` : ''}
+      <a href="/ja/blog" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.65);font-size:11.5px;text-decoration:none" title="Seoul Beauty Blog for Foreigners"><i class="fas fa-book-open" style="color:var(--pk);font-size:9px"></i>Seoul Beauty Guide</a>
+      <a href="/ja/blog/category/${shop.category}" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.65);font-size:11.5px;text-decoration:none" title="${_catLabel} Tips for Foreigners in Seoul"><i class="fas fa-feather-alt" style="color:var(--pk2);font-size:9px"></i>${_catLabel} Tips</a>
+      <a href="/" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.65);font-size:11.5px;text-decoration:none" title="Browse All Seoul Beauty Salons"><i class="fas fa-th-large" style="color:var(--pk2);font-size:9px"></i>All Beauty Salons</a>
+    </div>
+  </div>
+
+  <div style="height:100px"></div>
+</div>
+
+<div class="sp-float">
+  <a href="${waUrl}" target="_blank" rel="noopener" onclick="(function(){
+    var sn='${shop.name.replace(/'/g,"\\'").replace(/"/g,'&quot;')}';
+    var sc='${shop.category}';
+    var si='${shop.id}';
+    if(typeof gtag==='function')gtag('event','whatsapp_click',{event_category:'conversion',event_label:sn,shop_name:sn,shop_category:sc,page_location:window.location.href});
+    if(typeof _sbSend==='function')_sbSend('book_click',{shop_id:si,shop_name:sn,shop_category:sc,target:'whatsapp'});
+  })()">
+    <i class="fab fa-whatsapp" style="font-size:20px"></i> Book via WhatsApp
+  </a>
+</div>
+
+<script>
+// 뒤로가기: 이전 페이지가 같은 사이트면 history.back(), 아니면 메인으로
+function goBack(){
+  // history가 2개 이상이면 이전 페이지로, 아니면 메인으로
+  if(window.history.length > 1){
+    window.history.back();
+  } else {
+    location.href = '/';
+  }
+}
+
+function setHero(url, el) {
+  document.querySelector('.sp-hero-img').src = url;
+  document.querySelectorAll('.sp-gthumb').forEach(function(t){ t.classList.remove('active'); });
+  el.classList.add('active');
+}
+
+/* ── sp-vid-card: 페이지 로드 즉시 + 스크롤 진입시 자동재생 (쇼츠/릴스 방식) ── */
+(function(){
+  function startVid(card){
+    var vid = card.querySelector('.sp-vid-inline');
+    var poster = card.querySelector('.sp-vid-poster');
+    if(!vid) return;
+    if(vid.dataset.src && !vid.dataset.loaded){
+      vid.dataset.loaded = '1';
+      vid.src = vid.dataset.src;
+    }
+    vid.muted = true;
+    var p = vid.play();
+    if(p && p.then) p.then(function(){
+      card.classList.add('vid-on');
+      if(poster) poster.style.opacity = '0';
+    }).catch(function(){});
+  }
+  function stopVid(card){
+    var vid = card.querySelector('.sp-vid-inline');
+    var poster = card.querySelector('.sp-vid-poster');
+    if(vid){ vid.pause(); }
+    card.classList.remove('vid-on');
+    if(poster) poster.style.opacity = '1';
+  }
+  function initVidCards(){
+    var cards = document.querySelectorAll('.sp-vid-card');
+    if(!cards.length) return;
+    if(window.IntersectionObserver){
+      var obs = new IntersectionObserver(function(entries){
+        entries.forEach(function(entry){
+          if(entry.isIntersecting) startVid(entry.target);
+          else stopVid(entry.target);
+        });
+      },{threshold: 0.2, rootMargin:'0px'});
+      cards.forEach(function(c){ obs.observe(c); });
+    } else {
+      cards.forEach(function(c){ startVid(c); });
+    }
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', initVidCards);
+  } else {
+    initVidCards();
+  }
+})();
+
+// 상세페이지 리뷰 더보기 토글
+function spToggleReviews(btn){
+  var wrap = btn.parentElement;
+  if(!wrap) return;
+  var hidden = wrap.querySelectorAll('.sp-rv-hidden');
+  var isExpanded = btn.getAttribute('data-expanded')==='1';
+  if(isExpanded){
+    hidden.forEach(function(c){ c.classList.remove('sp-rv-show'); });
+    btn.innerHTML='<i class="fas fa-chevron-down"></i> Show all reviews';
+    btn.setAttribute('data-expanded','0');
+    btn.previousElementSibling && btn.previousElementSibling.scrollIntoView&&btn.previousElementSibling.scrollIntoView({behavior:'smooth',block:'nearest'});
+  } else {
+    wrap.querySelectorAll('.sp-rv-hidden').forEach(function(c){ c.classList.add('sp-rv-show'); });
+    btn.innerHTML='<i class="fas fa-chevron-up"></i> Show less';
+    btn.setAttribute('data-expanded','1');
+  }
+}
+
+// 영상 카드 클릭 → 중앙 모달 (로딩 스피너 + 소리 토글)
+var _spVidMuted = false;
+function playSpVid(idx){
+  var cards = document.querySelectorAll('.sp-vid-card');
+  var card  = cards[idx];
+  if(!card) return;
+  var vidUrl   = card.getAttribute('data-vid-url');
+  var thumb    = card.getAttribute('data-vid-thumb');
+  var instRaw  = card.getAttribute('data-vid-instagram') || '';
+  if(!vidUrl) return;
+
+  var old = document.getElementById('sp-vid-ov');
+  if(old) old.remove();
+
+  // 인스타 출처 HTML 생성
+  // @account_name 표시 (링크 없이 텍스트만)
+  var instHtml = '';
+  if(instRaw){
+    var instLabel = instRaw;
+    if(instRaw.startsWith('http')){
+      // URL에서 표시명 추출: instagram.com/account → @account
+      var _m = instRaw.match(new RegExp('instagram\\.com/(?:p/[^/?]+|([^/?]+))'));
+      instLabel = _m && _m[1] ? '@'+_m[1] : instRaw;
+    } else {
+      instLabel = '@'+instRaw.replace(/^@/,'');
+    }
+    instHtml = '<div'
+      +' style="position:absolute;bottom:14px;left:50%;transform:translateX(-50%);'
+      +'display:flex;align-items:center;gap:6px;'
+      +'background:rgba(0,0,0,.55);backdrop-filter:blur(6px);'
+      +'border:1px solid rgba(255,255,255,.18);border-radius:20px;'
+      +'padding:5px 12px 5px 10px;color:#fff;font-size:12px;font-weight:600;'
+      +'white-space:nowrap;z-index:3;pointer-events:none;'
+      +'box-shadow:0 2px 12px rgba(0,0,0,.4)">'
+      +'<i class="fab fa-instagram" style="font-size:14px;color:#e1306c"></i>'
+      +instLabel
+      +'</div>';
+  }
+
+  var ov = document.createElement('div');
+  ov.id = 'sp-vid-ov';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
+
+  var muteIcon = _spVidMuted ? 'fa-volume-mute' : 'fa-volume-up';
+  ov.innerHTML =
+    '<div style="position:relative;width:min(88vw,360px);max-height:calc(100dvh - 80px);aspect-ratio:9/16">'
+    // 닫기 버튼
+    +'<button id="sp-vid-ov-close" style="position:absolute;top:-42px;right:0;width:34px;height:34px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);border-radius:50%;color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2">&#10005;</button>'
+    // 소리 버튼
+    +'<button id="sp-vid-ov-mute" style="position:absolute;top:-42px;left:0;width:34px;height:34px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);border-radius:50%;color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2">'
+      +'<i class="fas '+muteIcon+'"></i>'
+    +'</button>'
+    // 로딩 스피너 (영상 로드 전 표시)
+    +'<div id="sp-vid-ov-spin" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:1;border-radius:18px;background:rgba(0,0,0,.6)">'
+      +'<div style="width:36px;height:36px;border:3px solid rgba(255,255,255,.15);border-top-color:#FF4D8D;border-radius:50%;animation:spSpinAnim .7s linear infinite"></div>'
+    +'</div>'
+    // 영상 (poster로 즉시 표시, src는 JS로 설정)
+    +'<video id="sp-vid-ov-video"'+(thumb?' poster="'+thumb+'"':'')
+    +' loop playsinline'
+    +' style="width:100%;height:100%;border-radius:18px;object-fit:cover;background:#000;display:block"></video>'
+    // 인스타 출처 (있을 때만)
+    +instHtml
+    +'</div>';
+
+  // 스피너 애니메이션 CSS (한 번만 추가)
+  if(!document.getElementById('sp-spin-style')){
+    var st = document.createElement('style');
+    st.id = 'sp-spin-style';
+    st.textContent = '@keyframes spSpinAnim{to{transform:rotate(360deg)}}';
+    document.head.appendChild(st);
+  }
+
+  ov.addEventListener('click', function(e){ if(e.target===ov) ov.remove(); });
+  document.body.appendChild(ov);
+
+  var vid = document.getElementById('sp-vid-ov-video');
+  var spin = document.getElementById('sp-vid-ov-spin');
+
+  function _updateMuteBtn(){
+    var btn = document.getElementById('sp-vid-ov-mute');
+    if(btn) btn.innerHTML = '<i class="fas '+(_spVidMuted?'fa-volume-mute':'fa-volume-up')+'"></i>';
+  }
+
+  if(vid){
+    vid.muted = _spVidMuted;
+    // 로드가 충분히 됐을 때 스피너 숨김
+    vid.addEventListener('canplay', function(){
+      if(spin) spin.style.display = 'none';
+    }, {once:true});
+    // 버퍼링 중 다시 스피너 표시
+    vid.addEventListener('waiting', function(){
+      if(spin) spin.style.display = 'flex';
+    });
+    vid.addEventListener('playing', function(){
+      if(spin) spin.style.display = 'none';
+    });
+    // src 설정 → 로드 시작
+    vid.src = vidUrl;
+    vid.play().catch(function(){ vid.muted=true; _spVidMuted=true; _updateMuteBtn(); vid.play().catch(function(){}); });
+  }
+
+  document.getElementById('sp-vid-ov-close').addEventListener('click', function(){ ov.remove(); });
+  document.getElementById('sp-vid-ov-mute').addEventListener('click', function(e){
+    e.stopPropagation();
+    _spVidMuted = !_spVidMuted;
+    if(vid) vid.muted = _spVidMuted;
+    _updateMuteBtn();
+  });
+}
+function openMapUrl(el){
+  var u=el.getAttribute('data-map-url');
+  if(!u) return;
+  var embedUrl=u;
+  var qMatch=u.match(/[?&]q=([^&]+)/);
+  if(qMatch) embedUrl='https://www.google.com/maps?q='+qMatch[1]+'&hl=en&output=embed';
+  var badge=el.querySelector('[style*="bottom:8px"]');
+  var title=badge?badge.textContent.trim():'Google Maps';
+  var ov=document.getElementById('mapOverlay');
+  var frame=document.getElementById('mapOverlayFrame');
+  var titleEl=document.getElementById('mapOverlayTitle');
+  if(!ov||!frame) return;
+  if(titleEl) titleEl.textContent=title;
+  frame.src=embedUrl;
+  ov.style.display='flex';
+  document.body.style.overflow='hidden';
+  // GA4: 지도 클릭 이벤트
+  if(typeof gtag==='function') gtag('event','map_click',{event_category:'engagement',event_label:title,page_location:window.location.href});
+}
+function closeMapOverlay(){
+  var ov=document.getElementById('mapOverlay');
+  var frame=document.getElementById('mapOverlayFrame');
+  if(ov){ov.style.display='none';document.body.style.overflow='';}
+  if(frame){frame.src='';}
+}
+</script>
+<!-- 구글맵 인앱 오버레이 -->
+<div id="mapOverlay" style="display:none;position:fixed;inset:0;z-index:2000;flex-direction:column;background:#000">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#111;border-bottom:1px solid #222;flex-shrink:0">
+    <span id="mapOverlayTitle" style="color:#fff;font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;margin-right:10px"></span>
+    <button onclick="closeMapOverlay()" style="flex-shrink:0;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.12);border:none;color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">&times;</button>
+  </div>
+  <iframe id="mapOverlayFrame" src="" style="flex:1;border:0;width:100%;display:block" allowfullscreen loading="lazy"></iframe>
+</div>
+</body>
+</html>`)
+  } catch(e: any) {
+    return c.html('<h1>Service temporarily unavailable</h1>', 500)
+  }
+})
+
+// ══════════════════════════════════════════════════════
+// ── /best/:category/:area  카테고리×지역 랜딩 페이지 ──
+// ══════════════════════════════════════════════════════
+const CATEGORY_LABELS: Record<string,string> = {
+  makeup:'Makeup',
+  headspa:'Head Spa', clinic:'Skin Clinic', tattoo:'Eyebrow Tattoo'
+}
+const JA_AREA_LABELS: Record<string,string> = {
+  gangnam:'Gangnam', seocho:'Seocho', hongdae:'Hongdae', itaewon:'Itaewon',
+  myeongdong:'Myeongdong', sinchon:'Sinchon', mapo:'Mapo',
+  jongno:'Jongno', dongdaemun:'Dongdaemun', insadong:'Insadong',
+  apgujeong:'Apgujeong', yeouido:'Yeouido', yongsan:'Yongsan', seoul:'Seoul'
+}
+const JA_CAT_FAQ: Record<string,{q:string,a:string}[]> = {
+  headspa:[
+    {q:'What is a Korean head spa?',a:'A Korean head spa is a therapeutic scalp and hair treatment combining deep cleansing, massage, and nourishing treatments. It relieves stress, improves scalp health, and promotes hair growth — popular among tourists in Seoul.'},
+    {q:'How much does a head spa cost in Seoul?',a:'Head spa prices in Seoul typically range from ₩50,000 to ₩150,000 depending on the salon and treatment duration. Most sessions last 60–90 minutes.'},
+    {q:'Do Seoul head spas have English-speaking staff?',a:'Many head spas in tourist areas like Gangnam, Hongdae, and Itaewon have English-speaking staff or translation support. Seoul Beauty Trip only lists foreigner-friendly salons.'},
+    {q:'Do I need to book a head spa in Seoul in advance?',a:'Yes, booking in advance is strongly recommended, especially on weekends. You can book via WhatsApp through Seoul Beauty Trip with English support.'},
+    {q:'What should I expect at a Korean head spa?',a:'Expect a consultation, scalp analysis, deep cleansing shampoo, relaxing massage, and nourishing treatment. Some salons also include a facial massage or aromatherapy.'}
+  ],
+  skincare:[
+    {q:'What makes Korean skincare treatments special?',a:'Korean skincare focuses on hydration, brightening, and glass-skin techniques using advanced ingredients like snail mucin, hyaluronic acid, and fermented extracts — not commonly found elsewhere.'},
+    {q:'How much do Korean facial treatments cost in Seoul?',a:'Facial treatments in Seoul range from ₩50,000 to ₩300,000. Basic hydrafacials start around ₩80,000 while advanced treatments like laser or RF cost more.'},
+    {q:'Are Seoul skin clinics safe for foreigners?',a:'Yes. Seoul skin clinics are among the most advanced in the world with certified dermatologists. Seoul Beauty Trip lists only foreigner-friendly clinics with English support.'},
+    {q:'Can I walk in or do I need a reservation?',a:'Reservations are recommended to avoid waiting. Book via WhatsApp through Seoul Beauty Trip for same-day or advance appointments with English support.'},
+    {q:'What skin treatments are most popular among tourists in Seoul?',a:'Hydrafacial, LED therapy, glass skin facial, galvanic treatment, and Korean lymphatic massage are the most popular among foreign tourists.'}
+  ],
+  hair:[
+    {q:'Are Seoul hair salons experienced with non-Asian hair?',a:'Many hair salons in Seoul, especially in Gangnam and Itaewon, have stylists trained for various hair textures including Western, curly, and colored hair. Always inform the salon beforehand.'},
+    {q:'How much does a haircut cost in Seoul?',a:'A basic haircut in Seoul ranges from ₩20,000 to ₩80,000. Korean perms, balayage, and color treatments range from ₩80,000 to ₩300,000+ depending on length.'},
+    {q:'Can I get a K-pop hairstyle in Seoul?',a:'Absolutely! Many Seoul hair salons specialize in K-pop inspired hairstyles including perms, bleaching, and trendy cuts seen on Korean celebrities.'},
+    {q:'Do Seoul hair salons speak English?',a:'Tourist-area salons in Gangnam, Hongdae, and Itaewon often have English-speaking staff. Seoul Beauty Trip lists only English-friendly salons for foreign visitors.'},
+    {q:'How long does a hair appointment take in Seoul?',a:'A basic cut takes 30–60 minutes. Color treatments and perms can take 2–4 hours. Book in advance especially on weekends.'}
+  ],
+  clinic:[
+    {q:'What is a Gangnam dermatology clinic?',a:'A Gangnam dermatology clinic is a medical aesthetic center in Seoul\'s Gangnam district staffed by board-certified Korean dermatologists. Unlike regular beauty salons, these clinics perform medical-grade treatments including laser resurfacing, Botox, dermal fillers, RF lifting, skin booster injections, and prescription skincare — all at prices typically 40–60% lower than equivalent treatments in Western countries.'},
+    {q:'Are Gangnam dermatology clinics foreigner-friendly?',a:'Yes. Most top-tier Gangnam dermatology clinics have English-speaking coordinators specifically for foreign patients. They provide consultations in English, transparent pricing in USD or KRW, and accommodate WhatsApp bookings from abroad. Seoul Beauty Trip only lists clinics with verified English support.'},
+    {q:'How much does a Gangnam dermatology clinic cost?',a:'Treatment prices at a Gangnam dermatology clinic vary: laser toning (₩50,000–₩150,000), skin booster injections like Rejuran or Juvelook (₩150,000–₩400,000), RF lifting/Thermage (₩300,000–₩800,000), Botox (₩50,000–₩200,000 per area), and acne scar laser (₩100,000–₩500,000). Compared to the US or UK, these prices are 40–60% cheaper for the same quality.'},
+    {q:'What treatments can I get at a Gangnam dermatology clinic as a foreigner?',a:'Popular treatments for foreign visitors at Gangnam dermatology clinics include: laser toning for pigmentation, skin booster injections (Rejuran, Juvelook, Skinbooster), Botox and dermal fillers, RF lifting (Thermage, HIFU/Ulthera), acne and acne scar laser treatment, chemical peels, and LED phototherapy. Most clinics offer same-day consultations for tourists.'},
+    {q:'Do I need to book a Gangnam dermatology clinic in advance?',a:'For laser and injection treatments, booking 1–3 days in advance is recommended. Walk-ins are sometimes accepted for basic consultations. Through Seoul Beauty Trip, you can book any Gangnam dermatology clinic via WhatsApp in English — no Korean language skills needed.'},
+    {q:'Is it safe to get dermatology treatments in Gangnam as a tourist?',a:'Yes. Korean dermatologists are among the most trained in the world — Korea has the highest rate of cosmetic procedures per capita globally. Gangnam dermatology clinics use FDA-approved and KFDA-approved equipment and products. Always disclose your medical history and current medications during the consultation.'}
+  ],
+  makeup:[
+    {q:'What is a Korean makeup look?',a:'Korean makeup emphasizes natural, dewy skin, gradient lips, straight eyebrows, and a youthful glow. It differs from Western makeup by focusing on skin texture over heavy coverage.'},
+    {q:'Can I get a Korean makeup lesson in Seoul?',a:'Yes! Many makeup studios in Seoul offer tutorial sessions for tourists where you learn Korean makeup techniques and take home product recommendations.'},
+    {q:'How much does a makeup session cost in Seoul?',a:'Professional makeup applications range from ₩50,000 to ₩150,000. Makeup lessons with a Korean artist typically cost ₩80,000 to ₩200,000.'},
+    {q:'What occasions are Korean makeup services popular for?',a:'Korean makeup studios are popular for photoshoots, hanbok experiences, K-pop lookbooks, weddings, and just as a unique cultural experience in Seoul.'},
+    {q:'Do Seoul makeup artists speak English?',a:'Many makeup studios in Hongdae, Myeongdong, and Gangnam cater to foreign tourists and have English-speaking artists or booking support.'}
+  ],
+  spa:[
+    {q:'What types of spa treatments are available in Seoul?',a:'Seoul spas offer traditional Korean body scrub (Italy towel exfoliation), aromatherapy massage, hot stone therapy, traditional Korean jjimjilbang experience, and luxurious body wraps.'},
+    {q:'What is a Korean body scrub?',a:'The Korean body scrub (때밀이, ddaemiri) is a traditional exfoliation using a special Italy towel. It removes dead skin cells leaving skin remarkably smooth and is a uniquely Korean experience.'},
+    {q:'How much does a Korean spa cost in Seoul?',a:'Basic spa treatments start from ₩50,000. Premium body treatments and full spa packages range from ₩100,000 to ₩300,000.'},
+    {q:'Are Seoul spas open to foreigners?',a:'Yes, most Seoul spas welcome foreigners. Seoul Beauty Trip lists spas with English booking support and foreigner-friendly service.'},
+    {q:'Should I book a spa in Seoul in advance?',a:'Yes, especially for weekend visits. Premium time slots fill quickly. Book via WhatsApp through Seoul Beauty Trip for easy English reservations.'}
+  ],
+  tattoo:[
+    {q:'What is eyebrow microblading in Korea?',a:'Korean eyebrow microblading (눈썹 반영구) is a semi-permanent tattooing technique that creates hair-stroke-like marks to define, reshape, and fill in eyebrows. Korea is globally recognized for its advanced microblading artistry, producing ultra-natural results that can last 1–2 years.'},
+    {q:'How much does eyebrow microblading cost in Seoul?',a:'Eyebrow microblading in Seoul typically costs ₩150,000–₩400,000 depending on the studio and technique (hairstroke, powder brow, or combo brow). This is significantly more affordable than Western countries where the same treatment can cost $500–$1,000+.'},
+    {q:'Is Korean microblading safe for foreigners?',a:'Yes. Korean eyebrow tattoo studios are licensed, use single-use sterile needles, and follow strict hygiene protocols. Seoul Beauty Trip only lists studios verified for foreign visitors with English support and transparent aftercare guidance.'},
+    {q:'How long does eyebrow microblading last in Korea?',a:'Korean microblading typically lasts 12–18 months before a touch-up is needed. Powder brow techniques can last up to 2 years. Longevity depends on skin type, sun exposure, and aftercare.'},
+    {q:'Can men get eyebrow microblading in Seoul?',a:'Absolutely. Men\'s eyebrow tattooing is a growing trend in Korea. Studios like INOUTE specialize in natural-looking men\'s eyebrow microblading, creating fuller, defined brows without an obvious "tattooed" appearance.'},
+    {q:'Do I need to book an eyebrow tattoo appointment in Seoul in advance?',a:'Yes, booking 1–3 days in advance is recommended. Popular studios can be fully booked on weekends. Book via WhatsApp through Seoul Beauty Trip for easy English-language reservations.'}
+  ]
+}
+const JA_DEFAULT_FAQ = [
+  {q:'How do I book a beauty salon in Seoul as a foreigner?',a:'Seoul Beauty Trip makes it easy — browse shops, choose your service, and book via WhatsApp in English. No Korean language skills needed.'},
+  {q:'Are these salons English-friendly?',a:'Yes, all salons listed on Seoul Beauty Trip are verified to support foreign visitors with English communication for bookings.'},
+  {q:'How far in advance should I book?',a:'1–3 days in advance is recommended. Same-day bookings are sometimes available on weekdays.'},
+  {q:'What payment methods are accepted?',a:'Most salons accept credit cards and cash (Korean Won). Some also accept international cards like Visa and Mastercard.'},
+  {q:'Can I cancel or reschedule my booking?',a:'Yes. Contact us via WhatsApp and we will help reschedule or cancel depending on the salon\'s policy.'}
+]
+
+// ── /video/:id — shop 페이지로 301 리디렉션, DB에 없으면 410 Gone (구글 색인 즉시 제거) ──
+app.get('/video/:id', async (c) => {
+  const sql = getDb(c.env)
+  const vid = c.req.param('id')
+  const rows = await sql`
+    SELECT s.slug as shop_slug
+    FROM videos v LEFT JOIN shops s ON v.shop_id=s.id
+    WHERE v.id=${vid}` as any[]
+  // DB에 없는 video ID → 410 Gone (301→/ 보다 구글이 더 빨리 인덱스 제거)
+  if (!rows.length) {
+    return c.html(`<!DOCTYPE html><html><head>
+<meta charset="UTF-8">
+<title>Video Removed | Seoul Beauty Trip</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="canonical" href="https://seoulbeautytrip.com/ja/">
+</head><body>
+<h1>Video no longer available</h1>
+<p><a href="/">Browse Seoul Beauty Trip</a></p>
+</body></html>`, 410)
+  }
+  const r = rows[0]
+  return c.redirect(r.shop_slug ? `/shop/${r.shop_slug}` : '/', 301)
+})
+
+// ── /best/clinic/gangnam 전용 SEO 라우트 (30개 클리닉) ──
+app.get('/best/clinic/gangnam', (c) => {
+  const yr = new Date().getFullYear()
+  const clinics = [
+    // Tier 1 — Perfect 5.0★
+    { rank:1,  name:'Sugar Plastic Surgery',          slug:'sugar-clinic-gangnam',                       area:'Gangnam', rating:5.0, reviews:168,   badge:'5.0★ Perfect',    specialty:'Rhinoplasty & Face Contouring',       price:'₩800K–₩3M',  highlight:'Small-clinic precision; highly rated for natural results in rhinoplasty and face-line work.' },
+    { rank:2,  name:'Onyoo Plastic Surgery',          slug:'onyoo-plastic-surgery-clinic-gangnam',       area:'Gangnam', rating:5.0, reviews:52,    badge:'5.0★ Perfect',    specialty:'Eyelid & Facial Rejuvenation',        price:'₩500K–₩2.5M',highlight:'Boutique clinic known for ultra-natural double-eyelid results with minimal downtime.' },
+    { rank:3,  name:'FittingClinic',                  slug:'fitting-clinic-gangnam',                     area:'Gangnam', rating:5.0, reviews:41,    badge:'5.0★ Perfect',    specialty:'Skin Boosters & Anti-Aging',         price:'₩200K–₩800K', highlight:'English-friendly; specialises in Juvelook, Rejuran, and HIFU for radiant skin.' },
+    { rank:4,  name:'Glovi G-Thera Anti-Aging',       slug:'glovi-antiaging-gangnam',                    area:'Gangnam', rating:5.0, reviews:28,    badge:'5.0★ Perfect',    specialty:'Anti-Aging & Skin Tightening',        price:'₩300K–₩1.5M',highlight:'Niche specialist in non-surgical lifting using G-Thera and RF technology.' },
+    { rank:5,  name:'Medicube Clinic',                slug:'medicube-clinic-seocho',                     area:'Seocho',  rating:5.0, reviews:646,   badge:'5.0★ Most-Reviewed',specialty:'Acne & Barrier Repair',             price:'₩150K–₩600K', highlight:'K-beauty brand clinic; outstanding acne care protocol with professional-grade devices.' },
+    // Tier 2 — Top Volume
+    { rank:6,  name:'GU Clinic',                      slug:'gu-clinic-seocho',                           area:'Seocho',  rating:4.8, reviews:10798, badge:'#1 Most Reviewed', specialty:'Full-Service Dermatology',           price:'₩100K–₩2M',  highlight:'10,000+ Google reviews — arguably the most trusted clinic in the Gangnam–Seocho corridor.' },
+    { rank:7,  name:'Braun Plastic Surgery',          slug:'braun-clinic-gangnam',                       area:'Gangnam', rating:4.7, reviews:1555,  badge:'Top Reviewed',     specialty:'Rhinoplasty & Breast Surgery',       price:'₩1M–₩8M',    highlight:'Internationally recognised; transparent pricing and dedicated English coordination team.' },
+    { rank:8,  name:'Orta Clinic',                    slug:'orta-clinic-seocho',                         area:'Seocho',  rating:4.8, reviews:4407,  badge:'Top Reviewed',     specialty:'Laser & Skin Care',                  price:'₩150K–₩1.2M',highlight:'4,400+ reviews; laser toning, Pico laser, and Fraxel under one roof.' },
+    { rank:9,  name:'Lienjang',                       slug:'lienjang-plastic-surgery-dermatology-gangnam',area:'Gangnam', rating:4.6, reviews:1461, badge:'Top Reviewed',     specialty:'Dermatology & Plastic Surgery',      price:'₩300K–₩5M',  highlight:'Dual plastic surgery + dermatology licence; popular for combined treatment packages.' },
+    { rank:10, name:'INKO Seoul',                     slug:'inko-clinic-gangnam',                        area:'Gangnam', rating:4.7, reviews:1451,  badge:'Top Reviewed',     specialty:'Anti-Aging & Regenerative Skin',     price:'₩200K–₩1.5M',highlight:'Cutting-edge regenerative treatments including exosomes and stem-cell-derived serums.' },
+    // Tier 3 — Established Mid-Size
+    { rank:11, name:'AB Plastic Surgery',             slug:'ab-plastic-surgery-seocho',                  area:'Seocho',  rating:4.7, reviews:985,   badge:'Established',      specialty:'Face & Body Contouring',            price:'₩500K–₩6M',  highlight:'Consistent high-satisfaction scores for liposuction and facial bone contouring.' },
+    { rank:12, name:'View Plastic Surgery',           slug:'view-plastic-surgery-gangnam',               area:'Gangnam', rating:4.6, reviews:785,   badge:'Established',      specialty:'Eyelid & Nose Surgery',              price:'₩600K–₩4M',  highlight:'Long-standing reputation for natural-looking eyelid and nose surgery.' },
+    { rank:13, name:'Lee Moon Won Korean Medicine',   slug:'lee-moon-won-korean-medicine-clinic',        area:'Gangnam', rating:4.8, reviews:1304,  badge:'Established',      specialty:'Acupuncture Facial Lifting',         price:'₩80K–₩400K', highlight:'Unique Korean traditional medicine approach; popular for facial lifting without surgery.' },
+    { rank:14, name:'DR.EVERS GANGNAM',               slug:'drevers-clinic-gangnam',                     area:'Gangnam', rating:4.6, reviews:1167,  badge:'Established',      specialty:'Non-Surgical Aesthetics',            price:'₩200K–₩1.2M',highlight:'European-style clinic; strong reviews for thread lifts and dermal fillers.' },
+    { rank:15, name:'Wonderful Plastic Surgery',      slug:'wonderful-clinic-gangnam',                   area:'Gangnam', rating:4.5, reviews:1061,  badge:'Established',      specialty:'Rhinoplasty & Contouring',           price:'₩700K–₩5M',  highlight:'Trusted name for secondary (revision) rhinoplasty cases.' },
+    // Tier 4 — Hidden Gems
+    { rank:16, name:'ME SEOUL CLINIC',                slug:'me-seoul-clinic-gangnam',                    area:'Gangnam', rating:4.7, reviews:710,   badge:'Hidden Gem',       specialty:'Skin Boosters & Laser',              price:'₩150K–₩800K', highlight:'Trendy Apgujeong clinic; loved by local influencers for glow treatments.' },
+    { rank:17, name:'D&A Dermatology',                slug:'da-derm-gangnam',                            area:'Gangnam', rating:4.7, reviews:422,   badge:'Hidden Gem',       specialty:'Acne & Pigmentation',                price:'₩100K–₩600K', highlight:'Highly rated for stubborn acne and post-acne pigmentation management.' },
+    { rank:18, name:'Jiwoo Clinic',                   slug:'jiwoo-clinic-gangnam',                       area:'Gangnam', rating:4.8, reviews:359,   badge:'Hidden Gem',       specialty:'Skin Rejuvenation',                  price:'₩120K–₩700K', highlight:'Small, personal clinic with exceptional patient care and Pico laser expertise.' },
+    { rank:19, name:'Barog Clinic',                   slug:'barog-clinic-gangnam',                       area:'Gangnam', rating:4.7, reviews:356,   badge:'Hidden Gem',       specialty:'Botox & Fillers',                    price:'₩100K–₩500K', highlight:'Affordable Botox and filler specialist; quick appointments, no waiting.' },
+    { rank:20, name:'Yaan Clinic',                    slug:'yaan-clinic-gangnam',                        area:'Gangnam', rating:4.6, reviews:332,   badge:'Hidden Gem',       specialty:'Anti-Aging Laser',                   price:'₩150K–₩900K', highlight:'Laser toning and skin brightening; popular with working professionals.' },
+    { rank:21, name:'Dr New Cell Clinic',             slug:'dr-new-cell-clinic-gangnam',                 area:'Gangnam', rating:4.6, reviews:386,   badge:'Hidden Gem',       specialty:'Regenerative Aesthetics',            price:'₩200K–₩1.2M',highlight:'Innovative exosome and growth-factor treatments for skin regeneration.' },
+    { rank:22, name:'Seoul I Plastic Surgery',        slug:'seoul-i-clinic-gangnam',                     area:'Gangnam', rating:4.6, reviews:269,   badge:'Hidden Gem',       specialty:'Eyelid Specialisation',              price:'₩500K–₩2M',  highlight:'Single-specialty focus on eyes; non-incisional and incisional double-eyelid options.' },
+    { rank:23, name:'Nohd Dermatology',               slug:'nohd-dermatology-gangnam',                   area:'Gangnam', rating:4.7, reviews:165,   badge:'Hidden Gem',       specialty:'Medical Dermatology',                price:'₩100K–₩500K', highlight:'Evidence-based dermatology; thorough skin analysis before any treatment.' },
+    { rank:24, name:'Cheongdam Dear Clinic',          slug:'dear-clinic-cheongdam',                      area:'Gangnam', rating:4.7, reviews:128,   badge:'Hidden Gem',       specialty:'Luxury Skin Care',                   price:'₩200K–₩1.5M',highlight:'Cheongdam boutique feel; VIP experience for skin boosters and anti-aging.' },
+    { rank:25, name:'Edition Plastic Surgery',        slug:'edition-plastic-surgery-clinic-seocho',      area:'Seocho',  rating:4.6, reviews:204,   badge:'Hidden Gem',       specialty:'Minimal Invasive Surgery',           price:'₩400K–₩3M',  highlight:'Focus on minimal-downtime surgical procedures using advanced endoscopic techniques.' },
+    // Tier 5 — Rising Stars
+    { rank:26, name:'Arc Plastic Surgery',            slug:'arc-plastic-surgery-seocho',                 area:'Seocho',  rating:4.5, reviews:98,    badge:'Rising Star',      specialty:'Body Contouring',                    price:'₩600K–₩4M',  highlight:'Up-and-coming Seocho clinic with strong early reviews for body-line work.' },
+    { rank:27, name:'21 Plastic Surgery',             slug:'21-plastic-surgery-gangnam',                 area:'Gangnam', rating:4.5, reviews:69,    badge:'Rising Star',      specialty:'Rhinoplasty & Chest',                price:'₩700K–₩5M',  highlight:'Young surgical team bringing fresh approaches to classic cosmetic procedures.' },
+    { rank:28, name:'GD Clinic',                      slug:'gd-clinic-gangnam',                          area:'Gangnam', rating:4.5, reviews:68,    badge:'Rising Star',      specialty:'Skin Care & Lasers',                 price:'₩100K–₩600K', highlight:'Affordable entry point for quality laser and skin-care treatments in Gangnam.' },
+    { rank:29, name:'Reev Clinic',                    slug:'reev-clinic-gangnam',                        area:'Gangnam', rating:4.5, reviews:26,    badge:'Rising Star',      specialty:'Anti-Aging Injectables',             price:'₩150K–₩700K', highlight:'New but already praised for precise Botox technique and honest consultations.' },
+    { rank:30, name:'TUNE CLINIC APGUJEONG',          slug:'tune-clinic-apgujeong',                      area:'Gangnam', rating:4.5, reviews:71,    badge:'Rising Star',      specialty:'Skin Toning & Brightening',          price:'₩120K–₩600K', highlight:'Apgujeong specialist in skin-tone correction and brightening laser protocols.' },
+  ]
+
+  const clinicCards = clinics.map(cl => `
+    <article class="bcg-card" itemscope itemtype="https://schema.org/MedicalBusiness">
+      <meta itemprop="name" content="${cl.name}">
+      <meta itemprop="url" content="https://seoulbeautytrip.com/shop/${cl.slug}">
+      <div class="bcg-card-head">
+        <span class="bcg-rank">#${cl.rank}</span>
+        <span class="bcg-badge">${cl.badge}</span>
+        <span class="bcg-area-tag">${cl.area}</span>
+      </div>
+      <h3 class="bcg-name" itemprop="name">${cl.name}</h3>
+      <p class="bcg-spec">⚕ ${cl.specialty}</p>
+      <p class="bcg-price">💰 Typical price: ${cl.price}</p>
+      <div class="bcg-rating">
+        <span class="bcg-stars">${'★'.repeat(Math.round(cl.rating))}${'☆'.repeat(5-Math.round(cl.rating))}</span>
+        <span class="bcg-rv">${cl.rating.toFixed(1)} · ${cl.reviews.toLocaleString()} reviews</span>
+      </div>
+      <p class="bcg-hl">${cl.highlight}</p>
+      <a href="/ja/shop/${cl.slug}" class="bcg-btn" itemprop="url">View Clinic →</a>
+    </article>`).join('\n')
+
+  const tier1Cards  = clinics.filter(c=>c.rank<=5)
+  const tier2Cards  = clinics.filter(c=>c.rank>=6&&c.rank<=10)
+  const tier3Cards  = clinics.filter(c=>c.rank>=11&&c.rank<=15)
+  const tier4Cards  = clinics.filter(c=>c.rank>=16&&c.rank<=25)
+  const tier5Cards  = clinics.filter(c=>c.rank>=26)
+
+  const renderCards = (list: typeof clinics) => list.map(cl => `
+    <article class="bcg-card" itemscope itemtype="https://schema.org/MedicalBusiness">
+      <meta itemprop="name" content="${cl.name}">
+      <div class="bcg-card-head">
+        <span class="bcg-rank">#${cl.rank}</span>
+        <span class="bcg-badge">${cl.badge}</span>
+        <span class="bcg-area-tag ${cl.area==='Seocho'?'seocho':''}">${cl.area}</span>
+      </div>
+      <h3 class="bcg-name">${cl.name}</h3>
+      <p class="bcg-spec">⚕ ${cl.specialty}</p>
+      <p class="bcg-price">💰 ${cl.price}</p>
+      <div class="bcg-rating">
+        <span class="bcg-stars">★${cl.rating.toFixed(1)}</span>
+        <span class="bcg-rv">${cl.reviews.toLocaleString()} reviews</span>
+      </div>
+      <p class="bcg-hl">${cl.highlight}</p>
+      <a href="/ja/shop/${cl.slug}" class="bcg-btn">Book / Details →</a>
+    </article>`).join('')
+
+  const itemListEl = clinics.map(cl => `{"@type":"ListItem","position":${cl.rank},"url":"https://seoulbeautytrip.com/shop/${cl.slug}","name":"${cl.name}"}`).join(',')
+  const medBizEl   = clinics.slice(0,5).map(cl => `{"@type":"MedicalBusiness","name":"${cl.name}","url":"https://seoulbeautytrip.com/shop/${cl.slug}","aggregateRating":{"@type":"AggregateRating","ratingValue":"${cl.rating}","reviewCount":"${cl.reviews}"}}`).join(',')
+
+  const html = `<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${shop.name} | ソウルビューティートリップ</title>
-<meta name="description" content="${shop.metaDescription||shop.description||''}">
-<link rel="canonical" href="${base}/ja/shop/${slug}">
-<link rel="alternate" hreflang="ja" href="${base}/ja/shop/${slug}">
-<link rel="alternate" hreflang="en" href="${base}/shop/${slug}">
-<meta property="og:title" content="${shop.name} — ソウルビューティー">
-<meta property="og:description" content="${shop.description||''}">
-<meta property="og:url" content="${base}/ja/shop/${slug}">
-<meta property="og:type" content="place">
-<meta property="og:locale" content="ja_JP">
-${shop.thumbnail?`<meta property="og:image" content="${shop.thumbnail}">`:'' }
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+<title>Best Plastic Surgery Clinics Gangnam Seoul ${yr} | Seoul Beauty Trip</title>
+<meta name="description" content="Plastic surgery &amp; skin clinics in Gangnam Seoul — top 30 ranked by ${yr} patient reviews. Board-certified surgeons, English-friendly booking, honest prices for international visitors.">
+<link rel="canonical" href="https://seoulbeautytrip.com/ja/best/clinic/gangnam">
+<meta property="og:title" content="Best Plastic Surgery Clinics Gangnam Seoul ${yr} | Seoul Beauty Trip">
+<meta property="og:description" content="Verified list of the 30 best aesthetic clinics in Gangnam &amp; Seocho. English booking available.">
+<meta property="og:url" content="https://seoulbeautytrip.com/best/clinic/gangnam">
+<meta property="og:type" content="article">
+<meta property="og:image" content="https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:alt" content="Best Plastic Surgery Clinics in Gangnam Seoul — Seoul Beauty Trip">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+  {"@type":"ItemList","name":"Best Plastic Surgery &amp; Skin Clinics in Gangnam Seoul ${yr}","numberOfItems":30,"itemListElement":[${itemListEl}]},
+  {"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://seoulbeautytrip.com"},{"@type":"ListItem","position":2,"name":"Best Clinics","item":"https://seoulbeautytrip.com/best"},{"@type":"ListItem","position":3,"name":"Skin Clinics Gangnam","item":"https://seoulbeautytrip.com/best/clinic/gangnam"}]}
+]}
+</script>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:#0d0d18;color:#fff;font-family:"Hiragino Sans","Yu Gothic",sans-serif;min-height:100vh}
-.sp-hero{position:relative;height:260px;overflow:hidden}
-.sp-hero-img{width:100%;height:100%;object-fit:cover}
-.sp-hero-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(13,13,24,0) 30%,rgba(13,13,24,.95))}
-.sp-hero-info{position:absolute;bottom:0;left:0;right:0;padding:16px 20px}
-.sp-cat-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:700;margin-bottom:8px}
-.sp-name{font-size:1.5rem;font-weight:900;color:#fff;line-height:1.2;margin-bottom:6px}
-.sp-meta{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.sp-rating{display:flex;align-items:center;gap:4px;font-size:12px;color:#fbbf24;font-weight:700}
-.sp-loc{font-size:12px;color:rgba(255,255,255,.55);display:flex;align-items:center;gap:4px}
-.sp-body{max-width:760px;margin:0 auto;padding:20px}
-.sp-section{background:#13132a;border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:18px;margin-bottom:14px}
-.sp-section-title{font-size:13px;font-weight:800;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;display:flex;align-items:center;gap:6px}
-.sp-section-title i{font-size:12px}
-.book-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;background:linear-gradient(135deg,#25D366,#128C7E);color:#fff;font-size:14px;font-weight:700;border-radius:12px;text-decoration:none;margin-top:6px;transition:opacity .2s}
-.book-btn:hover{opacity:.9}
-.photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+:root{--gn:#2d6a4f;--gn2:#1b4332;--gold:#f59e0b;--seocho:#7c3aed}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#f8fafc;color:#1e293b;margin:0}
+.bcg-hero{background:linear-gradient(135deg,#1b4332 0%,#2d6a4f 60%,#40916c 100%);color:#fff;padding:56px 24px 48px;text-align:center}
+.bcg-hero h1{font-size:clamp(1.6rem,4vw,2.6rem);font-weight:800;margin:0 0 12px;line-height:1.2}
+.bcg-hero p{font-size:1.05rem;opacity:.9;max-width:620px;margin:0 auto 20px}
+.bcg-hero-stats{display:flex;justify-content:center;gap:32px;flex-wrap:wrap;margin-top:8px}
+.bcg-stat{text-align:center}.bcg-stat-n{font-size:1.8rem;font-weight:800;color:#95d5b2}
+.bcg-stat-l{font-size:.75rem;opacity:.8;text-transform:uppercase;letter-spacing:.05em}
+.bcg-nav-strip{background:#fff;border-bottom:1px solid #e2e8f0;padding:12px 24px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.bcg-nav-strip a{font-size:.8rem;color:#64748b;text-decoration:none}.bcg-nav-strip a:hover{color:#2d6a4f}
+.bcg-nav-strip span{color:#94a3b8;font-size:.8rem}
+.bcg-toc-box{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px 24px;max-width:800px;margin:32px auto 0}
+.bcg-toc-box h2{font-size:1rem;font-weight:700;margin:0 0 12px;color:#1e293b}
+.bcg-toc-box ol{margin:0;padding-left:20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:4px 16px}
+.bcg-toc-box li{font-size:.85rem;color:#475569;padding:2px 0}
+.bcg-toc-box li a{color:#2d6a4f;text-decoration:none}.bcg-toc-box li a:hover{text-decoration:underline}
+.bcg-main{max-width:1100px;margin:0 auto;padding:0 16px 64px}
+.bcg-intro{background:#fff;border-radius:12px;padding:28px 32px;margin:32px 0;border:1px solid #e2e8f0;line-height:1.75}
+.bcg-intro h2{font-size:1.25rem;font-weight:700;margin:0 0 12px;color:#1b4332}
+.bcg-intro p{font-size:.95rem;color:#374151;margin:0 0 12px}
+.bcg-intro ul{padding-left:20px;font-size:.92rem;color:#374151}
+.bcg-intro li{margin-bottom:6px}
+.bcg-tier{margin:40px 0}
+.bcg-tier-title{font-size:1.35rem;font-weight:800;color:#1b4332;margin:0 0 8px;padding-bottom:8px;border-bottom:2px solid #d1fae5}
+.bcg-tier-desc{font-size:.9rem;color:#64748b;margin:0 0 20px;line-height:1.65}
+.bcg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px}
+.bcg-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:8px;transition:box-shadow .2s,transform .2s}
+.bcg-card:hover{box-shadow:0 8px 24px rgba(0,0,0,.1);transform:translateY(-2px)}
+.bcg-card-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.bcg-rank{background:#1b4332;color:#fff;font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:20px}
+.bcg-badge{font-size:.7rem;font-weight:600;padding:2px 8px;border-radius:20px;background:#dcfce7;color:#166534}
+.bcg-area-tag{font-size:.7rem;font-weight:600;padding:2px 8px;border-radius:20px;background:#ede9fe;color:#5b21b6}
+.bcg-area-tag:not(.seocho){background:#e0f2fe;color:#075985}
+.bcg-name{font-size:1.05rem;font-weight:700;color:#1e293b;margin:0}
+.bcg-spec{font-size:.82rem;color:#475569;margin:0}
+.bcg-price{font-size:.82rem;color:#64748b;margin:0}
+.bcg-rating{display:flex;align-items:center;gap:8px}
+.bcg-stars{color:#f59e0b;font-weight:700;font-size:.9rem}
+.bcg-rv{font-size:.78rem;color:#94a3b8}
+.bcg-hl{font-size:.85rem;color:#374151;line-height:1.55;margin:0;flex:1}
+.bcg-btn{display:inline-block;margin-top:4px;background:#2d6a4f;color:#fff;padding:8px 16px;border-radius:8px;font-size:.85rem;font-weight:600;text-decoration:none;text-align:center;transition:background .2s}
+.bcg-btn:hover{background:#1b4332}
+.bcg-guide-box{background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #86efac;border-radius:14px;padding:28px 32px;margin:48px 0}
+.bcg-guide-box h2{font-size:1.15rem;font-weight:700;color:#1b4332;margin:0 0 16px}
+.bcg-guide-links{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
+.bcg-guide-links a{background:#fff;border:1px solid #86efac;border-radius:10px;padding:10px 14px;font-size:.85rem;color:#166534;text-decoration:none;font-weight:500;transition:background .2s}
+.bcg-guide-links a:hover{background:#f0fdf4}
+.bcg-faq{margin:48px 0}
+.bcg-faq h2{font-size:1.25rem;font-weight:700;color:#1b4332;margin:0 0 20px;padding-bottom:8px;border-bottom:2px solid #d1fae5}
+.bcg-faq-item{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px 24px;margin-bottom:14px}
+.bcg-faq-q{font-size:.95rem;font-weight:700;color:#1e293b;margin:0 0 8px}
+.bcg-faq-a{font-size:.88rem;color:#475569;line-height:1.7;margin:0}
+.bcg-price-table{width:100%;border-collapse:collapse;font-size:.88rem;margin:16px 0}
+.bcg-price-table th{background:#1b4332;color:#fff;padding:10px 14px;text-align:left}
+.bcg-price-table td{padding:10px 14px;border-bottom:1px solid #e2e8f0;color:#374151}
+.bcg-price-table tr:nth-child(even) td{background:#f8fafc}
+.bcg-cta-box{background:#1b4332;color:#fff;border-radius:16px;padding:36px 32px;text-align:center;margin:48px 0}
+.bcg-cta-box h2{font-size:1.4rem;font-weight:800;margin:0 0 12px}
+.bcg-cta-box p{font-size:.95rem;opacity:.85;max-width:520px;margin:0 auto 20px}
+.bcg-cta-link{display:inline-block;background:#fff;color:#1b4332;font-weight:700;padding:12px 28px;border-radius:10px;text-decoration:none;font-size:.95rem}
+.bcg-cta-link:hover{background:#dcfce7}
+@media(max-width:640px){.bcg-hero{padding:36px 16px 32px}.bcg-intro{padding:20px 18px}.bcg-guide-box{padding:20px 16px}.bcg-faq-item{padding:16px 18px}}
 </style>
 </head>
 <body>
-${jaLangNav('ja', '/ja/shop/'+slug)}
-<div class="sp-hero">
-  ${shop.thumbnail?`<img class="sp-hero-img" src="${shop.thumbnail}" alt="${shop.name}" loading="eager">`:'<div class="sp-hero-img" style="background:linear-gradient(135deg,#1c1c30,#0d0d18)"></div>'}
-  <div class="sp-hero-overlay"></div>
-  <div class="sp-hero-info">
-    <div class="sp-cat-badge" style="background:${catColor}22;color:${catColor};border:1px solid ${catColor}44">
-      <i class="fas ${catIcon}"></i>${catLabel}
+<nav class="bcg-nav-strip">
+  <a href="/">Home</a><span>›</span>
+  <a href="/best">Best Lists</a><span>›</span>
+  <span style="color:#2d6a4f;font-weight:600">Skin Clinics · Gangnam &amp; Seocho</span>
+</nav>
+
+<header class="bcg-hero">
+  <h1>Best Plastic Surgery &amp; Skin Clinics in Gangnam Seoul (${yr})</h1>
+  <p>Verified by real patient reviews. English-friendly booking available via WhatsApp for all listed clinics.</p>
+  <div class="bcg-hero-stats">
+    <div class="bcg-stat"><div class="bcg-stat-n">30</div><div class="bcg-stat-l">Clinics Listed</div></div>
+    <div class="bcg-stat"><div class="bcg-stat-n">24K+</div><div class="bcg-stat-l">Reviews Analysed</div></div>
+    <div class="bcg-stat"><div class="bcg-stat-n">5</div><div class="bcg-stat-l">Tiers Ranked</div></div>
+    <div class="bcg-stat"><div class="bcg-stat-n">🇬🇧</div><div class="bcg-stat-l">English Support</div></div>
+  </div>
+</header>
+
+<main class="bcg-main">
+
+<div class="bcg-toc-box">
+  <h2>📋 Quick Navigation</h2>
+  <ol>
+    <li><a href="#tier1">Tier 1 — Perfect 5.0★ (Clinics 1–5)</a></li>
+    <li><a href="#tier2">Tier 2 — Highest Review Volume (6–10)</a></li>
+    <li><a href="#tier3">Tier 3 — Established Performers (11–15)</a></li>
+    <li><a href="#tier4">Tier 4 — Hidden Gems (16–25)</a></li>
+    <li><a href="#tier5">Tier 5 — Rising Stars (26–30)</a></li>
+    <li><a href="#prices">Price Reference Table</a></li>
+    <li><a href="#booking">How to Book</a></li>
+    <li><a href="#faq">FAQ</a></li>
+  </ol>
+</div>
+
+<div class="bcg-intro">
+  <h2>Why Gangnam &amp; Seocho for Aesthetic Treatments?</h2>
+  <p>Gangnam and its neighbouring district Seocho form the world's most concentrated cluster of aesthetic clinics. Within a few square kilometres you will find board-certified plastic surgeons, dermatologists, and cosmetic medicine specialists whose credentials rival top practices in New York or London — often at a fraction of the price.</p>
+  <p>What sets the area apart is not just density but <strong>competition-driven quality</strong>. Clinics know that patients can walk next door if the results disappoint, which keeps standards remarkably high. Google reviews in Korean are brutally honest, and the thirty clinics on this list have collectively earned strong ratings from tens of thousands of real patients.</p>
+  <ul>
+    <li>🌏 <strong>International-friendly infrastructure</strong> — most clinics offer English consultation or dedicated translation staff</li>
+    <li>💳 <strong>Transparent pricing</strong> — Korean clinics are required by law to post treatment prices; no hidden fees</li>
+    <li>🏥 <strong>Advanced technology</strong> — latest laser and device platforms arrive in Seoul before most Western markets</li>
+    <li>✈️ <strong>Medical tourism ecosystem</strong> — hotels, recovery residences, and airport-to-clinic transfers all available</li>
+  </ul>
+  <p>This guide covers both Gangnam-gu and Seocho-gu because many of the strongest clinics — including the most-reviewed clinic in the entire area — sit on the Seocho side of the Gangnam boundary. Treating them as separate lists would be artificial; most visitors travel between the two districts in under ten minutes.</p>
+</div>
+
+<section class="bcg-tier" id="tier1">
+  <h2 class="bcg-tier-title">⭐ Tier 1 — Perfect 5.0★ Rating</h2>
+  <p class="bcg-tier-desc">These five clinics have maintained a flawless five-star average across all major review platforms. Achieving perfect scores is rare in a hyper-competitive market like Gangnam, making each a benchmark for quality in its specialty.</p>
+  <div class="bcg-grid">${renderCards(tier1Cards)}</div>
+</section>
+
+<section class="bcg-tier" id="tier2">
+  <h2 class="bcg-tier-title">🏆 Tier 2 — Highest Review Volume</h2>
+  <p class="bcg-tier-desc">Volume alone does not guarantee quality, but when thousands of patients repeatedly leave strong feedback, it is a reliable signal. These clinics combine scale with consistent patient satisfaction — a difficult balance to maintain.</p>
+  <div class="bcg-grid">${renderCards(tier2Cards)}</div>
+</section>
+
+<section class="bcg-tier" id="tier3">
+  <h2 class="bcg-tier-title">💼 Tier 3 — Established Performers</h2>
+  <p class="bcg-tier-desc">Mid-size clinics with hundreds to over a thousand reviews and consistently high scores. These are the workhorses of the Gangnam–Seocho scene — dependable, experienced, and broadly trusted by both local and international patients.</p>
+  <div class="bcg-grid">${renderCards(tier3Cards)}</div>
+</section>
+
+<section class="bcg-tier" id="tier4">
+  <h2 class="bcg-tier-title">💎 Tier 4 — Hidden Gems</h2>
+  <p class="bcg-tier-desc">Smaller review counts can reflect a specialist niche or a newer practice rather than lower quality. Each clinic here earns its place with outstanding ratings and a clear area of expertise — often offering more personalised care than larger chains.</p>
+  <div class="bcg-grid">${renderCards(tier4Cards)}</div>
+</section>
+
+<section class="bcg-tier" id="tier5">
+  <h2 class="bcg-tier-title">🚀 Tier 5 — Rising Stars</h2>
+  <p class="bcg-tier-desc">Newer to the scene but already building solid reputations. Worth booking now before they become household names and appointment wait times grow longer.</p>
+  <div class="bcg-grid">${renderCards(tier5Cards)}</div>
+</section>
+
+<section id="prices" style="margin:48px 0">
+  <h2 style="font-size:1.25rem;font-weight:700;color:#1b4332;margin:0 0 16px;padding-bottom:8px;border-bottom:2px solid #d1fae5">💰 Price Reference Table — Common Treatments</h2>
+  <p style="font-size:.88rem;color:#64748b;margin:0 0 16px">All prices are approximate and vary by clinic, practitioner, and treatment plan. Always request a written quote during your consultation.</p>
+  <div style="overflow-x:auto">
+  <table class="bcg-price-table">
+    <thead><tr><th>Treatment</th><th>Low Range</th><th>High Range</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Botox (jaw slimming)</td><td>₩80,000</td><td>₩200,000</td><td>Results last 4–6 months</td></tr>
+      <tr><td>Dermal filler (1 vial)</td><td>₩150,000</td><td>₩400,000</td><td>Juvederm, Restylane common brands</td></tr>
+      <tr><td>Rejuran Healer</td><td>₩200,000</td><td>₩500,000</td><td>Polynucleotide skin booster</td></tr>
+      <tr><td>Juvelook (skin booster)</td><td>₩180,000</td><td>₩450,000</td><td>PDLLA filler; longer lasting</td></tr>
+      <tr><td>HIFU / Shurink (full face)</td><td>₩300,000</td><td>₩900,000</td><td>Ultrasound lifting; 1–2 sessions/year</td></tr>
+      <tr><td>Thermage FLX (full face)</td><td>₩600,000</td><td>₩1,500,000</td><td>RF tightening; once yearly typical</td></tr>
+      <tr><td>Pico laser (full face)</td><td>₩100,000</td><td>₩350,000</td><td>Pigmentation, brightening</td></tr>
+      <tr><td>Thread lift (mid-face)</td><td>₩400,000</td><td>₩1,200,000</td><td>PDO/PLLA threads; 3–12 month duration</td></tr>
+      <tr><td>Double eyelid (non-incisional)</td><td>₩500,000</td><td>₩1,500,000</td><td>Recovery: 1–2 weeks</td></tr>
+      <tr><td>Rhinoplasty (tip only)</td><td>₩800,000</td><td>₩2,500,000</td><td>Cartilage or implant; full recovery 3–4 weeks</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section id="booking" style="margin:48px 0">
+  <h2 style="font-size:1.25rem;font-weight:700;color:#1b4332;margin:0 0 16px;padding-bottom:8px;border-bottom:2px solid #d1fae5">📅 How to Book an Appointment</h2>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px">
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px">
+      <div style="font-size:1.5rem;margin-bottom:8px">1️⃣</div>
+      <h3 style="font-size:.95rem;font-weight:700;margin:0 0 8px">Choose your clinic</h3>
+      <p style="font-size:.85rem;color:#64748b;margin:0">Browse the list above. Filter by your desired treatment, budget, and area (Gangnam or Seocho).</p>
     </div>
-    <h1 class="sp-name">${shop.name}</h1>
-    <div class="sp-meta">
-      <div class="sp-rating"><i class="fas fa-star"></i>${shop.rating} (${shop.reviewCount}件)</div>
-      <div class="sp-loc"><i class="fas fa-map-marker-alt"></i>${shop.location}</div>
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px">
+      <div style="font-size:1.5rem;margin-bottom:8px">2️⃣</div>
+      <h3 style="font-size:.95rem;font-weight:700;margin:0 0 8px">Request via WhatsApp</h3>
+      <p style="font-size:.85rem;color:#64748b;margin:0">Click "Book / Details" on any clinic card. Our team contacts the clinic on your behalf in Korean — no language barrier.</p>
     </div>
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px">
+      <div style="font-size:1.5rem;margin-bottom:8px">3️⃣</div>
+      <h3 style="font-size:.95rem;font-weight:700;margin:0 0 8px">Confirm &amp; visit</h3>
+      <p style="font-size:.85rem;color:#64748b;margin:0">Receive your appointment time and clinic address in English. Bring your passport — some clinics require ID for medical records.</p>
+    </div>
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px">
+      <div style="font-size:1.5rem;margin-bottom:8px">4️⃣</div>
+      <h3 style="font-size:.95rem;font-weight:700;margin:0 0 8px">Aftercare support</h3>
+      <p style="font-size:.85rem;color:#64748b;margin:0">Post-treatment questions? Message us on WhatsApp and we will liaise with the clinic for any follow-up needs.</p>
+    </div>
+  </div>
+</section>
+
+<div class="bcg-guide-box">
+  <h2>📚 Related Treatment Guides</h2>
+  <div class="bcg-guide-links">
+    <a href="/guide/shurink-hifu-seoul-price">HIFU &amp; Shurink — Seoul Price Guide</a>
+    <a href="/guide/rejuran-healer-korea-guide">Rejuran Healer — Complete Korea Guide</a>
+    <a href="/guide/thermage-flx-korea-cost">Thermage FLX — Korea Cost Guide</a>
+    <a href="/guide/botox-jaw-slimming-seoul">Botox Jaw Slimming in Seoul</a>
+    <a href="/guide/skin-booster-comparison-juvelook-rejuran">Juvelook vs Rejuran — Comparison</a>
+    <a href="/guide/laser-toning-pico-laser-korea">Pico Laser &amp; Laser Toning in Korea</a>
+    <a href="/guide/thread-lift-korea-foreigner-guide">Thread Lift — Foreigner Guide</a>
+    <a href="/guide/double-eyelid-surgery-korea-foreigners">Double Eyelid Surgery for Foreigners</a>
+    <a href="/guide/exosome-skin-treatment-seoul">Exosome Skin Treatment Seoul</a>
+    <a href="/guide/rhinoplasty-korea-cost-guide">Rhinoplasty Korea — Cost Guide</a>
   </div>
 </div>
 
-<div class="sp-body">
-  ${shop.whatsapp?`<a href="https://wa.me/${shop.whatsapp.replace(/\D/g,'')}" target="_blank" rel="noopener" class="book-btn"><i class="fab fa-whatsapp" style="font-size:18px"></i>WhatsAppで予約する</a>`:''}
+<section class="bcg-faq" id="faq">
+  <h2>❓ Frequently Asked Questions</h2>
 
-  ${shop.description?`<div class="sp-section">
-    <div class="sp-section-title"><i class="fas fa-info-circle"></i>サロンについて</div>
-    <p style="font-size:13.5px;color:rgba(255,255,255,.7);line-height:1.7">${shop.description}</p>
-  </div>`:''}
-
-  ${whyChooseHtml?`<div class="sp-section">
-    <div class="sp-section-title"><i class="fas fa-star"></i>おすすめポイント</div>
-    ${whyChooseHtml}
-  </div>`:''}
-
-  ${servicesHtml?`<div class="sp-section">
-    <div class="sp-section-title"><i class="fas fa-list"></i>メニュー・料金</div>
-    ${servicesHtml}
-  </div>`:''}
-
-  <div class="sp-section">
-    <div class="sp-section-title"><i class="fas fa-clock"></i>基本情報</div>
-    ${shop.hours?`<div style="display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)"><i class="fas fa-clock" style="color:#60a5fa;flex-shrink:0;margin-top:2px"></i><span style="font-size:13px;color:rgba(255,255,255,.8)">${shop.hours}</span></div>`:''}
-    ${shop.address?`<div style="display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)"><i class="fas fa-map-marker-alt" style="color:#f472b6;flex-shrink:0;margin-top:2px"></i><span style="font-size:13px;color:rgba(255,255,255,.8)">${shop.address}</span></div>`:''}
-    ${shop.priceRange?`<div style="display:flex;gap:8px;align-items:flex-start;padding:8px 0"><i class="fas fa-won-sign" style="color:#fbbf24;flex-shrink:0;margin-top:2px"></i><span style="font-size:13px;color:rgba(255,255,255,.8)">${shop.priceRange}</span></div>`:''}
+  <div class="bcg-faq-item" itemscope itemtype="https://schema.org/Question">
+    <p class="bcg-faq-q" itemprop="name">Do Gangnam clinics offer consultations in English?</p>
+    <div class="bcg-faq-a" itemscope itemtype="https://schema.org/Answer" itemprop="acceptedAnswer">
+      <p itemprop="text">Most clinics on this list have at least basic English-speaking staff, and several — particularly those popular with international visitors — offer dedicated English coordinators. If direct communication is a concern, Seoul Beauty Trip can handle the back-and-forth in Korean on your behalf and relay everything to you in English.</p>
+    </div>
   </div>
 
-  ${shop.googleMapEmbed?`<div class="sp-section">
-    <div class="sp-section-title"><i class="fas fa-map"></i>アクセス</div>
-    <div style="border-radius:10px;overflow:hidden;height:220px">${shop.googleMapEmbed}</div>
-  </div>`:''}
+  <div class="bcg-faq-item" itemscope itemtype="https://schema.org/Question">
+    <p class="bcg-faq-q" itemprop="name">Is it safe to have plastic surgery or skin treatments in Korea as a tourist?</p>
+    <div class="bcg-faq-a" itemscope itemtype="https://schema.org/Answer" itemprop="acceptedAnswer">
+      <p itemprop="text">South Korea has one of the most regulated medical aesthetics industries in the world. Clinics must be licensed, doctors must hold board certifications, and treatment prices must be publicly posted. The clinics on this list have high review volumes and strong ratings — a reliable indicator of consistent safety and quality. As with any medical procedure, always complete a proper consultation before committing to any treatment.</p>
+    </div>
+  </div>
 
-  ${photosHtml?`<div class="sp-section">
-    <div class="sp-section-title"><i class="fas fa-images"></i>フォトギャラリー</div>
-    <div class="photo-grid">${photosHtml}</div>
-  </div>`:''}
+  <div class="bcg-faq-item" itemscope itemtype="https://schema.org/Question">
+    <p class="bcg-faq-q" itemprop="name">How far is Gangnam from central Seoul and the airport?</p>
+    <div class="bcg-faq-a" itemscope itemtype="https://schema.org/Answer" itemprop="acceptedAnswer">
+      <p itemprop="text">From Incheon Airport (ICN), the AREX express train reaches Seoul Station in 43 minutes. From Seoul Station, the subway to Gangnam Station takes a further 20–25 minutes, making the total journey roughly 65–70 minutes. From Gimpo Airport (GMP), the journey to Gangnam is around 30–40 minutes. Most clinics are within a five-minute walk of a subway station.</p>
+    </div>
+  </div>
 
-  ${shop.whatsapp?`<a href="https://wa.me/${shop.whatsapp.replace(/\D/g,'')}" target="_blank" rel="noopener" class="book-btn" style="margin-top:6px"><i class="fab fa-whatsapp" style="font-size:18px"></i>WhatsAppで予約する</a>`:''}
+  <div class="bcg-faq-item" itemscope itemtype="https://schema.org/Question">
+    <p class="bcg-faq-q" itemprop="name">What is the difference between Gangnam and Seocho clinics?</p>
+    <div class="bcg-faq-a" itemscope itemtype="https://schema.org/Answer" itemprop="acceptedAnswer">
+      <p itemprop="text">Administratively they are separate districts, but they share a border and are culturally and geographically continuous. Gangnam-gu contains Apgujeong (luxury brand clinics) and the main Gangnam station area (broad range of clinics). Seocho-gu, directly to the south-west, contains Banpo and Seocho-dong — less tourist-heavy but with some of the highest-reviewed clinics in all of Seoul, including GU Clinic with over 10,000 Google reviews.</p>
+    </div>
+  </div>
+
+  <div class="bcg-faq-item" itemscope itemtype="https://schema.org/Question">
+    <p class="bcg-faq-q" itemprop="name">How far in advance should I book?</p>
+    <div class="bcg-faq-a" itemscope itemtype="https://schema.org/Answer" itemprop="acceptedAnswer">
+      <p itemprop="text">For non-surgical treatments (botox, fillers, laser), same-week or even same-day appointments are sometimes available at smaller clinics. For surgical procedures (rhinoplasty, double eyelid, body contouring), plan a minimum of two to four weeks in advance to allow time for a consultation, pre-operative tests, and scheduling. During peak travel seasons (spring and autumn), popular clinics can be fully booked several weeks out.</p>
+    </div>
+  </div>
+
+  <div class="bcg-faq-item" itemscope itemtype="https://schema.org/Question">
+    <p class="bcg-faq-q" itemprop="name">What payment methods do Gangnam clinics accept?</p>
+    <div class="bcg-faq-a" itemscope itemtype="https://schema.org/Answer" itemprop="acceptedAnswer">
+      <p itemprop="text">Most clinics accept international credit cards (Visa, Mastercard, Amex) and cash in Korean Won. Some accept bank transfers. Foreign card fees can be 2–3%, so having cash or a low-fee travel card is advisable. VAT refund (부가세 환급) is available for treatments paid in cash at some clinics — ask the front desk before payment.</p>
+    </div>
+  </div>
+</section>
+
+<div class="bcg-cta-box">
+  <h2>Ready to Book Your Seoul Clinic?</h2>
+  <p>Browse all verified clinics and request your appointment via WhatsApp — in English, no Korean needed.</p>
+  <a href="/" class="bcg-cta-link">Browse All Shops →</a>
 </div>
+
+</main>
+
+<footer style="background:#1e293b;color:#94a3b8;text-align:center;padding:24px 16px;font-size:.8rem">
+  <p style="margin:0 0 6px"><a href="/" style="color:#94a3b8;text-decoration:none">Seoul Beauty Trip</a> &nbsp;·&nbsp; <a href="/best" style="color:#94a3b8;text-decoration:none">Best Lists</a> &nbsp;·&nbsp; <a href="/guide/k-beauty-treatment-guide" style="color:#94a3b8;text-decoration:none">Treatment Guide</a></p>
+  <p style="margin:0">© ${yr} Seoul Beauty Trip. All clinic information is based on publicly available review data and is updated regularly.</p>
+</footer>
 </body>
 </html>`
-    return c.html(html)
-  } catch(e: any) {
-    return c.html('<h1>一時的なエラーが発生しました</h1>', 500)
+
+  return c.html(html)
+})
+
+// ── /best/ 카테고리 301 리디렉션 맵 ──
+const JA_BEST_CAT_REDIRECTS: Record<string, string> = {
+  'plastic-surgery': 'clinic',
+  'dermatology':     'clinic',
+  'nail':            'makeup',
+  // 'skincare' 제거 — DB에 skincare 카테고리 업체 없으나 구글이 이미 인덱싱한 URL이라
+  // clinic으로 리디렉트 시 clinic/area 가 thin content(1개)면 또 다른 404/301 체인 유발
+  // → 직접 /best/clinic/seoul 로 보내도록 아래 safeArea 로직에서 처리
+  'skincare':        'clinic',  // clinic/area 업체 없으면 seoul로 fallback
+  'hair':            'headspa',
+  'spa':             'headspa',
+}
+
+app.get('/best/:category/:area', async (c) => {
+  const catSlug  = c.req.param('category').toLowerCase()
+  const areaSlug = c.req.param('area').toLowerCase()
+
+  // 카테고리 리디렉션 (plastic-surgery → clinic 등)
+  // 단, hair→headspa / spa→headspa / nail→makeup 은 지역별 페이지가 없는 경우가 많으므로
+  // seoul(전체)로 리다이렉트 — 404 방지
+  if (BEST_CAT_REDIRECTS[catSlug]) {
+    const targetCat = JA_BEST_CAT_REDIRECTS[catSlug]
+    // headspa: 서울 이외 지역은 업체 없으므로 seoul로
+    // makeup: gangnam만 업체 있으므로 gangnam 아닌 경우 seoul로
+    // skincare→clinic: clinic 업체가 3개 이상인 지역만 유지, 아니면 seoul로 (404/thin 방지)
+    // hair→headspa: seoul만
+    const CLINIC_OK_AREAS = ['gangnam', 'seocho', 'myeongdong', 'seoul'] // 3개↑ 업체 있는 지역
+    const safeArea = (targetCat === 'headspa' && areaSlug !== 'seoul') ? 'seoul'
+      : (targetCat === 'makeup' && areaSlug !== 'gangnam' && areaSlug !== 'seoul') ? 'seoul'
+      : (targetCat === 'clinic' && catSlug === 'skincare' && !CLINIC_OK_AREAS.includes(areaSlug)) ? 'seoul'
+      : areaSlug
+    return c.redirect(`/best/${targetCat}/${safeArea}`, 301)
   }
+
+  const catLabel  = CATEGORY_LABELS[catSlug]
+  const areaLabel = JA_AREA_LABELS[areaSlug]
+  // 유효하지 않은 카테고리/지역이면 404
+  if (!catLabel || !areaLabel) return c.notFound()
+  // areaLabel이 있으면서 slug이 없는 경우 - area slug 검증
+  if (!JA_AREA_LABELS[areaSlug]) return c.notFound()
+  // areaLabel이 'Seoul'이면 ", Seoul" / " Seoul" 중복 방지용 헬퍼
+  const _isSeoul = areaLabel.toLowerCase() === 'seoul'
+  // "in {areaLabel} Seoul" → areaLabel이 Seoul이면 "in Seoul"만
+  const _inAreaSeoul  = _isSeoul ? 'in Seoul' : `in ${areaLabel}, Seoul`
+  // "{areaLabel} Seoul" → areaLabel이 Seoul이면 "Seoul"만
+  const _areaSeoul    = _isSeoul ? 'Seoul' : `${areaLabel} Seoul`
+  // "{areaLabel}, Seoul" → areaLabel이 Seoul이면 "Seoul"만
+  const _areaCommaSeoul = _isSeoul ? 'Seoul' : `${areaLabel}, Seoul`
+
+  const sql = getDb(c.env)
+  const base = 'https://seoulbeautytrip.com'
+  const pageUrl = `${base}/best/${catSlug}/${areaSlug}`
+  const areaForQuery = areaLabel  // DB location 컬럼 매칭용
+
+  // 해당 카테고리+지역 업체 조회
+  let shops: Shop[] = []
+  let fallbackArea = false
+  try {
+    const rows = areaSlug === 'seoul'
+      ? await sql`SELECT * FROM shops_ja WHERE active=true AND category=${catSlug} ORDER BY rating DESC, review_count DESC LIMIT 10`
+      : await sql`SELECT * FROM shops_ja WHERE active=true AND category=${catSlug} AND LOWER(location) LIKE ${('%'+areaLabel+'%').toLowerCase()} ORDER BY rating DESC, review_count DESC LIMIT 10`
+    shops = rows.map(rowToShop)
+  } catch(e) {}
+
+  // seoul 범위인 경우 전체 fallback 시도
+  if (shops.length === 0 && areaSlug === 'seoul') {
+    try {
+      const rows = await sql`SELECT * FROM shops_ja WHERE active=true AND category=${catSlug} ORDER BY rating DESC, review_count DESC LIMIT 10`
+      shops = rows.map(rowToShop)
+      fallbackArea = true
+    } catch(e) {}
+  }
+
+  // 업체 없는 경우 → /best/:cat/seoul 로 301 redirect (404 방지 — SEO 크롤러 낭비 제거)
+  if (shops.length === 0) {
+    if (areaSlug === 'seoul') return c.notFound()  // seoul도 없으면 진짜 404
+    return c.redirect(`/best/${catSlug}/seoul`, 301)
+  }
+
+  // 업체 1~2개 → thin content 처리
+  // ★ GSC에 이미 indexed된 URL은 301하면 인덱스 주스 손실 → 2개라도 200으로 렌더링
+  // 단, 0개인 경우만 seoul로 301 (위에서 처리)
+  // makeup/gangnam(2개), headspa/myeongdong(2개), headspa/gangnam(1개) 모두 200 허용
+  // → 아래 렌더링 로직에서 noindex 처리로 SEO 보호 (업체 수 <3 → noindex)
+  if (false) { // 하위 호환용 블록 (dead code)
+    const _base = 'https://seoulbeautytrip.com'
+    // 같은 카테고리에서 업체 있는 다른 지역 링크 모아주기
+    // 업체 있는 지역만 링크 (0개 지역 제외)
+    let _areaShopCounts: Record<string,number> = {}
+    try {
+      const _acRows = await sql`SELECT location, COUNT(*)::int as cnt FROM shops_ja WHERE category=${catSlug} AND active=true GROUP BY location` as any[]
+      for (const row of _acRows) {
+        const _aKey = (row.location||'').split(',')[0].trim().toLowerCase().replace(/\s+/g,'-')
+        _areaShopCounts[_aKey] = (_areaShopCounts[_aKey]||0) + Number(row.cnt)
+      }
+    } catch(e) {}
+    const availableAreaLinks = Object.entries(AREA_LABELS)
+      .filter(([k]) => k !== areaSlug && (_areaShopCounts[k]||0) > 0)
+      .map(([k,v]) => `<a href="/best/${catSlug}/${k}" style="display:inline-block;padding:8px 16px;margin:4px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:20px;color:rgba(255,255,255,.8);text-decoration:none;font-size:13px;">${v}</a>`)
+      .join('')
+    return c.html(`<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Best ${catLabel} ${_inAreaSeoul} — Coming Soon | Seoul Beauty Trip</title>
+<meta name="description" content="We are curating the best ${catLabel.toLowerCase()} ${_inAreaSeoul} for foreign visitors. Check back soon or explore other areas.">
+<link rel="canonical" href="${_base}/best/${catSlug}/${areaSlug}">
+<meta property="og:title" content="Best ${catLabel} ${_inAreaSeoul} | Seoul Beauty Trip">
+<meta property="og:description" content="Coming soon — top-rated ${catLabel.toLowerCase()} ${_inAreaSeoul} for foreigners.">
+<meta name="robots" content="noindex, follow">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0f0f12;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center}
+.cs-icon{font-size:56px;margin-bottom:20px}
+.cs-title{font-size:24px;font-weight:800;margin-bottom:12px;background:linear-gradient(135deg,#e8417a,#f97316);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.cs-sub{font-size:14px;color:rgba(255,255,255,.55);line-height:1.7;max-width:400px;margin-bottom:32px}
+.cs-areas{margin-bottom:32px}
+.cs-areas-label{font-size:11px;font-weight:700;color:rgba(255,255,255,.35);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px}
+.cs-back{display:inline-flex;align-items:center;gap:8px;padding:12px 28px;background:linear-gradient(135deg,#e8417a,#f97316);border-radius:24px;color:#fff;text-decoration:none;font-size:14px;font-weight:700}
+</style>
+</head>
+<body>
+<div class="cs-icon">✨</div>
+<h1 class="cs-title">Best ${catLabel} ${_inAreaSeoul}</h1>
+<p class="cs-sub">We're currently curating the best foreigner-friendly ${catLabel.toLowerCase()} options in ${_areaCommaSeoul}. Check back soon — or explore ${catLabel} in other areas of Seoul below.</p>
+<div class="cs-areas">
+  <div class="cs-areas-label">Explore ${catLabel} in other areas</div>
+  ${availableAreaLinks}
+</div>
+<a href="/" class="cs-back">← Back to Seoul Beauty Catalog</a>
+</body>
+</html>`, 200)
+  }
+
+  const faqList = JA_CAT_FAQ[catSlug] || DEFAULT_FAQ
+  const yr = new Date().getFullYear()
+  // clinic+gangnam 조합은 "Gangnam Dermatology Clinic" 키워드 타깃
+  const isClinicGangnam = catSlug === 'clinic' && areaSlug === 'gangnam'
+  // headspa+myeongdong 조합은 "Korean Head Spa Myeongdong" 키워드 타깃
+  const isHeadSpaMyeongdong = catSlug === 'headspa' && areaSlug === 'myeongdong'
+  // 신규 6개 고수요 조합 SEO 타깃
+  const isClinicItaewon    = catSlug === 'clinic'    && areaSlug === 'itaewon'
+  const isClinicMyeongdong = catSlug === 'clinic'    && areaSlug === 'myeongdong'
+  const isHeadspaGangnam   = catSlug === 'headspa'   && areaSlug === 'gangnam'
+  const isHeadspaHongdae   = catSlug === 'headspa'   && areaSlug === 'hongdae'
+  const isHairGangnam      = catSlug === 'hair'      && areaSlug === 'gangnam'
+  const isSkincareGangnam  = catSlug === 'skincare'  && areaSlug === 'gangnam'
+  const titleMain   = isClinicGangnam
+    ? `Gangnam Skin Clinic for Foreigners ${yr} — Best English-Speaking Dermatology in Seoul`
+    : isHeadSpaMyeongdong
+    ? `Best Korean Head Spa in Myeongdong Seoul ${yr} — Foreigner Guide`
+    : isClinicItaewon
+    ? `Best Skin Clinic in Itaewon Seoul ${yr} — English-Speaking & Tourist-Friendly`
+    : isClinicMyeongdong
+    ? `Best Skin Clinic in Myeongdong Seoul ${yr} — Walk-in Dermatology for Tourists`
+    : isHeadspaGangnam
+    ? `Best Head Spa in Gangnam Seoul ${yr} — Prices, Tips & Booking Guide`
+    : isHeadspaHongdae
+    ? `Best Head Spa in Hongdae Seoul ${yr} — Budget-Friendly Korean Scalp Treatment`
+    : isHairGangnam
+    ? `Best Hair Salon in Gangnam for Foreigners ${yr} — Price & Booking Guide`
+    : isSkincareGangnam
+    ? `Best Skincare Clinic in Gangnam Seoul ${yr} — Clinic vs Dermatology Guide`
+    : `Best ${catLabel} ${_inAreaSeoul} for Foreigners ${yr}`
+  const metaDesc    = isClinicGangnam
+    ? `Top-rated Gangnam dermatology clinic guide for foreigners ${yr}. English-speaking dermatologists, transparent pricing, WhatsApp booking. Laser, RF, skin booster & more.`
+    : isHeadSpaMyeongdong
+    ? `Best Korean head spa in Myeongdong Seoul ${yr}. Viral 18-step scalp treatment, foreigner-friendly with English booking. Prices, tips & honest guide for tourists.`
+    : isClinicItaewon
+    ? `Top English-speaking skin clinics in Itaewon Seoul ${yr}. Walk-in friendly, foreigner-tested, transparent pricing. Laser, brightening & acne treatments with WhatsApp booking.`
+    : isClinicMyeongdong
+    ? `Best walk-in skin clinics in Myeongdong Seoul ${yr}. Tourist-friendly dermatology with English-speaking staff, transparent prices & same-day appointments for foreign visitors.`
+    : isHeadspaGangnam
+    ? `Best head spa in Gangnam Seoul ${yr}. Price guide, treatment types, what to expect & how to book. Foreigner-friendly scalp treatments with English support.`
+    : isHeadspaHongdae
+    ? `Budget-friendly head spas in Hongdae Seoul ${yr}. Korean scalp treatment for travelers — affordable prices, English booking & real reviews from foreign visitors.`
+    : isHairGangnam
+    ? `Best Gangnam hair salons for foreigners ${yr}. K-pop cuts, Korean perms, balayage & more. English-friendly stylists, transparent pricing & WhatsApp booking.`
+    : isSkincareGangnam
+    ? `Gangnam skincare clinic vs dermatology — what's the difference? ${yr} guide for foreign tourists. Top-rated options with English support, real prices & WhatsApp booking.`
+    : `Best ${catLabel.toLowerCase()} ${_inAreaSeoul} ${yr}. Top-rated, foreigner-friendly salons with English support & WhatsApp booking. Real reviews, verified prices.`
+  const h1Text      = isClinicGangnam
+    ? `Best Gangnam Dermatology Clinic for Foreigners ${yr}`
+    : isHeadSpaMyeongdong
+    ? `Best Korean Head Spa in Myeongdong, Seoul ${yr}`
+    : isClinicItaewon
+    ? `Best Skin Clinic in Itaewon, Seoul ${yr}`
+    : isClinicMyeongdong
+    ? `Best Skin Clinic in Myeongdong, Seoul ${yr}`
+    : isHeadspaGangnam
+    ? `Best Head Spa in Gangnam, Seoul ${yr}`
+    : isHeadspaHongdae
+    ? `Best Head Spa in Hongdae, Seoul ${yr}`
+    : isHairGangnam
+    ? `Best Hair Salon in Gangnam for Foreigners ${yr}`
+    : isSkincareGangnam
+    ? `Best Skincare Clinic in Gangnam, Seoul ${yr}`
+    : `Best ${catLabel} ${_inAreaSeoul} ${yr}`
+  const subText     = isClinicGangnam
+    ? `English-Speaking Dermatologists · Verified Clinics · WhatsApp Booking · Updated ${yr}`
+    : isHeadSpaMyeongdong
+    ? `Viral 18-Step Scalp Ritual · English Booking · Verified Salons · Updated ${yr}`
+    : isClinicItaewon
+    ? `English-Speaking Staff · Walk-in Welcome · Transparent Pricing · Updated ${yr}`
+    : isClinicMyeongdong
+    ? `Walk-in Friendly · English Support · Tourist-Tested Clinics · Updated ${yr}`
+    : isHeadspaGangnam
+    ? `Korean Scalp Ritual · Verified Salons · Price Guide Included · Updated ${yr}`
+    : isHeadspaHongdae
+    ? `Budget-Friendly · English Booking · Student & Traveler Favourite · Updated ${yr}`
+    : isHairGangnam
+    ? `K-Pop Cuts · Korean Perms · English-Speaking Stylists · Updated ${yr}`
+    : isSkincareGangnam
+    ? `Clinic vs Dermatology Guide · English Support · Verified Prices · Updated ${yr}`
+    : `Foreigner-Friendly · English Booking · Verified Reviews · Updated ${yr}`
+  // 카테고리별 인트로 텍스트 (SEO 롱폼)
+  const catIntros: Record<string,string> = {
+    headspa: isHeadSpaMyeongdong
+      ? `Myeongdong is the most tourist-friendly neighbourhood in Seoul — and its head spa scene is perfectly designed for first-time foreign visitors. You can walk in off the street, communicate in English, and walk out with the most relaxing scalp treatment of your life. The <strong>Korean head spa Myeongdong</strong> experience typically includes a thorough scalp analysis, multi-step deep cleanse, pressure-point massage, and nourishing treatment mask — all performed in a reclining chair in a serene, spa-like environment. No Korean required. No awkward navigation. Just 60–90 minutes of pure relaxation in the heart of Seoul.`
+      : isHeadspaGangnam
+      ? `Gangnam isn't just famous for its clinics and designer boutiques — it's also home to some of Seoul's most premium <strong>head spa</strong> experiences. A Gangnam head spa is a step above the rest: expect custom scalp diagnostics, medical-grade treatment serums, and therapists trained to the highest professional standards. Prices are higher than in Hongdae or Myeongdong — typically ₩60,000–₩120,000 for a full session — but the quality, ambiance, and thoroughness of the treatment justify every won. Many Gangnam head spas also offer add-on services like hair loss laser therapy, scalp microbiome analysis, and premium conditioning treatments that you simply won't find elsewhere in Seoul.`
+      : isHeadspaHongdae
+      ? `Hongdae is Seoul's most youthful, creative, and budget-conscious neighbourhood — and its head spa scene reflects exactly that. <strong>Hongdae head spas</strong> offer the same authentic Korean scalp treatment experience as their Gangnam counterparts, but at prices that are 20–40% lower. A standard 60-minute session typically costs ₩35,000–₩60,000, making it one of the best-value beauty experiences in the entire city. The vibe is relaxed and welcoming — many salons here cater heavily to university students, young travelers, and international visitors. English menus and WhatsApp booking are standard, and several salons are open late to accommodate the area's nightlife crowd.`
+      : `Seoul's head spa scene has exploded in popularity among foreign travelers, and ${areaLabel} is home to some of the best. These foreigner-friendly head spas offer English booking, transparent pricing, and authentic Korean scalp treatments — from the viral 18-step scalp ritual to deep-cleansing scalp analysis and relaxing massage. Whether you have hair loss concerns, a dry scalp, or simply want the most relaxing experience of your Seoul trip, these ${areaLabel} head spas welcome international guests with open arms.`,
+    skincare: isSkincareGangnam
+      ? `Gangnam's skincare scene can be confusing for first-time visitors: there are <em>피부관리실</em> (skincare salons), <em>피부과</em> (dermatology clinics), and everything in between. Understanding the difference is the key to getting the right treatment at the right price. <strong>Gangnam skincare salons</strong> are run by licensed estheticians and focus on non-prescription treatments: deep-cleansing facials, hydration therapy, LED light therapy, and skin brightening programs. <strong>Gangnam dermatology clinics</strong> are staffed by board-certified doctors and can prescribe medication, perform laser procedures, administer skin booster injections, and treat medical skin conditions. Both are excellent — but for different goals. The salons listed on this page cover both types, with clear labels so you know exactly what you're booking.`
+      : `Korean skincare treatments ${_inAreaSeoul} are world-renowned for their innovation and results. Foreign tourists visiting Seoul consistently rate skin clinics and beauty salons in ${_areaCommaSeoul} as must-visit experiences. From hydrating glass-skin facials and LED therapy to customized prescription skincare, these foreigner-friendly salons offer English consultations and WhatsApp booking to make your experience seamless.`,
+    hair: isHairGangnam
+      ? `Gangnam is synonymous with Korean beauty excellence — and its hair salons are no exception. <strong>Gangnam hair salons for foreigners</strong> are experienced with international clients, diverse hair textures, and the full spectrum of K-beauty hair services: from ultra-precise Korean cuts and volume perms to balayage, color correction, and intensive moisture treatments. Prices in Gangnam are higher than in Hongdae or Sinchon — expect ₩50,000–₩120,000 for a cut, ₩80,000–₩200,000 for color — but the quality is consistently world-class. Most top Gangnam salons now employ English-speaking coordinators or provide English menus, making the booking and consultation process smooth for international visitors.`
+      : `${areaLabel} is one of Seoul's top destinations for Korean hair transformations. From K-pop inspired cuts and colors to balayage, Korean perms, and treatment packages, these English-friendly hair salons cater specifically to international visitors. All salons listed are experienced with various hair textures and provide English support throughout.`,
+    nail: `Korean nail art in ${areaLabel} is a world-class experience. These foreigner-friendly nail salons offer intricate K-beauty nail designs, premium gel applications, and English-speaking nail artists. Whether you want minimalist Korean aesthetics or elaborate 3D nail art, ${areaLabel}'s nail scene has something for every visitor.`,
+    clinic: isClinicGangnam
+      ? `Gangnam is Seoul's undisputed capital of medical aesthetics — and home to Korea's most foreigner-friendly dermatology clinics. A Gangnam dermatology clinic isn't just a skin clinic: it's a full-service medical aesthetic center staffed by board-certified dermatologists who routinely treat international patients. Whether you're looking for laser resurfacing, skin booster injections, acne scar treatment, RF lifting, or a simple brightening facial, Gangnam dermatology clinics offer world-class results at a fraction of Western prices — typically 40–60% less than equivalent treatments in the US, UK, or Australia. Every clinic on this list has English-speaking coordinators, transparent pricing, and accepts WhatsApp bookings for foreign visitors.`
+      : isClinicItaewon
+      ? `Itaewon is Seoul's most internationally diverse neighbourhood — and that makes its skin clinics uniquely suited for foreign visitors. Unlike clinics in Gangnam that cater to Korean celebrities and locals, <strong>Itaewon skin clinics</strong> have years of experience treating patients from the US, Europe, Middle East, and Southeast Asia. Staff often speak conversational to fluent English, pricing is transparent, and same-day or next-day appointments are frequently available. Whether you're a long-term expat, a short-term traveler, or a US military visitor, the skin clinics in Itaewon offer a comfortable, foreigner-first experience with world-class Korean dermatology — at prices 40–60% below Western rates.`
+      : isClinicMyeongdong
+      ? `Myeongdong is Seoul's busiest tourist district — and its skin clinics are built for visitors who are short on time but high on expectations. <strong>Myeongdong dermatology clinics</strong> specialise in fast, effective treatments that deliver visible results in a single session: brightening laser, hydra-facial, skin booster injections, and quick acne extractions. Most clinics accept walk-ins and have English menus and price lists posted at reception — no appointment, no translator needed. If you're spending a day or two in Seoul and want a quick skin boost that you'd pay 3–4× more for back home, Myeongdong's walk-in aesthetic clinics are one of the city's best-kept travel secrets.`
+      : `${areaLabel} is Seoul's medical beauty hub, home to top-tier dermatology clinics and aesthetic centers welcoming foreign patients. From laser toning and skin boosters to RF lifting and acne treatments, these clinics offer cutting-edge technology at competitive prices — often 30-50% less than Western countries — with English-speaking consultants.`,
+    makeup: `Experience a Korean makeup transformation in ${areaLabel}. These English-friendly makeup studios specialize in K-beauty looks including glass skin, gradient lips, and K-pop inspired styles. Perfect for photoshoots, hanbok experiences, or just a memorable Seoul beauty experience. All studios offer English booking via WhatsApp.`,
+    spa: `Discover authentic Korean spa treatments ${_inAreaSeoul}. From traditional Korean body scrubs (때밀이) and aromatherapy massage to modern wellness packages, these foreigner-friendly spas deliver true Korean relaxation. All listed spas support English booking and welcome international guests.`,
+    tattoo: `Korean eyebrow tattooing (눈썹 반영구) ${_inAreaSeoul} is globally acclaimed for its ultra-natural, hair-stroke precision. Unlike traditional heavy tattooing, Korean microblading and powder brow techniques create results so natural that people around you simply think you were born with perfect eyebrows — not that you had a procedure. Studios in Seoul use single-use sterile needles, FDA-approved pigments, and follow strict hygiene protocols. Whether you prefer the hairline stroke technique for the most natural look, the soft powder brow for a defined finish, or a combo brow for depth and texture, ${areaLabel} studios listed here welcome foreign visitors with English-language consultations and easy WhatsApp booking. Men's eyebrow tattooing is also a growing specialty — Korean studios understand how to design brows that look completely natural on male faces. Prices are 40–60% lower than equivalent studios in the US, UK, or Australia.`
+  }
+  const introText = catIntros[catSlug] || `Discover the best ${catLabel.toLowerCase()} experiences ${_inAreaSeoul}. All salons are foreigner-friendly with English booking support via WhatsApp. Browse top-rated options below.`
+  const catEmoji: Record<string,string> = {skincare:'🌿',makeup:'💋',hair:'💇',headspa:'🧖',clinic:'🏥',spa:'🛁',tattoo:'✒️'}
+  const emoji = catEmoji[catSlug] || '✨'
+
+  // Schema.org JSON-LD
+  const schemaGraph = [
+    // WebPage
+    {
+      '@type':'WebPage',
+      '@id':`${pageUrl}#webpage`,
+      'url':pageUrl,
+      'name':titleMain,
+      'description':metaDesc,
+      'inLanguage':'en',
+      'isPartOf':{'@id':`${base}/#website`}
+    },
+    // BreadcrumbList
+    {
+      '@type':'BreadcrumbList',
+      'itemListElement':[
+        {'@type':'ListItem','position':1,'name':'Seoul Beauty Trip','item':`${base}/`},
+        {'@type':'ListItem','position':2,'name':catLabel,'item':`${base}/?cat=${catSlug}`},
+        {'@type':'ListItem','position':3,'name':`${catLabel} ${areaLabel}`,'item':pageUrl}
+      ]
+    },
+    // ItemList — 업체 목록
+    ...(shops.length > 0 ? [{
+      '@type':'ItemList',
+      'name':`Best ${catLabel} ${_areaSeoul}`,
+      'description':metaDesc,
+      'numberOfItems':shops.length,
+      'itemListElement': shops.map((s,i) => ({
+        '@type':'ListItem',
+        'position':i+1,
+        'item':{
+          '@type': catSlug === 'clinic' ? ['MedicalClinic','HealthAndBeautyBusiness','LocalBusiness'] : catSlug === 'headspa' ? ['HealthClub','BeautySalon','LocalBusiness'] : ['BeautySalon','LocalBusiness'],
+          '@id':`${base}/shop/${s.slug}`,
+          'name':s.name,
+          'url':`${base}/shop/${s.slug}`,
+          ...(s.thumbnail && s.thumbnail.startsWith('http') ? {
+            'image':{
+              '@type':'ImageObject',
+              'url':s.thumbnail,
+              'thumbnailUrl':s.thumbnail
+            }
+          } : {}),
+          'address':{
+            '@type':'PostalAddress',
+            'streetAddress':s.address,
+            'addressLocality':areaLabel,
+            'addressRegion':'Seoul',
+            'addressCountry':'KR'
+          },
+          ...(s.lat && s.lng ? {'geo':{'@type':'GeoCoordinates','latitude':s.lat,'longitude':s.lng}} : {}),
+          'priceRange':s.priceRange,
+          ...(s.googlePlaceId ? {'sameAs':[`https://www.google.com/maps/place/?q=place_id:${s.googlePlaceId}`]} : {})
+        }
+      }))
+    }] : []),
+    // FAQPage
+    {
+      '@type':'FAQPage',
+      'mainEntity': faqList.map(f => ({
+        '@type':'Question',
+        'name':f.q,
+        'acceptedAnswer':{'@type':'Answer','text':f.a}
+      }))
+    }
+  ]
+
+  const shopCards = shops.length > 0
+    ? shops.map((s,i) => {
+        const stars = '⭐'.repeat(Math.round(s.rating))
+        // 200자로 확장 — metaDescription 우선, 없으면 description
+        const desc = (s.metaDescription || s.description || '').slice(0,200)
+        return `
+<article class="shop-card" itemscope itemtype="https://schema.org/LocalBusiness">
+  <a href="/ja/shop/${s.slug}" class="card-link">
+    <div class="card-rank">#${i+1}</div>
+    <div class="card-img-wrap">
+      <img src="${s.thumbnail}" alt="${s.name} ${catLabel} ${_areaSeoul}" loading="lazy" onerror="this.parentElement.remove()">
+    </div>
+    <div class="card-body">
+      <h2 class="card-name" itemprop="name">${s.name}</h2>
+      <div class="card-meta">
+        <span class="card-area">📍 ${s.location}</span>
+        <span class="card-rating">${stars} ${s.rating} (${s.reviewCount} reviews)</span>
+      </div>
+      <p class="card-desc" itemprop="description">${desc}</p>
+      <div class="card-services">${s.services.slice(0,4).map(sv=>`<span class="svc-tag">${sv}</span>`).join('')}</div>
+      <div class="card-price">${s.priceRange}</div>
+      <div class="card-cta">
+        <span class="btn-view">View Details →</span>
+        <span class="btn-book">📱 Book via WhatsApp</span>
+      </div>
+    </div>
+  </a>
+</article>`}).join('')
+    : `<div class="no-shops"><p>No ${catLabel} shops listed in ${areaLabel} yet. <a href="/">Browse all Seoul beauty salons →</a></p></div>`
+
+  const faqHtml = faqList.map((f,i) => `
+<details class="faq-item" ${i===0?'open':''}>
+  <summary class="faq-q">${f.q}</summary>
+  <div class="faq-a">${f.a}</div>
+</details>`).join('')
+
+  // 관련 카테고리 링크
+  const relatedCats = Object.entries(CATEGORY_LABELS)
+    .filter(([k]) => k !== catSlug)
+    .map(([k,v]) => `<a href="/best/${k}/${areaSlug}" class="rel-link">${catEmoji[k]||'✨'} ${v} in ${areaLabel}</a>`)
+    .join('')
+  // 관련 지역 링크
+  const relatedAreas = Object.entries(AREA_LABELS)
+    .filter(([k]) => k !== areaSlug && k !== 'seoul')
+    .slice(0,6)
+    .map(([k,v]) => `<a href="/best/${catSlug}/${k}" class="rel-link">${emoji} ${catLabel} in ${v}</a>`)
+    .join('')
+
+  return c.html(`<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1N9ZQRHLJ0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-1N9ZQRHLJ0');
+</script>
+${SB_TRACKER_SCRIPT}
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${titleMain} | Seoul Beauty Trip</title>
+<meta name="description" content="${metaDesc}">
+<meta name="robots" content="${shops.length >= 3 ? 'index, follow' : 'noindex, follow'}">
+<link rel="canonical" href="${pageUrl}">
+<meta property="og:type" content="website">
+<meta property="og:title" content="${titleMain} | Seoul Beauty Trip">
+<meta property="og:description" content="${metaDesc}">
+<meta property="og:image" content="${shops[0]?.thumbnail ? (shops[0].thumbnail.startsWith('http') ? shops[0].thumbnail : base+shops[0].thumbnail) : 'https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg'}">
+<meta property="og:url" content="${pageUrl}">
+<meta property="og:site_name" content="Seoul Beauty Trip">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${titleMain} | Seoul Beauty Trip">
+<meta name="twitter:description" content="${metaDesc}">
+<meta name="twitter:image" content="${shops[0]?.thumbnail || 'https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg'}">
+<script type="application/ld+json">${JSON.stringify({'@context':'https://schema.org','@graph':schemaGraph})}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"></noscript>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#f8f9fa;color:#1a1a2e}
+a{text-decoration:none;color:inherit}
+/* NAV */
+.nav{background:#fff;padding:14px 20px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 8px rgba(0,0,0,.08);position:sticky;top:0;z-index:100}
+.nav-logo{font-size:1.1rem;font-weight:800;background:linear-gradient(135deg,#e91e8c,#9c27b0);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.nav-back{font-size:.85rem;color:#666;margin-left:auto}
+/* HERO */
+.hero{background:linear-gradient(135deg,#e91e8c 0%,#9c27b0 50%,#3f51b5 100%);color:#fff;padding:48px 20px 56px;text-align:center}
+.hero-emoji{font-size:3rem;margin-bottom:12px;display:block}
+.hero-h1{font-size:clamp(1.5rem,5vw,2.4rem);font-weight:800;line-height:1.25;margin-bottom:10px}
+.hero-sub{font-size:.95rem;opacity:.9;margin-bottom:20px}
+.hero-badges{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.badge{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:4px 14px;font-size:.8rem;font-weight:600}
+/* MAIN */
+.main{max-width:900px;margin:0 auto;padding:24px 16px 60px}
+.section-title{font-size:1.3rem;font-weight:700;margin:32px 0 16px;display:flex;align-items:center;gap:8px}
+/* SHOP CARDS */
+.shop-card{background:#fff;border-radius:16px;overflow:hidden;margin-bottom:20px;box-shadow:0 2px 12px rgba(0,0,0,.08);transition:transform .2s,box-shadow .2s;position:relative}
+.shop-card:hover{transform:translateY(-3px);box-shadow:0 6px 24px rgba(233,30,140,.15)}
+.card-link{display:flex;gap:0}
+.card-rank{position:absolute;top:12px;left:12px;background:linear-gradient(135deg,#e91e8c,#9c27b0);color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:800;z-index:2}
+.card-img-wrap{width:140px;min-width:140px;overflow:hidden}
+.card-img-wrap img{width:100%;height:100%;object-fit:cover;min-height:160px}
+.card-body{flex:1;padding:16px}
+.card-name{font-size:1.05rem;font-weight:700;margin-bottom:6px;color:#1a1a2e}
+.card-meta{display:flex;flex-wrap:wrap;gap:8px;font-size:.8rem;color:#666;margin-bottom:8px}
+.card-rating{color:#f59e0b;font-weight:600}
+.card-desc{font-size:.85rem;color:#444;line-height:1.5;margin-bottom:10px}
+.card-services{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px}
+.svc-tag{background:#f3e8ff;color:#7c3aed;border-radius:12px;padding:2px 10px;font-size:.75rem;font-weight:500}
+.card-price{font-size:.85rem;color:#e91e8c;font-weight:600;margin-bottom:12px}
+.card-cta{display:flex;gap:8px;flex-wrap:wrap}
+.btn-view{background:linear-gradient(135deg,#e91e8c,#9c27b0);color:#fff;padding:7px 16px;border-radius:20px;font-size:.82rem;font-weight:600}
+.btn-book{background:#25d366;color:#fff;padding:7px 16px;border-radius:20px;font-size:.82rem;font-weight:600}
+/* NO SHOPS */
+.no-shops{text-align:center;padding:60px 20px;color:#666}
+.no-shops a{color:#e91e8c;text-decoration:underline}
+/* FAQ */
+.faq-item{background:#fff;border-radius:12px;margin-bottom:10px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,.06)}
+.faq-q{padding:16px 20px;font-size:.95rem;font-weight:600;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;color:#1a1a2e}
+.faq-q::-webkit-details-marker{display:none}
+.faq-q::after{content:'▼';font-size:.7rem;color:#e91e8c;transition:transform .2s}
+details[open] .faq-q::after{transform:rotate(180deg)}
+.faq-a{padding:0 20px 16px;font-size:.88rem;color:#444;line-height:1.7;border-top:1px solid #f0f0f0;padding-top:12px}
+/* RELATED */
+.rel-grid{display:flex;flex-wrap:wrap;gap:8px}
+.rel-link{background:#fff;border:1px solid #e5e7eb;border-radius:20px;padding:6px 16px;font-size:.82rem;font-weight:500;color:#374151;transition:all .2s}
+.rel-link:hover{background:#fdf2f8;border-color:#e91e8c;color:#e91e8c}
+/* INTRO TEXT */
+.intro-box{background:#fff;border-radius:16px;padding:24px 28px;margin-bottom:16px;box-shadow:0 1px 8px rgba(0,0,0,.06);font-size:.92rem;line-height:1.9;color:#374151;border-left:4px solid #e91e8c}
+.intro-box p{margin:0 0 14px}
+.intro-box strong{color:#e91e8c}
+.intro-trust{display:flex;flex-wrap:wrap;gap:10px;margin-top:4px}
+.intro-trust span{background:#fdf2f8;color:#e91e8c;border-radius:20px;padding:4px 14px;font-size:.8rem;font-weight:600}
+/* CARD REVIEW QUOTE */
+.card-review-quote{font-size:.8rem;color:#555;font-style:italic;line-height:1.5;margin:6px 0 8px;padding:6px 10px;background:#f9fafb;border-radius:8px;border-left:3px solid #e91e8c}
+.card-review-author{font-style:normal;font-weight:600;color:#e91e8c}
+/* FOOTER */
+.lp-footer{text-align:center;padding:32px 16px;font-size:.82rem;color:#999;border-top:1px solid #eee;margin-top:40px}
+.lp-footer a{color:#e91e8c}
+/* LONGFORM GUIDE */
+.guide-block{background:#fff;border-radius:16px;padding:28px 28px;margin-bottom:16px;box-shadow:0 1px 8px rgba(0,0,0,.06)}
+.guide-block h2{font-size:1.15rem;font-weight:700;color:#1a1a2e;margin:0 0 12px;line-height:1.4}
+.guide-block h3{font-size:1rem;font-weight:700;color:#e91e8c;margin:18px 0 8px}
+.guide-block p{font-size:.9rem;color:#444;line-height:1.85;margin:0 0 12px}
+.guide-block ul,.guide-block ol{padding-left:20px;margin:8px 0 14px}
+.guide-block li{font-size:.88rem;color:#444;line-height:1.75;margin-bottom:4px}
+.guide-block strong{color:#1a1a2e;font-weight:700}
+.guide-table{width:100%;border-collapse:collapse;margin:14px 0;font-size:.85rem}
+.guide-table th{background:#fdf2f8;color:#e91e8c;font-weight:700;padding:10px 14px;text-align:left;border-bottom:2px solid #f9a8d4}
+.guide-table td{padding:9px 14px;border-bottom:1px solid #f3f4f6;color:#374151}
+.guide-table tr:last-child td{border-bottom:none}
+.guide-callout{background:linear-gradient(135deg,#fdf2f8,#f3e8ff);border-radius:12px;padding:16px 20px;margin:14px 0;border-left:4px solid #e91e8c}
+.guide-callout p{margin:0;font-size:.88rem;color:#374151}
+@media(max-width:520px){
+  .card-link{flex-direction:column}
+  .card-img-wrap{width:100%;min-width:unset;height:180px}
+  .card-img-wrap img{min-height:180px}
+  .guide-block{padding:20px 16px}
+  .guide-table{font-size:.8rem}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a href="/" class="nav-logo">Seoul Beauty Trip</a>
+  <a href="/" class="nav-back"><i class="fas fa-arrow-left"></i> All Salons</a>
+</nav>
+<header class="hero">
+  <span class="hero-emoji">${emoji}</span>
+  <h1 class="hero-h1">${h1Text}</h1>
+  <p class="hero-sub">${subText}</p>
+  <div class="hero-badges">
+    <span class="badge">🌍 Foreigner Friendly</span>
+    <span class="badge">💬 English Booking</span>
+    <span class="badge">⭐ Verified Reviews</span>
+    <span class="badge">📱 WhatsApp Support</span>
+  </div>
+</header>
+<main class="main">
+  <div class="intro-box">
+    <p>${introText}</p>
+    <div class="intro-trust">
+      <span>✅ All salons verified</span>
+      <span>🌍 Foreigner-friendly</span>
+      <span>💬 English support</span>
+      <span>📱 WhatsApp booking</span>
+    </div>
+  </div>
+  <div class="section-title">${emoji} Top ${catLabel} Salons in ${areaLabel} <span style="font-size:.85rem;font-weight:400;color:#888">(${shops.length} listed)</span></div>
+  ${shopCards}
+  <div class="section-title">❓ FAQ — ${catLabel} ${_inAreaSeoul}</div>
+  <div>${faqHtml}</div>
+
+  ${isClinicGangnam ? `
+  <div class="section-title">📖 Complete Guide: Gangnam Dermatology Clinics for Foreigners 2026</div>
+
+  <div class="guide-block">
+    <h2>What Is a Gangnam Dermatology Clinic?</h2>
+    <p>A <strong>Gangnam dermatology clinic</strong> is a medical aesthetic center staffed by board-certified Korean dermatologists who specialize in skin treatments ranging from laser therapy and injectables to advanced cosmetic procedures. Gangnam — Seoul's most prestigious medical district — is home to over 500 licensed dermatology clinics, making it the world's densest concentration of aesthetic dermatology in a single neighborhood.</p>
+    <p>Unlike beauty salons or spas, Gangnam dermatology clinics are fully regulated medical facilities. All procedures are performed or supervised by a licensed <em>피부과</em> (dermatologist) certified by the Korean Medical Association. This means you receive the same standard of care as Korean patients — but increasingly, with English-language support designed specifically for foreign visitors.</p>
+    <p>For foreigners seeking <strong>laser toning, skin boosters, Botox, RF lifting, or acne treatment</strong> in Seoul, the Gangnam clinic district offers world-class results at 40–60% lower cost than equivalent clinics in the US, UK, Australia, or Singapore.</p>
+
+    <h3>Gangnam vs. Other Seoul Dermatology Areas</h3>
+    <table class="guide-table">
+      <thead><tr><th>Area</th><th>Known For</th><th>Price Range</th><th>English Support</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Gangnam / Cheongdam</strong></td><td>Premium medical clinics, celebrity dermatologists</td><td>₩₩₩</td><td>High (foreigner-focused)</td></tr>
+        <tr><td>Apgujeong</td><td>Luxury cosmetic procedures, anti-aging</td><td>₩₩₩₩</td><td>Moderate</td></tr>
+        <tr><td>Hongdae</td><td>Trendy salons, budget-friendly</td><td>₩₩</td><td>Limited</td></tr>
+        <tr><td>Itaewon</td><td>International-facing clinics</td><td>₩₩₩</td><td>High</td></tr>
+        <tr><td>Myeongdong</td><td>Tourist-area walk-ins</td><td>₩₩–₩₩₩</td><td>Moderate</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="guide-block">
+    <h2>Top Treatments at Gangnam Dermatology Clinics (With 2026 Prices)</h2>
+    <p>Korean dermatology clinics in Gangnam offer the most comprehensive menu of medical-grade aesthetic treatments in Asia. Below is an up-to-date 2026 price guide based on average clinic rates across the Gangnam district. Prices can vary by clinic reputation, doctor experience, and the number of sessions purchased.</p>
+
+    <h3>Laser Treatments</h3>
+    <table class="guide-table">
+      <thead><tr><th>Treatment</th><th>What It Does</th><th>Price (per session)</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Laser Toning</strong></td><td>Brightening, pigmentation reduction, pore minimization</td><td>₩50,000 – ₩150,000</td></tr>
+        <tr><td><strong>Pico Laser</strong></td><td>Melasma, sun spots, skin texture</td><td>₩80,000 – ₩250,000</td></tr>
+        <tr><td><strong>Fractional CO2 Laser</strong></td><td>Acne scars, deep texture resurfacing</td><td>₩200,000 – ₩600,000</td></tr>
+        <tr><td><strong>V-Beam / PDL</strong></td><td>Redness, rosacea, vascular lesions</td><td>₩150,000 – ₩350,000</td></tr>
+        <tr><td><strong>Clear + Brilliant</strong></td><td>Preventative skin maintenance, glow</td><td>₩120,000 – ₩280,000</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Injectable Treatments</h3>
+    <table class="guide-table">
+      <thead><tr><th>Treatment</th><th>What It Does</th><th>Price (per session)</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Botox (forehead / glabella)</strong></td><td>Wrinkle relaxation, face slimming</td><td>₩80,000 – ₩200,000</td></tr>
+        <tr><td><strong>Botox (jaw slimming)</strong></td><td>Masseter reduction for V-line effect</td><td>₩150,000 – ₩350,000</td></tr>
+        <tr><td><strong>Rejuran Healer</strong></td><td>DNA repair, deep hydration, anti-aging</td><td>₩200,000 – ₩500,000</td></tr>
+        <tr><td><strong>Juvelook / PLLA</strong></td><td>Collagen biostimulation, long-term lifting</td><td>₩300,000 – ₩700,000</td></tr>
+        <tr><td><strong>Hyaluronic Acid Filler</strong></td><td>Volume, contouring, tear trough</td><td>₩200,000 – ₩600,000 / syringe</td></tr>
+        <tr><td><strong>Exosome Skin Booster</strong></td><td>Stem-cell-derived regeneration, glow</td><td>₩250,000 – ₩600,000</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Lifting &amp; Tightening</h3>
+    <table class="guide-table">
+      <thead><tr><th>Treatment</th><th>What It Does</th><th>Price</th></tr></thead>
+      <tbody>
+        <tr><td><strong>HIFU (Ultherapy-type)</strong></td><td>Non-surgical facelift via ultrasound</td><td>₩300,000 – ₩1,200,000</td></tr>
+        <tr><td><strong>Thermage / RF Lifting</strong></td><td>Skin tightening, collagen remodeling</td><td>₩400,000 – ₩1,500,000</td></tr>
+        <tr><td><strong>Thread Lift</strong></td><td>Minimally invasive lift with PDO threads</td><td>₩500,000 – ₩2,000,000</td></tr>
+      </tbody>
+    </table>
+
+    <div class="guide-callout">
+      <p>💡 <strong>Pro tip for foreigners:</strong> Many Gangnam dermatology clinics offer <em>package deals</em> (e.g., 5 laser toning sessions for the price of 4). If you're in Seoul for more than a week, ask about package pricing — you can often save 20–30% vs. single-session rates.</p>
+    </div>
+  </div>
+
+  <div class="guide-block">
+    <h2>Are Gangnam Dermatology Clinics Safe for Foreigners?</h2>
+    <p>Yes — Korean dermatology clinics in Gangnam operate under some of the world's strictest medical regulations. Here is what makes them safe and reliable for foreign patients:</p>
+    <ul>
+      <li><strong>KFDA-approved equipment only:</strong> All lasers, RF devices, and injectables used in Korean clinics must be approved by the Korean Food &amp; Drug Administration (KFDA). Many devices gain KFDA approval before receiving US FDA clearance.</li>
+      <li><strong>Board-certified dermatologists:</strong> Dermatology (피부과) is a fully separate specialty in Korea, requiring 4 years of post-medical-school residency. Your treatment will be performed or directly supervised by a fully certified specialist — not a nurse or aesthetician.</li>
+      <li><strong>Korea ranks #1 globally in medical procedures per capita:</strong> According to the International Society of Aesthetic Plastic Surgery (ISAPS), South Korea has the highest rate of cosmetic procedures per capita in the world. Korean clinicians have performed millions more procedures than their Western counterparts.</li>
+      <li><strong>Transparent pricing:</strong> Since 2022, Korean medical law requires clinics to display treatment prices. Foreigner-friendly clinics listed on Seoul Beauty Trip provide itemized quotes before any procedure begins.</li>
+      <li><strong>No-pressure consultations:</strong> Reputable Gangnam dermatology clinics will never push upsells or bundle packages you didn't ask for. You can always say no and pay only for what was agreed.</li>
+    </ul>
+
+    <h3>What to Watch Out For</h3>
+    <ul>
+      <li>Avoid clinics that cannot provide a written price list before treatment</li>
+      <li>Avoid walk-in clinics near tourist areas (Myeongdong station exits) that specifically target foreigners with aggressive pricing</li>
+      <li>Always confirm your doctor's name and specialization before the appointment</li>
+      <li>If a price seems too low compared to the table above, ask why — heavily discounted procedures are sometimes performed on lower-end equipment or by junior staff</li>
+    </ul>
+  </div>
+
+  <div class="guide-block">
+    <h2>How to Choose the Right Gangnam Dermatology Clinic as a Foreigner</h2>
+    <p>With over 500 dermatology clinics in the Gangnam area, narrowing down the right clinic for your needs can feel overwhelming. Here is a step-by-step process specifically designed for foreign visitors:</p>
+
+    <h3>Step 1: Define Your Treatment Goal</h3>
+    <p>Different clinics specialize in different areas. A clinic known for acne scar lasers may not be the best choice for Botox jaw slimming. Common goals and matching specializations:</p>
+    <ul>
+      <li><strong>Skin brightening / pigmentation:</strong> Look for clinics with strong laser toning and pico laser experience</li>
+      <li><strong>Acne &amp; active breakouts:</strong> Look for clinics with IPL, LED phototherapy, and prescription treatments</li>
+      <li><strong>Anti-aging &amp; lifting:</strong> Look for clinics with HIFU, RF lifting, and thread lift experience</li>
+      <li><strong>Hydration &amp; glow:</strong> Skin booster injections (Rejuran, Juvelook, Exosomes) are the Korean specialty</li>
+      <li><strong>Facial contouring:</strong> Jaw Botox and filler contouring requires specialist experience</li>
+    </ul>
+
+    <h3>Step 2: Check English Communication</h3>
+    <p>The biggest frustration for foreign patients is language barriers mid-treatment. At minimum, your chosen clinic should be able to:</p>
+    <ul>
+      <li>Respond to your initial WhatsApp or email inquiry in English</li>
+      <li>Provide an English-language treatment menu and price list</li>
+      <li>Conduct the pre-treatment consultation in English (in person or via interpreter)</li>
+      <li>Give written aftercare instructions in English</li>
+    </ul>
+    <p>All clinics listed on Seoul Beauty Trip have been verified for English communication capability. When you book through us via WhatsApp, we act as your English-language liaison from inquiry to aftercare.</p>
+
+    <h3>Step 3: Verify Reviews from Foreigners</h3>
+    <p>Google Maps reviews are your best source of truth. Filter specifically for English-language reviews and look for mentions of: English staff, transparent pricing, no-pressure consultation, and good aftercare communication. Red flags include recurring mentions of surprise charges or post-visit upselling.</p>
+
+    <h3>Step 4: Book in Advance</h3>
+    <p>Popular Gangnam dermatology clinics — especially those with English-speaking staff — are often booked 1–3 days in advance. For treatments like HIFU or thread lifts that require a pre-consultation, you may need 3–5 days advance notice. Walk-in availability is more common for simpler treatments like laser toning or Botox.</p>
+
+    <div class="guide-callout">
+      <p>📱 <strong>Booking via Seoul Beauty Trip:</strong> All clinics on this page can be booked directly via WhatsApp through Seoul Beauty Trip. Our English-speaking team confirms your appointment, briefs the clinic on your goals, and follows up after your treatment. No Korean required.</p>
+    </div>
+  </div>
+
+  <div class="guide-block">
+    <h2>Gangnam Dermatology Clinic vs. Home Country: Is It Worth Traveling For?</h2>
+    <p>One of the most common questions we hear from foreign visitors is whether the trip to a Gangnam dermatology clinic is genuinely worth it compared to getting the same treatment at home. The answer depends on your home country — but for most travelers from English-speaking countries, the answer is an emphatic yes.</p>
+
+    <h3>Cost Comparison (2026)</h3>
+    <table class="guide-table">
+      <thead><tr><th>Treatment</th><th>Seoul (Gangnam)</th><th>USA</th><th>UK</th><th>Australia</th></tr></thead>
+      <tbody>
+        <tr><td>Laser Toning (1 session)</td><td>₩50k–₩150k (~$37–$110)</td><td>$200–$400</td><td>£150–£350</td><td>A$250–A$450</td></tr>
+        <tr><td>Rejuran Healer</td><td>₩200k–₩500k (~$150–$370)</td><td>$800–$1,500</td><td>£600–£1,200</td><td>A$900–A$1,600</td></tr>
+        <tr><td>Botox (forehead)</td><td>₩80k–₩200k (~$60–$150)</td><td>$300–$600</td><td>£200–£400</td><td>A$350–A$500</td></tr>
+        <tr><td>HIFU (full face)</td><td>₩300k–₩1.2M (~$220–$880)</td><td>$1,500–$3,500</td><td>£1,200–£2,800</td><td>A$1,800–A$3,500</td></tr>
+        <tr><td>Fractional CO2 Laser</td><td>₩200k–₩600k (~$150–$440)</td><td>$1,000–$2,500</td><td>£800–£2,000</td><td>A$1,200–A$2,800</td></tr>
+      </tbody>
+    </table>
+    <p>Even accounting for flights and accommodation, many foreign patients save significant money by combining a Seoul trip with multiple treatments. A 5-day Seoul medical beauty trip with 3–4 treatments often costs less than a single equivalent treatment package at a private clinic in London, New York, or Sydney.</p>
+
+    <h3>Quality: Is Korean Dermatology Actually Better?</h3>
+    <p>For many treatments — especially those involving Korean-developed technologies — yes. Korea has driven innovation in several areas of aesthetic dermatology that are only now reaching Western markets:</p>
+    <ul>
+      <li><strong>Skin booster injections</strong> (Rejuran, Juvelook, PLLA): developed and refined in Korea, still unavailable or heavily restricted in many Western countries</li>
+      <li><strong>Laser protocols:</strong> Korean dermatologists typically perform significantly higher treatment volumes, developing refined protocols that reduce downtime and improve outcomes</li>
+      <li><strong>Exosome therapy:</strong> Korea is a global leader in exosome-based skin regeneration, with clinics offering treatments not available elsewhere</li>
+      <li><strong>Combination protocols:</strong> Korean clinics have perfected multi-step treatment combinations (e.g., pico laser + skin booster + LED) that maximize results in a single visit</li>
+    </ul>
+  </div>
+
+  <div class="guide-block">
+    <h2>What to Do Before &amp; After Your Gangnam Clinic Visit</h2>
+    <h3>Before Your Appointment (1–3 Days Prior)</h3>
+    <ul>
+      <li>Avoid retinol, AHAs/BHAs, and exfoliating products for at least 3 days before laser treatments</li>
+      <li>Avoid alcohol for 24 hours before injectable treatments (Botox, fillers)</li>
+      <li>Apply and reapply SPF 50+ sunscreen in the days leading up to your laser appointment — sun-damaged skin can have increased sensitivity</li>
+      <li>Prepare a list of current skincare products and any medications (especially blood thinners or retinoids) to share with your doctor</li>
+      <li>Take a no-makeup selfie in natural light — this helps the doctor assess your baseline skin condition</li>
+    </ul>
+
+    <h3>After Your Treatment</h3>
+    <ul>
+      <li><strong>Laser treatments:</strong> Expect mild redness for 4–24 hours. Apply prescribed barrier cream and avoid makeup for the first day. SPF is essential for 2–4 weeks post-treatment.</li>
+      <li><strong>Botox:</strong> Avoid lying down for 4 hours post-injection. Avoid strenuous exercise and alcohol for 24 hours. Results appear over 5–14 days.</li>
+      <li><strong>Skin boosters (Rejuran, fillers):</strong> Small bumps at injection sites are normal and resolve within 24–48 hours. Apply ice packs if needed. Avoid saunas and hot showers for 24 hours.</li>
+      <li><strong>HIFU / RF lifting:</strong> Mild swelling and tenderness for 3–7 days is normal. Final results appear over 3–6 months as collagen remodels.</li>
+    </ul>
+
+    <div class="guide-callout">
+      <p>✈️ <strong>Planning your Seoul trip around treatments:</strong> If you have a flight home within 24 hours of a procedure, stick to gentler treatments like laser toning or skin boosters. For more intensive procedures like fractional CO2 laser or thread lifts, allow at least 5–7 days before flying to ensure proper healing.</p>
+    </div>
+  </div>
+
+  <div class="guide-block">
+    <h2>How to Book a Gangnam Dermatology Clinic Through Seoul Beauty Trip</h2>
+    <p>Seoul Beauty Trip is an English-language platform specifically designed to help foreigners navigate the Gangnam dermatology clinic scene. Here is how the booking process works:</p>
+    <ol>
+      <li><strong>Browse clinics above</strong> — each listing includes verified reviews, treatment menus, pricing information, and location details</li>
+      <li><strong>Tap the WhatsApp button</strong> on your chosen clinic's page — this connects you directly to our English-speaking team</li>
+      <li><strong>Tell us your treatment goal</strong> — we'll confirm the right treatment, current availability, and any pre-appointment preparation needed</li>
+      <li><strong>Receive your booking confirmation</strong> — including clinic address (in Korean for your taxi), appointment time, and what to bring</li>
+      <li><strong>Attend your appointment</strong> — our team has briefed the clinic about your goals and language needs in advance</li>
+      <li><strong>Get aftercare support</strong> — if you have any questions post-treatment, message us on WhatsApp anytime</li>
+    </ol>
+    <p>All clinics listed on Seoul Beauty Trip have been personally vetted by our team. We only list clinics that consistently deliver excellent results for foreign patients and maintain transparent pricing. There is no booking fee — our service is completely free for patients.</p>
+  </div>
+  ` : ''}
+
+  ${isHeadSpaMyeongdong ? `
+  <div class="section-title">📖 Complete Guide: Korean Head Spa in Myeongdong for First-Timers 2026</div>
+
+  <div class="guide-block">
+    <h2>What Is a Korean Head Spa — And Why Myeongdong?</h2>
+    <p>A <strong>Korean head spa</strong> is a multi-step therapeutic scalp and hair treatment that goes far beyond a regular shampoo. It combines scalp diagnosis, deep-cleanse, stimulating massage, and nourishing treatments into a single 60–90 minute ritual designed to relieve stress, improve scalp health, and leave your hair visibly shinier.</p>
+    <p>Myeongdong is the single best neighbourhood for first-time visitors to experience a Korean head spa. As Seoul's most international shopping district, virtually every head spa here has English-speaking staff, printed English menus, and experience handling foreign card payments. You don't need to speak Korean, book weeks in advance, or navigate complicated subway routes — many salons accept walk-ins right off the main shopping street.</p>
+    <p>The <strong>viral 18-step Korean head spa</strong> you've seen on TikTok and YouTube? Myeongdong is where most of those videos are filmed. The neighbourhood's salons have perfected the foreigner experience, and the results speak for themselves.</p>
+
+    <h3>Myeongdong vs. Other Seoul Head Spa Areas</h3>
+    <table class="guide-table">
+      <thead><tr><th>Area</th><th>Best For</th><th>Price Range</th><th>English Level</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Myeongdong</strong></td><td>First-timers, walk-ins, viral TikTok experience</td><td>&#8361;60,000–120,000</td><td>Excellent</td></tr>
+        <tr><td>Gangnam</td><td>Premium treatments, medical-grade scalp care</td><td>&#8361;80,000–180,000</td><td>Good</td></tr>
+        <tr><td>Hongdae</td><td>Trendy atmosphere, younger crowd</td><td>&#8361;50,000–100,000</td><td>Moderate</td></tr>
+        <tr><td>Itaewon</td><td>International vibe, diverse hair types</td><td>&#8361;70,000–130,000</td><td>Excellent</td></tr>
+        <tr><td>Insadong</td><td>Traditional atmosphere, cultural experience</td><td>&#8361;55,000–110,000</td><td>Moderate</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="guide-block">
+    <h2>What Happens During a Korean Head Spa? Step-by-Step</h2>
+    <p>Most Myeongdong head spas follow a structured ritual. Here's what to expect from the moment you sit down:</p>
+    <ol>
+      <li><strong>Scalp Consultation</strong> — A therapist examines your scalp type (oily, dry, sensitive, or combination) using a digital scalp camera in many salons. This determines which products and pressure levels will be used.</li>
+      <li><strong>Pre-Treatment Oil Application</strong> — A nourishing oil or serum is applied to loosen buildup and prepare the scalp for deep cleansing. This phase alone is deeply relaxing.</li>
+      <li><strong>First Shampoo (Clarifying)</strong> — A clarifying shampoo removes product buildup, pollution, and excess sebum. The therapist uses specific finger techniques to stimulate blood circulation.</li>
+      <li><strong>Scalp Scrub / Exfoliation</strong> — A gentle exfoliant is massaged into the scalp to remove dead skin cells. This step is often described as "the most satisfying" by first-timers.</li>
+      <li><strong>Second Shampoo (Nourishing)</strong> — A second shampoo, tailored to your scalp type, provides hydration and prepares the scalp for the treatment mask.</li>
+      <li><strong>Treatment Mask Application</strong> — A targeted treatment mask (for hair loss, hydration, or scalp balance) is applied to both the scalp and lengths. This sits for 10–20 minutes under heat.</li>
+      <li><strong>Extended Head &amp; Shoulder Massage</strong> — While the mask works, you receive a full head, neck, and shoulder massage. Pressure points along the scalp are stimulated to relieve tension and promote circulation.</li>
+      <li><strong>Rinse &amp; Conditioning Treatment</strong> — The mask is thoroughly rinsed and a conditioning treatment is worked through the hair lengths.</li>
+      <li><strong>Blow-Dry &amp; Styling</strong> — Your hair is blow-dried and styled to finish. Many salons include a complimentary facial mist or scalp tonic spray.</li>
+    </ol>
+    <div class="guide-callout">
+      <p><strong>Pro Tip:</strong> The full 18-step version adds additional steam treatments, LED scalp therapy, acupressure scalp massage, and a hair gloss treatment. Ask specifically for the "18-step" or "premium" package when booking — it typically adds 30 minutes and &#8361;20,000–40,000 to the base price.</p>
+    </div>
+  </div>
+
+  <div class="guide-block">
+    <h2>Head Spa Prices in Myeongdong 2026</h2>
+    <p>Myeongdong head spa prices are generally mid-range — more affordable than Gangnam but with the same quality of service. Here's what to expect:</p>
+    <table class="guide-table">
+      <thead><tr><th>Treatment</th><th>Duration</th><th>Price Range</th><th>Best For</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Basic Head Spa</strong></td><td>60 min</td><td>&#8361;55,000–75,000</td><td>First-timers, relaxation</td></tr>
+        <tr><td><strong>Standard Head Spa</strong></td><td>75 min</td><td>&#8361;75,000–100,000</td><td>Deep cleanse + massage</td></tr>
+        <tr><td><strong>Premium / 18-Step</strong></td><td>90–110 min</td><td>&#8361;100,000–140,000</td><td>Full ritual experience</td></tr>
+        <tr><td><strong>Scalp Treatment Add-on</strong></td><td>+20 min</td><td>&#8361;20,000–40,000</td><td>Hair loss, dandruff concern</td></tr>
+        <tr><td><strong>Couple Package</strong></td><td>75–90 min</td><td>&#8361;130,000–200,000</td><td>Two people together</td></tr>
+      </tbody>
+    </table>
+    <div class="guide-callout">
+      <p><strong>Booking Tip:</strong> Prices listed above are per person. Walk-in rates may be slightly higher than pre-booked rates. Book via Seoul Beauty Trip's WhatsApp to confirm availability and lock in the best price.</p>
+    </div>
+  </div>
+
+  <div class="guide-block">
+    <h2>Is a Korean Head Spa Safe for All Hair Types?</h2>
+    <p>Yes — Korean head spas are designed to work with all hair types, including curly, coily, fine, thick, chemically treated, and colour-treated hair. Myeongdong salons, in particular, have significant experience with international guests who have diverse hair textures.</p>
+    <p>When you arrive, mention the following to your therapist:</p>
+    <ul>
+      <li>Recent chemical treatments (colour, perm, relaxer) within the last 2–3 weeks</li>
+      <li>Any scalp sensitivities or skin conditions (psoriasis, eczema, sensitive skin)</li>
+      <li>Hair loss concerns — the therapist can adjust the treatment protocol</li>
+      <li>Preference for lighter or firmer massage pressure</li>
+    </ul>
+    <p>Most Myeongdong salons can communicate these adjustments in English. All products used are professional-grade Korean cosmetics brands (Mise en Scene, Ryo, Pyunkang Yul, etc.) — gentle, well-tested, and safe for international visitors.</p>
+  </div>
+
+  <div class="guide-block">
+    <h2>How to Get to Head Spas in Myeongdong</h2>
+    <p>Myeongdong is extremely easy to reach from anywhere in Seoul:</p>
+    <ul>
+      <li><strong>Subway:</strong> Line 4 (Blue), Myeongdong Station (Exit 5 or 8) — most salons are within a 5-minute walk</li>
+      <li><strong>From Hongdae:</strong> 20 minutes via Line 2 → transfer at City Hall to Line 1</li>
+      <li><strong>From Gangnam:</strong> 25 minutes via Line 2 → transfer at Euljiro 3-ga to Line 2</li>
+      <li><strong>From Itaewon:</strong> 15 minutes via Line 6 → transfer at Samgakji to Line 4</li>
+      <li><strong>From Incheon Airport:</strong> Airport Railroad (AREX) to Seoul Station, then 2 stops on Line 4</li>
+    </ul>
+    <div class="guide-callout">
+      <p><strong>Location Tip:</strong> Most head spas are located on the upper floors (2F–6F) of buildings along the main Myeongdong street and the side streets between Myeongdong Cathedral and Lotte Department Store. Look for signs in the elevator lobbies.</p>
+    </div>
+  </div>
+
+  <div class="guide-block">
+    <h2>Before &amp; After Your Head Spa — What You Need to Know</h2>
+    <h3>Before Your Appointment</h3>
+    <ul>
+      <li>Avoid applying heavy dry shampoo or styling products on the day of your appointment — your therapist will need to work through any buildup</li>
+      <li>You don't need to pre-wash your hair — the salon will cleanse everything as part of the treatment</li>
+      <li>Arrive 5–10 minutes early to complete a brief consultation card</li>
+      <li>Wear a top you don't mind getting slightly damp around the collar</li>
+    </ul>
+    <h3>After Your Treatment</h3>
+    <ul>
+      <li>Your scalp may feel slightly more sensitive than usual for 24 hours — this is normal</li>
+      <li>Avoid washing your hair for at least 24 hours to let the treatment fully absorb</li>
+      <li>Avoid heavy heat styling for 48 hours after a treatment mask</li>
+      <li>For ongoing scalp concerns (hair loss, dandruff), consider a follow-up treatment after 2–3 weeks</li>
+    </ul>
+  </div>
+
+  <div class="guide-block">
+    <h2>How to Book a Myeongdong Head Spa as a Foreigner</h2>
+    <p>Booking a head spa in Myeongdong is straightforward — especially through Seoul Beauty Trip:</p>
+    <ol>
+      <li><strong>Browse the salons above</strong> and check ratings, reviews, and photos</li>
+      <li><strong>Click "Book via WhatsApp"</strong> on any salon listing — our English-speaking team handles communication with the salon</li>
+      <li><strong>Confirm your date, time, and treatment</strong> — we'll send you a booking confirmation with the exact address and floor number</li>
+      <li><strong>Arrive and enjoy</strong> — your therapist will be briefed on your preferences and any language needs in advance</li>
+    </ol>
+    <p>All salons listed on Seoul Beauty Trip have been verified for quality, English support, and foreigner-friendly service. Booking via our WhatsApp is always free — no platform fee, no hidden charges.</p>
+  </div>
+  ` : ''}
+
+  ${isClinicItaewon ? `
+  <div class="guide-section">
+    <div class="guide-block">
+      <h2>Itaewon Skin Clinic: The Foreigner's Guide to English-Speaking Dermatology in Seoul ${yr}</h2>
+      <p>Itaewon has long been Seoul's most internationally connected neighbourhood — and nowhere is that more evident than in its skin clinics. Unlike many Korean aesthetic clinics where English support is an afterthought, <strong>Itaewon skin clinics</strong> have built their entire model around international clients. You'll find price lists in English at reception, staff who can explain treatments clearly, and a zero-judgment environment regardless of your skin tone, background, or budget. Whether you're stationed nearby, living in Seoul long-term, or passing through as a tourist, Itaewon's clinics offer a level of accessibility that makes Korean dermatology genuinely easy for foreigners to access.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>Why Foreign Visitors Choose Itaewon Skin Clinics</h2>
+      <p>There are several compelling reasons why Itaewon consistently ranks among the top areas for foreigners seeking skin treatments in Seoul:</p>
+      <ul>
+        <li><strong>English proficiency</strong>: Many staff members are bilingual or have significant experience communicating with non-Korean speakers</li>
+        <li><strong>Multicultural client base</strong>: Clinics in Itaewon routinely treat patients from the US, UK, Australia, Middle East, and Southeast Asia — and understand diverse skin types and concerns accordingly</li>
+        <li><strong>Walk-in friendly</strong>: Same-day and next-day appointments are frequently available, ideal for travelers with limited time</li>
+        <li><strong>Transparent pricing</strong>: Most Itaewon clinics post English price menus — no surprise bills, no upselling pressure</li>
+        <li><strong>Competitive prices</strong>: Treatments cost 40–60% less than equivalent procedures in the US, UK, or Australia</li>
+      </ul>
+    </div>
+
+    <div class="guide-block">
+      <h2>Popular Skin Treatments at Itaewon Clinics</h2>
+      <p>Itaewon clinics cater to a wide range of skin concerns and goals. The most popular treatments among foreign visitors include laser toning for brightening and pigmentation, hydra-facial and deep-cleansing treatments, acne extraction and sebum control therapies, skin booster injections (Restylane Skinbooster, Juvederm, PDRN), and photo-rejuvenation (IPL) for sun damage and redness. For those with darker skin tones — common among Itaewon's diverse international clientele — many clinics use settings and protocols specifically calibrated for Fitzpatrick skin types IV–VI, minimising the risk of post-inflammatory hyperpigmentation that poorly-calibrated lasers can cause.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>How to Book an Itaewon Skin Clinic as a Foreign Visitor</h2>
+      <p>Booking a clinic in Itaewon is straightforward — especially through Seoul Beauty Trip. Browse the verified clinics listed above, check reviews and treatment menus, and click the WhatsApp booking button on any listing. Our English-speaking team will liaise with the clinic directly, confirm your appointment, and send you exact address and arrival instructions. Same-day bookings are often possible. All listed clinics have been verified for English-language support and foreigner-friendly service — your booking is always free of platform fees or hidden charges.</p>
+    </div>
+  </div>
+  ` : ''}
+
+  ${isClinicMyeongdong ? `
+  <div class="guide-section">
+    <div class="guide-block">
+      <h2>Myeongdong Dermatology Clinics: Walk-In Skin Treatments for Tourists ${yr}</h2>
+      <p>Myeongdong is built for visitors in a hurry — and its skin clinics have adapted perfectly to that reality. <strong>Myeongdong dermatology clinics</strong> are among the most accessible aesthetic clinics in all of Seoul: most accept walk-ins, display English price menus, and can complete popular treatments like brightening laser or hydra-facial in under 60 minutes. If you have a free afternoon between shopping and street food, a quick skin treatment in Myeongdong is one of the best ways to spend it. The results speak for themselves — and you'll pay 40–60% less than you would for the same treatment back in your home country.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>Why Myeongdong Is Perfect for Tourist Skin Treatments</h2>
+      <p>No other neighbourhood in Seoul combines convenience, accessibility, and quality the way Myeongdong does for skin treatments:</p>
+      <ul>
+        <li><strong>Central location</strong>: Myeongdong is near major hotels and is on virtually every tourist's itinerary — no extra travel required</li>
+        <li><strong>Walk-in appointments</strong>: Most clinics accommodate walk-ins or same-day bookings without advance planning</li>
+        <li><strong>English menus</strong>: Treatments, prices, and instructions are posted in English at reception in most clinics</li>
+        <li><strong>Quick sessions</strong>: Core treatments like brightening laser or a hydra-facial can be completed in 30–60 minutes</li>
+        <li><strong>Tourist-tested</strong>: Myeongdong clinics serve thousands of foreign visitors each month — the experience is streamlined for non-Korean speakers</li>
+      </ul>
+    </div>
+
+    <div class="guide-block">
+      <h2>Best Treatments to Try in Myeongdong</h2>
+      <p>Myeongdong clinics specialise in high-turnover, high-satisfaction treatments that deliver visible results quickly. The most popular options for tourists include brightening laser (Toning, PicoLaser) for an instant glow and pigmentation reduction, hydra-facial for deep cleansing and hydration, quick acne extraction and pore minimising treatments, and vitamin injection or mesotherapy drips for skin radiance. Most treatments require no downtime, so you can head straight back out to explore Myeongdong's famous street food scene immediately after your session.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>How to Book a Myeongdong Skin Clinic as a Foreign Visitor</h2>
+      <p>The simplest approach is to use Seoul Beauty Trip's WhatsApp booking — click the booking button on any listing above and our English-speaking team will confirm your appointment directly with the clinic. If you prefer to walk in, most Myeongdong clinics are ground-floor or clearly signposted, and have English-speaking reception staff available during peak tourist hours. Arrive with no makeup and be prepared to fill in a brief skin consultation form. Treatments are typically paid in cash (Korean won) or by international card.</p>
+    </div>
+  </div>
+  ` : ''}
+
+  ${isHeadspaGangnam ? `
+  <div class="guide-section">
+    <div class="guide-block">
+      <h2>Gangnam Head Spa: Premium Korean Scalp Treatment Price Guide ${yr}</h2>
+      <p>A <strong>Gangnam head spa</strong> experience is in a different league from what you'd find anywhere else in Seoul. The neighbourhood's culture of uncompromising quality — applied to clinics, salons, and every other beauty service — extends fully to its head spa scene. Expect custom scalp diagnostics using digital microscopes, treatment serums developed by Korean trichology labs, and therapists with years of specialist training. Sessions run 60–90 minutes and typically include scalp analysis, cleansing ritual, targeted scalp treatment, and a full relaxation massage. It's not just a beauty treatment — it's an investment in your scalp health.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>Gangnam Head Spa Prices: What to Expect in ${yr}</h2>
+      <p>Pricing in Gangnam head spas reflects the premium quality on offer. Here's a realistic breakdown of what to budget:</p>
+      <ul>
+        <li><strong>Basic scalp treatment (60 min)</strong>: ₩55,000–₩80,000 — includes cleansing, scalp massage, and basic serum application</li>
+        <li><strong>Standard head spa (75–90 min)</strong>: ₩80,000–₩120,000 — full 18-step ritual with scalp analysis, deep cleanse, multi-step massage, and treatment mask</li>
+        <li><strong>Premium / hair loss specialist session (90–120 min)</strong>: ₩120,000–₩200,000 — medical-grade scalp assessment, customised serum injection or laser scalp therapy, plus full relaxation treatment</li>
+        <li><strong>Add-ons</strong>: Scalp laser therapy (+₩20,000–₩40,000), microbiome analysis (+₩15,000–₩30,000), premium conditioning mask (+₩10,000–₩20,000)</li>
+      </ul>
+      <p>All prices are for single sessions. Package deals of 5 or 10 sessions are widely available and typically offer 20–30% savings — worth considering if you're based in Seoul or visiting multiple times.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>What Makes Gangnam Head Spas Different</h2>
+      <p>Gangnam head spas distinguish themselves from salons in other areas through their use of professional-grade equipment and treatments rarely found elsewhere. Many use digital scalp microscopy to assess sebum levels, follicle health, and scalp hydration before selecting your treatment protocol. Serum formulations are often developed in partnership with Korean dermatology labs and target specific concerns — hair loss prevention, oily scalp, dry scalp, dandruff, or post-colour damage. The massage techniques used are also more advanced, incorporating pressure-point therapy that has a genuinely calming effect on the nervous system. Regular clients report consistently better sleep quality and reduced stress after sessions.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>How to Book a Gangnam Head Spa as a Foreign Visitor</h2>
+      <p>Most premium Gangnam head spas accept foreign guests and provide English menus or have English-capable staff. Booking in advance is recommended — walk-ins are possible but premium slots fill quickly, especially on weekends. Use Seoul Beauty Trip's WhatsApp booking for the smoothest experience: our team handles communication with the salon, confirms your appointment, and ensures your preferences are communicated clearly before you arrive. Arrive with clean, dry hair if possible — or the salon will offer a pre-treatment cleanse as part of your session.</p>
+    </div>
+  </div>
+  ` : ''}
+
+  ${isHeadspaHongdae ? `
+  <div class="guide-section">
+    <div class="guide-block">
+      <h2>Hongdae Head Spa: Budget-Friendly Korean Scalp Treatment Guide ${yr}</h2>
+      <p>Hongdae is where Seoul's young, creative, and internationally-minded crowd comes to relax — and its head spa scene is the perfect reflection of that energy. <strong>Hongdae head spas</strong> deliver the full Korean scalp treatment experience at prices that won't break the bank: a standard 60-minute session typically costs ₩35,000–₩60,000, making it one of the most accessible luxury beauty experiences in the city. The vibe is casual and welcoming, the staff are young and often English-speaking, and many salons stay open late to accommodate the neighbourhood's famously active nightlife crowd. For budget-conscious travelers, students, or anyone who wants to try Korean head spa for the first time without committing to Gangnam prices, Hongdae is the ideal starting point.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>Why Hongdae Head Spas Are Perfect for Travelers</h2>
+      <p>Hongdae offers a combination of qualities that makes it exceptionally convenient for foreign visitors:</p>
+      <ul>
+        <li><strong>Affordable pricing</strong>: Standard sessions cost 20–40% less than equivalent Gangnam salons, with no compromise on the core treatment quality</li>
+        <li><strong>Youthful, English-friendly atmosphere</strong>: Many Hongdae salons have staff with strong English skills and experience serving international university students and travelers</li>
+        <li><strong>Late hours</strong>: Several salons open until 10pm or later, fitting easily around a full day of sightseeing</li>
+        <li><strong>No intimidation factor</strong>: The neighbourhood's casual, creative vibe means there's no pressure or formality — just a relaxing, judgment-free experience</li>
+        <li><strong>Easy to combine</strong>: Hongdae is a natural stop on any Seoul itinerary — combine your head spa with street food, shopping, and live music in the same afternoon</li>
+      </ul>
+    </div>
+
+    <div class="guide-block">
+      <h2>Hongdae Head Spa Prices and Treatments ${yr}</h2>
+      <p>Here's what to expect from a typical Hongdae head spa session: a basic 45-minute scalp massage and cleanse starts around ₩30,000–₩40,000. A full 60-minute session including scalp analysis, multi-step deep cleanse, serum application, and relaxation massage runs ₩40,000–₩60,000. Extended 90-minute premium packages are available from ₩60,000–₩90,000 and include additional steps like a hot towel wrap, hair mask, and extended pressure-point massage. Most salons also offer simple add-ons like a basic scalp serum upgrade or argan oil conditioning treatment for ₩5,000–₩15,000 extra.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>How to Book a Hongdae Head Spa as a Foreign Visitor</h2>
+      <p>Hongdae salons are generally very walk-in friendly — especially during weekdays. For weekends or popular evening slots, booking 1–2 days in advance is recommended. Use Seoul Beauty Trip's WhatsApp booking button on any listing above for the easiest experience: we'll confirm your appointment, let the salon know you're a foreign visitor, and send you the exact address and any preparation tips. Sessions are typically paid in cash or by Korean card — some salons accept international cards, so confirm when booking if this matters to you.</p>
+    </div>
+  </div>
+  ` : ''}
+
+  ${isHairGangnam ? `
+  <div class="guide-section">
+    <div class="guide-block">
+      <h2>Gangnam Hair Salon for Foreigners: The Complete Price &amp; Booking Guide ${yr}</h2>
+      <p>Gangnam is home to some of the most technically accomplished hair stylists in the world — and increasingly, those stylists are fluent in English and experienced with international clients. A <strong>Gangnam hair salon for foreigners</strong> isn't just about language access: it's about finding a stylist who understands the full range of hair textures, tones, and international beauty references. Whether you want a K-pop-inspired cut, a Korean straight perm, a balayage that works with your natural hair colour, or a deep conditioning treatment for damaged hair, Gangnam's top salons have stylists who have trained specifically for all of the above. The result is that foreigners visiting Gangnam salons consistently report outcomes that match or exceed what they'd expect from premium salons in London, New York, or Sydney — at 30–50% of the price.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>Why Foreigners Choose Gangnam for Their Seoul Hair Experience</h2>
+      <p>There are several reasons why Gangnam stands out as the best area in Seoul for foreigner-friendly hair salons:</p>
+      <ul>
+        <li><strong>English-speaking stylists</strong>: Many top Gangnam salons have at least one English-speaking stylist or coordinator specifically for international clients</li>
+        <li><strong>Experience with diverse hair types</strong>: Gangnam salons regularly work with Caucasian, African-American, South Asian, and Southeast Asian hair textures — experience that salons in less international areas often lack</li>
+        <li><strong>Global trend awareness</strong>: Gangnam stylists follow international trends closely and can execute looks from Instagram, TikTok, or any reference photo you bring</li>
+        <li><strong>Premium products</strong>: Salons in Gangnam stock high-end Korean and international product lines — Kerastase, Shu Uemura, Amorepacific professional range — not just budget alternatives</li>
+        <li><strong>Consistent quality</strong>: The competitive density of top salons in Gangnam drives consistently high standards across the board</li>
+      </ul>
+    </div>
+
+    <div class="guide-block">
+      <h2>Gangnam Hair Salon Prices: What to Budget in ${yr}</h2>
+      <p>Pricing at Gangnam hair salons reflects the premium quality on offer. Here's a realistic guide for foreign visitors: a basic cut (wash, cut, blow-dry) costs ₩40,000–₩80,000. A Korean straight perm or digital perm runs ₩100,000–₩200,000 depending on hair length and complexity. Single-process colour (all-over tint) is typically ₩80,000–₩150,000. Balayage, ombre, or highlights cost ₩150,000–₩300,000+ depending on the technique and hair volume. Bleach and tone or dramatic colour changes start from ₩200,000. Deep conditioning or Olaplex treatment add-ons are ₩20,000–₩50,000 extra. All prices are per session — always confirm your final quote during consultation before any service begins.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>How to Book a Gangnam Hair Salon as a Foreign Visitor</h2>
+      <p>Advance booking is strongly recommended for Gangnam hair salons — popular stylists book out days or even weeks in advance, especially on weekends. Use Seoul Beauty Trip's WhatsApp booking to secure your appointment: our team will communicate your hair goals, reference images, and any language needs directly to the salon before your visit. Bring reference photos on your phone — clear, well-lit images of your desired outcome make the consultation significantly smoother. Arrive with clean, dry hair unless you've requested a wash-and-style. Most Gangnam salons accept cash and Korean card; international cards are accepted at many larger salons.</p>
+    </div>
+  </div>
+  ` : ''}
+
+  ${isSkincareGangnam ? `
+  <div class="guide-section">
+    <div class="guide-block">
+      <h2>Gangnam Skincare Clinic vs Dermatology Clinic: What's the Difference? ${yr} Guide for Foreigners</h2>
+      <p>One of the most common questions from foreign visitors exploring Gangnam's beauty scene is: what exactly is the difference between a <em>피부관리실</em> (skincare salon) and a <em>피부과</em> (dermatology clinic)? Both are widely available in Gangnam, both offer impressive results, and both are significantly cheaper than equivalent services in Western countries — but they serve different needs, use different levels of technology, and are regulated differently. Understanding the distinction is essential for getting the right treatment at the right price during your time in Seoul.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>Skincare Salon vs Dermatology Clinic: Key Differences</h2>
+      <p>Here's a clear breakdown of what each type of establishment offers:</p>
+      <ul>
+        <li><strong>Gangnam skincare salon (피부관리실)</strong>: Run by licensed estheticians (not doctors). Offers non-prescription, non-invasive treatments: cleansing facials, hydration therapy, LED light therapy, relaxation massage, and basic exfoliation. Best for maintenance, glow treatments, and general skin health. Prices: ₩40,000–₩120,000 per session.</li>
+        <li><strong>Gangnam dermatology clinic (피부과)</strong>: Run by board-certified dermatologists (의사). Can prescribe medication, perform laser procedures, administer injectable treatments (skin boosters, filler, botox), treat medical skin conditions (acne, rosacea, eczema), and conduct biopsies. Best for results-driven treatments, skin concerns with a medical component, and transformative cosmetic procedures. Prices: ₩50,000–₩500,000+ depending on treatment.</li>
+        <li><strong>Medical aesthetic clinic (의원 / 성형외과)</strong>: Operates at the intersection of dermatology and plastic surgery. Offers the full range of injectables, laser, RF, and surgical procedures. Staffed by doctors with cosmetic medicine or plastic surgery specialisations.</li>
+      </ul>
+    </div>
+
+    <div class="guide-block">
+      <h2>Which Should You Choose?</h2>
+      <p>The right choice depends entirely on what you want to achieve. If your goal is relaxation, a deep-cleanse facial, or maintaining healthy skin during your trip, a Gangnam skincare salon is ideal — lower cost, no needles, no downtime. If you want visible, lasting results from a single session — laser toning for brightening, skin booster injections for plumpness and glow, or acne scar reduction — a Gangnam dermatology clinic is the better investment. For treatments involving injectables, laser, or anything with a medical component, always choose a clinic staffed by licensed doctors. All establishments listed on Seoul Beauty Trip have been verified for credentials, foreigner-friendliness, and quality — whether they're salons or clinics.</p>
+    </div>
+
+    <div class="guide-block">
+      <h2>How to Book Gangnam Skincare Treatments as a Foreign Visitor</h2>
+      <p>Booking is straightforward through Seoul Beauty Trip — click the WhatsApp booking button on any listing above. Our team will confirm your appointment, communicate your skin concerns and treatment goals to the salon or clinic in advance, and send you clear arrival instructions. For dermatology clinics, it's helpful to note any skin sensitivities, current medications, or previous laser treatments when booking — this helps the doctor calibrate your treatment correctly on the day. Most Gangnam skincare salons and clinics accept international cards; cash payment is always an option and occasionally earns a small discount.</p>
+    </div>
+  </div>
+  ` : ''}
+
+  <div class="section-title">🔍 More ${catLabel} by Area</div>
+  <div class="rel-grid">${relatedAreas}</div>
+  <div class="section-title">💅 Other Beauty Services in ${areaLabel}</div>
+  <div class="rel-grid">${relatedCats}</div>
+</main>
+<footer class="lp-footer">
+  © ${new Date().getFullYear()} <a href="/">Seoul Beauty Trip</a> — Book Korean Beauty in Seoul for Foreigners
+  <div style="margin-top:8px">
+    <a href="/about" style="color:#e91e8c">About</a> &nbsp;|&nbsp;
+    <a href="/privacy" style="color:#e91e8c">Privacy Policy</a> &nbsp;|&nbsp;
+    <a href="/ja/blog">Blog</a> &nbsp;|&nbsp;
+    <a href="/ja">ホーム</a>
+  </div>
+</footer>
+</body>
+</html>`)
 })
 
 // ── /ja/admin ──
@@ -5578,7 +8732,7 @@ app.get('/shop/:slug', async (c) => {
   const _bcCatName = _breadcrumbCatLabels[_shopCat] || _shopCat
   // BreadcrumbList: area depth URL (best 페이지 있는 카테고리만 링크)
   const _bcAreaSlugRaw = _shopArea.toLowerCase().replace(/\s+/g,'-').replace('cheongdam','gangnam').replace('apgujeong','gangnam').replace('sinsa','gangnam')
-  const _bcAreaSlug = (typeof AREA_LABELS !== 'undefined' && AREA_LABELS[_bcAreaSlugRaw]) ? _bcAreaSlugRaw : 'seoul'
+  const _bcAreaSlug = (typeof JA_AREA_LABELS !== 'undefined' && JA_AREA_LABELS[_bcAreaSlugRaw]) ? _bcAreaSlugRaw : 'seoul'
   const _bcCatSlug  = _shopCat
   const _bcAreaItem = `{"@type":"ListItem","position":3,"name":"${_shopArea}","item":"${base}/best/${_bcCatSlug}/${_bcAreaSlug}"}`
 
@@ -6676,497 +9830,6 @@ function closeMapOverlay(){
 // ══════════════════════════════════════════════════════
 // ── /best/:category/:area  카테고리×지역 랜딩 페이지 ──
 // ══════════════════════════════════════════════════════
-const CATEGORY_LABELS: Record<string,string> = {
-  makeup:'Makeup',
-  headspa:'Head Spa', clinic:'Skin Clinic', tattoo:'Eyebrow Tattoo'
-}
-const AREA_LABELS: Record<string,string> = {
-  gangnam:'Gangnam', seocho:'Seocho', hongdae:'Hongdae', itaewon:'Itaewon',
-  myeongdong:'Myeongdong', sinchon:'Sinchon', mapo:'Mapo',
-  jongno:'Jongno', dongdaemun:'Dongdaemun', insadong:'Insadong',
-  apgujeong:'Apgujeong', yeouido:'Yeouido', yongsan:'Yongsan', seoul:'Seoul'
-}
-const CAT_FAQ: Record<string,{q:string,a:string}[]> = {
-  headspa:[
-    {q:'What is a Korean head spa?',a:'A Korean head spa is a therapeutic scalp and hair treatment combining deep cleansing, massage, and nourishing treatments. It relieves stress, improves scalp health, and promotes hair growth — popular among tourists in Seoul.'},
-    {q:'How much does a head spa cost in Seoul?',a:'Head spa prices in Seoul typically range from ₩50,000 to ₩150,000 depending on the salon and treatment duration. Most sessions last 60–90 minutes.'},
-    {q:'Do Seoul head spas have English-speaking staff?',a:'Many head spas in tourist areas like Gangnam, Hongdae, and Itaewon have English-speaking staff or translation support. Seoul Beauty Trip only lists foreigner-friendly salons.'},
-    {q:'Do I need to book a head spa in Seoul in advance?',a:'Yes, booking in advance is strongly recommended, especially on weekends. You can book via WhatsApp through Seoul Beauty Trip with English support.'},
-    {q:'What should I expect at a Korean head spa?',a:'Expect a consultation, scalp analysis, deep cleansing shampoo, relaxing massage, and nourishing treatment. Some salons also include a facial massage or aromatherapy.'}
-  ],
-  skincare:[
-    {q:'What makes Korean skincare treatments special?',a:'Korean skincare focuses on hydration, brightening, and glass-skin techniques using advanced ingredients like snail mucin, hyaluronic acid, and fermented extracts — not commonly found elsewhere.'},
-    {q:'How much do Korean facial treatments cost in Seoul?',a:'Facial treatments in Seoul range from ₩50,000 to ₩300,000. Basic hydrafacials start around ₩80,000 while advanced treatments like laser or RF cost more.'},
-    {q:'Are Seoul skin clinics safe for foreigners?',a:'Yes. Seoul skin clinics are among the most advanced in the world with certified dermatologists. Seoul Beauty Trip lists only foreigner-friendly clinics with English support.'},
-    {q:'Can I walk in or do I need a reservation?',a:'Reservations are recommended to avoid waiting. Book via WhatsApp through Seoul Beauty Trip for same-day or advance appointments with English support.'},
-    {q:'What skin treatments are most popular among tourists in Seoul?',a:'Hydrafacial, LED therapy, glass skin facial, galvanic treatment, and Korean lymphatic massage are the most popular among foreign tourists.'}
-  ],
-  hair:[
-    {q:'Are Seoul hair salons experienced with non-Asian hair?',a:'Many hair salons in Seoul, especially in Gangnam and Itaewon, have stylists trained for various hair textures including Western, curly, and colored hair. Always inform the salon beforehand.'},
-    {q:'How much does a haircut cost in Seoul?',a:'A basic haircut in Seoul ranges from ₩20,000 to ₩80,000. Korean perms, balayage, and color treatments range from ₩80,000 to ₩300,000+ depending on length.'},
-    {q:'Can I get a K-pop hairstyle in Seoul?',a:'Absolutely! Many Seoul hair salons specialize in K-pop inspired hairstyles including perms, bleaching, and trendy cuts seen on Korean celebrities.'},
-    {q:'Do Seoul hair salons speak English?',a:'Tourist-area salons in Gangnam, Hongdae, and Itaewon often have English-speaking staff. Seoul Beauty Trip lists only English-friendly salons for foreign visitors.'},
-    {q:'How long does a hair appointment take in Seoul?',a:'A basic cut takes 30–60 minutes. Color treatments and perms can take 2–4 hours. Book in advance especially on weekends.'}
-  ],
-  clinic:[
-    {q:'What is a Gangnam dermatology clinic?',a:'A Gangnam dermatology clinic is a medical aesthetic center in Seoul\'s Gangnam district staffed by board-certified Korean dermatologists. Unlike regular beauty salons, these clinics perform medical-grade treatments including laser resurfacing, Botox, dermal fillers, RF lifting, skin booster injections, and prescription skincare — all at prices typically 40–60% lower than equivalent treatments in Western countries.'},
-    {q:'Are Gangnam dermatology clinics foreigner-friendly?',a:'Yes. Most top-tier Gangnam dermatology clinics have English-speaking coordinators specifically for foreign patients. They provide consultations in English, transparent pricing in USD or KRW, and accommodate WhatsApp bookings from abroad. Seoul Beauty Trip only lists clinics with verified English support.'},
-    {q:'How much does a Gangnam dermatology clinic cost?',a:'Treatment prices at a Gangnam dermatology clinic vary: laser toning (₩50,000–₩150,000), skin booster injections like Rejuran or Juvelook (₩150,000–₩400,000), RF lifting/Thermage (₩300,000–₩800,000), Botox (₩50,000–₩200,000 per area), and acne scar laser (₩100,000–₩500,000). Compared to the US or UK, these prices are 40–60% cheaper for the same quality.'},
-    {q:'What treatments can I get at a Gangnam dermatology clinic as a foreigner?',a:'Popular treatments for foreign visitors at Gangnam dermatology clinics include: laser toning for pigmentation, skin booster injections (Rejuran, Juvelook, Skinbooster), Botox and dermal fillers, RF lifting (Thermage, HIFU/Ulthera), acne and acne scar laser treatment, chemical peels, and LED phototherapy. Most clinics offer same-day consultations for tourists.'},
-    {q:'Do I need to book a Gangnam dermatology clinic in advance?',a:'For laser and injection treatments, booking 1–3 days in advance is recommended. Walk-ins are sometimes accepted for basic consultations. Through Seoul Beauty Trip, you can book any Gangnam dermatology clinic via WhatsApp in English — no Korean language skills needed.'},
-    {q:'Is it safe to get dermatology treatments in Gangnam as a tourist?',a:'Yes. Korean dermatologists are among the most trained in the world — Korea has the highest rate of cosmetic procedures per capita globally. Gangnam dermatology clinics use FDA-approved and KFDA-approved equipment and products. Always disclose your medical history and current medications during the consultation.'}
-  ],
-  makeup:[
-    {q:'What is a Korean makeup look?',a:'Korean makeup emphasizes natural, dewy skin, gradient lips, straight eyebrows, and a youthful glow. It differs from Western makeup by focusing on skin texture over heavy coverage.'},
-    {q:'Can I get a Korean makeup lesson in Seoul?',a:'Yes! Many makeup studios in Seoul offer tutorial sessions for tourists where you learn Korean makeup techniques and take home product recommendations.'},
-    {q:'How much does a makeup session cost in Seoul?',a:'Professional makeup applications range from ₩50,000 to ₩150,000. Makeup lessons with a Korean artist typically cost ₩80,000 to ₩200,000.'},
-    {q:'What occasions are Korean makeup services popular for?',a:'Korean makeup studios are popular for photoshoots, hanbok experiences, K-pop lookbooks, weddings, and just as a unique cultural experience in Seoul.'},
-    {q:'Do Seoul makeup artists speak English?',a:'Many makeup studios in Hongdae, Myeongdong, and Gangnam cater to foreign tourists and have English-speaking artists or booking support.'}
-  ],
-  spa:[
-    {q:'What types of spa treatments are available in Seoul?',a:'Seoul spas offer traditional Korean body scrub (Italy towel exfoliation), aromatherapy massage, hot stone therapy, traditional Korean jjimjilbang experience, and luxurious body wraps.'},
-    {q:'What is a Korean body scrub?',a:'The Korean body scrub (때밀이, ddaemiri) is a traditional exfoliation using a special Italy towel. It removes dead skin cells leaving skin remarkably smooth and is a uniquely Korean experience.'},
-    {q:'How much does a Korean spa cost in Seoul?',a:'Basic spa treatments start from ₩50,000. Premium body treatments and full spa packages range from ₩100,000 to ₩300,000.'},
-    {q:'Are Seoul spas open to foreigners?',a:'Yes, most Seoul spas welcome foreigners. Seoul Beauty Trip lists spas with English booking support and foreigner-friendly service.'},
-    {q:'Should I book a spa in Seoul in advance?',a:'Yes, especially for weekend visits. Premium time slots fill quickly. Book via WhatsApp through Seoul Beauty Trip for easy English reservations.'}
-  ],
-  tattoo:[
-    {q:'What is eyebrow microblading in Korea?',a:'Korean eyebrow microblading (눈썹 반영구) is a semi-permanent tattooing technique that creates hair-stroke-like marks to define, reshape, and fill in eyebrows. Korea is globally recognized for its advanced microblading artistry, producing ultra-natural results that can last 1–2 years.'},
-    {q:'How much does eyebrow microblading cost in Seoul?',a:'Eyebrow microblading in Seoul typically costs ₩150,000–₩400,000 depending on the studio and technique (hairstroke, powder brow, or combo brow). This is significantly more affordable than Western countries where the same treatment can cost $500–$1,000+.'},
-    {q:'Is Korean microblading safe for foreigners?',a:'Yes. Korean eyebrow tattoo studios are licensed, use single-use sterile needles, and follow strict hygiene protocols. Seoul Beauty Trip only lists studios verified for foreign visitors with English support and transparent aftercare guidance.'},
-    {q:'How long does eyebrow microblading last in Korea?',a:'Korean microblading typically lasts 12–18 months before a touch-up is needed. Powder brow techniques can last up to 2 years. Longevity depends on skin type, sun exposure, and aftercare.'},
-    {q:'Can men get eyebrow microblading in Seoul?',a:'Absolutely. Men\'s eyebrow tattooing is a growing trend in Korea. Studios like INOUTE specialize in natural-looking men\'s eyebrow microblading, creating fuller, defined brows without an obvious "tattooed" appearance.'},
-    {q:'Do I need to book an eyebrow tattoo appointment in Seoul in advance?',a:'Yes, booking 1–3 days in advance is recommended. Popular studios can be fully booked on weekends. Book via WhatsApp through Seoul Beauty Trip for easy English-language reservations.'}
-  ]
-}
-const DEFAULT_FAQ = [
-  {q:'How do I book a beauty salon in Seoul as a foreigner?',a:'Seoul Beauty Trip makes it easy — browse shops, choose your service, and book via WhatsApp in English. No Korean language skills needed.'},
-  {q:'Are these salons English-friendly?',a:'Yes, all salons listed on Seoul Beauty Trip are verified to support foreign visitors with English communication for bookings.'},
-  {q:'How far in advance should I book?',a:'1–3 days in advance is recommended. Same-day bookings are sometimes available on weekdays.'},
-  {q:'What payment methods are accepted?',a:'Most salons accept credit cards and cash (Korean Won). Some also accept international cards like Visa and Mastercard.'},
-  {q:'Can I cancel or reschedule my booking?',a:'Yes. Contact us via WhatsApp and we will help reschedule or cancel depending on the salon\'s policy.'}
-]
-
-// ── /video/:id — shop 페이지로 301 리디렉션, DB에 없으면 410 Gone (구글 색인 즉시 제거) ──
-app.get('/video/:id', async (c) => {
-  const sql = getDb(c.env)
-  const vid = c.req.param('id')
-  const rows = await sql`
-    SELECT s.slug as shop_slug
-    FROM videos v LEFT JOIN shops s ON v.shop_id=s.id
-    WHERE v.id=${vid}` as any[]
-  // DB에 없는 video ID → 410 Gone (301→/ 보다 구글이 더 빨리 인덱스 제거)
-  if (!rows.length) {
-    return c.html(`<!DOCTYPE html><html><head>
-<meta charset="UTF-8">
-<title>Video Removed | Seoul Beauty Trip</title>
-<meta name="robots" content="noindex,nofollow">
-<link rel="canonical" href="https://seoulbeautytrip.com/">
-</head><body>
-<h1>Video no longer available</h1>
-<p><a href="/">Browse Seoul Beauty Trip</a></p>
-</body></html>`, 410)
-  }
-  const r = rows[0]
-  return c.redirect(r.shop_slug ? `/shop/${r.shop_slug}` : '/', 301)
-})
-
-// ── /best/clinic/gangnam 전용 SEO 라우트 (30개 클리닉) ──
-app.get('/best/clinic/gangnam', (c) => {
-  const yr = new Date().getFullYear()
-  const clinics = [
-    // Tier 1 — Perfect 5.0★
-    { rank:1,  name:'Sugar Plastic Surgery',          slug:'sugar-clinic-gangnam',                       area:'Gangnam', rating:5.0, reviews:168,   badge:'5.0★ Perfect',    specialty:'Rhinoplasty & Face Contouring',       price:'₩800K–₩3M',  highlight:'Small-clinic precision; highly rated for natural results in rhinoplasty and face-line work.' },
-    { rank:2,  name:'Onyoo Plastic Surgery',          slug:'onyoo-plastic-surgery-clinic-gangnam',       area:'Gangnam', rating:5.0, reviews:52,    badge:'5.0★ Perfect',    specialty:'Eyelid & Facial Rejuvenation',        price:'₩500K–₩2.5M',highlight:'Boutique clinic known for ultra-natural double-eyelid results with minimal downtime.' },
-    { rank:3,  name:'FittingClinic',                  slug:'fitting-clinic-gangnam',                     area:'Gangnam', rating:5.0, reviews:41,    badge:'5.0★ Perfect',    specialty:'Skin Boosters & Anti-Aging',         price:'₩200K–₩800K', highlight:'English-friendly; specialises in Juvelook, Rejuran, and HIFU for radiant skin.' },
-    { rank:4,  name:'Glovi G-Thera Anti-Aging',       slug:'glovi-antiaging-gangnam',                    area:'Gangnam', rating:5.0, reviews:28,    badge:'5.0★ Perfect',    specialty:'Anti-Aging & Skin Tightening',        price:'₩300K–₩1.5M',highlight:'Niche specialist in non-surgical lifting using G-Thera and RF technology.' },
-    { rank:5,  name:'Medicube Clinic',                slug:'medicube-clinic-seocho',                     area:'Seocho',  rating:5.0, reviews:646,   badge:'5.0★ Most-Reviewed',specialty:'Acne & Barrier Repair',             price:'₩150K–₩600K', highlight:'K-beauty brand clinic; outstanding acne care protocol with professional-grade devices.' },
-    // Tier 2 — Top Volume
-    { rank:6,  name:'GU Clinic',                      slug:'gu-clinic-seocho',                           area:'Seocho',  rating:4.8, reviews:10798, badge:'#1 Most Reviewed', specialty:'Full-Service Dermatology',           price:'₩100K–₩2M',  highlight:'10,000+ Google reviews — arguably the most trusted clinic in the Gangnam–Seocho corridor.' },
-    { rank:7,  name:'Braun Plastic Surgery',          slug:'braun-clinic-gangnam',                       area:'Gangnam', rating:4.7, reviews:1555,  badge:'Top Reviewed',     specialty:'Rhinoplasty & Breast Surgery',       price:'₩1M–₩8M',    highlight:'Internationally recognised; transparent pricing and dedicated English coordination team.' },
-    { rank:8,  name:'Orta Clinic',                    slug:'orta-clinic-seocho',                         area:'Seocho',  rating:4.8, reviews:4407,  badge:'Top Reviewed',     specialty:'Laser & Skin Care',                  price:'₩150K–₩1.2M',highlight:'4,400+ reviews; laser toning, Pico laser, and Fraxel under one roof.' },
-    { rank:9,  name:'Lienjang',                       slug:'lienjang-plastic-surgery-dermatology-gangnam',area:'Gangnam', rating:4.6, reviews:1461, badge:'Top Reviewed',     specialty:'Dermatology & Plastic Surgery',      price:'₩300K–₩5M',  highlight:'Dual plastic surgery + dermatology licence; popular for combined treatment packages.' },
-    { rank:10, name:'INKO Seoul',                     slug:'inko-clinic-gangnam',                        area:'Gangnam', rating:4.7, reviews:1451,  badge:'Top Reviewed',     specialty:'Anti-Aging & Regenerative Skin',     price:'₩200K–₩1.5M',highlight:'Cutting-edge regenerative treatments including exosomes and stem-cell-derived serums.' },
-    // Tier 3 — Established Mid-Size
-    { rank:11, name:'AB Plastic Surgery',             slug:'ab-plastic-surgery-seocho',                  area:'Seocho',  rating:4.7, reviews:985,   badge:'Established',      specialty:'Face & Body Contouring',            price:'₩500K–₩6M',  highlight:'Consistent high-satisfaction scores for liposuction and facial bone contouring.' },
-    { rank:12, name:'View Plastic Surgery',           slug:'view-plastic-surgery-gangnam',               area:'Gangnam', rating:4.6, reviews:785,   badge:'Established',      specialty:'Eyelid & Nose Surgery',              price:'₩600K–₩4M',  highlight:'Long-standing reputation for natural-looking eyelid and nose surgery.' },
-    { rank:13, name:'Lee Moon Won Korean Medicine',   slug:'lee-moon-won-korean-medicine-clinic',        area:'Gangnam', rating:4.8, reviews:1304,  badge:'Established',      specialty:'Acupuncture Facial Lifting',         price:'₩80K–₩400K', highlight:'Unique Korean traditional medicine approach; popular for facial lifting without surgery.' },
-    { rank:14, name:'DR.EVERS GANGNAM',               slug:'drevers-clinic-gangnam',                     area:'Gangnam', rating:4.6, reviews:1167,  badge:'Established',      specialty:'Non-Surgical Aesthetics',            price:'₩200K–₩1.2M',highlight:'European-style clinic; strong reviews for thread lifts and dermal fillers.' },
-    { rank:15, name:'Wonderful Plastic Surgery',      slug:'wonderful-clinic-gangnam',                   area:'Gangnam', rating:4.5, reviews:1061,  badge:'Established',      specialty:'Rhinoplasty & Contouring',           price:'₩700K–₩5M',  highlight:'Trusted name for secondary (revision) rhinoplasty cases.' },
-    // Tier 4 — Hidden Gems
-    { rank:16, name:'ME SEOUL CLINIC',                slug:'me-seoul-clinic-gangnam',                    area:'Gangnam', rating:4.7, reviews:710,   badge:'Hidden Gem',       specialty:'Skin Boosters & Laser',              price:'₩150K–₩800K', highlight:'Trendy Apgujeong clinic; loved by local influencers for glow treatments.' },
-    { rank:17, name:'D&A Dermatology',                slug:'da-derm-gangnam',                            area:'Gangnam', rating:4.7, reviews:422,   badge:'Hidden Gem',       specialty:'Acne & Pigmentation',                price:'₩100K–₩600K', highlight:'Highly rated for stubborn acne and post-acne pigmentation management.' },
-    { rank:18, name:'Jiwoo Clinic',                   slug:'jiwoo-clinic-gangnam',                       area:'Gangnam', rating:4.8, reviews:359,   badge:'Hidden Gem',       specialty:'Skin Rejuvenation',                  price:'₩120K–₩700K', highlight:'Small, personal clinic with exceptional patient care and Pico laser expertise.' },
-    { rank:19, name:'Barog Clinic',                   slug:'barog-clinic-gangnam',                       area:'Gangnam', rating:4.7, reviews:356,   badge:'Hidden Gem',       specialty:'Botox & Fillers',                    price:'₩100K–₩500K', highlight:'Affordable Botox and filler specialist; quick appointments, no waiting.' },
-    { rank:20, name:'Yaan Clinic',                    slug:'yaan-clinic-gangnam',                        area:'Gangnam', rating:4.6, reviews:332,   badge:'Hidden Gem',       specialty:'Anti-Aging Laser',                   price:'₩150K–₩900K', highlight:'Laser toning and skin brightening; popular with working professionals.' },
-    { rank:21, name:'Dr New Cell Clinic',             slug:'dr-new-cell-clinic-gangnam',                 area:'Gangnam', rating:4.6, reviews:386,   badge:'Hidden Gem',       specialty:'Regenerative Aesthetics',            price:'₩200K–₩1.2M',highlight:'Innovative exosome and growth-factor treatments for skin regeneration.' },
-    { rank:22, name:'Seoul I Plastic Surgery',        slug:'seoul-i-clinic-gangnam',                     area:'Gangnam', rating:4.6, reviews:269,   badge:'Hidden Gem',       specialty:'Eyelid Specialisation',              price:'₩500K–₩2M',  highlight:'Single-specialty focus on eyes; non-incisional and incisional double-eyelid options.' },
-    { rank:23, name:'Nohd Dermatology',               slug:'nohd-dermatology-gangnam',                   area:'Gangnam', rating:4.7, reviews:165,   badge:'Hidden Gem',       specialty:'Medical Dermatology',                price:'₩100K–₩500K', highlight:'Evidence-based dermatology; thorough skin analysis before any treatment.' },
-    { rank:24, name:'Cheongdam Dear Clinic',          slug:'dear-clinic-cheongdam',                      area:'Gangnam', rating:4.7, reviews:128,   badge:'Hidden Gem',       specialty:'Luxury Skin Care',                   price:'₩200K–₩1.5M',highlight:'Cheongdam boutique feel; VIP experience for skin boosters and anti-aging.' },
-    { rank:25, name:'Edition Plastic Surgery',        slug:'edition-plastic-surgery-clinic-seocho',      area:'Seocho',  rating:4.6, reviews:204,   badge:'Hidden Gem',       specialty:'Minimal Invasive Surgery',           price:'₩400K–₩3M',  highlight:'Focus on minimal-downtime surgical procedures using advanced endoscopic techniques.' },
-    // Tier 5 — Rising Stars
-    { rank:26, name:'Arc Plastic Surgery',            slug:'arc-plastic-surgery-seocho',                 area:'Seocho',  rating:4.5, reviews:98,    badge:'Rising Star',      specialty:'Body Contouring',                    price:'₩600K–₩4M',  highlight:'Up-and-coming Seocho clinic with strong early reviews for body-line work.' },
-    { rank:27, name:'21 Plastic Surgery',             slug:'21-plastic-surgery-gangnam',                 area:'Gangnam', rating:4.5, reviews:69,    badge:'Rising Star',      specialty:'Rhinoplasty & Chest',                price:'₩700K–₩5M',  highlight:'Young surgical team bringing fresh approaches to classic cosmetic procedures.' },
-    { rank:28, name:'GD Clinic',                      slug:'gd-clinic-gangnam',                          area:'Gangnam', rating:4.5, reviews:68,    badge:'Rising Star',      specialty:'Skin Care & Lasers',                 price:'₩100K–₩600K', highlight:'Affordable entry point for quality laser and skin-care treatments in Gangnam.' },
-    { rank:29, name:'Reev Clinic',                    slug:'reev-clinic-gangnam',                        area:'Gangnam', rating:4.5, reviews:26,    badge:'Rising Star',      specialty:'Anti-Aging Injectables',             price:'₩150K–₩700K', highlight:'New but already praised for precise Botox technique and honest consultations.' },
-    { rank:30, name:'TUNE CLINIC APGUJEONG',          slug:'tune-clinic-apgujeong',                      area:'Gangnam', rating:4.5, reviews:71,    badge:'Rising Star',      specialty:'Skin Toning & Brightening',          price:'₩120K–₩600K', highlight:'Apgujeong specialist in skin-tone correction and brightening laser protocols.' },
-  ]
-
-  const clinicCards = clinics.map(cl => `
-    <article class="bcg-card" itemscope itemtype="https://schema.org/MedicalBusiness">
-      <meta itemprop="name" content="${cl.name}">
-      <meta itemprop="url" content="https://seoulbeautytrip.com/shop/${cl.slug}">
-      <div class="bcg-card-head">
-        <span class="bcg-rank">#${cl.rank}</span>
-        <span class="bcg-badge">${cl.badge}</span>
-        <span class="bcg-area-tag">${cl.area}</span>
-      </div>
-      <h3 class="bcg-name" itemprop="name">${cl.name}</h3>
-      <p class="bcg-spec">⚕ ${cl.specialty}</p>
-      <p class="bcg-price">💰 Typical price: ${cl.price}</p>
-      <div class="bcg-rating">
-        <span class="bcg-stars">${'★'.repeat(Math.round(cl.rating))}${'☆'.repeat(5-Math.round(cl.rating))}</span>
-        <span class="bcg-rv">${cl.rating.toFixed(1)} · ${cl.reviews.toLocaleString()} reviews</span>
-      </div>
-      <p class="bcg-hl">${cl.highlight}</p>
-      <a href="/shop/${cl.slug}" class="bcg-btn" itemprop="url">View Clinic →</a>
-    </article>`).join('\n')
-
-  const tier1Cards  = clinics.filter(c=>c.rank<=5)
-  const tier2Cards  = clinics.filter(c=>c.rank>=6&&c.rank<=10)
-  const tier3Cards  = clinics.filter(c=>c.rank>=11&&c.rank<=15)
-  const tier4Cards  = clinics.filter(c=>c.rank>=16&&c.rank<=25)
-  const tier5Cards  = clinics.filter(c=>c.rank>=26)
-
-  const renderCards = (list: typeof clinics) => list.map(cl => `
-    <article class="bcg-card" itemscope itemtype="https://schema.org/MedicalBusiness">
-      <meta itemprop="name" content="${cl.name}">
-      <div class="bcg-card-head">
-        <span class="bcg-rank">#${cl.rank}</span>
-        <span class="bcg-badge">${cl.badge}</span>
-        <span class="bcg-area-tag ${cl.area==='Seocho'?'seocho':''}">${cl.area}</span>
-      </div>
-      <h3 class="bcg-name">${cl.name}</h3>
-      <p class="bcg-spec">⚕ ${cl.specialty}</p>
-      <p class="bcg-price">💰 ${cl.price}</p>
-      <div class="bcg-rating">
-        <span class="bcg-stars">★${cl.rating.toFixed(1)}</span>
-        <span class="bcg-rv">${cl.reviews.toLocaleString()} reviews</span>
-      </div>
-      <p class="bcg-hl">${cl.highlight}</p>
-      <a href="/shop/${cl.slug}" class="bcg-btn">Book / Details →</a>
-    </article>`).join('')
-
-  const itemListEl = clinics.map(cl => `{"@type":"ListItem","position":${cl.rank},"url":"https://seoulbeautytrip.com/shop/${cl.slug}","name":"${cl.name}"}`).join(',')
-  const medBizEl   = clinics.slice(0,5).map(cl => `{"@type":"MedicalBusiness","name":"${cl.name}","url":"https://seoulbeautytrip.com/shop/${cl.slug}","aggregateRating":{"@type":"AggregateRating","ratingValue":"${cl.rating}","reviewCount":"${cl.reviews}"}}`).join(',')
-
-  const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Best Plastic Surgery Clinics Gangnam Seoul ${yr} | Seoul Beauty Trip</title>
-<meta name="description" content="Plastic surgery &amp; skin clinics in Gangnam Seoul — top 30 ranked by ${yr} patient reviews. Board-certified surgeons, English-friendly booking, honest prices for international visitors.">
-<link rel="canonical" href="https://seoulbeautytrip.com/best/clinic/gangnam">
-<meta property="og:title" content="Best Plastic Surgery Clinics Gangnam Seoul ${yr} | Seoul Beauty Trip">
-<meta property="og:description" content="Verified list of the 30 best aesthetic clinics in Gangnam &amp; Seocho. English booking available.">
-<meta property="og:url" content="https://seoulbeautytrip.com/best/clinic/gangnam">
-<meta property="og:type" content="article">
-<meta property="og:image" content="https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
-<meta property="og:image:type" content="image/jpeg">
-<meta property="og:image:alt" content="Best Plastic Surgery Clinics in Gangnam Seoul — Seoul Beauty Trip">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg">
-<script type="application/ld+json">
-{"@context":"https://schema.org","@graph":[
-  {"@type":"ItemList","name":"Best Plastic Surgery &amp; Skin Clinics in Gangnam Seoul ${yr}","numberOfItems":30,"itemListElement":[${itemListEl}]},
-  {"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://seoulbeautytrip.com"},{"@type":"ListItem","position":2,"name":"Best Clinics","item":"https://seoulbeautytrip.com/best"},{"@type":"ListItem","position":3,"name":"Skin Clinics Gangnam","item":"https://seoulbeautytrip.com/best/clinic/gangnam"}]}
-]}
-</script>
-<style>
-:root{--gn:#2d6a4f;--gn2:#1b4332;--gold:#f59e0b;--seocho:#7c3aed}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:#f8fafc;color:#1e293b;margin:0}
-.bcg-hero{background:linear-gradient(135deg,#1b4332 0%,#2d6a4f 60%,#40916c 100%);color:#fff;padding:56px 24px 48px;text-align:center}
-.bcg-hero h1{font-size:clamp(1.6rem,4vw,2.6rem);font-weight:800;margin:0 0 12px;line-height:1.2}
-.bcg-hero p{font-size:1.05rem;opacity:.9;max-width:620px;margin:0 auto 20px}
-.bcg-hero-stats{display:flex;justify-content:center;gap:32px;flex-wrap:wrap;margin-top:8px}
-.bcg-stat{text-align:center}.bcg-stat-n{font-size:1.8rem;font-weight:800;color:#95d5b2}
-.bcg-stat-l{font-size:.75rem;opacity:.8;text-transform:uppercase;letter-spacing:.05em}
-.bcg-nav-strip{background:#fff;border-bottom:1px solid #e2e8f0;padding:12px 24px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.bcg-nav-strip a{font-size:.8rem;color:#64748b;text-decoration:none}.bcg-nav-strip a:hover{color:#2d6a4f}
-.bcg-nav-strip span{color:#94a3b8;font-size:.8rem}
-.bcg-toc-box{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px 24px;max-width:800px;margin:32px auto 0}
-.bcg-toc-box h2{font-size:1rem;font-weight:700;margin:0 0 12px;color:#1e293b}
-.bcg-toc-box ol{margin:0;padding-left:20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:4px 16px}
-.bcg-toc-box li{font-size:.85rem;color:#475569;padding:2px 0}
-.bcg-toc-box li a{color:#2d6a4f;text-decoration:none}.bcg-toc-box li a:hover{text-decoration:underline}
-.bcg-main{max-width:1100px;margin:0 auto;padding:0 16px 64px}
-.bcg-intro{background:#fff;border-radius:12px;padding:28px 32px;margin:32px 0;border:1px solid #e2e8f0;line-height:1.75}
-.bcg-intro h2{font-size:1.25rem;font-weight:700;margin:0 0 12px;color:#1b4332}
-.bcg-intro p{font-size:.95rem;color:#374151;margin:0 0 12px}
-.bcg-intro ul{padding-left:20px;font-size:.92rem;color:#374151}
-.bcg-intro li{margin-bottom:6px}
-.bcg-tier{margin:40px 0}
-.bcg-tier-title{font-size:1.35rem;font-weight:800;color:#1b4332;margin:0 0 8px;padding-bottom:8px;border-bottom:2px solid #d1fae5}
-.bcg-tier-desc{font-size:.9rem;color:#64748b;margin:0 0 20px;line-height:1.65}
-.bcg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px}
-.bcg-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:8px;transition:box-shadow .2s,transform .2s}
-.bcg-card:hover{box-shadow:0 8px 24px rgba(0,0,0,.1);transform:translateY(-2px)}
-.bcg-card-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.bcg-rank{background:#1b4332;color:#fff;font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:20px}
-.bcg-badge{font-size:.7rem;font-weight:600;padding:2px 8px;border-radius:20px;background:#dcfce7;color:#166534}
-.bcg-area-tag{font-size:.7rem;font-weight:600;padding:2px 8px;border-radius:20px;background:#ede9fe;color:#5b21b6}
-.bcg-area-tag:not(.seocho){background:#e0f2fe;color:#075985}
-.bcg-name{font-size:1.05rem;font-weight:700;color:#1e293b;margin:0}
-.bcg-spec{font-size:.82rem;color:#475569;margin:0}
-.bcg-price{font-size:.82rem;color:#64748b;margin:0}
-.bcg-rating{display:flex;align-items:center;gap:8px}
-.bcg-stars{color:#f59e0b;font-weight:700;font-size:.9rem}
-.bcg-rv{font-size:.78rem;color:#94a3b8}
-.bcg-hl{font-size:.85rem;color:#374151;line-height:1.55;margin:0;flex:1}
-.bcg-btn{display:inline-block;margin-top:4px;background:#2d6a4f;color:#fff;padding:8px 16px;border-radius:8px;font-size:.85rem;font-weight:600;text-decoration:none;text-align:center;transition:background .2s}
-.bcg-btn:hover{background:#1b4332}
-.bcg-guide-box{background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #86efac;border-radius:14px;padding:28px 32px;margin:48px 0}
-.bcg-guide-box h2{font-size:1.15rem;font-weight:700;color:#1b4332;margin:0 0 16px}
-.bcg-guide-links{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
-.bcg-guide-links a{background:#fff;border:1px solid #86efac;border-radius:10px;padding:10px 14px;font-size:.85rem;color:#166534;text-decoration:none;font-weight:500;transition:background .2s}
-.bcg-guide-links a:hover{background:#f0fdf4}
-.bcg-faq{margin:48px 0}
-.bcg-faq h2{font-size:1.25rem;font-weight:700;color:#1b4332;margin:0 0 20px;padding-bottom:8px;border-bottom:2px solid #d1fae5}
-.bcg-faq-item{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px 24px;margin-bottom:14px}
-.bcg-faq-q{font-size:.95rem;font-weight:700;color:#1e293b;margin:0 0 8px}
-.bcg-faq-a{font-size:.88rem;color:#475569;line-height:1.7;margin:0}
-.bcg-price-table{width:100%;border-collapse:collapse;font-size:.88rem;margin:16px 0}
-.bcg-price-table th{background:#1b4332;color:#fff;padding:10px 14px;text-align:left}
-.bcg-price-table td{padding:10px 14px;border-bottom:1px solid #e2e8f0;color:#374151}
-.bcg-price-table tr:nth-child(even) td{background:#f8fafc}
-.bcg-cta-box{background:#1b4332;color:#fff;border-radius:16px;padding:36px 32px;text-align:center;margin:48px 0}
-.bcg-cta-box h2{font-size:1.4rem;font-weight:800;margin:0 0 12px}
-.bcg-cta-box p{font-size:.95rem;opacity:.85;max-width:520px;margin:0 auto 20px}
-.bcg-cta-link{display:inline-block;background:#fff;color:#1b4332;font-weight:700;padding:12px 28px;border-radius:10px;text-decoration:none;font-size:.95rem}
-.bcg-cta-link:hover{background:#dcfce7}
-@media(max-width:640px){.bcg-hero{padding:36px 16px 32px}.bcg-intro{padding:20px 18px}.bcg-guide-box{padding:20px 16px}.bcg-faq-item{padding:16px 18px}}
-</style>
-</head>
-<body>
-<nav class="bcg-nav-strip">
-  <a href="/">Home</a><span>›</span>
-  <a href="/best">Best Lists</a><span>›</span>
-  <span style="color:#2d6a4f;font-weight:600">Skin Clinics · Gangnam &amp; Seocho</span>
-</nav>
-
-<header class="bcg-hero">
-  <h1>Best Plastic Surgery &amp; Skin Clinics in Gangnam Seoul (${yr})</h1>
-  <p>Verified by real patient reviews. English-friendly booking available via WhatsApp for all listed clinics.</p>
-  <div class="bcg-hero-stats">
-    <div class="bcg-stat"><div class="bcg-stat-n">30</div><div class="bcg-stat-l">Clinics Listed</div></div>
-    <div class="bcg-stat"><div class="bcg-stat-n">24K+</div><div class="bcg-stat-l">Reviews Analysed</div></div>
-    <div class="bcg-stat"><div class="bcg-stat-n">5</div><div class="bcg-stat-l">Tiers Ranked</div></div>
-    <div class="bcg-stat"><div class="bcg-stat-n">🇬🇧</div><div class="bcg-stat-l">English Support</div></div>
-  </div>
-</header>
-
-<main class="bcg-main">
-
-<div class="bcg-toc-box">
-  <h2>📋 Quick Navigation</h2>
-  <ol>
-    <li><a href="#tier1">Tier 1 — Perfect 5.0★ (Clinics 1–5)</a></li>
-    <li><a href="#tier2">Tier 2 — Highest Review Volume (6–10)</a></li>
-    <li><a href="#tier3">Tier 3 — Established Performers (11–15)</a></li>
-    <li><a href="#tier4">Tier 4 — Hidden Gems (16–25)</a></li>
-    <li><a href="#tier5">Tier 5 — Rising Stars (26–30)</a></li>
-    <li><a href="#prices">Price Reference Table</a></li>
-    <li><a href="#booking">How to Book</a></li>
-    <li><a href="#faq">FAQ</a></li>
-  </ol>
-</div>
-
-<div class="bcg-intro">
-  <h2>Why Gangnam &amp; Seocho for Aesthetic Treatments?</h2>
-  <p>Gangnam and its neighbouring district Seocho form the world's most concentrated cluster of aesthetic clinics. Within a few square kilometres you will find board-certified plastic surgeons, dermatologists, and cosmetic medicine specialists whose credentials rival top practices in New York or London — often at a fraction of the price.</p>
-  <p>What sets the area apart is not just density but <strong>competition-driven quality</strong>. Clinics know that patients can walk next door if the results disappoint, which keeps standards remarkably high. Google reviews in Korean are brutally honest, and the thirty clinics on this list have collectively earned strong ratings from tens of thousands of real patients.</p>
-  <ul>
-    <li>🌏 <strong>International-friendly infrastructure</strong> — most clinics offer English consultation or dedicated translation staff</li>
-    <li>💳 <strong>Transparent pricing</strong> — Korean clinics are required by law to post treatment prices; no hidden fees</li>
-    <li>🏥 <strong>Advanced technology</strong> — latest laser and device platforms arrive in Seoul before most Western markets</li>
-    <li>✈️ <strong>Medical tourism ecosystem</strong> — hotels, recovery residences, and airport-to-clinic transfers all available</li>
-  </ul>
-  <p>This guide covers both Gangnam-gu and Seocho-gu because many of the strongest clinics — including the most-reviewed clinic in the entire area — sit on the Seocho side of the Gangnam boundary. Treating them as separate lists would be artificial; most visitors travel between the two districts in under ten minutes.</p>
-</div>
-
-<section class="bcg-tier" id="tier1">
-  <h2 class="bcg-tier-title">⭐ Tier 1 — Perfect 5.0★ Rating</h2>
-  <p class="bcg-tier-desc">These five clinics have maintained a flawless five-star average across all major review platforms. Achieving perfect scores is rare in a hyper-competitive market like Gangnam, making each a benchmark for quality in its specialty.</p>
-  <div class="bcg-grid">${renderCards(tier1Cards)}</div>
-</section>
-
-<section class="bcg-tier" id="tier2">
-  <h2 class="bcg-tier-title">🏆 Tier 2 — Highest Review Volume</h2>
-  <p class="bcg-tier-desc">Volume alone does not guarantee quality, but when thousands of patients repeatedly leave strong feedback, it is a reliable signal. These clinics combine scale with consistent patient satisfaction — a difficult balance to maintain.</p>
-  <div class="bcg-grid">${renderCards(tier2Cards)}</div>
-</section>
-
-<section class="bcg-tier" id="tier3">
-  <h2 class="bcg-tier-title">💼 Tier 3 — Established Performers</h2>
-  <p class="bcg-tier-desc">Mid-size clinics with hundreds to over a thousand reviews and consistently high scores. These are the workhorses of the Gangnam–Seocho scene — dependable, experienced, and broadly trusted by both local and international patients.</p>
-  <div class="bcg-grid">${renderCards(tier3Cards)}</div>
-</section>
-
-<section class="bcg-tier" id="tier4">
-  <h2 class="bcg-tier-title">💎 Tier 4 — Hidden Gems</h2>
-  <p class="bcg-tier-desc">Smaller review counts can reflect a specialist niche or a newer practice rather than lower quality. Each clinic here earns its place with outstanding ratings and a clear area of expertise — often offering more personalised care than larger chains.</p>
-  <div class="bcg-grid">${renderCards(tier4Cards)}</div>
-</section>
-
-<section class="bcg-tier" id="tier5">
-  <h2 class="bcg-tier-title">🚀 Tier 5 — Rising Stars</h2>
-  <p class="bcg-tier-desc">Newer to the scene but already building solid reputations. Worth booking now before they become household names and appointment wait times grow longer.</p>
-  <div class="bcg-grid">${renderCards(tier5Cards)}</div>
-</section>
-
-<section id="prices" style="margin:48px 0">
-  <h2 style="font-size:1.25rem;font-weight:700;color:#1b4332;margin:0 0 16px;padding-bottom:8px;border-bottom:2px solid #d1fae5">💰 Price Reference Table — Common Treatments</h2>
-  <p style="font-size:.88rem;color:#64748b;margin:0 0 16px">All prices are approximate and vary by clinic, practitioner, and treatment plan. Always request a written quote during your consultation.</p>
-  <div style="overflow-x:auto">
-  <table class="bcg-price-table">
-    <thead><tr><th>Treatment</th><th>Low Range</th><th>High Range</th><th>Notes</th></tr></thead>
-    <tbody>
-      <tr><td>Botox (jaw slimming)</td><td>₩80,000</td><td>₩200,000</td><td>Results last 4–6 months</td></tr>
-      <tr><td>Dermal filler (1 vial)</td><td>₩150,000</td><td>₩400,000</td><td>Juvederm, Restylane common brands</td></tr>
-      <tr><td>Rejuran Healer</td><td>₩200,000</td><td>₩500,000</td><td>Polynucleotide skin booster</td></tr>
-      <tr><td>Juvelook (skin booster)</td><td>₩180,000</td><td>₩450,000</td><td>PDLLA filler; longer lasting</td></tr>
-      <tr><td>HIFU / Shurink (full face)</td><td>₩300,000</td><td>₩900,000</td><td>Ultrasound lifting; 1–2 sessions/year</td></tr>
-      <tr><td>Thermage FLX (full face)</td><td>₩600,000</td><td>₩1,500,000</td><td>RF tightening; once yearly typical</td></tr>
-      <tr><td>Pico laser (full face)</td><td>₩100,000</td><td>₩350,000</td><td>Pigmentation, brightening</td></tr>
-      <tr><td>Thread lift (mid-face)</td><td>₩400,000</td><td>₩1,200,000</td><td>PDO/PLLA threads; 3–12 month duration</td></tr>
-      <tr><td>Double eyelid (non-incisional)</td><td>₩500,000</td><td>₩1,500,000</td><td>Recovery: 1–2 weeks</td></tr>
-      <tr><td>Rhinoplasty (tip only)</td><td>₩800,000</td><td>₩2,500,000</td><td>Cartilage or implant; full recovery 3–4 weeks</td></tr>
-    </tbody>
-  </table>
-  </div>
-</section>
-
-<section id="booking" style="margin:48px 0">
-  <h2 style="font-size:1.25rem;font-weight:700;color:#1b4332;margin:0 0 16px;padding-bottom:8px;border-bottom:2px solid #d1fae5">📅 How to Book an Appointment</h2>
-  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px">
-    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px">
-      <div style="font-size:1.5rem;margin-bottom:8px">1️⃣</div>
-      <h3 style="font-size:.95rem;font-weight:700;margin:0 0 8px">Choose your clinic</h3>
-      <p style="font-size:.85rem;color:#64748b;margin:0">Browse the list above. Filter by your desired treatment, budget, and area (Gangnam or Seocho).</p>
-    </div>
-    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px">
-      <div style="font-size:1.5rem;margin-bottom:8px">2️⃣</div>
-      <h3 style="font-size:.95rem;font-weight:700;margin:0 0 8px">Request via WhatsApp</h3>
-      <p style="font-size:.85rem;color:#64748b;margin:0">Click "Book / Details" on any clinic card. Our team contacts the clinic on your behalf in Korean — no language barrier.</p>
-    </div>
-    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px">
-      <div style="font-size:1.5rem;margin-bottom:8px">3️⃣</div>
-      <h3 style="font-size:.95rem;font-weight:700;margin:0 0 8px">Confirm &amp; visit</h3>
-      <p style="font-size:.85rem;color:#64748b;margin:0">Receive your appointment time and clinic address in English. Bring your passport — some clinics require ID for medical records.</p>
-    </div>
-    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px">
-      <div style="font-size:1.5rem;margin-bottom:8px">4️⃣</div>
-      <h3 style="font-size:.95rem;font-weight:700;margin:0 0 8px">Aftercare support</h3>
-      <p style="font-size:.85rem;color:#64748b;margin:0">Post-treatment questions? Message us on WhatsApp and we will liaise with the clinic for any follow-up needs.</p>
-    </div>
-  </div>
-</section>
-
-<div class="bcg-guide-box">
-  <h2>📚 Related Treatment Guides</h2>
-  <div class="bcg-guide-links">
-    <a href="/guide/shurink-hifu-seoul-price">HIFU &amp; Shurink — Seoul Price Guide</a>
-    <a href="/guide/rejuran-healer-korea-guide">Rejuran Healer — Complete Korea Guide</a>
-    <a href="/guide/thermage-flx-korea-cost">Thermage FLX — Korea Cost Guide</a>
-    <a href="/guide/botox-jaw-slimming-seoul">Botox Jaw Slimming in Seoul</a>
-    <a href="/guide/skin-booster-comparison-juvelook-rejuran">Juvelook vs Rejuran — Comparison</a>
-    <a href="/guide/laser-toning-pico-laser-korea">Pico Laser &amp; Laser Toning in Korea</a>
-    <a href="/guide/thread-lift-korea-foreigner-guide">Thread Lift — Foreigner Guide</a>
-    <a href="/guide/double-eyelid-surgery-korea-foreigners">Double Eyelid Surgery for Foreigners</a>
-    <a href="/guide/exosome-skin-treatment-seoul">Exosome Skin Treatment Seoul</a>
-    <a href="/guide/rhinoplasty-korea-cost-guide">Rhinoplasty Korea — Cost Guide</a>
-  </div>
-</div>
-
-<section class="bcg-faq" id="faq">
-  <h2>❓ Frequently Asked Questions</h2>
-
-  <div class="bcg-faq-item" itemscope itemtype="https://schema.org/Question">
-    <p class="bcg-faq-q" itemprop="name">Do Gangnam clinics offer consultations in English?</p>
-    <div class="bcg-faq-a" itemscope itemtype="https://schema.org/Answer" itemprop="acceptedAnswer">
-      <p itemprop="text">Most clinics on this list have at least basic English-speaking staff, and several — particularly those popular with international visitors — offer dedicated English coordinators. If direct communication is a concern, Seoul Beauty Trip can handle the back-and-forth in Korean on your behalf and relay everything to you in English.</p>
-    </div>
-  </div>
-
-  <div class="bcg-faq-item" itemscope itemtype="https://schema.org/Question">
-    <p class="bcg-faq-q" itemprop="name">Is it safe to have plastic surgery or skin treatments in Korea as a tourist?</p>
-    <div class="bcg-faq-a" itemscope itemtype="https://schema.org/Answer" itemprop="acceptedAnswer">
-      <p itemprop="text">South Korea has one of the most regulated medical aesthetics industries in the world. Clinics must be licensed, doctors must hold board certifications, and treatment prices must be publicly posted. The clinics on this list have high review volumes and strong ratings — a reliable indicator of consistent safety and quality. As with any medical procedure, always complete a proper consultation before committing to any treatment.</p>
-    </div>
-  </div>
-
-  <div class="bcg-faq-item" itemscope itemtype="https://schema.org/Question">
-    <p class="bcg-faq-q" itemprop="name">How far is Gangnam from central Seoul and the airport?</p>
-    <div class="bcg-faq-a" itemscope itemtype="https://schema.org/Answer" itemprop="acceptedAnswer">
-      <p itemprop="text">From Incheon Airport (ICN), the AREX express train reaches Seoul Station in 43 minutes. From Seoul Station, the subway to Gangnam Station takes a further 20–25 minutes, making the total journey roughly 65–70 minutes. From Gimpo Airport (GMP), the journey to Gangnam is around 30–40 minutes. Most clinics are within a five-minute walk of a subway station.</p>
-    </div>
-  </div>
-
-  <div class="bcg-faq-item" itemscope itemtype="https://schema.org/Question">
-    <p class="bcg-faq-q" itemprop="name">What is the difference between Gangnam and Seocho clinics?</p>
-    <div class="bcg-faq-a" itemscope itemtype="https://schema.org/Answer" itemprop="acceptedAnswer">
-      <p itemprop="text">Administratively they are separate districts, but they share a border and are culturally and geographically continuous. Gangnam-gu contains Apgujeong (luxury brand clinics) and the main Gangnam station area (broad range of clinics). Seocho-gu, directly to the south-west, contains Banpo and Seocho-dong — less tourist-heavy but with some of the highest-reviewed clinics in all of Seoul, including GU Clinic with over 10,000 Google reviews.</p>
-    </div>
-  </div>
-
-  <div class="bcg-faq-item" itemscope itemtype="https://schema.org/Question">
-    <p class="bcg-faq-q" itemprop="name">How far in advance should I book?</p>
-    <div class="bcg-faq-a" itemscope itemtype="https://schema.org/Answer" itemprop="acceptedAnswer">
-      <p itemprop="text">For non-surgical treatments (botox, fillers, laser), same-week or even same-day appointments are sometimes available at smaller clinics. For surgical procedures (rhinoplasty, double eyelid, body contouring), plan a minimum of two to four weeks in advance to allow time for a consultation, pre-operative tests, and scheduling. During peak travel seasons (spring and autumn), popular clinics can be fully booked several weeks out.</p>
-    </div>
-  </div>
-
-  <div class="bcg-faq-item" itemscope itemtype="https://schema.org/Question">
-    <p class="bcg-faq-q" itemprop="name">What payment methods do Gangnam clinics accept?</p>
-    <div class="bcg-faq-a" itemscope itemtype="https://schema.org/Answer" itemprop="acceptedAnswer">
-      <p itemprop="text">Most clinics accept international credit cards (Visa, Mastercard, Amex) and cash in Korean Won. Some accept bank transfers. Foreign card fees can be 2–3%, so having cash or a low-fee travel card is advisable. VAT refund (부가세 환급) is available for treatments paid in cash at some clinics — ask the front desk before payment.</p>
-    </div>
-  </div>
-</section>
-
-<div class="bcg-cta-box">
-  <h2>Ready to Book Your Seoul Clinic?</h2>
-  <p>Browse all verified clinics and request your appointment via WhatsApp — in English, no Korean needed.</p>
-  <a href="/" class="bcg-cta-link">Browse All Shops →</a>
-</div>
-
-</main>
-
-<footer style="background:#1e293b;color:#94a3b8;text-align:center;padding:24px 16px;font-size:.8rem">
-  <p style="margin:0 0 6px"><a href="/" style="color:#94a3b8;text-decoration:none">Seoul Beauty Trip</a> &nbsp;·&nbsp; <a href="/best" style="color:#94a3b8;text-decoration:none">Best Lists</a> &nbsp;·&nbsp; <a href="/guide/k-beauty-treatment-guide" style="color:#94a3b8;text-decoration:none">Treatment Guide</a></p>
-  <p style="margin:0">© ${yr} Seoul Beauty Trip. All clinic information is based on publicly available review data and is updated regularly.</p>
-</footer>
-</body>
-</html>`
-
-  return c.html(html)
-})
-
-// ── /best/ 카테고리 301 리디렉션 맵 ──
-const BEST_CAT_REDIRECTS: Record<string, string> = {
-  'plastic-surgery': 'clinic',
-  'dermatology':     'clinic',
-  'nail':            'makeup',
-  // 'skincare' 제거 — DB에 skincare 카테고리 업체 없으나 구글이 이미 인덱싱한 URL이라
-  // clinic으로 리디렉트 시 clinic/area 가 thin content(1개)면 또 다른 404/301 체인 유발
-  // → 직접 /best/clinic/seoul 로 보내도록 아래 safeArea 로직에서 처리
-  'skincare':        'clinic',  // clinic/area 업체 없으면 seoul로 fallback
-  'hair':            'headspa',
-  'spa':             'headspa',
-}
 
 app.get('/best/:category/:area', async (c) => {
   const catSlug  = c.req.param('category').toLowerCase()
@@ -7176,7 +9839,7 @@ app.get('/best/:category/:area', async (c) => {
   // 단, hair→headspa / spa→headspa / nail→makeup 은 지역별 페이지가 없는 경우가 많으므로
   // seoul(전체)로 리다이렉트 — 404 방지
   if (BEST_CAT_REDIRECTS[catSlug]) {
-    const targetCat = BEST_CAT_REDIRECTS[catSlug]
+    const targetCat = JA_BEST_CAT_REDIRECTS[catSlug]
     // headspa: 서울 이외 지역은 업체 없으므로 seoul로
     // makeup: gangnam만 업체 있으므로 gangnam 아닌 경우 seoul로
     // skincare→clinic: clinic 업체가 3개 이상인 지역만 유지, 아니면 seoul로 (404/thin 방지)
@@ -7190,11 +9853,11 @@ app.get('/best/:category/:area', async (c) => {
   }
 
   const catLabel  = CATEGORY_LABELS[catSlug]
-  const areaLabel = AREA_LABELS[areaSlug]
+  const areaLabel = JA_AREA_LABELS[areaSlug]
   // 유효하지 않은 카테고리/지역이면 404
   if (!catLabel || !areaLabel) return c.notFound()
   // areaLabel이 있으면서 slug이 없는 경우 - area slug 검증
-  if (!AREA_LABELS[areaSlug]) return c.notFound()
+  if (!JA_AREA_LABELS[areaSlug]) return c.notFound()
   // areaLabel이 'Seoul'이면 ", Seoul" / " Seoul" 중복 방지용 헬퍼
   const _isSeoul = areaLabel.toLowerCase() === 'seoul'
   // "in {areaLabel} Seoul" → areaLabel이 Seoul이면 "in Seoul"만
@@ -7290,7 +9953,7 @@ body{background:#0f0f12;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
 </html>`, 200)
   }
 
-  const faqList = CAT_FAQ[catSlug] || DEFAULT_FAQ
+  const faqList = JA_CAT_FAQ[catSlug] || DEFAULT_FAQ
   const yr = new Date().getFullYear()
   // clinic+gangnam 조합은 "Gangnam Dermatology Clinic" 키워드 타깃
   const isClinicGangnam = catSlug === 'clinic' && areaSlug === 'gangnam'
