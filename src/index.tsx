@@ -22455,7 +22455,7 @@ window.gscCheckCoverage = async function gscCheckCoverage() {
   resultEl.innerHTML = '<div style="text-align:center;padding:16px;color:rgba(255,255,255,.4);font-size:13px">⏳ URL Inspection API 조회 중... (최대 20초)</div>';
 
   var textarea = document.getElementById('gsc-inspect-urls').value;
-  var urls = textarea.split(/[\n,]+/).map(function(u){return u.trim();}).filter(Boolean);
+  var urls = textarea.split(String.fromCharCode(10)).join(',').split(String.fromCharCode(13)).join(',').split(',').map(function(u){return u.trim();}).filter(Boolean);
   if (!urls.length) {
     resultEl.innerHTML = '<div style="color:#f87171;padding:10px">URL을 입력해주세요.</div>';
     return;
