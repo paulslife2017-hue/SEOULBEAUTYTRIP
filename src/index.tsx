@@ -24690,7 +24690,7 @@ function loadAll(){
   // 유입채널 미니 카드 로드
   if(typeof window.loadDashboardSources === 'function') window.loadDashboardSources();
 
-  fetch('/api/stats').then(function(r){return r.json();}).catch(function(){ return {}; }).then(function(d){
+  fetch('/api/stats', {headers:{'x-admin-token':_GSK_TOKEN}}).then(function(r){return r.json();}).catch(function(){ return {}; }).then(function(d){
     // ── 핵심 지표 카드 ──
     var fmtNum = function(n){ return n>=1000?(n/1000).toFixed(1)+'K':n; };
     document.getElementById('st-views').textContent = fmtNum(d.totalViews);
@@ -24755,12 +24755,13 @@ function loadAll(){
   });
   // shops + videos 같이 기다렸다가 렌더 (타이밍 문제 방지)
   // 개별 fetch에 .catch() 추가 → 어느 쪽이 실패해도 빈 배열로 fallback되어 renderShops() 항상 실행
+  var _ah = { 'x-admin-token': _GSK_TOKEN };
   Promise.all([
-    fetch('/api/shops').then(function(r){
+    fetch('/api/shops', {headers:_ah}).then(function(r){
       if(!r.ok) throw new Error('shops '+r.status);
       return r.json();
     }).catch(function(e){ console.warn('[loadAll] /api/shops 실패:', e); return {shops:[]}; }),
-    fetch('/api/videos').then(function(r){
+    fetch('/api/videos', {headers:_ah}).then(function(r){
       if(!r.ok) throw new Error('videos '+r.status);
       return r.json();
     }).catch(function(e){ console.warn('[loadAll] /api/videos 실패:', e); return {videos:[]}; })
@@ -24771,7 +24772,7 @@ function loadAll(){
     renderVideos();
     renderSeoLinks();
   }).catch(function(e){ console.error('[loadAll] Promise.all 오류:', e); });
-  fetch('/api/bookings').then(function(r){
+  fetch('/api/bookings', {headers:_ah}).then(function(r){
     if(!r.ok) throw new Error('bookings '+r.status);
     return r.json();
   }).then(function(d){

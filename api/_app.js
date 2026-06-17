@@ -25356,7 +25356,7 @@ function loadAll(){
   // \uC720\uC785\uCC44\uB110 \uBBF8\uB2C8 \uCE74\uB4DC \uB85C\uB4DC
   if(typeof window.loadDashboardSources === 'function') window.loadDashboardSources();
 
-  fetch('/api/stats').then(function(r){return r.json();}).catch(function(){ return {}; }).then(function(d){
+  fetch('/api/stats', {headers:{'x-admin-token':_GSK_TOKEN}}).then(function(r){return r.json();}).catch(function(){ return {}; }).then(function(d){
     // \u2500\u2500 \uD575\uC2EC \uC9C0\uD45C \uCE74\uB4DC \u2500\u2500
     var fmtNum = function(n){ return n>=1000?(n/1000).toFixed(1)+'K':n; };
     document.getElementById('st-views').textContent = fmtNum(d.totalViews);
@@ -25421,12 +25421,13 @@ function loadAll(){
   });
   // shops + videos \uAC19\uC774 \uAE30\uB2E4\uB838\uB2E4\uAC00 \uB80C\uB354 (\uD0C0\uC774\uBC0D \uBB38\uC81C \uBC29\uC9C0)
   // \uAC1C\uBCC4 fetch\uC5D0 .catch() \uCD94\uAC00 \u2192 \uC5B4\uB290 \uCABD\uC774 \uC2E4\uD328\uD574\uB3C4 \uBE48 \uBC30\uC5F4\uB85C fallback\uB418\uC5B4 renderShops() \uD56D\uC0C1 \uC2E4\uD589
+  var _ah = { 'x-admin-token': _GSK_TOKEN };
   Promise.all([
-    fetch('/api/shops').then(function(r){
+    fetch('/api/shops', {headers:_ah}).then(function(r){
       if(!r.ok) throw new Error('shops '+r.status);
       return r.json();
     }).catch(function(e){ console.warn('[loadAll] /api/shops \uC2E4\uD328:', e); return {shops:[]}; }),
-    fetch('/api/videos').then(function(r){
+    fetch('/api/videos', {headers:_ah}).then(function(r){
       if(!r.ok) throw new Error('videos '+r.status);
       return r.json();
     }).catch(function(e){ console.warn('[loadAll] /api/videos \uC2E4\uD328:', e); return {videos:[]}; })
@@ -25437,7 +25438,7 @@ function loadAll(){
     renderVideos();
     renderSeoLinks();
   }).catch(function(e){ console.error('[loadAll] Promise.all \uC624\uB958:', e); });
-  fetch('/api/bookings').then(function(r){
+  fetch('/api/bookings', {headers:_ah}).then(function(r){
     if(!r.ok) throw new Error('bookings '+r.status);
     return r.json();
   }).then(function(d){
