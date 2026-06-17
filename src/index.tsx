@@ -25084,7 +25084,7 @@ window.loadConsultations = async function loadConsultations(page) {
         '<td style="font-size:12px;color:rgba(255,255,255,.55)">'+escAdmin(c.visit_date||'-')+'</td>'+
         '<td>'+
           '<span class="bdg '+st.cls+'"'+bdgStyle+'>'+st.label+'</span>'+
-          '<select onchange="updateConsultStatus(\''+c.id+'\',this.value)" style="display:block;margin-top:4px;font-size:11px;padding:3px 6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:6px;color:#fff;cursor:pointer">'+
+          '<select data-cid="'+c.id+'" onchange="updateConsultStatus(this.dataset.cid,this.value)" style="display:block;margin-top:4px;font-size:11px;padding:3px 6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:6px;color:#fff;cursor:pointer">'+
             '<option value="">상태변경</option>'+
             '<option value="new">신규</option>'+
             '<option value="contacted">연락함</option>'+
@@ -25093,7 +25093,7 @@ window.loadConsultations = async function loadConsultations(page) {
         '</td>'+
         '<td>'+
           '<input type="text" placeholder="메모 입력" id="memo-'+c.id+'" value="'+escAdmin(c.memo||'')+'" style="font-size:11px;padding:4px 7px;width:120px;margin-bottom:4px">'+
-          '<button class="btn-sm btn-blue" onclick="saveConsultMemo(\''+c.id+'\')"><i class="fas fa-save"></i></button>'+
+          '<button class="btn-sm btn-blue" data-cid="'+c.id+'" onclick="saveConsultMemo(this.dataset.cid)"><i class="fas fa-save"></i></button>'+
         '</td>'+
       '</tr>';
     });
