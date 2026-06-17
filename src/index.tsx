@@ -17513,7 +17513,7 @@ function buildSlide(v, idx) {
         '<span class="cfc-chip">Hair</span>'+
         '<span class="cfc-chip">+ More</span>'+
       '</div>'+
-      '<button class="cfc-btn" onclick="openConsultSheet(\'\',\'\')">'+
+      '<button class="cfc-btn" onclick="openConsultSheet()">'+
         '<i class="fas fa-paper-plane"></i> Start Free Consultation'+
       '</button>';
     feed.appendChild(cfCard);
@@ -18528,7 +18528,7 @@ function renderShopModal(shop) {
           '<div class="cms-sub">Get exact pricing &amp; availability via KakaoTalk</div>'+
         '</div>'+
       '</div>'+
-      '<button class="cms-btn" onclick="openConsultSheet(\''+esc(shop.id||'')+'\',\''+esc(shop.name||'')+'\')">'+
+      '<button class="cms-btn" data-shop-id="'+esc(shop.id||'')+'" data-shop-name="'+esc(shop.name||'')+'" onclick="openConsultSheet(this.dataset.shopId,this.dataset.shopName)">'+
         '<i class="fas fa-paper-plane"></i> Ask Free Consultation'+
       '</button>'+
     '</div>';
