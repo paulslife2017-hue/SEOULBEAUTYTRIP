@@ -19967,7 +19967,7 @@ window.advTabSubmit = function() {
       kakao: kakao.trim(),
       treatment: _advTabState.treatment,
       budget:    _advTabState.budget,
-      lang: (navigator.language||'').startsWith('ja') ? 'ja' : 'en'
+      lang: 'en'
     })
   })
   .then(function(r){ return r.json(); })
@@ -20072,7 +20072,7 @@ window.advSubmit = function() {
       kakao: kakao.trim(),
       treatment: _advState.treatment,
       budget:    _advState.budget,
-      lang: (navigator.language||'').startsWith('ja') ? 'ja' : 'en'
+      lang: 'en'
     })
   })
   .then(function(r){ return r.json(); })
@@ -20720,7 +20720,7 @@ ${SB_TRACKER_SCRIPT}
         shop_id: shopId, shop_name: shopName,
         name: name.trim(), kakao: kakao.trim(),
         treatment: _mcsState.treatment, budget: _mcsState.budget,
-        lang: (navigator.language||'').startsWith('ja')?'ja':'en'
+        lang: 'en'
       })
     })
     .then(function(r){ return r.json(); })
@@ -20824,7 +20824,7 @@ ${SB_TRACKER_SCRIPT}
       budget: _csState.budget,
       visit_date: _csState.visit,
       message: message.trim(),
-      lang: (navigator.language||'').startsWith('ja') ? 'ja' : 'en'
+      lang: 'en'
     };
     fetch('/api/consultations', {
       method:'POST',
