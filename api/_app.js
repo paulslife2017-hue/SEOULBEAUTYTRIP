@@ -2738,6 +2738,54 @@ async function initDb(env) {
       date TEXT, message TEXT, status TEXT DEFAULT 'new',
       commission_rate INTEGER DEFAULT 10, estimated_amount TEXT, created_at TEXT
     )`;
+    await sql`CREATE TABLE IF NOT EXISTS consultations (
+      id TEXT PRIMARY KEY,
+      shop_id TEXT DEFAULT '',
+      shop_name TEXT DEFAULT '',
+      name TEXT NOT NULL,
+      email TEXT DEFAULT '',
+      kakao TEXT DEFAULT '',
+      treatment TEXT DEFAULT '',
+      budget TEXT DEFAULT '',
+      visit_date TEXT DEFAULT '',
+      message TEXT DEFAULT '',
+      lang TEXT DEFAULT 'en',
+      status TEXT DEFAULT 'new',
+      memo TEXT DEFAULT '',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`;
+    try {
+      await sql`CREATE INDEX IF NOT EXISTS idx_cons_status ON consultations(status)`;
+    } catch (e) {
+    }
+    try {
+      await sql`CREATE INDEX IF NOT EXISTS idx_cons_created ON consultations(created_at DESC)`;
+    } catch (e) {
+    }
+    await sql`CREATE TABLE IF NOT EXISTS consultations (
+      id TEXT PRIMARY KEY,
+      shop_id TEXT DEFAULT '',
+      shop_name TEXT DEFAULT '',
+      name TEXT NOT NULL,
+      email TEXT DEFAULT '',
+      kakao TEXT DEFAULT '',
+      treatment TEXT DEFAULT '',
+      budget TEXT DEFAULT '',
+      visit_date TEXT DEFAULT '',
+      message TEXT DEFAULT '',
+      lang TEXT DEFAULT 'en',
+      status TEXT DEFAULT 'new',
+      memo TEXT DEFAULT '',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`;
+    try {
+      await sql`CREATE INDEX IF NOT EXISTS idx_consultations_status ON consultations(status)`;
+    } catch (e) {
+    }
+    try {
+      await sql`CREATE INDEX IF NOT EXISTS idx_consultations_created ON consultations(created_at DESC)`;
+    } catch (e) {
+    }
     await sql`CREATE TABLE IF NOT EXISTS video_views_log (
       id TEXT PRIMARY KEY,
       video_id TEXT NOT NULL,
@@ -4050,6 +4098,60 @@ app.put("/api/bookings/:id/status", async (c) => {
   const { status } = await c.req.json();
   await sql`UPDATE bookings SET status=${status} WHERE id=${c.req.param("id")}`;
   return c.json({ ok: true });
+});
+app.post("/api/consultations", async (c) => {
+  try {
+    await ensureDb(c.env);
+    const sql = getDb(c.env);
+    const body = await c.req.json();
+    if (!body.name || body.name.trim().length < 1) return c.json({ error: "name required" }, 400);
+    const id = "c" + Date.now() + Math.random().toString(36).slice(2, 6);
+    await sql`INSERT INTO consultations
+      (id, shop_id, shop_name, name, email, kakao, treatment, budget, visit_date, message, lang, status, memo)
+      VALUES (
+        ${id},
+        ${body.shopId || ""},
+        ${body.shopName || ""},
+        ${body.name.trim()},
+        ${body.email || ""},
+        ${body.kakao || ""},
+        ${body.treatment || ""},
+        ${body.budget || ""},
+        ${body.visitDate || ""},
+        ${body.message || ""},
+        ${body.lang || "en"},
+        'new',
+        ''
+      )`;
+    return c.json({ ok: true, id });
+  } catch (e) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+app.get("/api/consultations", async (c) => {
+  try {
+    const sql = getDb(c.env);
+    const status = c.req.query("status") || "";
+    const limit = parseInt(c.req.query("limit") || "100");
+    const rows = status ? await sql`SELECT * FROM consultations WHERE status=${status} ORDER BY created_at DESC LIMIT ${limit}` : await sql`SELECT * FROM consultations ORDER BY created_at DESC LIMIT ${limit}`;
+    const newCount = await sql`SELECT COUNT(*)::int as cnt FROM consultations WHERE status='new'`;
+    return c.json({ consultations: rows, newCount: newCount[0]?.cnt || 0 });
+  } catch (e) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+app.put("/api/consultations/:id", async (c) => {
+  try {
+    const sql = getDb(c.env);
+    const body = await c.req.json();
+    await sql`UPDATE consultations SET
+      status = COALESCE(${body.status || null}, status),
+      memo   = COALESCE(${body.memo ?? null}, memo)
+    WHERE id = ${c.req.param("id")}`;
+    return c.json({ ok: true });
+  } catch (e) {
+    return c.json({ error: e.message }, 500);
+  }
 });
 app.get("/api/stats", async (c) => {
   try {
@@ -16061,6 +16163,78 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#f8fafc;color:#1e293
 </section>
 
 <footer class="nf-footer">\xA9 ${(/* @__PURE__ */ new Date()).getFullYear()} Seoul Beauty Trip \xB7 English booking for Korean beauty</footer>
+
+<!-- \u2500\u2500 \uC0C1\uB2F4 \uC2E0\uCCAD Bottom Sheet \u2500\u2500 -->
+<div id="consultSheet">
+  <div class="cs-backdrop" onclick="closeConsultSheet()"></div>
+  <div class="cs-panel">
+    <div class="cs-handle"></div>
+    <div class="cs-head">
+      <div>
+        <div class="cs-title">\u{1F4AC} Free Consultation</div>
+        <div class="cs-sub">Ask about treatments, pricing &amp; availability</div>
+      </div>
+      <button class="cs-close" onclick="closeConsultSheet()" aria-label="Close">\u2715</button>
+    </div>
+    <div id="cs-shop-badge" class="cs-shop-badge" style="display:none"></div>
+    <div class="cs-body" id="cs-body">
+      <!-- \uAD00\uC2EC \uC2DC\uC220 -->
+      <div class="cs-section-label">Interested in</div>
+      <div class="cs-chips" id="cs-chips-treatment">
+        <span class="cs-chip" onclick="csChip(this,'treatment')">Botox</span>
+        <span class="cs-chip" onclick="csChip(this,'treatment')">Filler</span>
+        <span class="cs-chip" onclick="csChip(this,'treatment')">Skin care</span>
+        <span class="cs-chip" onclick="csChip(this,'treatment')">Rhinoplasty</span>
+        <span class="cs-chip" onclick="csChip(this,'treatment')">Eyes</span>
+        <span class="cs-chip" onclick="csChip(this,'treatment')">Hair</span>
+        <span class="cs-chip" onclick="csChip(this,'treatment')">Tattoo</span>
+        <span class="cs-chip" onclick="csChip(this,'treatment')">Other</span>
+      </div>
+      <!-- \uC608\uC0B0 -->
+      <div class="cs-section-label">Budget (USD)</div>
+      <div class="cs-chips" id="cs-chips-budget">
+        <span class="cs-chip" onclick="csChip(this,'budget')">Under $200</span>
+        <span class="cs-chip" onclick="csChip(this,'budget')">$200\u2013500</span>
+        <span class="cs-chip" onclick="csChip(this,'budget')">$500\u20131000</span>
+        <span class="cs-chip" onclick="csChip(this,'budget')">$1000+</span>
+        <span class="cs-chip" onclick="csChip(this,'budget')">Flexible</span>
+      </div>
+      <!-- \uBC29\uBB38 \uC2DC\uAE30 -->
+      <div class="cs-section-label">Visiting Seoul</div>
+      <div class="cs-chips" id="cs-chips-visit">
+        <span class="cs-chip" onclick="csChip(this,'visit')">Within 1 month</span>
+        <span class="cs-chip" onclick="csChip(this,'visit')">1\u20133 months</span>
+        <span class="cs-chip" onclick="csChip(this,'visit')">3\u20136 months</span>
+        <span class="cs-chip" onclick="csChip(this,'visit')">Just browsing</span>
+      </div>
+      <!-- \uC774\uB984 + \uCE74\uCE74\uC624 -->
+      <div class="cs-inputs">
+        <div class="cs-input-wrap">
+          <span class="cs-input-icon">\u{1F464}</span>
+          <input id="cs-name" type="text" placeholder="Your name" maxlength="60" autocomplete="off">
+        </div>
+        <div class="cs-input-wrap">
+          <span class="cs-input-icon">\u{1F4AC}</span>
+          <input id="cs-kakao" type="text" placeholder="KakaoTalk ID or WhatsApp" maxlength="80" autocomplete="off">
+        </div>
+      </div>
+      <!-- \uC790\uC720 \uC9C8\uBB38 -->
+      <textarea id="cs-message" class="cs-textarea" placeholder="Any questions or specific requests? (optional)" maxlength="500"></textarea>
+      <!-- \uC81C\uCD9C \uBC84\uD2BC -->
+      <button class="cs-submit" id="cs-submit-btn" onclick="submitConsult()">
+        <i class="fas fa-paper-plane"></i> Send Free Inquiry
+      </button>
+      <div class="cs-privacy">\u{1F512} Your info is only shared with the clinic</div>
+    </div>
+    <!-- \uC131\uACF5 \uD654\uBA74 -->
+    <div class="cs-success" id="cs-success">
+      <div class="cs-success-icon">\u{1F389}</div>
+      <div class="cs-success-title">Inquiry Sent!</div>
+      <div class="cs-success-msg">We'll connect you with the clinic within 24 hours via KakaoTalk or WhatsApp.</div>
+      <button class="cs-submit" onclick="closeConsultSheet()">Done</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>`, 404);
 });
@@ -17266,6 +17440,57 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 /* \uD638\uBC84 \uD234\uD301 */
 .lf-popup-name{font-size:12px;font-weight:800;color:#fff;margin-bottom:2px;white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis}
 .lf-popup-sub{font-size:10px;color:rgba(255,255,255,.4)}
+
+/* \u2500\u2500 \uC0C1\uB2F4 \uD53C\uB4DC \uCE74\uB4DC (Option A) \u2500\u2500 */
+.consult-feed-card{background:linear-gradient(135deg,rgba(232,65,122,.18),rgba(168,85,247,.14));border:1px solid rgba(232,65,122,.3);border-radius:20px;margin:0 14px 10px;padding:20px 18px;display:flex;flex-direction:column;gap:12px}
+.cfc-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(232,65,122,.2);border:1px solid rgba(232,65,122,.35);border-radius:20px;padding:4px 10px;font-size:10px;font-weight:800;color:#f472b6;letter-spacing:.3px;align-self:flex-start}
+.cfc-title{font-size:17px;font-weight:900;color:#fff;line-height:1.35}
+.cfc-title span{color:#f472b6}
+.cfc-topics{display:flex;flex-wrap:wrap;gap:7px}
+.cfc-topic{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:5px 12px;font-size:11.5px;color:rgba(255,255,255,.7);display:flex;align-items:center;gap:5px}
+.cfc-btn{display:flex;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,#e8417a,#a855f7);border:none;border-radius:14px;color:#fff;font-size:14px;font-weight:800;padding:13px;cursor:pointer;width:100%;transition:opacity .2s}
+.cfc-btn:hover{opacity:.88}
+.cfc-sub{font-size:11px;color:rgba(255,255,255,.35);text-align:center}
+
+/* \u2500\u2500 \uC0C1\uB2F4 \uBAA8\uB2EC \uD558\uB2E8 \uC139\uC158 (Option B) \u2500\u2500 */
+.consult-modal-section{background:linear-gradient(135deg,rgba(232,65,122,.1),rgba(168,85,247,.08));border:1px solid rgba(232,65,122,.2);border-radius:16px;padding:16px;margin:0 0 16px}
+.cms-title{font-size:13px;font-weight:800;color:#fff;margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.cms-sub{font-size:11.5px;color:rgba(255,255,255,.45);margin-bottom:12px;line-height:1.5}
+.cms-topics{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.cms-topic{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:4px 10px;font-size:11px;color:rgba(255,255,255,.6)}
+.cms-btn{display:flex;align-items:center;justify-content:center;gap:7px;background:linear-gradient(135deg,rgba(232,65,122,.85),rgba(168,85,247,.85));border:none;border-radius:12px;color:#fff;font-size:13px;font-weight:800;padding:12px;cursor:pointer;width:100%;transition:opacity .2s}
+.cms-btn:hover{opacity:.88}
+
+/* \u2500\u2500 \uC0C1\uB2F4 \uC2E0\uCCAD bottom sheet \u2500\u2500 */
+#consultSheet{position:fixed;inset:0;z-index:9999;display:none}
+#consultSheet.open{display:block}
+.cs-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px)}
+.cs-panel{position:absolute;bottom:0;left:0;right:0;background:#13132a;border-radius:22px 22px 0 0;padding:0 0 env(safe-area-inset-bottom);max-height:92vh;overflow-y:auto;transform:translateY(100%);transition:transform .35s cubic-bezier(.32,1,.26,1)}
+#consultSheet.open .cs-panel{transform:translateY(0)}
+.cs-handle{width:36px;height:4px;background:rgba(255,255,255,.2);border-radius:2px;margin:12px auto 0}
+.cs-head{padding:14px 20px 0;display:flex;align-items:center;justify-content:space-between}
+.cs-head-title{font-size:16px;font-weight:900;color:#fff;display:flex;align-items:center;gap:7px}
+.cs-head-title i{color:#f472b6}
+.cs-close{background:rgba(255,255,255,.08);border:none;border-radius:50%;width:32px;height:32px;color:rgba(255,255,255,.5);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.cs-shop-badge{margin:10px 20px 0;background:rgba(232,65,122,.12);border:1px solid rgba(232,65,122,.25);border-radius:10px;padding:8px 12px;font-size:12px;color:rgba(255,255,255,.7);display:flex;align-items:center;gap:6px}
+.cs-shop-badge i{color:#f472b6}
+.cs-body{padding:14px 20px 20px;display:flex;flex-direction:column;gap:14px}
+.cs-label{font-size:11px;font-weight:700;color:rgba(255,255,255,.45);margin-bottom:6px;letter-spacing:.3px;text-transform:uppercase}
+.cs-chips{display:flex;flex-wrap:wrap;gap:7px}
+.cs-chip{background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.12);border-radius:20px;padding:7px 13px;font-size:12px;color:rgba(255,255,255,.65);cursor:pointer;transition:all .18s;user-select:none}
+.cs-chip.sel{background:rgba(232,65,122,.2);border-color:rgba(232,65,122,.6);color:#fff;font-weight:700}
+.cs-input{width:100%;background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.1);border-radius:12px;color:#fff;padding:11px 14px;font-size:14px;outline:none;transition:border-color .2s;box-sizing:border-box}
+.cs-input:focus{border-color:rgba(232,65,122,.5)}
+.cs-input::placeholder{color:rgba(255,255,255,.28)}
+.cs-textarea{min-height:80px;resize:none}
+.cs-submit{background:linear-gradient(135deg,#e8417a,#a855f7);border:none;border-radius:14px;color:#fff;font-size:15px;font-weight:800;padding:15px;cursor:pointer;width:100%;transition:opacity .2s;display:flex;align-items:center;justify-content:center;gap:8px}
+.cs-submit:hover{opacity:.9}
+.cs-submit:disabled{opacity:.5;cursor:default}
+.cs-success{text-align:center;padding:30px 20px 40px;display:none;flex-direction:column;align-items:center;gap:12px}
+.cs-success.show{display:flex}
+.cs-success-icon{font-size:48px;line-height:1}
+.cs-success-title{font-size:18px;font-weight:900;color:#fff}
+.cs-success-sub{font-size:13px;color:rgba(255,255,255,.5);line-height:1.6}
 </style>
 <!-- Google Maps JavaScript API -->
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCcM03wGoZrSkmCMOS-Vib-JR1oKNPsSkY&language=en&region=KR&loading=async&callback=__gmapsReady"></script>
@@ -17937,6 +18162,32 @@ function buildSlide(v, idx) {
     '<div class="hint"><i class="fas fa-chevron-up" style="font-size:10px"></i><span>Swipe Up</span></div>';
 
   feed.appendChild(s);
+
+  // \u2500\u2500 Option A: 3\uBC88\uC9F8 \uC2AC\uB77C\uC774\uB4DC(idx=2) \uB4A4\uC5D0 \uC0C1\uB2F4 \uC720\uB3C4 \uCE74\uB4DC \uC0BD\uC785 \u2500\u2500
+  if(idx === 2) {
+    var cfCard = document.createElement('div');
+    cfCard.className = 'consult-feed-card';
+    cfCard.innerHTML =
+      '<div class="cfc-top">'+
+        '<div class="cfc-icon">\u{1F4AC}</div>'+
+        '<div>'+
+          '<div class="cfc-title">Get a Free Quote</div>'+
+          '<div class="cfc-sub">Ask about pricing, availability &amp; best clinics</div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="cfc-chips">'+
+        '<span class="cfc-chip">Botox</span>'+
+        '<span class="cfc-chip">Filler</span>'+
+        '<span class="cfc-chip">Rhinoplasty</span>'+
+        '<span class="cfc-chip">Skin care</span>'+
+        '<span class="cfc-chip">Hair</span>'+
+        '<span class="cfc-chip">+ More</span>'+
+      '</div>'+
+      '<button class="cfc-btn" onclick="openConsultSheet('','')">'+
+        '<i class="fas fa-paper-plane"></i> Start Free Consultation'+
+      '</button>';
+    feed.appendChild(cfCard);
+  }
 
   (function(vid, vidIdx, shopData) {
     var ve     = document.getElementById('vid'+vidIdx);
@@ -18937,7 +19188,22 @@ function renderShopModal(shop) {
     +'</a>';
   }
 
-  document.getElementById('modalBtns').innerHTML = waBtn + btn2Row;
+  // \u2500\u2500 Option B: \uC0C1\uB2F4 \uC2E0\uCCAD \uC139\uC158 \uCD94\uAC00 \u2500\u2500
+  var consultSection =
+    '<div class="consult-modal-section">'+
+      '<div class="cms-head">'+
+        '<div class="cms-icon">\u{1F4AC}</div>'+
+        '<div>'+
+          '<div class="cms-title">Free Price Consultation</div>'+
+          '<div class="cms-sub">Get exact pricing &amp; availability via KakaoTalk</div>'+
+        '</div>'+
+      '</div>'+
+      '<button class="cms-btn" onclick="openConsultSheet(''+esc(shop.id||'')+'',''+esc(shop.name||'')+'')">'+
+        '<i class="fas fa-paper-plane"></i> Ask Free Consultation'+
+      '</button>'+
+    '</div>';
+
+  document.getElementById('modalBtns').innerHTML = waBtn + btn2Row + consultSection;
 
   // GA4: WhatsApp \uBC84\uD2BC \uD074\uB9AD \uCD94\uC801 (\uC601\uC0C1 \uC778\uB371\uC2A4 + \uAC80\uC0C9 \uACBD\uB85C \uD3EC\uD568)
   var waEl = document.getElementById('modalBtns').querySelector('a.m-wa');
@@ -20561,6 +20827,132 @@ ${SB_TRACKER_SCRIPT}
   b.innerHTML = '<span>\u{1F1EF}\u{1F1F5} \u65E5\u672C\u8A9E\u7248\u3082\u3042\u308A\u307E\u3059</span><a href="/ja" style="color:#f472b6;font-weight:700;white-space:nowrap;text-decoration:none">\u65E5\u672C\u8A9E\u3078 \u2192</a><button onclick="this.parentNode.remove()" style="background:none;border:none;color:rgba(255,255,255,.3);cursor:pointer;font-size:18px;padding:0 4px;line-height:1;flex-shrink:0">\u2715</button>'
   document.body.appendChild(b)
 })()
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 \uC0C1\uB2F4 \uC2E0\uCCAD Bottom Sheet JS \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+;(function(){
+  // \uC120\uD0DD \uC0C1\uD0DC
+  var _csState = { treatment:'', budget:'', visit:'', shopId:'', shopName:'' };
+
+  window.openConsultSheet = function(shopId, shopName) {
+    _csState = { treatment:'', budget:'', visit:'', shopId: shopId||'', shopName: shopName||'' };
+    // chip \uCD08\uAE30\uD654
+    document.querySelectorAll('.cs-chip').forEach(function(c){ c.classList.remove('on'); });
+    // \uC785\uB825 \uCD08\uAE30\uD654
+    var n = document.getElementById('cs-name');
+    var k = document.getElementById('cs-kakao');
+    var m = document.getElementById('cs-message');
+    if(n) n.value = '';
+    if(k) k.value = '';
+    if(m) m.value = '';
+    // shop \uBC43\uC9C0
+    var badge = document.getElementById('cs-shop-badge');
+    if(badge){
+      if(shopName){
+        badge.style.display='flex';
+        badge.innerHTML='<i class="fas fa-store" style="color:var(--pk,#E8417A)"></i><span>'+shopName+'</span>';
+      } else {
+        badge.style.display='none';
+      }
+    }
+    // success \uC228\uAE30\uAE30, body \uBCF4\uC774\uAE30
+    var csBody = document.getElementById('cs-body');
+    var csSuccess = document.getElementById('cs-success');
+    var csBtn = document.getElementById('cs-submit-btn');
+    if(csBody) csBody.style.display='';
+    if(csSuccess) csSuccess.style.display='none';
+    if(csBtn){ csBtn.disabled=false; csBtn.innerHTML='<i class="fas fa-paper-plane"></i> Send Free Inquiry'; }
+    // \uC2DC\uD2B8 \uC5F4\uAE30
+    var sheet = document.getElementById('consultSheet');
+    if(sheet){
+      sheet.classList.add('open');
+      document.body.style.overflow='hidden';
+    }
+    // GA4
+    if(typeof gtag==='function'){
+      gtag('event','consult_sheet_open',{ shop_id: shopId||'', shop_name: shopName||'' });
+    }
+  };
+
+  window.closeConsultSheet = function() {
+    var sheet = document.getElementById('consultSheet');
+    if(sheet) sheet.classList.remove('open');
+    document.body.style.overflow='';
+  };
+
+  window.csChip = function(el, type) {
+    // \uAC19\uC740 \uADF8\uB8F9 \uCE69\uB4E4\uC5D0\uC11C on \uC81C\uAC70 (\uB2E8\uC77C \uC120\uD0DD)
+    var idMap = { treatment:'cs-chips-treatment', budget:'cs-chips-budget', visit:'cs-chips-visit' };
+    var container = document.getElementById(idMap[type]);
+    if(container){
+      container.querySelectorAll('.cs-chip').forEach(function(c){ c.classList.remove('on'); });
+    }
+    // \uC774\uBBF8 on\uC774\uBA74 \uD1A0\uAE00(\uCDE8\uC18C), \uC544\uB2C8\uBA74 on
+    var wasOn = el.classList.contains('on');
+    if(!wasOn) el.classList.add('on');
+    _csState[type] = wasOn ? '' : el.textContent.trim();
+  };
+
+  window.submitConsult = function() {
+    var name = (document.getElementById('cs-name')||{}).value||'';
+    var kakao = (document.getElementById('cs-kakao')||{}).value||'';
+    var message = (document.getElementById('cs-message')||{}).value||'';
+    if(!name.trim()){ alert('Please enter your name.'); return; }
+    if(!kakao.trim()){ alert('Please enter your KakaoTalk ID or WhatsApp number so we can reach you.'); return; }
+    var csBtn = document.getElementById('cs-submit-btn');
+    if(csBtn){ csBtn.disabled=true; csBtn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Sending...'; }
+    var body = {
+      shop_id: _csState.shopId,
+      shop_name: _csState.shopName,
+      name: name.trim(),
+      kakao: kakao.trim(),
+      treatment: _csState.treatment,
+      budget: _csState.budget,
+      visit_date: _csState.visit,
+      message: message.trim(),
+      lang: (navigator.language||'').startsWith('ja') ? 'ja' : 'en'
+    };
+    fetch('/api/consultations', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if(data && data.id){
+        var csBody = document.getElementById('cs-body');
+        var csSuccess = document.getElementById('cs-success');
+        if(csBody) csBody.style.display='none';
+        if(csSuccess) csSuccess.style.display='flex';
+        if(typeof gtag==='function'){
+          gtag('event','consult_submit',{ shop_id: _csState.shopId, treatment: _csState.treatment });
+        }
+      } else {
+        alert('Failed to send. Please try again.');
+        if(csBtn){ csBtn.disabled=false; csBtn.innerHTML='<i class="fas fa-paper-plane"></i> Send Free Inquiry'; }
+      }
+    })
+    .catch(function(){
+      alert('Network error. Please try again.');
+      if(csBtn){ csBtn.disabled=false; csBtn.innerHTML='<i class="fas fa-paper-plane"></i> Send Free Inquiry'; }
+    });
+  };
+
+  // \uD328\uB110 swipe-down\uC73C\uB85C \uB2EB\uAE30
+  (function(){
+    var panel = null;
+    var startY = 0;
+    document.addEventListener('touchstart', function(e){
+      panel = e.target.closest('.cs-panel');
+      if(panel) startY = e.touches[0].clientY;
+    }, {passive:true});
+    document.addEventListener('touchend', function(e){
+      if(!panel) return;
+      var dy = e.changedTouches[0].clientY - startY;
+      if(dy > 80) closeConsultSheet();
+      panel = null;
+    }, {passive:true});
+  })();
+})()
+
 </script>
 </body>
 </html>`;
@@ -20752,6 +21144,7 @@ textarea{height:80px;resize:none}
   <div class="tab" data-tab="bookings"><i class="fas fa-calendar-check"></i> \uC608\uC57D\uAD00\uB9AC <span style="font-size:9px;background:rgba(251,191,36,.2);color:#fbbf24;border-radius:10px;padding:1px 5px;vertical-align:middle">\uC900\uBE44\uC911</span></div>
   <div class="tab" data-tab="shops"><i class="fas fa-store"></i> \uC5C5\uCCB4 \xB7 \uC601\uC0C1</div>
   <div class="tab" data-tab="blog"><i class="fas fa-blog"></i> \uBE14\uB85C\uADF8</div>
+  <div class="tab" data-tab="consultations"><i class="fas fa-comments"></i> \uC0C1\uB2F4\uBB38\uC758 <span id="consult-new-badge" style="display:none;font-size:9px;background:rgba(239,68,68,.25);color:#ef4444;border-radius:10px;padding:1px 5px;vertical-align:middle"></span></div>
   <div class="tab" data-tab="settings"><i class="fas fa-cog"></i> \uC124\uC815</div>
 </div>
 
@@ -21712,6 +22105,26 @@ https://seoulbeautytrip.com/video/v178051515735</textarea>
   </div>
 </div>
 
+<!-- \u2500\u2500 \uC0C1\uB2F4\uBB38\uC758 \uD0ED \u2500\u2500 -->
+<div class="tab-content" id="tab-consultations">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><i class="fas fa-comments" style="color:var(--pk)"></i> \uC0C1\uB2F4 \uBB38\uC758 \uAD00\uB9AC</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select id="consult-filter-status" onchange="loadConsultations()" style="padding:6px 10px;font-size:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#fff">
+          <option value="">\uC804\uCCB4</option>
+          <option value="new">\uC2E0\uADDC</option>
+          <option value="contacted">\uC5F0\uB77D\uD568</option>
+          <option value="done">\uC644\uB8CC</option>
+        </select>
+        <button class="btn-sm btn-blue" onclick="loadConsultations()"><i class="fas fa-sync"></i> \uC0C8\uB85C\uACE0\uCE68</button>
+      </div>
+    </div>
+    <div id="consult-list"><div style="text-align:center;padding:40px;color:rgba(255,255,255,.3)"><i class="fas fa-spinner fa-spin"></i> Loading...</div></div>
+    <div id="consult-pagination" style="display:flex;gap:8px;justify-content:center;padding:12px 0"></div>
+  </div>
+</div>
+
 <div class="tab-content" id="tab-settings">
   <!-- API \uD1A0\uD070 \uC124\uC815 \uCE74\uB4DC -->
   <div class="card" style="margin-bottom:16px;border-color:rgba(251,191,36,.25);background:rgba(251,191,36,.05)">
@@ -22059,6 +22472,7 @@ document.querySelectorAll('.tab').forEach(function(t){
     if(tabId === 'blog') loadBlogList();
     if(tabId === 'analytics') loadAnalytics(7);
     if(tabId === 'visitors'){ loadVisitorStats(_vsDays); loadVisitors(); startLivePolling(); }
+    if(tabId === 'consultations') loadConsultations();
   });
 });
 
@@ -24702,6 +25116,133 @@ window.updateStatus = function updateStatus(id, status){
   fetch('/api/bookings/'+id+'/status',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:status})})
     .then(loadAll);
 }
+
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 \uC0C1\uB2F4\uBB38\uC758 \uAD00\uB9AC \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+var _consultPage = 1;
+var _consultPerPage = 20;
+
+window.loadConsultations = async function loadConsultations(page) {
+  _consultPage = page || 1;
+  var status = (document.getElementById('consult-filter-status')||{}).value || '';
+  var url = '/api/consultations?page='+_consultPage+'&limit='+_consultPerPage+(status?'&status='+encodeURIComponent(status):'');
+  var listEl = document.getElementById('consult-list');
+  var pageEl = document.getElementById('consult-pagination');
+  if(listEl) listEl.innerHTML = '<div style="text-align:center;padding:32px;color:rgba(255,255,255,.3)"><i class="fas fa-spinner fa-spin"></i></div>';
+
+  try {
+    var res = await fetch(url, { headers: { 'x-admin-token': _GSK_TOKEN } });
+    var data = await res.json();
+    var items = data.items || [];
+    var total = data.total || 0;
+    var newCount = data.newCount || 0;
+
+    // \uC0C8 \uBB38\uC758 \uBC30\uC9C0 \uC5C5\uB370\uC774\uD2B8
+    var badge = document.getElementById('consult-new-badge');
+    if(badge){
+      if(newCount > 0){ badge.textContent = newCount; badge.style.display='inline-block'; }
+      else { badge.style.display='none'; }
+    }
+
+    if(items.length === 0){
+      if(listEl) listEl.innerHTML = '<div style="text-align:center;padding:40px;color:rgba(255,255,255,.3)"><i class="fas fa-inbox" style="font-size:32px;margin-bottom:8px;display:block"></i>\uC0C1\uB2F4 \uBB38\uC758\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4</div>';
+      if(pageEl) pageEl.innerHTML = '';
+      return;
+    }
+
+    var statusMap = {
+      new: { label:'\uC2E0\uADDC', cls:'bdg-new' },
+      contacted: { label:'\uC5F0\uB77D\uD568', cls:'', style:'background:rgba(251,191,36,.2);color:#fbbf24' },
+      done: { label:'\uC644\uB8CC', cls:'', style:'background:rgba(16,185,129,.2);color:#10b981' }
+    };
+
+    var html = '<table class="tbl"><thead><tr>'+
+      '<th>\uB0A0\uC9DC</th><th>\uC774\uB984/\uC5F0\uB77D\uCC98</th><th>\uC5C5\uCCB4</th><th>\uC2DC\uC220/\uC608\uC0B0</th><th>\uBC29\uBB38 \uC2DC\uAE30</th><th>\uC0C1\uD0DC</th><th>\uBA54\uBAA8/\uC561\uC158</th>'+
+      '</tr></thead><tbody>';
+
+    items.forEach(function(c) {
+      var st = statusMap[c.status] || { label: c.status, cls:'', style:'' };
+      var bdgStyle = st.style ? ' style="'+st.style+'"' : '';
+      var dt = new Date(c.created_at);
+      var dtStr = dt.getFullYear()+'.'+(dt.getMonth()+1).toString().padStart(2,'0')+'.'+dt.getDate().toString().padStart(2,'0');
+      html += '<tr>'+
+        '<td style="white-space:nowrap;color:rgba(255,255,255,.45);font-size:11px">'+dtStr+'</td>'+
+        '<td>'+
+          '<div style="font-weight:700;font-size:13px">'+escAdmin(c.name)+'</div>'+
+          (c.kakao?'<div style="font-size:11px;color:rgba(255,255,255,.45)">\u{1F4AC} '+escAdmin(c.kakao)+'</div>':'')+
+          (c.message?'<div style="font-size:11px;color:rgba(255,255,255,.35);margin-top:2px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+escAdmin(c.message)+'">'+escAdmin(c.message)+'</div>':'')+
+        '</td>'+
+        '<td style="font-size:12px;color:rgba(255,255,255,.55)">'+escAdmin(c.shop_name||'-')+'</td>'+
+        '<td>'+
+          (c.treatment?'<div style="font-size:12px">'+escAdmin(c.treatment)+'</div>':'')+
+          (c.budget?'<div style="font-size:11px;color:rgba(255,255,255,.45)">'+escAdmin(c.budget)+'</div>':'')+
+        '</td>'+
+        '<td style="font-size:12px;color:rgba(255,255,255,.55)">'+escAdmin(c.visit_date||'-')+'</td>'+
+        '<td>'+
+          '<span class="bdg '+st.cls+'"'+bdgStyle+'>'+st.label+'</span>'+
+          '<select onchange="updateConsultStatus(''+c.id+'',this.value)" style="display:block;margin-top:4px;font-size:11px;padding:3px 6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:6px;color:#fff;cursor:pointer">'+
+            '<option value="">\uC0C1\uD0DC\uBCC0\uACBD</option>'+
+            '<option value="new">\uC2E0\uADDC</option>'+
+            '<option value="contacted">\uC5F0\uB77D\uD568</option>'+
+            '<option value="done">\uC644\uB8CC</option>'+
+          '</select>'+
+        '</td>'+
+        '<td>'+
+          '<input type="text" placeholder="\uBA54\uBAA8 \uC785\uB825" id="memo-'+c.id+'" value="'+escAdmin(c.memo||'')+'" style="font-size:11px;padding:4px 7px;width:120px;margin-bottom:4px">'+
+          '<button class="btn-sm btn-blue" onclick="saveConsultMemo(''+c.id+'')"><i class="fas fa-save"></i></button>'+
+        '</td>'+
+      '</tr>';
+    });
+    html += '</tbody></table>';
+    if(listEl) listEl.innerHTML = html;
+
+    // \uD398\uC774\uC9C0\uB124\uC774\uC158
+    var totalPages = Math.ceil(total / _consultPerPage);
+    var pagHtml = '';
+    if(totalPages > 1){
+      for(var p=1; p<=totalPages; p++){
+        pagHtml += '<button class="btn-sm '+(p===_consultPage?'btn-pk':'btn-blue')+'" onclick="loadConsultations('+p+')" style="min-width:32px">'+p+'</button>';
+      }
+      pagHtml = '<div style="color:rgba(255,255,255,.3);font-size:11px;margin-right:8px">\uCD1D '+total+'\uAC74</div>'+pagHtml;
+    }
+    if(pageEl) pageEl.innerHTML = pagHtml;
+
+  } catch(e) {
+    if(listEl) listEl.innerHTML = '<div style="color:#ef4444;padding:20px">\uB85C\uB4DC \uC2E4\uD328: '+e.message+'</div>';
+  }
+};
+
+window.updateConsultStatus = async function(id, status) {
+  if(!status) return;
+  try {
+    await fetch('/api/consultations/'+id, {
+      method: 'PUT',
+      headers: { 'Content-Type':'application/json', 'x-admin-token': _GSK_TOKEN },
+      body: JSON.stringify({ status: status })
+    });
+    loadConsultations(_consultPage);
+  } catch(e) { alert('\uC0C1\uD0DC \uBCC0\uACBD \uC2E4\uD328: '+e.message); }
+};
+
+window.saveConsultMemo = async function(id) {
+  var inp = document.getElementById('memo-'+id);
+  if(!inp) return;
+  var memo = inp.value.trim();
+  try {
+    await fetch('/api/consultations/'+id, {
+      method: 'PUT',
+      headers: { 'Content-Type':'application/json', 'x-admin-token': _GSK_TOKEN },
+      body: JSON.stringify({ memo: memo })
+    });
+    var btn = inp.nextElementSibling;
+    if(btn){ var orig=btn.innerHTML; btn.innerHTML='<i class="fas fa-check" style="color:#10b981"></i>'; setTimeout(function(){ btn.innerHTML=orig; },1500); }
+  } catch(e) { alert('\uBA54\uBAA8 \uC800\uC7A5 \uC2E4\uD328: '+e.message); }
+};
+
+// escAdmin: Admin HTML \uB0B4 XSS \uBC29\uC9C0 \uAC04\uB2E8 \uC774\uC2A4\uCF00\uC774\uD504
+function escAdmin(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 
 // \u2500\u2500 \uC601\uC0C1 \uCD94\uAC00 \uD328\uB110 \uC5F4\uAE30/\uB2EB\uAE30 \u2500\u2500
 function openVideoPanel(shopId){

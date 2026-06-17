@@ -675,6 +675,44 @@ async function initDb(env: any) {
       date TEXT, message TEXT, status TEXT DEFAULT 'new',
       commission_rate INTEGER DEFAULT 10, estimated_amount TEXT, created_at TEXT
     )`
+    // ── 상담 문의 테이블 ──
+    await sql`CREATE TABLE IF NOT EXISTS consultations (
+      id TEXT PRIMARY KEY,
+      shop_id TEXT DEFAULT '',
+      shop_name TEXT DEFAULT '',
+      name TEXT NOT NULL,
+      email TEXT DEFAULT '',
+      kakao TEXT DEFAULT '',
+      treatment TEXT DEFAULT '',
+      budget TEXT DEFAULT '',
+      visit_date TEXT DEFAULT '',
+      message TEXT DEFAULT '',
+      lang TEXT DEFAULT 'en',
+      status TEXT DEFAULT 'new',
+      memo TEXT DEFAULT '',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`
+    try { await sql`CREATE INDEX IF NOT EXISTS idx_cons_status ON consultations(status)` } catch(e) {}
+    try { await sql`CREATE INDEX IF NOT EXISTS idx_cons_created ON consultations(created_at DESC)` } catch(e) {}
+    // ── 무료 상담 문의 테이블 ──
+    await sql`CREATE TABLE IF NOT EXISTS consultations (
+      id TEXT PRIMARY KEY,
+      shop_id TEXT DEFAULT '',
+      shop_name TEXT DEFAULT '',
+      name TEXT NOT NULL,
+      email TEXT DEFAULT '',
+      kakao TEXT DEFAULT '',
+      treatment TEXT DEFAULT '',
+      budget TEXT DEFAULT '',
+      visit_date TEXT DEFAULT '',
+      message TEXT DEFAULT '',
+      lang TEXT DEFAULT 'en',
+      status TEXT DEFAULT 'new',
+      memo TEXT DEFAULT '',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`
+    try { await sql`CREATE INDEX IF NOT EXISTS idx_consultations_status ON consultations(status)` } catch(e) {}
+    try { await sql`CREATE INDEX IF NOT EXISTS idx_consultations_created ON consultations(created_at DESC)` } catch(e) {}
     // 영상 IP별 조회수 중복 방지 로그 테이블
     await sql`CREATE TABLE IF NOT EXISTS video_views_log (
       id TEXT PRIMARY KEY,
@@ -2132,6 +2170,72 @@ app.put('/api/bookings/:id/status', async (c) => {
   const { status } = await c.req.json()
   await sql`UPDATE bookings SET status=${status} WHERE id=${c.req.param('id')}`
   return c.json({ ok: true })
+})
+
+// ══════════════════════════════════════════════════════
+// 상담 문의 API
+// ══════════════════════════════════════════════════════
+
+// POST /api/consultations — 상담 신청 (공개)
+app.post('/api/consultations', async (c) => {
+  try {
+    await ensureDb(c.env)
+    const sql = getDb(c.env)
+    const body = await c.req.json()
+    if (!body.name || body.name.trim().length < 1) return c.json({ error: 'name required' }, 400)
+    const id = 'c' + Date.now() + Math.random().toString(36).slice(2, 6)
+    await sql`INSERT INTO consultations
+      (id, shop_id, shop_name, name, email, kakao, treatment, budget, visit_date, message, lang, status, memo)
+      VALUES (
+        ${id},
+        ${body.shopId || ''},
+        ${body.shopName || ''},
+        ${body.name.trim()},
+        ${body.email || ''},
+        ${body.kakao || ''},
+        ${body.treatment || ''},
+        ${body.budget || ''},
+        ${body.visitDate || ''},
+        ${body.message || ''},
+        ${body.lang || 'en'},
+        'new',
+        ''
+      )`
+    return c.json({ ok: true, id })
+  } catch(e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+})
+
+// GET /api/consultations — 목록 조회 (admin)
+app.get('/api/consultations', async (c) => {
+  try {
+    const sql = getDb(c.env)
+    const status = c.req.query('status') || ''
+    const limit = parseInt(c.req.query('limit') || '100')
+    const rows = status
+      ? await sql`SELECT * FROM consultations WHERE status=${status} ORDER BY created_at DESC LIMIT ${limit}`
+      : await sql`SELECT * FROM consultations ORDER BY created_at DESC LIMIT ${limit}`
+    const newCount = await sql`SELECT COUNT(*)::int as cnt FROM consultations WHERE status='new'`
+    return c.json({ consultations: rows, newCount: (newCount[0] as any)?.cnt || 0 })
+  } catch(e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+})
+
+// PUT /api/consultations/:id — 상태/메모 수정 (admin)
+app.put('/api/consultations/:id', async (c) => {
+  try {
+    const sql = getDb(c.env)
+    const body = await c.req.json()
+    await sql`UPDATE consultations SET
+      status = COALESCE(${body.status || null}, status),
+      memo   = COALESCE(${body.memo   ?? null}, memo)
+    WHERE id = ${c.req.param('id')}`
+    return c.json({ ok: true })
+  } catch(e: any) {
+    return c.json({ error: e.message }, 500)
+  }
 })
 
 app.get('/api/stats', async (c) => {
@@ -15383,6 +15487,78 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#f8fafc;color:#1e293
 </section>
 
 <footer class="nf-footer">© ${new Date().getFullYear()} Seoul Beauty Trip · English booking for Korean beauty</footer>
+
+<!-- ── 상담 신청 Bottom Sheet ── -->
+<div id="consultSheet">
+  <div class="cs-backdrop" onclick="closeConsultSheet()"></div>
+  <div class="cs-panel">
+    <div class="cs-handle"></div>
+    <div class="cs-head">
+      <div>
+        <div class="cs-title">💬 Free Consultation</div>
+        <div class="cs-sub">Ask about treatments, pricing &amp; availability</div>
+      </div>
+      <button class="cs-close" onclick="closeConsultSheet()" aria-label="Close">✕</button>
+    </div>
+    <div id="cs-shop-badge" class="cs-shop-badge" style="display:none"></div>
+    <div class="cs-body" id="cs-body">
+      <!-- 관심 시술 -->
+      <div class="cs-section-label">Interested in</div>
+      <div class="cs-chips" id="cs-chips-treatment">
+        <span class="cs-chip" onclick="csChip(this,'treatment')">Botox</span>
+        <span class="cs-chip" onclick="csChip(this,'treatment')">Filler</span>
+        <span class="cs-chip" onclick="csChip(this,'treatment')">Skin care</span>
+        <span class="cs-chip" onclick="csChip(this,'treatment')">Rhinoplasty</span>
+        <span class="cs-chip" onclick="csChip(this,'treatment')">Eyes</span>
+        <span class="cs-chip" onclick="csChip(this,'treatment')">Hair</span>
+        <span class="cs-chip" onclick="csChip(this,'treatment')">Tattoo</span>
+        <span class="cs-chip" onclick="csChip(this,'treatment')">Other</span>
+      </div>
+      <!-- 예산 -->
+      <div class="cs-section-label">Budget (USD)</div>
+      <div class="cs-chips" id="cs-chips-budget">
+        <span class="cs-chip" onclick="csChip(this,'budget')">Under $200</span>
+        <span class="cs-chip" onclick="csChip(this,'budget')">$200–500</span>
+        <span class="cs-chip" onclick="csChip(this,'budget')">$500–1000</span>
+        <span class="cs-chip" onclick="csChip(this,'budget')">$1000+</span>
+        <span class="cs-chip" onclick="csChip(this,'budget')">Flexible</span>
+      </div>
+      <!-- 방문 시기 -->
+      <div class="cs-section-label">Visiting Seoul</div>
+      <div class="cs-chips" id="cs-chips-visit">
+        <span class="cs-chip" onclick="csChip(this,'visit')">Within 1 month</span>
+        <span class="cs-chip" onclick="csChip(this,'visit')">1–3 months</span>
+        <span class="cs-chip" onclick="csChip(this,'visit')">3–6 months</span>
+        <span class="cs-chip" onclick="csChip(this,'visit')">Just browsing</span>
+      </div>
+      <!-- 이름 + 카카오 -->
+      <div class="cs-inputs">
+        <div class="cs-input-wrap">
+          <span class="cs-input-icon">👤</span>
+          <input id="cs-name" type="text" placeholder="Your name" maxlength="60" autocomplete="off">
+        </div>
+        <div class="cs-input-wrap">
+          <span class="cs-input-icon">💬</span>
+          <input id="cs-kakao" type="text" placeholder="KakaoTalk ID or WhatsApp" maxlength="80" autocomplete="off">
+        </div>
+      </div>
+      <!-- 자유 질문 -->
+      <textarea id="cs-message" class="cs-textarea" placeholder="Any questions or specific requests? (optional)" maxlength="500"></textarea>
+      <!-- 제출 버튼 -->
+      <button class="cs-submit" id="cs-submit-btn" onclick="submitConsult()">
+        <i class="fas fa-paper-plane"></i> Send Free Inquiry
+      </button>
+      <div class="cs-privacy">🔒 Your info is only shared with the clinic</div>
+    </div>
+    <!-- 성공 화면 -->
+    <div class="cs-success" id="cs-success">
+      <div class="cs-success-icon">🎉</div>
+      <div class="cs-success-title">Inquiry Sent!</div>
+      <div class="cs-success-msg">We'll connect you with the clinic within 24 hours via KakaoTalk or WhatsApp.</div>
+      <button class="cs-submit" onclick="closeConsultSheet()">Done</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>`, 404)
 })
@@ -16594,6 +16770,57 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 /* 호버 툴팁 */
 .lf-popup-name{font-size:12px;font-weight:800;color:#fff;margin-bottom:2px;white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis}
 .lf-popup-sub{font-size:10px;color:rgba(255,255,255,.4)}
+
+/* ── 상담 피드 카드 (Option A) ── */
+.consult-feed-card{background:linear-gradient(135deg,rgba(232,65,122,.18),rgba(168,85,247,.14));border:1px solid rgba(232,65,122,.3);border-radius:20px;margin:0 14px 10px;padding:20px 18px;display:flex;flex-direction:column;gap:12px}
+.cfc-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(232,65,122,.2);border:1px solid rgba(232,65,122,.35);border-radius:20px;padding:4px 10px;font-size:10px;font-weight:800;color:#f472b6;letter-spacing:.3px;align-self:flex-start}
+.cfc-title{font-size:17px;font-weight:900;color:#fff;line-height:1.35}
+.cfc-title span{color:#f472b6}
+.cfc-topics{display:flex;flex-wrap:wrap;gap:7px}
+.cfc-topic{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:5px 12px;font-size:11.5px;color:rgba(255,255,255,.7);display:flex;align-items:center;gap:5px}
+.cfc-btn{display:flex;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,#e8417a,#a855f7);border:none;border-radius:14px;color:#fff;font-size:14px;font-weight:800;padding:13px;cursor:pointer;width:100%;transition:opacity .2s}
+.cfc-btn:hover{opacity:.88}
+.cfc-sub{font-size:11px;color:rgba(255,255,255,.35);text-align:center}
+
+/* ── 상담 모달 하단 섹션 (Option B) ── */
+.consult-modal-section{background:linear-gradient(135deg,rgba(232,65,122,.1),rgba(168,85,247,.08));border:1px solid rgba(232,65,122,.2);border-radius:16px;padding:16px;margin:0 0 16px}
+.cms-title{font-size:13px;font-weight:800;color:#fff;margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.cms-sub{font-size:11.5px;color:rgba(255,255,255,.45);margin-bottom:12px;line-height:1.5}
+.cms-topics{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.cms-topic{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:4px 10px;font-size:11px;color:rgba(255,255,255,.6)}
+.cms-btn{display:flex;align-items:center;justify-content:center;gap:7px;background:linear-gradient(135deg,rgba(232,65,122,.85),rgba(168,85,247,.85));border:none;border-radius:12px;color:#fff;font-size:13px;font-weight:800;padding:12px;cursor:pointer;width:100%;transition:opacity .2s}
+.cms-btn:hover{opacity:.88}
+
+/* ── 상담 신청 bottom sheet ── */
+#consultSheet{position:fixed;inset:0;z-index:9999;display:none}
+#consultSheet.open{display:block}
+.cs-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px)}
+.cs-panel{position:absolute;bottom:0;left:0;right:0;background:#13132a;border-radius:22px 22px 0 0;padding:0 0 env(safe-area-inset-bottom);max-height:92vh;overflow-y:auto;transform:translateY(100%);transition:transform .35s cubic-bezier(.32,1,.26,1)}
+#consultSheet.open .cs-panel{transform:translateY(0)}
+.cs-handle{width:36px;height:4px;background:rgba(255,255,255,.2);border-radius:2px;margin:12px auto 0}
+.cs-head{padding:14px 20px 0;display:flex;align-items:center;justify-content:space-between}
+.cs-head-title{font-size:16px;font-weight:900;color:#fff;display:flex;align-items:center;gap:7px}
+.cs-head-title i{color:#f472b6}
+.cs-close{background:rgba(255,255,255,.08);border:none;border-radius:50%;width:32px;height:32px;color:rgba(255,255,255,.5);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.cs-shop-badge{margin:10px 20px 0;background:rgba(232,65,122,.12);border:1px solid rgba(232,65,122,.25);border-radius:10px;padding:8px 12px;font-size:12px;color:rgba(255,255,255,.7);display:flex;align-items:center;gap:6px}
+.cs-shop-badge i{color:#f472b6}
+.cs-body{padding:14px 20px 20px;display:flex;flex-direction:column;gap:14px}
+.cs-label{font-size:11px;font-weight:700;color:rgba(255,255,255,.45);margin-bottom:6px;letter-spacing:.3px;text-transform:uppercase}
+.cs-chips{display:flex;flex-wrap:wrap;gap:7px}
+.cs-chip{background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.12);border-radius:20px;padding:7px 13px;font-size:12px;color:rgba(255,255,255,.65);cursor:pointer;transition:all .18s;user-select:none}
+.cs-chip.sel{background:rgba(232,65,122,.2);border-color:rgba(232,65,122,.6);color:#fff;font-weight:700}
+.cs-input{width:100%;background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.1);border-radius:12px;color:#fff;padding:11px 14px;font-size:14px;outline:none;transition:border-color .2s;box-sizing:border-box}
+.cs-input:focus{border-color:rgba(232,65,122,.5)}
+.cs-input::placeholder{color:rgba(255,255,255,.28)}
+.cs-textarea{min-height:80px;resize:none}
+.cs-submit{background:linear-gradient(135deg,#e8417a,#a855f7);border:none;border-radius:14px;color:#fff;font-size:15px;font-weight:800;padding:15px;cursor:pointer;width:100%;transition:opacity .2s;display:flex;align-items:center;justify-content:center;gap:8px}
+.cs-submit:hover{opacity:.9}
+.cs-submit:disabled{opacity:.5;cursor:default}
+.cs-success{text-align:center;padding:30px 20px 40px;display:none;flex-direction:column;align-items:center;gap:12px}
+.cs-success.show{display:flex}
+.cs-success-icon{font-size:48px;line-height:1}
+.cs-success-title{font-size:18px;font-weight:900;color:#fff}
+.cs-success-sub{font-size:13px;color:rgba(255,255,255,.5);line-height:1.6}
 </style>
 <!-- Google Maps JavaScript API -->
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCcM03wGoZrSkmCMOS-Vib-JR1oKNPsSkY&language=en&region=KR&loading=async&callback=__gmapsReady"></script>
@@ -17265,6 +17492,32 @@ function buildSlide(v, idx) {
     '<div class="hint"><i class="fas fa-chevron-up" style="font-size:10px"></i><span>Swipe Up</span></div>';
 
   feed.appendChild(s);
+
+  // ── Option A: 3번째 슬라이드(idx=2) 뒤에 상담 유도 카드 삽입 ──
+  if(idx === 2) {
+    var cfCard = document.createElement('div');
+    cfCard.className = 'consult-feed-card';
+    cfCard.innerHTML =
+      '<div class="cfc-top">'+
+        '<div class="cfc-icon">💬</div>'+
+        '<div>'+
+          '<div class="cfc-title">Get a Free Quote</div>'+
+          '<div class="cfc-sub">Ask about pricing, availability &amp; best clinics</div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="cfc-chips">'+
+        '<span class="cfc-chip">Botox</span>'+
+        '<span class="cfc-chip">Filler</span>'+
+        '<span class="cfc-chip">Rhinoplasty</span>'+
+        '<span class="cfc-chip">Skin care</span>'+
+        '<span class="cfc-chip">Hair</span>'+
+        '<span class="cfc-chip">+ More</span>'+
+      '</div>'+
+      '<button class="cfc-btn" onclick="openConsultSheet(\'\',\'\')">'+
+        '<i class="fas fa-paper-plane"></i> Start Free Consultation'+
+      '</button>';
+    feed.appendChild(cfCard);
+  }
 
   (function(vid, vidIdx, shopData) {
     var ve     = document.getElementById('vid'+vidIdx);
@@ -18265,7 +18518,22 @@ function renderShopModal(shop) {
     +'</a>';
   }
 
-  document.getElementById('modalBtns').innerHTML = waBtn + btn2Row;
+  // ── Option B: 상담 신청 섹션 추가 ──
+  var consultSection =
+    '<div class="consult-modal-section">'+
+      '<div class="cms-head">'+
+        '<div class="cms-icon">💬</div>'+
+        '<div>'+
+          '<div class="cms-title">Free Price Consultation</div>'+
+          '<div class="cms-sub">Get exact pricing &amp; availability via KakaoTalk</div>'+
+        '</div>'+
+      '</div>'+
+      '<button class="cms-btn" onclick="openConsultSheet(\''+esc(shop.id||'')+'\',\''+esc(shop.name||'')+'\')">'+
+        '<i class="fas fa-paper-plane"></i> Ask Free Consultation'+
+      '</button>'+
+    '</div>';
+
+  document.getElementById('modalBtns').innerHTML = waBtn + btn2Row + consultSection;
 
   // GA4: WhatsApp 버튼 클릭 추적 (영상 인덱스 + 검색 경로 포함)
   var waEl = document.getElementById('modalBtns').querySelector('a.m-wa');
@@ -19889,6 +20157,132 @@ ${SB_TRACKER_SCRIPT}
   b.innerHTML = '<span>\uD83C\uDDEF\uD83C\uDDF5 \u65E5\u672C\u8A9E\u7248\u3082\u3042\u308A\u307E\u3059<\/span><a href="/ja" style="color:#f472b6;font-weight:700;white-space:nowrap;text-decoration:none">\u65E5\u672C\u8A9E\u3078 \u2192<\/a><button onclick="this.parentNode.remove()" style="background:none;border:none;color:rgba(255,255,255,.3);cursor:pointer;font-size:18px;padding:0 4px;line-height:1;flex-shrink:0">\u2715<\/button>'
   document.body.appendChild(b)
 })()
+// ════════ 상담 신청 Bottom Sheet JS ════════
+;(function(){
+  // 선택 상태
+  var _csState = { treatment:'', budget:'', visit:'', shopId:'', shopName:'' };
+
+  window.openConsultSheet = function(shopId, shopName) {
+    _csState = { treatment:'', budget:'', visit:'', shopId: shopId||'', shopName: shopName||'' };
+    // chip 초기화
+    document.querySelectorAll('.cs-chip').forEach(function(c){ c.classList.remove('on'); });
+    // 입력 초기화
+    var n = document.getElementById('cs-name');
+    var k = document.getElementById('cs-kakao');
+    var m = document.getElementById('cs-message');
+    if(n) n.value = '';
+    if(k) k.value = '';
+    if(m) m.value = '';
+    // shop 뱃지
+    var badge = document.getElementById('cs-shop-badge');
+    if(badge){
+      if(shopName){
+        badge.style.display='flex';
+        badge.innerHTML='<i class="fas fa-store" style="color:var(--pk,#E8417A)"></i><span>'+shopName+'</span>';
+      } else {
+        badge.style.display='none';
+      }
+    }
+    // success 숨기기, body 보이기
+    var csBody = document.getElementById('cs-body');
+    var csSuccess = document.getElementById('cs-success');
+    var csBtn = document.getElementById('cs-submit-btn');
+    if(csBody) csBody.style.display='';
+    if(csSuccess) csSuccess.style.display='none';
+    if(csBtn){ csBtn.disabled=false; csBtn.innerHTML='<i class="fas fa-paper-plane"></i> Send Free Inquiry'; }
+    // 시트 열기
+    var sheet = document.getElementById('consultSheet');
+    if(sheet){
+      sheet.classList.add('open');
+      document.body.style.overflow='hidden';
+    }
+    // GA4
+    if(typeof gtag==='function'){
+      gtag('event','consult_sheet_open',{ shop_id: shopId||'', shop_name: shopName||'' });
+    }
+  };
+
+  window.closeConsultSheet = function() {
+    var sheet = document.getElementById('consultSheet');
+    if(sheet) sheet.classList.remove('open');
+    document.body.style.overflow='';
+  };
+
+  window.csChip = function(el, type) {
+    // 같은 그룹 칩들에서 on 제거 (단일 선택)
+    var idMap = { treatment:'cs-chips-treatment', budget:'cs-chips-budget', visit:'cs-chips-visit' };
+    var container = document.getElementById(idMap[type]);
+    if(container){
+      container.querySelectorAll('.cs-chip').forEach(function(c){ c.classList.remove('on'); });
+    }
+    // 이미 on이면 토글(취소), 아니면 on
+    var wasOn = el.classList.contains('on');
+    if(!wasOn) el.classList.add('on');
+    _csState[type] = wasOn ? '' : el.textContent.trim();
+  };
+
+  window.submitConsult = function() {
+    var name = (document.getElementById('cs-name')||{}).value||'';
+    var kakao = (document.getElementById('cs-kakao')||{}).value||'';
+    var message = (document.getElementById('cs-message')||{}).value||'';
+    if(!name.trim()){ alert('Please enter your name.'); return; }
+    if(!kakao.trim()){ alert('Please enter your KakaoTalk ID or WhatsApp number so we can reach you.'); return; }
+    var csBtn = document.getElementById('cs-submit-btn');
+    if(csBtn){ csBtn.disabled=true; csBtn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Sending...'; }
+    var body = {
+      shop_id: _csState.shopId,
+      shop_name: _csState.shopName,
+      name: name.trim(),
+      kakao: kakao.trim(),
+      treatment: _csState.treatment,
+      budget: _csState.budget,
+      visit_date: _csState.visit,
+      message: message.trim(),
+      lang: (navigator.language||'').startsWith('ja') ? 'ja' : 'en'
+    };
+    fetch('/api/consultations', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if(data && data.id){
+        var csBody = document.getElementById('cs-body');
+        var csSuccess = document.getElementById('cs-success');
+        if(csBody) csBody.style.display='none';
+        if(csSuccess) csSuccess.style.display='flex';
+        if(typeof gtag==='function'){
+          gtag('event','consult_submit',{ shop_id: _csState.shopId, treatment: _csState.treatment });
+        }
+      } else {
+        alert('Failed to send. Please try again.');
+        if(csBtn){ csBtn.disabled=false; csBtn.innerHTML='<i class="fas fa-paper-plane"></i> Send Free Inquiry'; }
+      }
+    })
+    .catch(function(){
+      alert('Network error. Please try again.');
+      if(csBtn){ csBtn.disabled=false; csBtn.innerHTML='<i class="fas fa-paper-plane"></i> Send Free Inquiry'; }
+    });
+  };
+
+  // 패널 swipe-down으로 닫기
+  (function(){
+    var panel = null;
+    var startY = 0;
+    document.addEventListener('touchstart', function(e){
+      panel = e.target.closest('.cs-panel');
+      if(panel) startY = e.touches[0].clientY;
+    }, {passive:true});
+    document.addEventListener('touchend', function(e){
+      if(!panel) return;
+      var dy = e.changedTouches[0].clientY - startY;
+      if(dy > 80) closeConsultSheet();
+      panel = null;
+    }, {passive:true});
+  })();
+})()
+
 </script>
 </body>
 </html>`
@@ -20084,6 +20478,7 @@ textarea{height:80px;resize:none}
   <div class="tab" data-tab="bookings"><i class="fas fa-calendar-check"></i> 예약관리 <span style="font-size:9px;background:rgba(251,191,36,.2);color:#fbbf24;border-radius:10px;padding:1px 5px;vertical-align:middle">준비중</span></div>
   <div class="tab" data-tab="shops"><i class="fas fa-store"></i> 업체 · 영상</div>
   <div class="tab" data-tab="blog"><i class="fas fa-blog"></i> 블로그</div>
+  <div class="tab" data-tab="consultations"><i class="fas fa-comments"></i> 상담문의 <span id="consult-new-badge" style="display:none;font-size:9px;background:rgba(239,68,68,.25);color:#ef4444;border-radius:10px;padding:1px 5px;vertical-align:middle"></span></div>
   <div class="tab" data-tab="settings"><i class="fas fa-cog"></i> 설정</div>
 </div>
 
@@ -21044,6 +21439,26 @@ https://seoulbeautytrip.com/video/v178051515735</textarea>
   </div>
 </div>
 
+<!-- ── 상담문의 탭 ── -->
+<div class="tab-content" id="tab-consultations">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><i class="fas fa-comments" style="color:var(--pk)"></i> 상담 문의 관리</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select id="consult-filter-status" onchange="loadConsultations()" style="padding:6px 10px;font-size:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#fff">
+          <option value="">전체</option>
+          <option value="new">신규</option>
+          <option value="contacted">연락함</option>
+          <option value="done">완료</option>
+        </select>
+        <button class="btn-sm btn-blue" onclick="loadConsultations()"><i class="fas fa-sync"></i> 새로고침</button>
+      </div>
+    </div>
+    <div id="consult-list"><div style="text-align:center;padding:40px;color:rgba(255,255,255,.3)"><i class="fas fa-spinner fa-spin"></i> Loading...</div></div>
+    <div id="consult-pagination" style="display:flex;gap:8px;justify-content:center;padding:12px 0"></div>
+  </div>
+</div>
+
 <div class="tab-content" id="tab-settings">
   <!-- API 토큰 설정 카드 -->
   <div class="card" style="margin-bottom:16px;border-color:rgba(251,191,36,.25);background:rgba(251,191,36,.05)">
@@ -21391,6 +21806,7 @@ document.querySelectorAll('.tab').forEach(function(t){
     if(tabId === 'blog') loadBlogList();
     if(tabId === 'analytics') loadAnalytics(7);
     if(tabId === 'visitors'){ loadVisitorStats(_vsDays); loadVisitors(); startLivePolling(); }
+    if(tabId === 'consultations') loadConsultations();
   });
 });
 
@@ -24034,6 +24450,133 @@ window.updateStatus = function updateStatus(id, status){
   fetch('/api/bookings/'+id+'/status',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:status})})
     .then(loadAll);
 }
+
+// ════════════════ 상담문의 관리 ════════════════
+var _consultPage = 1;
+var _consultPerPage = 20;
+
+window.loadConsultations = async function loadConsultations(page) {
+  _consultPage = page || 1;
+  var status = (document.getElementById('consult-filter-status')||{}).value || '';
+  var url = '/api/consultations?page='+_consultPage+'&limit='+_consultPerPage+(status?'&status='+encodeURIComponent(status):'');
+  var listEl = document.getElementById('consult-list');
+  var pageEl = document.getElementById('consult-pagination');
+  if(listEl) listEl.innerHTML = '<div style="text-align:center;padding:32px;color:rgba(255,255,255,.3)"><i class="fas fa-spinner fa-spin"></i></div>';
+
+  try {
+    var res = await fetch(url, { headers: { 'x-admin-token': _GSK_TOKEN } });
+    var data = await res.json();
+    var items = data.items || [];
+    var total = data.total || 0;
+    var newCount = data.newCount || 0;
+
+    // 새 문의 배지 업데이트
+    var badge = document.getElementById('consult-new-badge');
+    if(badge){
+      if(newCount > 0){ badge.textContent = newCount; badge.style.display='inline-block'; }
+      else { badge.style.display='none'; }
+    }
+
+    if(items.length === 0){
+      if(listEl) listEl.innerHTML = '<div style="text-align:center;padding:40px;color:rgba(255,255,255,.3)"><i class="fas fa-inbox" style="font-size:32px;margin-bottom:8px;display:block"></i>상담 문의가 없습니다</div>';
+      if(pageEl) pageEl.innerHTML = '';
+      return;
+    }
+
+    var statusMap = {
+      new: { label:'신규', cls:'bdg-new' },
+      contacted: { label:'연락함', cls:'', style:'background:rgba(251,191,36,.2);color:#fbbf24' },
+      done: { label:'완료', cls:'', style:'background:rgba(16,185,129,.2);color:#10b981' }
+    };
+
+    var html = '<table class="tbl"><thead><tr>'+
+      '<th>날짜</th><th>이름/연락처</th><th>업체</th><th>시술/예산</th><th>방문 시기</th><th>상태</th><th>메모/액션</th>'+
+      '</tr></thead><tbody>';
+
+    items.forEach(function(c) {
+      var st = statusMap[c.status] || { label: c.status, cls:'', style:'' };
+      var bdgStyle = st.style ? ' style="'+st.style+'"' : '';
+      var dt = new Date(c.created_at);
+      var dtStr = dt.getFullYear()+'.'+(dt.getMonth()+1).toString().padStart(2,'0')+'.'+dt.getDate().toString().padStart(2,'0');
+      html += '<tr>'+
+        '<td style="white-space:nowrap;color:rgba(255,255,255,.45);font-size:11px">'+dtStr+'</td>'+
+        '<td>'+
+          '<div style="font-weight:700;font-size:13px">'+escAdmin(c.name)+'</div>'+
+          (c.kakao?'<div style="font-size:11px;color:rgba(255,255,255,.45)">💬 '+escAdmin(c.kakao)+'</div>':'')+
+          (c.message?'<div style="font-size:11px;color:rgba(255,255,255,.35);margin-top:2px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+escAdmin(c.message)+'">'+escAdmin(c.message)+'</div>':'')+
+        '</td>'+
+        '<td style="font-size:12px;color:rgba(255,255,255,.55)">'+escAdmin(c.shop_name||'-')+'</td>'+
+        '<td>'+
+          (c.treatment?'<div style="font-size:12px">'+escAdmin(c.treatment)+'</div>':'')+
+          (c.budget?'<div style="font-size:11px;color:rgba(255,255,255,.45)">'+escAdmin(c.budget)+'</div>':'')+
+        '</td>'+
+        '<td style="font-size:12px;color:rgba(255,255,255,.55)">'+escAdmin(c.visit_date||'-')+'</td>'+
+        '<td>'+
+          '<span class="bdg '+st.cls+'"'+bdgStyle+'>'+st.label+'</span>'+
+          '<select onchange="updateConsultStatus(\''+c.id+'\',this.value)" style="display:block;margin-top:4px;font-size:11px;padding:3px 6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:6px;color:#fff;cursor:pointer">'+
+            '<option value="">상태변경</option>'+
+            '<option value="new">신규</option>'+
+            '<option value="contacted">연락함</option>'+
+            '<option value="done">완료</option>'+
+          '</select>'+
+        '</td>'+
+        '<td>'+
+          '<input type="text" placeholder="메모 입력" id="memo-'+c.id+'" value="'+escAdmin(c.memo||'')+'" style="font-size:11px;padding:4px 7px;width:120px;margin-bottom:4px">'+
+          '<button class="btn-sm btn-blue" onclick="saveConsultMemo(\''+c.id+'\')"><i class="fas fa-save"></i></button>'+
+        '</td>'+
+      '</tr>';
+    });
+    html += '</tbody></table>';
+    if(listEl) listEl.innerHTML = html;
+
+    // 페이지네이션
+    var totalPages = Math.ceil(total / _consultPerPage);
+    var pagHtml = '';
+    if(totalPages > 1){
+      for(var p=1; p<=totalPages; p++){
+        pagHtml += '<button class="btn-sm '+(p===_consultPage?'btn-pk':'btn-blue')+'" onclick="loadConsultations('+p+')" style="min-width:32px">'+p+'</button>';
+      }
+      pagHtml = '<div style="color:rgba(255,255,255,.3);font-size:11px;margin-right:8px">총 '+total+'건</div>'+pagHtml;
+    }
+    if(pageEl) pageEl.innerHTML = pagHtml;
+
+  } catch(e) {
+    if(listEl) listEl.innerHTML = '<div style="color:#ef4444;padding:20px">로드 실패: '+e.message+'</div>';
+  }
+};
+
+window.updateConsultStatus = async function(id, status) {
+  if(!status) return;
+  try {
+    await fetch('/api/consultations/'+id, {
+      method: 'PUT',
+      headers: { 'Content-Type':'application/json', 'x-admin-token': _GSK_TOKEN },
+      body: JSON.stringify({ status: status })
+    });
+    loadConsultations(_consultPage);
+  } catch(e) { alert('상태 변경 실패: '+e.message); }
+};
+
+window.saveConsultMemo = async function(id) {
+  var inp = document.getElementById('memo-'+id);
+  if(!inp) return;
+  var memo = inp.value.trim();
+  try {
+    await fetch('/api/consultations/'+id, {
+      method: 'PUT',
+      headers: { 'Content-Type':'application/json', 'x-admin-token': _GSK_TOKEN },
+      body: JSON.stringify({ memo: memo })
+    });
+    var btn = inp.nextElementSibling;
+    if(btn){ var orig=btn.innerHTML; btn.innerHTML='<i class="fas fa-check" style="color:#10b981"></i>'; setTimeout(function(){ btn.innerHTML=orig; },1500); }
+  } catch(e) { alert('메모 저장 실패: '+e.message); }
+};
+
+// escAdmin: Admin HTML 내 XSS 방지 간단 이스케이프
+function escAdmin(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+// ═══════════════════════════════════════════════
 
 // ── 영상 추가 패널 열기/닫기 ──
 function openVideoPanel(shopId){
