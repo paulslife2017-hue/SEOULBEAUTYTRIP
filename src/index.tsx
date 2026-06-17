@@ -16436,16 +16436,105 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 }
 #view-map.active{display:flex}
 
+/* ── Advisor 탭 뷰 ── */
+#view-advisor{
+  display:none;position:fixed;top:0;left:0;right:0;bottom:56px;
+  background:#0a0a14;z-index:450;flex-direction:column;overflow-y:auto;
+  scrollbar-width:none;
+}
+#view-advisor::-webkit-scrollbar{display:none}
+#view-advisor.active{display:flex}
+
 /* --- PC에서는 fixed 해제, pc-content-panel 영역 완전히 채우기 --- */
 @media(min-width:1024px){
-  #view-browse,#view-map{
+  #view-browse,#view-map,#view-advisor{
     position:fixed;left:72px;top:0;right:0;bottom:0;
     z-index:200;
   }
-  #view-browse.active,#view-map.active{display:flex}
+  #view-browse.active,#view-map.active,#view-advisor.active{display:flex}
   #bottom-tabs{display:none!important}
   body{padding-bottom:0}
 }
+
+/* ── Advisor 탭 내부 레이아웃 ── */
+.adv-tab-wrap{
+  width:100%;max-width:520px;margin:0 auto;
+  padding:0 0 32px;display:flex;flex-direction:column;
+}
+.adv-tab-hero{
+  background:linear-gradient(160deg,rgba(232,65,122,.18) 0%,rgba(168,85,247,.12) 100%);
+  border-bottom:1px solid rgba(232,65,122,.18);
+  padding:32px 24px 24px;
+  display:flex;align-items:center;gap:16px;
+  flex-shrink:0;
+}
+.adv-tab-hero-icon{
+  width:56px;height:56px;border-radius:50%;
+  background:linear-gradient(135deg,#E8417A,#a855f7);
+  display:flex;align-items:center;justify-content:center;
+  font-size:26px;flex-shrink:0;
+  box-shadow:0 4px 18px rgba(232,65,122,.35);
+}
+.adv-tab-hero-text{}
+.adv-tab-hero-title{font-size:20px;font-weight:900;color:#fff;letter-spacing:-.03em;line-height:1.2}
+.adv-tab-hero-sub{font-size:12px;color:rgba(255,255,255,.45);margin-top:4px;font-weight:500;line-height:1.5}
+.adv-tab-free-badge{
+  display:inline-flex;align-items:center;gap:5px;
+  background:rgba(232,65,122,.2);border:1px solid rgba(232,65,122,.4);
+  border-radius:20px;padding:3px 10px;
+  font-size:10px;font-weight:800;color:#f472b6;letter-spacing:.4px;
+  margin-top:8px;
+}
+.adv-tab-form{
+  padding:20px 20px 0;
+  display:flex;flex-direction:column;gap:14px;
+}
+.adv-tab-section{}
+.adv-tab-section-lbl{
+  font-size:10.5px;font-weight:700;color:rgba(255,255,255,.35);
+  letter-spacing:.6px;text-transform:uppercase;margin-bottom:8px;
+}
+.adv-tab-hint{
+  font-size:11.5px;color:rgba(255,255,255,.3);margin-top:8px;
+  line-height:1.6;text-align:center;padding:0 4px;
+}
+.adv-tab-divider{
+  height:1px;background:rgba(255,255,255,.07);
+  margin:4px 0;
+}
+.adv-tab-submit{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  background:linear-gradient(135deg,#E8417A,#a855f7);
+  border:none;border-radius:14px;color:#fff;
+  font-size:14px;font-weight:900;padding:15px;
+  cursor:pointer;width:100%;
+  transition:opacity .2s;
+  box-shadow:0 4px 18px rgba(232,65,122,.3);
+  letter-spacing:.02em;
+  margin-top:4px;
+}
+.adv-tab-submit:hover{opacity:.88}
+.adv-tab-submit:disabled{opacity:.45;cursor:not-allowed}
+.adv-tab-privacy{
+  text-align:center;font-size:10.5px;color:rgba(255,255,255,.22);
+  margin-top:2px;
+}
+.adv-tab-success{
+  display:none;flex-direction:column;align-items:center;
+  gap:12px;padding:48px 24px;text-align:center;
+}
+.adv-tab-success.on{display:flex}
+.adv-tab-success-icon{font-size:52px;line-height:1}
+.adv-tab-success-title{font-size:18px;font-weight:900;color:#fff}
+.adv-tab-success-msg{font-size:13px;color:rgba(255,255,255,.45);line-height:1.8}
+.adv-tab-success-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);
+  border-radius:12px;color:#fff;font-size:13px;font-weight:700;
+  padding:12px 24px;cursor:pointer;margin-top:8px;
+  transition:background .2s;
+}
+.adv-tab-success-btn:hover{background:rgba(255,255,255,.14)}
 
 /* ── Browse 내부 스타일 ── */
 .bw-layout{display:flex;flex-direction:column;width:100%;flex:1;overflow:hidden;min-height:0}
@@ -16991,6 +17080,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   <button class="pnav-btn" id="pnav-map" data-tab="map" aria-label="Map">
     <i class="fas fa-map-marked-alt"></i><span>Map</span>
   </button>
+  <button class="pnav-btn" id="pnav-advisor" data-tab="advisor" aria-label="Advisor">
+    <i class="fas fa-user-tie"></i><span>Advisor</span>
+  </button>
   <a href="/ja/" onclick="localStorage.setItem('_sb_lang_pref','ja')" title="日本語版へ" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 0;width:100%;color:rgba(255,255,255,.45);text-decoration:none;font-size:10px;font-weight:700;letter-spacing:.03em;margin-top:auto;border-top:1px solid rgba(255,255,255,.06);padding-top:16px;transition:color .2s" onmouseover="this.style.color='#FF4D8D'" onmouseout="this.style.color='rgba(255,255,255,.45)'">
     <span style="font-size:18px;line-height:1">🇯🇵</span>
     <span>JA</span>
@@ -17003,6 +17095,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 <!-- Browse/Map 뷰 — body 직계 (position:fixed 모바일, PC에서는 pc-content-panel 영역으로 확장) -->
 <div id="view-browse" role="main" aria-label="Browse clinics"></div>
 <div id="view-map" role="main" aria-label="Map view"></div>
+<div id="view-advisor" role="main" aria-label="Advisor"></div>
 
 <!-- 피드 래퍼 -->
 <div id="pc-layout">
@@ -17024,6 +17117,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   </button>
   <button class="btab" id="btab-map" data-tab="map" aria-label="Map">
     <i class="fas fa-map-marked-alt"></i><span>Map</span>
+  </button>
+  <button class="btab" id="btab-advisor" data-tab="advisor" aria-label="Advisor">
+    <i class="fas fa-user-tie"></i><span>Advisor</span>
   </button>
 </nav>
 
@@ -19358,10 +19454,11 @@ var _TAB_COLORS = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',clinic:'#
 var _TAB_ICONS  = {skincare:'&#127807;',headspa:'&#128134;',hair:'&#9986;',clinic:'&#128137;',makeup:'&#128132;',spa:'&#9992;',tattoo:'&#9999;'};
 
 // ── 탭 상태 전역 변수 ──
-var _activeTab   = 'reels';
-var _browseBuilt = false;
-var _mapBuilt    = false;
-var _isPC        = false;
+var _activeTab    = 'reels';
+var _browseBuilt  = false;
+var _mapBuilt     = false;
+var _advisorBuilt = false;
+var _isPC         = false;
 
 function _isPC_check() { return window.innerWidth >= 1024; }
 
@@ -19374,14 +19471,16 @@ function switchTab(tab) {
   if (_activeTab === tab) return;
   _activeTab = tab;
   _setNavActive(tab);
-  var pcLayout   = document.getElementById('pc-layout');
-  var hd         = document.getElementById('hd');
-  var viewBrowse = document.getElementById('view-browse');
-  var viewMap    = document.getElementById('view-map');
+  var pcLayout    = document.getElementById('pc-layout');
+  var hd          = document.getElementById('hd');
+  var viewBrowse  = document.getElementById('view-browse');
+  var viewMap     = document.getElementById('view-map');
+  var viewAdvisor = document.getElementById('view-advisor');
 
   // 모든 뷰 초기화
-  if (viewBrowse) { viewBrowse.classList.remove('active'); viewBrowse.style.display = 'none'; }
-  if (viewMap)    { viewMap.classList.remove('active');    viewMap.style.display    = 'none'; }
+  if (viewBrowse)  { viewBrowse.classList.remove('active');  viewBrowse.style.display  = 'none'; }
+  if (viewMap)     { viewMap.classList.remove('active');     viewMap.style.display     = 'none'; }
+  if (viewAdvisor) { viewAdvisor.classList.remove('active'); viewAdvisor.style.display = 'none'; }
 
   if (tab === 'reels') {
     if (pcLayout) pcLayout.style.display = 'block';
@@ -19400,6 +19499,9 @@ function switchTab(tab) {
     } else if (tab === 'map') {
       if (viewMap) { viewMap.classList.add('active'); viewMap.style.display = 'flex'; }
       if (!_mapBuilt) { _mapBuilt = true; buildMap(); }
+    } else if (tab === 'advisor') {
+      if (viewAdvisor) { viewAdvisor.classList.add('active'); viewAdvisor.style.display = 'flex'; }
+      if (!_advisorBuilt) { _advisorBuilt = true; buildAdvisorTab(); }
     }
   }
 }
@@ -19410,8 +19512,10 @@ document.addEventListener('DOMContentLoaded', function() {
   _isPC = _isPC_check();
   var vb = document.getElementById('view-browse');
   var vm = document.getElementById('view-map');
+  var va = document.getElementById('view-advisor');
   if (vb) vb.style.display = 'none';
   if (vm) vm.style.display = 'none';
+  if (va) va.style.display = 'none';
   document.querySelectorAll('.btab, .pnav-btn').forEach(function(btn) {
     btn.addEventListener('click', function() { switchTab(btn.dataset.tab || 'reels'); });
   });
@@ -19724,6 +19828,157 @@ window.closeMapPanel = function() {
 };
 
 // ════════ Beauty Advisor JS ════════
+// ═══════════════════════════════════════════════════════════
+// ── Advisor 탭 빌더 ──────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+function buildAdvisorTab() {
+  var container = document.getElementById('view-advisor');
+  if (!container) return;
+
+  // _advState가 이미 선언돼 있으므로 탭에서도 공유 사용
+  // 탭용 별도 상태 (shopId/shopName은 탭에서 비어있으면 '미지정'으로 처리)
+  container.innerHTML = [
+    '<div class="adv-tab-wrap">',
+
+    /* ── 히어로 헤더 ── */
+    '  <div class="adv-tab-hero">',
+    '    <div class="adv-tab-hero-icon">💆</div>',
+    '    <div class="adv-tab-hero-text">',
+    '      <div class="adv-tab-hero-title">Beauty Advisor</div>',
+    '      <div class="adv-tab-hero-sub">Seoul clinic matching &amp; free consultation<br>Personalized just for you</div>',
+    '      <div class="adv-tab-free-badge">✦ 100% FREE</div>',
+    '    </div>',
+    '  </div>',
+
+    /* ── 폼 영역 ── */
+    '  <div id="adv-tab-form" class="adv-tab-form">',
+
+    /* Interested in */
+    '    <div class="adv-tab-section">',
+    '      <div class="adv-tab-section-lbl">Interested in</div>',
+    '      <div class="adv-chips" id="adv-tab-chips-t">',
+    '        <span class="adv-chip" onclick="advTabChip(this,0)">Botox</span>',
+    '        <span class="adv-chip" onclick="advTabChip(this,0)">Filler</span>',
+    '        <span class="adv-chip" onclick="advTabChip(this,0)">Skin care</span>',
+    '        <span class="adv-chip" onclick="advTabChip(this,0)">Rhinoplasty</span>',
+    '        <span class="adv-chip" onclick="advTabChip(this,0)">Eyes</span>',
+    '        <span class="adv-chip" onclick="advTabChip(this,0)">Hair</span>',
+    '        <span class="adv-chip" onclick="advTabChip(this,0)">Tattoo</span>',
+    '        <span class="adv-chip" onclick="advTabChip(this,0)">Other</span>',
+    '      </div>',
+    '    </div>',
+
+    '    <div class="adv-tab-divider"></div>',
+
+    /* Budget */
+    '    <div class="adv-tab-section">',
+    '      <div class="adv-tab-section-lbl">Budget</div>',
+    '      <div class="adv-chips" id="adv-tab-chips-b">',
+    '        <span class="adv-chip" onclick="advTabChip(this,1)">Under $200</span>',
+    '        <span class="adv-chip" onclick="advTabChip(this,1)">$200–500</span>',
+    '        <span class="adv-chip" onclick="advTabChip(this,1)">$500–1000</span>',
+    '        <span class="adv-chip" onclick="advTabChip(this,1)">$1000+</span>',
+    '        <span class="adv-chip" onclick="advTabChip(this,1)">Flexible</span>',
+    '      </div>',
+    '    </div>',
+
+    '    <div class="adv-tab-divider"></div>',
+
+    /* 입력 필드 */
+    '    <div class="adv-tab-section">',
+    '      <div class="adv-tab-section-lbl">Your Info</div>',
+    '      <input id="adv-tab-name"  class="adv-inp" type="text" placeholder="Your name *" maxlength="60" style="margin-bottom:8px">',
+    '      <input id="adv-tab-kakao" class="adv-inp" type="text" placeholder="KakaoTalk ID or WhatsApp *" maxlength="80">',
+    '    </div>',
+
+    /* 제출 버튼 */
+    '    <button class="adv-tab-submit" id="adv-tab-submit-btn" onclick="advTabSubmit()">',
+    '      <i class="fas fa-paper-plane"></i> Get Free Advice',
+    '    </button>',
+    '    <div class="adv-tab-privacy">🔒 Only shared with the clinic · No spam · Free forever</div>',
+
+    '  </div>',
+
+    /* ── 성공 화면 ── */
+    '  <div class="adv-tab-success" id="adv-tab-success">',
+    '    <div class="adv-tab-success-icon">🎉</div>',
+    '    <div class="adv-tab-success-title">Inquiry Sent!</div>',
+    '    <div class="adv-tab-success-msg">Our Beauty Advisor will contact you<br>within 24h via KakaoTalk or WhatsApp.<br><br>We&#39;ll match you with the best Seoul clinic!</div>',
+    '    <button class="adv-tab-success-btn" onclick="advTabReset()"><i class="fas fa-redo"></i> New Inquiry</button>',
+    '  </div>',
+
+    '</div>'
+  ].join('');
+}
+
+/* ── Advisor 탭 전용 chip / submit / reset ── */
+var _advTabState = { treatment:'', budget:'' };
+
+window.advTabChip = function(el, typeIdx) {
+  var keys = ['treatment','budget'];
+  var ids  = ['adv-tab-chips-t','adv-tab-chips-b'];
+  var container = document.getElementById(ids[typeIdx]);
+  if(container) container.querySelectorAll('.adv-chip').forEach(function(c){ c.classList.remove('on'); });
+  var wasOn = el.classList.contains('on');
+  if(!wasOn) el.classList.add('on');
+  _advTabState[keys[typeIdx]] = wasOn ? '' : el.textContent.trim();
+};
+
+window.advTabSubmit = function() {
+  var name  = (document.getElementById('adv-tab-name') ||{}).value||'';
+  var kakao = (document.getElementById('adv-tab-kakao')||{}).value||'';
+  if(!name.trim())  { alert('Please enter your name.');  return; }
+  if(!kakao.trim()) { alert('Please enter your KakaoTalk ID or WhatsApp.'); return; }
+  var btn = document.getElementById('adv-tab-submit-btn');
+  if(btn){ btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Sending...'; }
+  fetch('/api/consultations', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      shop_id:   '',
+      shop_name: 'General Inquiry',
+      name:  name.trim(),
+      kakao: kakao.trim(),
+      treatment: _advTabState.treatment,
+      budget:    _advTabState.budget,
+      lang: (navigator.language||'').startsWith('ja') ? 'ja' : 'en'
+    })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if(d && d.id){
+      var form = document.getElementById('adv-tab-form');
+      var suc  = document.getElementById('adv-tab-success');
+      if(form) form.style.display='none';
+      if(suc)  suc.classList.add('on');
+      if(typeof gtag==='function') gtag('event','consult_submit',{source:'advisor_tab'});
+    } else {
+      alert('Failed. Please try again.');
+      if(btn){ btn.disabled=false; btn.innerHTML='<i class="fas fa-paper-plane"></i> Get Free Advice'; }
+    }
+  })
+  .catch(function(){
+    alert('Network error. Please try again.');
+    if(btn){ btn.disabled=false; btn.innerHTML='<i class="fas fa-paper-plane"></i> Get Free Advice'; }
+  });
+};
+
+window.advTabReset = function() {
+  _advTabState = { treatment:'', budget:'' };
+  var form = document.getElementById('adv-tab-form');
+  var suc  = document.getElementById('adv-tab-success');
+  if(form){ form.style.display=''; }
+  if(suc)  { suc.classList.remove('on'); }
+  var btn = document.getElementById('adv-tab-submit-btn');
+  if(btn){ btn.disabled=false; btn.innerHTML='<i class="fas fa-paper-plane"></i> Get Free Advice'; }
+  document.querySelectorAll('#adv-tab-chips-t .adv-chip, #adv-tab-chips-b .adv-chip')
+    .forEach(function(c){ c.classList.remove('on'); });
+  var n = document.getElementById('adv-tab-name');
+  var k = document.getElementById('adv-tab-kakao');
+  if(n) n.value='';
+  if(k) k.value='';
+};
+// ═══════════════════════════════════════════════════════════
+
 var _advState = { treatment:'', budget:'', shopId:'', shopName:'' };
 
 function _openAdvisorForShop(shop) {
