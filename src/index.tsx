@@ -17065,7 +17065,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   <button class="pnav-btn" id="pnav-map" data-tab="map" aria-label="Map">
     <i class="fas fa-map-marked-alt"></i><span>Map</span>
   </button>
-  <button class="pnav-btn" id="pnav-advisor" data-tab="advisor" aria-label="Advisor">
+  <button class="pnav-btn" id="pnav-advisor" data-tab="advisor" aria-label="Advisor" style="display:none">
     <i class="fas fa-user-tie"></i><span>Advisor</span>
   </button>
   <a href="/ja/" onclick="localStorage.setItem('_sb_lang_pref','ja')" title="日本語版へ" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 0;width:100%;color:rgba(255,255,255,.45);text-decoration:none;font-size:10px;font-weight:700;letter-spacing:.03em;margin-top:auto;border-top:1px solid rgba(255,255,255,.06);padding-top:16px;transition:color .2s" onmouseover="this.style.color='#FF4D8D'" onmouseout="this.style.color='rgba(255,255,255,.45)'">
@@ -17103,7 +17103,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   <button class="btab" id="btab-map" data-tab="map" aria-label="Map">
     <i class="fas fa-map-marked-alt"></i><span>Map</span>
   </button>
-  <button class="btab" id="btab-advisor" data-tab="advisor" aria-label="Advisor">
+  <button class="btab" id="btab-advisor" data-tab="advisor" aria-label="Advisor" style="display:none">
     <i class="fas fa-user-tie"></i><span>Advisor</span>
   </button>
 </nav>
