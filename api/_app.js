@@ -8498,7 +8498,7 @@ var JA_BEST_CAT_REDIRECTS = {
 app.get("/best/:category/:area", async (c) => {
   const catSlug = c.req.param("category").toLowerCase();
   const areaSlug = c.req.param("area").toLowerCase();
-  if (BEST_CAT_REDIRECTS[catSlug]) {
+  if (JA_BEST_CAT_REDIRECTS[catSlug]) {
     const targetCat = JA_BEST_CAT_REDIRECTS[catSlug];
     const CLINIC_OK_AREAS = ["gangnam", "seocho", "myeongdong", "seoul"];
     const safeArea = targetCat === "headspa" && areaSlug !== "seoul" ? "seoul" : targetCat === "makeup" && areaSlug !== "gangnam" && areaSlug !== "seoul" ? "seoul" : targetCat === "clinic" && catSlug === "skincare" && !CLINIC_OK_AREAS.includes(areaSlug) ? "seoul" : areaSlug;
@@ -8546,7 +8546,7 @@ app.get("/best/:category/:area", async (c) => {
       }
     } catch (e) {
     }
-    const availableAreaLinks = Object.entries(AREA_LABELS).filter(([k]) => k !== areaSlug && (_areaShopCounts[k] || 0) > 0).map(([k, v]) => `<a href="/best/${catSlug}/${k}" style="display:inline-block;padding:8px 16px;margin:4px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:20px;color:rgba(255,255,255,.8);text-decoration:none;font-size:13px;">${v}</a>`).join("");
+    const availableAreaLinks = Object.entries(JA_AREA_LABELS).filter(([k]) => k !== areaSlug && (_areaShopCounts[k] || 0) > 0).map(([k, v]) => `<a href="/best/${catSlug}/${k}" style="display:inline-block;padding:8px 16px;margin:4px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:20px;color:rgba(255,255,255,.8);text-decoration:none;font-size:13px;">${v}</a>`).join("");
     return c.html(`<!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -8705,7 +8705,7 @@ body{background:#0f0f12;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
   <div class="faq-a">${f.a}</div>
 </details>`).join("");
   const relatedCats = Object.entries(CATEGORY_LABELS).filter(([k]) => k !== catSlug).map(([k, v]) => `<a href="/best/${k}/${areaSlug}" class="rel-link">${catEmoji[k] || "\u2728"} ${v} in ${areaLabel}</a>`).join("");
-  const relatedAreas = Object.entries(AREA_LABELS).filter(([k]) => k !== areaSlug && k !== "seoul").slice(0, 6).map(([k, v]) => `<a href="/best/${catSlug}/${k}" class="rel-link">${emoji} ${catLabel} in ${v}</a>`).join("");
+  const relatedAreas = Object.entries(JA_AREA_LABELS).filter(([k]) => k !== areaSlug && k !== "seoul").slice(0, 6).map(([k, v]) => `<a href="/best/${catSlug}/${k}" class="rel-link">${emoji} ${catLabel} in ${v}</a>`).join("");
   return c.html(`<!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -11086,7 +11086,7 @@ function closeMapOverlay(){
 app.get("/best/:category/:area", async (c) => {
   const catSlug = c.req.param("category").toLowerCase();
   const areaSlug = c.req.param("area").toLowerCase();
-  if (BEST_CAT_REDIRECTS[catSlug]) {
+  if (JA_BEST_CAT_REDIRECTS[catSlug]) {
     const targetCat = JA_BEST_CAT_REDIRECTS[catSlug];
     const CLINIC_OK_AREAS = ["gangnam", "seocho", "myeongdong", "seoul"];
     const safeArea = targetCat === "headspa" && areaSlug !== "seoul" ? "seoul" : targetCat === "makeup" && areaSlug !== "gangnam" && areaSlug !== "seoul" ? "seoul" : targetCat === "clinic" && catSlug === "skincare" && !CLINIC_OK_AREAS.includes(areaSlug) ? "seoul" : areaSlug;
@@ -11134,7 +11134,7 @@ app.get("/best/:category/:area", async (c) => {
       }
     } catch (e) {
     }
-    const availableAreaLinks = Object.entries(AREA_LABELS).filter(([k]) => k !== areaSlug && (_areaShopCounts[k] || 0) > 0).map(([k, v]) => `<a href="/best/${catSlug}/${k}" style="display:inline-block;padding:8px 16px;margin:4px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:20px;color:rgba(255,255,255,.8);text-decoration:none;font-size:13px;">${v}</a>`).join("");
+    const availableAreaLinks = Object.entries(JA_AREA_LABELS).filter(([k]) => k !== areaSlug && (_areaShopCounts[k] || 0) > 0).map(([k, v]) => `<a href="/best/${catSlug}/${k}" style="display:inline-block;padding:8px 16px;margin:4px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:20px;color:rgba(255,255,255,.8);text-decoration:none;font-size:13px;">${v}</a>`).join("");
     return c.html(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -11293,7 +11293,7 @@ body{background:#0f0f12;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
   <div class="faq-a">${f.a}</div>
 </details>`).join("");
   const relatedCats = Object.entries(CATEGORY_LABELS).filter(([k]) => k !== catSlug).map(([k, v]) => `<a href="/best/${k}/${areaSlug}" class="rel-link">${catEmoji[k] || "\u2728"} ${v} in ${areaLabel}</a>`).join("");
-  const relatedAreas = Object.entries(AREA_LABELS).filter(([k]) => k !== areaSlug && k !== "seoul").slice(0, 6).map(([k, v]) => `<a href="/best/${catSlug}/${k}" class="rel-link">${emoji} ${catLabel} in ${v}</a>`).join("");
+  const relatedAreas = Object.entries(JA_AREA_LABELS).filter(([k]) => k !== areaSlug && k !== "seoul").slice(0, 6).map(([k, v]) => `<a href="/best/${catSlug}/${k}" class="rel-link">${emoji} ${catLabel} in ${v}</a>`).join("");
   return c.html(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -15153,7 +15153,7 @@ app.get("/sitemap.xml", async (c) => {
     const catAreaCount = {};
     for (const r of countRows) {
       const cat = r.category;
-      for (const [areaKey, areaLabel] of Object.entries(AREA_LABELS)) {
+      for (const [areaKey, areaLabel] of Object.entries(JA_AREA_LABELS)) {
         if (areaKey === "seoul") continue;
         if ((r.location || "").toLowerCase().includes(areaLabel.toLowerCase())) {
           const key = `${cat}|${areaKey}`;
@@ -15171,7 +15171,7 @@ app.get("/sitemap.xml", async (c) => {
       if ((catTotalCount[cat] || 0) >= 1) {
         bestPages.push(`<url><loc>${base}/best/${cat}/seoul</loc><changefreq>weekly</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`);
       }
-      for (const area of Object.keys(AREA_LABELS)) {
+      for (const area of Object.keys(JA_AREA_LABELS)) {
         if (area === "seoul") continue;
         if (cat === "clinic" && area === "gangnam") continue;
         if ((catAreaCount[`${cat}|${area}`] || 0) >= 1) {

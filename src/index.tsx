@@ -7081,7 +7081,7 @@ app.get('/best/:category/:area', async (c) => {
   // 카테고리 리디렉션 (plastic-surgery → clinic 등)
   // 단, hair→headspa / spa→headspa / nail→makeup 은 지역별 페이지가 없는 경우가 많으므로
   // seoul(전체)로 리다이렉트 — 404 방지
-  if (BEST_CAT_REDIRECTS[catSlug]) {
+  if (JA_BEST_CAT_REDIRECTS[catSlug]) {
     const targetCat = JA_BEST_CAT_REDIRECTS[catSlug]
     // headspa: 서울 이외 지역은 업체 없으므로 seoul로
     // makeup: gangnam만 업체 있으므로 gangnam 아닌 경우 seoul로
@@ -7157,7 +7157,7 @@ app.get('/best/:category/:area', async (c) => {
         _areaShopCounts[_aKey] = (_areaShopCounts[_aKey]||0) + Number(row.cnt)
       }
     } catch(e) {}
-    const availableAreaLinks = Object.entries(AREA_LABELS)
+    const availableAreaLinks = Object.entries(JA_AREA_LABELS)
       .filter(([k]) => k !== areaSlug && (_areaShopCounts[k]||0) > 0)
       .map(([k,v]) => `<a href="/best/${catSlug}/${k}" style="display:inline-block;padding:8px 16px;margin:4px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:20px;color:rgba(255,255,255,.8);text-decoration:none;font-size:13px;">${v}</a>`)
       .join('')
@@ -7416,7 +7416,7 @@ body{background:#0f0f12;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
     .map(([k,v]) => `<a href="/best/${k}/${areaSlug}" class="rel-link">${catEmoji[k]||'✨'} ${v} in ${areaLabel}</a>`)
     .join('')
   // 관련 지역 링크
-  const relatedAreas = Object.entries(AREA_LABELS)
+  const relatedAreas = Object.entries(JA_AREA_LABELS)
     .filter(([k]) => k !== areaSlug && k !== 'seoul')
     .slice(0,6)
     .map(([k,v]) => `<a href="/best/${catSlug}/${k}" class="rel-link">${emoji} ${catLabel} in ${v}</a>`)
@@ -10008,7 +10008,7 @@ app.get('/best/:category/:area', async (c) => {
   // 카테고리 리디렉션 (plastic-surgery → clinic 등)
   // 단, hair→headspa / spa→headspa / nail→makeup 은 지역별 페이지가 없는 경우가 많으므로
   // seoul(전체)로 리다이렉트 — 404 방지
-  if (BEST_CAT_REDIRECTS[catSlug]) {
+  if (JA_BEST_CAT_REDIRECTS[catSlug]) {
     const targetCat = JA_BEST_CAT_REDIRECTS[catSlug]
     // headspa: 서울 이외 지역은 업체 없으므로 seoul로
     // makeup: gangnam만 업체 있으므로 gangnam 아닌 경우 seoul로
@@ -10084,7 +10084,7 @@ app.get('/best/:category/:area', async (c) => {
         _areaShopCounts[_aKey] = (_areaShopCounts[_aKey]||0) + Number(row.cnt)
       }
     } catch(e) {}
-    const availableAreaLinks = Object.entries(AREA_LABELS)
+    const availableAreaLinks = Object.entries(JA_AREA_LABELS)
       .filter(([k]) => k !== areaSlug && (_areaShopCounts[k]||0) > 0)
       .map(([k,v]) => `<a href="/best/${catSlug}/${k}" style="display:inline-block;padding:8px 16px;margin:4px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:20px;color:rgba(255,255,255,.8);text-decoration:none;font-size:13px;">${v}</a>`)
       .join('')
@@ -10343,7 +10343,7 @@ body{background:#0f0f12;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
     .map(([k,v]) => `<a href="/best/${k}/${areaSlug}" class="rel-link">${catEmoji[k]||'✨'} ${v} in ${areaLabel}</a>`)
     .join('')
   // 관련 지역 링크
-  const relatedAreas = Object.entries(AREA_LABELS)
+  const relatedAreas = Object.entries(JA_AREA_LABELS)
     .filter(([k]) => k !== areaSlug && k !== 'seoul')
     .slice(0,6)
     .map(([k,v]) => `<a href="/best/${catSlug}/${k}" class="rel-link">${emoji} ${catLabel} in ${v}</a>`)
@@ -14328,7 +14328,7 @@ app.get('/sitemap.xml', async (c) => {
     const catAreaCount: Record<string,number> = {}
     for (const r of countRows) {
       const cat = r.category as string
-      for (const [areaKey, areaLabel] of Object.entries(AREA_LABELS)) {
+      for (const [areaKey, areaLabel] of Object.entries(JA_AREA_LABELS)) {
         if (areaKey === 'seoul') continue
         if ((r.location as string || '').toLowerCase().includes(areaLabel.toLowerCase())) {
           const key = `${cat}|${areaKey}`
@@ -14350,7 +14350,7 @@ app.get('/sitemap.xml', async (c) => {
         bestPages.push(`<url><loc>${base}/best/${cat}/seoul</loc><changefreq>weekly</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`)
       }
       // 특정 지역: 업체 1개 이상이면 sitemap 포함 (noindex여도 크롤은 허용)
-      for (const area of Object.keys(AREA_LABELS)) {
+      for (const area of Object.keys(JA_AREA_LABELS)) {
         if (area === 'seoul') continue
         if (cat === 'clinic' && area === 'gangnam') continue // 위에서 추가
         if ((catAreaCount[`${cat}|${area}`] || 0) >= 1) {
