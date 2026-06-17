@@ -17995,15 +17995,20 @@ function _checkLdReady() {
     return;
   }
 
-  // \uCCAB \uC601\uC0C1 src \uBA3C\uC800 \uC138\uD305 (\uC544\uC9C1 \uC548 \uB410\uC73C\uBA74)
+  // \uCCAB \uC601\uC0C1 src \uBA3C\uC800 \uC138\uD305 (\uC544\uC9C1 \uC548 \uB410\uC73C\uBA74 \u2014 data-src \uBC29\uC2DD \uC2AC\uB77C\uC774\uB4DC\uC6A9)
   if(v0 && !v0.src && v0.dataset.src) {
     v0.preload = 'auto';
     v0.src = v0.dataset.src;
     v0.load();
   }
 
-  // canplay \uC774\uBCA4\uD2B8 \uAC10\uC9C0 \u2192 \uC989\uC2DC \uC228\uAE40 (\uC2A4\uD53C\uB108 \uC5C6\uC774 \uBC14\uB85C \uC7AC\uC0DD)
+  // canplay \uC774\uBCA4\uD2B8 \uAC10\uC9C0 \u2192 \uC989\uC2DC \uC228\uAE40
   if(v0 && v0.src) {
+    // readyState >= 2\uBA74 \uC774\uBBF8 \uD604\uC7AC \uD504\uB808\uC784 \uC788\uC74C \u2192 \uBC14\uB85C hideLd (canplay \uB193\uCCE4\uC744 \uACBD\uC6B0 \uB300\uBE44)
+    if(v0.readyState >= 2) {
+      hideLd();
+      return;
+    }
     var _canPlayFired = false;
     function _onCanPlay() {
       if(_canPlayFired) return;
@@ -18016,7 +18021,7 @@ function _checkLdReady() {
     v0.addEventListener('canplaythrough', _onCanPlay, {once: true});
   }
 
-  // \uCD5C\uB300 fallback: 3\uCD08 (\uB124\uD2B8\uC6CC\uD06C \uB290\uB9B0 \uACBD\uC6B0 \uC2A4\uD53C\uB108 \uB300\uC2E0 \uC601\uC0C1 \uB85C\uB529 \uC911 \uD45C\uC2DC)
+  // \uCD5C\uB300 fallback: 3\uCD08 (\uB124\uD2B8\uC6CC\uD06C \uB290\uB9B0 \uACBD\uC6B0)
   if(!_ldFallbackTimer) {
     _ldFallbackTimer = setTimeout(function(){ hideLd(); }, 3000);
   }
@@ -18657,17 +18662,17 @@ function _playVid(vid, bufIc){
     });
   }
 
-  // [M8] readyState 0(HAVE_NOTHING): src \uBC29\uAE08 \uC138\uD305\uB428 \u2192 loadedmetadata \uB300\uAE30
+  // [M8] readyState 0(HAVE_NOTHING): src \uC138\uD305 \uC9C1\uD6C4 or \uC544\uC9C1 \uBA54\uD0C0 \uC5C6\uC74C \u2192 loadedmetadata \uB300\uAE30
   // readyState 1(HAVE_METADATA): \uBA54\uD0C0 \uC788\uC74C \u2192 \uBC14\uB85C play() \uC2DC\uB3C4 \uAC00\uB2A5
   // readyState 2+(HAVE_CURRENT_DATA~): \uCDA9\uBD84\uD788 \uB85C\uB4DC\uB428 \u2192 \uBC14\uB85C play()
-  if(_srcJustSet && vid.readyState < 1){
-    // src \uBC29\uAE08 \uC138\uD305 \u2192 loadedmetadata \uD6C4 play (\uB2E8, \uD0C0\uC784\uC544\uC6C3 \uBC29\uC5B4 \uCD94\uAC00)
+  // [\uBC84\uADF8\uC218\uC815] _srcJustSet \uC870\uAC74 \uC81C\uAC70: buildSlide\uC5D0\uC11C src \uC9C1\uC811 \uC138\uD305\uD55C \uACBD\uC6B0\uB3C4 readyState<1\uC774\uBA74 \uB300\uAE30
+  if(vid.readyState < 1){
+    // readyState=0: \uC544\uC9C1 \uBA54\uD0C0 \uC5C6\uC74C \u2192 loadedmetadata \uD6C4 play (\uD0C0\uC784\uC544\uC6C3 \uBC29\uC5B4 \uD3EC\uD568)
     var _metaTimer = setTimeout(function(){
       // 3\uCD08 \uD6C4\uC5D0\uB3C4 loadedmetadata \uC548 \uC624\uBA74 \uADF8\uB0E5 play() \uC2DC\uB3C4
       _doPlay();
     }, 3000);
     vid.addEventListener('loadedmetadata', function _onMeta(){
-      vid.removeEventListener('loadedmetadata', _onMeta);
       clearTimeout(_metaTimer);
       _doPlay();
     }, {once: true});

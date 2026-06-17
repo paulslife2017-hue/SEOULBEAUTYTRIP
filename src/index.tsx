@@ -17335,15 +17335,20 @@ function _checkLdReady() {
     return;
   }
 
-  // 첫 영상 src 먼저 세팅 (아직 안 됐으면)
+  // 첫 영상 src 먼저 세팅 (아직 안 됐으면 — data-src 방식 슬라이드용)
   if(v0 && !v0.src && v0.dataset.src) {
     v0.preload = 'auto';
     v0.src = v0.dataset.src;
     v0.load();
   }
 
-  // canplay 이벤트 감지 → 즉시 숨김 (스피너 없이 바로 재생)
+  // canplay 이벤트 감지 → 즉시 숨김
   if(v0 && v0.src) {
+    // readyState >= 2면 이미 현재 프레임 있음 → 바로 hideLd (canplay 놓쳤을 경우 대비)
+    if(v0.readyState >= 2) {
+      hideLd();
+      return;
+    }
     var _canPlayFired = false;
     function _onCanPlay() {
       if(_canPlayFired) return;
@@ -17356,7 +17361,7 @@ function _checkLdReady() {
     v0.addEventListener('canplaythrough', _onCanPlay, {once: true});
   }
 
-  // 최대 fallback: 3초 (네트워크 느린 경우 스피너 대신 영상 로딩 중 표시)
+  // 최대 fallback: 3초 (네트워크 느린 경우)
   if(!_ldFallbackTimer) {
     _ldFallbackTimer = setTimeout(function(){ hideLd(); }, 3000);
   }
@@ -17997,17 +18002,17 @@ function _playVid(vid, bufIc){
     });
   }
 
-  // [M8] readyState 0(HAVE_NOTHING): src 방금 세팅됨 → loadedmetadata 대기
+  // [M8] readyState 0(HAVE_NOTHING): src 세팅 직후 or 아직 메타 없음 → loadedmetadata 대기
   // readyState 1(HAVE_METADATA): 메타 있음 → 바로 play() 시도 가능
   // readyState 2+(HAVE_CURRENT_DATA~): 충분히 로드됨 → 바로 play()
-  if(_srcJustSet && vid.readyState < 1){
-    // src 방금 세팅 → loadedmetadata 후 play (단, 타임아웃 방어 추가)
+  // [버그수정] _srcJustSet 조건 제거: buildSlide에서 src 직접 세팅한 경우도 readyState<1이면 대기
+  if(vid.readyState < 1){
+    // readyState=0: 아직 메타 없음 → loadedmetadata 후 play (타임아웃 방어 포함)
     var _metaTimer = setTimeout(function(){
       // 3초 후에도 loadedmetadata 안 오면 그냥 play() 시도
       _doPlay();
     }, 3000);
     vid.addEventListener('loadedmetadata', function _onMeta(){
-      vid.removeEventListener('loadedmetadata', _onMeta);
       clearTimeout(_metaTimer);
       _doPlay();
     }, {once: true});
