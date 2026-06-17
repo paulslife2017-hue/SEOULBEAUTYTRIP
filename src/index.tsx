@@ -4202,11 +4202,13 @@ function jaLangNav(currentLang: 'en'|'ja', currentPath: string): string {
 </nav>`
 }
 
-// ── /ja/ 홈 (trailing slash redirect) ──
-app.get('/ja/', (c) => c.redirect('/ja', 301))
+// ══ /ja/* 전체 접근 차단 (일본어판 개발 중 — 모두 EN 홈으로 리다이렉트) ══
+app.get('/ja', (c) => c.redirect('/', 302))
+app.get('/ja/', (c) => c.redirect('/', 302))
+app.get('/ja/*', (c) => c.redirect('/', 302))
 
-// ── /ja 홈 ── (EN 홈과 동일 UI, shops_ja 데이터)
-app.get('/ja', async (c) => {
+// ── /ja 홈 원본 코드 (위 차단 라우트에 의해 도달 불가, 데이터 보존용) ──
+app.get('/__ja_disabled__', async (c) => {
   const sql = getDb(c.env)
   try {
     const [shopRows] = await Promise.all([
@@ -4378,7 +4380,7 @@ app.get('/ja', async (c) => {
 
 
 // ── /ja/shops ──
-app.get('/ja/shops', async (c) => {
+app.get('/__ja_disabled__/shops', async (c) => {
   try {
   const sql = getDb(c.env)
   const rows = await sql`SELECT * FROM shops_ja WHERE active=true ORDER BY rating DESC, created_at DESC`
@@ -4687,7 +4689,7 @@ render();
   }
 })
 // ── /ja/blog ──
-app.get('/ja/blog', async (c) => {
+app.get('/__ja_disabled__/blog', async (c) => {
   try {
   await ensureDb(c.env)
   const sql = getDb(c.env)
@@ -4806,7 +4808,7 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;min-height:
   }
 })
 // ── /ja/blog/category/:cat ──
-app.get('/ja/blog/category/:cat', async (c) => {
+app.get('/__ja_disabled__/blog/category/:cat', async (c) => {
   try {
   await ensureDb(c.env)
   const sql = getDb(c.env)
@@ -4936,7 +4938,7 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;min-height:
   }
 })
 // ── /ja/blog/:slug ──
-app.get('/ja/blog/:slug', async (c) => {
+app.get('/__ja_disabled__/blog/:slug', async (c) => {
   await ensureDb(c.env)
   const sql = getDb(c.env)
   const slug = c.req.param('slug')
@@ -5365,7 +5367,7 @@ ${SB_TRACKER_SCRIPT}
   return c.html(finalHtml)
 })
 // ── /ja/shop/:slug ──
-app.get('/ja/shop/:slug', async (c) => {
+app.get('/__ja_disabled__/shop/:slug', async (c) => {
   try {
   const slug = c.req.param('slug')
   // 301 리다이렉트: 구 slug → 신 slug
@@ -8109,7 +8111,7 @@ details[open] .faq-q::after{transform:rotate(180deg)}
 })
 
 // ── /ja/admin ──
-app.get('/ja/admin', async (c) => {
+app.get('/__ja_disabled__/admin', async (c) => {
   // 동일한 인증 미들웨어 사용 (쿠키 또는 token 파라미터)
   const cookieHeader = c.req.header('Cookie') || ''
   const cookieToken = cookieHeader.match(/admin_token=([^;]+)/)?.[1] || ''
@@ -11255,7 +11257,6 @@ a{text-decoration:none;color:inherit}
   <div class="sc-title">Seoul Beauty</div>
   <div class="sc-spacer"></div>
   <div class="sc-badge" id="scBadge">${shops.length} shops</div>
-  <a href="/ja/shops" style="font-size:10px;color:rgba(255,255,255,.3);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:3px 8px;margin-left:6px;text-decoration:none">JA</a>
 </nav>
 
 <div class="sc-ctrl">
@@ -11455,7 +11456,7 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;min-height:
   <a href="/" class="nav-logo">✨ Seoul Beauty Trip</a>
   <div style="display:flex;align-items:center;gap:8px">
     <a href="/" class="nav-back"><i class="fas fa-arrow-left"></i> Back</a>
-    <a href="/ja/blog" style="font-size:11px;color:rgba(255,255,255,.35);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:4px 10px;text-decoration:none">JA</a>
+
   </div>
 </nav>
 <section class="blog-hero">
@@ -11580,7 +11581,7 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;min-height:
   <a href="/" class="nav-logo">Seoul Beauty Trip</a>
   <div style="display:flex;align-items:center;gap:8px">
     <a href="/blog" class="nav-back"><i class="fas fa-arrow-left"></i> All Posts</a>
-    <a href="/ja/blog" style="font-size:11px;color:rgba(255,255,255,.35);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:4px 10px;text-decoration:none">JA</a>
+
   </div>
 </nav>
 <header class="blog-hero">
@@ -11888,7 +11889,7 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;line-height
   <a href="/" class="nav-logo">✨ Seoul Beauty Trip</a>
   <div style="display:flex;align-items:center;gap:8px">
     <a href="/blog" class="nav-back"><i class="fas fa-arrow-left"></i> Blog</a>
-    <a href="/ja/blog" style="font-size:11px;color:rgba(255,255,255,.35);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:4px 10px;text-decoration:none">JA</a>
+
   </div>
 </nav>
 <main class="post-container">
@@ -14616,9 +14617,8 @@ app.get('/', async (c) => {
     // 초기 로드 10개만 → HTML 크기 대폭 감소 (나머지는 JS lazy 로드)
     const initVideosFirst = initVideos.slice(0, 10)
     const gmapKey = getGoogleKey(c.env)
-    // 브라우저 언어 자동감지: 일본어 사용자 → /ja 자동 리다이렉트 (1회만, 쿠키로 관리)
-    const langDetectScript = `<script>(function(){var ck=document.cookie;if(ck.indexOf('lang_pref=')!==-1)return;var lang=navigator.language||navigator.userLanguage||'';if(lang.startsWith('ja')){document.cookie='lang_pref=ja;path=/;max-age=31536000';window.location.href='/ja';}else{document.cookie='lang_pref=en;path=/;max-age=31536000';}})()</script>`
-    const inlineScript = `${videoLdScript}${langDetectScript}<script>window.__INIT_VIDEOS__=${safeJson(initVideosFirst)};window.__INIT_VIDEOS_ALL__=${safeJson(initVideos)};window.__INIT_PLATFORM__=${safeJson(initPlatform)};window.__INIT_SHOPS__=${safeJson(initShops)};window.__GMAP_KEY__=${safeJson(gmapKey)};<\/script>`
+    // 언어 자동감지 리다이렉트 비활성화 (일본어판 개발 중)
+    const inlineScript = `${videoLdScript}<script>window.__INIT_VIDEOS__=${safeJson(initVideosFirst)};window.__INIT_VIDEOS_ALL__=${safeJson(initVideos)};window.__INIT_PLATFORM__=${safeJson(initPlatform)};window.__INIT_SHOPS__=${safeJson(initShops)};window.__GMAP_KEY__=${safeJson(gmapKey)};<\/script>`
 
     // SSR placeholders를 실제 콘텐츠로 교체
     // 상위 20개 살롱을 풍부한 카드로 삽입 (구글봇: 살롱명·카테고리·지역·설명 키워드 인덱싱)
@@ -17063,7 +17063,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
       </div>
     </div>
     <div class="hd-right">
-      <a href="/ja/" id="ja-toggle-btn" onclick="localStorage.setItem('_sb_lang_pref','ja')" style="display:inline-flex;align-items:center;padding:4px 9px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.55);font-size:11px;font-weight:700;text-decoration:none;letter-spacing:.02em;transition:all .2s" title="日本語版へ">🇯🇵 JA</a>
+      <!-- JA 버튼 비활성화 (일본어판 개발 중) -->
       <button class="srch-btn" id="srchToggle" onclick="toggleSearch()" aria-label="Search shops"><i class="fas fa-search"></i></button>
       <button class="mute-btn" id="muteBtn" onclick="toggleMute()"><i class="fas fa-volume-mute"></i></button>
     </div>
@@ -17128,10 +17128,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   <button class="pnav-btn" id="pnav-advisor" data-tab="advisor" aria-label="Advisor" style="display:none">
     <i class="fas fa-user-tie"></i><span>Advisor</span>
   </button>
-  <a href="/ja/" onclick="localStorage.setItem('_sb_lang_pref','ja')" title="日本語版へ" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 0;width:100%;color:rgba(255,255,255,.45);text-decoration:none;font-size:10px;font-weight:700;letter-spacing:.03em;margin-top:auto;border-top:1px solid rgba(255,255,255,.06);padding-top:16px;transition:color .2s" onmouseover="this.style.color='#FF4D8D'" onmouseout="this.style.color='rgba(255,255,255,.45)'">
-    <span style="font-size:18px;line-height:1">🇯🇵</span>
-    <span>JA</span>
-  </a>
+  <!-- 하단 nav JA 버튼 비활성화 (일본어판 개발 중) -->
 </nav>
 
 <!-- PC 콘텐츠 패널 (찾기/맵) -->
@@ -17191,22 +17188,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 
 __INLINE_DATA_PLACEHOLDER__
 <script>
-// ── 언어 리다이렉트 ──
-(function(){
-  try {
-    var pref = localStorage.getItem('_sb_lang_pref');
-    // 명시적으로 ja 선택했으면 /ja로 이동
-    if (pref === 'ja') { window.location.replace('/ja/'); return; }
-    // 명시적으로 en 선택했으면 유지
-    if (pref === 'en') return;
-    // 첫 방문: 브라우저 언어 감지
-    var lang = navigator.language || navigator.userLanguage || '';
-    if (lang.startsWith('ja')) {
-      localStorage.setItem('_sb_lang_pref','ja');
-      window.location.replace('/ja/');
-    }
-  } catch(e) {}
-})();
+// 언어 자동 리다이렉트 비활성화 (일본어판 개발 중)
 var vids = [], isMuted = true, liked = {}, platform = {}, allShopsData = [];
 var shopCache = {}; // 모달 캐시: shopId → shop 객체
 var catIcons = {skincare:'&#127807;',makeup:'&#128139;',hair:'&#128135;',headspa:'&#129496;',clinic:'&#127973;',spa:'&#129510;',tattoo:'&#9998;'};
@@ -20689,19 +20671,7 @@ window.selectMapShop  = function() {};
 
 ${SB_TRACKER_SCRIPT}
 
-<script>
-// 일본어 브라우저 사용자에게 /ja 유도 배너 (세션당 1회)
-(function(){
-  if(sessionStorage.getItem('ja_redirect_shown')) return
-  var lang = (navigator.language || (navigator.languages && navigator.languages[0]) || '').toLowerCase()
-  if(!lang.startsWith('ja')) return
-  sessionStorage.setItem('ja_redirect_shown', '1')
-  var b = document.createElement('div')
-  b.id = 'ja-banner'
-  b.style.cssText = 'position:fixed;bottom:72px;left:50%;transform:translateX(-50%);background:#1a1a2e;border:1px solid rgba(244,114,182,.3);border-radius:14px;padding:12px 16px;font-size:13px;color:rgba(255,255,255,.85);z-index:9999;display:flex;gap:10px;align-items:center;max-width:340px;width:calc(100% - 32px);box-shadow:0 4px 24px rgba(0,0,0,.4)'
-  b.innerHTML = '<span>\uD83C\uDDEF\uD83C\uDDF5 \u65E5\u672C\u8A9E\u7248\u3082\u3042\u308A\u307E\u3059<\/span><a href="/ja" style="color:#f472b6;font-weight:700;white-space:nowrap;text-decoration:none">\u65E5\u672C\u8A9E\u3078 \u2192<\/a><button onclick="this.parentNode.remove()" style="background:none;border:none;color:rgba(255,255,255,.3);cursor:pointer;font-size:18px;padding:0 4px;line-height:1;flex-shrink:0">\u2715<\/button>'
-  document.body.appendChild(b)
-})()
+<!-- 일본어 유도 배너 비활성화 (일본어판 개발 중) -->
 // ════════ 모달 탭 전환 + 상담 탭 JS ════════
 ;(function(){
   // ── 모달 탭 전환 ──

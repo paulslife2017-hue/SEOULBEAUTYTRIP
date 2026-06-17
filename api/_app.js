@@ -5774,8 +5774,10 @@ app.delete("/api/ja/blogs/:id", async (c) => {
     return c.json({ error: "db_error", message: e?.message || "unknown" }, 500);
   }
 });
-app.get("/ja/", (c) => c.redirect("/ja", 301));
-app.get("/ja", async (c) => {
+app.get("/ja", (c) => c.redirect("/", 302));
+app.get("/ja/", (c) => c.redirect("/", 302));
+app.get("/ja/*", (c) => c.redirect("/", 302));
+app.get("/__ja_disabled__", async (c) => {
   const sql = getDb(c.env);
   try {
     const [shopRows] = await Promise.all([
@@ -5956,7 +5958,7 @@ try { localStorage.setItem('_sb_lang_pref','ja'); } catch(e) {}`
     return c.html(MAIN_HTML.replace("__INLINE_DATA_PLACEHOLDER__", "").replace("__SSR_FEATURED__", ""), 500);
   }
 });
-app.get("/ja/shops", async (c) => {
+app.get("/__ja_disabled__/shops", async (c) => {
   try {
     const sql = getDb(c.env);
     const rows = await sql`SELECT * FROM shops_ja WHERE active=true ORDER BY rating DESC, created_at DESC`;
@@ -6262,7 +6264,7 @@ render();
     return c.html("<h1>Service temporarily unavailable</h1>", 500);
   }
 });
-app.get("/ja/blog", async (c) => {
+app.get("/__ja_disabled__/blog", async (c) => {
   try {
     await ensureDb(c.env);
     const sql = getDb(c.env);
@@ -6377,7 +6379,7 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;min-height:
     return c.html("<h1>Service temporarily unavailable</h1>", 500);
   }
 });
-app.get("/ja/blog/category/:cat", async (c) => {
+app.get("/__ja_disabled__/blog/category/:cat", async (c) => {
   try {
     await ensureDb(c.env);
     const sql = getDb(c.env);
@@ -6499,7 +6501,7 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;min-height:
     return c.redirect("/ja/blog", 302);
   }
 });
-app.get("/ja/blog/:slug", async (c) => {
+app.get("/__ja_disabled__/blog/:slug", async (c) => {
   await ensureDb(c.env);
   const sql = getDb(c.env);
   const slug = c.req.param("slug");
@@ -6900,7 +6902,7 @@ ${SB_TRACKER_SCRIPT}
   const finalHtml = html.replace("BLOG_READMIN_PLACEHOLDER", String(readMin)).replace("BLOG_COVER_PLACEHOLDER", coverHtml).replace("BLOG_PHOTO_GALLERY_PLACEHOLDER", photoGalleryHtml).replace("BLOG_CONTENT_PLACEHOLDER", post.content || "").replace("BLOG_TAGS_PLACEHOLDER", tagsHtml).replace("BLOG_BEST_LINKS_PLACEHOLDER", bestLinksHtml).replace("BLOG_RELATED_PLACEHOLDER", relatedHtml);
   return c.html(finalHtml);
 });
-app.get("/ja/shop/:slug", async (c) => {
+app.get("/__ja_disabled__/shop/:slug", async (c) => {
   try {
     const slug = c.req.param("slug");
     if (SLUG_REDIRECTS[slug]) return c.redirect("/shop/" + SLUG_REDIRECTS[slug], 301);
@@ -9387,7 +9389,7 @@ details[open] .faq-q::after{transform:rotate(180deg)}
 </body>
 </html>`);
 });
-app.get("/ja/admin", async (c) => {
+app.get("/__ja_disabled__/admin", async (c) => {
   const cookieHeader = c.req.header("Cookie") || "";
   const cookieToken = cookieHeader.match(/admin_token=([^;]+)/)?.[1] || "";
   const ADMIN_SECRET2 = "0907";
@@ -12191,7 +12193,6 @@ a{text-decoration:none;color:inherit}
   <div class="sc-title">Seoul Beauty</div>
   <div class="sc-spacer"></div>
   <div class="sc-badge" id="scBadge">${shops2.length} shops</div>
-  <a href="/ja/shops" style="font-size:10px;color:rgba(255,255,255,.3);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:3px 8px;margin-left:6px;text-decoration:none">JA</a>
 </nav>
 
 <div class="sc-ctrl">
@@ -12383,7 +12384,7 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;min-height:
   <a href="/" class="nav-logo">\u2728 Seoul Beauty Trip</a>
   <div style="display:flex;align-items:center;gap:8px">
     <a href="/" class="nav-back"><i class="fas fa-arrow-left"></i> Back</a>
-    <a href="/ja/blog" style="font-size:11px;color:rgba(255,255,255,.35);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:4px 10px;text-decoration:none">JA</a>
+
   </div>
 </nav>
 <section class="blog-hero">
@@ -12499,7 +12500,7 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;min-height:
   <a href="/" class="nav-logo">Seoul Beauty Trip</a>
   <div style="display:flex;align-items:center;gap:8px">
     <a href="/blog" class="nav-back"><i class="fas fa-arrow-left"></i> All Posts</a>
-    <a href="/ja/blog" style="font-size:11px;color:rgba(255,255,255,.35);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:4px 10px;text-decoration:none">JA</a>
+
   </div>
 </nav>
 <header class="blog-hero">
@@ -12791,7 +12792,7 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;line-height
   <a href="/" class="nav-logo">\u2728 Seoul Beauty Trip</a>
   <div style="display:flex;align-items:center;gap:8px">
     <a href="/blog" class="nav-back"><i class="fas fa-arrow-left"></i> Blog</a>
-    <a href="/ja/blog" style="font-size:11px;color:rgba(255,255,255,.35);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:4px 10px;text-decoration:none">JA</a>
+
   </div>
 </nav>
 <main class="post-container">
@@ -15448,8 +15449,7 @@ app.get("/", async (c) => {
     const ssrCountText = `${initShops.length} shops`;
     const initVideosFirst = initVideos.slice(0, 10);
     const gmapKey = getGoogleKey(c.env);
-    const langDetectScript = `<script>(function(){var ck=document.cookie;if(ck.indexOf('lang_pref=')!==-1)return;var lang=navigator.language||navigator.userLanguage||'';if(lang.startsWith('ja')){document.cookie='lang_pref=ja;path=/;max-age=31536000';window.location.href='/ja';}else{document.cookie='lang_pref=en;path=/;max-age=31536000';}})()</script>`;
-    const inlineScript = `${videoLdScript}${langDetectScript}<script>window.__INIT_VIDEOS__=${safeJson(initVideosFirst)};window.__INIT_VIDEOS_ALL__=${safeJson(initVideos)};window.__INIT_PLATFORM__=${safeJson(initPlatform)};window.__INIT_SHOPS__=${safeJson(initShops)};window.__GMAP_KEY__=${safeJson(gmapKey)};</script>`;
+    const inlineScript = `${videoLdScript}<script>window.__INIT_VIDEOS__=${safeJson(initVideosFirst)};window.__INIT_VIDEOS_ALL__=${safeJson(initVideos)};window.__INIT_PLATFORM__=${safeJson(initPlatform)};window.__INIT_SHOPS__=${safeJson(initShops)};window.__GMAP_KEY__=${safeJson(gmapKey)};</script>`;
     const catIconMap = { clinic: "\u{1F3E5}", headspa: "\u{1F9D6}", makeup: "\u{1F484}", tattoo: "\u270F\uFE0F", hair: "\u{1F487}", skincare: "\u{1F33F}", spa: "\u2668\uFE0F", dental: "\u{1F9B7}" };
     const catLabelMapSSR = { clinic: "Skin Clinic", headspa: "Head Spa", makeup: "Makeup Studio", tattoo: "Tattoo Studio", hair: "Hair Salon", skincare: "Skincare", spa: "Spa", dental: "Dental" };
     const ssrFeaturedCards = initShops.slice(0, 20).map((s) => {
@@ -17723,7 +17723,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
       </div>
     </div>
     <div class="hd-right">
-      <a href="/ja/" id="ja-toggle-btn" onclick="localStorage.setItem('_sb_lang_pref','ja')" style="display:inline-flex;align-items:center;padding:4px 9px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.55);font-size:11px;font-weight:700;text-decoration:none;letter-spacing:.02em;transition:all .2s" title="\u65E5\u672C\u8A9E\u7248\u3078">\u{1F1EF}\u{1F1F5} JA</a>
+      <!-- JA \uBC84\uD2BC \uBE44\uD65C\uC131\uD654 (\uC77C\uBCF8\uC5B4\uD310 \uAC1C\uBC1C \uC911) -->
       <button class="srch-btn" id="srchToggle" onclick="toggleSearch()" aria-label="Search shops"><i class="fas fa-search"></i></button>
       <button class="mute-btn" id="muteBtn" onclick="toggleMute()"><i class="fas fa-volume-mute"></i></button>
     </div>
@@ -17788,10 +17788,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   <button class="pnav-btn" id="pnav-advisor" data-tab="advisor" aria-label="Advisor" style="display:none">
     <i class="fas fa-user-tie"></i><span>Advisor</span>
   </button>
-  <a href="/ja/" onclick="localStorage.setItem('_sb_lang_pref','ja')" title="\u65E5\u672C\u8A9E\u7248\u3078" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 0;width:100%;color:rgba(255,255,255,.45);text-decoration:none;font-size:10px;font-weight:700;letter-spacing:.03em;margin-top:auto;border-top:1px solid rgba(255,255,255,.06);padding-top:16px;transition:color .2s" onmouseover="this.style.color='#FF4D8D'" onmouseout="this.style.color='rgba(255,255,255,.45)'">
-    <span style="font-size:18px;line-height:1">\u{1F1EF}\u{1F1F5}</span>
-    <span>JA</span>
-  </a>
+  <!-- \uD558\uB2E8 nav JA \uBC84\uD2BC \uBE44\uD65C\uC131\uD654 (\uC77C\uBCF8\uC5B4\uD310 \uAC1C\uBC1C \uC911) -->
 </nav>
 
 <!-- PC \uCF58\uD150\uCE20 \uD328\uB110 (\uCC3E\uAE30/\uB9F5) -->
@@ -17851,22 +17848,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 
 __INLINE_DATA_PLACEHOLDER__
 <script>
-// \u2500\u2500 \uC5B8\uC5B4 \uB9AC\uB2E4\uC774\uB809\uD2B8 \u2500\u2500
-(function(){
-  try {
-    var pref = localStorage.getItem('_sb_lang_pref');
-    // \uBA85\uC2DC\uC801\uC73C\uB85C ja \uC120\uD0DD\uD588\uC73C\uBA74 /ja\uB85C \uC774\uB3D9
-    if (pref === 'ja') { window.location.replace('/ja/'); return; }
-    // \uBA85\uC2DC\uC801\uC73C\uB85C en \uC120\uD0DD\uD588\uC73C\uBA74 \uC720\uC9C0
-    if (pref === 'en') return;
-    // \uCCAB \uBC29\uBB38: \uBE0C\uB77C\uC6B0\uC800 \uC5B8\uC5B4 \uAC10\uC9C0
-    var lang = navigator.language || navigator.userLanguage || '';
-    if (lang.startsWith('ja')) {
-      localStorage.setItem('_sb_lang_pref','ja');
-      window.location.replace('/ja/');
-    }
-  } catch(e) {}
-})();
+// \uC5B8\uC5B4 \uC790\uB3D9 \uB9AC\uB2E4\uC774\uB809\uD2B8 \uBE44\uD65C\uC131\uD654 (\uC77C\uBCF8\uC5B4\uD310 \uAC1C\uBC1C \uC911)
 var vids = [], isMuted = true, liked = {}, platform = {}, allShopsData = [];
 var shopCache = {}; // \uBAA8\uB2EC \uCE90\uC2DC: shopId \u2192 shop \uAC1D\uCCB4
 var catIcons = {skincare:'&#127807;',makeup:'&#128139;',hair:'&#128135;',headspa:'&#129496;',clinic:'&#127973;',spa:'&#129510;',tattoo:'&#9998;'};
@@ -21349,19 +21331,7 @@ window.selectMapShop  = function() {};
 
 ${SB_TRACKER_SCRIPT}
 
-<script>
-// \uC77C\uBCF8\uC5B4 \uBE0C\uB77C\uC6B0\uC800 \uC0AC\uC6A9\uC790\uC5D0\uAC8C /ja \uC720\uB3C4 \uBC30\uB108 (\uC138\uC158\uB2F9 1\uD68C)
-(function(){
-  if(sessionStorage.getItem('ja_redirect_shown')) return
-  var lang = (navigator.language || (navigator.languages && navigator.languages[0]) || '').toLowerCase()
-  if(!lang.startsWith('ja')) return
-  sessionStorage.setItem('ja_redirect_shown', '1')
-  var b = document.createElement('div')
-  b.id = 'ja-banner'
-  b.style.cssText = 'position:fixed;bottom:72px;left:50%;transform:translateX(-50%);background:#1a1a2e;border:1px solid rgba(244,114,182,.3);border-radius:14px;padding:12px 16px;font-size:13px;color:rgba(255,255,255,.85);z-index:9999;display:flex;gap:10px;align-items:center;max-width:340px;width:calc(100% - 32px);box-shadow:0 4px 24px rgba(0,0,0,.4)'
-  b.innerHTML = '<span>\u{1F1EF}\u{1F1F5} \u65E5\u672C\u8A9E\u7248\u3082\u3042\u308A\u307E\u3059</span><a href="/ja" style="color:#f472b6;font-weight:700;white-space:nowrap;text-decoration:none">\u65E5\u672C\u8A9E\u3078 \u2192</a><button onclick="this.parentNode.remove()" style="background:none;border:none;color:rgba(255,255,255,.3);cursor:pointer;font-size:18px;padding:0 4px;line-height:1;flex-shrink:0">\u2715</button>'
-  document.body.appendChild(b)
-})()
+<!-- \uC77C\uBCF8\uC5B4 \uC720\uB3C4 \uBC30\uB108 \uBE44\uD65C\uC131\uD654 (\uC77C\uBCF8\uC5B4\uD310 \uAC1C\uBC1C \uC911) -->
 // \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 \uBAA8\uB2EC \uD0ED \uC804\uD658 + \uC0C1\uB2F4 \uD0ED JS \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 ;(function(){
   // \u2500\u2500 \uBAA8\uB2EC \uD0ED \uC804\uD658 \u2500\u2500
