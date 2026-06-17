@@ -2762,30 +2762,6 @@ async function initDb(env) {
       await sql`CREATE INDEX IF NOT EXISTS idx_cons_created ON consultations(created_at DESC)`;
     } catch (e) {
     }
-    await sql`CREATE TABLE IF NOT EXISTS consultations (
-      id TEXT PRIMARY KEY,
-      shop_id TEXT DEFAULT '',
-      shop_name TEXT DEFAULT '',
-      name TEXT NOT NULL,
-      email TEXT DEFAULT '',
-      kakao TEXT DEFAULT '',
-      treatment TEXT DEFAULT '',
-      budget TEXT DEFAULT '',
-      visit_date TEXT DEFAULT '',
-      message TEXT DEFAULT '',
-      lang TEXT DEFAULT 'en',
-      status TEXT DEFAULT 'new',
-      memo TEXT DEFAULT '',
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )`;
-    try {
-      await sql`CREATE INDEX IF NOT EXISTS idx_consultations_status ON consultations(status)`;
-    } catch (e) {
-    }
-    try {
-      await sql`CREATE INDEX IF NOT EXISTS idx_consultations_created ON consultations(created_at DESC)`;
-    } catch (e) {
-    }
     await sql`CREATE TABLE IF NOT EXISTS video_views_log (
       id TEXT PRIMARY KEY,
       video_id TEXT NOT NULL,
@@ -2971,7 +2947,11 @@ async function ensureDb(env) {
 }
 app.get("/favicon.ico", (c) => c.body(null, 204));
 app.get("/api/videos", async (c) => {
-  await ensureDb(c.env);
+  try {
+    await ensureDb(c.env);
+  } catch (e) {
+    console.error("[api/videos] ensureDb error:", e);
+  }
   const sql = getDb(c.env);
   const cat = c.req.query("category");
   const rows = await withTimeout(
