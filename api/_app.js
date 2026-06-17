@@ -5851,12 +5851,15 @@ app.get("/ja", async (c) => {
     const gmapKey = getGoogleKey(c.env);
     const inlineScript = `<script>window.__INIT_VIDEOS__=[];window.__INIT_VIDEOS_ALL__=[];window.__INIT_PLATFORM__=${safeJson(initPlatform)};window.__INIT_SHOPS__=${safeJson(initShops)};window.__GMAP_KEY__=${safeJson(gmapKey)};</script>`;
     const catIconMap = { clinic: "\u{1F3E5}", headspa: "\u{1F9D6}", makeup: "\u{1F484}", tattoo: "\u270F\uFE0F", hair: "\u{1F487}", skincare: "\u{1F33F}", spa: "\u2668\uFE0F", dental: "\u{1F9B7}" };
-    const ssrFeaturedHtml = initShops.slice(0, 8).map((s) => {
+    const catLabelMapSSR_JA = { clinic: "\u30B9\u30AD\u30F3\u30AF\u30EA\u30CB\u30C3\u30AF", headspa: "\u30D8\u30C3\u30C9\u30B9\u30D1", makeup: "\u30E1\u30A4\u30AF\u30B9\u30BF\u30B8\u30AA", tattoo: "\u30BF\u30C8\u30A5\u30FC\u30B9\u30BF\u30B8\u30AA", hair: "\u30D8\u30A2\u30B5\u30ED\u30F3", skincare: "\u30B9\u30AD\u30F3\u30B1\u30A2", spa: "\u30B9\u30D1", dental: "\u30C7\u30F3\u30BF\u30EB\u30AF\u30EA\u30CB\u30C3\u30AF" };
+    const ssrShopCards_JA = initShops.slice(0, 20).map((s) => {
       const icon = catIconMap[s.category] || "\u2B50";
       const loc = (s.location || "Seoul").split(",")[0].trim();
-      return `<a href="/ja/shop/${s.slug}" style="display:inline-flex;align-items:center;gap:6px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:20px;padding:4px 12px;font-size:.78rem;color:#374151;text-decoration:none;margin:3px">${icon} ${s.name} <span style="color:#94a3b8">(${loc})</span></a>`;
+      const catLbl = catLabelMapSSR_JA[s.category] || s.category || "\u30D3\u30E5\u30FC\u30C6\u30A3\u30FC";
+      const desc = (s.meta_description || s.description || "").substring(0, 80);
+      return `<div style="border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;background:#fafafa"><a href="/ja/shop/${s.slug}" style="font-weight:700;color:#1a1a2e;text-decoration:none;font-size:.88rem;line-height:1.3;display:block">${icon} ${s.name}</a><div style="font-size:.75rem;color:#64748b;margin-top:4px">${catLbl} \xB7 ${loc}, \u30BD\u30A6\u30EB</div>${desc ? `<div style="font-size:.73rem;color:#94a3b8;margin-top:5px;line-height:1.5">${desc}</div>` : ""}</div>`;
     }).join("");
-    const ssrFeaturedBlock = initShops.length > 0 ? `<div style="margin-top:20px"><div style="font-size:.75rem;font-weight:700;color:#9ca3af;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">\u2B50 Featured Salons</div><div style="display:flex;flex-wrap:wrap;gap:2px">${ssrFeaturedHtml}</div></div>` : "";
+    const ssrFeaturedBlock = initShops.length > 0 ? `<div style="margin-top:28px"><h2 style="font-size:.8rem;font-weight:700;color:#6b7280;margin-bottom:12px;text-transform:uppercase;letter-spacing:.06em">\u2B50 \u30BD\u30A6\u30EB\u306E\u304A\u3059\u3059\u3081\u97D3\u56FD\u30D3\u30E5\u30FC\u30C6\u30A3\u30FC\u30B5\u30ED\u30F3</h2><div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">${ssrShopCards_JA}</div><div style="margin-top:10px;text-align:center"><a href="/ja" style="font-size:.8rem;color:#FF4D8D;text-decoration:none;font-weight:600">\u30BD\u30A6\u30EB\u306E\u30D3\u30E5\u30FC\u30C6\u30A3\u30FC\u30B5\u30ED\u30F3\u3092\u3059\u3079\u3066\u898B\u308B \u2192</a></div></div>` : "";
     let html = MAIN_HTML.replace("__INLINE_DATA_PLACEHOLDER__", inlineScript).replace("__SSR_FEATURED__", ssrFeaturedBlock);
     html = html.replace(/href="\/shops"/g, 'href="/ja/shops"');
     html = html.replace(/href="\/blog"/g, 'href="/ja/blog"');
@@ -6569,6 +6572,25 @@ app.get("/ja/blog/:slug", async (c) => {
   const ctaDefault = { icon: "\u{1F338}", title: "K\u30D3\u30E5\u30FC\u30C6\u30A3\u30FC\u4F53\u9A13\u3092\u4E88\u7D04\u3057\u307E\u3057\u3087\u3046", desc: "\u30BD\u30A6\u30EB\u306E\u6700\u9AD8\u306E\u7F8E\u5BB9\u30AF\u30EA\u30CB\u30C3\u30AF\uFF06\u30B5\u30ED\u30F3\u3092\u63A2\u3059 \u2014 WhatsApp\u65E5\u672C\u8A9E\u4E88\u7D04\u3001\u97D3\u56FD\u8A9E\u4E0D\u8981\u3002", btn: "\u{1F338} \u30BD\u30A6\u30EB\u7F8E\u5BB9\u3092\u63A2\u3059" };
   const cta = ctaMap[post.category || ""] || ctaDefault;
   const canonicalUrl = `${base}/blog/${slug}`;
+  const bestCatLinksJA = {
+    headspa: [{ href: "/ja/best/headspa/gangnam", label: "\u6C5F\u5357\u30D8\u30C3\u30C9\u30B9\u30D1 \u304A\u3059\u3059\u3081", emoji: "\u{1F9D6}" }, { href: "/ja/best/headspa/hongdae", label: "\u5F18\u5927\u30D8\u30C3\u30C9\u30B9\u30D1 \u304A\u3059\u3059\u3081", emoji: "\u{1F9D6}" }, { href: "/ja/best/headspa/myeongdong", label: "\u660E\u6D1E\u30D8\u30C3\u30C9\u30B9\u30D1 \u304A\u3059\u3059\u3081", emoji: "\u{1F9D6}" }],
+    clinic: [{ href: "/ja/best/clinic/gangnam", label: "\u6C5F\u5357\u30B9\u30AD\u30F3\u30AF\u30EA\u30CB\u30C3\u30AF", emoji: "\u{1F3E5}" }, { href: "/ja/best/clinic/hongdae", label: "\u5F18\u5927\u30B9\u30AD\u30F3\u30AF\u30EA\u30CB\u30C3\u30AF", emoji: "\u{1F3E5}" }, { href: "/ja/best/clinic/itaewon", label: "\u68A8\u6CF0\u9662\u30B9\u30AD\u30F3\u30AF\u30EA\u30CB\u30C3\u30AF", emoji: "\u{1F3E5}" }],
+    hair: [{ href: "/ja/best/hair/gangnam", label: "\u6C5F\u5357\u30D8\u30A2\u30B5\u30ED\u30F3", emoji: "\u{1F487}" }, { href: "/ja/best/hair/hongdae", label: "\u5F18\u5927\u30D8\u30A2\u30B5\u30ED\u30F3", emoji: "\u{1F487}" }, { href: "/ja/best/hair/sinchon", label: "\u65B0\u6751\u30D8\u30A2\u30B5\u30ED\u30F3", emoji: "\u{1F487}" }],
+    skincare: [{ href: "/ja/best/skincare/gangnam", label: "\u6C5F\u5357\u30B9\u30AD\u30F3\u30B1\u30A2", emoji: "\u{1F33F}" }, { href: "/ja/best/skincare/hongdae", label: "\u5F18\u5927\u30B9\u30AD\u30F3\u30B1\u30A2", emoji: "\u{1F33F}" }, { href: "/ja/best/skincare/itaewon", label: "\u68A8\u6CF0\u9662\u30B9\u30AD\u30F3\u30B1\u30A2", emoji: "\u{1F33F}" }],
+    nail: [{ href: "/ja/best/nail/gangnam", label: "\u6C5F\u5357\u30CD\u30A4\u30EB\u30B5\u30ED\u30F3", emoji: "\u{1F485}" }, { href: "/ja/best/nail/hongdae", label: "\u5F18\u5927\u30CD\u30A4\u30EB\u30B5\u30ED\u30F3", emoji: "\u{1F485}" }],
+    makeup: [{ href: "/ja/best/makeup/gangnam", label: "\u6C5F\u5357\u30E1\u30A4\u30AF\u30B9\u30BF\u30B8\u30AA", emoji: "\u{1F484}" }, { href: "/ja/best/makeup/hongdae", label: "\u5F18\u5927\u30E1\u30A4\u30AF\u30B9\u30BF\u30B8\u30AA", emoji: "\u{1F484}" }],
+    spa: [{ href: "/ja/best/spa/gangnam", label: "\u6C5F\u5357\u30B9\u30D1", emoji: "\u2668\uFE0F" }, { href: "/ja/best/spa/hongdae", label: "\u5F18\u5927\u30B9\u30D1", emoji: "\u2668\uFE0F" }],
+    tattoo: [{ href: "/ja/best/tattoo/hongdae", label: "\u5F18\u5927\u30BF\u30C8\u30A5\u30FC\u30B9\u30BF\u30B8\u30AA", emoji: "\u270F\uFE0F" }, { href: "/ja/best/tattoo/itaewon", label: "\u68A8\u6CF0\u9662\u30BF\u30C8\u30A5\u30FC\u30B9\u30BF\u30B8\u30AA", emoji: "\u270F\uFE0F" }],
+    dental: [{ href: "/ja/best/dental/gangnam", label: "\u6C5F\u5357\u6B6F\u79D1\u30AF\u30EA\u30CB\u30C3\u30AF", emoji: "\u{1F9B7}" }, { href: "/ja/best/dental/itaewon", label: "\u68A8\u6CF0\u9662\u6B6F\u79D1\u30AF\u30EA\u30CB\u30C3\u30AF", emoji: "\u{1F9B7}" }]
+  };
+  const bestLinksJA = bestCatLinksJA[post.category || ""] || [];
+  const bestLinksHtml = bestLinksJA.length ? `
+  <section style="background:rgba(255,77,141,.05);border:1px solid rgba(255,77,141,.15);border-radius:14px;padding:18px 20px;margin:28px 0">
+    <div style="font-size:.75rem;font-weight:700;color:#FF4D8D;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">\u{1F4CD} ${cat}\u3092\u8FD1\u304F\u3067\u63A2\u3059</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+      ${bestLinksJA.map((l) => `<a href="${l.href}" style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,77,141,.1);border:1px solid rgba(255,77,141,.25);border-radius:20px;padding:6px 14px;font-size:.8rem;color:#fff;text-decoration:none;font-weight:600">${l.emoji} ${l.label}</a>`).join("")}
+    </div>
+  </section>` : "";
   const relatedHtml = related.length ? `
   <aside class="related-posts">
     <h3>\u{1F4DA} \u3042\u308F\u305B\u3066\u8AAD\u307F\u305F\u3044</h3>
@@ -6774,6 +6796,7 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;line-height
   BLOG_PHOTO_GALLERY_PLACEHOLDER
   <article class="post-body">BLOG_CONTENT_PLACEHOLDER</article>
   <div class="post-tags">BLOG_TAGS_PLACEHOLDER</div>
+  BLOG_BEST_LINKS_PLACEHOLDER
   <div class="cta-box">
     <h3>${cta.icon} ${cta.title}</h3>
     <p>${cta.desc}</p>
@@ -6874,7 +6897,7 @@ ${SB_TRACKER_SCRIPT}
 </div>`;
     }
   }
-  const finalHtml = html.replace("BLOG_READMIN_PLACEHOLDER", String(readMin)).replace("BLOG_COVER_PLACEHOLDER", coverHtml).replace("BLOG_PHOTO_GALLERY_PLACEHOLDER", photoGalleryHtml).replace("BLOG_CONTENT_PLACEHOLDER", post.content || "").replace("BLOG_TAGS_PLACEHOLDER", tagsHtml).replace("BLOG_RELATED_PLACEHOLDER", relatedHtml);
+  const finalHtml = html.replace("BLOG_READMIN_PLACEHOLDER", String(readMin)).replace("BLOG_COVER_PLACEHOLDER", coverHtml).replace("BLOG_PHOTO_GALLERY_PLACEHOLDER", photoGalleryHtml).replace("BLOG_CONTENT_PLACEHOLDER", post.content || "").replace("BLOG_TAGS_PLACEHOLDER", tagsHtml).replace("BLOG_BEST_LINKS_PLACEHOLDER", bestLinksHtml).replace("BLOG_RELATED_PLACEHOLDER", relatedHtml);
   return c.html(finalHtml);
 });
 app.get("/ja/shop/:slug", async (c) => {
@@ -12576,6 +12599,25 @@ app.get("/blog/:slug", async (c) => {
   const ctaDefault = { icon: "\u{1F338}", title: "Ready to Book Your K-Beauty Experience?", desc: "Browse the best beauty clinics & salons in Seoul \u2014 English booking via WhatsApp, no Korean needed.", btn: "\u{1F338} Explore Seoul Beauty" };
   const cta = ctaMap[post.category || ""] || ctaDefault;
   const canonicalUrl = `${base}/blog/${slug}`;
+  const bestCatLinks = {
+    headspa: [{ href: "/best/headspa/gangnam", label: "Best Head Spa Gangnam", emoji: "\u{1F9D6}" }, { href: "/best/headspa/hongdae", label: "Best Head Spa Hongdae", emoji: "\u{1F9D6}" }, { href: "/best/headspa/myeongdong", label: "Best Head Spa Myeongdong", emoji: "\u{1F9D6}" }],
+    clinic: [{ href: "/best/clinic/gangnam", label: "Best Skin Clinic Gangnam", emoji: "\u{1F3E5}" }, { href: "/best/clinic/hongdae", label: "Best Skin Clinic Hongdae", emoji: "\u{1F3E5}" }, { href: "/best/clinic/itaewon", label: "Best Skin Clinic Itaewon", emoji: "\u{1F3E5}" }],
+    hair: [{ href: "/best/hair/gangnam", label: "Best Hair Salon Gangnam", emoji: "\u{1F487}" }, { href: "/best/hair/hongdae", label: "Best Hair Salon Hongdae", emoji: "\u{1F487}" }, { href: "/best/hair/sinchon", label: "Best Hair Salon Sinchon", emoji: "\u{1F487}" }],
+    skincare: [{ href: "/best/skincare/gangnam", label: "Best Skincare Gangnam", emoji: "\u{1F33F}" }, { href: "/best/skincare/hongdae", label: "Best Skincare Hongdae", emoji: "\u{1F33F}" }, { href: "/best/skincare/itaewon", label: "Best Skincare Itaewon", emoji: "\u{1F33F}" }],
+    nail: [{ href: "/best/nail/gangnam", label: "Best Nail Salon Gangnam", emoji: "\u{1F485}" }, { href: "/best/nail/hongdae", label: "Best Nail Salon Hongdae", emoji: "\u{1F485}" }, { href: "/best/nail/sinchon", label: "Best Nail Salon Sinchon", emoji: "\u{1F485}" }],
+    makeup: [{ href: "/best/makeup/gangnam", label: "Best Makeup Studio Gangnam", emoji: "\u{1F484}" }, { href: "/best/makeup/hongdae", label: "Best Makeup Studio Hongdae", emoji: "\u{1F484}" }],
+    spa: [{ href: "/best/spa/gangnam", label: "Best Spa Gangnam", emoji: "\u2668\uFE0F" }, { href: "/best/spa/hongdae", label: "Best Spa Hongdae", emoji: "\u2668\uFE0F" }],
+    tattoo: [{ href: "/best/tattoo/hongdae", label: "Best Tattoo Studio Hongdae", emoji: "\u270F\uFE0F" }, { href: "/best/tattoo/itaewon", label: "Best Tattoo Studio Itaewon", emoji: "\u270F\uFE0F" }],
+    dental: [{ href: "/best/dental/gangnam", label: "Best Dental Clinic Gangnam", emoji: "\u{1F9B7}" }, { href: "/best/dental/itaewon", label: "Best Dental Clinic Itaewon", emoji: "\u{1F9B7}" }]
+  };
+  const bestLinks = bestCatLinks[post.category || ""] || [];
+  const bestLinksHtml = bestLinks.length ? `
+  <section style="background:rgba(255,77,141,.05);border:1px solid rgba(255,77,141,.15);border-radius:14px;padding:18px 20px;margin:28px 0">
+    <div style="font-size:.75rem;font-weight:700;color:#FF4D8D;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">\u{1F4CD} Find the Best ${catLabel[post.category || ""] || "Seoul Beauty"} Near You</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+      ${bestLinks.map((l) => `<a href="${l.href}" style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,77,141,.1);border:1px solid rgba(255,77,141,.25);border-radius:20px;padding:6px 14px;font-size:.8rem;color:#fff;text-decoration:none;font-weight:600">${l.emoji} ${l.label}</a>`).join("")}
+    </div>
+  </section>` : "";
   const relatedHtml = related.length ? `
   <aside class="related-posts">
     <h3>\u{1F4DA} You Might Also Like</h3>
@@ -12781,6 +12823,7 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;line-height
   BLOG_PHOTO_GALLERY_PLACEHOLDER
   <article class="post-body">BLOG_CONTENT_PLACEHOLDER</article>
   <div class="post-tags">BLOG_TAGS_PLACEHOLDER</div>
+  BLOG_BEST_LINKS_PLACEHOLDER
   <div class="cta-box">
     <h3>${cta.icon} ${cta.title}</h3>
     <p>${cta.desc}</p>
@@ -12881,7 +12924,7 @@ ${SB_TRACKER_SCRIPT}
 </div>`;
     }
   }
-  const finalHtml = html.replace("BLOG_READMIN_PLACEHOLDER", String(readMin)).replace("BLOG_COVER_PLACEHOLDER", coverHtml).replace("BLOG_PHOTO_GALLERY_PLACEHOLDER", photoGalleryHtml).replace("BLOG_CONTENT_PLACEHOLDER", post.content || "").replace("BLOG_TAGS_PLACEHOLDER", tagsHtml).replace("BLOG_RELATED_PLACEHOLDER", relatedHtml);
+  const finalHtml = html.replace("BLOG_READMIN_PLACEHOLDER", String(readMin)).replace("BLOG_COVER_PLACEHOLDER", coverHtml).replace("BLOG_PHOTO_GALLERY_PLACEHOLDER", photoGalleryHtml).replace("BLOG_CONTENT_PLACEHOLDER", post.content || "").replace("BLOG_TAGS_PLACEHOLDER", tagsHtml).replace("BLOG_BEST_LINKS_PLACEHOLDER", bestLinksHtml).replace("BLOG_RELATED_PLACEHOLDER", relatedHtml);
   return c.html(finalHtml);
 });
 function guideHead(title, desc, slug, base) {
@@ -15123,28 +15166,32 @@ app.get("/sitemap.xml", async (c) => {
   const sql = getDb(c.env);
   let shopSlugs = [];
   let blogSlugs = [];
+  let shopDates = {};
+  let blogDates = {};
   try {
-    const rows = await sql`SELECT slug FROM shops WHERE active=true AND slug IS NOT NULL AND slug!=''`;
+    const rows = await sql`SELECT slug, created_at FROM shops WHERE active=true AND slug IS NOT NULL AND slug!=''`;
     const _redirectSlugs = new Set(Object.keys(SLUG_REDIRECTS));
-    shopSlugs = rows.map((r) => r.slug).filter((s) => {
-      if (!s || s.startsWith("-")) return false;
-      if (/^-/.test(s)) return false;
-      if (_redirectSlugs.has(s)) return false;
-      return true;
-    });
+    for (const r of rows) {
+      const s = r.slug;
+      if (!s || s.startsWith("-") || _redirectSlugs.has(s)) continue;
+      shopSlugs.push(s);
+      shopDates[s] = r.created_at ? new Date(r.created_at).toISOString().split("T")[0] : today;
+    }
   } catch (e) {
   }
   try {
-    const brows = await sql`SELECT slug, title, meta_description, content FROM blog_posts WHERE status='published' AND slug IS NOT NULL AND slug != '' AND title IS NOT NULL AND title != ''`;
-    blogSlugs = brows.filter((r) => {
+    const brows = await sql`SELECT slug, title, meta_description, content, created_at, updated_at FROM blog_posts WHERE status='published' AND slug IS NOT NULL AND slug != '' AND title IS NOT NULL AND title != ''`;
+    for (const r of brows) {
       const s = r.slug || "";
       const t = (r.title || "").toLowerCase();
       const d = r.meta_description || r.content || "";
-      if (s.startsWith("test-") || t.startsWith("test ")) return false;
-      if (!d || d.trim().length < 20) return false;
-      if (!r.content || r.content.trim().length < 200) return false;
-      return true;
-    }).map((r) => r.slug);
+      if (s.startsWith("test-") || t.startsWith("test ")) continue;
+      if (!d || d.trim().length < 20) continue;
+      if (!r.content || r.content.trim().length < 200) continue;
+      blogSlugs.push(s);
+      const rawDate = r.updated_at || r.created_at;
+      blogDates[s] = rawDate ? new Date(rawDate).toISOString().split("T")[0] : today;
+    }
   } catch (e) {
   }
   const base = "https://seoulbeautytrip.com";
@@ -15220,10 +15267,10 @@ app.get("/sitemap.xml", async (c) => {
     ...blogCatPages,
     ...bestPages,
     ...shopSlugs.map(
-      (slug) => `<url><loc>${base}/shop/${slug}</loc><changefreq>weekly</changefreq><priority>0.8</priority><lastmod>${today}</lastmod></url>`
+      (slug) => `<url><loc>${base}/shop/${slug}</loc><changefreq>monthly</changefreq><priority>0.8</priority><lastmod>${shopDates[slug] || today}</lastmod></url>`
     ),
     ...blogSlugs.map(
-      (slug) => `<url><loc>${base}/blog/${slug}</loc><changefreq>weekly</changefreq><priority>0.85</priority><lastmod>${today}</lastmod></url>`
+      (slug) => `<url><loc>${base}/blog/${slug}</loc><changefreq>weekly</changefreq><priority>0.85</priority><lastmod>${blogDates[slug] || today}</lastmod></url>`
     )
   ].join("\n  ");
   return c.body(`<?xml version="1.0" encoding="UTF-8"?>
@@ -15404,12 +15451,15 @@ app.get("/", async (c) => {
     const langDetectScript = `<script>(function(){var ck=document.cookie;if(ck.indexOf('lang_pref=')!==-1)return;var lang=navigator.language||navigator.userLanguage||'';if(lang.startsWith('ja')){document.cookie='lang_pref=ja;path=/;max-age=31536000';window.location.href='/ja';}else{document.cookie='lang_pref=en;path=/;max-age=31536000';}})()</script>`;
     const inlineScript = `${videoLdScript}${langDetectScript}<script>window.__INIT_VIDEOS__=${safeJson(initVideosFirst)};window.__INIT_VIDEOS_ALL__=${safeJson(initVideos)};window.__INIT_PLATFORM__=${safeJson(initPlatform)};window.__INIT_SHOPS__=${safeJson(initShops)};window.__GMAP_KEY__=${safeJson(gmapKey)};</script>`;
     const catIconMap = { clinic: "\u{1F3E5}", headspa: "\u{1F9D6}", makeup: "\u{1F484}", tattoo: "\u270F\uFE0F", hair: "\u{1F487}", skincare: "\u{1F33F}", spa: "\u2668\uFE0F", dental: "\u{1F9B7}" };
-    const ssrFeaturedHtml = initShops.slice(0, 8).map((s) => {
+    const catLabelMapSSR = { clinic: "Skin Clinic", headspa: "Head Spa", makeup: "Makeup Studio", tattoo: "Tattoo Studio", hair: "Hair Salon", skincare: "Skincare", spa: "Spa", dental: "Dental" };
+    const ssrFeaturedCards = initShops.slice(0, 20).map((s) => {
       const icon = catIconMap[s.category] || "\u2B50";
       const loc = (s.location || "Seoul").split(",")[0].trim();
-      return `<a href="/shop/${s.slug}" style="display:inline-flex;align-items:center;gap:6px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:20px;padding:4px 12px;font-size:.78rem;color:#374151;text-decoration:none;margin:3px">${icon} ${s.name} <span style="color:#94a3b8">(${loc})</span></a>`;
+      const catLbl = catLabelMapSSR[s.category] || s.category || "Beauty";
+      const desc = (s.meta_description || s.description || "").substring(0, 80);
+      return `<div style="border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;background:#fafafa"><a href="/shop/${s.slug}" style="font-weight:700;color:#1a1a2e;text-decoration:none;font-size:.88rem;line-height:1.3;display:block">${icon} ${s.name}</a><div style="font-size:.75rem;color:#64748b;margin-top:4px">${catLbl} \xB7 ${loc}, Seoul</div>${desc ? `<div style="font-size:.73rem;color:#94a3b8;margin-top:5px;line-height:1.5">${desc}</div>` : ""}</div>`;
     }).join("");
-    const ssrFeaturedBlock = initShops.length > 0 ? `<div style="margin-top:20px"><div style="font-size:.75rem;font-weight:700;color:#9ca3af;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">\u2B50 Featured Salons</div><div style="display:flex;flex-wrap:wrap;gap:2px">${ssrFeaturedHtml}</div></div>` : "";
+    const ssrFeaturedBlock = initShops.length > 0 ? `<div style="margin-top:28px"><h2 style="font-size:.8rem;font-weight:700;color:#6b7280;margin-bottom:12px;text-transform:uppercase;letter-spacing:.06em">\u2B50 Featured Korean Beauty Salons in Seoul</h2><div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">${ssrFeaturedCards}</div><div style="margin-top:10px;text-align:center"><a href="/" style="font-size:.8rem;color:#FF4D8D;text-decoration:none;font-weight:600">View all Seoul beauty salons \u2192</a></div></div>` : "";
     const html = MAIN_HTML.replace("__INLINE_DATA_PLACEHOLDER__", inlineScript).replace("__SSR_FEATURED__", ssrFeaturedBlock);
     c.header("Cache-Control", "public, s-maxage=10, stale-while-revalidate=60");
     return c.html(html);
@@ -21136,7 +21186,7 @@ window.selectMapShop  = function() {};
 </nav>
 
 <!-- \u2605 SEO \uCF58\uD150\uCE20 \uC139\uC158 \u2014 \uAD6C\uAE00 \uAC80\uC0C9 \uC0C1\uC704 \uB178\uCD9C\uC6A9 \uB871\uD3FC \uD14D\uC2A4\uD2B8 (\uBCF4\uAC15 \uBC84\uC804) -->
-<section id="seo-text-section" aria-label="About Seoul Beauty Trip \u2014 K-Beauty Booking Platform for Foreigners" style="display:none;background:#fff;padding:40px 16px 48px;border-top:1px solid #f0f0f0">
+<section id="seo-text-section" aria-label="About Seoul Beauty Trip \u2014 K-Beauty Booking Platform for Foreigners" style="background:#fff;padding:40px 16px 48px;border-top:1px solid #f0f0f0">
   <div style="max-width:700px;margin:0 auto">
 
     <h2 style="font-size:1.25rem;font-weight:800;color:#1a1a2e;margin-bottom:12px;text-align:center">

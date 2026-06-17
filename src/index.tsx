@@ -4263,13 +4263,16 @@ app.get('/ja', async (c) => {
     const inlineScript = `<script>window.__INIT_VIDEOS__=[];window.__INIT_VIDEOS_ALL__=[];window.__INIT_PLATFORM__=${safeJson(initPlatform)};window.__INIT_SHOPS__=${safeJson(initShops)};window.__GMAP_KEY__=${safeJson(gmapKey)};<\/script>`
 
     const catIconMap: Record<string,string> = {clinic:'🏥',headspa:'🧖',makeup:'💄',tattoo:'✏️',hair:'💇',skincare:'🌿',spa:'♨️',dental:'🦷'}
-    const ssrFeaturedHtml = initShops.slice(0, 8).map((s: any) => {
+    const catLabelMapSSR_JA: Record<string,string> = {clinic:'スキンクリニック',headspa:'ヘッドスパ',makeup:'メイクスタジオ',tattoo:'タトゥースタジオ',hair:'ヘアサロン',skincare:'スキンケア',spa:'スパ',dental:'デンタルクリニック'}
+    const ssrShopCards_JA = initShops.slice(0, 20).map((s: any) => {
       const icon = catIconMap[s.category] || '⭐'
       const loc = (s.location||'Seoul').split(',')[0].trim()
-      return `<a href="/ja/shop/${s.slug}" style="display:inline-flex;align-items:center;gap:6px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:20px;padding:4px 12px;font-size:.78rem;color:#374151;text-decoration:none;margin:3px">${icon} ${s.name} <span style="color:#94a3b8">(${loc})</span></a>`
+      const catLbl = catLabelMapSSR_JA[s.category] || s.category || 'ビューティー'
+      const desc = (s.meta_description || s.description || '').substring(0, 80)
+      return `<div style="border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;background:#fafafa"><a href="/ja/shop/${s.slug}" style="font-weight:700;color:#1a1a2e;text-decoration:none;font-size:.88rem;line-height:1.3;display:block">${icon} ${s.name}</a><div style="font-size:.75rem;color:#64748b;margin-top:4px">${catLbl} · ${loc}, ソウル</div>${desc ? `<div style="font-size:.73rem;color:#94a3b8;margin-top:5px;line-height:1.5">${desc}</div>` : ''}</div>`
     }).join('')
     const ssrFeaturedBlock = initShops.length > 0
-      ? `<div style="margin-top:20px"><div style="font-size:.75rem;font-weight:700;color:#9ca3af;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">⭐ Featured Salons</div><div style="display:flex;flex-wrap:wrap;gap:2px">${ssrFeaturedHtml}</div></div>`
+      ? `<div style="margin-top:28px"><h2 style="font-size:.8rem;font-weight:700;color:#6b7280;margin-bottom:12px;text-transform:uppercase;letter-spacing:.06em">⭐ ソウルのおすすめ韓国ビューティーサロン</h2><div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">${ssrShopCards_JA}</div><div style="margin-top:10px;text-align:center"><a href="/ja" style="font-size:.8rem;color:#FF4D8D;text-decoration:none;font-weight:600">ソウルのビューティーサロンをすべて見る →</a></div></div>`
       : ''
 
     // MAIN_HTML 기반 (EN과 완전히 동일한 UI)
@@ -5024,6 +5027,27 @@ app.get('/ja/blog/:slug', async (c) => {
   const cta = ctaMap[post.category||''] || ctaDefault
   const canonicalUrl = `${base}/blog/${slug}`
 
+  // /best/ 내부링크 (JA 버전: /ja/best/ 경로)
+  const bestCatLinksJA: Record<string, Array<{href:string; label:string; emoji:string}>> = {
+    headspa:  [ {href:'/ja/best/headspa/gangnam',  label:'江南ヘッドスパ おすすめ', emoji:'🧖'}, {href:'/ja/best/headspa/hongdae', label:'弘大ヘッドスパ おすすめ', emoji:'🧖'}, {href:'/ja/best/headspa/myeongdong', label:'明洞ヘッドスパ おすすめ', emoji:'🧖'} ],
+    clinic:   [ {href:'/ja/best/clinic/gangnam',   label:'江南スキンクリニック', emoji:'🏥'}, {href:'/ja/best/clinic/hongdae', label:'弘大スキンクリニック', emoji:'🏥'}, {href:'/ja/best/clinic/itaewon', label:'梨泰院スキンクリニック', emoji:'🏥'} ],
+    hair:     [ {href:'/ja/best/hair/gangnam',     label:'江南ヘアサロン', emoji:'💇'}, {href:'/ja/best/hair/hongdae', label:'弘大ヘアサロン', emoji:'💇'}, {href:'/ja/best/hair/sinchon', label:'新村ヘアサロン', emoji:'💇'} ],
+    skincare: [ {href:'/ja/best/skincare/gangnam', label:'江南スキンケア', emoji:'🌿'}, {href:'/ja/best/skincare/hongdae', label:'弘大スキンケア', emoji:'🌿'}, {href:'/ja/best/skincare/itaewon', label:'梨泰院スキンケア', emoji:'🌿'} ],
+    nail:     [ {href:'/ja/best/nail/gangnam',     label:'江南ネイルサロン', emoji:'💅'}, {href:'/ja/best/nail/hongdae', label:'弘大ネイルサロン', emoji:'💅'} ],
+    makeup:   [ {href:'/ja/best/makeup/gangnam',   label:'江南メイクスタジオ', emoji:'💄'}, {href:'/ja/best/makeup/hongdae', label:'弘大メイクスタジオ', emoji:'💄'} ],
+    spa:      [ {href:'/ja/best/spa/gangnam',      label:'江南スパ', emoji:'♨️'}, {href:'/ja/best/spa/hongdae', label:'弘大スパ', emoji:'♨️'} ],
+    tattoo:   [ {href:'/ja/best/tattoo/hongdae',   label:'弘大タトゥースタジオ', emoji:'✏️'}, {href:'/ja/best/tattoo/itaewon', label:'梨泰院タトゥースタジオ', emoji:'✏️'} ],
+    dental:   [ {href:'/ja/best/dental/gangnam',   label:'江南歯科クリニック', emoji:'🦷'}, {href:'/ja/best/dental/itaewon', label:'梨泰院歯科クリニック', emoji:'🦷'} ],
+  }
+  const bestLinksJA = bestCatLinksJA[post.category||''] || []
+  const bestLinksHtml = bestLinksJA.length ? `
+  <section style="background:rgba(255,77,141,.05);border:1px solid rgba(255,77,141,.15);border-radius:14px;padding:18px 20px;margin:28px 0">
+    <div style="font-size:.75rem;font-weight:700;color:#FF4D8D;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">📍 ${cat}を近くで探す</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+      ${bestLinksJA.map(l => `<a href="${l.href}" style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,77,141,.1);border:1px solid rgba(255,77,141,.25);border-radius:20px;padding:6px 14px;font-size:.8rem;color:#fff;text-decoration:none;font-weight:600">${l.emoji} ${l.label}</a>`).join('')}
+    </div>
+  </section>` : ''
+
   const relatedHtml = related.length ? `
   <aside class="related-posts">
     <h3>📚 あわせて読みたい</h3>
@@ -5221,6 +5245,7 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;line-height
   BLOG_PHOTO_GALLERY_PLACEHOLDER
   <article class="post-body">BLOG_CONTENT_PLACEHOLDER</article>
   <div class="post-tags">BLOG_TAGS_PLACEHOLDER</div>
+  BLOG_BEST_LINKS_PLACEHOLDER
   <div class="cta-box">
     <h3>${cta.icon} ${cta.title}</h3>
     <p>${cta.desc}</p>
@@ -5335,6 +5360,7 @@ ${SB_TRACKER_SCRIPT}
     .replace('BLOG_PHOTO_GALLERY_PLACEHOLDER', photoGalleryHtml)
     .replace('BLOG_CONTENT_PLACEHOLDER', post.content||'')
     .replace('BLOG_TAGS_PLACEHOLDER', tagsHtml)
+    .replace('BLOG_BEST_LINKS_PLACEHOLDER', bestLinksHtml)
     .replace('BLOG_RELATED_PLACEHOLDER', relatedHtml)
   return c.html(finalHtml)
 })
@@ -11676,6 +11702,27 @@ app.get('/blog/:slug', async (c) => {
   const cta = ctaMap[post.category||''] || ctaDefault
   const canonicalUrl = `${base}/blog/${slug}`
 
+  // /best/ 내부링크 섹션: 카테고리 기반으로 관련 /best/ 페이지 링크 삽입
+  const bestCatLinks: Record<string, Array<{href:string; label:string; emoji:string}>> = {
+    headspa:  [ {href:'/best/headspa/gangnam',  label:'Best Head Spa Gangnam',  emoji:'🧖'}, {href:'/best/headspa/hongdae', label:'Best Head Spa Hongdae', emoji:'🧖'}, {href:'/best/headspa/myeongdong', label:'Best Head Spa Myeongdong', emoji:'🧖'} ],
+    clinic:   [ {href:'/best/clinic/gangnam',   label:'Best Skin Clinic Gangnam', emoji:'🏥'}, {href:'/best/clinic/hongdae', label:'Best Skin Clinic Hongdae', emoji:'🏥'}, {href:'/best/clinic/itaewon', label:'Best Skin Clinic Itaewon', emoji:'🏥'} ],
+    hair:     [ {href:'/best/hair/gangnam',     label:'Best Hair Salon Gangnam', emoji:'💇'}, {href:'/best/hair/hongdae', label:'Best Hair Salon Hongdae', emoji:'💇'}, {href:'/best/hair/sinchon', label:'Best Hair Salon Sinchon', emoji:'💇'} ],
+    skincare: [ {href:'/best/skincare/gangnam', label:'Best Skincare Gangnam',  emoji:'🌿'}, {href:'/best/skincare/hongdae', label:'Best Skincare Hongdae', emoji:'🌿'}, {href:'/best/skincare/itaewon', label:'Best Skincare Itaewon', emoji:'🌿'} ],
+    nail:     [ {href:'/best/nail/gangnam',     label:'Best Nail Salon Gangnam', emoji:'💅'}, {href:'/best/nail/hongdae', label:'Best Nail Salon Hongdae', emoji:'💅'}, {href:'/best/nail/sinchon', label:'Best Nail Salon Sinchon', emoji:'💅'} ],
+    makeup:   [ {href:'/best/makeup/gangnam',   label:'Best Makeup Studio Gangnam', emoji:'💄'}, {href:'/best/makeup/hongdae', label:'Best Makeup Studio Hongdae', emoji:'💄'} ],
+    spa:      [ {href:'/best/spa/gangnam',      label:'Best Spa Gangnam', emoji:'♨️'}, {href:'/best/spa/hongdae', label:'Best Spa Hongdae', emoji:'♨️'} ],
+    tattoo:   [ {href:'/best/tattoo/hongdae',   label:'Best Tattoo Studio Hongdae', emoji:'✏️'}, {href:'/best/tattoo/itaewon', label:'Best Tattoo Studio Itaewon', emoji:'✏️'} ],
+    dental:   [ {href:'/best/dental/gangnam',   label:'Best Dental Clinic Gangnam', emoji:'🦷'}, {href:'/best/dental/itaewon', label:'Best Dental Clinic Itaewon', emoji:'🦷'} ],
+  }
+  const bestLinks = bestCatLinks[post.category||''] || []
+  const bestLinksHtml = bestLinks.length ? `
+  <section style="background:rgba(255,77,141,.05);border:1px solid rgba(255,77,141,.15);border-radius:14px;padding:18px 20px;margin:28px 0">
+    <div style="font-size:.75rem;font-weight:700;color:#FF4D8D;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">📍 Find the Best ${catLabel[post.category||'']||'Seoul Beauty'} Near You</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+      ${bestLinks.map(l => `<a href="${l.href}" style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,77,141,.1);border:1px solid rgba(255,77,141,.25);border-radius:20px;padding:6px 14px;font-size:.8rem;color:#fff;text-decoration:none;font-weight:600">${l.emoji} ${l.label}</a>`).join('')}
+    </div>
+  </section>` : ''
+
   const relatedHtml = related.length ? `
   <aside class="related-posts">
     <h3>📚 You Might Also Like</h3>
@@ -11873,6 +11920,7 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;line-height
   BLOG_PHOTO_GALLERY_PLACEHOLDER
   <article class="post-body">BLOG_CONTENT_PLACEHOLDER</article>
   <div class="post-tags">BLOG_TAGS_PLACEHOLDER</div>
+  BLOG_BEST_LINKS_PLACEHOLDER
   <div class="cta-box">
     <h3>${cta.icon} ${cta.title}</h3>
     <p>${cta.desc}</p>
@@ -11987,6 +12035,7 @@ ${SB_TRACKER_SCRIPT}
     .replace('BLOG_PHOTO_GALLERY_PLACEHOLDER', photoGalleryHtml)
     .replace('BLOG_CONTENT_PLACEHOLDER', post.content||'')
     .replace('BLOG_TAGS_PLACEHOLDER', tagsHtml)
+    .replace('BLOG_BEST_LINKS_PLACEHOLDER', bestLinksHtml)
     .replace('BLOG_RELATED_PLACEHOLDER', relatedHtml)
   return c.html(finalHtml)
 })
@@ -14286,33 +14335,34 @@ app.get('/sitemap.xml', async (c) => {
   const sql = getDb(c.env)
   let shopSlugs: string[] = []
   let blogSlugs: string[] = []
+  // lastmod용 날짜 맵 (실제 DB 날짜 사용)
+  let shopDates: Record<string, string> = {}
+  let blogDates: Record<string, string> = {}
   try {
-    const rows = await sql`SELECT slug FROM shops WHERE active=true AND slug IS NOT NULL AND slug!=''`
+    const rows = await sql`SELECT slug, created_at FROM shops WHERE active=true AND slug IS NOT NULL AND slug!=''`
     // SLUG_REDIRECTS 키(구 slug)는 sitemap 제외 — 301 리다이렉트 URL이 색인되지 않도록
     const _redirectSlugs = new Set(Object.keys(SLUG_REDIRECTS))
-    shopSlugs = rows.map((r: any) => r.slug).filter((s: string) => {
-      // 비정상 slug 필터링: 하이픈으로 시작하거나, 숫자로만 끝나는 이상한 slug 제외
-      if (!s || s.startsWith('-')) return false
-      if (/^-/.test(s)) return false
-      // 리다이렉트 대상 slug 제외
-      if (_redirectSlugs.has(s)) return false
-      return true
-    })
+    for (const r of rows) {
+      const s = r.slug as string
+      if (!s || s.startsWith('-') || _redirectSlugs.has(s)) continue
+      shopSlugs.push(s)
+      shopDates[s] = r.created_at ? new Date(r.created_at).toISOString().split('T')[0] : today
+    }
   } catch(e) {}
   try {
-    const brows = await sql`SELECT slug, title, meta_description, content FROM blog_posts WHERE status='published' AND slug IS NOT NULL AND slug != '' AND title IS NOT NULL AND title != ''`
+    const brows = await sql`SELECT slug, title, meta_description, content, created_at, updated_at FROM blog_posts WHERE status='published' AND slug IS NOT NULL AND slug != '' AND title IS NOT NULL AND title != ''`
     // test 페이지, 빈 콘텐츠/description 페이지 제외
-    blogSlugs = brows
-      .filter((r: any) => {
-        const s = (r.slug || '')
-        const t = (r.title || '').toLowerCase()
-        const d = (r.meta_description || r.content || '')
-        if (s.startsWith('test-') || t.startsWith('test ')) return false  // test 페이지 제외
-        if (!d || d.trim().length < 20) return false  // 내용 없는 페이지 제외
-        if (!r.content || r.content.trim().length < 200) return false  // 콘텐츠 없는 페이지 제외
-        return true
-      })
-      .map((r: any) => r.slug)
+    for (const r of brows) {
+      const s = (r.slug || '') as string
+      const t = (r.title || '').toLowerCase()
+      const d = (r.meta_description || r.content || '')
+      if (s.startsWith('test-') || t.startsWith('test ')) continue
+      if (!d || d.trim().length < 20) continue
+      if (!r.content || r.content.trim().length < 200) continue
+      blogSlugs.push(s)
+      const rawDate = r.updated_at || r.created_at
+      blogDates[s] = rawDate ? new Date(rawDate).toISOString().split('T')[0] : today
+    }
   } catch(e) {}
 
   const base = 'https://seoulbeautytrip.com'
@@ -14405,10 +14455,10 @@ app.get('/sitemap.xml', async (c) => {
     ...blogCatPages,
     ...bestPages,
     ...shopSlugs.map(slug =>
-      `<url><loc>${base}/shop/${slug}</loc><changefreq>weekly</changefreq><priority>0.8</priority><lastmod>${today}</lastmod></url>`
+      `<url><loc>${base}/shop/${slug}</loc><changefreq>monthly</changefreq><priority>0.8</priority><lastmod>${shopDates[slug]||today}</lastmod></url>`
     ),
     ...blogSlugs.map(slug =>
-      `<url><loc>${base}/blog/${slug}</loc><changefreq>weekly</changefreq><priority>0.85</priority><lastmod>${today}</lastmod></url>`
+      `<url><loc>${base}/blog/${slug}</loc><changefreq>weekly</changefreq><priority>0.85</priority><lastmod>${blogDates[slug]||today}</lastmod></url>`
     )
   ].join('\n  ')
   return c.body(`<?xml version="1.0" encoding="UTF-8"?>
@@ -14571,15 +14621,18 @@ app.get('/', async (c) => {
     const inlineScript = `${videoLdScript}${langDetectScript}<script>window.__INIT_VIDEOS__=${safeJson(initVideosFirst)};window.__INIT_VIDEOS_ALL__=${safeJson(initVideos)};window.__INIT_PLATFORM__=${safeJson(initPlatform)};window.__INIT_SHOPS__=${safeJson(initShops)};window.__GMAP_KEY__=${safeJson(gmapKey)};<\/script>`
 
     // SSR placeholders를 실제 콘텐츠로 교체
-    // 상위 8개 살롱을 정적 HTML 링크로 삽입 (구글 봇이 살롱명 키워드 발견 가능)
+    // 상위 20개 살롱을 풍부한 카드로 삽입 (구글봇: 살롱명·카테고리·지역·설명 키워드 인덱싱)
     const catIconMap: Record<string,string> = {clinic:'🏥',headspa:'🧖',makeup:'💄',tattoo:'✏️',hair:'💇',skincare:'🌿',spa:'♨️',dental:'🦷'}
-    const ssrFeaturedHtml = initShops.slice(0, 8).map((s: any) => {
+    const catLabelMapSSR: Record<string,string> = {clinic:'Skin Clinic',headspa:'Head Spa',makeup:'Makeup Studio',tattoo:'Tattoo Studio',hair:'Hair Salon',skincare:'Skincare',spa:'Spa',dental:'Dental'}
+    const ssrFeaturedCards = initShops.slice(0, 20).map((s: any) => {
       const icon = catIconMap[s.category] || '⭐'
       const loc = (s.location||'Seoul').split(',')[0].trim()
-      return `<a href="/shop/${s.slug}" style="display:inline-flex;align-items:center;gap:6px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:20px;padding:4px 12px;font-size:.78rem;color:#374151;text-decoration:none;margin:3px">${icon} ${s.name} <span style="color:#94a3b8">(${loc})</span></a>`
+      const catLbl = catLabelMapSSR[s.category] || s.category || 'Beauty'
+      const desc = (s.meta_description || s.description || '').substring(0, 80)
+      return `<div style="border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;background:#fafafa"><a href="/shop/${s.slug}" style="font-weight:700;color:#1a1a2e;text-decoration:none;font-size:.88rem;line-height:1.3;display:block">${icon} ${s.name}</a><div style="font-size:.75rem;color:#64748b;margin-top:4px">${catLbl} · ${loc}, Seoul</div>${desc ? `<div style="font-size:.73rem;color:#94a3b8;margin-top:5px;line-height:1.5">${desc}</div>` : ''}</div>`
     }).join('')
     const ssrFeaturedBlock = initShops.length > 0
-      ? `<div style="margin-top:20px"><div style="font-size:.75rem;font-weight:700;color:#9ca3af;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">⭐ Featured Salons</div><div style="display:flex;flex-wrap:wrap;gap:2px">${ssrFeaturedHtml}</div></div>`
+      ? `<div style="margin-top:28px"><h2 style="font-size:.8rem;font-weight:700;color:#6b7280;margin-bottom:12px;text-transform:uppercase;letter-spacing:.06em">⭐ Featured Korean Beauty Salons in Seoul</h2><div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">${ssrFeaturedCards}</div><div style="margin-top:10px;text-align:center"><a href="/" style="font-size:.8rem;color:#FF4D8D;text-decoration:none;font-weight:600">View all Seoul beauty salons →</a></div></div>`
       : ''
 
     const html = MAIN_HTML
@@ -20473,7 +20526,7 @@ window.selectMapShop  = function() {};
 </nav>
 
 <!-- ★ SEO 콘텐츠 섹션 — 구글 검색 상위 노출용 롱폼 텍스트 (보강 버전) -->
-<section id="seo-text-section" aria-label="About Seoul Beauty Trip — K-Beauty Booking Platform for Foreigners" style="display:none;background:#fff;padding:40px 16px 48px;border-top:1px solid #f0f0f0">
+<section id="seo-text-section" aria-label="About Seoul Beauty Trip — K-Beauty Booking Platform for Foreigners" style="background:#fff;padding:40px 16px 48px;border-top:1px solid #f0f0f0">
   <div style="max-width:700px;margin:0 auto">
 
     <h2 style="font-size:1.25rem;font-weight:800;color:#1a1a2e;margin-bottom:12px;text-align:center">
