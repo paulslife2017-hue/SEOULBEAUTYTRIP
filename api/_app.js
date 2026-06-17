@@ -17452,14 +17452,30 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .cfc-btn:hover{opacity:.88}
 .cfc-sub{font-size:11px;color:rgba(255,255,255,.35);text-align:center}
 
-/* \u2500\u2500 \uC0C1\uB2F4 \uBAA8\uB2EC \uD558\uB2E8 \uC139\uC158 (Option B) \u2500\u2500 */
-.consult-modal-section{background:linear-gradient(135deg,rgba(232,65,122,.1),rgba(168,85,247,.08));border:1px solid rgba(232,65,122,.2);border-radius:16px;padding:16px;margin:0 0 16px}
-.cms-title{font-size:13px;font-weight:800;color:#fff;margin-bottom:4px;display:flex;align-items:center;gap:6px}
-.cms-sub{font-size:11.5px;color:rgba(255,255,255,.45);margin-bottom:12px;line-height:1.5}
-.cms-topics{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
-.cms-topic{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:4px 10px;font-size:11px;color:rgba(255,255,255,.6)}
-.cms-btn{display:flex;align-items:center;justify-content:center;gap:7px;background:linear-gradient(135deg,rgba(232,65,122,.85),rgba(168,85,247,.85));border:none;border-radius:12px;color:#fff;font-size:13px;font-weight:800;padding:12px;cursor:pointer;width:100%;transition:opacity .2s}
+/* \u2500\u2500 \uBAA8\uB2EC \uD558\uB2E8 \uD0ED\uBC14 \u2500\u2500 */
+.m-tabs-bar{display:flex;flex-shrink:0;border-top:1px solid rgba(255,255,255,.07);background:#0d0d14}
+.m-tab-btn{flex:1;padding:11px 8px 10px;background:none;border:none;color:rgba(255,255,255,.38);font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;border-bottom:2.5px solid transparent;transition:color .18s,border-color .18s;letter-spacing:.2px}
+.m-tab-btn.on{color:#E8417A;border-bottom-color:#E8417A}
+.m-tab-btn i{font-size:13px}
+.m-tab-pane{flex-shrink:0}
+/* \u2500\u2500 \uC0C1\uB2F4 \uD0ED \uD3FC \u2500\u2500 */
+.consult-modal-section{padding:14px 20px 24px}
+.cms-title{font-size:13px;font-weight:800;color:#fff;margin-bottom:3px}
+.cms-sub{font-size:11.5px;color:rgba(255,255,255,.4);margin-bottom:14px;line-height:1.5}
+.cms-chips-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.cms-chip{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:5px 12px;font-size:11.5px;color:rgba(255,255,255,.55);cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent}
+.cms-chip.on{background:rgba(232,65,122,.18);border-color:rgba(232,65,122,.5);color:#E8417A;font-weight:700}
+.cms-input-row{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.cms-inp{width:100%;padding:10px 13px;background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.1);border-radius:11px;color:#fff;font-size:13px;outline:none;transition:border-color .2s}
+.cms-inp:focus{border-color:rgba(232,65,122,.5)}
+.cms-inp::placeholder{color:rgba(255,255,255,.25)}
+.cms-btn{display:flex;align-items:center;justify-content:center;gap:7px;background:linear-gradient(135deg,#E8417A,#a855f7);border:none;border-radius:12px;color:#fff;font-size:13px;font-weight:800;padding:13px;cursor:pointer;width:100%;transition:opacity .2s}
 .cms-btn:hover{opacity:.88}
+.cms-btn:disabled{opacity:.5;cursor:not-allowed}
+.cms-success-inline{display:none;flex-direction:column;align-items:center;gap:8px;padding:20px 0;text-align:center}
+.cms-success-inline .csi-icon{font-size:38px}
+.cms-success-inline .csi-title{font-size:15px;font-weight:800;color:#fff}
+.cms-success-inline .csi-msg{font-size:12px;color:rgba(255,255,255,.45);line-height:1.6}
 
 /* \u2500\u2500 \uC0C1\uB2F4 \uC2E0\uCCAD bottom sheet \u2500\u2500 */
 #consultSheet{position:fixed;inset:0;z-index:9999;display:none}
@@ -17631,7 +17647,17 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
       <div id="modalHero"></div>
       <div class="m-body" id="modalContent"></div>
     </div>
-    <div class="m-btns" id="modalBtns"></div>
+    <!-- \uBAA8\uB2EC \uD558\uB2E8 \uD0ED -->
+    <div class="m-tabs-bar" id="mTabsBar">
+      <button class="m-tab-btn on" id="mTabWa"  onclick="mSwitchTab('wa')"><i class="fab fa-whatsapp"></i> WhatsApp</button>
+      <button class="m-tab-btn"    id="mTabCs"  onclick="mSwitchTab('cs')"><i class="fas fa-comments"></i> \uC0C1\uB2F4 \uC2E0\uCCAD</button>
+    </div>
+    <div class="m-tab-pane" id="mPaneWa">
+      <div class="m-btns" id="modalBtns"></div>
+    </div>
+    <div class="m-tab-pane" id="mPaneCs" style="display:none">
+      <div class="m-btns" id="modalConsult"></div>
+    </div>
   </div>
 </div>
 
@@ -19188,22 +19214,42 @@ function renderShopModal(shop) {
     +'</a>';
   }
 
-  // \u2500\u2500 Option B: \uC0C1\uB2F4 \uC2E0\uCCAD \uC139\uC158 \uCD94\uAC00 \u2500\u2500
-  var consultSection =
-    '<div class="consult-modal-section">'+
-      '<div class="cms-head">'+
-        '<div class="cms-icon">\u{1F4AC}</div>'+
-        '<div>'+
-          '<div class="cms-title">Free Price Consultation</div>'+
-          '<div class="cms-sub">Get exact pricing &amp; availability via KakaoTalk</div>'+
-        '</div>'+
-      '</div>'+
-      '<button class="cms-btn" data-shop-id="'+esc(shop.id||'')+'" data-shop-name="'+esc(shop.name||'')+'" onclick="openConsultSheet(this.dataset.shopId,this.dataset.shopName)">'+
-        '<i class="fas fa-paper-plane"></i> Ask Free Consultation'+
-      '</button>'+
-    '</div>';
+  document.getElementById('modalBtns').innerHTML = waBtn + btn2Row;
 
-  document.getElementById('modalBtns').innerHTML = waBtn + btn2Row + consultSection;
+  // \u2500\u2500 \uC0C1\uB2F4 \uD0ED \uD328\uB110 \uB80C\uB354\uB9C1 \u2500\u2500
+  var csId   = esc(shop.id||'');
+  var csName = esc(shop.name||'');
+  var consultHtml =
+    '<div class="consult-modal-section">'+
+      '<div class="cms-title">\u{1F4AC} Free Price Consultation</div>'+
+      '<div class="cms-sub">\uC2DC\uC220 \uAC00\uACA9\xB7\uC608\uC57D \uAC00\uB2A5 \uC5EC\uBD80\uB97C \uBB34\uB8CC\uB85C \uBB38\uC758\uD558\uC138\uC694</div>'+
+      '<div class="cms-chips-row" id="mcs-chips-treatment">'+
+        ['Botox','Filler','Skin care','Rhinoplasty','Eyes','Hair','Tattoo','Other'].map(function(t){
+          return '<span class="cms-chip" onclick="mcsChip(this,0)">'+t+'</span>';
+        }).join('')+
+      '</div>'+
+      '<div class="cms-chips-row" id="mcs-chips-budget">'+
+        ['Under $200','$200\u2013500','$500\u20131000','$1000+','Flexible'].map(function(t){
+          return '<span class="cms-chip" onclick="mcsChip(this,1)">'+t+'</span>';
+        }).join('')+
+      '</div>'+
+      '<div class="cms-input-row">'+
+        '<input id="mcs-name"  class="cms-inp" type="text" placeholder="Your name *" maxlength="60">'+
+        '<input id="mcs-kakao" class="cms-inp" type="text" placeholder="KakaoTalk ID or WhatsApp *" maxlength="80">'+
+      '</div>'+
+      '<button class="cms-btn" id="mcs-submit-btn" data-shop-id="'+csId+'" data-shop-name="'+csName+'" onclick="mcsSubmit(this)">'+
+        '<i class="fas fa-paper-plane"></i> Send Free Inquiry'+
+      '</button>'+
+    '</div>'+
+    '<div class="cms-success-inline" id="mcs-success">'+
+      '<div class="csi-icon">\u{1F389}</div>'+
+      '<div class="csi-title">Inquiry Sent!</div>'+
+      '<div class="csi-msg">We&#39;ll connect you with the clinic<br>within 24 hours via KakaoTalk or WhatsApp.</div>'+
+    '</div>';
+  document.getElementById('modalConsult').innerHTML = consultHtml;
+
+  // \uD0ED \uCD08\uAE30\uD654 \u2014 \uD56D\uC0C1 WhatsApp \uD0ED\uC73C\uB85C \uC2DC\uC791
+  mSwitchTab('wa');
 
   // GA4: WhatsApp \uBC84\uD2BC \uD074\uB9AD \uCD94\uC801 (\uC601\uC0C1 \uC778\uB371\uC2A4 + \uAC80\uC0C9 \uACBD\uB85C \uD3EC\uD568)
   var waEl = document.getElementById('modalBtns').querySelector('a.m-wa');
@@ -19381,6 +19427,8 @@ function openPhotoViewer(url) {
 }
 
 function closeModal(){
+  // \uD0ED \uCD08\uAE30\uD654 (WhatsApp \uD0ED\uC73C\uB85C \uBCF5\uADC0)
+  if(typeof mSwitchTab==='function') mSwitchTab('wa');
   // \uAD00\uB9AC\uC790 DB: \uBAA8\uB2EC \uCCB4\uB958 \uC2DC\uAC04 \uC804\uC1A1
   if(window._sbSend && window._sbModalOpenTime && window._sbModalShopId){
     var _dur = Math.round((Date.now()-window._sbModalOpenTime)/1000);
@@ -20827,6 +20875,77 @@ ${SB_TRACKER_SCRIPT}
   b.innerHTML = '<span>\u{1F1EF}\u{1F1F5} \u65E5\u672C\u8A9E\u7248\u3082\u3042\u308A\u307E\u3059</span><a href="/ja" style="color:#f472b6;font-weight:700;white-space:nowrap;text-decoration:none">\u65E5\u672C\u8A9E\u3078 \u2192</a><button onclick="this.parentNode.remove()" style="background:none;border:none;color:rgba(255,255,255,.3);cursor:pointer;font-size:18px;padding:0 4px;line-height:1;flex-shrink:0">\u2715</button>'
   document.body.appendChild(b)
 })()
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 \uBAA8\uB2EC \uD0ED \uC804\uD658 + \uC0C1\uB2F4 \uD0ED JS \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+;(function(){
+  // \u2500\u2500 \uBAA8\uB2EC \uD0ED \uC804\uD658 \u2500\u2500
+  var _mcsState = { treatment:'', budget:'' };
+
+  window.mSwitchTab = function(tab) {
+    var waBtn  = document.getElementById('mTabWa');
+    var csBtn  = document.getElementById('mTabCs');
+    var waPan  = document.getElementById('mPaneWa');
+    var csPan  = document.getElementById('mPaneCs');
+    if(!waBtn || !csBtn) return;
+    if(tab === 'wa') {
+      waBtn.classList.add('on');  csBtn.classList.remove('on');
+      if(waPan) waPan.style.display = ''; if(csPan) csPan.style.display = 'none';
+    } else {
+      csBtn.classList.add('on');  waBtn.classList.remove('on');
+      if(csPan) csPan.style.display = ''; if(waPan) waPan.style.display = 'none';
+      _mcsState = { treatment:'', budget:'' };
+    }
+  };
+
+  // type: 0=treatment, 1=budget
+  window.mcsChip = function(el, typeIdx) {
+    var keys = ['treatment','budget'];
+    var ids  = ['mcs-chips-treatment','mcs-chips-budget'];
+    var type = keys[typeIdx] || 'treatment';
+    var container = document.getElementById(ids[typeIdx]);
+    if(container) container.querySelectorAll('.cms-chip').forEach(function(c){ c.classList.remove('on'); });
+    var wasOn = el.classList.contains('on');
+    if(!wasOn) el.classList.add('on');
+    _mcsState[type] = wasOn ? '' : el.textContent.trim();
+  };
+
+  window.mcsSubmit = function(btn) {
+    var name  = (document.getElementById('mcs-name') ||{}).value||'';
+    var kakao = (document.getElementById('mcs-kakao')||{}).value||'';
+    if(!name.trim())  { alert('Please enter your name.');  return; }
+    if(!kakao.trim()) { alert('Please enter your KakaoTalk ID or WhatsApp.'); return; }
+    var shopId   = btn.dataset.shopId   || '';
+    var shopName = btn.dataset.shopName || '';
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+    fetch('/api/consultations', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        shop_id: shopId, shop_name: shopName,
+        name: name.trim(), kakao: kakao.trim(),
+        treatment: _mcsState.treatment, budget: _mcsState.budget,
+        lang: (navigator.language||'').startsWith('ja')?'ja':'en'
+      })
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(d && d.id){
+        var form = document.querySelector('.consult-modal-section');
+        var suc  = document.getElementById('mcs-success');
+        if(form) form.style.display = 'none';
+        if(suc)  { suc.style.display = 'flex'; }
+        if(typeof gtag==='function') gtag('event','consult_submit',{shop_id:shopId});
+      } else {
+        alert('Failed. Please try again.');
+        btn.disabled=false; btn.innerHTML='<i class="fas fa-paper-plane"></i> Send Free Inquiry';
+      }
+    })
+    .catch(function(){
+      alert('Network error. Please try again.');
+      btn.disabled=false; btn.innerHTML='<i class="fas fa-paper-plane"></i> Send Free Inquiry';
+    });
+  };
+})()
+
 // \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 \uC0C1\uB2F4 \uC2E0\uCCAD Bottom Sheet JS \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 ;(function(){
   // \uC120\uD0DD \uC0C1\uD0DC
