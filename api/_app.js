@@ -5862,11 +5862,11 @@ app.get("/ja", async (c) => {
     html = html.replace(/href="\/blog"/g, 'href="/ja/blog"');
     html = html.replace('<html lang="en">', '<html lang="ja">');
     html = html.replace(
-      "<title>Seoul Skin Clinic &amp; Beauty Salon for Foreigners | Seoul Beauty Trip</title>",
+      "<title>Seoul Beauty for Foreigners \u2014 Clinics &amp; Salons | Seoul Beauty Trip</title>",
       "<title>\u30BD\u30A6\u30EB\u306E\u7F8E\u5BB9\u30FB\u30AF\u30EA\u30CB\u30C3\u30AF\u4E88\u7D04 | Seoul Beauty Trip</title>"
     );
     html = html.replace(
-      "<title>Seoul Skin Clinic & Beauty Salon for Foreigners | Seoul Beauty Trip</title>",
+      "<title>Seoul Beauty for Foreigners \u2014 Clinics & Salons | Seoul Beauty Trip</title>",
       "<title>\u30BD\u30A6\u30EB\u306E\u7F8E\u5BB9\u30FB\u30AF\u30EA\u30CB\u30C3\u30AF\u4E88\u7D04 | Seoul Beauty Trip</title>"
     );
     html = html.replace(
@@ -6598,11 +6598,11 @@ app.get("/ja/blog/:slug", async (c) => {
     const t = post.title || "";
     const suffix = " | Seoul Beauty Trip";
     const full = t + suffix;
-    if (full.length <= 60) return full;
-    if (t.length <= 55) return t + suffix;
-    const cut = t.substring(0, 52);
+    if (full.length <= 65) return full;
+    if (t.length <= 60) return t + suffix;
+    const cut = t.substring(0, 60);
     const sp = cut.lastIndexOf(" ");
-    return (sp > 40 ? cut.substring(0, sp) : cut) + "...";
+    return (sp > 40 ? cut.substring(0, sp) : cut) + " | Seoul Beauty Trip";
   })()}</title>
 <meta name="description" content="${post.meta_description || post.excerpt || ""}">
 <meta name="robots" content="${!post.title || post.slug.startsWith("test-") || !post.meta_description && !post.excerpt || !post.content || post.content.trim().length < 200 ? "noindex, follow" : "index, follow"}">
@@ -6635,7 +6635,7 @@ app.get("/ja/blog/:slug", async (c) => {
       { "@type": "Organization", "name": "Seoul Beauty Trip", "url": base }
     ],
     "publisher": { "@type": "Organization", "name": "Seoul Beauty Trip", "url": base, "logo": { "@type": "ImageObject", "url": "https://seoulbeautytrip.com/favicon.ico" } },
-    "keywords": tags.join(", "),
+    "keywords": [.../* @__PURE__ */ new Set([...tags, cat, "Seoul", "foreigners", "K-beauty", post.category || cat])].filter(Boolean).join(", "),
     "articleSection": cat,
     "inLanguage": "ja",
     "mainEntityOfPage": { "@type": "WebPage", "@id": canonicalUrl },
@@ -6957,7 +6957,8 @@ People: `);
     };
     const _catLabel = _catTitleLabels[_shopCat] || _shopCat.charAt(0).toUpperCase() + _shopCat.slice(1);
     const _areaFinal = ["cheongdam", "apgujeong", "sinsa", "nonhyeon"].some((a) => _shopArea.toLowerCase().includes(a)) ? "Gangnam" : _shopArea;
-    const _pageTitle = shop.name + " \u2014 " + _areaFinal + " " + _catLabel + " Seoul | Seoul Beauty Trip";
+    const _pageTitleFull = shop.name + " \u2014 " + _areaFinal + " " + _catLabel + " Seoul | Seoul Beauty Trip";
+    const _pageTitle = _pageTitleFull.length <= 65 ? _pageTitleFull : shop.name.substring(0, Math.min(shop.name.length, 40)) + " \u2014 " + _catLabel + " " + _areaFinal + " Seoul | Seoul Beauty Trip";
     const _metaDescLabels = {
       clinic: _clinicSubtype.toLowerCase(),
       hair: "hair salon",
@@ -8197,7 +8198,7 @@ app.get("/best/clinic/gangnam", (c) => {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Best Plastic Surgery Clinics Gangnam Seoul ${yr} | Seoul Beauty Trip</title>
 <meta name="description" content="Plastic surgery &amp; skin clinics in Gangnam Seoul \u2014 top 30 ranked by ${yr} patient reviews. Board-certified surgeons, English-friendly booking, honest prices for international visitors.">
-<link rel="canonical" href="https://seoulbeautytrip.com/ja/best/clinic/gangnam">
+<link rel="canonical" href="https://seoulbeautytrip.com/best/clinic/gangnam">
 <meta property="og:title" content="Best Plastic Surgery Clinics Gangnam Seoul ${yr} | Seoul Beauty Trip">
 <meta property="og:description" content="Verified list of the 30 best aesthetic clinics in Gangnam &amp; Seocho. English booking available.">
 <meta property="og:url" content="https://seoulbeautytrip.com/best/clinic/gangnam">
@@ -8591,8 +8592,8 @@ body{background:#0f0f12;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
   const isHeadspaHongdae = catSlug === "headspa" && areaSlug === "hongdae";
   const isHairGangnam = catSlug === "hair" && areaSlug === "gangnam";
   const isSkincareGangnam = catSlug === "skincare" && areaSlug === "gangnam";
-  const titleMain = isClinicGangnam ? `Gangnam Skin Clinic for Foreigners ${yr} \u2014 Best English-Speaking Dermatology in Seoul` : isHeadSpaMyeongdong ? `Best Korean Head Spa in Myeongdong Seoul ${yr} \u2014 Foreigner Guide` : isClinicItaewon ? `Best Skin Clinic in Itaewon Seoul ${yr} \u2014 English-Speaking & Tourist-Friendly` : isClinicMyeongdong ? `Best Skin Clinic in Myeongdong Seoul ${yr} \u2014 Walk-in Dermatology for Tourists` : isHeadspaGangnam ? `Best Head Spa in Gangnam Seoul ${yr} \u2014 Prices, Tips & Booking Guide` : isHeadspaHongdae ? `Best Head Spa in Hongdae Seoul ${yr} \u2014 Budget-Friendly Korean Scalp Treatment` : isHairGangnam ? `Best Hair Salon in Gangnam for Foreigners ${yr} \u2014 Price & Booking Guide` : isSkincareGangnam ? `Best Skincare Clinic in Gangnam Seoul ${yr} \u2014 Clinic vs Dermatology Guide` : `Best ${catLabel} ${_inAreaSeoul} for Foreigners ${yr}`;
-  const metaDesc = isClinicGangnam ? `Top-rated Gangnam dermatology clinic guide for foreigners ${yr}. English-speaking dermatologists, transparent pricing, WhatsApp booking. Laser, RF, skin booster & more.` : isHeadSpaMyeongdong ? `Best Korean head spa in Myeongdong Seoul ${yr}. Viral 18-step scalp treatment, foreigner-friendly with English booking. Prices, tips & honest guide for tourists.` : isClinicItaewon ? `Top English-speaking skin clinics in Itaewon Seoul ${yr}. Walk-in friendly, foreigner-tested, transparent pricing. Laser, brightening & acne treatments with WhatsApp booking.` : isClinicMyeongdong ? `Best walk-in skin clinics in Myeongdong Seoul ${yr}. Tourist-friendly dermatology with English-speaking staff, transparent prices & same-day appointments for foreign visitors.` : isHeadspaGangnam ? `Best head spa in Gangnam Seoul ${yr}. Price guide, treatment types, what to expect & how to book. Foreigner-friendly scalp treatments with English support.` : isHeadspaHongdae ? `Budget-friendly head spas in Hongdae Seoul ${yr}. Korean scalp treatment for travelers \u2014 affordable prices, English booking & real reviews from foreign visitors.` : isHairGangnam ? `Best Gangnam hair salons for foreigners ${yr}. K-pop cuts, Korean perms, balayage & more. English-friendly stylists, transparent pricing & WhatsApp booking.` : isSkincareGangnam ? `Gangnam skincare clinic vs dermatology \u2014 what's the difference? ${yr} guide for foreign tourists. Top-rated options with English support, real prices & WhatsApp booking.` : `Best ${catLabel.toLowerCase()} ${_inAreaSeoul} ${yr}. Top-rated, foreigner-friendly salons with English support & WhatsApp booking. Real reviews, verified prices.`;
+  const titleMain = isClinicGangnam ? `Gangnam Skin Clinic for Foreigners ${yr}` : isHeadSpaMyeongdong ? `Best Head Spa Myeongdong Seoul ${yr} \u2014 Foreigner Guide` : isClinicItaewon ? `Best Skin Clinic Itaewon Seoul ${yr} \u2014 English-Speaking` : isClinicMyeongdong ? `Best Skin Clinic Myeongdong Seoul ${yr} \u2014 Walk-in` : isHeadspaGangnam ? `Best Head Spa Gangnam Seoul ${yr} \u2014 Prices & Booking` : isHeadspaHongdae ? `Best Head Spa Hongdae Seoul ${yr} \u2014 Budget-Friendly` : isHairGangnam ? `Best Hair Salon Gangnam Foreigners ${yr}` : isSkincareGangnam ? `Best Skincare Clinic Gangnam Seoul ${yr}` : `Best ${catLabel} ${_inAreaSeoul} for Foreigners ${yr}`;
+  const metaDesc = isClinicGangnam ? `Top-rated Gangnam skin clinic for foreigners ${yr}. English-speaking dermatologists, transparent pricing, WhatsApp booking. Laser, RF, skin booster & more.` : isHeadSpaMyeongdong ? `Best Korean head spa in Myeongdong Seoul ${yr}. Viral 18-step scalp treatment, foreigner-friendly with English booking. Prices, tips & honest guide for tourists.` : isClinicItaewon ? `Top English-speaking skin clinics in Itaewon Seoul ${yr}. Walk-in friendly, foreigner-tested, transparent pricing. Laser, brightening & acne treatments with WhatsApp booking.` : isClinicMyeongdong ? `Best walk-in skin clinics in Myeongdong Seoul ${yr}. Tourist-friendly dermatology with English-speaking staff, transparent prices & same-day appointments for foreign visitors.` : isHeadspaGangnam ? `Best head spa in Gangnam Seoul ${yr}. Price guide, treatment types, what to expect & how to book. Foreigner-friendly scalp treatments with English support.` : isHeadspaHongdae ? `Budget-friendly head spas in Hongdae Seoul ${yr}. Korean scalp treatment for travelers \u2014 affordable prices, English booking & real reviews from foreign visitors.` : isHairGangnam ? `Best hair salons in Gangnam for foreigners ${yr}. K-pop cuts, Korean perms, balayage & more. English-friendly stylists, transparent pricing & WhatsApp booking.` : isSkincareGangnam ? `Best skincare clinics in Gangnam Seoul ${yr}. Foreigner-friendly dermatology with English support, real prices & WhatsApp booking \u2014 verified reviews.` : `Best ${catLabel.toLowerCase()} ${_inAreaSeoul} ${yr}. Top-rated, foreigner-friendly salons with English support & WhatsApp booking. Real reviews, verified prices.`;
   const h1Text = isClinicGangnam ? `Best Gangnam Dermatology Clinic for Foreigners ${yr}` : isHeadSpaMyeongdong ? `Best Korean Head Spa in Myeongdong, Seoul ${yr}` : isClinicItaewon ? `Best Skin Clinic in Itaewon, Seoul ${yr}` : isClinicMyeongdong ? `Best Skin Clinic in Myeongdong, Seoul ${yr}` : isHeadspaGangnam ? `Best Head Spa in Gangnam, Seoul ${yr}` : isHeadspaHongdae ? `Best Head Spa in Hongdae, Seoul ${yr}` : isHairGangnam ? `Best Hair Salon in Gangnam for Foreigners ${yr}` : isSkincareGangnam ? `Best Skincare Clinic in Gangnam, Seoul ${yr}` : `Best ${catLabel} ${_inAreaSeoul} ${yr}`;
   const subText = isClinicGangnam ? `English-Speaking Dermatologists \xB7 Verified Clinics \xB7 WhatsApp Booking \xB7 Updated ${yr}` : isHeadSpaMyeongdong ? `Viral 18-Step Scalp Ritual \xB7 English Booking \xB7 Verified Salons \xB7 Updated ${yr}` : isClinicItaewon ? `English-Speaking Staff \xB7 Walk-in Welcome \xB7 Transparent Pricing \xB7 Updated ${yr}` : isClinicMyeongdong ? `Walk-in Friendly \xB7 English Support \xB7 Tourist-Tested Clinics \xB7 Updated ${yr}` : isHeadspaGangnam ? `Korean Scalp Ritual \xB7 Verified Salons \xB7 Price Guide Included \xB7 Updated ${yr}` : isHeadspaHongdae ? `Budget-Friendly \xB7 English Booking \xB7 Student & Traveler Favourite \xB7 Updated ${yr}` : isHairGangnam ? `K-Pop Cuts \xB7 Korean Perms \xB7 English-Speaking Stylists \xB7 Updated ${yr}` : isSkincareGangnam ? `Clinic vs Dermatology Guide \xB7 English Support \xB7 Verified Prices \xB7 Updated ${yr}` : `Foreigner-Friendly \xB7 English Booking \xB7 Verified Reviews \xB7 Updated ${yr}`;
   const catIntros = {
@@ -8723,6 +8724,7 @@ ${SB_TRACKER_SCRIPT}
 <title>${titleMain} | Seoul Beauty Trip</title>
 <meta name="description" content="${metaDesc}">
 <meta name="robots" content="${shops2.length >= 3 ? "index, follow" : "noindex, follow"}">
+<meta name="keywords" content="${catLabel} Seoul foreigners, best ${catLabel.toLowerCase()} ${areaLabel} Seoul, ${catLabel.toLowerCase()} Seoul English, ${areaLabel} beauty Seoul, Korean ${catLabel.toLowerCase()} tourists, book ${catLabel.toLowerCase()} Seoul WhatsApp">
 <link rel="canonical" href="${pageUrl}">
 <meta property="og:type" content="website">
 <meta property="og:title" content="${titleMain} | Seoul Beauty Trip">
@@ -10029,7 +10031,8 @@ People: `);
     };
     const _catLabel = _catTitleLabels[_shopCat] || _shopCat.charAt(0).toUpperCase() + _shopCat.slice(1);
     const _areaFinal = ["cheongdam", "apgujeong", "sinsa", "nonhyeon"].some((a) => _shopArea.toLowerCase().includes(a)) ? "Gangnam" : _shopArea;
-    const _pageTitle = shop.name + " \u2014 " + _areaFinal + " " + _catLabel + " Seoul | Seoul Beauty Trip";
+    const _pageTitleFull = shop.name + " \u2014 " + _areaFinal + " " + _catLabel + " Seoul | Seoul Beauty Trip";
+    const _pageTitle = _pageTitleFull.length <= 65 ? _pageTitleFull : shop.name.substring(0, Math.min(shop.name.length, 40)) + " \u2014 " + _catLabel + " " + _areaFinal + " Seoul | Seoul Beauty Trip";
     const _metaDescLabels = {
       clinic: _clinicSubtype.toLowerCase(),
       hair: "hair salon",
@@ -11179,8 +11182,8 @@ body{background:#0f0f12;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
   const isHeadspaHongdae = catSlug === "headspa" && areaSlug === "hongdae";
   const isHairGangnam = catSlug === "hair" && areaSlug === "gangnam";
   const isSkincareGangnam = catSlug === "skincare" && areaSlug === "gangnam";
-  const titleMain = isClinicGangnam ? `Gangnam Skin Clinic for Foreigners ${yr} \u2014 Best English-Speaking Dermatology in Seoul` : isHeadSpaMyeongdong ? `Best Korean Head Spa in Myeongdong Seoul ${yr} \u2014 Foreigner Guide` : isClinicItaewon ? `Best Skin Clinic in Itaewon Seoul ${yr} \u2014 English-Speaking & Tourist-Friendly` : isClinicMyeongdong ? `Best Skin Clinic in Myeongdong Seoul ${yr} \u2014 Walk-in Dermatology for Tourists` : isHeadspaGangnam ? `Best Head Spa in Gangnam Seoul ${yr} \u2014 Prices, Tips & Booking Guide` : isHeadspaHongdae ? `Best Head Spa in Hongdae Seoul ${yr} \u2014 Budget-Friendly Korean Scalp Treatment` : isHairGangnam ? `Best Hair Salon in Gangnam for Foreigners ${yr} \u2014 Price & Booking Guide` : isSkincareGangnam ? `Best Skincare Clinic in Gangnam Seoul ${yr} \u2014 Clinic vs Dermatology Guide` : `Best ${catLabel} ${_inAreaSeoul} for Foreigners ${yr}`;
-  const metaDesc = isClinicGangnam ? `Top-rated Gangnam dermatology clinic guide for foreigners ${yr}. English-speaking dermatologists, transparent pricing, WhatsApp booking. Laser, RF, skin booster & more.` : isHeadSpaMyeongdong ? `Best Korean head spa in Myeongdong Seoul ${yr}. Viral 18-step scalp treatment, foreigner-friendly with English booking. Prices, tips & honest guide for tourists.` : isClinicItaewon ? `Top English-speaking skin clinics in Itaewon Seoul ${yr}. Walk-in friendly, foreigner-tested, transparent pricing. Laser, brightening & acne treatments with WhatsApp booking.` : isClinicMyeongdong ? `Best walk-in skin clinics in Myeongdong Seoul ${yr}. Tourist-friendly dermatology with English-speaking staff, transparent prices & same-day appointments for foreign visitors.` : isHeadspaGangnam ? `Best head spa in Gangnam Seoul ${yr}. Price guide, treatment types, what to expect & how to book. Foreigner-friendly scalp treatments with English support.` : isHeadspaHongdae ? `Budget-friendly head spas in Hongdae Seoul ${yr}. Korean scalp treatment for travelers \u2014 affordable prices, English booking & real reviews from foreign visitors.` : isHairGangnam ? `Best Gangnam hair salons for foreigners ${yr}. K-pop cuts, Korean perms, balayage & more. English-friendly stylists, transparent pricing & WhatsApp booking.` : isSkincareGangnam ? `Gangnam skincare clinic vs dermatology \u2014 what's the difference? ${yr} guide for foreign tourists. Top-rated options with English support, real prices & WhatsApp booking.` : `Best ${catLabel.toLowerCase()} ${_inAreaSeoul} ${yr}. Top-rated, foreigner-friendly salons with English support & WhatsApp booking. Real reviews, verified prices.`;
+  const titleMain = isClinicGangnam ? `Gangnam Skin Clinic for Foreigners ${yr}` : isHeadSpaMyeongdong ? `Best Head Spa Myeongdong Seoul ${yr} \u2014 Foreigner Guide` : isClinicItaewon ? `Best Skin Clinic Itaewon Seoul ${yr} \u2014 English-Speaking` : isClinicMyeongdong ? `Best Skin Clinic Myeongdong Seoul ${yr} \u2014 Walk-in` : isHeadspaGangnam ? `Best Head Spa Gangnam Seoul ${yr} \u2014 Prices & Booking` : isHeadspaHongdae ? `Best Head Spa Hongdae Seoul ${yr} \u2014 Budget-Friendly` : isHairGangnam ? `Best Hair Salon Gangnam Foreigners ${yr}` : isSkincareGangnam ? `Best Skincare Clinic Gangnam Seoul ${yr}` : `Best ${catLabel} ${_inAreaSeoul} for Foreigners ${yr}`;
+  const metaDesc = isClinicGangnam ? `Top-rated Gangnam skin clinic for foreigners ${yr}. English-speaking dermatologists, transparent pricing, WhatsApp booking. Laser, RF, skin booster & more.` : isHeadSpaMyeongdong ? `Best Korean head spa in Myeongdong Seoul ${yr}. Viral 18-step scalp treatment, foreigner-friendly with English booking. Prices, tips & honest guide for tourists.` : isClinicItaewon ? `Top English-speaking skin clinics in Itaewon Seoul ${yr}. Walk-in friendly, foreigner-tested, transparent pricing. Laser, brightening & acne treatments with WhatsApp booking.` : isClinicMyeongdong ? `Best walk-in skin clinics in Myeongdong Seoul ${yr}. Tourist-friendly dermatology with English-speaking staff, transparent prices & same-day appointments for foreign visitors.` : isHeadspaGangnam ? `Best head spa in Gangnam Seoul ${yr}. Price guide, treatment types, what to expect & how to book. Foreigner-friendly scalp treatments with English support.` : isHeadspaHongdae ? `Budget-friendly head spas in Hongdae Seoul ${yr}. Korean scalp treatment for travelers \u2014 affordable prices, English booking & real reviews from foreign visitors.` : isHairGangnam ? `Best hair salons in Gangnam for foreigners ${yr}. K-pop cuts, Korean perms, balayage & more. English-friendly stylists, transparent pricing & WhatsApp booking.` : isSkincareGangnam ? `Best skincare clinics in Gangnam Seoul ${yr}. Foreigner-friendly dermatology with English support, real prices & WhatsApp booking \u2014 verified reviews.` : `Best ${catLabel.toLowerCase()} ${_inAreaSeoul} ${yr}. Top-rated, foreigner-friendly salons with English support & WhatsApp booking. Real reviews, verified prices.`;
   const h1Text = isClinicGangnam ? `Best Gangnam Dermatology Clinic for Foreigners ${yr}` : isHeadSpaMyeongdong ? `Best Korean Head Spa in Myeongdong, Seoul ${yr}` : isClinicItaewon ? `Best Skin Clinic in Itaewon, Seoul ${yr}` : isClinicMyeongdong ? `Best Skin Clinic in Myeongdong, Seoul ${yr}` : isHeadspaGangnam ? `Best Head Spa in Gangnam, Seoul ${yr}` : isHeadspaHongdae ? `Best Head Spa in Hongdae, Seoul ${yr}` : isHairGangnam ? `Best Hair Salon in Gangnam for Foreigners ${yr}` : isSkincareGangnam ? `Best Skincare Clinic in Gangnam, Seoul ${yr}` : `Best ${catLabel} ${_inAreaSeoul} ${yr}`;
   const subText = isClinicGangnam ? `English-Speaking Dermatologists \xB7 Verified Clinics \xB7 WhatsApp Booking \xB7 Updated ${yr}` : isHeadSpaMyeongdong ? `Viral 18-Step Scalp Ritual \xB7 English Booking \xB7 Verified Salons \xB7 Updated ${yr}` : isClinicItaewon ? `English-Speaking Staff \xB7 Walk-in Welcome \xB7 Transparent Pricing \xB7 Updated ${yr}` : isClinicMyeongdong ? `Walk-in Friendly \xB7 English Support \xB7 Tourist-Tested Clinics \xB7 Updated ${yr}` : isHeadspaGangnam ? `Korean Scalp Ritual \xB7 Verified Salons \xB7 Price Guide Included \xB7 Updated ${yr}` : isHeadspaHongdae ? `Budget-Friendly \xB7 English Booking \xB7 Student & Traveler Favourite \xB7 Updated ${yr}` : isHairGangnam ? `K-Pop Cuts \xB7 Korean Perms \xB7 English-Speaking Stylists \xB7 Updated ${yr}` : isSkincareGangnam ? `Clinic vs Dermatology Guide \xB7 English Support \xB7 Verified Prices \xB7 Updated ${yr}` : `Foreigner-Friendly \xB7 English Booking \xB7 Verified Reviews \xB7 Updated ${yr}`;
   const catIntros = {
@@ -11311,6 +11314,7 @@ ${SB_TRACKER_SCRIPT}
 <title>${titleMain} | Seoul Beauty Trip</title>
 <meta name="description" content="${metaDesc}">
 <meta name="robots" content="${shops2.length >= 3 ? "index, follow" : "noindex, follow"}">
+<meta name="keywords" content="${catLabel} Seoul foreigners, best ${catLabel.toLowerCase()} ${areaLabel} Seoul, ${catLabel.toLowerCase()} Seoul English, ${areaLabel} beauty Seoul, Korean ${catLabel.toLowerCase()} tourists, book ${catLabel.toLowerCase()} Seoul WhatsApp">
 <link rel="canonical" href="${pageUrl}">
 <meta property="og:type" content="website">
 <meta property="og:title" content="${titleMain} | Seoul Beauty Trip">
@@ -12601,11 +12605,11 @@ app.get("/blog/:slug", async (c) => {
     const t = post.title || "";
     const suffix = " | Seoul Beauty Trip";
     const full = t + suffix;
-    if (full.length <= 60) return full;
-    if (t.length <= 55) return t + suffix;
-    const cut = t.substring(0, 52);
+    if (full.length <= 65) return full;
+    if (t.length <= 60) return t + suffix;
+    const cut = t.substring(0, 60);
     const sp = cut.lastIndexOf(" ");
-    return (sp > 40 ? cut.substring(0, sp) : cut) + "...";
+    return (sp > 40 ? cut.substring(0, sp) : cut) + " | Seoul Beauty Trip";
   })()}</title>
 <meta name="description" content="${post.meta_description || post.excerpt || ""}">
 <meta name="robots" content="${!post.title || post.slug.startsWith("test-") || !post.meta_description && !post.excerpt || !post.content || post.content.trim().length < 200 ? "noindex, follow" : "index, follow"}">
@@ -12638,7 +12642,7 @@ app.get("/blog/:slug", async (c) => {
       { "@type": "Organization", "name": "Seoul Beauty Trip", "url": base }
     ],
     "publisher": { "@type": "Organization", "name": "Seoul Beauty Trip", "url": base, "logo": { "@type": "ImageObject", "url": "https://seoulbeautytrip.com/favicon.ico" } },
-    "keywords": tags.join(", "),
+    "keywords": [.../* @__PURE__ */ new Set([...tags, cat, "Seoul", "foreigners", "K-beauty", post.category || cat])].filter(Boolean).join(", "),
     "articleSection": cat,
     "inLanguage": "en",
     "mainEntityOfPage": { "@type": "WebPage", "@id": canonicalUrl },
@@ -16340,10 +16344,11 @@ var MAIN_HTML = `<!DOCTYPE html>
   gtag('config', 'G-1N9ZQRHLJ0');
 </script>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Seoul Skin Clinic & Beauty Salon for Foreigners | Seoul Beauty Trip</title>
-<meta name="description" content="Best skin clinics, dermatology & beauty salons in Seoul for foreigners. English-speaking staff, easy WhatsApp booking. Trusted by tourists visiting Seoul.">
+<title>Seoul Beauty for Foreigners \u2014 Clinics & Salons | Seoul Beauty Trip</title>
+<meta name="description" content="Best skin clinics, hair salons & head spas in Seoul for foreigners. English-speaking staff, WhatsApp booking. Gangnam, Myeongdong, Hongdae \u2014 trusted by 10,000+ tourists.">
 
 <meta name="robots" content="index, follow">
+<meta name="keywords" content="skin clinic Seoul foreigners, head spa Seoul, hair salon Seoul foreigners, Gangnam beauty clinic, Korean beauty for tourists, WhatsApp booking Seoul, English speaking clinic Seoul, best beauty Seoul 2026">
 <meta name="msvalidate.01" content="DD5A8D9AA094B888C8A409EADE4610E9">
 <link rel="canonical" href="https://seoulbeautytrip.com/">
 <!-- hreflang: EN + JA targeting -->
