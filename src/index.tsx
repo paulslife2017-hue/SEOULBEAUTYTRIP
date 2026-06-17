@@ -834,20 +834,24 @@ app.get('/favicon.ico', (c) => c.body(null, 204))
 
 // ── API ──
 app.get('/api/videos', async (c) => {
-  try { await ensureDb(c.env) } catch(e) { console.error('[api/videos] ensureDb error:', e) }
-  const sql = getDb(c.env)
-  const cat = c.req.query('category')
-  const rows = await withTimeout(
-    cat && cat !== 'all'
-      ? sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.category=${cat} ORDER BY RANDOM()`
-      : sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id ORDER BY RANDOM()`,
-    15000, []
-  )
-  const result = rows.map((r: any) => ({
-    ...rowToVideo(r),
-    shop: { id: r.shop_id, name: r.shop_name, category: r.shop_cat, location: r.shop_location, thumbnail: r.shop_thumb }
-  }))
-  return c.json({ videos: result })
+  try {
+    const sql = getDb(c.env)
+    const cat = c.req.query('category')
+    const rows = await withTimeout(
+      cat && cat !== 'all'
+        ? sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE s.category=${cat} ORDER BY RANDOM()`
+        : sql`SELECT v.*, s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb FROM videos v LEFT JOIN shops s ON v.shop_id=s.id ORDER BY RANDOM()`,
+      15000, []
+    )
+    const result = rows.map((r: any) => ({
+      ...rowToVideo(r),
+      shop: { id: r.shop_id, name: r.shop_name, category: r.shop_cat, location: r.shop_location, thumbnail: r.shop_thumb }
+    }))
+    return c.json({ videos: result })
+  } catch(e: any) {
+    console.error('[api/videos] error:', e?.message || e)
+    return c.json({ videos: [], error: e?.message || 'DB error' }, 200)
+  }
 })
 
 app.get('/api/shops', async (c) => {
