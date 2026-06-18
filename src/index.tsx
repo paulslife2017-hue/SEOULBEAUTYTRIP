@@ -15508,11 +15508,11 @@ async function generateClinicBlog(
   // 각도별 심리학 전략
   const psychStrategy: Record<string, string> = {
     guide:   'Use the "Information Gap" principle — tease what they don\'t know yet, then deliver. Make them feel smart for reading this.',
-    honest:  'Use "Social Proof + Loss Aversion" — show what others got right AND warn what can go wrong. Be the trusted friend.',
+    honest:  'Use "Trusted Friend" framing — write like a friend who actually did the research and is telling you the full truth, not just the good parts. Include: what the clinics don\'t tell you upfront, one thing that surprised you (good or bad), the real decision criteria that matters. Loss Aversion: show the cost of NOT going to a good clinic (bad results, wasted money). End by making Seoul Beauty Trip feel like the shortcut to the vetted option.',
     cost:    'Use "Price Anchoring" — show the range, mention what affects price, make the reader feel they now have insider knowledge.',
     safety:  'Use "Fear → Relief" arc — acknowledge their concern, validate it, then systematically resolve each worry.',
     compare: 'Use "Choice Architecture" — help them feel in control by clearly laying out their options without overwhelming.',
-    story:   'Use "Narrative Transportation" — first person, past tense, sensory details. Make them feel like they\'re reading a friend\'s diary.',
+    story:   'Use "Narrative Transportation" — first person, past tense, rich sensory details (the smell of the clinic, the cold of the gel, the awkward translation moment). Use a 3-act structure: nervous anticipation → the actual experience → honest reflection. Include one moment of doubt or imperfection — this is what makes it believable. End with a micro-CTA that feels like a friend recommending, not an ad.',
     tips:    'Use "Insider Knowledge" psychology — position reader as getting exclusive info others don\'t have.',
     booking: 'Use "Step-by-step Confidence Building" — break every micro-step down so they feel capable of doing this.',
     before:  'Use "Expectation Setting" — reduce anxiety by making the unknown known. Before/after contrast creates desire.',
@@ -15563,15 +15563,38 @@ REDDIT CONTEXT: ${redditContext[angle.id] || redditContext.guide}
 RULES (strict):
 - Answer "${kw.query}" directly in first 80 words
 - Human voice: contractions, varied sentence length, 1-2 honest imperfections
-- NO: "In this article", "It's worth noting", "Look no further", "In conclusion", "Navigating the world of"
+- NO: "In this article", "It's worth noting", "Look no further", "In conclusion", "Navigating the world of", "Dive into", "Unlock", "Game-changer"
 - Use real Seoul districts (Gangnam, Apgujeong, Itaewon, Hongdae, Myeongdong)
 - Mention "Seoul Beauty Trip" naturally 2x as the place to find vetted clinics
 - E-E-A-T: certifications, questions to ask, common tourist mistakes
 - Date: always use "${year}" not hardcoded numbers
 - Current date context: write as if it's ${year}, mention "${year}" when referencing current prices/trends
+${['story', 'honest'].includes(angle.id) ? `
+PREMIUM QUALITY RULES (this angle uses higher-quality model — use it fully):
+- Open with a scene, a question, or a surprising fact — NOT a generic statement
+- Every paragraph must earn its place: cut anything that doesn't add value or emotion
+- Use specific numbers, clinic names (where appropriate), and real KRW prices
+- The reader should feel something: curiosity, relief, confidence, or "I need to do this"
+- Conversion goal: by the end, the reader should naturally want to check Seoul Beauty Trip` : ''}
 
-STRUCTURE (HTML only, 900-1100 words):
-<p>[strong hook — answer the query immediately]</p>
+STRUCTURE (HTML only, ${['story', 'honest'].includes(angle.id) ? '1000-1200' : '900-1100'} words):
+${angle.id === 'story' ? `<p>[scene-setting hook — drop the reader into a moment, not a summary]</p>
+<h2>[The Decision — why you went / what you were nervous about]</h2><p>...</p>
+<h2>[The Experience — sensory details, what actually happened step by step]</h2><p>...</p>
+<h2>[The Honest Part — one thing that surprised you, good or bad]</h2><p>...</p>
+<h2>[Results & What I'd Do Differently]</h2><p>...</p>
+<h2>[How to Book the Same Thing as a Foreigner]</h2><p>...</p>
+<p>[warm closing — like texting a friend your recommendation, mention Seoul Beauty Trip naturally]</p>` : angle.id === 'honest' ? `<p>[bold opening statement — the one thing clinics won't tell you upfront]</p>
+<h2>[What You Actually Get — vs what's advertised]</h2><p>...</p>
+<h2>[The Price Reality — full breakdown in KRW, what drives the difference]</h2><p>...</p>
+<h2>[Red Flags & Green Flags — how to spot a good vs bad clinic]</h2><p>...</p>
+<h2>[What Happens If It Goes Wrong — realistic risk + how to avoid]</h2><p>...</p>
+<h2>[My Honest Verdict — is it worth it?]</h2><p>...</p>
+<h2>Real Questions, Real Answers</h2>
+<h3>[question about price/value]</h3><p>...</p>
+<h3>[question about safety/risk]</h3><p>...</p>
+<h3>[question about booking as foreigner]</h3><p>...</p>
+<p>[closing: Seoul Beauty Trip as the shortcut to skip the research]</p>` : `<p>[strong hook — answer the query immediately]</p>
 <h2>[main section 1]</h2><p>...</p>
 <h2>[main section 2]</h2><p>...</p>
 <h2>[practical reality — prices in KRW, time, recovery]</h2><p>...</p>
@@ -15580,20 +15603,31 @@ STRUCTURE (HTML only, 900-1100 words):
 <h3>[real question 1]</h3><p>...</p>
 <h3>[real question 2]</h3><p>...</p>
 <h3>[real question 3]</h3><p>...</p>
-<p>[closing with natural Seoul Beauty Trip mention]</p>
+<p>[closing with natural Seoul Beauty Trip mention]</p>`}
 
 After HTML output:
 ---JSON---
 {"metaDescription":"[≤155 chars with '${kw.query}' naturally]","excerpt":"[2 punchy sentences]","tags":${JSON.stringify(kw.tags.concat([kw.query + ' Seoul', 'K-beauty ' + year, kw.area + ' clinic']))},"category":"clinic"}`
+
+  // 각도별 모델 분기:
+  // story/honest → sonnet (감성·신뢰가 예약 전환 핵심, 퀄리티 우선)
+  // 나머지 8개  → haiku  (구조형, 80% 크레딧 절약)
+  const HIGH_QUALITY_ANGLES = ['story', 'honest']
+  const selectedModel = HIGH_QUALITY_ANGLES.includes(angle.id)
+    ? 'claude-sonnet-4-5'
+    : 'claude-haiku-4-5'
+  const selectedMaxTokens = HIGH_QUALITY_ANGLES.includes(angle.id)
+    ? 3500   // sonnet: 충분한 토큰으로 퀄리티 확보
+    : 2800   // haiku: 절약
 
   try {
     const res = await fetch('https://www.genspark.ai/api/llm_proxy/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5',
+        model: selectedModel,
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 2800,
+        max_tokens: selectedMaxTokens,
         temperature: 0.75
       })
     })
@@ -15737,6 +15771,7 @@ app.get('/api/admin/auto-blog-clinic/status', async (c) => {
     ]) as any[]
 
     const totalCombos = CLINIC_KEYWORDS.length * BLOG_ANGLES.length
+    const HIGH_QUALITY_ANGLES = ['story', 'honest']
 
     return c.json({
       total: Number((totalRows as any[])[0]?.cnt || 0),
@@ -15745,6 +15780,11 @@ app.get('/api/admin/auto-blog-clinic/status', async (c) => {
       totalKeywords: CLINIC_KEYWORDS.length,
       totalAngles: BLOG_ANGLES.length,
       totalCombos,
+      modelStrategy: {
+        sonnet: HIGH_QUALITY_ANGLES,
+        haiku: BLOG_ANGLES.filter(a => !HIGH_QUALITY_ANGLES.includes(a.id)).map(a => a.id),
+        note: 'story/honest → sonnet-4-5 (퀄리티 우선), 나머지 → haiku-4-5 (크레딧 절약)'
+      },
       recentPosts: recentRows
     })
   } catch (e: any) {
@@ -22389,6 +22429,7 @@ https://seoulbeautytrip.com/video/v178051515735</textarea>
     </div>
 
     <div id="clinic-gen-result" style="display:none;margin-top:12px;padding:12px;border-radius:10px;font-size:13px"></div>
+    <div id="cs-model-strategy" style="margin-top:10px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.04);font-size:11px;color:rgba(255,255,255,.4);line-height:1.6">모델 전략 로딩 중...</div>
     <div id="clinic-recent-posts" style="display:none;margin-top:12px"></div>
   </div>
 
@@ -23952,6 +23993,13 @@ window.clinicAutoLoadStats = async function clinicAutoLoadStats() {
     // 총 가능한 조합 = 키워드 × 각도
     var totalCombos = d.totalCombos || ((d.totalKeywords||45) * (d.totalAngles||10));
     document.getElementById('cs-kw').textContent = totalCombos + '+';
+
+    // 모델 전략 표시
+    var modelEl = document.getElementById('cs-model-strategy');
+    if (modelEl && d.modelStrategy) {
+      modelEl.innerHTML = '<span style="color:#f9a8d4">✦ sonnet:</span> ' + (d.modelStrategy.sonnet||[]).join(', ')
+        + ' &nbsp;|&nbsp; <span style="color:#86efac">✦ haiku:</span> ' + (d.modelStrategy.haiku||[]).join(', ');
+    }
 
     // 최근 글 목록
     if (d.recentPosts && d.recentPosts.length > 0) {
