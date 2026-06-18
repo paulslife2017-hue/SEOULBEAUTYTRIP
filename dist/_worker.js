@@ -21612,79 +21612,80 @@ async function generateClinicBlog(kw, angle, sql, apiKey) {
   const lsiList = lsiKeywords[lsiKey].join(", ");
   const isHQ = ["story", "honest"].includes(angle.id);
   const wordTarget = isHQ ? "1000-1200" : "900-1100";
-  const prompt = `You are a senior K-beauty travel writer for seoulbeautytrip.com. Your job: write a blog post that ranks #1 on Google AND converts readers into clinic bookings.
+  const prompt = `You are a senior K-beauty travel writer for seoulbeautytrip.com. Write a blog post that ranks #1 on Google AND converts readers into clinic bookings.
 
 KEYWORD: "${kw.query}" | TITLE: "${title}" | ANGLE: ${angle.label} | AREA: ${kw.area} | YEAR: ${year}
 
 PSYCHOLOGY: ${psychStrategy[angle.id] || psychStrategy.guide}
 SEO STRUCTURE: ${seoStructure[angle.intent] || seoStructure.informational}
 REDDIT CONTEXT: ${redditContext[angle.id] || redditContext.guide}
-LSI KEYWORDS (weave naturally, don't force): ${lsiList}
+LSI KEYWORDS (weave 3+ naturally): ${lsiList}
 
-SEO RULES (Google ranking):
-- Use "${kw.query}" in: first paragraph, at least one H2, naturally 3-4x total (density ~1%)
-- LSI keywords: use at least 3 of the above naturally in the text
-- H2 headers: write as questions Google users actually type (start with How/What/Is/Can/Why/Where)
-- First paragraph: answer the main query directly in 40-60 words (Featured Snippet target)
-- FAQ section: minimum 4 questions, written as real Google searches
-- Internal links (use these EXACT HTML anchor tags, spread naturally across the article \u2014 DO NOT clump together):
+OUTPUT FORMAT \u2014 CRITICAL:
+- Output RAW HTML only. Do NOT wrap in \`\`\`html or any code fences.
+- Do NOT output <!DOCTYPE>, <html>, <head>, <body> tags \u2014 body content only.
+- Do NOT repeat the title as an <h1> or <h2> at the start.
+- Start directly with <p>[first paragraph]</p>
+
+SEO RULES:
+- Use "${kw.query}" in first paragraph + naturally 3-4x total (density ~1%, NOT more)
+- First paragraph: EXACTLY 40-60 words answering the main query (Featured Snippet target) \u2014 keep it tight
+- H2 headers as real Google questions (How/What/Is/Can/Why/Where)
+- FAQ: minimum 4 questions as actual Google searches
+- Internal links (spread naturally, DO NOT clump):
   <a href="/best/clinic/gangnam">best skin clinics in Gangnam</a>
   <a href="/best/clinic/seoul">top-rated Seoul clinics</a>
   <a href="/best/clinic/itaewon">English-friendly clinics in Itaewon</a>
   <a href="/blog">K-beauty blog</a>
-${relatedLinksBlock ? `  Also link naturally to these related articles (use the exact href):
+${relatedLinksBlock ? `  Related article links (use exact hrefs):
 ${relatedLinksBlock}` : ""}
 
-CONTENT RULES (Google E-E-A-T):
-- Experience: include specific KRW prices (ranges OK), realistic timeframes, recovery info
-- Expertise: mention board certifications, clinic accreditation, doctor credentials to look for
-- Authoritativeness: cite what real patients ask/worry about (from Reddit context above)
-- Trustworthiness: include 1 honest caveat or risk \u2014 Google rewards balanced content
-- NO AI tells: "In this article", "It's worth noting", "Look no further", "In conclusion", "Navigating the world of", "Dive into", "Unlock", "Game-changer", "Comprehensive guide"
-- Human voice: contractions, varied sentence length (mix short punchy + longer), 1 honest imperfection
-- Real Seoul districts: Gangnam, Apgujeong, Itaewon, Hongdae, Myeongdong (use at least 2)
-- Mention "Seoul Beauty Trip" naturally 2x as the resource for finding vetted clinics
-- Date: use "${year}" dynamically \u2014 never hardcode a specific year
-- DO NOT mention specific clinic names or shop names \u2014 link to /best/clinic/area pages instead
+CONTENT RULES (E-E-A-T):
+- Include KRW prices (ranges), realistic timeframes, recovery info
+- Mention board certifications, doctor credentials to look for
+- 1 honest caveat or risk (Google rewards balanced content)
+- NO filler phrases: "In this article", "It's worth noting", "Look no further", "In conclusion", "Navigating", "Dive into", "Unlock", "Game-changer", "Comprehensive"
+- Human voice: contractions, short punchy sentences mixed with longer ones
+- Real Seoul districts: use at least 2 of Gangnam/Apgujeong/Itaewon/Hongdae/Myeongdong
+- Mention "Seoul Beauty Trip" naturally exactly 2 times
+- DO NOT name specific clinics \u2014 link to /best/clinic/[area] pages instead
 ${isHQ ? `
-PREMIUM QUALITY (sonnet model \u2014 use its full capability):
-- Open with a scene, a specific moment, or a surprising fact \u2014 NEVER a generic intro
-- Every paragraph earns its place: if it doesn't add value or emotion, cut it
-- Include specific numbers, real KRW prices, real district names
-- Reader should feel something: curiosity, relief, "I need to book this"
-- By the last paragraph, reader naturally wants to check Seoul Beauty Trip` : ""}
+PREMIUM (sonnet \u2014 use full capability):
+- Open with a scene, moment, or surprising fact \u2014 NEVER generic
+- Every paragraph earns its place
+- Specific numbers, real KRW, real districts
+- Reader should feel something: curiosity, relief, "I need to book this"` : ""}
 
-OUTPUT: HTML only (no markdown). ${wordTarget} words. STRUCTURE:
-${angle.id === "story" ? `<p>[scene-setting hook \u2014 drop the reader into a moment, not a summary]</p>
+LENGTH: ${wordTarget} words. STRUCTURE:
+${angle.id === "story" ? `<p>[40-60 word scene-setting hook]</p>
 <h2>[The Decision \u2014 why you went / what you were nervous about]</h2><p>...</p>
-<h2>[The Experience \u2014 sensory details, what actually happened step by step]</h2><p>...</p>
-<h2>[The Honest Part \u2014 one thing that surprised you, good or bad]</h2><p>...</p>
+<h2>[The Experience \u2014 sensory details, step by step]</h2><p>...</p>
+<h2>[The Honest Part \u2014 one thing that surprised you]</h2><p>...</p>
 <h2>[Results & What I'd Do Differently]</h2><p>...</p>
 <h2>[How to Book the Same Thing as a Foreigner]</h2><p>...</p>
-<p>[warm closing \u2014 like texting a friend your recommendation, mention Seoul Beauty Trip naturally]</p>` : angle.id === "honest" ? `<p>[bold opening statement \u2014 the one thing clinics won't tell you upfront]</p>
+<p>[warm closing mentioning Seoul Beauty Trip naturally]</p>` : angle.id === "honest" ? `<p>[40-60 word bold opening \u2014 the one thing clinics won't tell you]</p>
 <h2>[What You Actually Get \u2014 vs what's advertised]</h2><p>...</p>
-<h2>[The Price Reality \u2014 full breakdown in KRW, what drives the difference]</h2><p>...</p>
-<h2>[Red Flags & Green Flags \u2014 how to spot a good vs bad clinic]</h2><p>...</p>
-<h2>[What Happens If It Goes Wrong \u2014 realistic risk + how to avoid]</h2><p>...</p>
-<h2>[My Honest Verdict \u2014 is it worth it?]</h2><p>...</p>
+<h2>[The Price Reality \u2014 KRW breakdown, what drives the difference]</h2><p>...</p>
+<h2>[Red Flags & Green Flags \u2014 how to spot good vs bad]</h2><p>...</p>
+<h2>[What Happens If It Goes Wrong \u2014 risk + how to avoid]</h2><p>...</p>
+<h2>[My Honest Verdict]</h2><p>...</p>
 <h2>Real Questions, Real Answers</h2>
-<h3>[question about price/value]</h3><p>...</p>
-<h3>[question about safety/risk]</h3><p>...</p>
-<h3>[question about booking as foreigner]</h3><p>...</p>
-<p>[closing: Seoul Beauty Trip as the shortcut to skip the research]</p>` : `<p>[strong hook \u2014 answer the query immediately]</p>
+<h3>[question: price/value]</h3><p>...</p>
+<h3>[question: safety/risk]</h3><p>...</p>
+<h3>[question: booking as foreigner]</h3><p>...</p>
+<p>[closing: Seoul Beauty Trip as the shortcut]</p>` : `<p>[40-60 word hook answering query immediately]</p>
 <h2>[main section 1]</h2><p>...</p>
 <h2>[main section 2]</h2><p>...</p>
-<h2>[practical reality \u2014 prices in KRW, time, recovery]</h2><p>...</p>
-<h2>[how foreigners actually do this \u2014 WhatsApp, language, booking]</h2><p>...</p>
+<h2>[prices in KRW, time, recovery]</h2><p>...</p>
+<h2>[how foreigners book \u2014 WhatsApp, language, steps]</h2><p>...</p>
 <h2>Frequently Asked Questions</h2>
-<h3>[real question 1]</h3><p>...</p>
-<h3>[real question 2]</h3><p>...</p>
-<h3>[real question 3]</h3><p>...</p>
-<p>[closing with natural Seoul Beauty Trip mention]</p>`}
+<h3>[question 1]</h3><p>...</p>
+<h3>[question 2]</h3><p>...</p>
+<h3>[question 3]</h3><p>...</p>
+<p>[closing with Seoul Beauty Trip mention]</p>`}
 
-After HTML output:
 ---JSON---
-{"metaDescription":"[\u2264155 chars, naturally include '${kw.query}' \u2014 NO filler phrases like 'Book via WhatsApp']","excerpt":"[2 punchy sentences that make someone want to read more]","tags":${JSON.stringify(kw.tags.concat([kw.query + " Seoul", "K-beauty " + year, kw.area + " clinic"]))},"category":"clinic"}`;
+{"metaDescription":"[\u2264155 chars, include '${kw.query}' naturally \u2014 NO filler]","excerpt":"[2 punchy sentences]","tags":${JSON.stringify(kw.tags.concat([kw.query + " Seoul", "K-beauty " + year, kw.area + " clinic"]))},"category":"clinic"}`;
   const selectedModel = isHQ ? "claude-sonnet-4-5" : "claude-haiku-4-5";
   const selectedMaxTokens = isHQ ? 3500 : 2800;
   try {
@@ -21705,6 +21706,18 @@ After HTML output:
     const parts = raw2.split("---JSON---");
     let htmlContent = parts[0].trim();
     if (htmlContent.length < 400) return null;
+    htmlContent = htmlContent.replace(/^```(?:html)?\s*\n?/i, "").replace(/\n?```\s*$/g, "").trim();
+    if (/<(!DOCTYPE|html|head)\b/i.test(htmlContent)) {
+      const bodyMatch = htmlContent.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+      if (bodyMatch) {
+        htmlContent = bodyMatch[1].trim();
+      } else {
+        htmlContent = htmlContent.replace(/<!DOCTYPE[^>]*>/gi, "").replace(/<html[^>]*>/gi, "").replace(/<\/html>/gi, "").replace(/<head[\s\S]*?<\/head>/gi, "").replace(/<body[^>]*>/gi, "").replace(/<\/body>/gi, "").trim();
+      }
+    }
+    if (htmlContent.length < 200) return null;
+    htmlContent = htmlContent.replace(/^\s*<h1[^>]*>[^<]*<\/h1>\s*/i, "").replace(/^\s*<h2[^>]*>[^<]*<\/h2>\s*/i, "");
+    htmlContent = htmlContent.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>").replace(/\*([^*\n]+)\*/g, "<em>$1</em>");
     const imgSeed = slug.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
     const { src: heroSrc, cover: coverUrl } = _clinicHeroImage(kw.query, kw.area, imgSeed);
     const heroAlt = `${kw.query} in ${kw.area} \u2014 ${angle.label}`;
@@ -21876,6 +21889,98 @@ app.get("/api/admin/auto-blog-clinic/status", async (c) => {
         note: "story/honest \u2192 sonnet-4-5 (\uD004\uB9AC\uD2F0 \uC6B0\uC120), \uB098\uBA38\uC9C0 \u2192 haiku-4-5 (\uD06C\uB808\uB527 \uC808\uC57D)"
       },
       recentPosts: recentRows
+    });
+  } catch (e) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+app.post("/api/admin/fix-clinic-content", async (c) => {
+  try {
+    const sql = getDb(c.env);
+    const body = await c.req.json().catch(() => ({}));
+    const dryRun = body.dryRun === true || body.scan === true || c.req.query("dryRun") === "true";
+    const rows = await sql`
+      SELECT id, slug, title, content, LENGTH(content) as clen
+      FROM blog_posts
+      WHERE category='clinic'
+      ORDER BY created_at ASC
+    `;
+    const dirty = [];
+    const fixed = [];
+    let fixedCount = 0;
+    for (const row of rows) {
+      let content = row.content || "";
+      const originalLen = content.length;
+      const hasFence = content.includes("```");
+      const hasDoctype = /<(!DOCTYPE|html|head)\b/i.test(content);
+      const hasRepeatH1 = /^\s*<h[12][^>]*>[^<]*<\/h[12]>\s*/i.test(content);
+      if (!hasFence && !hasDoctype && !hasRepeatH1) continue;
+      const issues = [];
+      if (hasFence) issues.push(`\uCF54\uB4DC\uD39C\uC2A4(len=${content.match(/```[\s\S]*?```/g)?.join("").length || "?"})`);
+      if (hasDoctype) issues.push("DOCTYPE/HTML\uC794\uC7AC");
+      if (hasRepeatH1) issues.push("H1/H2\uBC18\uBCF5");
+      dirty.push({ id: row.id, slug: row.slug, issues, originalLen });
+      if (!dryRun) {
+        content = content.replace(/^```(?:html)?\s*\n?/i, "").replace(/\n?```\s*$/g, "").trim();
+        content = content.replace(/\n?```(?:html)?\s*\n/gi, "\n").replace(/\n```\s*(\n|$)/g, "\n").trim();
+        content = content.replace(/\n{3,}/g, "\n\n").trim();
+        if (/<(!DOCTYPE|html|head)\b/i.test(content)) {
+          const bodyMatch = content.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+          if (bodyMatch) {
+            content = bodyMatch[1].trim();
+          } else {
+            content = content.replace(/<!DOCTYPE[^>]*>/gi, "").replace(/<html[^>]*>/gi, "").replace(/<\/html>/gi, "").replace(/<head[\s\S]*?<\/head>/gi, "").replace(/<body[^>]*>/gi, "").replace(/<\/body>/gi, "").trim();
+          }
+        }
+        content = content.replace(/^\s*<h1[^>]*>[^<]*<\/h1>\s*/i, "").replace(/^\s*<h2[^>]*>[^<]*<\/h2>\s*/i, "");
+        content = content.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>").replace(/\*([^*\n]+)\*/g, "<em>$1</em>");
+        if (content.includes("```")) {
+          content = content.replace(/```(?:html)?/gi, "").trim();
+        }
+        const newLen = content.length;
+        await sql`UPDATE blog_posts SET content=${content}, updated_at=NOW() WHERE id=${row.id}`;
+        fixed.push({ id: row.id, slug: row.slug, issues, originalLen, newLen, delta: originalLen - newLen });
+        fixedCount++;
+      }
+    }
+    if (dryRun) {
+      return c.json({
+        mode: "dry-run (scan only)",
+        totalClinic: rows.length,
+        dirtyCount: dirty.length,
+        cleanCount: rows.length - dirty.length,
+        dirty
+      });
+    }
+    return c.json({
+      mode: "fixed",
+      totalClinic: rows.length,
+      fixedCount,
+      fixed
+    });
+  } catch (e) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+app.get("/api/admin/fix-clinic-content", async (c) => {
+  try {
+    const sql = getDb(c.env);
+    const rows = await sql`
+      SELECT id, slug, title, LENGTH(content) as clen,
+        LEFT(content, 80) as preview
+      FROM blog_posts
+      WHERE category='clinic'
+      ORDER BY created_at ASC
+    `;
+    const dirty = rows.filter((r) => {
+      const p2 = r.preview || "";
+      return p2.includes("```") || /<(!DOCTYPE|html|head)\b/i.test(p2);
+    });
+    return c.json({
+      totalClinic: rows.length,
+      dirtyCount: dirty.length,
+      note: dirty.length > 0 ? 'POST /api/admin/fix-clinic-content {"dryRun":true} \uB85C \uC0C1\uC138 \uD655\uC778, dryRun \uBE7C\uBA74 \uC2E4\uC81C \uC218\uC815' : "\uC624\uC5FC \uAE00 \uC5C6\uC74C (preview 80\uC790 \uAE30\uC900)",
+      dirty: dirty.map((r) => ({ id: r.id, slug: r.slug, preview: r.preview, clen: r.clen }))
     });
   } catch (e) {
     return c.json({ error: e.message }, 500);

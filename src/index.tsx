@@ -15779,78 +15779,79 @@ async function generateClinicBlog(
   const isHQ = ['story', 'honest'].includes(angle.id)
   const wordTarget = isHQ ? '1000-1200' : '900-1100'
 
-  const prompt = `You are a senior K-beauty travel writer for seoulbeautytrip.com. Your job: write a blog post that ranks #1 on Google AND converts readers into clinic bookings.
+  const prompt = `You are a senior K-beauty travel writer for seoulbeautytrip.com. Write a blog post that ranks #1 on Google AND converts readers into clinic bookings.
 
 KEYWORD: "${kw.query}" | TITLE: "${title}" | ANGLE: ${angle.label} | AREA: ${kw.area} | YEAR: ${year}
 
 PSYCHOLOGY: ${psychStrategy[angle.id] || psychStrategy.guide}
 SEO STRUCTURE: ${seoStructure[angle.intent] || seoStructure.informational}
 REDDIT CONTEXT: ${redditContext[angle.id] || redditContext.guide}
-LSI KEYWORDS (weave naturally, don't force): ${lsiList}
+LSI KEYWORDS (weave 3+ naturally): ${lsiList}
 
-SEO RULES (Google ranking):
-- Use "${kw.query}" in: first paragraph, at least one H2, naturally 3-4x total (density ~1%)
-- LSI keywords: use at least 3 of the above naturally in the text
-- H2 headers: write as questions Google users actually type (start with How/What/Is/Can/Why/Where)
-- First paragraph: answer the main query directly in 40-60 words (Featured Snippet target)
-- FAQ section: minimum 4 questions, written as real Google searches
-- Internal links (use these EXACT HTML anchor tags, spread naturally across the article — DO NOT clump together):
+OUTPUT FORMAT — CRITICAL:
+- Output RAW HTML only. Do NOT wrap in \`\`\`html or any code fences.
+- Do NOT output <!DOCTYPE>, <html>, <head>, <body> tags — body content only.
+- Do NOT repeat the title as an <h1> or <h2> at the start.
+- Start directly with <p>[first paragraph]</p>
+
+SEO RULES:
+- Use "${kw.query}" in first paragraph + naturally 3-4x total (density ~1%, NOT more)
+- First paragraph: EXACTLY 40-60 words answering the main query (Featured Snippet target) — keep it tight
+- H2 headers as real Google questions (How/What/Is/Can/Why/Where)
+- FAQ: minimum 4 questions as actual Google searches
+- Internal links (spread naturally, DO NOT clump):
   <a href="/best/clinic/gangnam">best skin clinics in Gangnam</a>
   <a href="/best/clinic/seoul">top-rated Seoul clinics</a>
   <a href="/best/clinic/itaewon">English-friendly clinics in Itaewon</a>
   <a href="/blog">K-beauty blog</a>
-${relatedLinksBlock ? `  Also link naturally to these related articles (use the exact href):\n${relatedLinksBlock}` : ''}
+${relatedLinksBlock ? `  Related article links (use exact hrefs):\n${relatedLinksBlock}` : ''}
 
-CONTENT RULES (Google E-E-A-T):
-- Experience: include specific KRW prices (ranges OK), realistic timeframes, recovery info
-- Expertise: mention board certifications, clinic accreditation, doctor credentials to look for
-- Authoritativeness: cite what real patients ask/worry about (from Reddit context above)
-- Trustworthiness: include 1 honest caveat or risk — Google rewards balanced content
-- NO AI tells: "In this article", "It's worth noting", "Look no further", "In conclusion", "Navigating the world of", "Dive into", "Unlock", "Game-changer", "Comprehensive guide"
-- Human voice: contractions, varied sentence length (mix short punchy + longer), 1 honest imperfection
-- Real Seoul districts: Gangnam, Apgujeong, Itaewon, Hongdae, Myeongdong (use at least 2)
-- Mention "Seoul Beauty Trip" naturally 2x as the resource for finding vetted clinics
-- Date: use "${year}" dynamically — never hardcode a specific year
-- DO NOT mention specific clinic names or shop names — link to /best/clinic/area pages instead
+CONTENT RULES (E-E-A-T):
+- Include KRW prices (ranges), realistic timeframes, recovery info
+- Mention board certifications, doctor credentials to look for
+- 1 honest caveat or risk (Google rewards balanced content)
+- NO filler phrases: "In this article", "It's worth noting", "Look no further", "In conclusion", "Navigating", "Dive into", "Unlock", "Game-changer", "Comprehensive"
+- Human voice: contractions, short punchy sentences mixed with longer ones
+- Real Seoul districts: use at least 2 of Gangnam/Apgujeong/Itaewon/Hongdae/Myeongdong
+- Mention "Seoul Beauty Trip" naturally exactly 2 times
+- DO NOT name specific clinics — link to /best/clinic/[area] pages instead
 ${isHQ ? `
-PREMIUM QUALITY (sonnet model — use its full capability):
-- Open with a scene, a specific moment, or a surprising fact — NEVER a generic intro
-- Every paragraph earns its place: if it doesn't add value or emotion, cut it
-- Include specific numbers, real KRW prices, real district names
-- Reader should feel something: curiosity, relief, "I need to book this"
-- By the last paragraph, reader naturally wants to check Seoul Beauty Trip` : ''}
+PREMIUM (sonnet — use full capability):
+- Open with a scene, moment, or surprising fact — NEVER generic
+- Every paragraph earns its place
+- Specific numbers, real KRW, real districts
+- Reader should feel something: curiosity, relief, "I need to book this"` : ''}
 
-OUTPUT: HTML only (no markdown). ${wordTarget} words. STRUCTURE:
-${angle.id === 'story' ? `<p>[scene-setting hook — drop the reader into a moment, not a summary]</p>
+LENGTH: ${wordTarget} words. STRUCTURE:
+${angle.id === 'story' ? `<p>[40-60 word scene-setting hook]</p>
 <h2>[The Decision — why you went / what you were nervous about]</h2><p>...</p>
-<h2>[The Experience — sensory details, what actually happened step by step]</h2><p>...</p>
-<h2>[The Honest Part — one thing that surprised you, good or bad]</h2><p>...</p>
+<h2>[The Experience — sensory details, step by step]</h2><p>...</p>
+<h2>[The Honest Part — one thing that surprised you]</h2><p>...</p>
 <h2>[Results & What I'd Do Differently]</h2><p>...</p>
 <h2>[How to Book the Same Thing as a Foreigner]</h2><p>...</p>
-<p>[warm closing — like texting a friend your recommendation, mention Seoul Beauty Trip naturally]</p>` : angle.id === 'honest' ? `<p>[bold opening statement — the one thing clinics won't tell you upfront]</p>
+<p>[warm closing mentioning Seoul Beauty Trip naturally]</p>` : angle.id === 'honest' ? `<p>[40-60 word bold opening — the one thing clinics won't tell you]</p>
 <h2>[What You Actually Get — vs what's advertised]</h2><p>...</p>
-<h2>[The Price Reality — full breakdown in KRW, what drives the difference]</h2><p>...</p>
-<h2>[Red Flags & Green Flags — how to spot a good vs bad clinic]</h2><p>...</p>
-<h2>[What Happens If It Goes Wrong — realistic risk + how to avoid]</h2><p>...</p>
-<h2>[My Honest Verdict — is it worth it?]</h2><p>...</p>
+<h2>[The Price Reality — KRW breakdown, what drives the difference]</h2><p>...</p>
+<h2>[Red Flags & Green Flags — how to spot good vs bad]</h2><p>...</p>
+<h2>[What Happens If It Goes Wrong — risk + how to avoid]</h2><p>...</p>
+<h2>[My Honest Verdict]</h2><p>...</p>
 <h2>Real Questions, Real Answers</h2>
-<h3>[question about price/value]</h3><p>...</p>
-<h3>[question about safety/risk]</h3><p>...</p>
-<h3>[question about booking as foreigner]</h3><p>...</p>
-<p>[closing: Seoul Beauty Trip as the shortcut to skip the research]</p>` : `<p>[strong hook — answer the query immediately]</p>
+<h3>[question: price/value]</h3><p>...</p>
+<h3>[question: safety/risk]</h3><p>...</p>
+<h3>[question: booking as foreigner]</h3><p>...</p>
+<p>[closing: Seoul Beauty Trip as the shortcut]</p>` : `<p>[40-60 word hook answering query immediately]</p>
 <h2>[main section 1]</h2><p>...</p>
 <h2>[main section 2]</h2><p>...</p>
-<h2>[practical reality — prices in KRW, time, recovery]</h2><p>...</p>
-<h2>[how foreigners actually do this — WhatsApp, language, booking]</h2><p>...</p>
+<h2>[prices in KRW, time, recovery]</h2><p>...</p>
+<h2>[how foreigners book — WhatsApp, language, steps]</h2><p>...</p>
 <h2>Frequently Asked Questions</h2>
-<h3>[real question 1]</h3><p>...</p>
-<h3>[real question 2]</h3><p>...</p>
-<h3>[real question 3]</h3><p>...</p>
-<p>[closing with natural Seoul Beauty Trip mention]</p>`}
+<h3>[question 1]</h3><p>...</p>
+<h3>[question 2]</h3><p>...</p>
+<h3>[question 3]</h3><p>...</p>
+<p>[closing with Seoul Beauty Trip mention]</p>`}
 
-After HTML output:
 ---JSON---
-{"metaDescription":"[≤155 chars, naturally include '${kw.query}' — NO filler phrases like 'Book via WhatsApp']","excerpt":"[2 punchy sentences that make someone want to read more]","tags":${JSON.stringify(kw.tags.concat([kw.query + ' Seoul', 'K-beauty ' + year, kw.area + ' clinic']))},"category":"clinic"}`
+{"metaDescription":"[≤155 chars, include '${kw.query}' naturally — NO filler]","excerpt":"[2 punchy sentences]","tags":${JSON.stringify(kw.tags.concat([kw.query + ' Seoul', 'K-beauty ' + year, kw.area + ' clinic']))},"category":"clinic"}`
 
   // ── 모델 분기 ─────────────────────────────────────────────────
   // story/honest → sonnet (감성·신뢰가 예약 전환 핵심, 퀄리티 우선)
@@ -15878,7 +15879,43 @@ After HTML output:
     let htmlContent = parts[0].trim()
     if (htmlContent.length < 400) return null
 
-    // ── ① 히어로 이미지 삽입 ──────────────────────────────────────
+    // ── ① AI 출력 클리닝 (post-processing) ───────────────────────
+    // 문제 1: AI가 HTML을 마크다운 코드블록으로 감싸는 경우
+    //   ```html\n<p>...</p>\n```  →  <p>...</p>
+    htmlContent = htmlContent
+      .replace(/^```(?:html)?\s*\n?/i, '')   // 시작 ```html 또는 ```
+      .replace(/\n?```\s*$/g, '')             // 끝 ```
+      .trim()
+
+    // 문제 2: AI가 전체 DOCTYPE/HTML/HEAD 를 출력하는 경우 → body 내용만 추출
+    if (/<(!DOCTYPE|html|head)\b/i.test(htmlContent)) {
+      const bodyMatch = htmlContent.match(/<body[^>]*>([\s\S]*?)<\/body>/i)
+      if (bodyMatch) {
+        htmlContent = bodyMatch[1].trim()
+      } else {
+        // body 태그 없으면 head/meta/style/script 제거 후 남은 것 사용
+        htmlContent = htmlContent
+          .replace(/<!DOCTYPE[^>]*>/gi, '')
+          .replace(/<html[^>]*>/gi, '').replace(/<\/html>/gi, '')
+          .replace(/<head[\s\S]*?<\/head>/gi, '')
+          .replace(/<body[^>]*>/gi, '').replace(/<\/body>/gi, '')
+          .trim()
+      }
+    }
+    if (htmlContent.length < 200) return null
+
+    // 문제 3: 제목이 본문 첫 줄에 <h1>/<h2> 형태로 반복되는 경우 제거
+    htmlContent = htmlContent
+      .replace(/^\s*<h1[^>]*>[^<]*<\/h1>\s*/i, '')
+      .replace(/^\s*<h2[^>]*>[^<]*<\/h2>\s*/i, '')
+
+    // 문제 4: 마크다운 볼드/이탤릭 잔재 제거 (HTML 태그 속 텍스트에서)
+    // **text** → <strong>text</strong>
+    htmlContent = htmlContent
+      .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*([^*\n]+)\*/g, '<em>$1</em>')
+
+    // ── ② 히어로 이미지 삽입 ──────────────────────────────────────
     // images.unsplash.com 큐레이션 풀 (source.unsplash.com deprecated)
     // slug 해시로 항상 동일한 이미지 선택 (재생성 시에도 일관성 유지)
     const imgSeed = slug.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
@@ -16091,6 +16128,156 @@ app.get('/api/admin/auto-blog-clinic/status', async (c) => {
         note: 'story/honest → sonnet-4-5 (퀄리티 우선), 나머지 → haiku-4-5 (크레딧 절약)'
       },
       recentPosts: recentRows
+    })
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+})
+
+// ── POST /api/admin/fix-clinic-content ──────────────────────────────────────
+// DB에 저장된 clinic 블로그 content의 코드펜스/DOCTYPE 잔재를 일괄 클리닝
+// ?dryRun=true → 실제 수정 없이 오염 목록만 반환
+// ?scan=true   → 오염 여부 스캔만 (dryRun 별칭)
+app.post('/api/admin/fix-clinic-content', async (c) => {
+  try {
+    const sql = getDb(c.env)
+    const body: any = await c.req.json().catch(() => ({}))
+    const dryRun = body.dryRun === true || body.scan === true || c.req.query('dryRun') === 'true'
+
+    // 전체 clinic 글 조회 (content 포함)
+    const rows = await sql`
+      SELECT id, slug, title, content, LENGTH(content) as clen
+      FROM blog_posts
+      WHERE category='clinic'
+      ORDER BY created_at ASC
+    ` as any[]
+
+    const dirty: any[] = []
+    const fixed: any[] = []
+    let fixedCount = 0
+
+    for (const row of rows) {
+      let content: string = row.content || ''
+      const originalLen = content.length
+
+      // 오염 감지
+      const hasFence   = content.includes('```')
+      const hasDoctype = /<(!DOCTYPE|html|head)\b/i.test(content)
+      const hasRepeatH1 = /^\s*<h[12][^>]*>[^<]*<\/h[12]>\s*/i.test(content)
+
+      if (!hasFence && !hasDoctype && !hasRepeatH1) continue
+
+      // 오염 상세
+      const issues: string[] = []
+      if (hasFence)    issues.push(`코드펜스(len=${content.match(/```[\s\S]*?```/g)?.join('').length || '?'})`)
+      if (hasDoctype)  issues.push('DOCTYPE/HTML잔재')
+      if (hasRepeatH1) issues.push('H1/H2반복')
+
+      dirty.push({ id: row.id, slug: row.slug, issues, originalLen })
+
+      if (!dryRun) {
+        // ── 클리닝 적용 ──────────────────────────────────
+        // 1a. 단순 앞/뒤 코드펜스 (전체가 ```html ... ``` 로 감싸진 경우)
+        content = content
+          .replace(/^```(?:html)?\s*\n?/i, '')
+          .replace(/\n?```\s*$/g, '')
+          .trim()
+
+        // 1b. 중간에 끼어있는 코드펜스 마커 제거 (본문은 보존)
+        //     패턴: <figure>...</figure>\n```html\n<p>본문</p>\n```
+        //     → 펜스 마커만 제거, HTML 본문은 살림
+        content = content
+          .replace(/\n?```(?:html)?\s*\n/gi, '\n')  // 여는 펜스 마커 제거
+          .replace(/\n```\s*(\n|$)/g, '\n')           // 닫는 펜스 마커 제거
+          .trim()
+
+        // 1c. 인라인 코드블록 내 빈 줄 정리 (이중 개행 방지)
+        content = content.replace(/\n{3,}/g, '\n\n').trim()
+
+        // 2. 전체 DOCTYPE/HTML 출력 → body 내용만 추출
+        if (/<(!DOCTYPE|html|head)\b/i.test(content)) {
+          const bodyMatch = content.match(/<body[^>]*>([\s\S]*?)<\/body>/i)
+          if (bodyMatch) {
+            content = bodyMatch[1].trim()
+          } else {
+            // body 태그 없으면 head/meta/style/script/html/doctype 태그 제거
+            content = content
+              .replace(/<!DOCTYPE[^>]*>/gi, '')
+              .replace(/<html[^>]*>/gi, '').replace(/<\/html>/gi, '')
+              .replace(/<head[\s\S]*?<\/head>/gi, '')
+              .replace(/<body[^>]*>/gi, '').replace(/<\/body>/gi, '')
+              .trim()
+          }
+        }
+
+        // 3. 첫 번째 h1/h2 제목 반복 제거 (title과 동일한 경우)
+        content = content
+          .replace(/^\s*<h1[^>]*>[^<]*<\/h1>\s*/i, '')
+          .replace(/^\s*<h2[^>]*>[^<]*<\/h2>\s*/i, '')
+
+        // 4. 마크다운 볼드/이탤릭 → HTML 변환
+        content = content
+          .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+          .replace(/\*([^*\n]+)\*/g, '<em>$1</em>')
+
+        // 5. 최종 검증: 그래도 ``` 잔재가 남으면 마커만 제거 (본문 보존)
+        if (content.includes('```')) {
+          content = content.replace(/```(?:html)?/gi, '').trim()
+        }
+
+        const newLen = content.length
+        await sql`UPDATE blog_posts SET content=${content}, updated_at=NOW() WHERE id=${row.id}`
+        fixed.push({ id: row.id, slug: row.slug, issues, originalLen, newLen, delta: originalLen - newLen })
+        fixedCount++
+      }
+    }
+
+    if (dryRun) {
+      return c.json({
+        mode: 'dry-run (scan only)',
+        totalClinic: rows.length,
+        dirtyCount: dirty.length,
+        cleanCount: rows.length - dirty.length,
+        dirty
+      })
+    }
+
+    return c.json({
+      mode: 'fixed',
+      totalClinic: rows.length,
+      fixedCount,
+      fixed
+    })
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+})
+
+// ── GET /api/admin/fix-clinic-content (스캔 전용 편의 라우트) ────────────────
+app.get('/api/admin/fix-clinic-content', async (c) => {
+  try {
+    const sql = getDb(c.env)
+
+    const rows = await sql`
+      SELECT id, slug, title, LENGTH(content) as clen,
+        LEFT(content, 80) as preview
+      FROM blog_posts
+      WHERE category='clinic'
+      ORDER BY created_at ASC
+    ` as any[]
+
+    const dirty = rows.filter((r: any) => {
+      const p = r.preview || ''
+      return p.includes('```') || /<(!DOCTYPE|html|head)\b/i.test(p)
+    })
+
+    return c.json({
+      totalClinic: rows.length,
+      dirtyCount: dirty.length,
+      note: dirty.length > 0
+        ? 'POST /api/admin/fix-clinic-content {"dryRun":true} 로 상세 확인, dryRun 빼면 실제 수정'
+        : '오염 글 없음 (preview 80자 기준)',
+      dirty: dirty.map((r: any) => ({ id: r.id, slug: r.slug, preview: r.preview, clen: r.clen }))
     })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
