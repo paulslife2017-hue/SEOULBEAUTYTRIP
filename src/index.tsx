@@ -15653,25 +15653,76 @@ const CLINIC_KEYWORDS: { query: string; area: string; tags: string[]; priority: 
 ]
 
 // ── 클리닉 블로그 히어로 이미지 선택 헬퍼 ──────────────────────────────
-// source.unsplash.com 은 서비스 종료됨 → Unsplash Collection CDN 직접 사용
-// picsum.photos 를 폴백으로 사용 (안정적, 무료, 라이선스 OK)
-function _clinicHeroImage(query: string, area: string, seed?: number): { src: string; cover: string } {
-  // Unsplash 큐레이션: 피부과/클리닉/서울 테마 사진 ID 풀
-  // 모두 Unsplash 무료 라이선스, 상업적 사용 가능
-  const UNSPLASH_IDS = [
-    'photo-1559599101-f09722fb4948', // 클리닉 인테리어 (흰 벽, 청결)
-    'photo-1588776814546-1ffedbe47add', // 스킨케어 시술
-    'photo-1622253692010-333f2da6031d', // 피부과 기기
-    'photo-1576091160399-112ba8d25d1d', // 의료진
-    'photo-1612349317150-e413f6a5b16d', // 레이저 시술
-    'photo-1570172619644-dfd03ed5d881', // 피부 클리닉
-    'photo-1487412947147-5cebf100ffc2', // 뷰티 케어
-    'photo-1540555700478-4be289fbecef', // 스파/클리닉
-    'photo-1606787366850-de6330128bfc', // 서울 뷰티
-    'photo-1523755231516-e43fd2e8dca5', // 클리닉 침대
+// keyword + angle 기반으로 관련성 높은 이미지 선택 (v2)
+// 모든 이미지: Unsplash 무료 라이선스, 상업적 사용 가능
+function _clinicHeroImage(query: string, area: string, seed?: number, angleId?: string): { src: string; cover: string } {
+  const q = query.toLowerCase()
+
+  // ── 카테고리별 이미지 풀 (5개) ──────────────────────────────────
+  // 🔪 수술/성형 — rhinoplasty, eyelid, jaw, liposuction, face contouring, plastic surgery
+  const SURGERY_POOL = [
+    'photo-1579684385127-1ef15d508118', // 수술실 청결한 조명
+    'photo-1551884831-bbf3cdc6469e', // 클리닉 상담/외과 분위기
+    'photo-1576091160399-112ba8d25d1d', // 가운 입은 의료진
+    'photo-1530026186672-2cd00ffc50fe', // 수술실 준비
+    'photo-1559757175-5700dde675bc', // 클리닉 수술 침대
   ]
-  const idx = seed !== undefined ? seed % UNSPLASH_IDS.length : Math.floor(Math.random() * UNSPLASH_IDS.length)
-  const pid = UNSPLASH_IDS[idx]
+
+  // 💉 주사 시술 — botox, filler, injection, rejuran, pdrn, prp, skin booster, fat dissolving
+  const INJECTION_POOL = [
+    'photo-1588776814546-1ffedbe47add', // 얼굴 주사 시술 클로즈업
+    'photo-1612349317150-e413f6a5b16d', // 피부 주사 처치
+    'photo-1584308666744-24d5c474f2ae', // 의료용 주사기
+    'photo-1571019613454-1cb2f99b2d8b', // 필러/보톡스 시술
+    'photo-1559757148-5c350d0d3c56', // 뷰티 인젝션 케어
+  ]
+
+  // ⚡ 레이저/에너지 기기 — laser, HIFU, Ultherapy, IPL, microneedling, pico, RF, thread lift
+  const LASER_POOL = [
+    'photo-1622253692010-333f2da6031d', // 레이저 기기 조작
+    'photo-1570172619644-dfd03ed5d881', // 피부 레이저 조사
+    'photo-1614680376739-414d95ff43df', // RF/에너지 기기 장비
+    'photo-1559818488-c6edd41c8c6c', // IPL 시술 장면
+    'photo-1612349317150-e413f6a5b16d', // 레이저 시술 클로즈업
+  ]
+
+  // 🌟 피부 케어/페이셜 — skin care, acne, glass skin, chemical peel, hydrafacial, pigmentation, rosacea
+  const SKIN_POOL = [
+    'photo-1487412947147-5cebf100ffc2', // 뷰티 스킨케어 시술
+    'photo-1540555700478-4be289fbecef', // 페이셜/스파 트리트먼트
+    'photo-1583417319070-4a69db38a482', // 얼굴 마스크/집중 케어
+    'photo-1599305445671-ac291c95aaa9', // 깨끗한 피부 결 클로즈업
+    'photo-1570172619644-dfd03ed5d881', // 피부 클리닉 케어
+  ]
+
+  // 🏥 클리닉 일반 — dermatology, booking, guide, medical tourism, foreigner, area comparison
+  const CLINIC_POOL = [
+    'photo-1559599101-f09722fb4948', // 모던 클리닉 인테리어 (흰 벽)
+    'photo-1523755231516-e43fd2e8dca5', // 클리닉 처치실
+    'photo-1576091160399-112ba8d25d1d', // 의료진 상담 장면
+    'photo-1527613426441-4da17471b66d', // 서울 클리닉 내부
+    'photo-1606787366850-de6330128bfc', // 서울 뷰티/클리닉 거리
+  ]
+
+  // ── 키워드 → 카테고리 매칭 ──────────────────────────────────────
+  let pool: string[]
+
+  if (/rhinoplasty|nose.?job|nose.?surg|double.?eyelid|blepharop|jaw.?reduc|cheekbone|liposuc|face.?contour|facelift|face.?slim|plastic.?surg|cosmetic.?surg|ghost.?surg|eyelid.?surg|eye.?surg|eye.?bag.?remov/.test(q)) {
+    pool = SURGERY_POOL
+  } else if (/botox|filler|injection|pdrn|prp|rejuran|juvederm|juvelook|exosome|fat.?dissolv|skin.?booster|kybella|forehead.?fill|hyaluronic|platelet|salmon.?dna|dermatoxin|hand.?inject|skin.?booster|booster.?inject/.test(q)) {
+    pool = INJECTION_POOL
+  } else if (/laser|hifu|ultherapy|ulthera|\bipl\b|microneedl|pico|fraxel|thread.?lift|\brf\b|lifting|toning|photo.?rejuven|vascular|medlite|pico.?laser|laser.?ton|laser.?treat|acne.?scar.*(fraxel|pico|laser)/.test(q)) {
+    pool = LASER_POOL
+  } else if (/skin.?care|acne|glass.?skin|chemical.?peel|hydrafacial|pigment|rosacea|bright|melasma|dark.?spot|skin.?renew|skin.?botox|glass.?skin|redness|pore/.test(q)) {
+    pool = SKIN_POOL
+  } else {
+    // 기본: 클리닉 일반 (dermatology, booking, guide, medical tourism, area 등)
+    pool = CLINIC_POOL
+  }
+
+  // seed로 항상 동일 이미지 (같은 글은 재생성해도 같은 이미지)
+  const idx = seed !== undefined ? seed % pool.length : Math.floor(Math.random() * pool.length)
+  const pid = pool[idx]
   // w=1200&h=630&fit=crop 으로 OG 비율에 최적화
   const src = `https://images.unsplash.com/${pid}?w=1200&h=630&fit=crop&auto=format&q=80`
   return { src, cover: src }
@@ -15958,7 +16009,7 @@ ${angle.id === 'story' ? `<p>[40-60 word scene-setting hook]</p>
     // images.unsplash.com 큐레이션 풀 (source.unsplash.com deprecated)
     // slug 해시로 항상 동일한 이미지 선택 (재생성 시에도 일관성 유지)
     const imgSeed = slug.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
-    const { src: heroSrc, cover: coverUrl } = _clinicHeroImage(kw.query, kw.area, imgSeed)
+    const { src: heroSrc, cover: coverUrl } = _clinicHeroImage(kw.query, kw.area, imgSeed, angle.id)
     const heroAlt = `${kw.query} in ${kw.area} — ${angle.label}`
 
     if (!htmlContent.includes('<img')) {

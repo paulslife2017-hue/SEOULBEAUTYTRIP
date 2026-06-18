@@ -16300,31 +16300,82 @@ var CLINIC_KEYWORDS = [
   { query: "VAT refund cosmetic treatment Seoul tourist 2025", area: "Seoul", tags: ["VAT refund Seoul clinic", "tax refund cosmetic Korea", "medical tax refund tourist Seoul"], priority: 4 },
   { query: "how to book Korean clinic via WhatsApp guide", area: "Seoul", tags: ["WhatsApp clinic booking Seoul", "how to book Korean doctor WhatsApp", "online booking Seoul clinic"], priority: 2 }
 ];
-function _clinicHeroImage(query, area, seed) {
-  const UNSPLASH_IDS = [
-    "photo-1559599101-f09722fb4948",
-    // 클리닉 인테리어 (흰 벽, 청결)
-    "photo-1588776814546-1ffedbe47add",
-    // 스킨케어 시술
-    "photo-1622253692010-333f2da6031d",
-    // 피부과 기기
+function _clinicHeroImage(query, area, seed, angleId) {
+  const q = query.toLowerCase();
+  const SURGERY_POOL = [
+    "photo-1579684385127-1ef15d508118",
+    // 수술실 청결한 조명
+    "photo-1551884831-bbf3cdc6469e",
+    // 클리닉 상담/외과 분위기
     "photo-1576091160399-112ba8d25d1d",
-    // 의료진
-    "photo-1612349317150-e413f6a5b16d",
-    // 레이저 시술
-    "photo-1570172619644-dfd03ed5d881",
-    // 피부 클리닉
-    "photo-1487412947147-5cebf100ffc2",
-    // 뷰티 케어
-    "photo-1540555700478-4be289fbecef",
-    // 스파/클리닉
-    "photo-1606787366850-de6330128bfc",
-    // 서울 뷰티
-    "photo-1523755231516-e43fd2e8dca5"
-    // 클리닉 침대
+    // 가운 입은 의료진
+    "photo-1530026186672-2cd00ffc50fe",
+    // 수술실 준비
+    "photo-1559757175-5700dde675bc"
+    // 클리닉 수술 침대
   ];
-  const idx = seed !== void 0 ? seed % UNSPLASH_IDS.length : Math.floor(Math.random() * UNSPLASH_IDS.length);
-  const pid = UNSPLASH_IDS[idx];
+  const INJECTION_POOL = [
+    "photo-1588776814546-1ffedbe47add",
+    // 얼굴 주사 시술 클로즈업
+    "photo-1612349317150-e413f6a5b16d",
+    // 피부 주사 처치
+    "photo-1584308666744-24d5c474f2ae",
+    // 의료용 주사기
+    "photo-1571019613454-1cb2f99b2d8b",
+    // 필러/보톡스 시술
+    "photo-1559757148-5c350d0d3c56"
+    // 뷰티 인젝션 케어
+  ];
+  const LASER_POOL = [
+    "photo-1622253692010-333f2da6031d",
+    // 레이저 기기 조작
+    "photo-1570172619644-dfd03ed5d881",
+    // 피부 레이저 조사
+    "photo-1614680376739-414d95ff43df",
+    // RF/에너지 기기 장비
+    "photo-1559818488-c6edd41c8c6c",
+    // IPL 시술 장면
+    "photo-1612349317150-e413f6a5b16d"
+    // 레이저 시술 클로즈업
+  ];
+  const SKIN_POOL = [
+    "photo-1487412947147-5cebf100ffc2",
+    // 뷰티 스킨케어 시술
+    "photo-1540555700478-4be289fbecef",
+    // 페이셜/스파 트리트먼트
+    "photo-1583417319070-4a69db38a482",
+    // 얼굴 마스크/집중 케어
+    "photo-1599305445671-ac291c95aaa9",
+    // 깨끗한 피부 결 클로즈업
+    "photo-1570172619644-dfd03ed5d881"
+    // 피부 클리닉 케어
+  ];
+  const CLINIC_POOL = [
+    "photo-1559599101-f09722fb4948",
+    // 모던 클리닉 인테리어 (흰 벽)
+    "photo-1523755231516-e43fd2e8dca5",
+    // 클리닉 처치실
+    "photo-1576091160399-112ba8d25d1d",
+    // 의료진 상담 장면
+    "photo-1527613426441-4da17471b66d",
+    // 서울 클리닉 내부
+    "photo-1606787366850-de6330128bfc"
+    // 서울 뷰티/클리닉 거리
+  ];
+  let pool;
+  if (/rhinoplasty|nose.?job|nose.?surg|double.?eyelid|blepharop|jaw.?reduc|cheekbone|liposuc|face.?contour|facelift|face.?slim|plastic.?surg|cosmetic.?surg|ghost.?surg|eyelid.?surg|eye.?surg|eye.?bag.?remov/.test(q)) {
+    pool = SURGERY_POOL;
+  } else if (/botox|filler|injection|pdrn|prp|rejuran|juvederm|juvelook|exosome|fat.?dissolv|skin.?booster|kybella|forehead.?fill|hyaluronic|platelet|salmon.?dna|dermatoxin|hand.?inject|skin.?booster|booster.?inject/.test(q)) {
+    pool = INJECTION_POOL;
+  } else if (/laser|hifu|ultherapy|ulthera|\bipl\b|microneedl|pico|fraxel|thread.?lift|\brf\b|lifting|toning|photo.?rejuven|vascular|medlite|pico.?laser|laser.?ton|laser.?treat|acne.?scar.*(fraxel|pico|laser)/.test(q)) {
+    pool = LASER_POOL;
+  } else if (/skin.?care|acne|glass.?skin|chemical.?peel|hydrafacial|pigment|rosacea|bright|melasma|dark.?spot|skin.?renew|skin.?botox|glass.?skin|redness|pore/.test(q)) {
+    pool = SKIN_POOL;
+  } else {
+    pool = CLINIC_POOL;
+  }
+  const idx = seed !== void 0 ? seed % pool.length : Math.floor(Math.random() * pool.length);
+  const pid = pool[idx];
   const src = `https://images.unsplash.com/${pid}?w=1200&h=630&fit=crop&auto=format&q=80`;
   return { src, cover: src };
 }
@@ -16534,7 +16585,7 @@ ${angle.id === "story" ? `<p>[40-60 word scene-setting hook]</p>
     htmlContent = htmlContent.replace(/^\s*<h1[^>]*>[^<]*<\/h1>\s*/i, "").replace(/^\s*<h2[^>]*>[^<]*<\/h2>\s*/i, "");
     htmlContent = htmlContent.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>").replace(/\*([^*\n]+)\*/g, "<em>$1</em>");
     const imgSeed = slug.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
-    const { src: heroSrc, cover: coverUrl } = _clinicHeroImage(kw.query, kw.area, imgSeed);
+    const { src: heroSrc, cover: coverUrl } = _clinicHeroImage(kw.query, kw.area, imgSeed, angle.id);
     const heroAlt = `${kw.query} in ${kw.area} \u2014 ${angle.label}`;
     if (!htmlContent.includes("<img")) {
       const heroImgHtml = `<figure style="margin:0 0 28px;border-radius:12px;overflow:hidden">
