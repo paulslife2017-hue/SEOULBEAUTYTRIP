@@ -15381,6 +15381,170 @@ app.get('/api/admin/debug-blog-photos', async (c) => {
   }
 })
 
+// ══════════════════════════════════════════════════════════
+// POST /api/admin/auto-blog-clinic
+// 클리닉 전용 키워드 기반 블로그 자동 생성
+// body: { count?:3, dryRun?:false, category?:'clinic' }
+// ══════════════════════════════════════════════════════════
+
+// 클리닉 전용 키워드 풀 (피부과 + 성형 + 시술)
+const CLINIC_KEYWORDS: { query: string; area: string; tags: string[] }[] = [
+  // 피부과 일반
+  { query: 'skin clinic Seoul for foreigners', area: 'Seoul', tags: ['skin clinic Seoul', 'foreigner friendly clinic'] },
+  { query: 'best dermatology clinic Seoul tourists', area: 'Seoul', tags: ['dermatology Seoul', 'skin treatment Seoul'] },
+  { query: 'Korean skin care clinic English speaking', area: 'Seoul', tags: ['English clinic Seoul', 'Korean skin care'] },
+  { query: 'laser treatment Seoul price guide', area: 'Seoul', tags: ['laser Seoul', 'skin laser treatment'] },
+  { query: 'botox Seoul cost for foreigners', area: 'Seoul', tags: ['botox Seoul', 'anti aging Seoul'] },
+  { query: 'filler injection Seoul guide tourist', area: 'Seoul', tags: ['filler Seoul', 'facial filler Korea'] },
+  { query: 'acne treatment clinic Seoul', area: 'Seoul', tags: ['acne clinic Seoul', 'Korean acne treatment'] },
+  { query: 'skin brightening treatment Seoul clinic', area: 'Seoul', tags: ['whitening Seoul', 'glass skin Seoul'] },
+  { query: 'Korean glass skin treatment Seoul clinic', area: 'Seoul', tags: ['glass skin', 'Korean glow Seoul'] },
+  { query: 'IPL treatment Seoul foreigners', area: 'Seoul', tags: ['IPL Seoul', 'photo rejuvenation Seoul'] },
+  { query: 'Gangnam skin clinic foreigners guide', area: 'Gangnam', tags: ['Gangnam clinic', 'Gangnam beauty'] },
+  { query: 'Apgujeong dermatology clinic English', area: 'Apgujeong', tags: ['Apgujeong clinic', 'luxury skin care Seoul'] },
+  { query: 'Hongdae skin clinic Seoul tourist', area: 'Hongdae', tags: ['Hongdae clinic', 'affordable skin Seoul'] },
+  { query: 'Myeongdong beauty clinic tourist guide', area: 'Myeongdong', tags: ['Myeongdong clinic', 'tourist beauty Seoul'] },
+  { query: 'Itaewon clinic English speaking Seoul', area: 'Itaewon', tags: ['Itaewon clinic', 'English doctor Seoul'] },
+  // 리프팅/안티에이징
+  { query: 'HIFU lifting treatment Seoul price', area: 'Seoul', tags: ['HIFU Seoul', 'skin lifting Seoul'] },
+  { query: 'thread lift Seoul clinic guide', area: 'Seoul', tags: ['thread lift Seoul', 'non surgical lift'] },
+  { query: 'Ultherapy Seoul cost foreigners', area: 'Seoul', tags: ['Ultherapy Seoul', 'ultrasound lift Korea'] },
+  { query: 'skin booster injection Seoul clinic', area: 'Seoul', tags: ['skin booster Seoul', 'hydration injection Korea'] },
+  { query: 'anti aging treatment Seoul guide 2025', area: 'Seoul', tags: ['anti aging Seoul', 'Korean rejuvenation'] },
+  // 성형
+  { query: 'rhinoplasty Seoul cost guide foreigners', area: 'Seoul', tags: ['rhinoplasty Seoul', 'nose job Korea'] },
+  { query: 'double eyelid surgery Seoul price tourist', area: 'Seoul', tags: ['eyelid surgery Seoul', 'Korean eye surgery'] },
+  { query: 'jaw reduction surgery Seoul guide', area: 'Seoul', tags: ['jaw reduction Seoul', 'V-line surgery Korea'] },
+  { query: 'Korean plastic surgery guide for tourists', area: 'Seoul', tags: ['plastic surgery Seoul', 'medical tourism Korea'] },
+  { query: 'face contouring surgery Seoul foreigners', area: 'Seoul', tags: ['face contouring Seoul', 'Korean plastic surgery'] },
+  { query: 'cheekbone reduction Seoul plastic surgery', area: 'Seoul', tags: ['zygoma reduction Seoul', 'cheekbone surgery Korea'] },
+  { query: 'liposuction Seoul clinic price guide', area: 'Seoul', tags: ['liposuction Seoul', 'body contouring Korea'] },
+  { query: 'fat dissolving injection Seoul', area: 'Seoul', tags: ['fat dissolving Seoul', 'slimming injection Korea'] },
+  { query: 'eye bag removal Seoul clinic', area: 'Seoul', tags: ['eye bag removal Seoul', 'under eye treatment Korea'] },
+  { query: 'forehead filler Seoul aesthetic clinic', area: 'Seoul', tags: ['forehead filler Seoul', 'facial enhancement Seoul'] },
+  // 시술/스킨케어
+  { query: 'microneedling Seoul clinic price guide', area: 'Seoul', tags: ['microneedling Seoul', 'collagen induction Korea'] },
+  { query: 'chemical peel Seoul skin clinic', area: 'Seoul', tags: ['chemical peel Seoul', 'exfoliation treatment Korea'] },
+  { query: 'hydrafacial Seoul price foreigners', area: 'Seoul', tags: ['hydrafacial Seoul', 'deep cleansing Seoul'] },
+  { query: 'exosome treatment Seoul clinic 2025', area: 'Seoul', tags: ['exosome Seoul', 'stem cell treatment Korea'] },
+  { query: 'PDRN salmon DNA injection Seoul', area: 'Seoul', tags: ['PDRN Seoul', 'skin rejuvenation injection'] },
+  { query: 'Juvederm filler Seoul aesthetic clinic', area: 'Seoul', tags: ['Juvederm Seoul', 'hyaluronic acid filler Korea'] },
+  { query: 'PRP treatment Seoul skin clinic', area: 'Seoul', tags: ['PRP Seoul', 'platelet rich plasma Korea'] },
+  { query: 'laser toning Seoul price guide tourist', area: 'Seoul', tags: ['laser toning Seoul', 'pigmentation treatment Korea'] },
+  { query: 'pigmentation removal treatment Seoul', area: 'Seoul', tags: ['pigmentation Seoul', 'melasma treatment Korea'] },
+  { query: 'rosacea treatment clinic Seoul', area: 'Seoul', tags: ['rosacea Seoul', 'redness treatment Korea'] },
+  // 가이드/팁
+  { query: 'how to book skin clinic Seoul foreigner', area: 'Seoul', tags: ['booking clinic Seoul', 'Korea beauty booking'] },
+  { query: 'what to expect Korean dermatology clinic', area: 'Seoul', tags: ['Korean clinic guide', 'dermatology experience Korea'] },
+  { query: 'Seoul beauty medical tourism guide 2025', area: 'Seoul', tags: ['medical tourism Seoul', 'beauty Seoul guide'] },
+  { query: 'Korean clinic consultation tips foreigners', area: 'Seoul', tags: ['clinic consultation Seoul', 'foreigner tips Korea'] },
+  { query: 'Seoul skin clinic WhatsApp booking guide', area: 'Seoul', tags: ['WhatsApp clinic Seoul', 'easy booking Korea'] },
+]
+
+app.post('/api/admin/auto-blog-clinic', async (c) => {
+  try {
+    const sql = getDb(c.env)
+    const apiKey = c.env?.GSK_TOKEN || (c.env as any)?.gsk_token || ''
+    if (!apiKey) return c.json({ error: 'GSK_TOKEN not configured' }, 500)
+
+    const body: any = await c.req.json().catch(() => ({}))
+    const count  = Math.min(Number(body.count ?? 3), 10)
+    const dryRun = body.dryRun === true
+
+    // 이미 발행된 슬러그 목록
+    const existingRows = await sql`SELECT slug FROM blog_posts WHERE status='published'`.catch(() => []) as any[]
+    const existingSet = new Set(existingRows.map((r: any) => r.slug))
+
+    // 최근 30일 생성된 타이틀 (중복 방지)
+    const recentRows = await sql`
+      SELECT title FROM blog_posts
+      WHERE created_at >= NOW() - INTERVAL '30 days'
+    `.catch(() => []) as any[]
+    const recentTitles = new Set(recentRows.map((r: any) => (r.title || '').toLowerCase()))
+
+    // 키워드 후보 필터링 (슬러그 중복 + 최근 30일 중복 제외)
+    const candidates = CLINIC_KEYWORDS.filter(kw => {
+      const slug = makeBlogSlug(kw.query + ' seoul guide')
+      if (existingSet.has(slug)) return false
+      if (recentTitles.has(kw.query.toLowerCase())) return false
+      return true
+    })
+
+    // 랜덤하게 섞어서 count개 선택
+    const shuffled = candidates.sort(() => Math.random() - 0.5).slice(0, count)
+
+    if (dryRun) {
+      return c.json({
+        dryRun: true,
+        total: CLINIC_KEYWORDS.length,
+        available: candidates.length,
+        selected: shuffled.map(k => ({
+          query: k.query,
+          area: k.area,
+          slug: makeBlogSlug(k.query + ' seoul guide')
+        }))
+      })
+    }
+
+    if (shuffled.length === 0) {
+      return c.json({ message: 'No new clinic keywords available', created: 0, results: [] })
+    }
+
+    const results: any[] = []
+
+    for (const kw of shuffled) {
+      try {
+        const result = await generateAndSaveBlog(
+          { query: kw.query, category: 'clinic', area: kw.area, relatedQueries: kw.tags },
+          sql, apiKey
+        )
+        if (result) {
+          results.push({ status: 'created', query: kw.query, slug: result.slug, title: result.title })
+        } else {
+          results.push({ status: 'skipped_duplicate', query: kw.query })
+        }
+      } catch (e: any) {
+        results.push({ status: 'error:' + e.message, query: kw.query })
+      }
+    }
+
+    const created = results.filter(r => r.status === 'created').length
+    return c.json({ created, total: shuffled.length, results })
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+})
+
+// GET /api/admin/auto-blog-clinic/status
+// 자동화 현황 조회 (최근 생성 목록 + 통계)
+app.get('/api/admin/auto-blog-clinic/status', async (c) => {
+  try {
+    const sql = getDb(c.env)
+
+    const [totalRows, recentRows, todayRows] = await Promise.all([
+      sql`SELECT COUNT(*) as cnt FROM blog_posts WHERE category='clinic' AND status='published'`.catch(() => [{ cnt: 0 }]),
+      sql`SELECT id, slug, title, created_at FROM blog_posts WHERE category='clinic' AND status='published' ORDER BY created_at DESC LIMIT 10`.catch(() => []),
+      sql`SELECT COUNT(*) as cnt FROM blog_posts WHERE category='clinic' AND status='published' AND created_at::date = CURRENT_DATE`.catch(() => [{ cnt: 0 }]),
+    ]) as any[]
+
+    const weekRows = await sql`
+      SELECT COUNT(*) as cnt FROM blog_posts
+      WHERE category='clinic' AND status='published'
+      AND created_at >= NOW() - INTERVAL '7 days'
+    `.catch(() => [{ cnt: 0 }]) as any[]
+
+    return c.json({
+      total: Number(totalRows[0]?.cnt || 0),
+      today: Number(todayRows[0]?.cnt || 0),
+      thisWeek: Number(weekRows[0]?.cnt || 0),
+      availableKeywords: CLINIC_KEYWORDS.length,
+      recentPosts: recentRows
+    })
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+})
+
 app.get('/api/admin/gsc-query-preview', async (c) => {
   try {
     const saKey = (c.env as any)?.GA4_SERVICE_ACCOUNT_KEY || GA4_SA_KEY_DEFAULT
@@ -21965,6 +22129,62 @@ https://seoulbeautytrip.com/video/v178051515735</textarea>
     <div id="gsc-coverage-result" style="display:none;margin-top:12px"></div>
   </div>
 
+  <!-- ══ CLINIC 자동 블로그 생성 ══ -->
+  <div class="card" style="margin-bottom:16px;border-color:rgba(99,102,241,.35);background:rgba(99,102,241,.06)" id="clinic-auto-card">
+    <div class="card-header">
+      <div class="card-title"><i class="fas fa-hospital" style="color:#818cf8"></i> 클리닉 블로그 자동생성 <span id="clinic-auto-badge" style="font-size:10px;padding:2px 8px;border-radius:20px;background:rgba(99,102,241,.2);color:#a5b4fc;margin-left:6px">피부과 · 성형 · 시술</span></div>
+      <button onclick="clinicAutoPreview()" style="padding:6px 12px;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);border-radius:8px;color:#a5b4fc;font-size:12px;cursor:pointer"><i class="fas fa-eye"></i> 미리보기</button>
+    </div>
+
+    <!-- 현황 통계 -->
+    <div id="clinic-stats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;padding:10px 12px;background:rgba(99,102,241,.08);border-radius:10px">
+      <div style="text-align:center;flex:1;min-width:60px">
+        <div id="cs-total" style="font-size:22px;font-weight:700;color:#818cf8">-</div>
+        <div style="font-size:10px;color:rgba(255,255,255,.4)">전체 클리닉 블로그</div>
+      </div>
+      <div style="text-align:center;flex:1;min-width:60px">
+        <div id="cs-today" style="font-size:22px;font-weight:700;color:#34d399">-</div>
+        <div style="font-size:10px;color:rgba(255,255,255,.4)">오늘 생성</div>
+      </div>
+      <div style="text-align:center;flex:1;min-width:60px">
+        <div id="cs-week" style="font-size:22px;font-weight:700;color:#fbbf24">-</div>
+        <div style="font-size:10px;color:rgba(255,255,255,.4)">이번 주</div>
+      </div>
+      <div style="text-align:center;flex:1;min-width:60px">
+        <div id="cs-kw" style="font-size:22px;font-weight:700;color:#f472b6">-</div>
+        <div style="font-size:10px;color:rgba(255,255,255,.4)">남은 키워드</div>
+      </div>
+    </div>
+
+    <p style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:14px">
+      피부과 · 성형 · 시술 관련 <strong style="color:#a5b4fc">45개+ 전문 키워드</strong>로 SEO 최적화 블로그를 자동 생성합니다.<br>
+      중복 방지(30일) · 슬러그 체크 · 자동 published 처리까지 완전 자동화.
+    </p>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      <div style="flex:1;min-width:80px">
+        <label style="font-size:11px;color:rgba(255,255,255,.4);display:block;margin-bottom:4px">생성 개수</label>
+        <select id="clinic-count" style="width:100%;padding:8px 10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;font-size:13px">
+          <option value="1">1개</option>
+          <option value="3" selected>3개 (권장)</option>
+          <option value="5">5개</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px">
+      <button onclick="clinicAutoRun(true)" style="flex:1;padding:11px;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.35);border-radius:10px;color:#a5b4fc;font-weight:700;font-size:13px;cursor:pointer">
+        <i class="fas fa-search"></i> 드라이런 (미리보기)
+      </button>
+      <button onclick="clinicAutoRun(false)" id="clinic-gen-btn" style="flex:2;padding:11px;background:linear-gradient(135deg,#4f46e5,#4338ca);border:none;border-radius:10px;color:#fff;font-weight:700;font-size:14px;cursor:pointer">
+        <i class="fas fa-robot"></i> 클리닉 블로그 자동생성
+      </button>
+    </div>
+
+    <div id="clinic-gen-result" style="display:none;margin-top:12px;padding:12px;border-radius:10px;font-size:13px"></div>
+    <div id="clinic-recent-posts" style="display:none;margin-top:12px"></div>
+  </div>
+
   <!-- GSC 실검색어 기반 롱테일 블로그 자동 생성 -->
   <div class="card" style="margin-bottom:16px;border-color:rgba(52,211,153,.25);background:rgba(52,211,153,.04)">
     <div class="card-header">
@@ -23510,6 +23730,145 @@ window.gscCheckCoverage = async function gscCheckCoverage() {
     resultEl.innerHTML = '<div style="color:#f87171;padding:10px">네트워크 오류: ' + e.message + '</div>';
   }
 };
+
+// ══ 클리닉 자동 블로그 생성 함수 ══
+window.clinicAutoLoadStats = async function clinicAutoLoadStats() {
+  try {
+    var r = await fetch('/api/admin/auto-blog-clinic/status', {
+      headers: { 'Authorization': 'Bearer ' + _GSK_TOKEN }
+    });
+    var d = await r.json();
+    if (d.error) return;
+    document.getElementById('cs-total').textContent = d.total || '0';
+    document.getElementById('cs-today').textContent = d.today || '0';
+    document.getElementById('cs-week').textContent = d.thisWeek || '0';
+    document.getElementById('cs-kw').textContent = (d.availableKeywords || 0) - (d.total || 0) > 0
+      ? (d.availableKeywords || 0) - (d.total || 0) : '0+';
+
+    // 최근 글 목록
+    if (d.recentPosts && d.recentPosts.length > 0) {
+      var recentEl = document.getElementById('clinic-recent-posts');
+      recentEl.style.display = 'block';
+      var html = '<div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:6px">📋 최근 생성된 클리닉 블로그</div>';
+      d.recentPosts.slice(0, 5).forEach(function(p) {
+        var date = p.created_at ? p.created_at.slice(0, 10) : '';
+        html += '<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06);display:flex;justify-content:space-between;align-items:center">'
+          + '<a href="/blog/' + p.slug + '" target="_blank" style="color:#c7d2fe;font-size:12px;text-decoration:none;flex:1">' + p.title + '</a>'
+          + '<span style="font-size:10px;color:rgba(255,255,255,.3);margin-left:8px;white-space:nowrap">' + date + '</span>'
+          + '</div>';
+      });
+      recentEl.innerHTML = html;
+    }
+  } catch(e) {}
+};
+
+window.clinicAutoPreview = async function clinicAutoPreview() {
+  var resultEl = document.getElementById('clinic-gen-result');
+  var count = parseInt(document.getElementById('clinic-count').value) || 3;
+  resultEl.style.display = 'block';
+  resultEl.style.background = 'rgba(99,102,241,.08)';
+  resultEl.style.border = '1px solid rgba(99,102,241,.2)';
+  resultEl.style.color = '#a5b4fc';
+  resultEl.innerHTML = '⏳ 생성 가능한 키워드 확인 중...';
+  try {
+    var r = await fetch('/api/admin/auto-blog-clinic', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _GSK_TOKEN },
+      body: JSON.stringify({ count: count, dryRun: true })
+    });
+    var d = await r.json();
+    if (d.error) { resultEl.innerHTML = '❌ ' + d.error; return; }
+    var html = '🔍 미리보기: 총 ' + d.total + '개 키워드 중 사용 가능 ' + d.available + '개<br><br>';
+    html += '<div style="font-size:12px">';
+    (d.selected || []).forEach(function(s, i) {
+      html += '<div style="padding:5px 0;border-bottom:1px solid rgba(255,255,255,.06)">'
+        + '<span style="color:#c7d2fe">' + (i+1) + '. ' + s.query + '</span>'
+        + '<span style="color:rgba(255,255,255,.3);font-size:10px;margin-left:8px">→ /blog/' + s.slug + '</span>'
+        + '</div>';
+    });
+    html += '</div>';
+    resultEl.innerHTML = html;
+  } catch(e) { resultEl.innerHTML = '❌ ' + e.message; }
+};
+
+window.clinicAutoRun = async function clinicAutoRun(dryRun) {
+  var resultEl = document.getElementById('clinic-gen-result');
+  var genBtn = document.getElementById('clinic-gen-btn');
+  var count = parseInt(document.getElementById('clinic-count').value) || 3;
+
+  if (!dryRun && !confirm('클리닉 블로그 ' + count + '개를 자동 생성합니다.\\n약 ' + (count * 20) + '초 소요됩니다. 계속하시겠습니까?')) return;
+
+  resultEl.style.display = 'block';
+  resultEl.style.background = 'rgba(251,191,36,.08)';
+  resultEl.style.border = '1px solid rgba(251,191,36,.2)';
+  resultEl.style.color = '#fde68a';
+  resultEl.innerHTML = dryRun
+    ? '⏳ 드라이런 중...'
+    : '⏳ 클리닉 블로그 생성 중... 탭을 닫지 마세요. (약 ' + (count * 20) + '초)';
+
+  if (!dryRun && genBtn) { genBtn.disabled = true; genBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 생성 중...'; }
+
+  try {
+    var r = await fetch('/api/admin/auto-blog-clinic', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _GSK_TOKEN },
+      body: JSON.stringify({ count: count, dryRun: dryRun })
+    });
+    var d = await r.json();
+
+    if (d.error) {
+      resultEl.style.background = 'rgba(239,68,68,.1)';
+      resultEl.style.border = '1px solid rgba(239,68,68,.3)';
+      resultEl.style.color = '#fca5a5';
+      resultEl.innerHTML = '❌ ' + d.error;
+      return;
+    }
+
+    if (dryRun) {
+      resultEl.style.background = 'rgba(99,102,241,.08)';
+      resultEl.style.color = '#a5b4fc';
+      var html = '🔍 드라이런: 총 ' + d.total + '개 키워드 중 사용 가능 ' + d.available + '개<br><br>';
+      (d.selected || []).forEach(function(s, i) {
+        html += '<div style="font-size:12px;padding:4px 0;color:#c7d2fe">' + (i+1) + '. ' + s.query + ' <span style="color:rgba(255,255,255,.3);font-size:10px">→ /blog/' + s.slug + '</span></div>';
+      });
+      resultEl.innerHTML = html;
+      return;
+    }
+
+    var created = (d.results || []).filter(function(x) { return x.status === 'created'; }).length;
+    var failed  = (d.results || []).filter(function(x) { return x.status.startsWith('error'); }).length;
+
+    resultEl.style.background = created > 0 ? 'rgba(16,185,129,.1)' : 'rgba(239,68,68,.1)';
+    resultEl.style.border = created > 0 ? '1px solid rgba(16,185,129,.3)' : '1px solid rgba(239,68,68,.3)';
+    resultEl.style.color = created > 0 ? '#6ee7b7' : '#fca5a5';
+
+    var html = (created > 0 ? '✅ ' : '⚠️ ') + '생성 완료: ' + created + '개 성공 / ' + failed + '개 실패<br><br>';
+    (d.results || []).forEach(function(res) {
+      var ok = res.status === 'created';
+      html += '<div style="font-size:12px;padding:3px 0;color:' + (ok ? '#6ee7b7' : '#fca5a5') + '">'
+        + (ok ? '✅' : '❌') + ' ' + res.query
+        + (ok ? ' <a href="/blog/' + res.slug + '" target="_blank" style="color:#a5b4fc;font-size:10px">→ 보기</a>' : ' (' + res.status + ')')
+        + '</div>';
+    });
+    resultEl.innerHTML = html;
+
+    // 통계 새로고침
+    if (created > 0) setTimeout(clinicAutoLoadStats, 1000);
+  } catch(e) {
+    resultEl.style.background = 'rgba(239,68,68,.1)';
+    resultEl.style.color = '#fca5a5';
+    resultEl.innerHTML = '❌ ' + e.message;
+  } finally {
+    if (!dryRun && genBtn) { genBtn.disabled = false; genBtn.innerHTML = '<i class="fas fa-robot"></i> 클리닉 블로그 자동생성'; }
+  }
+};
+
+// 어드민 페이지 로드 시 통계 자동 로딩
+(function() {
+  if (document.getElementById('clinic-auto-card')) {
+    clinicAutoLoadStats();
+  }
+})();
 
 window.gscQueryPreview = async function gscQueryPreview() {
   var previewEl = document.getElementById('gsc-preview-table');

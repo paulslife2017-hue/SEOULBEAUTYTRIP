@@ -16068,6 +16068,142 @@ app.get("/api/admin/debug-blog-photos", async (c) => {
     return c.json({ error: e.message, stack: e.stack?.slice(0, 300) }, 500);
   }
 });
+var CLINIC_KEYWORDS = [
+  // 피부과 일반
+  { query: "skin clinic Seoul for foreigners", area: "Seoul", tags: ["skin clinic Seoul", "foreigner friendly clinic"] },
+  { query: "best dermatology clinic Seoul tourists", area: "Seoul", tags: ["dermatology Seoul", "skin treatment Seoul"] },
+  { query: "Korean skin care clinic English speaking", area: "Seoul", tags: ["English clinic Seoul", "Korean skin care"] },
+  { query: "laser treatment Seoul price guide", area: "Seoul", tags: ["laser Seoul", "skin laser treatment"] },
+  { query: "botox Seoul cost for foreigners", area: "Seoul", tags: ["botox Seoul", "anti aging Seoul"] },
+  { query: "filler injection Seoul guide tourist", area: "Seoul", tags: ["filler Seoul", "facial filler Korea"] },
+  { query: "acne treatment clinic Seoul", area: "Seoul", tags: ["acne clinic Seoul", "Korean acne treatment"] },
+  { query: "skin brightening treatment Seoul clinic", area: "Seoul", tags: ["whitening Seoul", "glass skin Seoul"] },
+  { query: "Korean glass skin treatment Seoul clinic", area: "Seoul", tags: ["glass skin", "Korean glow Seoul"] },
+  { query: "IPL treatment Seoul foreigners", area: "Seoul", tags: ["IPL Seoul", "photo rejuvenation Seoul"] },
+  { query: "Gangnam skin clinic foreigners guide", area: "Gangnam", tags: ["Gangnam clinic", "Gangnam beauty"] },
+  { query: "Apgujeong dermatology clinic English", area: "Apgujeong", tags: ["Apgujeong clinic", "luxury skin care Seoul"] },
+  { query: "Hongdae skin clinic Seoul tourist", area: "Hongdae", tags: ["Hongdae clinic", "affordable skin Seoul"] },
+  { query: "Myeongdong beauty clinic tourist guide", area: "Myeongdong", tags: ["Myeongdong clinic", "tourist beauty Seoul"] },
+  { query: "Itaewon clinic English speaking Seoul", area: "Itaewon", tags: ["Itaewon clinic", "English doctor Seoul"] },
+  // 리프팅/안티에이징
+  { query: "HIFU lifting treatment Seoul price", area: "Seoul", tags: ["HIFU Seoul", "skin lifting Seoul"] },
+  { query: "thread lift Seoul clinic guide", area: "Seoul", tags: ["thread lift Seoul", "non surgical lift"] },
+  { query: "Ultherapy Seoul cost foreigners", area: "Seoul", tags: ["Ultherapy Seoul", "ultrasound lift Korea"] },
+  { query: "skin booster injection Seoul clinic", area: "Seoul", tags: ["skin booster Seoul", "hydration injection Korea"] },
+  { query: "anti aging treatment Seoul guide 2025", area: "Seoul", tags: ["anti aging Seoul", "Korean rejuvenation"] },
+  // 성형
+  { query: "rhinoplasty Seoul cost guide foreigners", area: "Seoul", tags: ["rhinoplasty Seoul", "nose job Korea"] },
+  { query: "double eyelid surgery Seoul price tourist", area: "Seoul", tags: ["eyelid surgery Seoul", "Korean eye surgery"] },
+  { query: "jaw reduction surgery Seoul guide", area: "Seoul", tags: ["jaw reduction Seoul", "V-line surgery Korea"] },
+  { query: "Korean plastic surgery guide for tourists", area: "Seoul", tags: ["plastic surgery Seoul", "medical tourism Korea"] },
+  { query: "face contouring surgery Seoul foreigners", area: "Seoul", tags: ["face contouring Seoul", "Korean plastic surgery"] },
+  { query: "cheekbone reduction Seoul plastic surgery", area: "Seoul", tags: ["zygoma reduction Seoul", "cheekbone surgery Korea"] },
+  { query: "liposuction Seoul clinic price guide", area: "Seoul", tags: ["liposuction Seoul", "body contouring Korea"] },
+  { query: "fat dissolving injection Seoul", area: "Seoul", tags: ["fat dissolving Seoul", "slimming injection Korea"] },
+  { query: "eye bag removal Seoul clinic", area: "Seoul", tags: ["eye bag removal Seoul", "under eye treatment Korea"] },
+  { query: "forehead filler Seoul aesthetic clinic", area: "Seoul", tags: ["forehead filler Seoul", "facial enhancement Seoul"] },
+  // 시술/스킨케어
+  { query: "microneedling Seoul clinic price guide", area: "Seoul", tags: ["microneedling Seoul", "collagen induction Korea"] },
+  { query: "chemical peel Seoul skin clinic", area: "Seoul", tags: ["chemical peel Seoul", "exfoliation treatment Korea"] },
+  { query: "hydrafacial Seoul price foreigners", area: "Seoul", tags: ["hydrafacial Seoul", "deep cleansing Seoul"] },
+  { query: "exosome treatment Seoul clinic 2025", area: "Seoul", tags: ["exosome Seoul", "stem cell treatment Korea"] },
+  { query: "PDRN salmon DNA injection Seoul", area: "Seoul", tags: ["PDRN Seoul", "skin rejuvenation injection"] },
+  { query: "Juvederm filler Seoul aesthetic clinic", area: "Seoul", tags: ["Juvederm Seoul", "hyaluronic acid filler Korea"] },
+  { query: "PRP treatment Seoul skin clinic", area: "Seoul", tags: ["PRP Seoul", "platelet rich plasma Korea"] },
+  { query: "laser toning Seoul price guide tourist", area: "Seoul", tags: ["laser toning Seoul", "pigmentation treatment Korea"] },
+  { query: "pigmentation removal treatment Seoul", area: "Seoul", tags: ["pigmentation Seoul", "melasma treatment Korea"] },
+  { query: "rosacea treatment clinic Seoul", area: "Seoul", tags: ["rosacea Seoul", "redness treatment Korea"] },
+  // 가이드/팁
+  { query: "how to book skin clinic Seoul foreigner", area: "Seoul", tags: ["booking clinic Seoul", "Korea beauty booking"] },
+  { query: "what to expect Korean dermatology clinic", area: "Seoul", tags: ["Korean clinic guide", "dermatology experience Korea"] },
+  { query: "Seoul beauty medical tourism guide 2025", area: "Seoul", tags: ["medical tourism Seoul", "beauty Seoul guide"] },
+  { query: "Korean clinic consultation tips foreigners", area: "Seoul", tags: ["clinic consultation Seoul", "foreigner tips Korea"] },
+  { query: "Seoul skin clinic WhatsApp booking guide", area: "Seoul", tags: ["WhatsApp clinic Seoul", "easy booking Korea"] }
+];
+app.post("/api/admin/auto-blog-clinic", async (c) => {
+  try {
+    const sql = getDb(c.env);
+    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || "";
+    if (!apiKey) return c.json({ error: "GSK_TOKEN not configured" }, 500);
+    const body = await c.req.json().catch(() => ({}));
+    const count = Math.min(Number(body.count ?? 3), 10);
+    const dryRun = body.dryRun === true;
+    const existingRows = await sql`SELECT slug FROM blog_posts WHERE status='published'`.catch(() => []);
+    const existingSet = new Set(existingRows.map((r) => r.slug));
+    const recentRows = await sql`
+      SELECT title FROM blog_posts
+      WHERE created_at >= NOW() - INTERVAL '30 days'
+    `.catch(() => []);
+    const recentTitles = new Set(recentRows.map((r) => (r.title || "").toLowerCase()));
+    const candidates = CLINIC_KEYWORDS.filter((kw) => {
+      const slug = makeBlogSlug(kw.query + " seoul guide");
+      if (existingSet.has(slug)) return false;
+      if (recentTitles.has(kw.query.toLowerCase())) return false;
+      return true;
+    });
+    const shuffled = candidates.sort(() => Math.random() - 0.5).slice(0, count);
+    if (dryRun) {
+      return c.json({
+        dryRun: true,
+        total: CLINIC_KEYWORDS.length,
+        available: candidates.length,
+        selected: shuffled.map((k) => ({
+          query: k.query,
+          area: k.area,
+          slug: makeBlogSlug(k.query + " seoul guide")
+        }))
+      });
+    }
+    if (shuffled.length === 0) {
+      return c.json({ message: "No new clinic keywords available", created: 0, results: [] });
+    }
+    const results = [];
+    for (const kw of shuffled) {
+      try {
+        const result = await generateAndSaveBlog(
+          { query: kw.query, category: "clinic", area: kw.area, relatedQueries: kw.tags },
+          sql,
+          apiKey
+        );
+        if (result) {
+          results.push({ status: "created", query: kw.query, slug: result.slug, title: result.title });
+        } else {
+          results.push({ status: "skipped_duplicate", query: kw.query });
+        }
+      } catch (e) {
+        results.push({ status: "error:" + e.message, query: kw.query });
+      }
+    }
+    const created = results.filter((r) => r.status === "created").length;
+    return c.json({ created, total: shuffled.length, results });
+  } catch (e) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+app.get("/api/admin/auto-blog-clinic/status", async (c) => {
+  try {
+    const sql = getDb(c.env);
+    const [totalRows, recentRows, todayRows] = await Promise.all([
+      sql`SELECT COUNT(*) as cnt FROM blog_posts WHERE category='clinic' AND status='published'`.catch(() => [{ cnt: 0 }]),
+      sql`SELECT id, slug, title, created_at FROM blog_posts WHERE category='clinic' AND status='published' ORDER BY created_at DESC LIMIT 10`.catch(() => []),
+      sql`SELECT COUNT(*) as cnt FROM blog_posts WHERE category='clinic' AND status='published' AND created_at::date = CURRENT_DATE`.catch(() => [{ cnt: 0 }])
+    ]);
+    const weekRows = await sql`
+      SELECT COUNT(*) as cnt FROM blog_posts
+      WHERE category='clinic' AND status='published'
+      AND created_at >= NOW() - INTERVAL '7 days'
+    `.catch(() => [{ cnt: 0 }]);
+    return c.json({
+      total: Number(totalRows[0]?.cnt || 0),
+      today: Number(todayRows[0]?.cnt || 0),
+      thisWeek: Number(weekRows[0]?.cnt || 0),
+      availableKeywords: CLINIC_KEYWORDS.length,
+      recentPosts: recentRows
+    });
+  } catch (e) {
+    return c.json({ error: e.message }, 500);
+  }
+});
 app.get("/api/admin/gsc-query-preview", async (c) => {
   try {
     const saKey = c.env?.GA4_SERVICE_ACCOUNT_KEY || GA4_SA_KEY_DEFAULT;
@@ -22621,6 +22757,62 @@ https://seoulbeautytrip.com/video/v178051515735</textarea>
     <div id="gsc-coverage-result" style="display:none;margin-top:12px"></div>
   </div>
 
+  <!-- \u2550\u2550 CLINIC \uC790\uB3D9 \uBE14\uB85C\uADF8 \uC0DD\uC131 \u2550\u2550 -->
+  <div class="card" style="margin-bottom:16px;border-color:rgba(99,102,241,.35);background:rgba(99,102,241,.06)" id="clinic-auto-card">
+    <div class="card-header">
+      <div class="card-title"><i class="fas fa-hospital" style="color:#818cf8"></i> \uD074\uB9AC\uB2C9 \uBE14\uB85C\uADF8 \uC790\uB3D9\uC0DD\uC131 <span id="clinic-auto-badge" style="font-size:10px;padding:2px 8px;border-radius:20px;background:rgba(99,102,241,.2);color:#a5b4fc;margin-left:6px">\uD53C\uBD80\uACFC \xB7 \uC131\uD615 \xB7 \uC2DC\uC220</span></div>
+      <button onclick="clinicAutoPreview()" style="padding:6px 12px;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);border-radius:8px;color:#a5b4fc;font-size:12px;cursor:pointer"><i class="fas fa-eye"></i> \uBBF8\uB9AC\uBCF4\uAE30</button>
+    </div>
+
+    <!-- \uD604\uD669 \uD1B5\uACC4 -->
+    <div id="clinic-stats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;padding:10px 12px;background:rgba(99,102,241,.08);border-radius:10px">
+      <div style="text-align:center;flex:1;min-width:60px">
+        <div id="cs-total" style="font-size:22px;font-weight:700;color:#818cf8">-</div>
+        <div style="font-size:10px;color:rgba(255,255,255,.4)">\uC804\uCCB4 \uD074\uB9AC\uB2C9 \uBE14\uB85C\uADF8</div>
+      </div>
+      <div style="text-align:center;flex:1;min-width:60px">
+        <div id="cs-today" style="font-size:22px;font-weight:700;color:#34d399">-</div>
+        <div style="font-size:10px;color:rgba(255,255,255,.4)">\uC624\uB298 \uC0DD\uC131</div>
+      </div>
+      <div style="text-align:center;flex:1;min-width:60px">
+        <div id="cs-week" style="font-size:22px;font-weight:700;color:#fbbf24">-</div>
+        <div style="font-size:10px;color:rgba(255,255,255,.4)">\uC774\uBC88 \uC8FC</div>
+      </div>
+      <div style="text-align:center;flex:1;min-width:60px">
+        <div id="cs-kw" style="font-size:22px;font-weight:700;color:#f472b6">-</div>
+        <div style="font-size:10px;color:rgba(255,255,255,.4)">\uB0A8\uC740 \uD0A4\uC6CC\uB4DC</div>
+      </div>
+    </div>
+
+    <p style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:14px">
+      \uD53C\uBD80\uACFC \xB7 \uC131\uD615 \xB7 \uC2DC\uC220 \uAD00\uB828 <strong style="color:#a5b4fc">45\uAC1C+ \uC804\uBB38 \uD0A4\uC6CC\uB4DC</strong>\uB85C SEO \uCD5C\uC801\uD654 \uBE14\uB85C\uADF8\uB97C \uC790\uB3D9 \uC0DD\uC131\uD569\uB2C8\uB2E4.<br>
+      \uC911\uBCF5 \uBC29\uC9C0(30\uC77C) \xB7 \uC2AC\uB7EC\uADF8 \uCCB4\uD06C \xB7 \uC790\uB3D9 published \uCC98\uB9AC\uAE4C\uC9C0 \uC644\uC804 \uC790\uB3D9\uD654.
+    </p>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      <div style="flex:1;min-width:80px">
+        <label style="font-size:11px;color:rgba(255,255,255,.4);display:block;margin-bottom:4px">\uC0DD\uC131 \uAC1C\uC218</label>
+        <select id="clinic-count" style="width:100%;padding:8px 10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;font-size:13px">
+          <option value="1">1\uAC1C</option>
+          <option value="3" selected>3\uAC1C (\uAD8C\uC7A5)</option>
+          <option value="5">5\uAC1C</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px">
+      <button onclick="clinicAutoRun(true)" style="flex:1;padding:11px;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.35);border-radius:10px;color:#a5b4fc;font-weight:700;font-size:13px;cursor:pointer">
+        <i class="fas fa-search"></i> \uB4DC\uB77C\uC774\uB7F0 (\uBBF8\uB9AC\uBCF4\uAE30)
+      </button>
+      <button onclick="clinicAutoRun(false)" id="clinic-gen-btn" style="flex:2;padding:11px;background:linear-gradient(135deg,#4f46e5,#4338ca);border:none;border-radius:10px;color:#fff;font-weight:700;font-size:14px;cursor:pointer">
+        <i class="fas fa-robot"></i> \uD074\uB9AC\uB2C9 \uBE14\uB85C\uADF8 \uC790\uB3D9\uC0DD\uC131
+      </button>
+    </div>
+
+    <div id="clinic-gen-result" style="display:none;margin-top:12px;padding:12px;border-radius:10px;font-size:13px"></div>
+    <div id="clinic-recent-posts" style="display:none;margin-top:12px"></div>
+  </div>
+
   <!-- GSC \uC2E4\uAC80\uC0C9\uC5B4 \uAE30\uBC18 \uB871\uD14C\uC77C \uBE14\uB85C\uADF8 \uC790\uB3D9 \uC0DD\uC131 -->
   <div class="card" style="margin-bottom:16px;border-color:rgba(52,211,153,.25);background:rgba(52,211,153,.04)">
     <div class="card-header">
@@ -24166,6 +24358,145 @@ window.gscCheckCoverage = async function gscCheckCoverage() {
     resultEl.innerHTML = '<div style="color:#f87171;padding:10px">\uB124\uD2B8\uC6CC\uD06C \uC624\uB958: ' + e.message + '</div>';
   }
 };
+
+// \u2550\u2550 \uD074\uB9AC\uB2C9 \uC790\uB3D9 \uBE14\uB85C\uADF8 \uC0DD\uC131 \uD568\uC218 \u2550\u2550
+window.clinicAutoLoadStats = async function clinicAutoLoadStats() {
+  try {
+    var r = await fetch('/api/admin/auto-blog-clinic/status', {
+      headers: { 'Authorization': 'Bearer ' + _GSK_TOKEN }
+    });
+    var d = await r.json();
+    if (d.error) return;
+    document.getElementById('cs-total').textContent = d.total || '0';
+    document.getElementById('cs-today').textContent = d.today || '0';
+    document.getElementById('cs-week').textContent = d.thisWeek || '0';
+    document.getElementById('cs-kw').textContent = (d.availableKeywords || 0) - (d.total || 0) > 0
+      ? (d.availableKeywords || 0) - (d.total || 0) : '0+';
+
+    // \uCD5C\uADFC \uAE00 \uBAA9\uB85D
+    if (d.recentPosts && d.recentPosts.length > 0) {
+      var recentEl = document.getElementById('clinic-recent-posts');
+      recentEl.style.display = 'block';
+      var html = '<div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:6px">\u{1F4CB} \uCD5C\uADFC \uC0DD\uC131\uB41C \uD074\uB9AC\uB2C9 \uBE14\uB85C\uADF8</div>';
+      d.recentPosts.slice(0, 5).forEach(function(p) {
+        var date = p.created_at ? p.created_at.slice(0, 10) : '';
+        html += '<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06);display:flex;justify-content:space-between;align-items:center">'
+          + '<a href="/blog/' + p.slug + '" target="_blank" style="color:#c7d2fe;font-size:12px;text-decoration:none;flex:1">' + p.title + '</a>'
+          + '<span style="font-size:10px;color:rgba(255,255,255,.3);margin-left:8px;white-space:nowrap">' + date + '</span>'
+          + '</div>';
+      });
+      recentEl.innerHTML = html;
+    }
+  } catch(e) {}
+};
+
+window.clinicAutoPreview = async function clinicAutoPreview() {
+  var resultEl = document.getElementById('clinic-gen-result');
+  var count = parseInt(document.getElementById('clinic-count').value) || 3;
+  resultEl.style.display = 'block';
+  resultEl.style.background = 'rgba(99,102,241,.08)';
+  resultEl.style.border = '1px solid rgba(99,102,241,.2)';
+  resultEl.style.color = '#a5b4fc';
+  resultEl.innerHTML = '\u23F3 \uC0DD\uC131 \uAC00\uB2A5\uD55C \uD0A4\uC6CC\uB4DC \uD655\uC778 \uC911...';
+  try {
+    var r = await fetch('/api/admin/auto-blog-clinic', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _GSK_TOKEN },
+      body: JSON.stringify({ count: count, dryRun: true })
+    });
+    var d = await r.json();
+    if (d.error) { resultEl.innerHTML = '\u274C ' + d.error; return; }
+    var html = '\u{1F50D} \uBBF8\uB9AC\uBCF4\uAE30: \uCD1D ' + d.total + '\uAC1C \uD0A4\uC6CC\uB4DC \uC911 \uC0AC\uC6A9 \uAC00\uB2A5 ' + d.available + '\uAC1C<br><br>';
+    html += '<div style="font-size:12px">';
+    (d.selected || []).forEach(function(s, i) {
+      html += '<div style="padding:5px 0;border-bottom:1px solid rgba(255,255,255,.06)">'
+        + '<span style="color:#c7d2fe">' + (i+1) + '. ' + s.query + '</span>'
+        + '<span style="color:rgba(255,255,255,.3);font-size:10px;margin-left:8px">\u2192 /blog/' + s.slug + '</span>'
+        + '</div>';
+    });
+    html += '</div>';
+    resultEl.innerHTML = html;
+  } catch(e) { resultEl.innerHTML = '\u274C ' + e.message; }
+};
+
+window.clinicAutoRun = async function clinicAutoRun(dryRun) {
+  var resultEl = document.getElementById('clinic-gen-result');
+  var genBtn = document.getElementById('clinic-gen-btn');
+  var count = parseInt(document.getElementById('clinic-count').value) || 3;
+
+  if (!dryRun && !confirm('\uD074\uB9AC\uB2C9 \uBE14\uB85C\uADF8 ' + count + '\uAC1C\uB97C \uC790\uB3D9 \uC0DD\uC131\uD569\uB2C8\uB2E4.\\n\uC57D ' + (count * 20) + '\uCD08 \uC18C\uC694\uB429\uB2C8\uB2E4. \uACC4\uC18D\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?')) return;
+
+  resultEl.style.display = 'block';
+  resultEl.style.background = 'rgba(251,191,36,.08)';
+  resultEl.style.border = '1px solid rgba(251,191,36,.2)';
+  resultEl.style.color = '#fde68a';
+  resultEl.innerHTML = dryRun
+    ? '\u23F3 \uB4DC\uB77C\uC774\uB7F0 \uC911...'
+    : '\u23F3 \uD074\uB9AC\uB2C9 \uBE14\uB85C\uADF8 \uC0DD\uC131 \uC911... \uD0ED\uC744 \uB2EB\uC9C0 \uB9C8\uC138\uC694. (\uC57D ' + (count * 20) + '\uCD08)';
+
+  if (!dryRun && genBtn) { genBtn.disabled = true; genBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> \uC0DD\uC131 \uC911...'; }
+
+  try {
+    var r = await fetch('/api/admin/auto-blog-clinic', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _GSK_TOKEN },
+      body: JSON.stringify({ count: count, dryRun: dryRun })
+    });
+    var d = await r.json();
+
+    if (d.error) {
+      resultEl.style.background = 'rgba(239,68,68,.1)';
+      resultEl.style.border = '1px solid rgba(239,68,68,.3)';
+      resultEl.style.color = '#fca5a5';
+      resultEl.innerHTML = '\u274C ' + d.error;
+      return;
+    }
+
+    if (dryRun) {
+      resultEl.style.background = 'rgba(99,102,241,.08)';
+      resultEl.style.color = '#a5b4fc';
+      var html = '\u{1F50D} \uB4DC\uB77C\uC774\uB7F0: \uCD1D ' + d.total + '\uAC1C \uD0A4\uC6CC\uB4DC \uC911 \uC0AC\uC6A9 \uAC00\uB2A5 ' + d.available + '\uAC1C<br><br>';
+      (d.selected || []).forEach(function(s, i) {
+        html += '<div style="font-size:12px;padding:4px 0;color:#c7d2fe">' + (i+1) + '. ' + s.query + ' <span style="color:rgba(255,255,255,.3);font-size:10px">\u2192 /blog/' + s.slug + '</span></div>';
+      });
+      resultEl.innerHTML = html;
+      return;
+    }
+
+    var created = (d.results || []).filter(function(x) { return x.status === 'created'; }).length;
+    var failed  = (d.results || []).filter(function(x) { return x.status.startsWith('error'); }).length;
+
+    resultEl.style.background = created > 0 ? 'rgba(16,185,129,.1)' : 'rgba(239,68,68,.1)';
+    resultEl.style.border = created > 0 ? '1px solid rgba(16,185,129,.3)' : '1px solid rgba(239,68,68,.3)';
+    resultEl.style.color = created > 0 ? '#6ee7b7' : '#fca5a5';
+
+    var html = (created > 0 ? '\u2705 ' : '\u26A0\uFE0F ') + '\uC0DD\uC131 \uC644\uB8CC: ' + created + '\uAC1C \uC131\uACF5 / ' + failed + '\uAC1C \uC2E4\uD328<br><br>';
+    (d.results || []).forEach(function(res) {
+      var ok = res.status === 'created';
+      html += '<div style="font-size:12px;padding:3px 0;color:' + (ok ? '#6ee7b7' : '#fca5a5') + '">'
+        + (ok ? '\u2705' : '\u274C') + ' ' + res.query
+        + (ok ? ' <a href="/blog/' + res.slug + '" target="_blank" style="color:#a5b4fc;font-size:10px">\u2192 \uBCF4\uAE30</a>' : ' (' + res.status + ')')
+        + '</div>';
+    });
+    resultEl.innerHTML = html;
+
+    // \uD1B5\uACC4 \uC0C8\uB85C\uACE0\uCE68
+    if (created > 0) setTimeout(clinicAutoLoadStats, 1000);
+  } catch(e) {
+    resultEl.style.background = 'rgba(239,68,68,.1)';
+    resultEl.style.color = '#fca5a5';
+    resultEl.innerHTML = '\u274C ' + e.message;
+  } finally {
+    if (!dryRun && genBtn) { genBtn.disabled = false; genBtn.innerHTML = '<i class="fas fa-robot"></i> \uD074\uB9AC\uB2C9 \uBE14\uB85C\uADF8 \uC790\uB3D9\uC0DD\uC131'; }
+  }
+};
+
+// \uC5B4\uB4DC\uBBFC \uD398\uC774\uC9C0 \uB85C\uB4DC \uC2DC \uD1B5\uACC4 \uC790\uB3D9 \uB85C\uB529
+(function() {
+  if (document.getElementById('clinic-auto-card')) {
+    clinicAutoLoadStats();
+  }
+})();
 
 window.gscQueryPreview = async function gscQueryPreview() {
   var previewEl = document.getElementById('gsc-preview-table');
