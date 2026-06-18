@@ -15806,8 +15806,8 @@ async function generateClinicBlog(
   const lsiKey = Object.keys(lsiKeywords).find(k => kw.query.toLowerCase().includes(k)) || 'default'
   const lsiList = lsiKeywords[lsiKey].join(', ')
 
-  const isHQ = ['story', 'honest'].includes(angle.id)
-  const wordTarget = isHQ ? '1000-1200' : '900-1100'
+  const isHQ = false // 전체 haiku로 통일 (크레딧 절약)
+  const wordTarget = ['story', 'honest'].includes(angle.id) ? '1000-1200' : '900-1100'
 
   const prompt = `You are a senior K-beauty travel writer for seoulbeautytrip.com. Write a blog post that ranks #1 on Google AND converts readers into clinic bookings.
 
@@ -15888,8 +15888,8 @@ ${angle.id === 'story' ? `<p>[40-60 word scene-setting hook]</p>
   // ── 모델 분기 ─────────────────────────────────────────────────
   // story/honest → sonnet (감성·신뢰가 예약 전환 핵심, 퀄리티 우선)
   // 나머지 8개   → haiku  (구조형, ~80% 크레딧 절약)
-  const selectedModel = isHQ ? 'claude-sonnet-4-5' : 'claude-haiku-4-5'
-  const selectedMaxTokens = isHQ ? 3500 : 2800
+  const selectedModel = 'claude-haiku-4-5' // 전체 haiku
+  const selectedMaxTokens = ['story', 'honest'].includes(angle.id) ? 3200 : 2800
 
   try {
     const res = await fetch('https://www.genspark.ai/api/llm_proxy/v1/chat/completions', {
@@ -16152,7 +16152,7 @@ app.get('/api/admin/auto-blog-clinic/status', async (c) => {
     ]) as any[]
 
     const totalCombos = CLINIC_KEYWORDS.length * BLOG_ANGLES.length
-    const HIGH_QUALITY_ANGLES = ['story', 'honest']
+    const HIGH_QUALITY_ANGLES: string[] = [] // 전체 haiku 사용
 
     return c.json({
       total: Number((totalRows as any[])[0]?.cnt || 0),
