@@ -138,7 +138,7 @@ app.use('*', async (c, next) => {
 // 비밀번호: 0907 (고정) 또는 GSK_TOKEN (API 클라이언트용)
 const ADMIN_SECRET = '0907'
 app.use('/admin', async (c, next) => {
-  const envToken = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
+  const envToken = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== 'undefined' ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || '' : '')
 
   // 1) Authorization 헤더 확인
   const authHeader = c.req.header('Authorization') || ''
@@ -215,7 +215,7 @@ async function login(e) {
 })
 
 app.use('/api/admin/*', async (c, next) => {
-  const envToken = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
+  const envToken = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== 'undefined' ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || '' : '')
 
   const authHeader = c.req.header('Authorization') || ''
   const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : ''
@@ -1586,7 +1586,7 @@ app.post('/api/shops', async (c) => {
   let seoText        = body.seoText        || ''
   const needsSeo = !description || !seoText || !whyChoose.length
   if (needsSeo) {
-    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
+    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== 'undefined' ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || '' : '')
     const seo = await autoGenSeo(body, apiKey)
     if (seo) {
       description    = description    || seo.description    || ''
@@ -1677,7 +1677,7 @@ app.put('/api/shops/:id', async (c) => {
   let seoTextPut = body.seoText || ''
   const _putNeedsSeo = body.regenerateSeo || !description || !whyChoose.length || !seoTextPut
   if (_putNeedsSeo) {
-    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
+    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== 'undefined' ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || '' : '')
     const seo = await autoGenSeo(body, apiKey)
     if (seo) {
       description    = description    || seo.description    || ''
@@ -1817,7 +1817,7 @@ app.post('/api/videos', async (c) => {
   let description = body.description || ''
   let autoTags: string[] = body.tags || []
   if (!description || !autoTags.length) {
-    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
+    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== 'undefined' ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || '' : '')
     if (apiKey && body.shopId) {
       const shopRows = await sql`SELECT name, category, location, services FROM shops WHERE id=${body.shopId}` as any[]
       if (shopRows.length) {
@@ -1944,7 +1944,7 @@ Rules:
 // POST /api/videos/:id/gen-description — 개별 영상 AI description 생성
 app.post('/api/videos/:id/gen-description', async (c) => {
   const sql = getDb(c.env)
-  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
+  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== 'undefined' ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || '' : '')
   if (!apiKey) return c.json({ ok: false, error: 'No API key' }, 400)
 
   const vid = await sql`SELECT v.*, s.name as shop_name, s.category as shop_cat, s.location as shop_loc, s.services as shop_svcs FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE v.id=${c.req.param('id')}` as any[]
@@ -1964,7 +1964,7 @@ app.post('/api/videos/:id/gen-description', async (c) => {
 // POST /api/shops/fill-seo-bulk — 누락 SEO 필드 일괄 AI 생성
 app.post('/api/shops/fill-seo-bulk', async (c) => {
   const sql = getDb(c.env)
-  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
+  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== 'undefined' ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || '' : '')
   if (!apiKey) return c.json({ ok: false, error: 'No API key' }, 400)
 
   const body = await c.req.json().catch(() => ({})) as any
@@ -2043,7 +2043,7 @@ app.post('/api/shops/fill-seo-bulk', async (c) => {
 // POST /api/videos/gen-description-bulk — 빈 description/tags 영상 일괄 AI 생성
 app.post('/api/videos/gen-description-bulk', async (c) => {
   const sql = getDb(c.env)
-  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
+  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== 'undefined' ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || '' : '')
   if (!apiKey) return c.json({ ok: false, error: 'No API key' }, 400)
 
   const body = await c.req.json().catch(() => ({})) as any
@@ -2313,7 +2313,7 @@ Rules:
 Return ONLY valid JSON:
 {"titleSuffix":"...","metaDescription":"...","description":"...","keywords":["k1","k2","k3","k4","k5","k6","k7","k8"]}`
 
-    const OPENAI_KEY = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
+    const OPENAI_KEY = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== 'undefined' ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || '' : '')
     if (!OPENAI_KEY) return c.json({ error: 'API key not configured' }, 500)
     const res = await fetch('https://www.genspark.ai/api/llm_proxy/v1/chat/completions', {
       method: 'POST',
@@ -2352,7 +2352,7 @@ app.post('/api/parse-price-image', async (c) => {
     const { imageUrl } = body
     if (!imageUrl) return c.json({ error: 'imageUrl required' }, 400)
 
-    const OPENAI_KEY = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
+    const OPENAI_KEY = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== 'undefined' ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || '' : '')
     if (!OPENAI_KEY) return c.json({ error: 'API key not configured' }, 500)
 
     const prompt = `You are a price menu OCR assistant for Korean beauty salons.
@@ -3540,7 +3540,7 @@ app.post('/api/admin/fix-slugs', async (c) => {
 // ══════════════════════════════════════════
 app.post('/api/admin/regenerate-seo-all', async (c) => {
   const sql = getDb(c.env)
-  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
+  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== 'undefined' ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || '' : '')
   if (!apiKey) return c.json({ error: 'API key not configured' }, 500)
 
   // 쿼리파라미터: force=true 이면 이미 있는 것도 재생성
@@ -3901,7 +3901,7 @@ app.post('/api/blogs', async (c) => {
   const body = await c.req.json()
   const id = 'b' + Date.now()
   const now = new Date().toISOString()
-  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
+  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== 'undefined' ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || '' : '')
 
   let title = body.title || ''
   let content = body.content || ''
@@ -3944,7 +3944,7 @@ app.put('/api/blogs/:id', async (c) => {
   const sql = getDb(c.env)
   const body = await c.req.json()
   const now = new Date().toISOString()
-  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
+  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== 'undefined' ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || '' : '')
 
   let content = body.content || ''
   let excerpt = body.excerpt || ''
@@ -8405,7 +8405,7 @@ app.post('/api/admin/sync-reviews', async (c) => {
 
   const totalRemaining = allShops.length
   const shops = allShops.slice(offset, offset + limit)
-  const gskKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
+  const gskKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== 'undefined' ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || '' : '')
   const results: { id: string; name: string; status: string; reviewCount?: number; summarized?: boolean }[] = []
 
   // Places API v1 응답 → 정규화 헬퍼
@@ -8595,7 +8595,7 @@ app.post('/api/admin/fill-summaries', async (c) => {
   await ensureDb(c.env)
   const sql = getDb(c.env)
   // GSK_TOKEN(OpenAI-compatible) 우선 → Gemini fallback
-  const _gskToken = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
+  const _gskToken = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== 'undefined' ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || '' : '')
   const _geminiKey = (c.env as any)?.GEMINI_API_KEY || GEMINI_API_KEY_DEFAULT
 
   const body: any = await c.req.json().catch(() => ({}))
@@ -8721,7 +8721,7 @@ app.get('/api/admin/keyword-ideas', async (c) => {
 app.post('/api/admin/generate-blog', async (c) => {
   await ensureDb(c.env)
   const sql = getDb(c.env)
-  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
+  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== 'undefined' ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || '' : '')
   if (!apiKey) return c.json({ error: 'API key not configured' }, 500)
 
   const body = await c.req.json()
@@ -14655,7 +14655,7 @@ app.get('/', async (c) => {
   }
 })
 app.get('/admin', (c) => {
-  const token = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || ''
+  const token = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== 'undefined' ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || '' : '')
   const html = ADMIN_HTML.replace('__GSK_TOKEN__', token)
   return c.html(html)
 })
@@ -15247,7 +15247,7 @@ After HTML add ---JSON---
 app.post('/api/admin/gen-gsc-blogs', async (c) => {
   try {
     const sql = getDb(c.env)
-    const apiKey = c.env?.GSK_TOKEN || (c.env as any)?.gsk_token || ''
+    const apiKey = c.env?.GSK_TOKEN || (c.env as any)?.gsk_token || (typeof process !== 'undefined' ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || '' : '')
     const saKey = (c.env as any)?.GA4_SERVICE_ACCOUNT_KEY || GA4_SA_KEY_DEFAULT
     if (!apiKey) return c.json({ error: 'GSK_TOKEN not configured' }, 500)
 
@@ -15674,7 +15674,7 @@ After HTML output:
 app.post('/api/admin/auto-blog-clinic', async (c) => {
   try {
     const sql = getDb(c.env)
-    const apiKey = c.env?.GSK_TOKEN || (c.env as any)?.gsk_token || ''
+    const apiKey = c.env?.GSK_TOKEN || (c.env as any)?.gsk_token || (typeof process !== 'undefined' ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || '' : '')
     if (!apiKey) return c.json({ error: 'GSK_TOKEN not configured' }, 500)
 
     const body: any  = await c.req.json().catch(() => ({}))
@@ -15813,7 +15813,7 @@ app.post('/api/admin/regen-shop-blog', async (c) => {
   try {
     await ensureDb(c.env)
     const sql = getDb(c.env)
-    const apiKey = c.env?.GSK_TOKEN || (c.env as any)?.gsk_token || ''
+    const apiKey = c.env?.GSK_TOKEN || (c.env as any)?.gsk_token || (typeof process !== 'undefined' ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || '' : '')
     if (!apiKey) return c.json({ error: 'GSK_TOKEN not configured' }, 500)
 
     const body: any = await c.req.json().catch(() => ({}))

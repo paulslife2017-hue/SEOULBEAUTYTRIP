@@ -2188,7 +2188,7 @@ app.use("*", async (c, next) => {
 });
 var ADMIN_SECRET = "0907";
 app.use("/admin", async (c, next) => {
-  const envToken = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
+  const envToken = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== "undefined" ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || "" : "");
   const authHeader = c.req.header("Authorization") || "";
   const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
   const queryToken = c.req.query("token") || "";
@@ -2250,7 +2250,7 @@ async function login(e) {
   await next();
 });
 app.use("/api/admin/*", async (c, next) => {
-  const envToken = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
+  const envToken = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== "undefined" ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || "" : "");
   const authHeader = c.req.header("Authorization") || "";
   const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
   const cookieHeader = c.req.header("Cookie") || "";
@@ -3612,7 +3612,7 @@ app.post("/api/shops", async (c) => {
     let seoText = body.seoText || "";
     const needsSeo = !description || !seoText || !whyChoose.length;
     if (needsSeo) {
-      const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
+      const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== "undefined" ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || "" : "");
       const seo = await autoGenSeo(body, apiKey);
       if (seo) {
         description = description || seo.description || "";
@@ -3681,7 +3681,7 @@ app.put("/api/shops/:id", async (c) => {
     let seoTextPut = body.seoText || "";
     const _putNeedsSeo = body.regenerateSeo || !description || !whyChoose.length || !seoTextPut;
     if (_putNeedsSeo) {
-      const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
+      const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== "undefined" ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || "" : "");
       const seo = await autoGenSeo(body, apiKey);
       if (seo) {
         description = description || seo.description || "";
@@ -3800,7 +3800,7 @@ app.post("/api/videos", async (c) => {
   let description = body.description || "";
   let autoTags = body.tags || [];
   if (!description || !autoTags.length) {
-    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
+    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== "undefined" ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || "" : "");
     if (apiKey && body.shopId) {
       const shopRows = await sql`SELECT name, category, location, services FROM shops WHERE id=${body.shopId}`;
       if (shopRows.length) {
@@ -3910,7 +3910,7 @@ Rules:
 }
 app.post("/api/videos/:id/gen-description", async (c) => {
   const sql = getDb(c.env);
-  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
+  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== "undefined" ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || "" : "");
   if (!apiKey) return c.json({ ok: false, error: "No API key" }, 400);
   const vid = await sql`SELECT v.*, s.name as shop_name, s.category as shop_cat, s.location as shop_loc, s.services as shop_svcs FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE v.id=${c.req.param("id")}`;
   if (!vid.length) return c.json({ ok: false, error: "Not found" }, 404);
@@ -3924,7 +3924,7 @@ app.post("/api/videos/:id/gen-description", async (c) => {
 });
 app.post("/api/shops/fill-seo-bulk", async (c) => {
   const sql = getDb(c.env);
-  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
+  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== "undefined" ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || "" : "");
   if (!apiKey) return c.json({ ok: false, error: "No API key" }, 400);
   const body = await c.req.json().catch(() => ({}));
   const forceAll = body?.force === true;
@@ -3986,7 +3986,7 @@ app.post("/api/shops/fill-seo-bulk", async (c) => {
 });
 app.post("/api/videos/gen-description-bulk", async (c) => {
   const sql = getDb(c.env);
-  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
+  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== "undefined" ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || "" : "");
   if (!apiKey) return c.json({ ok: false, error: "No API key" }, 400);
   const body = await c.req.json().catch(() => ({}));
   const forceAll = body?.force === true;
@@ -4215,7 +4215,7 @@ Rules:
 
 Return ONLY valid JSON:
 {"titleSuffix":"...","metaDescription":"...","description":"...","keywords":["k1","k2","k3","k4","k5","k6","k7","k8"]}`;
-    const OPENAI_KEY = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
+    const OPENAI_KEY = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== "undefined" ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || "" : "");
     if (!OPENAI_KEY) return c.json({ error: "API key not configured" }, 500);
     const res = await fetch("https://www.genspark.ai/api/llm_proxy/v1/chat/completions", {
       method: "POST",
@@ -4250,7 +4250,7 @@ app.post("/api/parse-price-image", async (c) => {
     const body = await c.req.json();
     const { imageUrl } = body;
     if (!imageUrl) return c.json({ error: "imageUrl required" }, 400);
-    const OPENAI_KEY = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
+    const OPENAI_KEY = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== "undefined" ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || "" : "");
     if (!OPENAI_KEY) return c.json({ error: "API key not configured" }, 500);
     const prompt = `You are a price menu OCR assistant for Korean beauty salons.
 Look at this price menu image and extract all service names and prices.
@@ -5231,7 +5231,7 @@ app.post("/api/admin/fix-slugs", async (c) => {
 });
 app.post("/api/admin/regenerate-seo-all", async (c) => {
   const sql = getDb(c.env);
-  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
+  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== "undefined" ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || "" : "");
   if (!apiKey) return c.json({ error: "API key not configured" }, 500);
   const force = c.req.query("force") === "true";
   const noH2Only = c.req.query("no_h2") === "true";
@@ -5533,7 +5533,7 @@ app.post("/api/blogs", async (c) => {
     const body = await c.req.json();
     const id = "b" + Date.now();
     const now = (/* @__PURE__ */ new Date()).toISOString();
-    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
+    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== "undefined" ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || "" : "");
     let title = body.title || "";
     let content = body.content || "";
     let excerpt = body.excerpt || "";
@@ -5568,7 +5568,7 @@ app.put("/api/blogs/:id", async (c) => {
   const sql = getDb(c.env);
   const body = await c.req.json();
   const now = (/* @__PURE__ */ new Date()).toISOString();
-  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
+  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== "undefined" ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || "" : "");
   let content = body.content || "";
   let excerpt = body.excerpt || "";
   let metaDescription = body.metaDescription || "";
@@ -9669,7 +9669,7 @@ app.post("/api/admin/sync-reviews", async (c) => {
   }
   const totalRemaining = allShops.length;
   const shops2 = allShops.slice(offset, offset + limit);
-  const gskKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
+  const gskKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== "undefined" ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || "" : "");
   const results = [];
   const normalizeReviews = (rawReviews) => rawReviews.map((rv) => ({
     author: rv.authorAttribution?.displayName || "Anonymous",
@@ -9818,7 +9818,7 @@ app.patch("/api/admin/patch-shop", async (c) => {
 app.post("/api/admin/fill-summaries", async (c) => {
   await ensureDb(c.env);
   const sql = getDb(c.env);
-  const _gskToken = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
+  const _gskToken = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== "undefined" ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || "" : "");
   const _geminiKey = c.env?.GEMINI_API_KEY || GEMINI_API_KEY_DEFAULT;
   const body = await c.req.json().catch(() => ({}));
   const targetIds = Array.isArray(body.ids) ? body.ids : [];
@@ -9917,7 +9917,7 @@ app.get("/api/admin/keyword-ideas", async (c) => {
 app.post("/api/admin/generate-blog", async (c) => {
   await ensureDb(c.env);
   const sql = getDb(c.env);
-  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
+  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== "undefined" ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || "" : "");
   if (!apiKey) return c.json({ error: "API key not configured" }, 500);
   const body = await c.req.json();
   const topics = body.topics || [];
@@ -15470,7 +15470,7 @@ app.get("/", async (c) => {
   }
 });
 app.get("/admin", (c) => {
-  const token = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || "";
+  const token = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== "undefined" ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || "" : "");
   const html = ADMIN_HTML.replace("__GSK_TOKEN__", token);
   return c.html(html);
 });
@@ -15963,7 +15963,7 @@ After HTML add ---JSON---
 app.post("/api/admin/gen-gsc-blogs", async (c) => {
   try {
     const sql = getDb(c.env);
-    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || "";
+    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || (typeof process !== "undefined" ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || "" : "");
     const saKey = c.env?.GA4_SERVICE_ACCOUNT_KEY || GA4_SA_KEY_DEFAULT;
     if (!apiKey) return c.json({ error: "GSK_TOKEN not configured" }, 500);
     const body = await c.req.json().catch(() => ({}));
@@ -16318,7 +16318,7 @@ After HTML output:
 app.post("/api/admin/auto-blog-clinic", async (c) => {
   try {
     const sql = getDb(c.env);
-    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || "";
+    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || (typeof process !== "undefined" ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || "" : "");
     if (!apiKey) return c.json({ error: "GSK_TOKEN not configured" }, 500);
     const body = await c.req.json().catch(() => ({}));
     const count = Math.min(Number(body.count ?? 3), 10);
@@ -16429,7 +16429,7 @@ app.post("/api/admin/regen-shop-blog", async (c) => {
   try {
     await ensureDb(c.env);
     const sql = getDb(c.env);
-    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || "";
+    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || (typeof process !== "undefined" ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || "" : "");
     if (!apiKey) return c.json({ error: "GSK_TOKEN not configured" }, 500);
     const body = await c.req.json().catch(() => ({}));
     const blogId = body.blogId;
