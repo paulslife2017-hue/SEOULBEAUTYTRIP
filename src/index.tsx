@@ -15453,6 +15453,32 @@ const CLINIC_KEYWORDS: { query: string; area: string; tags: string[]; priority: 
   { query: 'Seoul aesthetic clinic English speaking', area: 'Seoul', tags: ['English clinic Seoul', 'foreigner friendly aesthetic', 'English speaking doctor'], priority: 4 },
   { query: 'skin clinic consultation Seoul foreigner', area: 'Seoul', tags: ['clinic consultation', 'free consultation Seoul', 'skin analysis Seoul'], priority: 4 },
   { query: 'Korean plastic surgery guide tourist', area: 'Seoul', tags: ['plastic surgery guide', 'surgery tourism Seoul', 'cosmetic surgery guide Korea'], priority: 4 },
+  // 🔵 레딧 실제 질문 기반 (r/KoreanBeauty, r/KoreaSeoulBeauty 인기 질문)
+  { query: 'factory clinic vs boutique clinic Seoul', area: 'Seoul', tags: ['factory clinic Seoul', 'boutique clinic Seoul', 'how to choose clinic Korea'], priority: 1 },
+  { query: 'do Seoul clinics charge more for foreigners', area: 'Seoul', tags: ['foreigner price Seoul clinic', 'clinic upcharge tourists', 'fair price Seoul beauty'], priority: 1 },
+  { query: 'is Seoul skin clinic safe for darker skin tones', area: 'Seoul', tags: ['darker skin laser Seoul', 'Fitzpatrick IV VI Seoul', 'laser safe melanin skin Korea'], priority: 1 },
+  { query: 'ghost surgeon risk Korean plastic surgery', area: 'Seoul', tags: ['ghost surgeon Korea', 'surgery safety Seoul', 'how to avoid fake surgeon Korea'], priority: 2 },
+  { query: 'should I consult before paying Seoul clinic', area: 'Seoul', tags: ['consultation before paying Seoul', 'free consultation Korea clinic', 'avoid clinic scam Seoul'], priority: 2 },
+  { query: 'rejuran vs filler vs botox Seoul which one', area: 'Seoul', tags: ['rejuran vs botox', 'filler vs rejuran Seoul', 'which treatment Seoul foreigners'], priority: 1 },
+  { query: 'best single session treatments Seoul no downtime', area: 'Seoul', tags: ['one session treatment Seoul', 'no downtime Seoul clinic', 'quick treatment Seoul tourist'], priority: 2 },
+  { query: 'going to Seoul clinic alone as foreigner tips', area: 'Seoul', tags: ['solo clinic visit Seoul', 'alone at Seoul clinic', 'foreigner solo beauty Seoul'], priority: 2 },
+  { query: 'why is there a huge price difference Seoul clinics', area: 'Seoul', tags: ['Seoul clinic price difference', 'why clinics cost different Seoul', 'clinic price comparison Korea'], priority: 2 },
+  { query: 'Rejuran treatment Seoul worth it foreigners', area: 'Seoul', tags: ['Rejuran Seoul worth it', 'Rejuran review Seoul', 'skin booster injection worth it Korea'], priority: 1 },
+  { query: 'hand injection vs injector gun Seoul clinic', area: 'Seoul', tags: ['hand injection Seoul', 'injector gun vs hand Seoul', 'skin booster method Korea'], priority: 3 },
+  { query: 'Pico laser Seoul one session results', area: 'Seoul', tags: ['pico laser Seoul results', 'one session pico Korea', 'laser toning Seoul worth it'], priority: 2 },
+  { query: 'acne scar treatment Seoul Fraxel vs Pico', area: 'Seoul', tags: ['acne scar Seoul', 'Fraxel vs Pico Seoul', 'best laser acne scar Korea'], priority: 2 },
+  { query: 'skin booster Seoul Rejuran Juvelook comparison', area: 'Seoul', tags: ['skin booster comparison Seoul', 'Rejuran vs Juvelook', 'best skin booster Korea'], priority: 2 },
+  { query: 'Ultherapy vs HIFU Seoul which is better', area: 'Seoul', tags: ['Ultherapy vs HIFU', 'lifting comparison Seoul', 'non surgical facelift comparison Korea'], priority: 3 },
+  { query: 'how to find trusted Seoul clinic English review', area: 'Seoul', tags: ['find trusted clinic Seoul', 'reliable clinic reviews Korea', 'how to research Seoul clinic'], priority: 3 },
+  { query: 'Seoul beauty trip itinerary 5 days clinic schedule', area: 'Seoul', tags: ['Seoul beauty trip itinerary', '5 day beauty Seoul', 'clinic schedule Seoul tourist'], priority: 3 },
+  { query: 'skin Botox dermatoxin Seoul oily skin', area: 'Seoul', tags: ['skin botox Seoul', 'dermatoxin Seoul', 'oily skin treatment Korea'], priority: 3 },
+  { query: 'fat dissolving injection Seoul double chin', area: 'Seoul', tags: ['fat dissolving Seoul', 'double chin removal Korea', 'kybella alternative Seoul'], priority: 3 },
+  { query: 'anesthesia sedation during skin treatment Seoul', area: 'Seoul', tags: ['sedation skin treatment Seoul', 'sleep anesthesia clinic Seoul', 'pain free treatment Korea'], priority: 4 },
+  { query: 'Juvelook vs Rejuran Seoul skin booster guide', area: 'Seoul', tags: ['Juvelook Seoul', 'Juvelook vs Rejuran', 'skin regeneration injection Korea'], priority: 3 },
+  { query: 'Korean clinic consultation what to say as foreigner', area: 'Seoul', tags: ['clinic consultation script Seoul', 'what to ask Korean doctor', 'foreigner clinic communication Seoul'], priority: 3 },
+  { query: 'best area Seoul for skin treatments Gangnam vs Hongdae', area: 'Seoul', tags: ['Gangnam vs Hongdae clinic', 'best area Seoul skin treatment', 'where to go Seoul beauty'], priority: 3 },
+  { query: 'VAT refund cosmetic treatment Seoul tourist 2025', area: 'Seoul', tags: ['VAT refund Seoul clinic', 'tax refund cosmetic Korea', 'medical tax refund tourist Seoul'], priority: 4 },
+  { query: 'how to book Korean clinic via WhatsApp guide', area: 'Seoul', tags: ['WhatsApp clinic booking Seoul', 'how to book Korean doctor WhatsApp', 'online booking Seoul clinic'], priority: 2 },
 ]
 
 // 클리닉 전용 심리학+SEO 블로그 생성 함수
@@ -15512,60 +15538,63 @@ async function generateClinicBlog(
 - WhatsApp CTA feels like a natural helpful suggestion`,
   }
 
-  const prompt = `You are a Seoul beauty travel writer and ex-expat who genuinely loves K-beauty clinics. You write for seoulbeautytrip.com — a vetted booking platform for foreign visitors in Seoul.
+  // 레딧 실질문 기반 컨텍스트 (각도별로 관련 레딧 인사이트 주입)
+  const redditContext: Record<string, string> = {
+    guide:   'Real travelers on Reddit ask: "What are factory clinics vs boutique clinics?" and "Do clinics charge more for foreigners?" Address these concerns naturally.',
+    honest:  'Reddit users worry about: ghost surgeons, bait-and-switch promos, clinics pushing unnecessary procedures. Address these fears honestly.',
+    cost:    'Reddit\'s top question: "Why is there a huge price difference between clinics?" Explain this clearly. Mention that hand-injection costs more than injector guns but is worth it.',
+    safety:  'Reddit frequently asks about laser safety for darker skin tones (Fitzpatrick IV-VI) and ghost surgeon risks. Address these directly.',
+    compare: 'Reddit users want to know: Gangnam vs Hongdae, boutique vs factory, one session vs multiple sessions. Give clear comparison.',
+    story:   'Write as if you\'re the person from Reddit who actually went and is sharing their experience. Include the small awkward moments and honest surprises.',
+    tips:    'Based on Reddit insider tips: always consult before paying, ask to see the actual doctor (not a sales manager), avoid same-day multi-procedure packages.',
+    booking: 'Reddit users ask: "How do I book via WhatsApp?", "Should I consult before paying?", "Can I go alone as a foreigner?" Answer all of these.',
+    before:  'Reddit users are anxious about: downtime, pain, what to bring, language barrier, how to ask for what they want. Address all.',
+    faq:     'These are REAL questions from Reddit r/KoreanBeauty and r/KoreaSeoulBeauty. Answer them like an insider, not a brochure.',
+  }
 
-KEYWORD: "${kw.query}"
-TITLE: "${title}"
-ANGLE: ${angle.label} — ${angle.id}
-AREA FOCUS: ${kw.area}
-YEAR: ${year}
+  const prompt = `Seoul K-beauty writer for seoulbeautytrip.com. Write a blog post that foreigners will actually find useful — NOT a brochure.
 
-═══ PSYCHOLOGY STRATEGY ═══
-${psychStrategy[angle.id] || psychStrategy.guide}
+KEYWORD: "${kw.query}" | TITLE: "${title}" | ANGLE: ${angle.label} | AREA: ${kw.area} | YEAR: ${year}
 
-═══ SEO STRUCTURE ═══
-${seoStructure[angle.intent] || seoStructure.informational}
+PSYCHOLOGY: ${psychStrategy[angle.id] || psychStrategy.guide}
+SEO: ${seoStructure[angle.intent] || seoStructure.informational}
+REDDIT CONTEXT: ${redditContext[angle.id] || redditContext.guide}
 
-═══ WRITING RULES ═══
-1. HUMAN VOICE — Write like a real person who has been there. Use contractions (I've, you'll, it's). Include 1-2 small personal observations or minor imperfections to feel authentic.
-2. NO AI PATTERNS — Avoid: "In this article we will explore", "It's worth noting that", "Navigating the world of", "Look no further", "In conclusion". 
-3. VARY SENTENCE LENGTH — Mix short punchy sentences. With longer ones that give context and nuance. One sentence paragraphs work great.
-4. SPECIFICITY — Use real district names (Gangnam, Apgujeong, Itaewon, Hongdae, Myeongdong), real treatment names, real Korean brand names where relevant.
-5. SEARCH INTENT MATCH — The reader searched "${kw.query}". Answer THAT question directly in the first 100 words.
-6. E-E-A-T SIGNALS — Mention: how long clinics have been operating, what certifications matter, what questions to ask doctors, common mistakes tourists make.
-7. INTERNAL LINKS — Naturally mention "you can find vetted options on Seoul Beauty Trip" at least twice. Once in body, once near end.
-8. EMOTIONAL JOURNEY — Start with their anxiety/curiosity → build trust → end with them feeling ready and excited.
+RULES (strict):
+- Answer "${kw.query}" directly in first 80 words
+- Human voice: contractions, varied sentence length, 1-2 honest imperfections
+- NO: "In this article", "It's worth noting", "Look no further", "In conclusion", "Navigating the world of"
+- Use real Seoul districts (Gangnam, Apgujeong, Itaewon, Hongdae, Myeongdong)
+- Mention "Seoul Beauty Trip" naturally 2x as the place to find vetted clinics
+- E-E-A-T: certifications, questions to ask, common tourist mistakes
+- Date: always use "${year}" not hardcoded numbers
+- Current date context: write as if it's ${year}, mention "${year}" when referencing current prices/trends
 
-═══ CONTENT STRUCTURE ═══
-Write 1000-1200 words of HTML (no markdown). Use:
-<h2> for main sections (5-6 sections)
-<h3> for subsections where helpful
-<p> for paragraphs
-<ul><li> for lists
-<strong> to highlight key points (sparingly)
+STRUCTURE (HTML only, 900-1100 words):
+<p>[strong hook — answer the query immediately]</p>
+<h2>[main section 1]</h2><p>...</p>
+<h2>[main section 2]</h2><p>...</p>
+<h2>[practical reality — prices in KRW, time, recovery]</h2><p>...</p>
+<h2>[how foreigners actually do this — WhatsApp, language, booking]</h2><p>...</p>
+<h2>Frequently Asked Questions</h2>
+<h3>[real question 1]</h3><p>...</p>
+<h3>[real question 2]</h3><p>...</p>
+<h3>[real question 3]</h3><p>...</p>
+<p>[closing with natural Seoul Beauty Trip mention]</p>
 
-REQUIRED SECTIONS (adapt titles to fit the angle):
-1. Direct answer / hook (no H2, just a strong opening <p>)
-2. The main substance (2-3 H2 sections with real depth)
-3. Practical reality check (price ranges, time needed, recovery if any)
-4. How to actually do this as a foreigner (language, booking, WhatsApp)
-5. FAQ (3-4 questions — use H3 for each)
-6. Closing that naturally leads to browsing Seoul Beauty Trip
-
-═══ OUTPUT FORMAT ═══
-HTML content first, then:
+After HTML output:
 ---JSON---
-{"metaDescription":"[max 155 chars — include '${kw.query}' naturally, make it click-worthy]","excerpt":"[2 punchy sentences that make someone want to read more]","tags":${JSON.stringify(kw.tags.concat([kw.query + ' Seoul', 'K-beauty ' + year, kw.area + ' clinic']))},"category":"clinic"}`
+{"metaDescription":"[≤155 chars with '${kw.query}' naturally]","excerpt":"[2 punchy sentences]","tags":${JSON.stringify(kw.tags.concat([kw.query + ' Seoul', 'K-beauty ' + year, kw.area + ' clinic']))},"category":"clinic"}`
 
   try {
     const res = await fetch('https://www.genspark.ai/api/llm_proxy/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
+        model: 'claude-haiku-4-5',
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 4000,
-        temperature: 0.72
+        max_tokens: 2800,
+        temperature: 0.75
       })
     })
     if (!res.ok) return null
