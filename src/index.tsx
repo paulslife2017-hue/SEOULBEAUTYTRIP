@@ -15382,64 +15382,231 @@ app.get('/api/admin/debug-blog-photos', async (c) => {
 })
 
 // ══════════════════════════════════════════════════════════
-// POST /api/admin/auto-blog-clinic
-// 클리닉 전용 키워드 기반 블로그 자동 생성
-// body: { count?:3, dryRun?:false, category?:'clinic' }
+// CLINIC 자동 블로그 생성 시스템 v2
+// - 키워드 45개 × 각도 변형 → 사실상 무제한
+// - SEO E-E-A-T 최적화 + 심리학 기반 글쓰기
+// - 30일 내 동일 키워드+각도 재사용 금지
 // ══════════════════════════════════════════════════════════
 
-// 클리닉 전용 키워드 풀 (피부과 + 성형 + 시술)
-const CLINIC_KEYWORDS: { query: string; area: string; tags: string[] }[] = [
-  // 피부과 일반
-  { query: 'skin clinic Seoul for foreigners', area: 'Seoul', tags: ['skin clinic Seoul', 'foreigner friendly clinic'] },
-  { query: 'best dermatology clinic Seoul tourists', area: 'Seoul', tags: ['dermatology Seoul', 'skin treatment Seoul'] },
-  { query: 'Korean skin care clinic English speaking', area: 'Seoul', tags: ['English clinic Seoul', 'Korean skin care'] },
-  { query: 'laser treatment Seoul price guide', area: 'Seoul', tags: ['laser Seoul', 'skin laser treatment'] },
-  { query: 'botox Seoul cost for foreigners', area: 'Seoul', tags: ['botox Seoul', 'anti aging Seoul'] },
-  { query: 'filler injection Seoul guide tourist', area: 'Seoul', tags: ['filler Seoul', 'facial filler Korea'] },
-  { query: 'acne treatment clinic Seoul', area: 'Seoul', tags: ['acne clinic Seoul', 'Korean acne treatment'] },
-  { query: 'skin brightening treatment Seoul clinic', area: 'Seoul', tags: ['whitening Seoul', 'glass skin Seoul'] },
-  { query: 'Korean glass skin treatment Seoul clinic', area: 'Seoul', tags: ['glass skin', 'Korean glow Seoul'] },
-  { query: 'IPL treatment Seoul foreigners', area: 'Seoul', tags: ['IPL Seoul', 'photo rejuvenation Seoul'] },
-  { query: 'Gangnam skin clinic foreigners guide', area: 'Gangnam', tags: ['Gangnam clinic', 'Gangnam beauty'] },
-  { query: 'Apgujeong dermatology clinic English', area: 'Apgujeong', tags: ['Apgujeong clinic', 'luxury skin care Seoul'] },
-  { query: 'Hongdae skin clinic Seoul tourist', area: 'Hongdae', tags: ['Hongdae clinic', 'affordable skin Seoul'] },
-  { query: 'Myeongdong beauty clinic tourist guide', area: 'Myeongdong', tags: ['Myeongdong clinic', 'tourist beauty Seoul'] },
-  { query: 'Itaewon clinic English speaking Seoul', area: 'Itaewon', tags: ['Itaewon clinic', 'English doctor Seoul'] },
-  // 리프팅/안티에이징
-  { query: 'HIFU lifting treatment Seoul price', area: 'Seoul', tags: ['HIFU Seoul', 'skin lifting Seoul'] },
-  { query: 'thread lift Seoul clinic guide', area: 'Seoul', tags: ['thread lift Seoul', 'non surgical lift'] },
-  { query: 'Ultherapy Seoul cost foreigners', area: 'Seoul', tags: ['Ultherapy Seoul', 'ultrasound lift Korea'] },
-  { query: 'skin booster injection Seoul clinic', area: 'Seoul', tags: ['skin booster Seoul', 'hydration injection Korea'] },
-  { query: 'anti aging treatment Seoul guide 2025', area: 'Seoul', tags: ['anti aging Seoul', 'Korean rejuvenation'] },
-  // 성형
-  { query: 'rhinoplasty Seoul cost guide foreigners', area: 'Seoul', tags: ['rhinoplasty Seoul', 'nose job Korea'] },
-  { query: 'double eyelid surgery Seoul price tourist', area: 'Seoul', tags: ['eyelid surgery Seoul', 'Korean eye surgery'] },
-  { query: 'jaw reduction surgery Seoul guide', area: 'Seoul', tags: ['jaw reduction Seoul', 'V-line surgery Korea'] },
-  { query: 'Korean plastic surgery guide for tourists', area: 'Seoul', tags: ['plastic surgery Seoul', 'medical tourism Korea'] },
-  { query: 'face contouring surgery Seoul foreigners', area: 'Seoul', tags: ['face contouring Seoul', 'Korean plastic surgery'] },
-  { query: 'cheekbone reduction Seoul plastic surgery', area: 'Seoul', tags: ['zygoma reduction Seoul', 'cheekbone surgery Korea'] },
-  { query: 'liposuction Seoul clinic price guide', area: 'Seoul', tags: ['liposuction Seoul', 'body contouring Korea'] },
-  { query: 'fat dissolving injection Seoul', area: 'Seoul', tags: ['fat dissolving Seoul', 'slimming injection Korea'] },
-  { query: 'eye bag removal Seoul clinic', area: 'Seoul', tags: ['eye bag removal Seoul', 'under eye treatment Korea'] },
-  { query: 'forehead filler Seoul aesthetic clinic', area: 'Seoul', tags: ['forehead filler Seoul', 'facial enhancement Seoul'] },
-  // 시술/스킨케어
-  { query: 'microneedling Seoul clinic price guide', area: 'Seoul', tags: ['microneedling Seoul', 'collagen induction Korea'] },
-  { query: 'chemical peel Seoul skin clinic', area: 'Seoul', tags: ['chemical peel Seoul', 'exfoliation treatment Korea'] },
-  { query: 'hydrafacial Seoul price foreigners', area: 'Seoul', tags: ['hydrafacial Seoul', 'deep cleansing Seoul'] },
-  { query: 'exosome treatment Seoul clinic 2025', area: 'Seoul', tags: ['exosome Seoul', 'stem cell treatment Korea'] },
-  { query: 'PDRN salmon DNA injection Seoul', area: 'Seoul', tags: ['PDRN Seoul', 'skin rejuvenation injection'] },
-  { query: 'Juvederm filler Seoul aesthetic clinic', area: 'Seoul', tags: ['Juvederm Seoul', 'hyaluronic acid filler Korea'] },
-  { query: 'PRP treatment Seoul skin clinic', area: 'Seoul', tags: ['PRP Seoul', 'platelet rich plasma Korea'] },
-  { query: 'laser toning Seoul price guide tourist', area: 'Seoul', tags: ['laser toning Seoul', 'pigmentation treatment Korea'] },
-  { query: 'pigmentation removal treatment Seoul', area: 'Seoul', tags: ['pigmentation Seoul', 'melasma treatment Korea'] },
-  { query: 'rosacea treatment clinic Seoul', area: 'Seoul', tags: ['rosacea Seoul', 'redness treatment Korea'] },
-  // 가이드/팁
-  { query: 'how to book skin clinic Seoul foreigner', area: 'Seoul', tags: ['booking clinic Seoul', 'Korea beauty booking'] },
-  { query: 'what to expect Korean dermatology clinic', area: 'Seoul', tags: ['Korean clinic guide', 'dermatology experience Korea'] },
-  { query: 'Seoul beauty medical tourism guide 2025', area: 'Seoul', tags: ['medical tourism Seoul', 'beauty Seoul guide'] },
-  { query: 'Korean clinic consultation tips foreigners', area: 'Seoul', tags: ['clinic consultation Seoul', 'foreigner tips Korea'] },
-  { query: 'Seoul skin clinic WhatsApp booking guide', area: 'Seoul', tags: ['WhatsApp clinic Seoul', 'easy booking Korea'] },
+// 각도(Angle) 타입: 같은 키워드를 다른 관점에서 쓰기
+const BLOG_ANGLES = [
+  { id: 'guide',      label: 'Complete Guide',    titleFn: (q: string) => `${q} — Complete Guide for First-Timers`,          intent: 'informational' },
+  { id: 'honest',     label: 'Honest Review',     titleFn: (q: string) => `Is ${q} Worth It? An Honest Breakdown`,            intent: 'commercial' },
+  { id: 'cost',       label: 'Price Guide',       titleFn: (q: string) => `How Much Does ${q} Cost? Real Price Breakdown`,    intent: 'transactional' },
+  { id: 'safety',     label: 'Safety Guide',      titleFn: (q: string) => `Is ${q} Safe? What You Need to Know Before Going`, intent: 'informational' },
+  { id: 'compare',    label: 'Area Comparison',   titleFn: (q: string) => `Best Areas in Seoul for ${q} — Where to Go`,      intent: 'commercial' },
+  { id: 'story',      label: 'First Person Story', titleFn: (q: string) => `I Tried ${q} in Seoul — Here's What Happened`,   intent: 'informational' },
+  { id: 'tips',       label: 'Insider Tips',      titleFn: (q: string) => `${q} in Seoul: 7 Things Nobody Tells You`,        intent: 'informational' },
+  { id: 'booking',    label: 'Booking Guide',     titleFn: (q: string) => `How to Book ${q} in Seoul as a Foreigner`,        intent: 'transactional' },
+  { id: 'before',     label: 'Before/After',      titleFn: (q: string) => `${q} in Seoul: What to Expect Before and After`,  intent: 'commercial' },
+  { id: 'faq',        label: 'FAQ Deep Dive',     titleFn: (q: string) => `${q} in Seoul: Every Question Answered`,          intent: 'informational' },
 ]
+
+// 클리닉 전용 키워드 풀 (피부과 + 성형 + 시술)
+const CLINIC_KEYWORDS: { query: string; area: string; tags: string[]; priority: number }[] = [
+  // 🔴 최우선 (검색량 높음)
+  { query: 'skin clinic Seoul foreigners', area: 'Seoul', tags: ['skin clinic Seoul', 'foreigner friendly', 'English speaking clinic'], priority: 1 },
+  { query: 'botox Seoul', area: 'Seoul', tags: ['botox Seoul', 'anti aging Seoul', 'wrinkle treatment Korea'], priority: 1 },
+  { query: 'laser treatment Seoul', area: 'Seoul', tags: ['laser Seoul', 'skin laser', 'pigmentation treatment'], priority: 1 },
+  { query: 'plastic surgery Seoul', area: 'Seoul', tags: ['plastic surgery Seoul', 'medical tourism Korea', 'cosmetic surgery Seoul'], priority: 1 },
+  { query: 'rhinoplasty Seoul', area: 'Seoul', tags: ['nose job Seoul', 'rhinoplasty Korea', 'nose surgery cost'], priority: 1 },
+  { query: 'Korean skin care clinic', area: 'Seoul', tags: ['Korean clinic', 'K-beauty clinic', 'skin care Seoul'], priority: 1 },
+  { query: 'dermatology clinic Seoul', area: 'Seoul', tags: ['dermatology Seoul', 'skin doctor Seoul', 'dermatologist Korea'], priority: 1 },
+  { query: 'double eyelid surgery Seoul', area: 'Seoul', tags: ['eyelid surgery Seoul', 'eye surgery Korea', 'blepharoplasty Seoul'], priority: 1 },
+  { query: 'filler injection Seoul', area: 'Seoul', tags: ['filler Seoul', 'hyaluronic acid Seoul', 'facial filler Korea'], priority: 1 },
+  { query: 'Gangnam skin clinic', area: 'Gangnam', tags: ['Gangnam clinic', 'Gangnam beauty', 'best clinic Gangnam'], priority: 1 },
+  // 🟠 높음
+  { query: 'HIFU lifting Seoul', area: 'Seoul', tags: ['HIFU Seoul', 'skin lifting Seoul', 'non surgical facelift'], priority: 2 },
+  { query: 'acne treatment Seoul', area: 'Seoul', tags: ['acne clinic Seoul', 'Korean acne treatment', 'pimple treatment Seoul'], priority: 2 },
+  { query: 'glass skin treatment Seoul', area: 'Seoul', tags: ['glass skin Seoul', 'Korean glow', 'skin brightening'], priority: 2 },
+  { query: 'jaw reduction surgery Seoul', area: 'Seoul', tags: ['jaw reduction Seoul', 'V-line surgery', 'face contouring Seoul'], priority: 2 },
+  { query: 'skin booster injection Seoul', area: 'Seoul', tags: ['skin booster Seoul', 'Rejuran Seoul', 'hydration injection'], priority: 2 },
+  { query: 'exosome treatment Seoul', area: 'Seoul', tags: ['exosome Seoul', 'stem cell treatment', 'PDRN Seoul'], priority: 2 },
+  { query: 'microneedling Seoul', area: 'Seoul', tags: ['microneedling Seoul', 'collagen induction', 'RF microneedling Korea'], priority: 2 },
+  { query: 'thread lift Seoul', area: 'Seoul', tags: ['thread lift Seoul', 'non surgical lift Korea', 'PDO thread Seoul'], priority: 2 },
+  { query: 'IPL treatment Seoul', area: 'Seoul', tags: ['IPL Seoul', 'photo rejuvenation Seoul', 'redness treatment'], priority: 2 },
+  { query: 'hydrafacial Seoul', area: 'Seoul', tags: ['hydrafacial Seoul', 'deep cleansing Seoul', 'facial treatment Korea'], priority: 2 },
+  // 🟡 중간
+  { query: 'Apgujeong aesthetic clinic', area: 'Apgujeong', tags: ['Apgujeong clinic', 'luxury aesthetic Seoul', 'high end clinic'], priority: 3 },
+  { query: 'Itaewon skin clinic English', area: 'Itaewon', tags: ['Itaewon clinic', 'English speaking doctor Seoul', 'international clinic'], priority: 3 },
+  { query: 'Hongdae skin care Seoul', area: 'Hongdae', tags: ['Hongdae clinic', 'affordable skin Seoul', 'student area Seoul'], priority: 3 },
+  { query: 'anti aging treatment Seoul', area: 'Seoul', tags: ['anti aging Seoul', 'Korean rejuvenation', 'youthful skin Korea'], priority: 3 },
+  { query: 'face contouring surgery Seoul', area: 'Seoul', tags: ['face contouring Seoul', 'Korean beauty surgery', 'facial sculpting'], priority: 3 },
+  { query: 'PRP treatment Seoul', area: 'Seoul', tags: ['PRP Seoul', 'platelet rich plasma', 'vampire facial Korea'], priority: 3 },
+  { query: 'chemical peel Seoul', area: 'Seoul', tags: ['chemical peel Seoul', 'exfoliation Seoul', 'skin renewal Korea'], priority: 3 },
+  { query: 'pigmentation removal Seoul', area: 'Seoul', tags: ['pigmentation Seoul', 'melasma treatment', 'dark spot removal Korea'], priority: 3 },
+  { query: 'liposuction Seoul', area: 'Seoul', tags: ['liposuction Seoul', 'body contouring Korea', 'fat removal Seoul'], priority: 3 },
+  { query: 'cheekbone reduction Seoul', area: 'Seoul', tags: ['zygoma reduction Seoul', 'cheekbone surgery Korea', 'face slim surgery'], priority: 3 },
+  // 🟢 보완
+  { query: 'Ultherapy Seoul', area: 'Seoul', tags: ['Ultherapy Seoul', 'ultrasound skin lifting', 'Ulthera Korea'], priority: 4 },
+  { query: 'fat dissolving injection Seoul', area: 'Seoul', tags: ['fat dissolving Seoul', 'Kybella Seoul', 'double chin removal Korea'], priority: 4 },
+  { query: 'eye bag removal Seoul', area: 'Seoul', tags: ['eye bag removal Seoul', 'under eye treatment', 'lower blepharoplasty Korea'], priority: 4 },
+  { query: 'rosacea treatment Seoul', area: 'Seoul', tags: ['rosacea Seoul', 'skin redness treatment', 'vascular laser Korea'], priority: 4 },
+  { query: 'laser toning Seoul', area: 'Seoul', tags: ['laser toning Seoul', 'Medlite laser', 'skin tone Seoul'], priority: 4 },
+  { query: 'Korean medical tourism beauty', area: 'Seoul', tags: ['medical tourism Seoul', 'beauty travel Korea', 'cosmetic trip Seoul'], priority: 4 },
+  { query: 'how to book skin clinic Seoul', area: 'Seoul', tags: ['booking clinic Seoul', 'WhatsApp clinic Korea', 'foreigner booking'], priority: 4 },
+  { query: 'Myeongdong beauty clinic', area: 'Myeongdong', tags: ['Myeongdong clinic', 'tourist clinic Seoul', 'walk-in clinic Seoul'], priority: 4 },
+  { query: 'forehead filler Seoul', area: 'Seoul', tags: ['forehead filler Seoul', 'temple filler Korea', 'facial volume Seoul'], priority: 4 },
+  { query: 'PDRN injection Seoul', area: 'Seoul', tags: ['PDRN Seoul', 'salmon DNA injection', 'skin repair Korea'], priority: 4 },
+  { query: 'Juvederm Seoul', area: 'Seoul', tags: ['Juvederm Seoul', 'HA filler Korea', 'lip filler Seoul'], priority: 4 },
+  { query: 'what to expect Korean clinic', area: 'Seoul', tags: ['Korean clinic experience', 'first time clinic Seoul', 'clinic guide foreigners'], priority: 4 },
+  { query: 'Seoul aesthetic clinic English speaking', area: 'Seoul', tags: ['English clinic Seoul', 'foreigner friendly aesthetic', 'English speaking doctor'], priority: 4 },
+  { query: 'skin clinic consultation Seoul foreigner', area: 'Seoul', tags: ['clinic consultation', 'free consultation Seoul', 'skin analysis Seoul'], priority: 4 },
+  { query: 'Korean plastic surgery guide tourist', area: 'Seoul', tags: ['plastic surgery guide', 'surgery tourism Seoul', 'cosmetic surgery guide Korea'], priority: 4 },
+]
+
+// 클리닉 전용 심리학+SEO 블로그 생성 함수
+async function generateClinicBlog(
+  kw: { query: string; area: string; tags: string[] },
+  angle: typeof BLOG_ANGLES[0],
+  sql: any,
+  apiKey: string
+): Promise<{ id: string; slug: string; title: string } | null> {
+  const title = angle.titleFn(kw.query)
+  const slug  = makeBlogSlug(title)
+  const year  = new Date().getFullYear()
+
+  // 중복 슬러그 체크
+  const dup = await sql`SELECT id FROM blog_posts WHERE slug=${slug} LIMIT 1`.catch(() => []) as any[]
+  if (dup.length > 0) return null
+
+  // 30일 내 같은 키워드+각도 사용 여부 체크
+  const recentDup = await sql`
+    SELECT id FROM blog_posts
+    WHERE title ILIKE ${'%' + kw.query + '%'}
+    AND created_at >= NOW() - INTERVAL '30 days'
+    LIMIT 1
+  `.catch(() => []) as any[]
+  if (recentDup.length > 0) return null
+
+  // 각도별 심리학 전략
+  const psychStrategy: Record<string, string> = {
+    guide:   'Use the "Information Gap" principle — tease what they don\'t know yet, then deliver. Make them feel smart for reading this.',
+    honest:  'Use "Social Proof + Loss Aversion" — show what others got right AND warn what can go wrong. Be the trusted friend.',
+    cost:    'Use "Price Anchoring" — show the range, mention what affects price, make the reader feel they now have insider knowledge.',
+    safety:  'Use "Fear → Relief" arc — acknowledge their concern, validate it, then systematically resolve each worry.',
+    compare: 'Use "Choice Architecture" — help them feel in control by clearly laying out their options without overwhelming.',
+    story:   'Use "Narrative Transportation" — first person, past tense, sensory details. Make them feel like they\'re reading a friend\'s diary.',
+    tips:    'Use "Insider Knowledge" psychology — position reader as getting exclusive info others don\'t have.',
+    booking: 'Use "Step-by-step Confidence Building" — break every micro-step down so they feel capable of doing this.',
+    before:  'Use "Expectation Setting" — reduce anxiety by making the unknown known. Before/after contrast creates desire.',
+    faq:     'Use "Question Mirroring" — the reader sees their exact question answered. Creates instant trust and relevance.',
+  }
+
+  // SEO 의도별 구조
+  const seoStructure: Record<string, string> = {
+    informational: `Structure for Featured Snippet capture:
+- Start with a direct 2-sentence answer (40-60 words) that Google can show as featured snippet
+- Use clear H2 headers that mirror common questions (How, What, Is, Can)
+- Include a numbered list or table where possible
+- FAQ section with 4-5 questions Google users actually type`,
+    commercial: `Structure for comparison/decision intent:
+- Lead with the key decision factor (price? safety? results?)
+- Include pros/cons or comparison table
+- Social proof woven naturally throughout
+- Clear next step CTA that feels helpful not pushy`,
+    transactional: `Structure for ready-to-act users:
+- Immediate value: answer "how much / how to" in first paragraph
+- Step-by-step booking process
+- What to say / what to bring
+- WhatsApp CTA feels like a natural helpful suggestion`,
+  }
+
+  const prompt = `You are a Seoul beauty travel writer and ex-expat who genuinely loves K-beauty clinics. You write for seoulbeautytrip.com — a vetted booking platform for foreign visitors in Seoul.
+
+KEYWORD: "${kw.query}"
+TITLE: "${title}"
+ANGLE: ${angle.label} — ${angle.id}
+AREA FOCUS: ${kw.area}
+YEAR: ${year}
+
+═══ PSYCHOLOGY STRATEGY ═══
+${psychStrategy[angle.id] || psychStrategy.guide}
+
+═══ SEO STRUCTURE ═══
+${seoStructure[angle.intent] || seoStructure.informational}
+
+═══ WRITING RULES ═══
+1. HUMAN VOICE — Write like a real person who has been there. Use contractions (I've, you'll, it's). Include 1-2 small personal observations or minor imperfections to feel authentic.
+2. NO AI PATTERNS — Avoid: "In this article we will explore", "It's worth noting that", "Navigating the world of", "Look no further", "In conclusion". 
+3. VARY SENTENCE LENGTH — Mix short punchy sentences. With longer ones that give context and nuance. One sentence paragraphs work great.
+4. SPECIFICITY — Use real district names (Gangnam, Apgujeong, Itaewon, Hongdae, Myeongdong), real treatment names, real Korean brand names where relevant.
+5. SEARCH INTENT MATCH — The reader searched "${kw.query}". Answer THAT question directly in the first 100 words.
+6. E-E-A-T SIGNALS — Mention: how long clinics have been operating, what certifications matter, what questions to ask doctors, common mistakes tourists make.
+7. INTERNAL LINKS — Naturally mention "you can find vetted options on Seoul Beauty Trip" at least twice. Once in body, once near end.
+8. EMOTIONAL JOURNEY — Start with their anxiety/curiosity → build trust → end with them feeling ready and excited.
+
+═══ CONTENT STRUCTURE ═══
+Write 1000-1200 words of HTML (no markdown). Use:
+<h2> for main sections (5-6 sections)
+<h3> for subsections where helpful
+<p> for paragraphs
+<ul><li> for lists
+<strong> to highlight key points (sparingly)
+
+REQUIRED SECTIONS (adapt titles to fit the angle):
+1. Direct answer / hook (no H2, just a strong opening <p>)
+2. The main substance (2-3 H2 sections with real depth)
+3. Practical reality check (price ranges, time needed, recovery if any)
+4. How to actually do this as a foreigner (language, booking, WhatsApp)
+5. FAQ (3-4 questions — use H3 for each)
+6. Closing that naturally leads to browsing Seoul Beauty Trip
+
+═══ OUTPUT FORMAT ═══
+HTML content first, then:
+---JSON---
+{"metaDescription":"[max 155 chars — include '${kw.query}' naturally, make it click-worthy]","excerpt":"[2 punchy sentences that make someone want to read more]","tags":${JSON.stringify(kw.tags.concat([kw.query + ' Seoul', 'K-beauty ' + year, kw.area + ' clinic']))},"category":"clinic"}`
+
+  try {
+    const res = await fetch('https://www.genspark.ai/api/llm_proxy/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 4000,
+        temperature: 0.72
+      })
+    })
+    if (!res.ok) return null
+    const data: any = await res.json()
+    const raw: string = data.choices?.[0]?.message?.content || ''
+    if (!raw || raw.length < 400) return null
+
+    const parts = raw.split('---JSON---')
+    const htmlContent = parts[0].trim()
+    if (htmlContent.length < 400) return null
+
+    let metaDescription = `${kw.query} in Seoul — ${angle.label.toLowerCase()} for foreign visitors. Book via WhatsApp with English support on Seoul Beauty Trip.`
+    let excerpt = `Everything you need to know about ${kw.query} as a foreigner in Seoul.`
+    let tags: string[] = kw.tags
+    let finalCat = 'clinic'
+
+    if (parts[1]) {
+      try {
+        const m = JSON.parse(parts[1].trim().replace(/```json|```/g, '').trim())
+        if (m.metaDescription) metaDescription = m.metaDescription
+        if (m.excerpt) excerpt = m.excerpt
+        if (Array.isArray(m.tags) && m.tags.length > 0) tags = m.tags
+        if (m.category) finalCat = m.category
+      } catch {}
+    }
+
+    const blogId = 'b' + Date.now() + Math.random().toString(36).slice(2, 5)
+    const now    = new Date().toISOString().slice(0, 10)
+
+    await sql`INSERT INTO blog_posts
+      (id, slug, title, content, excerpt, meta_description, category, area, tags, status, views, shop_id, created_at, updated_at)
+      VALUES (
+        ${blogId}, ${slug}, ${title}, ${htmlContent}, ${excerpt}, ${metaDescription},
+        ${finalCat}, ${kw.area}, ${JSON.stringify(tags)}, 'published', 0, null, ${now}, ${now}
+      )`
+
+    return { id: blogId, slug, title }
+  } catch {
+    return null
+  }
+}
 
 app.post('/api/admin/auto-blog-clinic', async (c) => {
   try {
@@ -15447,97 +15614,108 @@ app.post('/api/admin/auto-blog-clinic', async (c) => {
     const apiKey = c.env?.GSK_TOKEN || (c.env as any)?.gsk_token || ''
     if (!apiKey) return c.json({ error: 'GSK_TOKEN not configured' }, 500)
 
-    const body: any = await c.req.json().catch(() => ({}))
-    const count  = Math.min(Number(body.count ?? 3), 10)
-    const dryRun = body.dryRun === true
+    const body: any  = await c.req.json().catch(() => ({}))
+    const count      = Math.min(Number(body.count ?? 3), 10)
+    const dryRun     = body.dryRun === true
 
-    // 이미 발행된 슬러그 목록
-    const existingRows = await sql`SELECT slug FROM blog_posts WHERE status='published'`.catch(() => []) as any[]
-    const existingSet = new Set(existingRows.map((r: any) => r.slug))
-
-    // 최근 30일 생성된 타이틀 (중복 방지)
+    // 최근 30일 사용된 키워드+각도 조합 확인
     const recentRows = await sql`
       SELECT title FROM blog_posts
-      WHERE created_at >= NOW() - INTERVAL '30 days'
+      WHERE category='clinic' AND created_at >= NOW() - INTERVAL '30 days'
     `.catch(() => []) as any[]
     const recentTitles = new Set(recentRows.map((r: any) => (r.title || '').toLowerCase()))
 
-    // 키워드 후보 필터링 (슬러그 중복 + 최근 30일 중복 제외)
-    const candidates = CLINIC_KEYWORDS.filter(kw => {
-      const slug = makeBlogSlug(kw.query + ' seoul guide')
-      if (existingSet.has(slug)) return false
-      if (recentTitles.has(kw.query.toLowerCase())) return false
-      return true
+    // 이미 있는 슬러그
+    const existingRows = await sql`SELECT slug FROM blog_posts`.catch(() => []) as any[]
+    const existingSet  = new Set(existingRows.map((r: any) => r.slug))
+
+    // 우선순위 순으로 키워드 정렬 후 각도와 조합
+    const sortedKws = [...CLINIC_KEYWORDS].sort((a, b) => a.priority - b.priority)
+
+    // 가능한 키워드+각도 조합 전체 생성
+    const allCombos: { kw: typeof CLINIC_KEYWORDS[0]; angle: typeof BLOG_ANGLES[0] }[] = []
+    for (const kw of sortedKws) {
+      for (const angle of BLOG_ANGLES) {
+        const title = angle.titleFn(kw.query)
+        const slug  = makeBlogSlug(title)
+        // 슬러그 중복 없고, 최근 30일 제목 중복 없는 것만
+        if (!existingSet.has(slug) && !recentTitles.has(title.toLowerCase())) {
+          allCombos.push({ kw, angle })
+        }
+      }
+    }
+
+    // 우선순위 높은 것 먼저, 같은 우선순위 내에서 랜덤
+    const prioritized = allCombos.sort((a, b) => {
+      if (a.kw.priority !== b.kw.priority) return a.kw.priority - b.kw.priority
+      return Math.random() - 0.5
     })
 
-    // 랜덤하게 섞어서 count개 선택
-    const shuffled = candidates.sort(() => Math.random() - 0.5).slice(0, count)
+    const selected = prioritized.slice(0, count)
 
     if (dryRun) {
       return c.json({
         dryRun: true,
-        total: CLINIC_KEYWORDS.length,
-        available: candidates.length,
-        selected: shuffled.map(k => ({
-          query: k.query,
-          area: k.area,
-          slug: makeBlogSlug(k.query + ' seoul guide')
+        totalCombos: allCombos.length,
+        totalKeywords: CLINIC_KEYWORDS.length,
+        totalAngles: BLOG_ANGLES.length,
+        selected: selected.map(s => ({
+          query: s.kw.query,
+          angle: s.angle.label,
+          title: s.angle.titleFn(s.kw.query),
+          slug: makeBlogSlug(s.angle.titleFn(s.kw.query)),
+          priority: s.kw.priority,
+          intent: s.angle.intent
         }))
       })
     }
 
-    if (shuffled.length === 0) {
-      return c.json({ message: 'No new clinic keywords available', created: 0, results: [] })
+    if (selected.length === 0) {
+      return c.json({ message: 'All keyword+angle combos used in last 30 days. Will refresh soon.', created: 0, results: [] })
     }
 
     const results: any[] = []
-
-    for (const kw of shuffled) {
+    for (const { kw, angle } of selected) {
       try {
-        const result = await generateAndSaveBlog(
-          { query: kw.query, category: 'clinic', area: kw.area, relatedQueries: kw.tags },
-          sql, apiKey
-        )
+        const result = await generateClinicBlog(kw, angle, sql, apiKey)
         if (result) {
-          results.push({ status: 'created', query: kw.query, slug: result.slug, title: result.title })
+          results.push({ status: 'created', query: kw.query, angle: angle.label, slug: result.slug, title: result.title })
         } else {
-          results.push({ status: 'skipped_duplicate', query: kw.query })
+          results.push({ status: 'skipped_duplicate', query: kw.query, angle: angle.label })
         }
       } catch (e: any) {
-        results.push({ status: 'error:' + e.message, query: kw.query })
+        results.push({ status: 'error:' + e.message, query: kw.query, angle: angle.label })
       }
     }
 
     const created = results.filter(r => r.status === 'created').length
-    return c.json({ created, total: shuffled.length, results })
+    return c.json({ created, total: selected.length, results })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
   }
 })
 
 // GET /api/admin/auto-blog-clinic/status
-// 자동화 현황 조회 (최근 생성 목록 + 통계)
 app.get('/api/admin/auto-blog-clinic/status', async (c) => {
   try {
     const sql = getDb(c.env)
 
-    const [totalRows, recentRows, todayRows] = await Promise.all([
+    const [totalRows, recentRows, todayRows, weekRows] = await Promise.all([
       sql`SELECT COUNT(*) as cnt FROM blog_posts WHERE category='clinic' AND status='published'`.catch(() => [{ cnt: 0 }]),
       sql`SELECT id, slug, title, created_at FROM blog_posts WHERE category='clinic' AND status='published' ORDER BY created_at DESC LIMIT 10`.catch(() => []),
       sql`SELECT COUNT(*) as cnt FROM blog_posts WHERE category='clinic' AND status='published' AND created_at::date = CURRENT_DATE`.catch(() => [{ cnt: 0 }]),
+      sql`SELECT COUNT(*) as cnt FROM blog_posts WHERE category='clinic' AND status='published' AND created_at >= NOW() - INTERVAL '7 days'`.catch(() => [{ cnt: 0 }]),
     ]) as any[]
 
-    const weekRows = await sql`
-      SELECT COUNT(*) as cnt FROM blog_posts
-      WHERE category='clinic' AND status='published'
-      AND created_at >= NOW() - INTERVAL '7 days'
-    `.catch(() => [{ cnt: 0 }]) as any[]
+    const totalCombos = CLINIC_KEYWORDS.length * BLOG_ANGLES.length
 
     return c.json({
-      total: Number(totalRows[0]?.cnt || 0),
-      today: Number(todayRows[0]?.cnt || 0),
-      thisWeek: Number(weekRows[0]?.cnt || 0),
-      availableKeywords: CLINIC_KEYWORDS.length,
+      total: Number((totalRows as any[])[0]?.cnt || 0),
+      today: Number((todayRows as any[])[0]?.cnt || 0),
+      thisWeek: Number((weekRows as any[])[0]?.cnt || 0),
+      totalKeywords: CLINIC_KEYWORDS.length,
+      totalAngles: BLOG_ANGLES.length,
+      totalCombos,
       recentPosts: recentRows
     })
   } catch (e: any) {
@@ -22157,8 +22335,8 @@ https://seoulbeautytrip.com/video/v178051515735</textarea>
     </div>
 
     <p style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:14px">
-      피부과 · 성형 · 시술 관련 <strong style="color:#a5b4fc">45개+ 전문 키워드</strong>로 SEO 최적화 블로그를 자동 생성합니다.<br>
-      중복 방지(30일) · 슬러그 체크 · 자동 published 처리까지 완전 자동화.
+      피부과 · 성형 · 시술 <strong style="color:#a5b4fc">45개 키워드 × 10가지 각도 = 450개+ 조합</strong>으로 사실상 무제한 생성.<br>
+      SEO E-E-A-T + 심리학 기반 작성 · 30일 중복 방지 · 자동 published 처리.
     </p>
 
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
@@ -23742,8 +23920,9 @@ window.clinicAutoLoadStats = async function clinicAutoLoadStats() {
     document.getElementById('cs-total').textContent = d.total || '0';
     document.getElementById('cs-today').textContent = d.today || '0';
     document.getElementById('cs-week').textContent = d.thisWeek || '0';
-    document.getElementById('cs-kw').textContent = (d.availableKeywords || 0) - (d.total || 0) > 0
-      ? (d.availableKeywords || 0) - (d.total || 0) : '0+';
+    // 총 가능한 조합 = 키워드 × 각도
+    var totalCombos = d.totalCombos || ((d.totalKeywords||45) * (d.totalAngles||10));
+    document.getElementById('cs-kw').textContent = totalCombos + '+';
 
     // 최근 글 목록
     if (d.recentPosts && d.recentPosts.length > 0) {
@@ -23778,13 +23957,17 @@ window.clinicAutoPreview = async function clinicAutoPreview() {
     });
     var d = await r.json();
     if (d.error) { resultEl.innerHTML = '❌ ' + d.error; return; }
-    var html = '🔍 미리보기: 총 ' + d.total + '개 키워드 중 사용 가능 ' + d.available + '개<br><br>';
+    var html = '🔍 미리보기: 총 ' + d.totalCombos + '개 조합 중 선택 ' + (d.selected||[]).length + '개<br><small style="color:rgba(255,255,255,.3)">키워드 ' + d.totalKeywords + '개 × 각도 ' + d.totalAngles + '개</small><br><br>';
     html += '<div style="font-size:12px">';
     (d.selected || []).forEach(function(s, i) {
-      html += '<div style="padding:5px 0;border-bottom:1px solid rgba(255,255,255,.06)">'
-        + '<span style="color:#c7d2fe">' + (i+1) + '. ' + s.query + '</span>'
-        + '<span style="color:rgba(255,255,255,.3);font-size:10px;margin-left:8px">→ /blog/' + s.slug + '</span>'
-        + '</div>';
+      var intentColor = s.intent==='transactional' ? '#34d399' : s.intent==='commercial' ? '#fbbf24' : '#a5b4fc';
+      html += '<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06)">'
+        + '<div style="color:#c7d2fe">' + (i+1) + '. ' + s.title + '</div>'
+        + '<div style="margin-top:3px">'
+        + '<span style="font-size:10px;color:' + intentColor + ';background:rgba(255,255,255,.06);padding:1px 6px;border-radius:4px">' + s.angle + '</span>'
+        + '<span style="font-size:10px;color:rgba(255,255,255,.3);margin-left:6px">' + s.intent + '</span>'
+        + '<span style="font-size:10px;color:rgba(255,255,255,.2);margin-left:6px">→ /blog/' + s.slug + '</span>'
+        + '</div></div>';
     });
     html += '</div>';
     resultEl.innerHTML = html;
@@ -23827,9 +24010,15 @@ window.clinicAutoRun = async function clinicAutoRun(dryRun) {
     if (dryRun) {
       resultEl.style.background = 'rgba(99,102,241,.08)';
       resultEl.style.color = '#a5b4fc';
-      var html = '🔍 드라이런: 총 ' + d.total + '개 키워드 중 사용 가능 ' + d.available + '개<br><br>';
+      var html = '🔍 드라이런: ' + d.totalCombos + '개 조합 중 선택 ' + (d.selected||[]).length + '개<br><small style="color:rgba(255,255,255,.3)">키워드 ' + d.totalKeywords + '개 × 각도 ' + d.totalAngles + '개</small><br><br>';
       (d.selected || []).forEach(function(s, i) {
-        html += '<div style="font-size:12px;padding:4px 0;color:#c7d2fe">' + (i+1) + '. ' + s.query + ' <span style="color:rgba(255,255,255,.3);font-size:10px">→ /blog/' + s.slug + '</span></div>';
+        var intentColor = s.intent==='transactional' ? '#34d399' : s.intent==='commercial' ? '#fbbf24' : '#a5b4fc';
+        html += '<div style="font-size:12px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.06)">'
+          + '<div style="color:#c7d2fe">' + (i+1) + '. ' + s.title + '</div>'
+          + '<div style="margin-top:2px">'
+          + '<span style="font-size:10px;color:' + intentColor + ';background:rgba(255,255,255,.06);padding:1px 6px;border-radius:4px">' + s.angle + '</span>'
+          + '<span style="font-size:10px;color:rgba(255,255,255,.25);margin-left:6px">→ /blog/' + s.slug + '</span>'
+          + '</div></div>';
       });
       resultEl.innerHTML = html;
       return;
