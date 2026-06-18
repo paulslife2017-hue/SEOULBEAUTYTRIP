@@ -5296,53 +5296,53 @@ async function autoGenShopBlog(shop, apiKey, sql) {
   if (existing.length > 0) return;
   const reviewSnippets = (shop.reviews || []).slice(0, 3).map((r) => (r.text || "").trim().slice(0, 150)).filter(Boolean).join("\n- ");
   const seoContext = (shop.seoText || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 300);
+  const year = (/* @__PURE__ */ new Date()).getFullYear();
   const titleTemplates = {
     headspa: [
-      `${shop.name} Head Spa Review 2026: Worth It for Foreigners in ${area}?`,
-      `I Tried ${shop.name} in ${area} \u2014 Honest Head Spa Guide for Tourists (2026)`,
-      `${shop.name} ${area}: Best Head Spa for Foreigners? (2026 Guide)`
+      `${shop.name} Head Spa Review ${year}: Worth It for Foreigners in ${area}?`,
+      `I Tried ${shop.name} in ${area} \u2014 Honest Head Spa Guide for Tourists (${year})`,
+      `${shop.name} ${area}: Best Head Spa for Foreigners? (${year} Guide)`
     ],
     hair: [
-      `${shop.name} Hair Salon in ${area}: Honest Guide for Foreigners (2026)`,
+      `${shop.name} Hair Salon in ${area}: Honest Guide for Foreigners (${year})`,
       `Getting My Hair Done at ${shop.name} in ${area} \u2014 Tourist's Honest Take`,
-      `${shop.name} ${area}: Is It the Best Hair Salon for Foreigners in Seoul? (2026)`
+      `${shop.name} ${area}: Is It the Best Hair Salon for Foreigners in Seoul? (${year})`
     ],
     nail: [
-      `${shop.name} Nail Studio in ${area}: Worth Visiting as a Tourist? (2026)`,
-      `K-Beauty Nails at ${shop.name} in ${area} \u2014 What Foreigners Need to Know (2026)`,
-      `${shop.name} ${area}: Best Nail Art Studio for Tourists in Seoul? (2026)`
+      `${shop.name} Nail Studio in ${area}: Worth Visiting as a Tourist? (${year})`,
+      `K-Beauty Nails at ${shop.name} in ${area} \u2014 What Foreigners Need to Know (${year})`,
+      `${shop.name} ${area}: Best Nail Art Studio for Tourists in Seoul? (${year})`
     ],
     clinic: [
-      `${shop.name} Skin Clinic in ${area}: Honest Guide for Foreigners (2026)`,
-      `Is ${shop.name} in ${area} Worth It for Foreign Visitors? (2026)`,
-      `${shop.name} ${area}: What Tourists Should Know Before Booking (2026)`
+      `${shop.name} Skin Clinic in ${area}: Honest Guide for Foreigners (${year})`,
+      `Is ${shop.name} in ${area} Worth It for Foreign Visitors? (${year})`,
+      `${shop.name} ${area}: What Tourists Should Know Before Booking (${year})`
     ],
     skincare: [
-      `${shop.name} in ${area}: Honest Skincare Guide for Foreigners (2026)`,
-      `${shop.name} ${area} Review 2026: Best Skincare Clinic for Tourists?`,
+      `${shop.name} in ${area}: Honest Skincare Guide for Foreigners (${year})`,
+      `${shop.name} ${area} Review ${year}: Best Skincare Clinic for Tourists?`,
       `I Visited ${shop.name} in ${area} \u2014 Here's What Foreign Visitors Should Know`
     ],
     spa: [
-      `${shop.name} Spa in ${area}: Is It Worth It for Tourists? (2026)`,
-      `Relaxing at ${shop.name} in ${area} \u2014 Honest Guide for Foreign Visitors (2026)`
+      `${shop.name} Spa in ${area}: Is It Worth It for Tourists? (${year})`,
+      `Relaxing at ${shop.name} in ${area} \u2014 Honest Guide for Foreign Visitors (${year})`
     ],
     tattoo: [
-      `${shop.name} in ${area}: Eyebrow Tattoo Guide for Foreigners (2026)`,
-      `Getting Eyebrow Tattoo at ${shop.name} in ${area} \u2014 Honest Tourist Guide (2026)`
+      `${shop.name} in ${area}: Eyebrow Tattoo Guide for Foreigners (${year})`,
+      `Getting Eyebrow Tattoo at ${shop.name} in ${area} \u2014 Honest Tourist Guide (${year})`
     ],
     dental: [
-      `${shop.name} Dental Clinic in ${area}: Is It Worth It for Foreigners? (2026)`,
-      `${shop.name} in ${area}: Honest Dental Guide for Foreign Visitors (2026)`
+      `${shop.name} Dental Clinic in ${area}: Is It Worth It for Foreigners? (${year})`,
+      `${shop.name} in ${area}: Honest Dental Guide for Foreign Visitors (${year})`
     ]
   };
   const defaultTitles = [
-    `${shop.name} Review 2026: Honest Guide for Foreigners in ${area}`,
-    `${shop.name} in ${area}: Worth It for Foreign Visitors? (2026)`,
-    `I Visited ${shop.name} in ${area} \u2014 Here's My Honest Take (2026)`
+    `${shop.name} Review ${year}: Honest Guide for Foreigners in ${area}`,
+    `${shop.name} in ${area}: Worth It for Foreign Visitors? (${year})`,
+    `I Visited ${shop.name} in ${area} \u2014 Here's My Honest Take (${year})`
   ];
   const titlePool = titleTemplates[cat.toLowerCase()] || titleTemplates[shop.category?.toLowerCase() || ""] || defaultTitles;
   const title = titlePool[Math.floor(Math.random() * titlePool.length)];
-  const year = (/* @__PURE__ */ new Date()).getFullYear();
   const lsiMap = {
     clinic: ["Korean dermatologist", "skin treatment Seoul", "laser toning", "skin booster", "K-beauty skincare"],
     hair: ["Korean hair salon", "hair treatment Seoul", "balayage Seoul", "hair color Korea", "Korean hairstyle"],
@@ -5475,7 +5475,8 @@ After HTML output:
     const dupCheck = await sql`SELECT id FROM blog_posts WHERE slug=${slug} LIMIT 1`.catch(() => []);
     if (dupCheck.length > 0) return;
     const shopRow = (await sql`SELECT thumbnail FROM shops WHERE id=${shop.id} LIMIT 1`.catch(() => []))?.[0];
-    const coverImg = shopRow?.thumbnail || `https://source.unsplash.com/1200x630/?${encodeURIComponent(shop.name + " " + cat + " seoul")}`;
+    const _shopImgSeed = (shop.id || "").split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+    const coverImg = shopRow?.thumbnail && shopRow.thumbnail.startsWith("http") ? shopRow.thumbnail : _clinicHeroImage(shop.name, area, _shopImgSeed).cover;
     await sql`INSERT INTO blog_posts
       (id, slug, title, content, excerpt, meta_description, category, area, tags, cover_image, status, views, shop_id, created_at, updated_at)
       VALUES (
@@ -6845,6 +6846,7 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;line-height
   BLOG_PHOTO_GALLERY_PLACEHOLDER
   <article class="post-body">BLOG_CONTENT_PLACEHOLDER</article>
   <div class="post-tags">BLOG_TAGS_PLACEHOLDER</div>
+  BLOG_CLINIC_SHOPS_PLACEHOLDER
   BLOG_BEST_LINKS_PLACEHOLDER
   <div class="cta-box">
     <h3>${cta.icon} ${cta.title}</h3>
@@ -6946,7 +6948,43 @@ ${SB_TRACKER_SCRIPT}
 </div>`;
     }
   }
-  const finalHtml = html.replace("BLOG_READMIN_PLACEHOLDER", String(readMin)).replace("BLOG_COVER_PLACEHOLDER", coverHtml).replace("BLOG_PHOTO_GALLERY_PLACEHOLDER", photoGalleryHtml).replace("BLOG_CONTENT_PLACEHOLDER", post.content || "").replace("BLOG_TAGS_PLACEHOLDER", tagsHtml).replace("BLOG_BEST_LINKS_PLACEHOLDER", bestLinksHtml).replace("BLOG_RELATED_PLACEHOLDER", relatedHtml);
+  let clinicShopsHtml = "";
+  if (post.category === "clinic") {
+    try {
+      const areaLower = (post.area || "Seoul").toLowerCase();
+      const clinicShops = await sql`
+        SELECT id, name, slug, thumbnail, rating, review_count, location, description
+        FROM shops
+        WHERE active=true AND category='clinic'
+        ORDER BY
+          CASE WHEN LOWER(location) LIKE ${"%" + areaLower + "%"} THEN 0 ELSE 1 END,
+          (rating * LOG(GREATEST(review_count, 1))) DESC
+        LIMIT 3
+      `.catch(() => []);
+      if (clinicShops.length > 0) {
+        const cards = clinicShops.map((s) => {
+          const stars = "\u2605".repeat(Math.round(s.rating || 0)) + "\u2606".repeat(5 - Math.round(s.rating || 0));
+          const thumb = s.thumbnail && s.thumbnail.startsWith("http") ? s.thumbnail : "";
+          const locShort = (s.location || "Seoul").split(",")[0].trim();
+          return `<a href="/shop/${s.slug}" style="display:flex;gap:12px;padding:14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,77,141,.15);border-radius:12px;text-decoration:none;color:inherit;transition:.2s" onmouseover="this.style.borderColor='rgba(255,77,141,.4)'" onmouseout="this.style.borderColor='rgba(255,77,141,.15)'">
+  ${thumb ? `<img src="${thumb}" alt="${s.name}" width="72" height="72" style="width:72px;height:72px;object-fit:cover;border-radius:8px;flex-shrink:0" loading="lazy" onerror="this.style.display='none'">` : `<div style="width:72px;height:72px;background:linear-gradient(135deg,rgba(255,77,141,.2),rgba(155,89,182,.2));border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:24px">\u{1F3E5}</div>`}
+  <div style="min-width:0">
+    <div style="font-weight:700;font-size:.9rem;color:#fff;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</div>
+    <div style="font-size:.75rem;color:#FF4D8D;margin-bottom:4px">${stars} <span style="color:rgba(255,255,255,.4)">(${s.review_count || 0})</span> \xB7 ${locShort}</div>
+  </div>
+</a>`;
+        }).join("");
+        clinicShopsHtml = `
+  <aside style="margin:32px 0">
+    <div style="font-size:.75rem;font-weight:700;color:#FF4D8D;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">\u{1F3E5} \u304A\u3059\u3059\u3081\u306E\u30AF\u30EA\u30CB\u30C3\u30AF</div>
+    <div style="display:flex;flex-direction:column;gap:10px">${cards}</div>
+    <div style="margin-top:10px;text-align:right"><a href="/best/clinic/seoul" style="font-size:.78rem;color:rgba(255,77,141,.8);text-decoration:none">\u30BD\u30A6\u30EB\u306E\u30AF\u30EA\u30CB\u30C3\u30AF\u3092\u5168\u90E8\u898B\u308B \u2192</a></div>
+  </aside>`;
+      }
+    } catch {
+    }
+  }
+  const finalHtml = html.replace("BLOG_READMIN_PLACEHOLDER", String(readMin)).replace("BLOG_COVER_PLACEHOLDER", coverHtml).replace("BLOG_PHOTO_GALLERY_PLACEHOLDER", photoGalleryHtml).replace("BLOG_CONTENT_PLACEHOLDER", post.content || "").replace("BLOG_TAGS_PLACEHOLDER", tagsHtml).replace("BLOG_CLINIC_SHOPS_PLACEHOLDER", clinicShopsHtml).replace("BLOG_BEST_LINKS_PLACEHOLDER", bestLinksHtml).replace("BLOG_RELATED_PLACEHOLDER", relatedHtml);
   return c.html(finalHtml);
 });
 app.get("/__ja_disabled__/shop/:slug", async (c) => {
@@ -12678,6 +12716,44 @@ app.get("/blog/:slug", async (c) => {
       </a>`).join("")}
     </div>
   </aside>` : "";
+  let clinicShopsHtml = "";
+  if (post.category === "clinic") {
+    try {
+      const areaLower = (post.area || "Seoul").toLowerCase();
+      const clinicShops = await sql`
+        SELECT id, name, slug, thumbnail, rating, review_count, location, description
+        FROM shops
+        WHERE active=true AND category='clinic'
+        ORDER BY
+          CASE WHEN LOWER(location) LIKE ${"%" + areaLower + "%"} THEN 0 ELSE 1 END,
+          (rating * LOG(GREATEST(review_count, 1))) DESC
+        LIMIT 3
+      `.catch(() => []);
+      if (clinicShops.length > 0) {
+        const cards = clinicShops.map((s) => {
+          const stars = "\u2605".repeat(Math.round(s.rating || 0)) + "\u2606".repeat(5 - Math.round(s.rating || 0));
+          const thumb = s.thumbnail && s.thumbnail.startsWith("http") ? s.thumbnail : "";
+          const locShort = (s.location || "Seoul").split(",")[0].trim();
+          const desc = (s.description || "").replace(/<[^>]+>/g, "").trim().slice(0, 80);
+          return `<a href="/shop/${s.slug}" style="display:flex;gap:12px;padding:14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,77,141,.15);border-radius:12px;text-decoration:none;color:inherit;transition:.2s" onmouseover="this.style.borderColor='rgba(255,77,141,.4)'" onmouseout="this.style.borderColor='rgba(255,77,141,.15)'">
+  ${thumb ? `<img src="${thumb}" alt="${s.name}" width="72" height="72" style="width:72px;height:72px;object-fit:cover;border-radius:8px;flex-shrink:0" loading="lazy" onerror="this.style.display='none'">` : `<div style="width:72px;height:72px;background:linear-gradient(135deg,rgba(255,77,141,.2),rgba(155,89,182,.2));border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:24px">\u{1F3E5}</div>`}
+  <div style="min-width:0">
+    <div style="font-weight:700;font-size:.9rem;color:#fff;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</div>
+    <div style="font-size:.75rem;color:#FF4D8D;margin-bottom:4px">${stars} <span style="color:rgba(255,255,255,.4)">(${s.review_count || 0})</span> \xB7 ${locShort}</div>
+    ${desc ? `<div style="font-size:.75rem;color:rgba(255,255,255,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${desc}</div>` : ""}
+  </div>
+</a>`;
+        }).join("");
+        clinicShopsHtml = `
+  <aside style="margin:32px 0">
+    <div style="font-size:.75rem;font-weight:700;color:#FF4D8D;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">\u{1F3E5} Featured Clinics in Seoul</div>
+    <div style="display:flex;flex-direction:column;gap:10px">${cards}</div>
+    <div style="margin-top:10px;text-align:right"><a href="/best/clinic/seoul" style="font-size:.78rem;color:rgba(255,77,141,.8);text-decoration:none">View all Seoul clinics \u2192</a></div>
+  </aside>`;
+      }
+    } catch {
+    }
+  }
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -12871,6 +12947,7 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;line-height
   BLOG_PHOTO_GALLERY_PLACEHOLDER
   <article class="post-body">BLOG_CONTENT_PLACEHOLDER</article>
   <div class="post-tags">BLOG_TAGS_PLACEHOLDER</div>
+  BLOG_CLINIC_SHOPS_PLACEHOLDER
   BLOG_BEST_LINKS_PLACEHOLDER
   <div class="cta-box">
     <h3>${cta.icon} ${cta.title}</h3>
@@ -12972,7 +13049,7 @@ ${SB_TRACKER_SCRIPT}
 </div>`;
     }
   }
-  const finalHtml = html.replace("BLOG_READMIN_PLACEHOLDER", String(readMin)).replace("BLOG_COVER_PLACEHOLDER", coverHtml).replace("BLOG_PHOTO_GALLERY_PLACEHOLDER", photoGalleryHtml).replace("BLOG_CONTENT_PLACEHOLDER", post.content || "").replace("BLOG_TAGS_PLACEHOLDER", tagsHtml).replace("BLOG_BEST_LINKS_PLACEHOLDER", bestLinksHtml).replace("BLOG_RELATED_PLACEHOLDER", relatedHtml);
+  const finalHtml = html.replace("BLOG_READMIN_PLACEHOLDER", String(readMin)).replace("BLOG_COVER_PLACEHOLDER", coverHtml).replace("BLOG_PHOTO_GALLERY_PLACEHOLDER", photoGalleryHtml).replace("BLOG_CONTENT_PLACEHOLDER", post.content || "").replace("BLOG_TAGS_PLACEHOLDER", tagsHtml).replace("BLOG_CLINIC_SHOPS_PLACEHOLDER", clinicShopsHtml).replace("BLOG_BEST_LINKS_PLACEHOLDER", bestLinksHtml).replace("BLOG_RELATED_PLACEHOLDER", relatedHtml);
   return c.html(finalHtml);
 });
 function guideHead(title, desc, slug, base) {
@@ -16204,6 +16281,34 @@ var CLINIC_KEYWORDS = [
   { query: "VAT refund cosmetic treatment Seoul tourist 2025", area: "Seoul", tags: ["VAT refund Seoul clinic", "tax refund cosmetic Korea", "medical tax refund tourist Seoul"], priority: 4 },
   { query: "how to book Korean clinic via WhatsApp guide", area: "Seoul", tags: ["WhatsApp clinic booking Seoul", "how to book Korean doctor WhatsApp", "online booking Seoul clinic"], priority: 2 }
 ];
+function _clinicHeroImage(query, area, seed) {
+  const UNSPLASH_IDS = [
+    "photo-1559599101-f09722fb4948",
+    // 클리닉 인테리어 (흰 벽, 청결)
+    "photo-1588776814546-1ffedbe47add",
+    // 스킨케어 시술
+    "photo-1622253692010-333f2da6031d",
+    // 피부과 기기
+    "photo-1576091160399-112ba8d25d1d",
+    // 의료진
+    "photo-1612349317150-e413f6a5b16d",
+    // 레이저 시술
+    "photo-1570172619644-dfd03ed5d881",
+    // 피부 클리닉
+    "photo-1487412947147-5cebf100ffc2",
+    // 뷰티 케어
+    "photo-1540555700478-4be289fbecef",
+    // 스파/클리닉
+    "photo-1606787366850-de6330128bfc",
+    // 서울 뷰티
+    "photo-1523755231516-e43fd2e8dca5"
+    // 클리닉 침대
+  ];
+  const idx = seed !== void 0 ? seed % UNSPLASH_IDS.length : Math.floor(Math.random() * UNSPLASH_IDS.length);
+  const pid = UNSPLASH_IDS[idx];
+  const src = `https://images.unsplash.com/${pid}?w=1200&h=630&fit=crop&auto=format&q=80`;
+  return { src, cover: src };
+}
 async function generateClinicBlog(kw, angle, sql, apiKey) {
   const title = angle.titleFn(kw.query);
   const slug = makeBlogSlug(title);
@@ -16217,6 +16322,32 @@ async function generateClinicBlog(kw, angle, sql, apiKey) {
     LIMIT 1
   `.catch(() => []);
   if (recentDup.length > 0) return null;
+  const queryWords = kw.query.toLowerCase().split(/\s+/).filter((w) => w.length > 3);
+  const topicWord = queryWords[0] || kw.query.split(" ")[0];
+  const relatedBlogRows = await sql`
+    SELECT slug, title FROM blog_posts
+    WHERE status='published' AND category='clinic'
+    AND slug != ${slug}
+    AND (
+      LOWER(title) LIKE ${"%" + topicWord + "%"}
+      OR LOWER(title) LIKE ${"%" + (queryWords[1] || topicWord) + "%"}
+    )
+    ORDER BY created_at DESC
+    LIMIT 3
+  `.catch(() => []);
+  let topicRelated = relatedBlogRows;
+  if (topicRelated.length < 3) {
+    const fallbackRows = await sql`
+      SELECT slug, title FROM blog_posts
+      WHERE status='published' AND category='clinic'
+      AND slug != ${slug}
+      AND slug != ALL(${topicRelated.map((r) => r.slug)})
+      ORDER BY created_at DESC
+      LIMIT ${3 - topicRelated.length}
+    `.catch(() => []);
+    topicRelated = [...topicRelated, ...fallbackRows];
+  }
+  const relatedLinksBlock = topicRelated.length > 0 ? topicRelated.map((r) => `- <a href="/blog/${r.slug}">${r.title}</a>`).join("\n") : "";
   const psychStrategy = {
     guide: `Use the "Information Gap" principle \u2014 tease what they don't know yet, then deliver. Make them feel smart for reading this.`,
     honest: `Use "Trusted Friend" framing \u2014 write like a friend who actually did the research and is telling you the full truth, not just the good parts. Include: what the clinics don't tell you upfront, one thing that surprised you (good or bad), the real decision criteria that matters. Loss Aversion: show the cost of NOT going to a good clinic (bad results, wasted money). End by making Seoul Beauty Trip feel like the shortcut to the vetted option.`,
@@ -16271,6 +16402,8 @@ async function generateClinicBlog(kw, angle, sql, apiKey) {
   };
   const lsiKey = Object.keys(lsiKeywords).find((k) => kw.query.toLowerCase().includes(k)) || "default";
   const lsiList = lsiKeywords[lsiKey].join(", ");
+  const isHQ = ["story", "honest"].includes(angle.id);
+  const wordTarget = isHQ ? "1000-1200" : "900-1100";
   const prompt = `You are a senior K-beauty travel writer for seoulbeautytrip.com. Your job: write a blog post that ranks #1 on Google AND converts readers into clinic bookings.
 
 KEYWORD: "${kw.query}" | TITLE: "${title}" | ANGLE: ${angle.label} | AREA: ${kw.area} | YEAR: ${year}
@@ -16286,7 +16419,13 @@ SEO RULES (Google ranking):
 - H2 headers: write as questions Google users actually type (start with How/What/Is/Can/Why/Where)
 - First paragraph: answer the main query directly in 40-60 words (Featured Snippet target)
 - FAQ section: minimum 4 questions, written as real Google searches
-- Internal links: naturally mention "best clinics in Gangnam" linking to /best/clinic/gangnam, "Seoul clinics" to /best/clinic/seoul
+- Internal links (use these EXACT HTML anchor tags, spread naturally across the article \u2014 DO NOT clump together):
+  <a href="/best/clinic/gangnam">best skin clinics in Gangnam</a>
+  <a href="/best/clinic/seoul">top-rated Seoul clinics</a>
+  <a href="/best/clinic/itaewon">English-friendly clinics in Itaewon</a>
+  <a href="/blog">K-beauty blog</a>
+${relatedLinksBlock ? `  Also link naturally to these related articles (use the exact href):
+${relatedLinksBlock}` : ""}
 
 CONTENT RULES (Google E-E-A-T):
 - Experience: include specific KRW prices (ranges OK), realistic timeframes, recovery info
@@ -16298,7 +16437,8 @@ CONTENT RULES (Google E-E-A-T):
 - Real Seoul districts: Gangnam, Apgujeong, Itaewon, Hongdae, Myeongdong (use at least 2)
 - Mention "Seoul Beauty Trip" naturally 2x as the resource for finding vetted clinics
 - Date: use "${year}" dynamically \u2014 never hardcode a specific year
-${["story", "honest"].includes(angle.id) ? `
+- DO NOT mention specific clinic names or shop names \u2014 link to /best/clinic/area pages instead
+${isHQ ? `
 PREMIUM QUALITY (sonnet model \u2014 use its full capability):
 - Open with a scene, a specific moment, or a surprising fact \u2014 NEVER a generic intro
 - Every paragraph earns its place: if it doesn't add value or emotion, cut it
@@ -16306,13 +16446,7 @@ PREMIUM QUALITY (sonnet model \u2014 use its full capability):
 - Reader should feel something: curiosity, relief, "I need to book this"
 - By the last paragraph, reader naturally wants to check Seoul Beauty Trip` : ""}
 
-INTERNAL LINKS (use these exact HTML links naturally in the text \u2014 don't clump, spread across the article):
-- <a href="/best/clinic/gangnam">best skin clinics in Gangnam</a>
-- <a href="/best/clinic/seoul">top-rated Seoul clinics</a>
-- <a href="/best/clinic/itaewon">English-friendly clinics in Itaewon</a>
-- <a href="/blog">K-beauty blog</a>
-
-OUTPUT: HTML only (no markdown). ${["story", "honest"].includes(angle.id) ? "1000-1200" : "900-1100"} words. STRUCTURE:
+OUTPUT: HTML only (no markdown). ${wordTarget} words. STRUCTURE:
 ${angle.id === "story" ? `<p>[scene-setting hook \u2014 drop the reader into a moment, not a summary]</p>
 <h2>[The Decision \u2014 why you went / what you were nervous about]</h2><p>...</p>
 <h2>[The Experience \u2014 sensory details, what actually happened step by step]</h2><p>...</p>
@@ -16342,10 +16476,9 @@ ${angle.id === "story" ? `<p>[scene-setting hook \u2014 drop the reader into a m
 
 After HTML output:
 ---JSON---
-{"metaDescription":"[\u2264155 chars with '${kw.query}' naturally]","excerpt":"[2 punchy sentences]","tags":${JSON.stringify(kw.tags.concat([kw.query + " Seoul", "K-beauty " + year, kw.area + " clinic"]))},"category":"clinic"}`;
-  const HIGH_QUALITY_ANGLES = ["story", "honest"];
-  const selectedModel = HIGH_QUALITY_ANGLES.includes(angle.id) ? "claude-sonnet-4-5" : "claude-haiku-4-5";
-  const selectedMaxTokens = HIGH_QUALITY_ANGLES.includes(angle.id) ? 3500 : 2800;
+{"metaDescription":"[\u2264155 chars, naturally include '${kw.query}' \u2014 NO filler phrases like 'Book via WhatsApp']","excerpt":"[2 punchy sentences that make someone want to read more]","tags":${JSON.stringify(kw.tags.concat([kw.query + " Seoul", "K-beauty " + year, kw.area + " clinic"]))},"category":"clinic"}`;
+  const selectedModel = isHQ ? "claude-sonnet-4-5" : "claude-haiku-4-5";
+  const selectedMaxTokens = isHQ ? 3500 : 2800;
   try {
     const res = await fetch("https://www.genspark.ai/api/llm_proxy/v1/chat/completions", {
       method: "POST",
@@ -16364,13 +16497,13 @@ After HTML output:
     const parts = raw2.split("---JSON---");
     let htmlContent = parts[0].trim();
     if (htmlContent.length < 400) return null;
-    const imgKeyword = encodeURIComponent(kw.query.replace(/\s+/g, "-").toLowerCase());
-    const heroImg = `https://source.unsplash.com/1200x630/?${imgKeyword},seoul,clinic`;
-    const heroAlt = `${kw.query} in Seoul \u2014 ${angle.label}`;
+    const imgSeed = slug.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+    const { src: heroSrc, cover: coverUrl } = _clinicHeroImage(kw.query, kw.area, imgSeed);
+    const heroAlt = `${kw.query} in ${kw.area} \u2014 ${angle.label}`;
     if (!htmlContent.includes("<img")) {
       const heroImgHtml = `<figure style="margin:0 0 28px;border-radius:12px;overflow:hidden">
-  <img src="${heroImg}" alt="${heroAlt}" width="1200" height="630" loading="eager" style="width:100%;height:auto;display:block" />
-  <figcaption style="font-size:12px;color:#94a3b8;padding:6px 0 0;text-align:center">${kw.area} \u2014 ${kw.query}</figcaption>
+  <img src="${heroSrc}" alt="${heroAlt}" width="1200" height="630" loading="eager" style="width:100%;height:auto;display:block" />
+  <figcaption style="font-size:12px;color:#94a3b8;padding:6px 0 0;text-align:center">${kw.area} \u2014 ${kw.query} guide for foreign visitors</figcaption>
 </figure>`;
       htmlContent = heroImgHtml + "\n" + htmlContent;
     }
@@ -16394,18 +16527,35 @@ After HTML output:
         faqSchemaHtml = `<script type="application/ld+json">${JSON.stringify(faqSchema)}</script>`;
       }
     }
-    const plainText = htmlContent.replace(/<[^>]+>/g, " ");
-    const wordCount = plainText.split(/\s+/).filter(Boolean).length;
-    const readMin = Math.max(1, Math.round(wordCount / 200));
-    let metaDescription = `${kw.query} in Seoul \u2014 ${angle.label.toLowerCase()} for foreign visitors. Book via WhatsApp with English support on Seoul Beauty Trip.`;
-    let excerpt = `Everything you need to know about ${kw.query} as a foreigner in Seoul.`;
+    const fallbackMeta = (() => {
+      const base = `${kw.query} in Seoul \u2014 `;
+      const angleDesc = {
+        guide: "complete guide for foreign visitors.",
+        honest: "honest breakdown of what to expect and what to watch out for.",
+        cost: `real price breakdown in KRW for ${(/* @__PURE__ */ new Date()).getFullYear()}.`,
+        safety: "safety guide and what to check before booking.",
+        compare: `area comparison \u2014 where to go in ${kw.area}.`,
+        story: "first-hand experience from a foreign visitor.",
+        tips: "7 insider tips no one tells you.",
+        booking: "step-by-step booking guide for foreigners.",
+        before: "before & after \u2014 what to expect from start to finish.",
+        faq: "every question answered for foreign visitors."
+      };
+      const desc = base + (angleDesc[angle.id] || "guide for foreign visitors in Seoul.");
+      return desc.length <= 155 ? desc : desc.slice(0, 152) + "...";
+    })();
+    let metaDescription = fallbackMeta;
+    let excerpt = `Planning ${kw.query} in Seoul? Here's what foreign visitors actually need to know \u2014 from prices to booking.`;
     let tags = kw.tags;
     let finalCat = "clinic";
     if (parts[1]) {
       try {
         const m = JSON.parse(parts[1].trim().replace(/```json|```/g, "").trim());
-        if (m.metaDescription) metaDescription = m.metaDescription;
-        if (m.excerpt) excerpt = m.excerpt;
+        if (m.metaDescription && m.metaDescription.length >= 50) {
+          const aiMeta = m.metaDescription.trim();
+          metaDescription = aiMeta.length <= 155 ? aiMeta : aiMeta.slice(0, 152) + "...";
+        }
+        if (m.excerpt && m.excerpt.length >= 30) excerpt = m.excerpt;
         if (Array.isArray(m.tags) && m.tags.length > 0) tags = m.tags;
         if (m.category) finalCat = m.category;
       } catch {
@@ -16415,10 +16565,10 @@ After HTML output:
     const blogId = "b" + Date.now() + Math.random().toString(36).slice(2, 5);
     const now = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
     await sql`INSERT INTO blog_posts
-      (id, slug, title, content, excerpt, meta_description, category, area, tags, status, views, shop_id, created_at, updated_at)
+      (id, slug, title, content, excerpt, meta_description, category, area, tags, cover_image, status, views, shop_id, created_at, updated_at)
       VALUES (
         ${blogId}, ${slug}, ${title}, ${htmlContent}, ${excerpt}, ${metaDescription},
-        ${finalCat}, ${kw.area}, ${JSON.stringify(tags)}, 'published', 0, null, ${now}, ${now}
+        ${finalCat}, ${kw.area}, ${JSON.stringify(tags)}, ${coverUrl}, 'published', 0, null, ${now}, ${now}
       )`;
     return { id: blogId, slug, title };
   } catch {
