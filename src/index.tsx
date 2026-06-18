@@ -15530,17 +15530,44 @@ app.get('/api/admin/debug-blog-photos', async (c) => {
 // ══════════════════════════════════════════════════════════
 
 // 각도(Angle) 타입: 같은 키워드를 다른 관점에서 쓰기
+// titleFn 헬퍼: 키워드가 이미 의문형/동사로 시작하면 접두 동사 중복 방지
+// 예) "Is ${q} Safe?" → q="is Seoul skin clinic safe..." → "Is is..." 방지
+// 예) "How to Book ${q}..." → q="how to book skin clinic Seoul" → "How to Book how to book..." 방지
+function _safeTitle(prefix: string, q: string, suffix: string): string {
+  const qLow = q.toLowerCase().trim()
+  const prefLow = prefix.toLowerCase()
+  // 키워드가 접두어의 첫 단어로 시작하면 → 키워드 자체가 이미 문장 형태
+  // 예) "Is" vs "is Seoul..." → "is"로 시작
+  // 예) "How to Book" vs "how to book..." → "how"로 시작
+  const prefFirstWord = prefLow.split(/\s+/)[0]
+  const qFirstWord    = qLow.replace(/[^a-z0-9 ]/g, '').split(/\s+/)[0]
+  if (prefFirstWord && qFirstWord && qFirstWord === prefFirstWord) {
+    // 키워드 자체가 이미 문장 형태 → capitalize 후, suffix는 핵심부만 붙임
+    // suffix에서 앞쪽 동사/형용사 중복 제거 (예: "Safe? What..." → "What You Need to Know")
+    const cap = q.charAt(0).toUpperCase() + q.slice(1)
+    // suffix 첫 단어가 키워드 마지막 단어와 겹치면 suffix 첫 단어 제거
+    const qWords = qLow.split(/\s+/)
+    const qLastWord = qWords[qWords.length - 1]
+    const suffWords = suffix.replace(/[^a-z ]/gi, ' ').trim().split(/\s+/)
+    const cleanSuffix = (suffWords[0]?.toLowerCase() === qLastWord) ? suffWords.slice(1).join(' ') : suffix
+    // 그냥 cleanSuffix 없이 cap만 쓰는 게 더 깔끔한 경우가 많음 → suffix의 '설명 부분'만
+    const descPart = cleanSuffix.replace(/^[A-Z][a-z]+\??[\s]+/, '') // 첫 단어(Safe?, Is, What 등) 제거
+    return descPart.trim() ? `${cap} — ${descPart.trim()}` : cap
+  }
+  return `${prefix} ${q}${suffix ? ' ' + suffix : ''}`
+}
+
 const BLOG_ANGLES = [
-  { id: 'guide',      label: 'Complete Guide',    titleFn: (q: string) => `${q} — Complete Guide for First-Timers`,          intent: 'informational' },
-  { id: 'honest',     label: 'Honest Review',     titleFn: (q: string) => `Is ${q} Worth It? An Honest Breakdown`,            intent: 'commercial' },
-  { id: 'cost',       label: 'Price Guide',       titleFn: (q: string) => `How Much Does ${q} Cost? Real Price Breakdown`,    intent: 'transactional' },
-  { id: 'safety',     label: 'Safety Guide',      titleFn: (q: string) => `Is ${q} Safe? What You Need to Know Before Going`, intent: 'informational' },
-  { id: 'compare',    label: 'Area Comparison',   titleFn: (q: string) => `Best Areas in Seoul for ${q} — Where to Go`,      intent: 'commercial' },
-  { id: 'story',      label: 'First Person Story', titleFn: (q: string) => `I Tried ${q} in Seoul — Here's What Happened`,   intent: 'informational' },
-  { id: 'tips',       label: 'Insider Tips',      titleFn: (q: string) => `${q} in Seoul: 7 Things Nobody Tells You`,        intent: 'informational' },
-  { id: 'booking',    label: 'Booking Guide',     titleFn: (q: string) => `How to Book ${q} in Seoul as a Foreigner`,        intent: 'transactional' },
-  { id: 'before',     label: 'Before/After',      titleFn: (q: string) => `${q} in Seoul: What to Expect Before and After`,  intent: 'commercial' },
-  { id: 'faq',        label: 'FAQ Deep Dive',     titleFn: (q: string) => `${q} in Seoul: Every Question Answered`,          intent: 'informational' },
+  { id: 'guide',   label: 'Complete Guide',     titleFn: (q: string) => `${q} — Complete Guide for First-Timers`,          intent: 'informational' },
+  { id: 'honest',  label: 'Honest Review',      titleFn: (q: string) => _safeTitle('Is', q, 'Worth It? An Honest Breakdown'),  intent: 'commercial' },
+  { id: 'cost',    label: 'Price Guide',        titleFn: (q: string) => _safeTitle('How Much Does', q, 'Cost? Real Price Breakdown'), intent: 'transactional' },
+  { id: 'safety',  label: 'Safety Guide',       titleFn: (q: string) => _safeTitle('Is', q, 'Safe? What You Need to Know Before Going'), intent: 'informational' },
+  { id: 'compare', label: 'Area Comparison',    titleFn: (q: string) => `Best Areas in Seoul for ${q} — Where to Go`,      intent: 'commercial' },
+  { id: 'story',   label: 'First Person Story', titleFn: (q: string) => _safeTitle('I Tried', q, "in Seoul — Here's What Happened"), intent: 'informational' },
+  { id: 'tips',    label: 'Insider Tips',       titleFn: (q: string) => `${q} in Seoul: 7 Things Nobody Tells You`,        intent: 'informational' },
+  { id: 'booking', label: 'Booking Guide',      titleFn: (q: string) => _safeTitle('How to Book', q, 'in Seoul as a Foreigner'), intent: 'transactional' },
+  { id: 'before',  label: 'Before/After',       titleFn: (q: string) => `${q} in Seoul: What to Expect Before and After`,  intent: 'commercial' },
+  { id: 'faq',     label: 'FAQ Deep Dive',      titleFn: (q: string) => `${q} in Seoul: Every Question Answered`,          intent: 'informational' },
 ]
 
 // 클리닉 전용 키워드 풀 (피부과 + 성형 + 시술)
