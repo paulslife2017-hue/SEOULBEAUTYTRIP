@@ -37,7 +37,7 @@ jobs:
             echo "[$i/$COUNT] 생성 중..."
 
             RESPONSE=$(curl -s -w "\n%{http_code}" \
-              -X POST "${{ secrets.SITE_URL }}/api/admin/auto-blog-clinic" \
+              -X POST "https://seoulbeautytrip.com/api/admin/auto-blog-clinic" \
               -H "Content-Type: application/json" \
               -H "Authorization: Bearer ${{ secrets.ADMIN_TOKEN }}" \
               -d "{\"count\": 1, \"dryRun\": $DRY_RUN}" \
