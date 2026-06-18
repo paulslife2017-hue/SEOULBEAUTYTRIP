@@ -16211,32 +16211,61 @@ async function generateClinicBlog(kw, angle, sql, apiKey) {
     before: "Reddit users are anxious about: downtime, pain, what to bring, language barrier, how to ask for what they want. Address all.",
     faq: "These are REAL questions from Reddit r/KoreanBeauty and r/KoreaSeoulBeauty. Answer them like an insider, not a brochure."
   };
-  const prompt = `Seoul K-beauty writer for seoulbeautytrip.com. Write a blog post that foreigners will actually find useful \u2014 NOT a brochure.
+  const lsiKeywords = {
+    "skin clinic": ["dermatologist Seoul", "skin treatment", "laser toning", "K-beauty skincare", "skin booster injection"],
+    "plastic surgery": ["rhinoplasty Seoul", "double eyelid surgery", "facial contouring", "Korean plastic surgery", "before after"],
+    "botox": ["botulinum toxin", "wrinkle treatment", "preventative botox", "forehead lines", "jaw slimming"],
+    "filler": ["hyaluronic acid filler", "lip filler Seoul", "cheek filler", "under eye filler", "natural results"],
+    "laser": ["laser resurfacing", "pigmentation treatment", "Pico laser", "laser toning", "skin brightening"],
+    "hifu": ["high intensity focused ultrasound", "skin lifting", "non-surgical facelift", "collagen stimulation", "jawline"],
+    "thread lift": ["PDO threads", "non-surgical lift", "collagen threads", "facial lifting", "skin tightening"],
+    "rejuran": ["PDRN therapy", "salmon DNA injection", "skin regeneration", "fine lines treatment", "skin healing"],
+    "default": ["Seoul clinic foreigner", "English speaking doctor", "K-beauty treatment", "skin care Seoul", "Korean dermatology"]
+  };
+  const lsiKey = Object.keys(lsiKeywords).find((k) => kw.query.toLowerCase().includes(k)) || "default";
+  const lsiList = lsiKeywords[lsiKey].join(", ");
+  const prompt = `You are a senior K-beauty travel writer for seoulbeautytrip.com. Your job: write a blog post that ranks #1 on Google AND converts readers into clinic bookings.
 
 KEYWORD: "${kw.query}" | TITLE: "${title}" | ANGLE: ${angle.label} | AREA: ${kw.area} | YEAR: ${year}
 
 PSYCHOLOGY: ${psychStrategy[angle.id] || psychStrategy.guide}
-SEO: ${seoStructure[angle.intent] || seoStructure.informational}
+SEO STRUCTURE: ${seoStructure[angle.intent] || seoStructure.informational}
 REDDIT CONTEXT: ${redditContext[angle.id] || redditContext.guide}
+LSI KEYWORDS (weave naturally, don't force): ${lsiList}
 
-RULES (strict):
-- Answer "${kw.query}" directly in first 80 words
-- Human voice: contractions, varied sentence length, 1-2 honest imperfections
-- NO: "In this article", "It's worth noting", "Look no further", "In conclusion", "Navigating the world of", "Dive into", "Unlock", "Game-changer"
-- Use real Seoul districts (Gangnam, Apgujeong, Itaewon, Hongdae, Myeongdong)
-- Mention "Seoul Beauty Trip" naturally 2x as the place to find vetted clinics
-- E-E-A-T: certifications, questions to ask, common tourist mistakes
-- Date: always use "${year}" not hardcoded numbers
-- Current date context: write as if it's ${year}, mention "${year}" when referencing current prices/trends
+SEO RULES (Google ranking):
+- Use "${kw.query}" in: first paragraph, at least one H2, naturally 3-4x total (density ~1%)
+- LSI keywords: use at least 3 of the above naturally in the text
+- H2 headers: write as questions Google users actually type (start with How/What/Is/Can/Why/Where)
+- First paragraph: answer the main query directly in 40-60 words (Featured Snippet target)
+- FAQ section: minimum 4 questions, written as real Google searches
+- Internal links: naturally mention "best clinics in Gangnam" linking to /best/clinic/gangnam, "Seoul clinics" to /best/clinic/seoul
+
+CONTENT RULES (Google E-E-A-T):
+- Experience: include specific KRW prices (ranges OK), realistic timeframes, recovery info
+- Expertise: mention board certifications, clinic accreditation, doctor credentials to look for
+- Authoritativeness: cite what real patients ask/worry about (from Reddit context above)
+- Trustworthiness: include 1 honest caveat or risk \u2014 Google rewards balanced content
+- NO AI tells: "In this article", "It's worth noting", "Look no further", "In conclusion", "Navigating the world of", "Dive into", "Unlock", "Game-changer", "Comprehensive guide"
+- Human voice: contractions, varied sentence length (mix short punchy + longer), 1 honest imperfection
+- Real Seoul districts: Gangnam, Apgujeong, Itaewon, Hongdae, Myeongdong (use at least 2)
+- Mention "Seoul Beauty Trip" naturally 2x as the resource for finding vetted clinics
+- Date: use "${year}" dynamically \u2014 never hardcode a specific year
 ${["story", "honest"].includes(angle.id) ? `
-PREMIUM QUALITY RULES (this angle uses higher-quality model \u2014 use it fully):
-- Open with a scene, a question, or a surprising fact \u2014 NOT a generic statement
-- Every paragraph must earn its place: cut anything that doesn't add value or emotion
-- Use specific numbers, clinic names (where appropriate), and real KRW prices
-- The reader should feel something: curiosity, relief, confidence, or "I need to do this"
-- Conversion goal: by the end, the reader should naturally want to check Seoul Beauty Trip` : ""}
+PREMIUM QUALITY (sonnet model \u2014 use its full capability):
+- Open with a scene, a specific moment, or a surprising fact \u2014 NEVER a generic intro
+- Every paragraph earns its place: if it doesn't add value or emotion, cut it
+- Include specific numbers, real KRW prices, real district names
+- Reader should feel something: curiosity, relief, "I need to book this"
+- By the last paragraph, reader naturally wants to check Seoul Beauty Trip` : ""}
 
-STRUCTURE (HTML only, ${["story", "honest"].includes(angle.id) ? "1000-1200" : "900-1100"} words):
+INTERNAL LINKS (use these exact HTML links naturally in the text \u2014 don't clump, spread across the article):
+- <a href="/best/clinic/gangnam">best skin clinics in Gangnam</a>
+- <a href="/best/clinic/seoul">top-rated Seoul clinics</a>
+- <a href="/best/clinic/itaewon">English-friendly clinics in Itaewon</a>
+- <a href="/blog">K-beauty blog</a>
+
+OUTPUT: HTML only (no markdown). ${["story", "honest"].includes(angle.id) ? "1000-1200" : "900-1100"} words. STRUCTURE:
 ${angle.id === "story" ? `<p>[scene-setting hook \u2014 drop the reader into a moment, not a summary]</p>
 <h2>[The Decision \u2014 why you went / what you were nervous about]</h2><p>...</p>
 <h2>[The Experience \u2014 sensory details, what actually happened step by step]</h2><p>...</p>
@@ -16286,8 +16315,41 @@ After HTML output:
     const raw2 = data.choices?.[0]?.message?.content || "";
     if (!raw2 || raw2.length < 400) return null;
     const parts = raw2.split("---JSON---");
-    const htmlContent = parts[0].trim();
+    let htmlContent = parts[0].trim();
     if (htmlContent.length < 400) return null;
+    const imgKeyword = encodeURIComponent(kw.query.replace(/\s+/g, "-").toLowerCase());
+    const heroImg = `https://source.unsplash.com/1200x630/?${imgKeyword},seoul,clinic`;
+    const heroAlt = `${kw.query} in Seoul \u2014 ${angle.label}`;
+    if (!htmlContent.includes("<img")) {
+      const heroImgHtml = `<figure style="margin:0 0 28px;border-radius:12px;overflow:hidden">
+  <img src="${heroImg}" alt="${heroAlt}" width="1200" height="630" loading="eager" style="width:100%;height:auto;display:block" />
+  <figcaption style="font-size:12px;color:#94a3b8;padding:6px 0 0;text-align:center">${kw.area} \u2014 ${kw.query}</figcaption>
+</figure>`;
+      htmlContent = heroImgHtml + "\n" + htmlContent;
+    }
+    const faqMatches = [...htmlContent.matchAll(/<h3[^>]*>([^<]+)<\/h3>\s*<p[^>]*>([\s\S]*?)<\/p>/gi)];
+    let faqSchemaHtml = "";
+    if (faqMatches.length >= 2) {
+      const faqItems = faqMatches.slice(0, 6).map((m) => ({
+        q: m[1].replace(/<[^>]+>/g, "").trim(),
+        a: m[2].replace(/<[^>]+>/g, "").trim().slice(0, 300)
+      })).filter((f) => f.q && f.a);
+      if (faqItems.length >= 2) {
+        const faqSchema = {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: faqItems.map((f) => ({
+            "@type": "Question",
+            name: f.q,
+            acceptedAnswer: { "@type": "Answer", text: f.a }
+          }))
+        };
+        faqSchemaHtml = `<script type="application/ld+json">${JSON.stringify(faqSchema)}</script>`;
+      }
+    }
+    const plainText = htmlContent.replace(/<[^>]+>/g, " ");
+    const wordCount = plainText.split(/\s+/).filter(Boolean).length;
+    const readMin = Math.max(1, Math.round(wordCount / 200));
     let metaDescription = `${kw.query} in Seoul \u2014 ${angle.label.toLowerCase()} for foreign visitors. Book via WhatsApp with English support on Seoul Beauty Trip.`;
     let excerpt = `Everything you need to know about ${kw.query} as a foreigner in Seoul.`;
     let tags = kw.tags;
@@ -16302,6 +16364,7 @@ After HTML output:
       } catch {
       }
     }
+    if (faqSchemaHtml) htmlContent = htmlContent + "\n" + faqSchemaHtml;
     const blogId = "b" + Date.now() + Math.random().toString(36).slice(2, 5);
     const now = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
     await sql`INSERT INTO blog_posts
