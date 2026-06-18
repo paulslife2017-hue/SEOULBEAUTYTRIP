@@ -19297,7 +19297,6 @@ document.addEventListener('DOMContentLoaded', function(){
 
   /* logo 3x click -> admin */
   var clickCount = 0, clickTimer = null;
-  var ADMIN_PW = '0907';
 
   document.getElementById('logoBtn').addEventListener('click', function(){
     clickCount++;
@@ -19343,15 +19342,10 @@ document.addEventListener('DOMContentLoaded', function(){
   };
   window.checkAdminPw = function(){
     var pw = document.getElementById('adminPwInput').value;
-    if(pw === ADMIN_PW){
-      // ?token= 방식: 서버가 검증 후 쿠키 발급 + 302 리다이렉트
-      window.location.href = '/admin?token=' + encodeURIComponent(pw);
-    } else {
-      var err = document.getElementById('adminPwErr');
-      if(err) err.style.display='block';
-      var inp = document.getElementById('adminPwInput');
-      if(inp){ inp.value=''; inp.style.borderColor='#ef4444'; setTimeout(function(){inp.style.borderColor='rgba(232,65,122,.2)';},1200); }
-    }
+    if(!pw) return;
+    // 프론트에서 비교하지 않고 서버로 바로 전송 → 서버가 검증
+    // (클라이언트 JS에 비밀번호 노출 방지)
+    window.location.href = '/admin?token=' + encodeURIComponent(pw);
   };
 
   /* ── PC: cats bar wheel → horizontal scroll ── */

@@ -19957,7 +19957,6 @@ document.addEventListener('DOMContentLoaded', function(){
 
   /* logo 3x click -> admin */
   var clickCount = 0, clickTimer = null;
-  var ADMIN_PW = '0907';
 
   document.getElementById('logoBtn').addEventListener('click', function(){
     clickCount++;
@@ -20003,15 +20002,10 @@ document.addEventListener('DOMContentLoaded', function(){
   };
   window.checkAdminPw = function(){
     var pw = document.getElementById('adminPwInput').value;
-    if(pw === ADMIN_PW){
-      // ?token= \uBC29\uC2DD: \uC11C\uBC84\uAC00 \uAC80\uC99D \uD6C4 \uCFE0\uD0A4 \uBC1C\uAE09 + 302 \uB9AC\uB2E4\uC774\uB809\uD2B8
-      window.location.href = '/admin?token=' + encodeURIComponent(pw);
-    } else {
-      var err = document.getElementById('adminPwErr');
-      if(err) err.style.display='block';
-      var inp = document.getElementById('adminPwInput');
-      if(inp){ inp.value=''; inp.style.borderColor='#ef4444'; setTimeout(function(){inp.style.borderColor='rgba(232,65,122,.2)';},1200); }
-    }
+    if(!pw) return;
+    // \uD504\uB860\uD2B8\uC5D0\uC11C \uBE44\uAD50\uD558\uC9C0 \uC54A\uACE0 \uC11C\uBC84\uB85C \uBC14\uB85C \uC804\uC1A1 \u2192 \uC11C\uBC84\uAC00 \uAC80\uC99D
+    // (\uD074\uB77C\uC774\uC5B8\uD2B8 JS\uC5D0 \uBE44\uBC00\uBC88\uD638 \uB178\uCD9C \uBC29\uC9C0)
+    window.location.href = '/admin?token=' + encodeURIComponent(pw);
   };
 
   /* \u2500\u2500 PC: cats bar wheel \u2192 horizontal scroll \u2500\u2500 */
