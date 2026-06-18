@@ -3642,55 +3642,56 @@ async function autoGenShopBlog(shop: {
   // SEO텍스트에서 핵심 내용 추출 (태그 제거, 300자)
   const seoContext = (shop.seoText || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300)
 
-  // 카테고리별 title 다양화 — Review 일색 탈피
+  // year 먼저 선언 — titleTemplates에서 동적 사용
+  const year = new Date().getFullYear()
+
+  // 카테고리별 title 다양화 — Review 일색 탈피 (2026 하드코딩 제거 → ${year} 동적화)
   const titleTemplates: Record<string, string[]> = {
     headspa: [
-      `${shop.name} Head Spa Review 2026: Worth It for Foreigners in ${area}?`,
-      `I Tried ${shop.name} in ${area} — Honest Head Spa Guide for Tourists (2026)`,
-      `${shop.name} ${area}: Best Head Spa for Foreigners? (2026 Guide)`,
+      `${shop.name} Head Spa Review ${year}: Worth It for Foreigners in ${area}?`,
+      `I Tried ${shop.name} in ${area} — Honest Head Spa Guide for Tourists (${year})`,
+      `${shop.name} ${area}: Best Head Spa for Foreigners? (${year} Guide)`,
     ],
     hair: [
-      `${shop.name} Hair Salon in ${area}: Honest Guide for Foreigners (2026)`,
+      `${shop.name} Hair Salon in ${area}: Honest Guide for Foreigners (${year})`,
       `Getting My Hair Done at ${shop.name} in ${area} — Tourist's Honest Take`,
-      `${shop.name} ${area}: Is It the Best Hair Salon for Foreigners in Seoul? (2026)`,
+      `${shop.name} ${area}: Is It the Best Hair Salon for Foreigners in Seoul? (${year})`,
     ],
     nail: [
-      `${shop.name} Nail Studio in ${area}: Worth Visiting as a Tourist? (2026)`,
-      `K-Beauty Nails at ${shop.name} in ${area} — What Foreigners Need to Know (2026)`,
-      `${shop.name} ${area}: Best Nail Art Studio for Tourists in Seoul? (2026)`,
+      `${shop.name} Nail Studio in ${area}: Worth Visiting as a Tourist? (${year})`,
+      `K-Beauty Nails at ${shop.name} in ${area} — What Foreigners Need to Know (${year})`,
+      `${shop.name} ${area}: Best Nail Art Studio for Tourists in Seoul? (${year})`,
     ],
     clinic: [
-      `${shop.name} Skin Clinic in ${area}: Honest Guide for Foreigners (2026)`,
-      `Is ${shop.name} in ${area} Worth It for Foreign Visitors? (2026)`,
-      `${shop.name} ${area}: What Tourists Should Know Before Booking (2026)`,
+      `${shop.name} Skin Clinic in ${area}: Honest Guide for Foreigners (${year})`,
+      `Is ${shop.name} in ${area} Worth It for Foreign Visitors? (${year})`,
+      `${shop.name} ${area}: What Tourists Should Know Before Booking (${year})`,
     ],
     skincare: [
-      `${shop.name} in ${area}: Honest Skincare Guide for Foreigners (2026)`,
-      `${shop.name} ${area} Review 2026: Best Skincare Clinic for Tourists?`,
+      `${shop.name} in ${area}: Honest Skincare Guide for Foreigners (${year})`,
+      `${shop.name} ${area} Review ${year}: Best Skincare Clinic for Tourists?`,
       `I Visited ${shop.name} in ${area} — Here's What Foreign Visitors Should Know`,
     ],
     spa: [
-      `${shop.name} Spa in ${area}: Is It Worth It for Tourists? (2026)`,
-      `Relaxing at ${shop.name} in ${area} — Honest Guide for Foreign Visitors (2026)`,
+      `${shop.name} Spa in ${area}: Is It Worth It for Tourists? (${year})`,
+      `Relaxing at ${shop.name} in ${area} — Honest Guide for Foreign Visitors (${year})`,
     ],
     tattoo: [
-      `${shop.name} in ${area}: Eyebrow Tattoo Guide for Foreigners (2026)`,
-      `Getting Eyebrow Tattoo at ${shop.name} in ${area} — Honest Tourist Guide (2026)`,
+      `${shop.name} in ${area}: Eyebrow Tattoo Guide for Foreigners (${year})`,
+      `Getting Eyebrow Tattoo at ${shop.name} in ${area} — Honest Tourist Guide (${year})`,
     ],
     dental: [
-      `${shop.name} Dental Clinic in ${area}: Is It Worth It for Foreigners? (2026)`,
-      `${shop.name} in ${area}: Honest Dental Guide for Foreign Visitors (2026)`,
+      `${shop.name} Dental Clinic in ${area}: Is It Worth It for Foreigners? (${year})`,
+      `${shop.name} in ${area}: Honest Dental Guide for Foreign Visitors (${year})`,
     ],
   }
   const defaultTitles = [
-    `${shop.name} Review 2026: Honest Guide for Foreigners in ${area}`,
-    `${shop.name} in ${area}: Worth It for Foreign Visitors? (2026)`,
-    `I Visited ${shop.name} in ${area} — Here's My Honest Take (2026)`,
+    `${shop.name} Review ${year}: Honest Guide for Foreigners in ${area}`,
+    `${shop.name} in ${area}: Worth It for Foreign Visitors? (${year})`,
+    `I Visited ${shop.name} in ${area} — Here's My Honest Take (${year})`,
   ]
   const titlePool = titleTemplates[cat.toLowerCase()] || titleTemplates[shop.category?.toLowerCase() || ''] || defaultTitles
   const title = titlePool[Math.floor(Math.random() * titlePool.length)]
-
-  const year = new Date().getFullYear()
 
   // LSI 키워드 (시술 카테고리별)
   const lsiMap: Record<string, string[]> = {
@@ -3835,9 +3836,13 @@ After HTML output:
     const dupCheck = await sql`SELECT id FROM blog_posts WHERE slug=${slug} LIMIT 1`.catch(() => [])
     if (dupCheck.length > 0) return
 
-    // cover_image: 업체 썸네일 우선, 없으면 Unsplash 키워드 이미지
+    // cover_image: 업체 썸네일 우선, 없으면 images.unsplash.com 큐레이션 풀에서 선택
+    // source.unsplash.com 은 서비스 종료됨 → _clinicHeroImage 헬퍼 활용
     const shopRow = (await sql`SELECT thumbnail FROM shops WHERE id=${shop.id} LIMIT 1`.catch(() => []))?.[0]
-    const coverImg = shopRow?.thumbnail || `https://source.unsplash.com/1200x630/?${encodeURIComponent(shop.name + ' ' + cat + ' seoul')}`
+    const _shopImgSeed = (shop.id || '').split('').reduce((acc: number, c: string) => acc + c.charCodeAt(0), 0)
+    const coverImg = (shopRow?.thumbnail && shopRow.thumbnail.startsWith('http'))
+      ? shopRow.thumbnail
+      : _clinicHeroImage(shop.name, area, _shopImgSeed).cover
 
     await sql`INSERT INTO blog_posts
       (id, slug, title, content, excerpt, meta_description, category, area, tags, cover_image, status, views, shop_id, created_at, updated_at)
@@ -5299,6 +5304,7 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;line-height
   BLOG_PHOTO_GALLERY_PLACEHOLDER
   <article class="post-body">BLOG_CONTENT_PLACEHOLDER</article>
   <div class="post-tags">BLOG_TAGS_PLACEHOLDER</div>
+  BLOG_CLINIC_SHOPS_PLACEHOLDER
   BLOG_BEST_LINKS_PLACEHOLDER
   <div class="cta-box">
     <h3>${cta.icon} ${cta.title}</h3>
@@ -5408,12 +5414,51 @@ ${SB_TRACKER_SCRIPT}
     }
   }
 
+  // ── 동적 클리닉 업체 카드 (JA) — active=true 업체만 실시간 조회 ──
+  let clinicShopsHtml = ''
+  if (post.category === 'clinic') {
+    try {
+      const areaLower = (post.area || 'Seoul').toLowerCase()
+      const clinicShops = await sql`
+        SELECT id, name, slug, thumbnail, rating, review_count, location, description
+        FROM shops
+        WHERE active=true AND category='clinic'
+        ORDER BY
+          CASE WHEN LOWER(location) LIKE ${('%' + areaLower + '%')} THEN 0 ELSE 1 END,
+          (rating * LOG(GREATEST(review_count, 1))) DESC
+        LIMIT 3
+      `.catch(() => []) as any[]
+
+      if (clinicShops.length > 0) {
+        const cards = clinicShops.map((s: any) => {
+          const stars = '★'.repeat(Math.round(s.rating || 0)) + '☆'.repeat(5 - Math.round(s.rating || 0))
+          const thumb = s.thumbnail && s.thumbnail.startsWith('http') ? s.thumbnail : ''
+          const locShort = (s.location || 'Seoul').split(',')[0].trim()
+          return `<a href="/shop/${s.slug}" style="display:flex;gap:12px;padding:14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,77,141,.15);border-radius:12px;text-decoration:none;color:inherit;transition:.2s" onmouseover="this.style.borderColor='rgba(255,77,141,.4)'" onmouseout="this.style.borderColor='rgba(255,77,141,.15)'">
+  ${thumb ? `<img src="${thumb}" alt="${s.name}" width="72" height="72" style="width:72px;height:72px;object-fit:cover;border-radius:8px;flex-shrink:0" loading="lazy" onerror="this.style.display='none'">` : `<div style="width:72px;height:72px;background:linear-gradient(135deg,rgba(255,77,141,.2),rgba(155,89,182,.2));border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:24px">🏥</div>`}
+  <div style="min-width:0">
+    <div style="font-weight:700;font-size:.9rem;color:#fff;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</div>
+    <div style="font-size:.75rem;color:#FF4D8D;margin-bottom:4px">${stars} <span style="color:rgba(255,255,255,.4)">(${s.review_count || 0})</span> · ${locShort}</div>
+  </div>
+</a>`
+        }).join('')
+        clinicShopsHtml = `
+  <aside style="margin:32px 0">
+    <div style="font-size:.75rem;font-weight:700;color:#FF4D8D;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">🏥 おすすめのクリニック</div>
+    <div style="display:flex;flex-direction:column;gap:10px">${cards}</div>
+    <div style="margin-top:10px;text-align:right"><a href="/best/clinic/seoul" style="font-size:.78rem;color:rgba(255,77,141,.8);text-decoration:none">ソウルのクリニックを全部見る →</a></div>
+  </aside>`
+      }
+    } catch { /* 업체 조회 실패 시 해당 섹션 생략 */ }
+  }
+
   const finalHtml = html
     .replace('BLOG_READMIN_PLACEHOLDER', String(readMin))
     .replace('BLOG_COVER_PLACEHOLDER', coverHtml)
     .replace('BLOG_PHOTO_GALLERY_PLACEHOLDER', photoGalleryHtml)
     .replace('BLOG_CONTENT_PLACEHOLDER', post.content||'')
     .replace('BLOG_TAGS_PLACEHOLDER', tagsHtml)
+    .replace('BLOG_CLINIC_SHOPS_PLACEHOLDER', clinicShopsHtml)
     .replace('BLOG_BEST_LINKS_PLACEHOLDER', bestLinksHtml)
     .replace('BLOG_RELATED_PLACEHOLDER', relatedHtml)
   return c.html(finalHtml)
@@ -11789,6 +11834,48 @@ app.get('/blog/:slug', async (c) => {
     </div>
   </aside>` : ''
 
+  // ── 동적 클리닉 업체 카드 (active=true 업체만 실시간 조회) ──────
+  // 업체가 비활성화(active=false)되면 이 카드에서 자동 제거됨
+  // 블로그 content에는 업체명 미포함 — 거래 종료 시 글 전체를 수정할 필요 없음
+  let clinicShopsHtml = ''
+  if (post.category === 'clinic') {
+    try {
+      const areaLower = (post.area || 'Seoul').toLowerCase()
+      const clinicShops = await sql`
+        SELECT id, name, slug, thumbnail, rating, review_count, location, description
+        FROM shops
+        WHERE active=true AND category='clinic'
+        ORDER BY
+          CASE WHEN LOWER(location) LIKE ${('%' + areaLower + '%')} THEN 0 ELSE 1 END,
+          (rating * LOG(GREATEST(review_count, 1))) DESC
+        LIMIT 3
+      `.catch(() => []) as any[]
+
+      if (clinicShops.length > 0) {
+        const cards = clinicShops.map((s: any) => {
+          const stars = '★'.repeat(Math.round(s.rating || 0)) + '☆'.repeat(5 - Math.round(s.rating || 0))
+          const thumb = s.thumbnail && s.thumbnail.startsWith('http') ? s.thumbnail : ''
+          const locShort = (s.location || 'Seoul').split(',')[0].trim()
+          const desc = (s.description || '').replace(/<[^>]+>/g, '').trim().slice(0, 80)
+          return `<a href="/shop/${s.slug}" style="display:flex;gap:12px;padding:14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,77,141,.15);border-radius:12px;text-decoration:none;color:inherit;transition:.2s" onmouseover="this.style.borderColor='rgba(255,77,141,.4)'" onmouseout="this.style.borderColor='rgba(255,77,141,.15)'">
+  ${thumb ? `<img src="${thumb}" alt="${s.name}" width="72" height="72" style="width:72px;height:72px;object-fit:cover;border-radius:8px;flex-shrink:0" loading="lazy" onerror="this.style.display='none'">` : `<div style="width:72px;height:72px;background:linear-gradient(135deg,rgba(255,77,141,.2),rgba(155,89,182,.2));border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:24px">🏥</div>`}
+  <div style="min-width:0">
+    <div style="font-weight:700;font-size:.9rem;color:#fff;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</div>
+    <div style="font-size:.75rem;color:#FF4D8D;margin-bottom:4px">${stars} <span style="color:rgba(255,255,255,.4)">(${s.review_count || 0})</span> · ${locShort}</div>
+    ${desc ? `<div style="font-size:.75rem;color:rgba(255,255,255,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${desc}</div>` : ''}
+  </div>
+</a>`
+        }).join('')
+        clinicShopsHtml = `
+  <aside style="margin:32px 0">
+    <div style="font-size:.75rem;font-weight:700;color:#FF4D8D;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">🏥 Featured Clinics in Seoul</div>
+    <div style="display:flex;flex-direction:column;gap:10px">${cards}</div>
+    <div style="margin-top:10px;text-align:right"><a href="/best/clinic/seoul" style="font-size:.78rem;color:rgba(255,77,141,.8);text-decoration:none">View all Seoul clinics →</a></div>
+  </aside>`
+      }
+    } catch { /* 업체 조회 실패 시 해당 섹션 생략 — 블로그 글은 정상 표시 */ }
+  }
+
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -11973,6 +12060,7 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;line-height
   BLOG_PHOTO_GALLERY_PLACEHOLDER
   <article class="post-body">BLOG_CONTENT_PLACEHOLDER</article>
   <div class="post-tags">BLOG_TAGS_PLACEHOLDER</div>
+  BLOG_CLINIC_SHOPS_PLACEHOLDER
   BLOG_BEST_LINKS_PLACEHOLDER
   <div class="cta-box">
     <h3>${cta.icon} ${cta.title}</h3>
@@ -12088,6 +12176,7 @@ ${SB_TRACKER_SCRIPT}
     .replace('BLOG_PHOTO_GALLERY_PLACEHOLDER', photoGalleryHtml)
     .replace('BLOG_CONTENT_PLACEHOLDER', post.content||'')
     .replace('BLOG_TAGS_PLACEHOLDER', tagsHtml)
+    .replace('BLOG_CLINIC_SHOPS_PLACEHOLDER', clinicShopsHtml)
     .replace('BLOG_BEST_LINKS_PLACEHOLDER', bestLinksHtml)
     .replace('BLOG_RELATED_PLACEHOLDER', relatedHtml)
   return c.html(finalHtml)
@@ -15533,7 +15622,40 @@ const CLINIC_KEYWORDS: { query: string; area: string; tags: string[]; priority: 
   { query: 'how to book Korean clinic via WhatsApp guide', area: 'Seoul', tags: ['WhatsApp clinic booking Seoul', 'how to book Korean doctor WhatsApp', 'online booking Seoul clinic'], priority: 2 },
 ]
 
-// 클리닉 전용 심리학+SEO 블로그 생성 함수
+// ── 클리닉 블로그 히어로 이미지 선택 헬퍼 ──────────────────────────────
+// source.unsplash.com 은 서비스 종료됨 → Unsplash Collection CDN 직접 사용
+// picsum.photos 를 폴백으로 사용 (안정적, 무료, 라이선스 OK)
+function _clinicHeroImage(query: string, area: string, seed?: number): { src: string; cover: string } {
+  // Unsplash 큐레이션: 피부과/클리닉/서울 테마 사진 ID 풀
+  // 모두 Unsplash 무료 라이선스, 상업적 사용 가능
+  const UNSPLASH_IDS = [
+    'photo-1559599101-f09722fb4948', // 클리닉 인테리어 (흰 벽, 청결)
+    'photo-1588776814546-1ffedbe47add', // 스킨케어 시술
+    'photo-1622253692010-333f2da6031d', // 피부과 기기
+    'photo-1576091160399-112ba8d25d1d', // 의료진
+    'photo-1612349317150-e413f6a5b16d', // 레이저 시술
+    'photo-1570172619644-dfd03ed5d881', // 피부 클리닉
+    'photo-1487412947147-5cebf100ffc2', // 뷰티 케어
+    'photo-1540555700478-4be289fbecef', // 스파/클리닉
+    'photo-1606787366850-de6330128bfc', // 서울 뷰티
+    'photo-1523755231516-e43fd2e8dca5', // 클리닉 침대
+  ]
+  const idx = seed !== undefined ? seed % UNSPLASH_IDS.length : Math.floor(Math.random() * UNSPLASH_IDS.length)
+  const pid = UNSPLASH_IDS[idx]
+  // w=1200&h=630&fit=crop 으로 OG 비율에 최적화
+  const src = `https://images.unsplash.com/${pid}?w=1200&h=630&fit=crop&auto=format&q=80`
+  return { src, cover: src }
+}
+
+// 클리닉 전용 심리학+SEO 블로그 생성 함수 (v2 — 완전 재설계)
+// ─────────────────────────────────────────────────────────────
+// 변경 사항:
+//  ① 이미지: source.unsplash.com(deprecated) → images.unsplash.com 큐레이션 풀
+//  ② cover_image: DB INSERT 포함 → BlogPosting schema image 필드 활성화
+//  ③ 업체 링크: content에 하드코딩 X → /best/category/area 카테고리 링크만 사용
+//     (업체 카드는 블로그 상세 렌더링 시 active=true 업체만 실시간 조회)
+//  ④ 관련 블로그: 키워드 기반 토픽 매칭 → 프롬프트에 실제 slug/title 주입
+//  ⑤ metaDesc: AI 값 우선 → 155자 초과 시 자동 trim → 실패 시 키워드 기반 스마트 폴백
 async function generateClinicBlog(
   kw: { query: string; area: string; tags: string[] },
   angle: typeof BLOG_ANGLES[0],
@@ -15544,11 +15666,11 @@ async function generateClinicBlog(
   const slug  = makeBlogSlug(title)
   const year  = new Date().getFullYear()
 
-  // 중복 슬러그 체크
+  // ── 중복 슬러그 체크 ──────────────────────────────────────────
   const dup = await sql`SELECT id FROM blog_posts WHERE slug=${slug} LIMIT 1`.catch(() => []) as any[]
   if (dup.length > 0) return null
 
-  // 30일 내 같은 키워드+각도 사용 여부 체크
+  // ── 30일 내 같은 키워드+각도 중복 체크 ───────────────────────
   const recentDup = await sql`
     SELECT id FROM blog_posts
     WHERE title ILIKE ${'%' + kw.query + '%'}
@@ -15557,7 +15679,42 @@ async function generateClinicBlog(
   `.catch(() => []) as any[]
   if (recentDup.length > 0) return null
 
-  // 각도별 심리학 전략
+  // ── 관련 블로그 글 토픽 매칭 (키워드 첫 단어 기반) ───────────
+  // 프롬프트에 실제 slug/title 주입하여 내부링크 품질 향상
+  const queryWords = kw.query.toLowerCase().split(/\s+/).filter(w => w.length > 3)
+  const topicWord  = queryWords[0] || kw.query.split(' ')[0]
+  const relatedBlogRows = await sql`
+    SELECT slug, title FROM blog_posts
+    WHERE status='published' AND category='clinic'
+    AND slug != ${slug}
+    AND (
+      LOWER(title) LIKE ${'%' + topicWord + '%'}
+      OR LOWER(title) LIKE ${'%' + (queryWords[1] || topicWord) + '%'}
+    )
+    ORDER BY created_at DESC
+    LIMIT 3
+  `.catch(() => []) as any[]
+
+  // 관련 글이 3개 미만이면 최신 clinic 글로 보충 (최대 3개)
+  let topicRelated: { slug: string; title: string }[] = relatedBlogRows
+  if (topicRelated.length < 3) {
+    const fallbackRows = await sql`
+      SELECT slug, title FROM blog_posts
+      WHERE status='published' AND category='clinic'
+      AND slug != ${slug}
+      AND slug != ALL(${topicRelated.map((r: any) => r.slug)})
+      ORDER BY created_at DESC
+      LIMIT ${3 - topicRelated.length}
+    `.catch(() => []) as any[]
+    topicRelated = [...topicRelated, ...fallbackRows]
+  }
+
+  // 내부링크 문자열 생성 (실제 slug 기반)
+  const relatedLinksBlock = topicRelated.length > 0
+    ? topicRelated.map((r: any) => `- <a href="/blog/${r.slug}">${r.title}</a>`).join('\n')
+    : ''
+
+  // ── 각도별 심리학 전략 ────────────────────────────────────────
   const psychStrategy: Record<string, string> = {
     guide:   'Use the "Information Gap" principle — tease what they don\'t know yet, then deliver. Make them feel smart for reading this.',
     honest:  'Use "Trusted Friend" framing — write like a friend who actually did the research and is telling you the full truth, not just the good parts. Include: what the clinics don\'t tell you upfront, one thing that surprised you (good or bad), the real decision criteria that matters. Loss Aversion: show the cost of NOT going to a good clinic (bad results, wasted money). End by making Seoul Beauty Trip feel like the shortcut to the vetted option.',
@@ -15571,7 +15728,7 @@ async function generateClinicBlog(
     faq:     'Use "Question Mirroring" — the reader sees their exact question answered. Creates instant trust and relevance.',
   }
 
-  // SEO 의도별 구조
+  // ── SEO 의도별 구조 ───────────────────────────────────────────
   const seoStructure: Record<string, string> = {
     informational: `Structure for Featured Snippet capture:
 - Start with a direct 2-sentence answer (40-60 words) that Google can show as featured snippet
@@ -15590,7 +15747,7 @@ async function generateClinicBlog(
 - WhatsApp CTA feels like a natural helpful suggestion`,
   }
 
-  // 레딧 실질문 기반 컨텍스트 (각도별로 관련 레딧 인사이트 주입)
+  // ── 레딧 실질문 기반 컨텍스트 ────────────────────────────────
   const redditContext: Record<string, string> = {
     guide:   'Real travelers on Reddit ask: "What are factory clinics vs boutique clinics?" and "Do clinics charge more for foreigners?" Address these concerns naturally.',
     honest:  'Reddit users worry about: ghost surgeons, bait-and-switch promos, clinics pushing unnecessary procedures. Address these fears honestly.',
@@ -15604,7 +15761,7 @@ async function generateClinicBlog(
     faq:     'These are REAL questions from Reddit r/KoreanBeauty and r/KoreaSeoulBeauty. Answer them like an insider, not a brochure.',
   }
 
-  // LSI 키워드 (구글이 관련성 확인용으로 보는 연관 키워드)
+  // ── LSI 키워드 ────────────────────────────────────────────────
   const lsiKeywords: Record<string, string[]> = {
     'skin clinic':    ['dermatologist Seoul', 'skin treatment', 'laser toning', 'K-beauty skincare', 'skin booster injection'],
     'plastic surgery':['rhinoplasty Seoul', 'double eyelid surgery', 'facial contouring', 'Korean plastic surgery', 'before after'],
@@ -15618,6 +15775,9 @@ async function generateClinicBlog(
   }
   const lsiKey = Object.keys(lsiKeywords).find(k => kw.query.toLowerCase().includes(k)) || 'default'
   const lsiList = lsiKeywords[lsiKey].join(', ')
+
+  const isHQ = ['story', 'honest'].includes(angle.id)
+  const wordTarget = isHQ ? '1000-1200' : '900-1100'
 
   const prompt = `You are a senior K-beauty travel writer for seoulbeautytrip.com. Your job: write a blog post that ranks #1 on Google AND converts readers into clinic bookings.
 
@@ -15634,7 +15794,12 @@ SEO RULES (Google ranking):
 - H2 headers: write as questions Google users actually type (start with How/What/Is/Can/Why/Where)
 - First paragraph: answer the main query directly in 40-60 words (Featured Snippet target)
 - FAQ section: minimum 4 questions, written as real Google searches
-- Internal links: naturally mention "best clinics in Gangnam" linking to /best/clinic/gangnam, "Seoul clinics" to /best/clinic/seoul
+- Internal links (use these EXACT HTML anchor tags, spread naturally across the article — DO NOT clump together):
+  <a href="/best/clinic/gangnam">best skin clinics in Gangnam</a>
+  <a href="/best/clinic/seoul">top-rated Seoul clinics</a>
+  <a href="/best/clinic/itaewon">English-friendly clinics in Itaewon</a>
+  <a href="/blog">K-beauty blog</a>
+${relatedLinksBlock ? `  Also link naturally to these related articles (use the exact href):\n${relatedLinksBlock}` : ''}
 
 CONTENT RULES (Google E-E-A-T):
 - Experience: include specific KRW prices (ranges OK), realistic timeframes, recovery info
@@ -15646,7 +15811,8 @@ CONTENT RULES (Google E-E-A-T):
 - Real Seoul districts: Gangnam, Apgujeong, Itaewon, Hongdae, Myeongdong (use at least 2)
 - Mention "Seoul Beauty Trip" naturally 2x as the resource for finding vetted clinics
 - Date: use "${year}" dynamically — never hardcode a specific year
-${['story', 'honest'].includes(angle.id) ? `
+- DO NOT mention specific clinic names or shop names — link to /best/clinic/area pages instead
+${isHQ ? `
 PREMIUM QUALITY (sonnet model — use its full capability):
 - Open with a scene, a specific moment, or a surprising fact — NEVER a generic intro
 - Every paragraph earns its place: if it doesn't add value or emotion, cut it
@@ -15654,13 +15820,7 @@ PREMIUM QUALITY (sonnet model — use its full capability):
 - Reader should feel something: curiosity, relief, "I need to book this"
 - By the last paragraph, reader naturally wants to check Seoul Beauty Trip` : ''}
 
-INTERNAL LINKS (use these exact HTML links naturally in the text — don't clump, spread across the article):
-- <a href="/best/clinic/gangnam">best skin clinics in Gangnam</a>
-- <a href="/best/clinic/seoul">top-rated Seoul clinics</a>
-- <a href="/best/clinic/itaewon">English-friendly clinics in Itaewon</a>
-- <a href="/blog">K-beauty blog</a>
-
-OUTPUT: HTML only (no markdown). ${['story', 'honest'].includes(angle.id) ? '1000-1200' : '900-1100'} words. STRUCTURE:
+OUTPUT: HTML only (no markdown). ${wordTarget} words. STRUCTURE:
 ${angle.id === 'story' ? `<p>[scene-setting hook — drop the reader into a moment, not a summary]</p>
 <h2>[The Decision — why you went / what you were nervous about]</h2><p>...</p>
 <h2>[The Experience — sensory details, what actually happened step by step]</h2><p>...</p>
@@ -15690,18 +15850,13 @@ ${angle.id === 'story' ? `<p>[scene-setting hook — drop the reader into a mome
 
 After HTML output:
 ---JSON---
-{"metaDescription":"[≤155 chars with '${kw.query}' naturally]","excerpt":"[2 punchy sentences]","tags":${JSON.stringify(kw.tags.concat([kw.query + ' Seoul', 'K-beauty ' + year, kw.area + ' clinic']))},"category":"clinic"}`
+{"metaDescription":"[≤155 chars, naturally include '${kw.query}' — NO filler phrases like 'Book via WhatsApp']","excerpt":"[2 punchy sentences that make someone want to read more]","tags":${JSON.stringify(kw.tags.concat([kw.query + ' Seoul', 'K-beauty ' + year, kw.area + ' clinic']))},"category":"clinic"}`
 
-  // 각도별 모델 분기:
+  // ── 모델 분기 ─────────────────────────────────────────────────
   // story/honest → sonnet (감성·신뢰가 예약 전환 핵심, 퀄리티 우선)
-  // 나머지 8개  → haiku  (구조형, 80% 크레딧 절약)
-  const HIGH_QUALITY_ANGLES = ['story', 'honest']
-  const selectedModel = HIGH_QUALITY_ANGLES.includes(angle.id)
-    ? 'claude-sonnet-4-5'
-    : 'claude-haiku-4-5'
-  const selectedMaxTokens = HIGH_QUALITY_ANGLES.includes(angle.id)
-    ? 3500   // sonnet: 충분한 토큰으로 퀄리티 확보
-    : 2800   // haiku: 절약
+  // 나머지 8개   → haiku  (구조형, ~80% 크레딧 절약)
+  const selectedModel = isHQ ? 'claude-sonnet-4-5' : 'claude-haiku-4-5'
+  const selectedMaxTokens = isHQ ? 3500 : 2800
 
   try {
     const res = await fetch('https://www.genspark.ai/api/llm_proxy/v1/chat/completions', {
@@ -15723,22 +15878,22 @@ After HTML output:
     let htmlContent = parts[0].trim()
     if (htmlContent.length < 400) return null
 
-    // ── ① 이미지 자동 삽입 ──────────────────────────────────────────
-    // 키워드 기반 Unsplash 이미지 (무료, 라이선스 OK)
-    const imgKeyword = encodeURIComponent(kw.query.replace(/\s+/g, '-').toLowerCase())
-    const heroImg = `https://source.unsplash.com/1200x630/?${imgKeyword},seoul,clinic`
-    const heroAlt = `${kw.query} in Seoul — ${angle.label}`
-    // 첫 <p> 앞에 히어로 이미지 삽입
+    // ── ① 히어로 이미지 삽입 ──────────────────────────────────────
+    // images.unsplash.com 큐레이션 풀 (source.unsplash.com deprecated)
+    // slug 해시로 항상 동일한 이미지 선택 (재생성 시에도 일관성 유지)
+    const imgSeed = slug.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
+    const { src: heroSrc, cover: coverUrl } = _clinicHeroImage(kw.query, kw.area, imgSeed)
+    const heroAlt = `${kw.query} in ${kw.area} — ${angle.label}`
+
     if (!htmlContent.includes('<img')) {
       const heroImgHtml = `<figure style="margin:0 0 28px;border-radius:12px;overflow:hidden">
-  <img src="${heroImg}" alt="${heroAlt}" width="1200" height="630" loading="eager" style="width:100%;height:auto;display:block" />
-  <figcaption style="font-size:12px;color:#94a3b8;padding:6px 0 0;text-align:center">${kw.area} — ${kw.query}</figcaption>
+  <img src="${heroSrc}" alt="${heroAlt}" width="1200" height="630" loading="eager" style="width:100%;height:auto;display:block" />
+  <figcaption style="font-size:12px;color:#94a3b8;padding:6px 0 0;text-align:center">${kw.area} — ${kw.query} guide for foreign visitors</figcaption>
 </figure>`
       htmlContent = heroImgHtml + '\n' + htmlContent
     }
 
-    // ── ② FAQ Schema (FAQPage JSON-LD) 자동 추출 ───────────────────
-    // <h3>…</h3><p>…</p> 패턴에서 Q&A 추출
+    // ── ② FAQ Schema (FAQPage JSON-LD) 자동 추출 ──────────────────
     const faqMatches = [...htmlContent.matchAll(/<h3[^>]*>([^<]+)<\/h3>\s*<p[^>]*>([\s\S]*?)<\/p>/gi)]
     let faqSchemaHtml = ''
     if (faqMatches.length >= 2) {
@@ -15760,38 +15915,58 @@ After HTML output:
       }
     }
 
-    // ── ③ 읽기시간 계산 ────────────────────────────────────────────
-    const plainText = htmlContent.replace(/<[^>]+>/g, ' ')
-    const wordCount = plainText.split(/\s+/).filter(Boolean).length
-    const readMin   = Math.max(1, Math.round(wordCount / 200))
+    // ── ③ 메타/태그 파싱 + 스마트 폴백 ───────────────────────────
+    // 폴백: 키워드 + 각도 + 지역 기반으로 의미 있는 설명 생성 (AI 의존 없음)
+    const fallbackMeta = (() => {
+      const base = `${kw.query} in Seoul — `
+      const angleDesc: Record<string, string> = {
+        guide:   'complete guide for foreign visitors.',
+        honest:  'honest breakdown of what to expect and what to watch out for.',
+        cost:    `real price breakdown in KRW for ${new Date().getFullYear()}.`,
+        safety:  'safety guide and what to check before booking.',
+        compare: `area comparison — where to go in ${kw.area}.`,
+        story:   'first-hand experience from a foreign visitor.',
+        tips:    '7 insider tips no one tells you.',
+        booking: 'step-by-step booking guide for foreigners.',
+        before:  'before & after — what to expect from start to finish.',
+        faq:     'every question answered for foreign visitors.',
+      }
+      const desc = base + (angleDesc[angle.id] || 'guide for foreign visitors in Seoul.')
+      return desc.length <= 155 ? desc : desc.slice(0, 152) + '...'
+    })()
 
-    // ── ④ 메타/태그 파싱 ───────────────────────────────────────────
-    let metaDescription = `${kw.query} in Seoul — ${angle.label.toLowerCase()} for foreign visitors. Book via WhatsApp with English support on Seoul Beauty Trip.`
-    let excerpt = `Everything you need to know about ${kw.query} as a foreigner in Seoul.`
+    let metaDescription = fallbackMeta
+    let excerpt = `Planning ${kw.query} in Seoul? Here's what foreign visitors actually need to know — from prices to booking.`
     let tags: string[] = kw.tags
     let finalCat = 'clinic'
 
     if (parts[1]) {
       try {
         const m = JSON.parse(parts[1].trim().replace(/```json|```/g, '').trim())
-        if (m.metaDescription) metaDescription = m.metaDescription
-        if (m.excerpt) excerpt = m.excerpt
+        // metaDesc: AI 값이 있고 적절한 길이면 사용, 155자 초과 시 trim
+        if (m.metaDescription && m.metaDescription.length >= 50) {
+          const aiMeta = m.metaDescription.trim()
+          metaDescription = aiMeta.length <= 155 ? aiMeta : aiMeta.slice(0, 152) + '...'
+        }
+        if (m.excerpt && m.excerpt.length >= 30) excerpt = m.excerpt
         if (Array.isArray(m.tags) && m.tags.length > 0) tags = m.tags
         if (m.category) finalCat = m.category
       } catch {}
     }
 
-    // ── ⑤ FAQ Schema를 content 맨 끝에 삽입 ──────────────────────
+    // ── ④ FAQ Schema를 content 맨 끝에 삽입 ──────────────────────
     if (faqSchemaHtml) htmlContent = htmlContent + '\n' + faqSchemaHtml
 
     const blogId = 'b' + Date.now() + Math.random().toString(36).slice(2, 5)
     const now    = new Date().toISOString().slice(0, 10)
 
+    // ── ⑤ DB INSERT — cover_image 포함 (BlogPosting schema image 활성화) ──
+    // 업체명은 content에 저장 안 함 → 업체 카드는 렌더링 시 active=true 업체만 실시간 표시
     await sql`INSERT INTO blog_posts
-      (id, slug, title, content, excerpt, meta_description, category, area, tags, status, views, shop_id, created_at, updated_at)
+      (id, slug, title, content, excerpt, meta_description, category, area, tags, cover_image, status, views, shop_id, created_at, updated_at)
       VALUES (
         ${blogId}, ${slug}, ${title}, ${htmlContent}, ${excerpt}, ${metaDescription},
-        ${finalCat}, ${kw.area}, ${JSON.stringify(tags)}, 'published', 0, null, ${now}, ${now}
+        ${finalCat}, ${kw.area}, ${JSON.stringify(tags)}, ${coverUrl}, 'published', 0, null, ${now}, ${now}
       )`
 
     return { id: blogId, slug, title }
