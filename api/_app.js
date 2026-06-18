@@ -16192,6 +16192,9 @@ app.get("/api/admin/debug-blog-photos", async (c) => {
     return c.json({ error: e.message, stack: e.stack?.slice(0, 300) }, 500);
   }
 });
+function _cap(s) {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
 function _safeTitle(prefix, q, suffix) {
   const qLow = q.toLowerCase().trim();
   const prefLow = prefix.toLowerCase();
@@ -16209,16 +16212,16 @@ function _safeTitle(prefix, q, suffix) {
   return `${prefix} ${q}${suffix ? " " + suffix : ""}`;
 }
 var BLOG_ANGLES = [
-  { id: "guide", label: "Complete Guide", titleFn: (q) => `${q} \u2014 Complete Guide for First-Timers`, intent: "informational" },
+  { id: "guide", label: "Complete Guide", titleFn: (q) => `${_cap(q)} \u2014 Complete Guide for First-Timers`, intent: "informational" },
   { id: "honest", label: "Honest Review", titleFn: (q) => _safeTitle("Is", q, "Worth It? An Honest Breakdown"), intent: "commercial" },
   { id: "cost", label: "Price Guide", titleFn: (q) => _safeTitle("How Much Does", q, "Cost? Real Price Breakdown"), intent: "transactional" },
   { id: "safety", label: "Safety Guide", titleFn: (q) => _safeTitle("Is", q, "Safe? What You Need to Know Before Going"), intent: "informational" },
-  { id: "compare", label: "Area Comparison", titleFn: (q) => `Best Areas in Seoul for ${q} \u2014 Where to Go`, intent: "commercial" },
+  { id: "compare", label: "Area Comparison", titleFn: (q) => `Best Areas in Seoul for ${_cap(q)} \u2014 Where to Go`, intent: "commercial" },
   { id: "story", label: "First Person Story", titleFn: (q) => _safeTitle("I Tried", q, "in Seoul \u2014 Here's What Happened"), intent: "informational" },
-  { id: "tips", label: "Insider Tips", titleFn: (q) => `${q} in Seoul: 7 Things Nobody Tells You`, intent: "informational" },
+  { id: "tips", label: "Insider Tips", titleFn: (q) => `${_cap(q)} in Seoul: 7 Things Nobody Tells You`, intent: "informational" },
   { id: "booking", label: "Booking Guide", titleFn: (q) => _safeTitle("How to Book", q, "in Seoul as a Foreigner"), intent: "transactional" },
-  { id: "before", label: "Before/After", titleFn: (q) => `${q} in Seoul: What to Expect Before and After`, intent: "commercial" },
-  { id: "faq", label: "FAQ Deep Dive", titleFn: (q) => `${q} in Seoul: Every Question Answered`, intent: "informational" }
+  { id: "before", label: "Before/After", titleFn: (q) => `${_cap(q)} in Seoul: What to Expect Before and After`, intent: "commercial" },
+  { id: "faq", label: "FAQ Deep Dive", titleFn: (q) => `${_cap(q)} in Seoul: Every Question Answered`, intent: "informational" }
 ];
 var CLINIC_KEYWORDS = [
   // 🔴 최우선 (검색량 높음)
@@ -16418,8 +16421,8 @@ async function generateClinicBlog(kw, angle, sql, apiKey) {
   };
   const lsiKey = Object.keys(lsiKeywords).find((k) => kw.query.toLowerCase().includes(k)) || "default";
   const lsiList = lsiKeywords[lsiKey].join(", ");
-  const isHQ = ["story", "honest"].includes(angle.id);
-  const wordTarget = isHQ ? "1000-1200" : "900-1100";
+  const isHQ = false;
+  const wordTarget = ["story", "honest"].includes(angle.id) ? "1000-1200" : "900-1100";
   const prompt = `You are a senior K-beauty travel writer for seoulbeautytrip.com. Write a blog post that ranks #1 on Google AND converts readers into clinic bookings.
 
 KEYWORD: "${kw.query}" | TITLE: "${title}" | ANGLE: ${angle.label} | AREA: ${kw.area} | YEAR: ${year}
@@ -16496,8 +16499,8 @@ ${angle.id === "story" ? `<p>[40-60 word scene-setting hook]</p>
 
 ---JSON---
 {"metaDescription":"[\u2264155 chars, include '${kw.query}' naturally \u2014 NO filler]","excerpt":"[2 punchy sentences]","tags":${JSON.stringify(kw.tags.concat([kw.query + " Seoul", "K-beauty " + year, kw.area + " clinic"]))},"category":"clinic"}`;
-  const selectedModel = isHQ ? "claude-sonnet-4-5" : "claude-haiku-4-5";
-  const selectedMaxTokens = isHQ ? 3500 : 2800;
+  const selectedModel = "claude-haiku-4-5";
+  const selectedMaxTokens = ["story", "honest"].includes(angle.id) ? 3200 : 2800;
   try {
     const res = await fetch("https://www.genspark.ai/api/llm_proxy/v1/chat/completions", {
       method: "POST",
@@ -16687,7 +16690,7 @@ app.get("/api/admin/auto-blog-clinic/status", async (c) => {
       sql`SELECT COUNT(*) as cnt FROM blog_posts WHERE category='clinic' AND status='published' AND created_at >= NOW() - INTERVAL '7 days'`.catch(() => [{ cnt: 0 }])
     ]);
     const totalCombos = CLINIC_KEYWORDS.length * BLOG_ANGLES.length;
-    const HIGH_QUALITY_ANGLES = ["story", "honest"];
+    const HIGH_QUALITY_ANGLES = [];
     return c.json({
       total: Number(totalRows[0]?.cnt || 0),
       today: Number(todayRows[0]?.cnt || 0),
