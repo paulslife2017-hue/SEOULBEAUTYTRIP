@@ -15755,7 +15755,8 @@ app.post('/api/admin/auto-blog-clinic', async (c) => {
     if (!apiKey) return c.json({ error: 'GSK_TOKEN not configured' }, 500)
 
     const body: any  = await c.req.json().catch(() => ({}))
-    const count      = Math.min(Number(body.count ?? 3), 10)
+    // Vercel 60초 타임아웃 대응: 1번에 1개씩만 생성 (GitHub Actions에서 count만큼 반복 호출)
+    const count      = Math.min(Number(body.count ?? 1), 1)
     const dryRun     = body.dryRun === true
 
     // 최근 30일 사용된 키워드+각도 조합 확인

@@ -16384,7 +16384,7 @@ app.post("/api/admin/auto-blog-clinic", async (c) => {
     const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || (typeof process !== "undefined" ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || "" : "");
     if (!apiKey) return c.json({ error: "GSK_TOKEN not configured" }, 500);
     const body = await c.req.json().catch(() => ({}));
-    const count = Math.min(Number(body.count ?? 3), 10);
+    const count = Math.min(Number(body.count ?? 1), 1);
     const dryRun = body.dryRun === true;
     const recentRows = await sql`
       SELECT title FROM blog_posts
