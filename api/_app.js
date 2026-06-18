@@ -16418,6 +16418,8 @@ OUTPUT FORMAT \u2014 CRITICAL:
 - Do NOT output <!DOCTYPE>, <html>, <head>, <body> tags \u2014 body content only.
 - Do NOT repeat the title as an <h1> or <h2> at the start.
 - Start directly with <p>[first paragraph]</p>
+- After the HTML body content, output ONLY the ---JSON--- separator and JSON. Nothing else.
+- Do NOT append any \`\`\`json blocks, metadata blocks, or extra text after the HTML.
 
 SEO RULES:
 - Use "${kw.query}" in first paragraph + naturally 3-4x total (density ~1%, NOT more)
@@ -16498,6 +16500,8 @@ ${angle.id === "story" ? `<p>[40-60 word scene-setting hook]</p>
     const parts = raw2.split("---JSON---");
     let htmlContent = parts[0].trim();
     if (htmlContent.length < 400) return null;
+    htmlContent = htmlContent.replace(/```(?:json|yaml|xml)?\s*\n?[\s\S]*?\n?```\s*$/gi, "").trim();
+    htmlContent = htmlContent.replace(/\n?```(?:json|yaml|xml)?[\s\S]*$/gi, "").trim();
     htmlContent = htmlContent.replace(/^```(?:html)?\s*\n?/i, "").replace(/\n?```\s*$/g, "").trim();
     if (/<(!DOCTYPE|html|head)\b/i.test(htmlContent)) {
       const bodyMatch = htmlContent.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
@@ -16706,13 +16710,17 @@ app.post("/api/admin/fix-clinic-content", async (c) => {
       const hasFence = content.includes("```");
       const hasDoctype = /<(!DOCTYPE|html|head)\b/i.test(content);
       const hasRepeatH1 = /^\s*<h[12][^>]*>[^<]*<\/h[12]>\s*/i.test(content);
+      const hasJsonTail = /```(?:json|yaml)[\s\S]{0,2000}$/i.test(content);
       if (!hasFence && !hasDoctype && !hasRepeatH1) continue;
       const issues = [];
-      if (hasFence) issues.push(`\uCF54\uB4DC\uD39C\uC2A4(len=${content.match(/```[\s\S]*?```/g)?.join("").length || "?"})`);
+      if (hasJsonTail) issues.push("JSON\uAF2C\uB9AC\uBE14\uB85D");
+      else if (hasFence) issues.push(`\uCF54\uB4DC\uD39C\uC2A4(len=${content.match(/```[\s\S]*?```/g)?.join("").length || "?"})`);
       if (hasDoctype) issues.push("DOCTYPE/HTML\uC794\uC7AC");
       if (hasRepeatH1) issues.push("H1/H2\uBC18\uBCF5");
       dirty.push({ id: row.id, slug: row.slug, issues, originalLen });
       if (!dryRun) {
+        content = content.replace(/```(?:json|yaml|xml)?\s*\n?[\s\S]*?\n?```\s*$/gi, "").trim();
+        content = content.replace(/\n?```(?:json|yaml|xml)?[\s\S]*$/gi, "").trim();
         content = content.replace(/^```(?:html)?\s*\n?/i, "").replace(/\n?```\s*$/g, "").trim();
         content = content.replace(/\n?```(?:html)?\s*\n/gi, "\n").replace(/\n```\s*(\n|$)/g, "\n").trim();
         content = content.replace(/\n{3,}/g, "\n\n").trim();

@@ -15793,6 +15793,8 @@ OUTPUT FORMAT — CRITICAL:
 - Do NOT output <!DOCTYPE>, <html>, <head>, <body> tags — body content only.
 - Do NOT repeat the title as an <h1> or <h2> at the start.
 - Start directly with <p>[first paragraph]</p>
+- After the HTML body content, output ONLY the ---JSON--- separator and JSON. Nothing else.
+- Do NOT append any \`\`\`json blocks, metadata blocks, or extra text after the HTML.
 
 SEO RULES:
 - Use "${kw.query}" in first paragraph + naturally 3-4x total (density ~1%, NOT more)
@@ -15880,6 +15882,13 @@ ${angle.id === 'story' ? `<p>[40-60 word scene-setting hook]</p>
     if (htmlContent.length < 400) return null
 
     // ── ① AI 출력 클리닝 (post-processing) ───────────────────────
+    // 문제 0: 본문 끝에 AI가 JSON/메타 블록을 붙이는 경우 제거
+    //   ```json\n{...}\n```  또는  ---JSON--- 없이 본문에 JSON 포함
+    //   (a) 닫힌 코드블록: ```json...``` 또는 ```...``` 전체 제거
+    htmlContent = htmlContent.replace(/```(?:json|yaml|xml)?\s*\n?[\s\S]*?\n?```\s*$/gi, '').trim()
+    //   (b) 열린 채로 끝나는 경우: ```json 이후 끝까지 제거
+    htmlContent = htmlContent.replace(/\n?```(?:json|yaml|xml)?[\s\S]*$/gi, '').trim()
+
     // 문제 1: AI가 HTML을 마크다운 코드블록으로 감싸는 경우
     //   ```html\n<p>...</p>\n```  →  <p>...</p>
     htmlContent = htmlContent
@@ -16161,22 +16170,29 @@ app.post('/api/admin/fix-clinic-content', async (c) => {
       const originalLen = content.length
 
       // 오염 감지
-      const hasFence   = content.includes('```')
-      const hasDoctype = /<(!DOCTYPE|html|head)\b/i.test(content)
+      const hasFence    = content.includes('```')
+      const hasDoctype  = /<(!DOCTYPE|html|head)\b/i.test(content)
       const hasRepeatH1 = /^\s*<h[12][^>]*>[^<]*<\/h[12]>\s*/i.test(content)
+      const hasJsonTail = /```(?:json|yaml)[\s\S]{0,2000}$/i.test(content)  // 끝에 JSON 블록
 
       if (!hasFence && !hasDoctype && !hasRepeatH1) continue
 
       // 오염 상세
       const issues: string[] = []
-      if (hasFence)    issues.push(`코드펜스(len=${content.match(/```[\s\S]*?```/g)?.join('').length || '?'})`)
-      if (hasDoctype)  issues.push('DOCTYPE/HTML잔재')
-      if (hasRepeatH1) issues.push('H1/H2반복')
+      if (hasJsonTail)  issues.push('JSON꼬리블록')
+      else if (hasFence) issues.push(`코드펜스(len=${content.match(/```[\s\S]*?```/g)?.join('').length || '?'})`)
+      if (hasDoctype)   issues.push('DOCTYPE/HTML잔재')
+      if (hasRepeatH1)  issues.push('H1/H2반복')
 
       dirty.push({ id: row.id, slug: row.slug, issues, originalLen })
 
       if (!dryRun) {
         // ── 클리닝 적용 ──────────────────────────────────
+        // 0. 본문 끝에 붙은 JSON/메타 블록 제거 (닫힌 경우 & 열린 채 끝나는 경우)
+        //    패턴: ...본문...</p>\n```json\n{"metaDescription":...}\n```
+        content = content.replace(/```(?:json|yaml|xml)?\s*\n?[\s\S]*?\n?```\s*$/gi, '').trim()
+        content = content.replace(/\n?```(?:json|yaml|xml)?[\s\S]*$/gi, '').trim()
+
         // 1a. 단순 앞/뒤 코드펜스 (전체가 ```html ... ``` 로 감싸진 경우)
         content = content
           .replace(/^```(?:html)?\s*\n?/i, '')
