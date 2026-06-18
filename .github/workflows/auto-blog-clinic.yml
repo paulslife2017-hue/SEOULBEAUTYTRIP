@@ -1,0 +1,8 @@
+name: 🏥 Clinic Auto Blog Generator
+
+on:
+...
+          echo "================================"
+          echo "실행 일시: $(TZ='Asia/Seoul' date '+%Y년 %m월 %d일 %H:%M')"
+          echo "다음 실행: 내일 새벽 3:00 KST"
+          echo "사이트: ${{ secrets.SITE_URL }}/blog"
