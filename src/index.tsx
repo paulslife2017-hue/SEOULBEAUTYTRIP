@@ -14339,15 +14339,16 @@ app.get('/sitemap.xml', async (c) => {
   // lastmod용 날짜 맵 (실제 DB 날짜 사용)
   let shopDates: Record<string, string> = {}
   let blogDates: Record<string, string> = {}
+  const todayStr = new Date().toISOString().split('T')[0]
   try {
-    const rows = await sql`SELECT slug, created_at FROM shops WHERE active=true AND slug IS NOT NULL AND slug!=''`
+    const rows = await withTimeout(sql`SELECT slug, created_at FROM shops WHERE active=true AND slug IS NOT NULL AND slug!=''`, 15000, [])
     // SLUG_REDIRECTS 키(구 slug)는 sitemap 제외 — 301 리다이렉트 URL이 색인되지 않도록
     const _redirectSlugs = new Set(Object.keys(SLUG_REDIRECTS))
     for (const r of rows) {
       const s = r.slug as string
       if (!s || s.startsWith('-') || _redirectSlugs.has(s)) continue
       shopSlugs.push(s)
-      shopDates[s] = r.created_at ? new Date(r.created_at).toISOString().split('T')[0] : today
+      shopDates[s] = r.created_at ? new Date(r.created_at).toISOString().split('T')[0] : todayStr
     }
   } catch(e) {}
   try {
@@ -14367,7 +14368,7 @@ app.get('/sitemap.xml', async (c) => {
   } catch(e) {}
 
   const base = 'https://seoulbeautytrip.com'
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayStr
 
   // 카테고리×지역 조합 sitemap 규칙:
   // - /best/:cat/seoul → 항상 포함 (cat마다 전체 서울 페이지)

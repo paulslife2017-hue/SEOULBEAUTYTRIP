@@ -15169,14 +15169,15 @@ app.get("/sitemap.xml", async (c) => {
   let blogSlugs = [];
   let shopDates = {};
   let blogDates = {};
+  const todayStr = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
   try {
-    const rows = await sql`SELECT slug, created_at FROM shops WHERE active=true AND slug IS NOT NULL AND slug!=''`;
+    const rows = await withTimeout(sql`SELECT slug, created_at FROM shops WHERE active=true AND slug IS NOT NULL AND slug!=''`, 15e3, []);
     const _redirectSlugs = new Set(Object.keys(SLUG_REDIRECTS));
     for (const r of rows) {
       const s = r.slug;
       if (!s || s.startsWith("-") || _redirectSlugs.has(s)) continue;
       shopSlugs.push(s);
-      shopDates[s] = r.created_at ? new Date(r.created_at).toISOString().split("T")[0] : today;
+      shopDates[s] = r.created_at ? new Date(r.created_at).toISOString().split("T")[0] : todayStr;
     }
   } catch (e) {
   }
@@ -15196,7 +15197,7 @@ app.get("/sitemap.xml", async (c) => {
   } catch (e) {
   }
   const base = "https://seoulbeautytrip.com";
-  const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+  const today = todayStr;
   const bestPages = [];
   try {
     const countRows = await sql`
