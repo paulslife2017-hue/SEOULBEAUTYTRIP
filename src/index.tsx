@@ -15530,6 +15530,9 @@ app.get('/api/admin/debug-blog-photos', async (c) => {
 // ══════════════════════════════════════════════════════════
 
 // 각도(Angle) 타입: 같은 키워드를 다른 관점에서 쓰기
+// capitalize 헬퍼: 첫 글자를 대문자로
+function _cap(s: string): string { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s }
+
 // titleFn 헬퍼: 키워드가 이미 의문형/동사로 시작하면 접두 동사 중복 방지
 // 예) "Is ${q} Safe?" → q="is Seoul skin clinic safe..." → "Is is..." 방지
 // 예) "How to Book ${q}..." → q="how to book skin clinic Seoul" → "How to Book how to book..." 방지
@@ -15558,16 +15561,16 @@ function _safeTitle(prefix: string, q: string, suffix: string): string {
 }
 
 const BLOG_ANGLES = [
-  { id: 'guide',   label: 'Complete Guide',     titleFn: (q: string) => `${q} — Complete Guide for First-Timers`,          intent: 'informational' },
+  { id: 'guide',   label: 'Complete Guide',     titleFn: (q: string) => `${_cap(q)} — Complete Guide for First-Timers`,          intent: 'informational' },
   { id: 'honest',  label: 'Honest Review',      titleFn: (q: string) => _safeTitle('Is', q, 'Worth It? An Honest Breakdown'),  intent: 'commercial' },
   { id: 'cost',    label: 'Price Guide',        titleFn: (q: string) => _safeTitle('How Much Does', q, 'Cost? Real Price Breakdown'), intent: 'transactional' },
   { id: 'safety',  label: 'Safety Guide',       titleFn: (q: string) => _safeTitle('Is', q, 'Safe? What You Need to Know Before Going'), intent: 'informational' },
-  { id: 'compare', label: 'Area Comparison',    titleFn: (q: string) => `Best Areas in Seoul for ${q} — Where to Go`,      intent: 'commercial' },
+  { id: 'compare', label: 'Area Comparison',    titleFn: (q: string) => `Best Areas in Seoul for ${_cap(q)} — Where to Go`,      intent: 'commercial' },
   { id: 'story',   label: 'First Person Story', titleFn: (q: string) => _safeTitle('I Tried', q, "in Seoul — Here's What Happened"), intent: 'informational' },
-  { id: 'tips',    label: 'Insider Tips',       titleFn: (q: string) => `${q} in Seoul: 7 Things Nobody Tells You`,        intent: 'informational' },
+  { id: 'tips',    label: 'Insider Tips',       titleFn: (q: string) => `${_cap(q)} in Seoul: 7 Things Nobody Tells You`,        intent: 'informational' },
   { id: 'booking', label: 'Booking Guide',      titleFn: (q: string) => _safeTitle('How to Book', q, 'in Seoul as a Foreigner'), intent: 'transactional' },
-  { id: 'before',  label: 'Before/After',       titleFn: (q: string) => `${q} in Seoul: What to Expect Before and After`,  intent: 'commercial' },
-  { id: 'faq',     label: 'FAQ Deep Dive',      titleFn: (q: string) => `${q} in Seoul: Every Question Answered`,          intent: 'informational' },
+  { id: 'before',  label: 'Before/After',       titleFn: (q: string) => `${_cap(q)} in Seoul: What to Expect Before and After`,  intent: 'commercial' },
+  { id: 'faq',     label: 'FAQ Deep Dive',      titleFn: (q: string) => `${_cap(q)} in Seoul: Every Question Answered`,          intent: 'informational' },
 ]
 
 // 클리닉 전용 키워드 풀 (피부과 + 성형 + 시술)
