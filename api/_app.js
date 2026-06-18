@@ -16192,15 +16192,31 @@ app.get("/api/admin/debug-blog-photos", async (c) => {
     return c.json({ error: e.message, stack: e.stack?.slice(0, 300) }, 500);
   }
 });
+function _safeTitle(prefix, q, suffix) {
+  const qLow = q.toLowerCase().trim();
+  const prefLow = prefix.toLowerCase();
+  const prefFirstWord = prefLow.split(/\s+/)[0];
+  const qFirstWord = qLow.replace(/[^a-z0-9 ]/g, "").split(/\s+/)[0];
+  if (prefFirstWord && qFirstWord && qFirstWord === prefFirstWord) {
+    const cap = q.charAt(0).toUpperCase() + q.slice(1);
+    const qWords = qLow.split(/\s+/);
+    const qLastWord = qWords[qWords.length - 1];
+    const suffWords = suffix.replace(/[^a-z ]/gi, " ").trim().split(/\s+/);
+    const cleanSuffix = suffWords[0]?.toLowerCase() === qLastWord ? suffWords.slice(1).join(" ") : suffix;
+    const descPart = cleanSuffix.replace(/^[A-Z][a-z]+\??[\s]+/, "");
+    return descPart.trim() ? `${cap} \u2014 ${descPart.trim()}` : cap;
+  }
+  return `${prefix} ${q}${suffix ? " " + suffix : ""}`;
+}
 var BLOG_ANGLES = [
   { id: "guide", label: "Complete Guide", titleFn: (q) => `${q} \u2014 Complete Guide for First-Timers`, intent: "informational" },
-  { id: "honest", label: "Honest Review", titleFn: (q) => `Is ${q} Worth It? An Honest Breakdown`, intent: "commercial" },
-  { id: "cost", label: "Price Guide", titleFn: (q) => `How Much Does ${q} Cost? Real Price Breakdown`, intent: "transactional" },
-  { id: "safety", label: "Safety Guide", titleFn: (q) => `Is ${q} Safe? What You Need to Know Before Going`, intent: "informational" },
+  { id: "honest", label: "Honest Review", titleFn: (q) => _safeTitle("Is", q, "Worth It? An Honest Breakdown"), intent: "commercial" },
+  { id: "cost", label: "Price Guide", titleFn: (q) => _safeTitle("How Much Does", q, "Cost? Real Price Breakdown"), intent: "transactional" },
+  { id: "safety", label: "Safety Guide", titleFn: (q) => _safeTitle("Is", q, "Safe? What You Need to Know Before Going"), intent: "informational" },
   { id: "compare", label: "Area Comparison", titleFn: (q) => `Best Areas in Seoul for ${q} \u2014 Where to Go`, intent: "commercial" },
-  { id: "story", label: "First Person Story", titleFn: (q) => `I Tried ${q} in Seoul \u2014 Here's What Happened`, intent: "informational" },
+  { id: "story", label: "First Person Story", titleFn: (q) => _safeTitle("I Tried", q, "in Seoul \u2014 Here's What Happened"), intent: "informational" },
   { id: "tips", label: "Insider Tips", titleFn: (q) => `${q} in Seoul: 7 Things Nobody Tells You`, intent: "informational" },
-  { id: "booking", label: "Booking Guide", titleFn: (q) => `How to Book ${q} in Seoul as a Foreigner`, intent: "transactional" },
+  { id: "booking", label: "Booking Guide", titleFn: (q) => _safeTitle("How to Book", q, "in Seoul as a Foreigner"), intent: "transactional" },
   { id: "before", label: "Before/After", titleFn: (q) => `${q} in Seoul: What to Expect Before and After`, intent: "commercial" },
   { id: "faq", label: "FAQ Deep Dive", titleFn: (q) => `${q} in Seoul: Every Question Answered`, intent: "informational" }
 ];
