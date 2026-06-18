@@ -5342,57 +5342,83 @@ async function autoGenShopBlog(shop, apiKey, sql) {
   ];
   const titlePool = titleTemplates[cat.toLowerCase()] || titleTemplates[shop.category?.toLowerCase() || ""] || defaultTitles;
   const title = titlePool[Math.floor(Math.random() * titlePool.length)];
-  const prompt = `You are a Seoul travel writer who has personally visited many K-beauty clinics. Write like a real person sharing their honest experience \u2014 not a brochure or AI.
+  const year = (/* @__PURE__ */ new Date()).getFullYear();
+  const lsiMap = {
+    clinic: ["Korean dermatologist", "skin treatment Seoul", "laser toning", "skin booster", "K-beauty skincare"],
+    hair: ["Korean hair salon", "hair treatment Seoul", "balayage Seoul", "hair color Korea", "Korean hairstyle"],
+    headspa: ["scalp treatment Seoul", "Korean head spa", "hair loss treatment", "scalp massage", "dandruff treatment"],
+    skincare: ["facial treatment Seoul", "Korean skincare routine", "hydrafacial Seoul", "skin brightening", "pore treatment"],
+    tattoo: ["microblading Seoul", "eyebrow tattoo Korea", "semi permanent makeup", "eyebrow shaping", "Korean brow"],
+    dental: ["dental treatment Seoul", "teeth whitening Korea", "dental clinic foreigner", "Korean dentist English", "dental tourism Seoul"]
+  };
+  const lsiWords = (lsiMap[shop.category] || lsiMap.clinic).join(", ");
+  const prompt = `You are a senior K-beauty travel writer for seoulbeautytrip.com. Write a blog post about "${shop.name}" that ranks #1 on Google AND converts readers into bookings.
 
-Write a blog post about "${shop.name}", a ${cat} in ${area}, Seoul for seoulbeautytrip.com.
-
-REAL DATA (use exactly \u2014 do NOT invent numbers or reviews):
+SHOP DATA (use exactly \u2014 never invent):
+- Name: ${shop.name}
+- Type: ${cat} in ${area}, Seoul
 - Rating: ${shop.rating}/5 from ${shop.reviewCount}+ Google reviews
 - About: ${shop.description || seoContext || "Premium " + cat + " in " + area}
-- What regulars love: ${(shop.whyChoose || []).slice(0, 3).join(" | ")}
-${reviewSnippets ? `- Actual customer quotes (use these verbatim in blockquotes):
+- Key strengths: ${(shop.whyChoose || []).slice(0, 3).join(" | ")}
+- Year: ${year}
+${reviewSnippets ? `- Real customer quotes (use verbatim in blockquotes):
   "${reviewSnippets.replace(/\n- /g, '"\n  "')}"` : ""}
 
-Write HTML (900-1100 words) with this structure:
-<h2>My Honest Take on ${shop.name} (${area}, Seoul)</h2>
-<p>[2-3 sentence hook \u2014 why someone would search for this place. Be specific to ${area} and the type of visitor.]</p>
-<p>[Context paragraph \u2014 what kind of place this is, who it's best for]</p>
-<h2>What Real Visitors Say</h2>
-<p>[Intro to reviews \u2014 1 sentence]</p>
-[Insert 2-3 blockquotes using this EXACT style (dark-theme safe):
+LSI KEYWORDS (weave 3+ naturally): ${lsiWords}
+
+SEO RULES:
+- Use "${shop.name}" in first paragraph + at least 2 H2s + naturally 4-5x total
+- First paragraph: answer "Is ${shop.name} good for foreigners?" directly in 40-60 words (Featured Snippet)
+- H2 headers: write as real Google questions (Is/How/What/Why/Where/Can)
+- FAQ: minimum 4 questions written as actual Google searches
+- Internal links: naturally include <a href="/best/clinic/${area.toLowerCase().replace(/\s+/g, "-")}">best clinics in ${area}</a> and <a href="/best/clinic/seoul">top Seoul clinics</a>
+
+CONTENT RULES (E-E-A-T):
+- Experience: specific KRW price ranges (or say "confirm at booking"), realistic treatment time
+- Expertise: mention what certifications/qualifications to look for in a ${cat}
+- Trust: include 1 honest caveat (e.g. wait times, language limits, what to prepare)
+- NO AI tells: "In this article", "It's worth noting", "Look no further", "Comprehensive", "Navigating"
+- Write like a real traveller who went \u2014 specific beats generic
+- Cite ${shop.rating}/5 and ${shop.reviewCount}+ reviews naturally
+
+HTML STRUCTURE (1000-1100 words, HTML only, no markdown):
+<p>[40-60 word Featured Snippet answer: Is ${shop.name} worth visiting as a foreigner? Direct answer.]</p>
+<h2>What Makes ${shop.name} Stand Out in ${area}?</h2>
+<p>[2-3 sentences specific to this clinic/shop \u2014 what's unique about it]</p>
+<h2>What Real Customers Say About ${shop.name}</h2>
+<p>[1 sentence intro]</p>
+${reviewSnippets ? `[2-3 blockquotes EXACT style:
 <blockquote style="border-left:4px solid #FF4D8D;padding:14px 18px;margin:16px 0;background:rgba(255,77,141,0.06);border-radius:0 8px 8px 0;">
-<p style="font-style:italic;color:rgba(255,255,255,0.85);margin:0 0 6px 0;">"[exact review text]"</p>
-</blockquote>]
-<p>[Your interpretation \u2014 what these reviews tell us about the experience]</p>
-<h2>Treatments & What's on the Menu</h2>
-<p>[List main treatments naturally in prose, not bullets. Mention any standout services.]</p>
-<h2>Pricing Reality Check</h2>
-<p>[Honest price framing \u2014 Korea is X% cheaper than [comparison country], don't give fake numbers, do say "confirm at booking"]</p>
-<h2>The Foreigner Experience \u2014 Language, Booking, What to Know</h2>
-<p>[English availability, WhatsApp booking via Seoul Beauty Trip, any practical tips]</p>
+<p style="font-style:italic;color:rgba(255,255,255,0.85);margin:0 0 6px 0;">"[exact review]"</p>
+</blockquote>]` : ""}
+<p>[What these reviews reveal about the experience]</p>
+<h2>Treatments, Services & What to Expect</h2>
+<p>[Main services in natural prose. Include at least 2 LSI keywords here.]</p>
+<h2>How Much Does ${shop.name} Cost? (${year} Price Guide)</h2>
+<p>[Honest KRW price framing \u2014 ranges, what affects price, "confirm at booking"]</p>
+<h2>How Do Foreigners Book ${shop.name}? (Step-by-Step)</h2>
+<p>[WhatsApp booking via Seoul Beauty Trip, language support, what to say]</p>
 <ul style="color:rgba(255,255,255,0.8);padding-left:20px;">
-<li>[Tip 1 \u2014 specific and practical]</li>
-<li>[Tip 2]</li>
-<li>[Tip 3 \u2014 e.g. location tip for ${area}]</li>
+<li>[Practical tip 1]</li>
+<li>[Practical tip 2]</li>
+<li>[Location tip for ${area}]</li>
 </ul>
-<h2>Getting to ${shop.name}</h2>
-<p>[Location in ${area} \u2014 nearest station, landmark, practical detail]</p>
-<h2>FAQ</h2>
-<h3>Is ${shop.name} worth it for foreigners?</h3><p>[Direct answer]</p>
-<h3>Do they speak English at ${shop.name}?</h3><p>[Answer]</p>
-<h3>How do I book ${shop.name} as a tourist?</h3><p>[WhatsApp via Seoul Beauty Trip answer]</p>
+<h2>Frequently Asked Questions About ${shop.name}</h2>
+<h3>Is ${shop.name} worth it for foreign visitors?</h3><p>[Direct honest answer]</p>
+<h3>Do they speak English at ${shop.name}?</h3><p>[Honest answer + workaround]</p>
+<h3>How do I book ${shop.name} as a tourist?</h3><p>[WhatsApp via Seoul Beauty Trip]</p>
+<h3>How much does ${shop.name} cost compared to back home?</h3><p>[Price comparison framing]</p>
+<p>[Closing: natural mention of Seoul Beauty Trip as the place to find and book vetted clinics like ${shop.name}. Include internal link.]</p>
 
-RULES:
-- HTML only, no markdown
-- All inline styles must use rgba() or hex \u2014 NO hsl() or named colors like "white"/"gray"
-- Blockquotes MUST use the dark-theme style shown above (rgba background, not #f9fafb)
-- Write like a real traveller \u2014 specific details beat generic praise
-- Cite the ${shop.rating}/5 rating and ${shop.reviewCount}+ reviews naturally
-- NO photo tags, figure tags, or image references \u2014 photos are handled separately
-- No fake prices, no invented facts
+STYLE RULES:
+- All inline styles: rgba() or hex ONLY \u2014 NO hsl() or named colors
+- Blockquotes: dark-theme style shown above (rgba background)
+- NO <figure>, <img>, or photo tags \u2014 photos handled separately
+- No invented facts, no fake specific prices
 
-After HTML add ---JSON---
-{"metaDescription":"[max 155 chars, include '${shop.name}' and '${area}']","excerpt":"[2 sentence hook for the blog card]","tags":["${shop.name} review","${area} ${cat}","${cat} Seoul foreigners","Seoul beauty 2026","${shop.name} worth it"]}`;
+After HTML output:
+---JSON---
+{"metaDescription":"[\u2264155 chars with '${shop.name}' and '${area}' and '${year}']","excerpt":"[2 punchy sentences for blog card]","tags":["${shop.name} review","${area} ${cat}","${cat} Seoul foreigners","Seoul beauty ${year}","${shop.name} worth it","${cat} ${area} foreigner"]}`;
   try {
     const res = await fetch("https://www.genspark.ai/api/llm_proxy/v1/chat/completions", {
       method: "POST",
@@ -5413,6 +5439,26 @@ After HTML add ---JSON---
     let htmlContent = parts[0].trim();
     if (!htmlContent || htmlContent.length < 200) return;
     htmlContent = htmlContent.replace(/<figure[\s\S]*?<\/figure>/gi, "").replace(/\{\{PHOTO_\d\}\}/g, "");
+    const faqMatches = [...htmlContent.matchAll(/<h3[^>]*>([^<]+)<\/h3>\s*<p[^>]*>([\s\S]*?)<\/p>/gi)];
+    if (faqMatches.length >= 2) {
+      const faqItems = faqMatches.slice(0, 6).map((m) => ({
+        q: m[1].replace(/<[^>]+>/g, "").trim(),
+        a: m[2].replace(/<[^>]+>/g, "").trim().slice(0, 300)
+      })).filter((f) => f.q && f.a);
+      if (faqItems.length >= 2) {
+        const faqSchema = {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: faqItems.map((f) => ({
+            "@type": "Question",
+            name: f.q,
+            acceptedAnswer: { "@type": "Answer", text: f.a }
+          }))
+        };
+        htmlContent += `
+<script type="application/ld+json">${JSON.stringify(faqSchema)}</script>`;
+      }
+    }
     let metaDescription = "", excerpt = "", tags = [];
     if (parts[1]) {
       try {
@@ -5428,7 +5474,8 @@ After HTML add ---JSON---
     const now = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
     const dupCheck = await sql`SELECT id FROM blog_posts WHERE slug=${slug} LIMIT 1`.catch(() => []);
     if (dupCheck.length > 0) return;
-    const coverImg = (await sql`SELECT thumbnail FROM shops WHERE id=${shop.id} LIMIT 1`.catch(() => []))?.[0]?.thumbnail || "";
+    const shopRow = (await sql`SELECT thumbnail FROM shops WHERE id=${shop.id} LIMIT 1`.catch(() => []))?.[0];
+    const coverImg = shopRow?.thumbnail || `https://source.unsplash.com/1200x630/?${encodeURIComponent(shop.name + " " + cat + " seoul")}`;
     await sql`INSERT INTO blog_posts
       (id, slug, title, content, excerpt, meta_description, category, area, tags, cover_image, status, views, shop_id, created_at, updated_at)
       VALUES (
