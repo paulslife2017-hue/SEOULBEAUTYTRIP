@@ -15595,7 +15595,8 @@ app.get("/", async (c) => {
 });
 app.get("/admin", (c) => {
   const token = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== "undefined" ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || "" : "");
-  const html = ADMIN_HTML.replace("__GSK_TOKEN__", token);
+  const safeToken = JSON.stringify(token || "");
+  const html = ADMIN_HTML.replace('"__GSK_TOKEN__"', safeToken);
   return c.html(html);
 });
 async function makeGa4Jwt(serviceAccountJson, scope = "https://www.googleapis.com/auth/analytics.readonly") {
@@ -22328,7 +22329,8 @@ var ADMIN_HTML = `<!DOCTYPE html>
 <title>Seoul Beauty Trip - Admin</title>
 <script>
 // \uC11C\uBC84\uC5D0\uC11C \uC8FC\uC785\uB41C \uD1A0\uD070 \uC6B0\uC120, \uC5C6\uC73C\uBA74 localStorage\uC5D0\uC11C \uBCF5\uC6D0
-var _GSK_TOKEN = '__GSK_TOKEN__' || localStorage.getItem('_gsk_token') || '';
+// "__GSK_TOKEN__" \u2192 \uC11C\uBC84\uAC00 JSON.stringify(token)\uC73C\uB85C \uCE58\uD658 (\uD2B9\uC218\uBB38\uC790 \uC548\uC804)
+var _GSK_TOKEN = "__GSK_TOKEN__" || localStorage.getItem('_gsk_token') || '';
 // localStorage\uC5D0 \uC800\uC7A5 (\uB2E4\uC74C \uBC29\uBB38 \uC2DC \uC7AC\uC0AC\uC6A9)
 if(_GSK_TOKEN) localStorage.setItem('_gsk_token', _GSK_TOKEN);
 </script>
