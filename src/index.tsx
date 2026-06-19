@@ -14797,7 +14797,9 @@ app.get('/', async (c) => {
 })
 app.get('/admin', (c) => {
   const token = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== 'undefined' ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || '' : '')
-  const html = ADMIN_HTML.replace('__GSK_TOKEN__', token)
+  // JSON.stringify로 이스케이프 → GSK_TOKEN에 특수문자(-, +, / 등) 포함돼도 JS 파싱 에러 방지
+  const safeToken = JSON.stringify(token || '')
+  const html = ADMIN_HTML.replace('"__GSK_TOKEN__"', safeToken)
   return c.html(html)
 })
 
@@ -21884,7 +21886,8 @@ const ADMIN_HTML = `<!DOCTYPE html>
 <title>Seoul Beauty Trip - Admin</title>
 <script>
 // 서버에서 주입된 토큰 우선, 없으면 localStorage에서 복원
-var _GSK_TOKEN = '__GSK_TOKEN__' || localStorage.getItem('_gsk_token') || '';
+// "__GSK_TOKEN__" → 서버가 JSON.stringify(token)으로 치환 (특수문자 안전)
+var _GSK_TOKEN = "__GSK_TOKEN__" || localStorage.getItem('_gsk_token') || '';
 // localStorage에 저장 (다음 방문 시 재사용)
 if(_GSK_TOKEN) localStorage.setItem('_gsk_token', _GSK_TOKEN);
 </script>
