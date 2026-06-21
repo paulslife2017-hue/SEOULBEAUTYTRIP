@@ -1759,6 +1759,36 @@ app.put('/api/shops/:id', async (c) => {
     return c.json({ error: 'db_error', message: e?.message || 'unknown' }, 500)
   }
 })
+// PATCH /api/shops/:id — 특정 필드만 안전하게 업데이트 (PUT과 달리 전체 덮어쓰기 없음)
+// 지원 필드: metaDescription, seoKeywords, editorNote, active, commission, thumbnail, whatsapp
+app.patch('/api/shops/:id', async (c) => {
+  try {
+    const sql = getDb(c.env)
+    const body = await c.req.json()
+    const id = c.req.param('id')
+    const allowed = ['metaDescription','seoKeywords','editorNote','active','commission','thumbnail','whatsapp']
+    const updates: string[] = []
+    const vals: Record<string, any> = {}
+    for (const key of allowed) {
+      if (key in body) {
+        const col = key.replace(/([A-Z])/g, '_$1').toLowerCase()
+        vals[col] = body[key]
+      }
+    }
+    if (Object.keys(vals).length === 0) return c.json({ ok: false, error: 'no valid fields' }, 400)
+    // 허용된 필드만 개별 UPDATE
+    if ('meta_description' in vals) await sql`UPDATE shops SET meta_description=${vals['meta_description']} WHERE id=${id}`
+    if ('seo_keywords'     in vals) await sql`UPDATE shops SET seo_keywords=${vals['seo_keywords']} WHERE id=${id}`
+    if ('editor_note'      in vals) await sql`UPDATE shops SET editor_note=${vals['editor_note']} WHERE id=${id}`
+    if ('active'           in vals) await sql`UPDATE shops SET active=${vals['active']} WHERE id=${id}`
+    if ('commission'       in vals) await sql`UPDATE shops SET commission=${vals['commission']} WHERE id=${id}`
+    if ('thumbnail'        in vals) await sql`UPDATE shops SET thumbnail=${sanitizeThumb(vals['thumbnail'],[])} WHERE id=${id}`
+    if ('whatsapp'         in vals) await sql`UPDATE shops SET whatsapp=${vals['whatsapp']} WHERE id=${id}`
+    return c.json({ ok: true, updated: Object.keys(vals) })
+  } catch(e: any) {
+    return c.json({ error: 'db_error', message: e?.message || 'unknown' }, 500)
+  }
+})
 app.delete('/api/shops/:id', async (c) => {
   try {
     const sql = getDb(c.env)
