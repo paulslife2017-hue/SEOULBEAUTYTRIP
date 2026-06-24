@@ -15565,50 +15565,85 @@ app.get('/api/admin/debug-blog-photos', async (c) => {
 // capitalize 헬퍼: 첫 글자를 대문자로
 function _cap(s: string): string { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s }
 
-// titleFn 헬퍼: 키워드가 이미 의문형/동사로 시작하면 접두 동사 중복 방지
-// 예) "Is ${q} Safe?" → q="is Seoul skin clinic safe..." → "Is is..." 방지
-// 예) "How to Book ${q}..." → q="how to book skin clinic Seoul" → "How to Book how to book..." 방지
-function _safeTitle(prefix: string, q: string, suffix: string): string {
+// keyword에 "Seoul"/"Gangnam" 등 지역이 포함돼 있으면 true
+function _hasLocation(q: string): boolean {
+  return /\b(seoul|gangnam|hongdae|itaewon|myeongdong|apgujeong|seocho|insadong|korea|korean)\b/i.test(q)
+}
+
+// keyword가 이미 질문/동사형 문장이면 true (is/are/do/does/should/why/what/how/can/will 로 시작)
+function _isQuestion(q: string): boolean {
+  return /^(is|are|do|does|did|should|why|what|how|can|will|was|were)\b/i.test(q.trim())
+}
+
+// keyword를 SEO 친화적 짧은 topic으로 변환
+// "skin clinic Seoul foreigners" → "Skin Clinic Seoul"
+// "do Seoul clinics charge more for foreigners" → "Seoul Clinic Pricing for Foreigners"
+// "is Seoul skin clinic safe for darker skin tones" → "Seoul Skin Clinics & Darker Skin Tones"
+function _cleanKeyword(q: string): string {
   const qLow = q.toLowerCase().trim()
-  const prefLow = prefix.toLowerCase()
-  // 키워드가 접두어의 첫 단어로 시작하면 → 키워드 자체가 이미 문장 형태
-  // 예) "Is" vs "is Seoul..." → "is"로 시작
-  // 예) "How to Book" vs "how to book..." → "how"로 시작
-  const prefFirstWord = prefLow.split(/\s+/)[0]
-  const qFirstWord    = qLow.replace(/[^a-z0-9 ]/g, '').split(/\s+/)[0]
-  if (prefFirstWord && qFirstWord && qFirstWord === prefFirstWord) {
-    // 키워드 자체가 이미 문장 형태 → capitalize 후, suffix는 핵심부만 붙임
-    // suffix에서 앞쪽 동사/형용사 중복 제거 (예: "Safe? What..." → "What You Need to Know")
-    const cap = q.charAt(0).toUpperCase() + q.slice(1)
-    // suffix 첫 단어가 키워드 마지막 단어와 겹치면 suffix 첫 단어 제거
-    const qWords = qLow.split(/\s+/)
-    const qLastWord = qWords[qWords.length - 1]
-    const suffWords = suffix.replace(/[^a-z ]/gi, ' ').trim().split(/\s+/)
-    const cleanSuffix = (suffWords[0]?.toLowerCase() === qLastWord) ? suffWords.slice(1).join(' ') : suffix
-    // 그냥 cleanSuffix 없이 cap만 쓰는 게 더 깔끔한 경우가 많음 → suffix의 '설명 부분'만
-    const descPart = cleanSuffix.replace(/^[A-Z][a-z]+\??[\s]+/, '') // 첫 단어(Safe?, Is, What 등) 제거
-    return descPart.trim() ? `${cap} — ${descPart.trim()}` : cap
-  }
-  return `${prefix} ${q}${suffix ? ' ' + suffix : ''}`
+  // 질문형 keyword → 핵심 명사구만 추출
+  // "do Seoul clinics charge more for foreigners" → "Seoul Clinic Foreigner Pricing"
+  // "is Seoul skin clinic safe for darker skin tones" → "Seoul Skin Clinics for Darker Skin"
+  // "should I consult before paying Seoul clinic" → "Seoul Clinic Pre-Payment Consultation"
+  // 패턴: 앞 동사/조동사 제거, 뒷 부분 trim
+  const cleaned = qLow
+    .replace(/^(is|are|do|does|did|should|why|what|how to|how|can|will|was|were|i tried|i)\s+/i, '')
+    .replace(/\b(more for|charge more|worth it|as a foreigner|for foreigners?|safe for|in seoul|in korea)\b/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+  return _cap(cleaned)
+}
+
+// titleFn 헬퍼: prefix + keyword + suffix 조합
+// keyword에 이미 지역명(Seoul 등) 포함 시 suffix의 "in Seoul" 중복 제거
+function _safeTitle(prefix: string, q: string, suffix: string): string {
+  const inSeoulSuffix = _hasLocation(q) ? suffix.replace(/\bin Seoul\b/gi, '').replace(/\s{2,}/g, ' ').trim() : suffix
+  return `${prefix} ${_cap(q)} ${inSeoulSuffix}`.replace(/\s{2,}/g, ' ').trim()
 }
 
 const BLOG_ANGLES = [
-  { id: 'guide',   label: 'Complete Guide',     titleFn: (q: string) => `${_cap(q)} — Complete Guide for First-Timers`,          intent: 'informational' },
+  { id: 'guide',   label: 'Complete Guide',     titleFn: (q: string) => {
+      const inSeoul = _hasLocation(q) ? '' : ' in Seoul'
+      return _isQuestion(q)
+        ? `${_cleanKeyword(q)}${inSeoul}: Complete Guide for First-Timers`
+        : `${_cap(q)}${inSeoul} — Complete Guide for First-Timers`
+    }, intent: 'informational' },
   { id: 'honest',  label: 'Honest Review',      titleFn: (q: string) => _safeTitle('Is', q, 'Worth It? An Honest Breakdown'),  intent: 'commercial' },
   { id: 'cost',    label: 'Price Guide',        titleFn: (q: string) => _safeTitle('How Much Does', q, 'Cost? Real Price Breakdown'), intent: 'transactional' },
   { id: 'safety',  label: 'Safety Guide',       titleFn: (q: string) => _safeTitle('Is', q, 'Safe? What You Need to Know Before Going'), intent: 'informational' },
-  { id: 'compare', label: 'Area Comparison',    titleFn: (q: string) => `Best Areas in Seoul for ${_cap(q)} — Where to Go`,      intent: 'commercial' },
-  { id: 'story',   label: 'First Person Story', titleFn: (q: string) => _safeTitle('I Tried', q, "in Seoul — Here's What Happened"), intent: 'informational' },
-  { id: 'tips',    label: 'Insider Tips',       titleFn: (q: string) => `${_cap(q)} in Seoul: 7 Things Nobody Tells You`,        intent: 'informational' },
-  { id: 'booking', label: 'Booking Guide',      titleFn: (q: string) => _safeTitle('How to Book', q, 'in Seoul as a Foreigner'), intent: 'transactional' },
-  { id: 'before',  label: 'Before/After',       titleFn: (q: string) => `${_cap(q)} in Seoul: What to Expect Before and After`,  intent: 'commercial' },
-  { id: 'faq',     label: 'FAQ Deep Dive',      titleFn: (q: string) => `${_cap(q)} in Seoul: Every Question Answered`,          intent: 'informational' },
+  { id: 'compare', label: 'Area Comparison',    titleFn: (q: string) => {
+      const topic = _isQuestion(q) ? _cleanKeyword(q) : _cap(q)
+      return `Best Areas in Seoul for ${topic} — Where to Go`
+    }, intent: 'commercial' },
+  { id: 'story',   label: 'First Person Story', titleFn: (q: string) => {
+      const topic = _isQuestion(q) ? _cleanKeyword(q) : _cap(q)
+      const inSeoul = _hasLocation(topic) ? '' : ' in Seoul'
+      return `I Tried ${topic}${inSeoul} — Here's What Happened`
+    }, intent: 'informational' },
+  { id: 'tips',    label: 'Insider Tips',       titleFn: (q: string) => {
+      const topic = _isQuestion(q) ? _cleanKeyword(q) : _cap(q)
+      const inSeoul = _hasLocation(topic) ? '' : ' in Seoul'
+      return `${topic}${inSeoul}: 7 Things Nobody Tells You`
+    }, intent: 'informational' },
+  { id: 'booking', label: 'Booking Guide',      titleFn: (q: string) => _safeTitle('How to Book', q, 'as a Foreigner'), intent: 'transactional' },
+  { id: 'before',  label: 'Before/After',       titleFn: (q: string) => {
+      const topic = _isQuestion(q) ? _cleanKeyword(q) : _cap(q)
+      const inSeoul = _hasLocation(topic) ? '' : ' in Seoul'
+      return `${topic}${inSeoul}: What to Expect Before and After`
+    }, intent: 'commercial' },
+  { id: 'faq',     label: 'FAQ Deep Dive',      titleFn: (q: string) => {
+      const topic = _isQuestion(q) ? _cleanKeyword(q) : _cap(q)
+      const inSeoul = _hasLocation(topic) ? '' : ' in Seoul'
+      return `${topic}${inSeoul}: Every Question Answered`
+    }, intent: 'informational' },
 ]
 
 // 클리닉 전용 키워드 풀 (피부과 + 성형 + 시술)
-const CLINIC_KEYWORDS: { query: string; area: string; tags: string[]; priority: number }[] = [
+// title 필드: 타이틀 생성에 사용할 짧은 토픽 (질문형/긴꼬리 query는 title 명시)
+//             없으면 query 그대로 사용
+const CLINIC_KEYWORDS: { query: string; title?: string; area: string; tags: string[]; priority: number }[] = [
   // 🔴 최우선 (검색량 높음)
-  { query: 'skin clinic Seoul foreigners', area: 'Seoul', tags: ['skin clinic Seoul', 'foreigner friendly', 'English speaking clinic'], priority: 1 },
+  { query: 'skin clinic Seoul foreigners', title: 'Skin Clinic Seoul', area: 'Seoul', tags: ['skin clinic Seoul', 'foreigner friendly', 'English speaking clinic'], priority: 1 },
   { query: 'botox Seoul', area: 'Seoul', tags: ['botox Seoul', 'anti aging Seoul', 'wrinkle treatment Korea'], priority: 1 },
   { query: 'laser treatment Seoul', area: 'Seoul', tags: ['laser Seoul', 'skin laser', 'pigmentation treatment'], priority: 1 },
   { query: 'plastic surgery Seoul', area: 'Seoul', tags: ['plastic surgery Seoul', 'medical tourism Korea', 'cosmetic surgery Seoul'], priority: 1 },
@@ -15657,31 +15692,31 @@ const CLINIC_KEYWORDS: { query: string; area: string; tags: string[]; priority: 
   { query: 'skin clinic consultation Seoul foreigner', area: 'Seoul', tags: ['clinic consultation', 'free consultation Seoul', 'skin analysis Seoul'], priority: 4 },
   { query: 'Korean plastic surgery guide tourist', area: 'Seoul', tags: ['plastic surgery guide', 'surgery tourism Seoul', 'cosmetic surgery guide Korea'], priority: 4 },
   // 🔵 레딧 실제 질문 기반 (r/KoreanBeauty, r/KoreaSeoulBeauty 인기 질문)
-  { query: 'factory clinic vs boutique clinic Seoul', area: 'Seoul', tags: ['factory clinic Seoul', 'boutique clinic Seoul', 'how to choose clinic Korea'], priority: 1 },
-  { query: 'do Seoul clinics charge more for foreigners', area: 'Seoul', tags: ['foreigner price Seoul clinic', 'clinic upcharge tourists', 'fair price Seoul beauty'], priority: 1 },
-  { query: 'is Seoul skin clinic safe for darker skin tones', area: 'Seoul', tags: ['darker skin laser Seoul', 'Fitzpatrick IV VI Seoul', 'laser safe melanin skin Korea'], priority: 1 },
-  { query: 'ghost surgeon risk Korean plastic surgery', area: 'Seoul', tags: ['ghost surgeon Korea', 'surgery safety Seoul', 'how to avoid fake surgeon Korea'], priority: 2 },
-  { query: 'should I consult before paying Seoul clinic', area: 'Seoul', tags: ['consultation before paying Seoul', 'free consultation Korea clinic', 'avoid clinic scam Seoul'], priority: 2 },
-  { query: 'rejuran vs filler vs botox Seoul which one', area: 'Seoul', tags: ['rejuran vs botox', 'filler vs rejuran Seoul', 'which treatment Seoul foreigners'], priority: 1 },
-  { query: 'best single session treatments Seoul no downtime', area: 'Seoul', tags: ['one session treatment Seoul', 'no downtime Seoul clinic', 'quick treatment Seoul tourist'], priority: 2 },
-  { query: 'going to Seoul clinic alone as foreigner tips', area: 'Seoul', tags: ['solo clinic visit Seoul', 'alone at Seoul clinic', 'foreigner solo beauty Seoul'], priority: 2 },
-  { query: 'why is there a huge price difference Seoul clinics', area: 'Seoul', tags: ['Seoul clinic price difference', 'why clinics cost different Seoul', 'clinic price comparison Korea'], priority: 2 },
-  { query: 'Rejuran treatment Seoul worth it foreigners', area: 'Seoul', tags: ['Rejuran Seoul worth it', 'Rejuran review Seoul', 'skin booster injection worth it Korea'], priority: 1 },
-  { query: 'hand injection vs injector gun Seoul clinic', area: 'Seoul', tags: ['hand injection Seoul', 'injector gun vs hand Seoul', 'skin booster method Korea'], priority: 3 },
-  { query: 'Pico laser Seoul one session results', area: 'Seoul', tags: ['pico laser Seoul results', 'one session pico Korea', 'laser toning Seoul worth it'], priority: 2 },
-  { query: 'acne scar treatment Seoul Fraxel vs Pico', area: 'Seoul', tags: ['acne scar Seoul', 'Fraxel vs Pico Seoul', 'best laser acne scar Korea'], priority: 2 },
-  { query: 'skin booster Seoul Rejuran Juvelook comparison', area: 'Seoul', tags: ['skin booster comparison Seoul', 'Rejuran vs Juvelook', 'best skin booster Korea'], priority: 2 },
-  { query: 'Ultherapy vs HIFU Seoul which is better', area: 'Seoul', tags: ['Ultherapy vs HIFU', 'lifting comparison Seoul', 'non surgical facelift comparison Korea'], priority: 3 },
-  { query: 'how to find trusted Seoul clinic English review', area: 'Seoul', tags: ['find trusted clinic Seoul', 'reliable clinic reviews Korea', 'how to research Seoul clinic'], priority: 3 },
-  { query: 'Seoul beauty trip itinerary 5 days clinic schedule', area: 'Seoul', tags: ['Seoul beauty trip itinerary', '5 day beauty Seoul', 'clinic schedule Seoul tourist'], priority: 3 },
-  { query: 'skin Botox dermatoxin Seoul oily skin', area: 'Seoul', tags: ['skin botox Seoul', 'dermatoxin Seoul', 'oily skin treatment Korea'], priority: 3 },
-  { query: 'fat dissolving injection Seoul double chin', area: 'Seoul', tags: ['fat dissolving Seoul', 'double chin removal Korea', 'kybella alternative Seoul'], priority: 3 },
-  { query: 'anesthesia sedation during skin treatment Seoul', area: 'Seoul', tags: ['sedation skin treatment Seoul', 'sleep anesthesia clinic Seoul', 'pain free treatment Korea'], priority: 4 },
-  { query: 'Juvelook vs Rejuran Seoul skin booster guide', area: 'Seoul', tags: ['Juvelook Seoul', 'Juvelook vs Rejuran', 'skin regeneration injection Korea'], priority: 3 },
-  { query: 'Korean clinic consultation what to say as foreigner', area: 'Seoul', tags: ['clinic consultation script Seoul', 'what to ask Korean doctor', 'foreigner clinic communication Seoul'], priority: 3 },
-  { query: 'best area Seoul for skin treatments Gangnam vs Hongdae', area: 'Seoul', tags: ['Gangnam vs Hongdae clinic', 'best area Seoul skin treatment', 'where to go Seoul beauty'], priority: 3 },
-  { query: 'VAT refund cosmetic treatment Seoul tourist 2025', area: 'Seoul', tags: ['VAT refund Seoul clinic', 'tax refund cosmetic Korea', 'medical tax refund tourist Seoul'], priority: 4 },
-  { query: 'how to book Korean clinic via WhatsApp guide', area: 'Seoul', tags: ['WhatsApp clinic booking Seoul', 'how to book Korean doctor WhatsApp', 'online booking Seoul clinic'], priority: 2 },
+  { query: 'factory clinic vs boutique clinic Seoul', title: 'Factory Clinic vs Boutique Clinic Seoul', area: 'Seoul', tags: ['factory clinic Seoul', 'boutique clinic Seoul', 'how to choose clinic Korea'], priority: 1 },
+  { query: 'do Seoul clinics charge more for foreigners', title: 'Seoul Clinic Pricing for Foreigners', area: 'Seoul', tags: ['foreigner price Seoul clinic', 'clinic upcharge tourists', 'fair price Seoul beauty'], priority: 1 },
+  { query: 'is Seoul skin clinic safe for darker skin tones', title: 'Seoul Skin Clinics for Darker Skin Tones', area: 'Seoul', tags: ['darker skin laser Seoul', 'Fitzpatrick IV VI Seoul', 'laser safe melanin skin Korea'], priority: 1 },
+  { query: 'ghost surgeon risk Korean plastic surgery', title: 'Ghost Surgeon Risk in Korean Plastic Surgery', area: 'Seoul', tags: ['ghost surgeon Korea', 'surgery safety Seoul', 'how to avoid fake surgeon Korea'], priority: 2 },
+  { query: 'should I consult before paying Seoul clinic', title: 'Seoul Clinic Consultation Before Paying', area: 'Seoul', tags: ['consultation before paying Seoul', 'free consultation Korea clinic', 'avoid clinic scam Seoul'], priority: 2 },
+  { query: 'rejuran vs filler vs botox Seoul which one', title: 'Rejuran vs Filler vs Botox Seoul', area: 'Seoul', tags: ['rejuran vs botox', 'filler vs rejuran Seoul', 'which treatment Seoul foreigners'], priority: 1 },
+  { query: 'best single session treatments Seoul no downtime', title: 'Best Single-Session Treatments Seoul', area: 'Seoul', tags: ['one session treatment Seoul', 'no downtime Seoul clinic', 'quick treatment Seoul tourist'], priority: 2 },
+  { query: 'going to Seoul clinic alone as foreigner tips', title: 'Going to a Seoul Clinic Alone as a Foreigner', area: 'Seoul', tags: ['solo clinic visit Seoul', 'alone at Seoul clinic', 'foreigner solo beauty Seoul'], priority: 2 },
+  { query: 'why is there a huge price difference Seoul clinics', title: 'Seoul Clinic Price Differences Explained', area: 'Seoul', tags: ['Seoul clinic price difference', 'why clinics cost different Seoul', 'clinic price comparison Korea'], priority: 2 },
+  { query: 'Rejuran treatment Seoul worth it foreigners', title: 'Rejuran Treatment Seoul', area: 'Seoul', tags: ['Rejuran Seoul worth it', 'Rejuran review Seoul', 'skin booster injection worth it Korea'], priority: 1 },
+  { query: 'hand injection vs injector gun Seoul clinic', title: 'Hand Injection vs Injector Gun Seoul', area: 'Seoul', tags: ['hand injection Seoul', 'injector gun vs hand Seoul', 'skin booster method Korea'], priority: 3 },
+  { query: 'Pico laser Seoul one session results', title: 'Pico Laser Seoul', area: 'Seoul', tags: ['pico laser Seoul results', 'one session pico Korea', 'laser toning Seoul worth it'], priority: 2 },
+  { query: 'acne scar treatment Seoul Fraxel vs Pico', title: 'Acne Scar Treatment Seoul: Fraxel vs Pico', area: 'Seoul', tags: ['acne scar Seoul', 'Fraxel vs Pico Seoul', 'best laser acne scar Korea'], priority: 2 },
+  { query: 'skin booster Seoul Rejuran Juvelook comparison', title: 'Skin Booster Seoul: Rejuran vs Juvelook', area: 'Seoul', tags: ['skin booster comparison Seoul', 'Rejuran vs Juvelook', 'best skin booster Korea'], priority: 2 },
+  { query: 'Ultherapy vs HIFU Seoul which is better', title: 'Ultherapy vs HIFU Seoul', area: 'Seoul', tags: ['Ultherapy vs HIFU', 'lifting comparison Seoul', 'non surgical facelift comparison Korea'], priority: 3 },
+  { query: 'how to find trusted Seoul clinic English review', title: 'How to Find a Trusted Seoul Clinic', area: 'Seoul', tags: ['find trusted clinic Seoul', 'reliable clinic reviews Korea', 'how to research Seoul clinic'], priority: 3 },
+  { query: 'Seoul beauty trip itinerary 5 days clinic schedule', title: 'Seoul Beauty Trip Itinerary: 5-Day Clinic Schedule', area: 'Seoul', tags: ['Seoul beauty trip itinerary', '5 day beauty Seoul', 'clinic schedule Seoul tourist'], priority: 3 },
+  { query: 'skin Botox dermatoxin Seoul oily skin', title: 'Skin Botox & Dermatoxin Seoul', area: 'Seoul', tags: ['skin botox Seoul', 'dermatoxin Seoul', 'oily skin treatment Korea'], priority: 3 },
+  { query: 'fat dissolving injection Seoul double chin', title: 'Fat Dissolving Injection Seoul', area: 'Seoul', tags: ['fat dissolving Seoul', 'double chin removal Korea', 'kybella alternative Seoul'], priority: 3 },
+  { query: 'anesthesia sedation during skin treatment Seoul', title: 'Sedation & Anesthesia for Skin Treatments Seoul', area: 'Seoul', tags: ['sedation skin treatment Seoul', 'sleep anesthesia clinic Seoul', 'pain free treatment Korea'], priority: 4 },
+  { query: 'Juvelook vs Rejuran Seoul skin booster guide', title: 'Juvelook vs Rejuran Seoul', area: 'Seoul', tags: ['Juvelook Seoul', 'Juvelook vs Rejuran', 'skin regeneration injection Korea'], priority: 3 },
+  { query: 'Korean clinic consultation what to say as foreigner', title: 'Korean Clinic Consultation Guide for Foreigners', area: 'Seoul', tags: ['clinic consultation script Seoul', 'what to ask Korean doctor', 'foreigner clinic communication Seoul'], priority: 3 },
+  { query: 'best area Seoul for skin treatments Gangnam vs Hongdae', title: 'Best Area Seoul for Skin Treatments', area: 'Seoul', tags: ['Gangnam vs Hongdae clinic', 'best area Seoul skin treatment', 'where to go Seoul beauty'], priority: 3 },
+  { query: 'VAT refund cosmetic treatment Seoul tourist 2025', title: 'VAT Refund for Cosmetic Treatments Seoul', area: 'Seoul', tags: ['VAT refund Seoul clinic', 'tax refund cosmetic Korea', 'medical tax refund tourist Seoul'], priority: 4 },
+  { query: 'how to book Korean clinic via WhatsApp guide', title: 'How to Book a Korean Clinic via WhatsApp', area: 'Seoul', tags: ['WhatsApp clinic booking Seoul', 'how to book Korean doctor WhatsApp', 'online booking Seoul clinic'], priority: 2 },
 ]
 
 // ── 클리닉 블로그 히어로 이미지 선택 헬퍼 ──────────────────────────────
@@ -15770,12 +15805,14 @@ function _clinicHeroImage(query: string, area: string, seed?: number, angleId?: 
 //  ④ 관련 블로그: 키워드 기반 토픽 매칭 → 프롬프트에 실제 slug/title 주입
 //  ⑤ metaDesc: AI 값 우선 → 155자 초과 시 자동 trim → 실패 시 키워드 기반 스마트 폴백
 async function generateClinicBlog(
-  kw: { query: string; area: string; tags: string[] },
+  kw: { query: string; area: string; tags: string[]; title?: string },
   angle: typeof BLOG_ANGLES[0],
   sql: any,
   apiKey: string
 ): Promise<{ id: string; slug: string; title: string } | null> {
-  const title = angle.titleFn(kw.query)
+  // kw.title 있으면 그걸 토픽으로 사용 (질문형/긴꼬리 keyword의 타이틀 노출 방지)
+  const titleTopic = (kw as any).title || kw.query
+  const title = angle.titleFn(titleTopic)
   const slug  = makeBlogSlug(title)
   const year  = new Date().getFullYear()
 
