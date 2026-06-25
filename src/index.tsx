@@ -133,31 +133,27 @@ app.use('*', async (c, next) => {
 })
 
 // ── Admin 인증 미들웨어 (/admin 페이지 + /api/admin/* API 전체 보호) ──
-// 비밀번호: 0907 (고정) 또는 GSK_TOKEN (API 클라이언트용)
-const ADMIN_SECRET = '0907'
+// ADMIN_SECRET: 환경변수 ADMIN_SECRET 우선, 없으면 폴백 (배포 시 반드시 환경변수 설정 필요)
+function _getAdminSecret(env?: any): string {
+  return (env?.ADMIN_SECRET) ||
+    (typeof process !== 'undefined' ? process.env.ADMIN_SECRET || '' : '') ||
+    'change-me-in-env'
+}
 app.use('/admin', async (c, next) => {
-  const envToken = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== 'undefined' ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || '' : '')
+  const adminSecret = _getAdminSecret(c.env)
 
   // 1) Authorization 헤더 확인
   const authHeader = c.req.header('Authorization') || ''
   const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : ''
 
-  // 2) 쿼리 파라미터 확인 (?token=xxx)
-  const queryToken = c.req.query('token') || ''
-
-  // 3) 세션 쿠키 확인 (로그인 후 발급)
+  // 2) 세션 쿠키 확인 (로그인 후 발급, POST /admin-login 에서 발급)
   const cookieHeader = c.req.header('Cookie') || ''
   const cookieToken = cookieHeader.match(/admin_token=([^;]+)/)?.[1] || ''
 
-  const provided = bearerToken || queryToken || cookieToken
-  // 0907 고정 비밀번호 또는 GSK_TOKEN 둘 다 허용
-  const isValid = provided === ADMIN_SECRET || (envToken && provided === envToken)
+  const provided = bearerToken || cookieToken
+  const isValid = provided === adminSecret
 
-  // ?token= 으로 인증 성공 시: 쿠키 발급 + 302 리다이렉트 (쿠키 없이 /admin 접근 방지)
-  if (isValid && queryToken) {
-    c.header('Set-Cookie', `admin_token=${ADMIN_SECRET}; Path=/; Max-Age=604800; HttpOnly; SameSite=Lax`)
-    return c.redirect('/admin', 302)
-  }
+  // URL ?token= 은 더 이상 허용하지 않음 (보안 강화)
 
   if (!isValid) {
     // 브라우저 직접 접근 시 로그인 폼 반환
@@ -199,22 +195,37 @@ async function login(e) {
   document.getElementById('err').style.display = 'none';
   document.getElementById('spin').style.display = 'block';
   document.getElementById('btn').disabled = true;
-  // 서버가 ?token= 검증 후 쿠키 발급 + 302 리다이렉트 → 브라우저가 자동으로 /admin 이동
-  window.location.href = '/admin?token=' + encodeURIComponent(pw);
+  try {
+    const r = await fetch('/admin-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pw }),
+      credentials: 'same-origin'
+    });
+    if (r.ok) {
+      window.location.href = '/admin';
+    } else {
+      document.getElementById('err').style.display = 'block';
+      document.getElementById('spin').style.display = 'none';
+      document.getElementById('btn').disabled = false;
+    }
+  } catch(err) {
+    document.getElementById('err').style.display = 'block';
+    document.getElementById('spin').style.display = 'none';
+    document.getElementById('btn').disabled = false;
+  }
 }
 </script>
 </body>
 </html>`, 200)
   }
 
-  // 인증 성공 (쿠키 방식): 세션 쿠키 갱신 후 next()
-  c.header('Set-Cookie', `admin_token=${ADMIN_SECRET}; Path=/; Max-Age=604800; HttpOnly; SameSite=Lax`)
+  // 인증 성공: 세션 쿠키 갱신 후 next()
+  c.header('Set-Cookie', `admin_token=${adminSecret}; Path=/; Max-Age=604800; HttpOnly; Secure; SameSite=Strict`)
   await next()
 })
 
 app.use('/api/admin/*', async (c, next) => {
-  const envToken = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== 'undefined' ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || '' : '')
-
   const authHeader = c.req.header('Authorization') || ''
   const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : ''
   const cookieHeader = c.req.header('Cookie') || ''
@@ -222,12 +233,29 @@ app.use('/api/admin/*', async (c, next) => {
   // x-admin-secret 헤더 또는 ?secret= 쿼리 파라미터도 허용 (curl/스크립트용)
   const secretHeader = c.req.header('x-admin-secret') || c.req.query('secret') || ''
 
+  const adminSecret = _getAdminSecret(c.env)
   const provided = bearerToken || cookieToken || secretHeader
-  const isValid = provided === ADMIN_SECRET || (envToken && provided === envToken)
+  const isValid = provided === adminSecret
   if (!isValid) {
     return c.json({ error: 'Unauthorized' }, 401)
   }
   await next()
+})
+
+// ── POST /admin-login: 비밀번호 검증 후 HttpOnly 쿠키 발급 ──
+app.post('/admin-login', async (c) => {
+  try {
+    const body = await c.req.json<{ password?: string }>()
+    const password = body?.password || ''
+    const adminSecret = _getAdminSecret(c.env)
+    if (!password || password !== adminSecret) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+    c.header('Set-Cookie', `admin_token=${adminSecret}; Path=/; Max-Age=604800; HttpOnly; Secure; SameSite=Strict`)
+    return c.json({ ok: true })
+  } catch {
+    return c.json({ error: 'Bad Request' }, 400)
+  }
 })
 
 // ── robots.txt: GEO(AI 검색엔진) + SEO 툴 모두 허용 ──
@@ -1554,6 +1582,12 @@ Return ONLY a single valid JSON object — no markdown, no explanation:
 
 
 app.post('/api/shops', async (c) => {
+  // 어드민 인증 확인
+  const _authCookie = (c.req.header('Cookie') || '').match(/admin_token=([^;]+)/)?.[1] || ''
+  const _authBearer = (() => { const h = c.req.header('Authorization') || ''; return h.startsWith('Bearer ') ? h.slice(7).trim() : '' })()
+  const _authSecret = c.req.header('x-admin-secret') || ''
+  const _authProvided = _authCookie || _authBearer || _authSecret
+  if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
   try {
   const sql = getDb(c.env)
   const body = await c.req.json()
@@ -1664,6 +1698,12 @@ app.post('/api/shops', async (c) => {
 })
 
 app.put('/api/shops/:id', async (c) => {
+  // 어드민 인증 확인
+  const _authCookie = (c.req.header('Cookie') || '').match(/admin_token=([^;]+)/)?.[1] || ''
+  const _authBearer = (() => { const h = c.req.header('Authorization') || ''; return h.startsWith('Bearer ') ? h.slice(7).trim() : '' })()
+  const _authSecret = c.req.header('x-admin-secret') || ''
+  const _authProvided = _authCookie || _authBearer || _authSecret
+  if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
   try {
   const sql = getDb(c.env)
   const body = await c.req.json()
@@ -1762,6 +1802,12 @@ app.put('/api/shops/:id', async (c) => {
 // PATCH /api/shops/:id — 특정 필드만 안전하게 업데이트 (PUT과 달리 전체 덮어쓰기 없음)
 // 지원 필드: metaDescription, seoKeywords, editorNote, active, commission, thumbnail, whatsapp
 app.patch('/api/shops/:id', async (c) => {
+  // 어드민 인증 확인
+  const _authCookie = (c.req.header('Cookie') || '').match(/admin_token=([^;]+)/)?.[1] || ''
+  const _authBearer = (() => { const h = c.req.header('Authorization') || ''; return h.startsWith('Bearer ') ? h.slice(7).trim() : '' })()
+  const _authSecret = c.req.header('x-admin-secret') || ''
+  const _authProvided = _authCookie || _authBearer || _authSecret
+  if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
   try {
     const sql = getDb(c.env)
     const body = await c.req.json()
@@ -1790,6 +1836,12 @@ app.patch('/api/shops/:id', async (c) => {
   }
 })
 app.delete('/api/shops/:id', async (c) => {
+  // 어드민 인증 확인
+  const _authCookie = (c.req.header('Cookie') || '').match(/admin_token=([^;]+)/)?.[1] || ''
+  const _authBearer = (() => { const h = c.req.header('Authorization') || ''; return h.startsWith('Bearer ') ? h.slice(7).trim() : '' })()
+  const _authSecret = c.req.header('x-admin-secret') || ''
+  const _authProvided = _authCookie || _authBearer || _authSecret
+  if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
   try {
     const sql = getDb(c.env)
     await sql`DELETE FROM shops WHERE id=${c.req.param('id')}`
@@ -1838,6 +1890,12 @@ app.post('/api/admin/restore-shop', async (c) => {
 })
 
 app.post('/api/videos', async (c) => {
+  // 어드민 인증 확인
+  const _authCookie = (c.req.header('Cookie') || '').match(/admin_token=([^;]+)/)?.[1] || ''
+  const _authBearer = (() => { const h = c.req.header('Authorization') || ''; return h.startsWith('Bearer ') ? h.slice(7).trim() : '' })()
+  const _authSecret = c.req.header('x-admin-secret') || ''
+  const _authProvided = _authCookie || _authBearer || _authSecret
+  if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
   const sql = getDb(c.env)
   const body = await c.req.json()
   const newId = 'v' + Date.now()
@@ -1881,6 +1939,12 @@ app.post('/api/videos', async (c) => {
   return c.json({ ok: true, id: newId, descriptionGenerated: !body.description && !!description, tagsGenerated: !body.tags?.length && !!autoTags.length })
 })
 app.delete('/api/videos/:id', async (c) => {
+  // 어드민 인증 확인
+  const _authCookie = (c.req.header('Cookie') || '').match(/admin_token=([^;]+)/)?.[1] || ''
+  const _authBearer = (() => { const h = c.req.header('Authorization') || ''; return h.startsWith('Bearer ') ? h.slice(7).trim() : '' })()
+  const _authSecret = c.req.header('x-admin-secret') || ''
+  const _authProvided = _authCookie || _authBearer || _authSecret
+  if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
   const sql = getDb(c.env)
   await sql`DELETE FROM videos WHERE id=${c.req.param('id')}`
   return c.json({ ok: true })
@@ -2114,6 +2178,12 @@ app.post('/api/videos/gen-description-bulk', async (c) => {
   return c.json({ ok: true, updated, failed, total: (rows as any[]).length })
 })
 app.put('/api/videos/:id', async (c) => {
+  // 어드민 인증 확인
+  const _authCookie = (c.req.header('Cookie') || '').match(/admin_token=([^;]+)/)?.[1] || ''
+  const _authBearer = (() => { const h = c.req.header('Authorization') || ''; return h.startsWith('Bearer ') ? h.slice(7).trim() : '' })()
+  const _authSecret = c.req.header('x-admin-secret') || ''
+  const _authProvided = _authCookie || _authBearer || _authSecret
+  if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
   const sql = getDb(c.env)
   const body = await c.req.json()
   // title만 넘어온 경우 title만 업데이트, 나머지 필드는 기존값 유지
@@ -2254,6 +2324,12 @@ app.put('/api/consultations/:id', async (c) => {
 })
 
 app.get('/api/stats', async (c) => {
+  // 어드민 인증 확인
+  const _authCookie = (c.req.header('Cookie') || '').match(/admin_token=([^;]+)/)?.[1] || ''
+  const _authBearer = (() => { const h = c.req.header('Authorization') || ''; return h.startsWith('Bearer ') ? h.slice(7).trim() : '' })()
+  const _authSecret = c.req.header('x-admin-secret') || ''
+  const _authProvided = _authCookie || _authBearer || _authSecret
+  if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
   try {
     const sql = getDb(c.env)
     const [vStats] = await sql`SELECT COALESCE(SUM(views),0) as total_views, COUNT(*) as total FROM videos`
@@ -3081,11 +3157,12 @@ app.post('/api/track', async (c) => {
 
 // GET /api/visitors — 방문자 세션 목록 (어드민)
 app.get('/api/visitors', async (c) => {
-  const auth = c.req.header('x-admin-token') || c.req.query('token') || ''
-  const token = c.env?.GSK_TOKEN || c.env?.gsk_token || ''
-  // token이 설정된 경우에만 검증 (미설정 환경에서는 어드민 페이지 자체가 보호됨)
-  if (token && auth !== token) return c.json({ error: 'Unauthorized' }, 401)
-
+  // 어드민 인증 확인
+  const _authCookie = (c.req.header('Cookie') || '').match(/admin_token=([^;]+)/)?.[1] || ''
+  const _authBearer = (() => { const h = c.req.header('Authorization') || ''; return h.startsWith('Bearer ') ? h.slice(7).trim() : '' })()
+  const _authSecret = c.req.header('x-admin-secret') || ''
+  const _authProvided = _authCookie || _authBearer || _authSecret
+  if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
   try {
     const sql = getDb(c.env)
     const limit = parseInt(c.req.query('limit') || '50')
@@ -3139,10 +3216,12 @@ app.get('/api/visitors', async (c) => {
 
 // GET /api/visitors/:sessionId — 세션별 이벤트 타임라인 (어드민)
 app.get('/api/visitors/:sessionId', async (c) => {
-  const auth = c.req.header('x-admin-token') || c.req.query('token') || ''
-  const token = c.env?.GSK_TOKEN || c.env?.gsk_token || ''
-  if (token && auth !== token) return c.json({ error: 'Unauthorized' }, 401)
-
+  // 어드민 인증 확인
+  const _authCookie = (c.req.header('Cookie') || '').match(/admin_token=([^;]+)/)?.[1] || ''
+  const _authBearer = (() => { const h = c.req.header('Authorization') || ''; return h.startsWith('Bearer ') ? h.slice(7).trim() : '' })()
+  const _authSecret = c.req.header('x-admin-secret') || ''
+  const _authProvided = _authCookie || _authBearer || _authSecret
+  if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
   try {
     const sql = getDb(c.env)
     const sid = c.req.param('sessionId')
@@ -3207,10 +3286,12 @@ app.get('/api/visitors/:sessionId', async (c) => {
 
 // GET /api/visitors-live — 실시간 접속자 (최근 3분 내 active 세션)
 app.get('/api/visitors-live', async (c) => {
-  const auth = c.req.header('x-admin-token') || c.req.query('token') || ''
-  const token = c.env?.GSK_TOKEN || c.env?.gsk_token || ''
-  if (token && auth !== token) return c.json({ error: 'Unauthorized' }, 401)
-
+  // 어드민 인증 확인
+  const _authCookie = (c.req.header('Cookie') || '').match(/admin_token=([^;]+)/)?.[1] || ''
+  const _authBearer = (() => { const h = c.req.header('Authorization') || ''; return h.startsWith('Bearer ') ? h.slice(7).trim() : '' })()
+  const _authSecret = c.req.header('x-admin-secret') || ''
+  const _authProvided = _authCookie || _authBearer || _authSecret
+  if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
   try {
     const sql = getDb(c.env)
 
@@ -3285,10 +3366,12 @@ app.get('/api/visitors-live', async (c) => {
 
 // GET /api/visitors-stats — 요약 통계 (어드민)
 app.get('/api/visitors-stats', async (c) => {
-  const auth = c.req.header('x-admin-token') || c.req.query('token') || ''
-  const token = c.env?.GSK_TOKEN || c.env?.gsk_token || ''
-  if (token && auth !== token) return c.json({ error: 'Unauthorized' }, 401)
-
+  // 어드민 인증 확인
+  const _authCookie = (c.req.header('Cookie') || '').match(/admin_token=([^;]+)/)?.[1] || ''
+  const _authBearer = (() => { const h = c.req.header('Authorization') || ''; return h.startsWith('Bearer ') ? h.slice(7).trim() : '' })()
+  const _authSecret = c.req.header('x-admin-secret') || ''
+  const _authProvided = _authCookie || _authBearer || _authSecret
+  if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
   try {
     const sql = getDb(c.env)
     const days = parseInt(c.req.query('days') || '7')
@@ -3982,6 +4065,12 @@ app.get('/api/blogs/:slug', async (c) => {
 
 // POST /api/blogs — 생성 (AI 자동생성 or 직접입력)
 app.post('/api/blogs', async (c) => {
+  // 어드민 인증 확인
+  const _authCookie = (c.req.header('Cookie') || '').match(/admin_token=([^;]+)/)?.[1] || ''
+  const _authBearer = (() => { const h = c.req.header('Authorization') || ''; return h.startsWith('Bearer ') ? h.slice(7).trim() : '' })()
+  const _authSecret = c.req.header('x-admin-secret') || ''
+  const _authProvided = _authCookie || _authBearer || _authSecret
+  if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
   try {
   await ensureDb(c.env)
   const sql = getDb(c.env)
@@ -4027,6 +4116,12 @@ app.post('/api/blogs', async (c) => {
 
 // PUT /api/blogs/:id — 수정
 app.put('/api/blogs/:id', async (c) => {
+  // 어드민 인증 확인
+  const _authCookie = (c.req.header('Cookie') || '').match(/admin_token=([^;]+)/)?.[1] || ''
+  const _authBearer = (() => { const h = c.req.header('Authorization') || ''; return h.startsWith('Bearer ') ? h.slice(7).trim() : '' })()
+  const _authSecret = c.req.header('x-admin-secret') || ''
+  const _authProvided = _authCookie || _authBearer || _authSecret
+  if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
   await ensureDb(c.env)
   const sql = getDb(c.env)
   const body = await c.req.json()
@@ -4070,6 +4165,12 @@ app.put('/api/blogs/:id', async (c) => {
 
 // DELETE /api/blogs/:id
 app.delete('/api/blogs/:id', async (c) => {
+  // 어드민 인증 확인
+  const _authCookie = (c.req.header('Cookie') || '').match(/admin_token=([^;]+)/)?.[1] || ''
+  const _authBearer = (() => { const h = c.req.header('Authorization') || ''; return h.startsWith('Bearer ') ? h.slice(7).trim() : '' })()
+  const _authSecret = c.req.header('x-admin-secret') || ''
+  const _authProvided = _authCookie || _authBearer || _authSecret
+  if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
   await ensureDb(c.env)
   const sql = getDb(c.env)
   await sql`DELETE FROM blog_posts WHERE id=${c.req.param('id')}`
@@ -5576,9 +5677,19 @@ app.get('/__ja_disabled__/shop/:slug', async (c) => {
   }
   const _catLabel  = _catTitleLabels[_shopCat] || (_shopCat.charAt(0).toUpperCase()+_shopCat.slice(1))
   const _areaFinal = (['cheongdam','apgujeong','sinsa','nonhyeon'].some(a=>_shopArea.toLowerCase().includes(a))) ? 'Gangnam' : _shopArea
-  // title: 업체명 + 지역 + 카테고리 + Seoul (구글 검색 키워드 최적화)
-  const _pageTitleFull = shop.name+' — '+_areaFinal+' '+_catLabel+' Seoul | Seoul Beauty Trip'
-  const _pageTitle = _pageTitleFull.length <= 65 ? _pageTitleFull : (shop.name.substring(0, Math.min(shop.name.length, 40))+' — '+_catLabel+' '+_areaFinal+' Seoul | Seoul Beauty Trip')
+  // title: 업체명 + 지역 + 카테고리 + Seoul (구글 검색 키워드 최적화, 65자 제한)
+  const _titleSuffix = ' | Seoul Beauty Trip'
+  const _pageTitleFull = shop.name+' — '+_areaFinal+' '+_catLabel+' Seoul'+_titleSuffix
+  let _pageTitle = _pageTitleFull
+  if (_pageTitleFull.length > 65) {
+    const _shortCat = _catLabel.split(' ').slice(-1)[0]
+    const _t2 = shop.name+' — '+_areaFinal+' '+_shortCat+' Seoul'+_titleSuffix
+    if (_t2.length <= 65) { _pageTitle = _t2 }
+    else {
+      const _nameCut = shop.name.length > 35 ? shop.name.substring(0,35).trimEnd() : shop.name
+      _pageTitle = _nameCut+' — '+_shortCat+' '+_areaFinal+' Seoul'+_titleSuffix
+    }
+  }
 
   const _metaDescLabels: Record<string,string> = {
     clinic: _clinicSubtype.toLowerCase(), hair:'hair salon', headspa:'head spa & scalp clinic',
@@ -8242,11 +8353,11 @@ app.get('/__ja_disabled__/admin', async (c) => {
   // 동일한 인증 미들웨어 사용 (쿠키 또는 token 파라미터)
   const cookieHeader = c.req.header('Cookie') || ''
   const cookieToken = cookieHeader.match(/admin_token=([^;]+)/)?.[1] || ''
-  const ADMIN_SECRET = '0907'
+  const _jaAdminSecret = _getAdminSecret(c.env)
 
-  if (cookieToken !== ADMIN_SECRET) {
+  if (cookieToken !== _jaAdminSecret) {
     const token = c.req.query('token') || ''
-    if (token !== ADMIN_SECRET) {
+    if (token !== _jaAdminSecret) {
       return c.html(`<!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -8269,7 +8380,7 @@ app.get('/__ja_disabled__/admin', async (c) => {
 </body>
 </html>`, 200)
     }
-    c.header('Set-Cookie', `admin_token=${ADMIN_SECRET}; Path=/; Max-Age=604800; HttpOnly; SameSite=Lax`)
+    c.header('Set-Cookie', `admin_token=${_jaAdminSecret}; Path=/; Max-Age=604800; HttpOnly; Secure; SameSite=Strict`)
     return c.redirect('/ja/admin', 302)
   }
 
@@ -8389,7 +8500,8 @@ textarea{min-height:100px;resize:vertical}
 
 </div><!-- /adm-body -->
 <script>
-var _token = '0907';
+// _token: 쿠키 기반 인증 사용 (admin_token 쿠키가 자동 첨부됨)
+var _token = '';  // 사용하지 않음 — fetch 시 credentials:'same-origin'으로 쿠키 자동 전송
 var _shops = [], _blogs = [];
 
 function switchTab(t) {
@@ -8997,9 +9109,19 @@ app.get('/shop/:slug', async (c) => {
   }
   const _catLabel  = _catTitleLabels[_shopCat] || (_shopCat.charAt(0).toUpperCase()+_shopCat.slice(1))
   const _areaFinal = (['cheongdam','apgujeong','sinsa','nonhyeon'].some(a=>_shopArea.toLowerCase().includes(a))) ? 'Gangnam' : _shopArea
-  // title: 업체명 + 지역 + 카테고리 + Seoul (구글 검색 키워드 최적화)
-  const _pageTitleFull = shop.name+' — '+_areaFinal+' '+_catLabel+' Seoul | Seoul Beauty Trip'
-  const _pageTitle = _pageTitleFull.length <= 65 ? _pageTitleFull : (shop.name.substring(0, Math.min(shop.name.length, 40))+' — '+_catLabel+' '+_areaFinal+' Seoul | Seoul Beauty Trip')
+  // title: 업체명 + 지역 + 카테고리 + Seoul (구글 검색 키워드 최적화, 65자 제한)
+  const _titleSuffix = ' | Seoul Beauty Trip'
+  const _pageTitleFull = shop.name+' — '+_areaFinal+' '+_catLabel+' Seoul'+_titleSuffix
+  let _pageTitle = _pageTitleFull
+  if (_pageTitleFull.length > 65) {
+    const _shortCat = _catLabel.split(' ').slice(-1)[0]
+    const _t2 = shop.name+' — '+_areaFinal+' '+_shortCat+' Seoul'+_titleSuffix
+    if (_t2.length <= 65) { _pageTitle = _t2 }
+    else {
+      const _nameCut = shop.name.length > 35 ? shop.name.substring(0,35).trimEnd() : shop.name
+      _pageTitle = _nameCut+' — '+_shortCat+' '+_areaFinal+' Seoul'+_titleSuffix
+    }
+  }
 
   const _metaDescLabels: Record<string,string> = {
     clinic: _clinicSubtype.toLowerCase(), hair:'hair salon', headspa:'head spa & scalp clinic',
@@ -14890,6 +15012,12 @@ async function getGa4Token(serviceAccountJson: string, scope?: string): Promise<
 }
 
 app.get('/api/analytics', async (c) => {
+  // 어드민 인증 확인
+  const _authCookie = (c.req.header('Cookie') || '').match(/admin_token=([^;]+)/)?.[1] || ''
+  const _authBearer = (() => { const h = c.req.header('Authorization') || ''; return h.startsWith('Bearer ') ? h.slice(7).trim() : '' })()
+  const _authSecret = c.req.header('x-admin-secret') || ''
+  const _authProvided = _authCookie || _authBearer || _authSecret
+  if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
   try {
     // Cloudflare Workers: c.env 우선 → process.env → 내장 기본값
     const saKey = (c.env as any)?.GA4_SERVICE_ACCOUNT_KEY
@@ -15033,6 +15161,12 @@ app.get('/api/analytics', async (c) => {
 
 // ── 서치콘솔 API (검색어 + 페이지별 노출/클릭)
 app.get('/api/search-console', async (c) => {
+  // 어드민 인증 확인
+  const _authCookie = (c.req.header('Cookie') || '').match(/admin_token=([^;]+)/)?.[1] || ''
+  const _authBearer = (() => { const h = c.req.header('Authorization') || ''; return h.startsWith('Bearer ') ? h.slice(7).trim() : '' })()
+  const _authSecret = c.req.header('x-admin-secret') || ''
+  const _authProvided = _authCookie || _authBearer || _authSecret
+  if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
   try {
     const saKey = (c.env as any)?.GA4_SERVICE_ACCOUNT_KEY
       || (typeof process !== 'undefined' ? process.env.GA4_SERVICE_ACCOUNT_KEY : undefined)
@@ -28210,7 +28344,7 @@ window.kwVolume = async function kwVolume() {
   resultEl.innerHTML = '<div style="color:rgba(255,255,255,.3);font-size:12px;text-align:center;padding:10px">⏳ SerpApi Google Trends 조회 중...<br><span style="font-size:11px">키워드당 2회 API 호출, 잠시 기다려주세요</span></div>';
   try {
     var r = await fetch('/api/admin/keyword-volume?keywords=' + encodeURIComponent(input), {
-      headers: { 'Authorization': 'Bearer 0907' }
+      credentials: 'same-origin'
     });
     var d = await r.json();
     if (!r.ok || d.error) { resultEl.innerHTML = '<div style="color:#fca5a5;font-size:12px">❌ ' + (d.error||'오류') + '</div>'; return; }
@@ -28233,7 +28367,7 @@ window.kwIdeas = async function kwIdeas() {
   resultEl.innerHTML = '<div style="color:rgba(255,255,255,.3);font-size:12px;text-align:center;padding:10px">⏳ SerpApi 키워드 발굴 중...<br><span style="font-size:11px">Google Autocomplete + Related Searches 조회</span></div>';
   try {
     var r = await fetch('/api/admin/keyword-ideas?seed=' + encodeURIComponent(seed), {
-      headers: { 'Authorization': 'Bearer 0907' }
+      credentials: 'same-origin'
     });
     var d = await r.json();
     if (!r.ok || d.error) { resultEl.innerHTML = '<div style="color:#fca5a5;font-size:12px">❌ ' + (d.error||'오류') + '</div>'; return; }
