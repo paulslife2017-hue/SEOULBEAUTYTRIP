@@ -14,11 +14,10 @@ type Env = {
   SERPAPI_KEY: string
 }
 
-// GA4 설정 (환경변수 우선, 없으면 내장값 사용)
-const GA4_PROPERTY_ID_DEFAULT = '539604689'
-const GA4_SA_KEY_B64 = 'eyJ0eXBlIjogInNlcnZpY2VfYWNjb3VudCIsICJwcm9qZWN0X2lkIjogInNlb3VsLWJlYXV0eS10cmlwIiwgInByaXZhdGVfa2V5X2lkIjogIjE0YmM0NmYyNWRkYmU1M2UxZTQzNWY0ZTAzOTdlZWZkNjQxZTZiZjgiLCAicHJpdmF0ZV9rZXkiOiAiLS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tXG5NSUlFdkFJQkFEQU5CZ2txaGtpRzl3MEJBUUVGQUFTQ0JLWXdnZ1NpQWdFQUFvSUJBUUM2dWFTRkJrQ2tFeCtkXG5XVUpLbzBZb2pnSHFqeDlJSkw5OGJBaFc2UU0waXIwSnVKSEFiY1NhL09OVnFOdXRGYldqd3FoRTgwajN3V0QxXG5xeE5XejNBMzBuMDZSV3F4WHhhZjI4c0p0ZFVlOStMeEtvTXpFTlFUblB0emhLaVJyVkRpWmd1YXowNm5ZODVKXG5DMkpQb1RvRFdrSmlTa1Bod2FwVUpUNEpaYjZrNWVXc0JVTGdmQ1BMOEMyd2t0djJFOURZd0JTU0lpelZxeEUvXG4wYkJMangrVGQwWHRwajhuWnpiVWVMaEpUcHh6eEdJTnhiazRFQ1p0bVRWeHcvN0UvM1VqYmJuTjFVejlmd3AvXG43RUIvYjZhOEpyQWFXYTdOMUNGd1NZOW5UVzJYTXlnTWk4aW13SXdnejRQb0NUNTNuVVdBTVFZTWJzMkZMZHpTXG5kWjRpNDZqaEFnTUJBQUVDZ2dFQUJTSzIraXVtV256bUtUTTd4Z2JBbHJ2MUpJamtNTjFGNFB1dHJRcENtczdZXG5EU3prNFZpRGlFbTlUTzFVZ1dtdjhiMllXREVpeUNHcTg0Yk5oTjAydG1wVkpHV2xYaFNCOEVxZ3huY1lVZjQ2XG5ZU3lzcUJwbDR0WTEra0xqU2dKc3o1VkQ2M0daTmJSaWg1TEhGTzZYeEdEV281SnNWSWk1a1EvbktXWUJmTktEXG4yajJRVWJSRThYajhTNXkzbCtVbXVaNG00WUg3dnhBT1VFRTMvUVBaNWJJYjlwRm4wZDNUc2Y2RlJtUVpKM1NJXG5BQmZ6bElKb0x6K2l0N3hyQU1abVUwSVU5cDlnUkRueGhTVTZjdWNMdmpOVGkvS2RWVk1ZRk13eE1BNWYzTStXXG5ocFV4VWQ2MnRSQTJURG52OEtXZy9IaFRSWTBMUTlQWG5lNDlNajlDcXdLQmdRRGl1U0dmQ1RVbHBKWXNMNkw5XG5uRmNRVEVuYjdteThyMGMwaTkvZVNOcXgrVDBFN1dLUnJZZ0JqVXQzanZyMHNySkRwd2N0R2g4TEFvMWNTWXVTXG5SUW5mamVPTldlUzRydVZVUGw1MUlQQTkvR1hnQlpaQmJ0bVlSNm5PanJPTTVqYWJ0MU8yZGRkOUtzQ1pKVWRzXG42eWtQalQ1SjF3NVQ4NEVLVDdsRU9lclVkd0tCZ1FEUzFraDRJVlN0WU0rUWdralJhUXFRazdqNUliUkVDMjcxXG5LSGkxcExVQ09aUWlGZDd0UnhPL29zQ1F4WDVsL1RFb1Uwc3l5ZStXbWt1Tkh2Z3gwTzFuVlNVRk9aY2VqY1dRXG5DZXB6eXNyZjhhcEVTaVJSd1h1NGloWFpZWk5JKzN4U3BZRE5PcUpqMmszSVprUDE5MUZsVE9CelhnV3RFa055XG5tdWFEdlFWN1p3S0JnRkltNlBMYWdFS0NqOU8wOHlkWU5nZjJ6TEIvaFRFZGhmeVpUbVlhR2Z4eEpsWVp1aVMxXG5MMW40bThiWHJVRnJXc0srekEvZ3JpenNJTksyNTNiNXd5a1pIY0lETjZoZjMwTVdVbDI0c0xTVk4wamtYVnlhXG5VUWdudDNUY0tsMDhzYjdjdjkyV2Q1Mm9GeCttN1dtZkVFTE5XQ3VqWEZLNUlpSGRYM0ZFVnozakFvR0FZWStTXG5uVFFmTU5OWmVPOHdydVpDWTBCWUdjQkU0Qy9DT21OdDUrKzlhcmdtR2Rldy9tOGpia3ZyZTVKSHVQMytYMENiXG56WGF3RFNwOHgyS0xTdEg0NlJYM09ZRzZzZ0s4WnJpUDZ1RHVHODZDRVhPVmR0ZG5YcTlYQ080ajcyT2YxY2FMXG40V3UrZFNJeFdBZ3Fib2p3KzBVbG4zemtkMys2QWpBM2RzSmk1UVVDZ1lBUisxeWplVGJKOSthazF5RXNWeGNDXG44ZWNGOGl1aXM5aWdCNFp5UXpheld0endLYTlPUXpIbDF3NmFsODU3UVI1MTl4WDMvNzJCdzVNZEVFd2dQL3hSXG4zTTNvVll4ZXZDRUFRc29NeHR3d1k0b0RzaXcvVkVxT0tTeVR0enJCTFNlTHIzNXZDcGRvQ1lGRDdxcytCdjhkXG5CNkU1a3NXNnZLdnl4L0tLSnpHemZRPT1cbi0tLS0tRU5EIFBSSVZBVEUgS0VZLS0tLS1cbiIsICJjbGllbnRfZW1haWwiOiAicXdlMTIzQHNlb3VsLWJlYXV0eS10cmlwLmlhbS5nc2VydmljZWFjY291bnQuY29tIiwgImNsaWVudF9pZCI6ICIxMDgxNzc0NDM0MTMyMDM0Nzk2MzMiLCAiYXV0aF91cmkiOiAiaHR0cHM6Ly9hY2NvdW50cy5nb29nbGUuY29tL28vb2F1dGgyL2F1dGgiLCAidG9rZW5fdXJpIjogImh0dHBzOi8vb2F1dGgyLmdvb2dsZWFwaXMuY29tL3Rva2VuIiwgImF1dGhfcHJvdmlkZXJfeDUwOV9jZXJ0X3VybCI6ICJodHRwczovL3d3dy5nb29nbGVhcGlzLmNvbS9vYXV0aDIvdjEvY2VydHMiLCAiY2xpZW50X3g1MDlfY2VydF91cmwiOiAiaHR0cHM6Ly93d3cuZ29vZ2xlYXBpcy5jb20vcm9ib3QvdjEvbWV0YWRhdGEveDUwOS9xd2UxMjMlNDBzZW91bC1iZWF1dHktdHJpcC5pYW0uZ3NlcnZpY2VhY2NvdW50LmNvbSIsICJ1bml2ZXJzZV9kb21haW4iOiAiZ29vZ2xlYXBpcy5jb20ifQ==' // base64-encoded service account key
-const GA4_SA_KEY_DEFAULT = (typeof atob !== 'undefined' ? atob(GA4_SA_KEY_B64) : Buffer.from(GA4_SA_KEY_B64, 'base64').toString())
-const GEMINI_API_KEY_DEFAULT = 'AIzaSyBCmBvB4c5W6DJbBeF6HR8WYZNqXqTs0Go'
+// GA4 설정 — 환경변수에서만 읽음 (하드코딩 금지)
+const GA4_PROPERTY_ID_DEFAULT = '' // 환경변수 GA4_PROPERTY_ID 필수
+const GA4_SA_KEY_DEFAULT = ''      // 환경변수 GA4_SERVICE_ACCOUNT_KEY 필수
+const GEMINI_API_KEY_DEFAULT = ''  // 환경변수 GEMINI_API_KEY 필수
 
 // API 키/DB URL은 환경변수에서만 읽음 (하드코딩 금지)
 // 로컬: .dev.vars 파일에 설정
@@ -36,9 +35,8 @@ const getDb = (env?: Env) => {
   _cachedUrl = url
   return _cachedSql
 }
-const GOOGLE_PLACES_KEY_DEFAULT = 'AIzaSyCcM03wGoZrSkmCMOS-Vib-JR1oKNPsSkY'
 const getGoogleKey = (env?: Env) => {
-  return env?.GOOGLE_PLACES_KEY || (typeof process !== 'undefined' ? process.env.GOOGLE_PLACES_KEY : undefined) || GOOGLE_PLACES_KEY_DEFAULT
+  return env?.GOOGLE_PLACES_KEY || (typeof process !== 'undefined' ? process.env.GOOGLE_PLACES_KEY : undefined) || ''
 }
 // Google Places photo name → 실제 https:// URL 변환
 // DB 저장 시 반드시 이 함수를 통해 절대 URL로 변환 (상대경로 저장 금지)
@@ -221,8 +219,10 @@ app.use('/api/admin/*', async (c, next) => {
   const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : ''
   const cookieHeader = c.req.header('Cookie') || ''
   const cookieToken = cookieHeader.match(/admin_token=([^;]+)/)?.[1] || ''
+  // x-admin-secret 헤더 또는 ?secret= 쿼리 파라미터도 허용 (curl/스크립트용)
+  const secretHeader = c.req.header('x-admin-secret') || c.req.query('secret') || ''
 
-  const provided = bearerToken || cookieToken
+  const provided = bearerToken || cookieToken || secretHeader
   const isValid = provided === ADMIN_SECRET || (envToken && provided === envToken)
   if (!isValid) {
     return c.json({ error: 'Unauthorized' }, 401)
@@ -11919,11 +11919,27 @@ app.get('/blog/:slug', async (c) => {
   gtag('config', 'G-1N9ZQRHLJ0');
 </script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${(()=>{ const t=post.title||''; const suffix=' | Seoul Beauty Trip'; const full=t+suffix; if(full.length<=65) return full; if(t.length<=60) return t+suffix; const cut=t.substring(0,60); const sp=cut.lastIndexOf(' '); return (sp>40?cut.substring(0,sp):cut)+' | Seoul Beauty Trip' })()}</title>
+<title>${(()=>{
+  const t = (post.title||'')
+    .replace(/\b([\w\s]+Seoul)\s+in Seoul\b/gi,'$1')
+    .replace(/(\bSeoul\b)(\s+in Seoul\b)/gi,'$1')
+    .replace(/\s{2,}/g,' ').trim()
+  const suffix = ' | Seoul Beauty Trip'
+  const full = t + suffix
+  if (full.length <= 65) return full
+  const dashIdx = t.lastIndexOf(' — ', 55)
+  const colonIdx = t.lastIndexOf(': ', 55)
+  const spIdx = t.lastIndexOf(' ', 55)
+  const cut = dashIdx > 20 ? t.substring(0,dashIdx)
+             : colonIdx > 20 ? t.substring(0,colonIdx)
+             : spIdx > 15 ? t.substring(0,spIdx)
+             : t.substring(0,55)
+  return cut + suffix
+})()}</title>
 <meta name="description" content="${post.meta_description||post.excerpt||''}">
 <meta name="robots" content="${(!post.title || post.slug.startsWith('test-') || (!post.meta_description && !post.excerpt) || !post.content || post.content.trim().length < 200) ? 'noindex, follow' : 'index, follow'}">
 <link rel="canonical" href="${canonicalUrl}">
-<meta property="og:title" content="${post.title}">
+<meta property="og:title" content="${(post.title||'').replace(/\b([\w\s]+Seoul)\s+in Seoul\b/gi,'$1').replace(/(\bSeoul\b)(\s+in Seoul\b)/gi,'$1').replace(/\s{2,}/g,' ').trim()}">
 <meta property="og:description" content="${post.meta_description||post.excerpt||''}">
 <meta property="og:url" content="${canonicalUrl}">
 <meta property="og:type" content="article">
@@ -11935,13 +11951,13 @@ app.get('/blog/:slug', async (c) => {
 <meta property="og:image:type" content="image/jpeg">
 <meta property="og:image:alt" content="${post.title}">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="${post.title}">
+<meta name="twitter:title" content="${(post.title||'').replace(/\b([\w\s]+Seoul)\s+in Seoul\b/gi,'$1').replace(/(\bSeoul\b)(\s+in Seoul\b)/gi,'$1').replace(/\s{2,}/g,' ').trim()}">
 <meta name="twitter:description" content="${post.meta_description||''}">
 <meta name="twitter:image" content="${post.cover_image || 'https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg'}">
 <script type="application/ld+json">${JSON.stringify({
   "@context":"https://schema.org",
   "@type":"BlogPosting",
-  "headline": post.title,
+  "headline": (post.title||'').replace(/\b([\w\s]+Seoul)\s+in Seoul\b/gi,'$1').replace(/(\bSeoul\b)(\s+in Seoul\b)/gi,'$1').replace(/\s{2,}/g,' ').trim(),
   "description": post.meta_description||post.excerpt||'',
   "url": canonicalUrl,
   "datePublished": post.created_at,
@@ -15595,46 +15611,84 @@ function _cleanKeyword(q: string): string {
 }
 
 // titleFn 헬퍼: prefix + keyword + suffix 조합
-// keyword에 이미 지역명(Seoul 등) 포함 시 suffix의 "in Seoul" 중복 제거
+// keyword에 이미 지역명(Seoul 등) 포함 시 suffix의 "in Seoul"/"as a Foreigner" 중복 제거
 function _safeTitle(prefix: string, q: string, suffix: string): string {
-  const inSeoulSuffix = _hasLocation(q) ? suffix.replace(/\bin Seoul\b/gi, '').replace(/\s{2,}/g, ' ').trim() : suffix
-  return `${prefix} ${_cap(q)} ${inSeoulSuffix}`.replace(/\s{2,}/g, ' ').trim()
+  let cleanQ = _cap(q)
+  let cleanSuffix = suffix
+  if (_hasLocation(q)) {
+    cleanSuffix = cleanSuffix.replace(/\bin Seoul\b/gi, '').replace(/\s{2,}/g, ' ').trim()
+  }
+  // "as a Foreigner" suffix가 붙는 booking 각도 — query에 이미 "as a foreigner" 포함 시 제거
+  if (/as a foreigner/i.test(q)) {
+    cleanSuffix = cleanSuffix.replace(/\bas a Foreigner\b/gi, '').replace(/\s{2,}/g, ' ').trim()
+  }
+  return `${prefix} ${cleanQ} ${cleanSuffix}`.replace(/\s{2,}/g, ' ').trim()
+}
+
+// 타이틀을 65자 이하로 트리밍 (단어 단위 끊기, 의미 손상 최소화)
+function _trimTitle(title: string, maxLen = 65): string {
+  if (title.length <= maxLen) return title
+  // 대시 앞쪽 우선 시도
+  const dashIdx = title.lastIndexOf(' — ', maxLen)
+  if (dashIdx > 30) return title.substring(0, dashIdx)
+  const colonIdx = title.lastIndexOf(': ', maxLen)
+  if (colonIdx > 30) return title.substring(0, colonIdx)
+  const spIdx = title.lastIndexOf(' ', maxLen)
+  if (spIdx > 20) return title.substring(0, spIdx)
+  return title.substring(0, maxLen)
 }
 
 const BLOG_ANGLES = [
   { id: 'guide',   label: 'Complete Guide',     titleFn: (q: string) => {
       const inSeoul = _hasLocation(q) ? '' : ' in Seoul'
-      return _isQuestion(q)
-        ? `${_cleanKeyword(q)}${inSeoul}: Complete Guide for First-Timers`
-        : `${_cap(q)}${inSeoul} — Complete Guide for First-Timers`
+      const raw = _isQuestion(q)
+        ? `${_cleanKeyword(q)}${inSeoul}: Complete Guide for Foreigners`
+        : `${_cap(q)}${inSeoul} — Complete Guide for Foreigners`
+      return _trimTitle(raw)
     }, intent: 'informational' },
-  { id: 'honest',  label: 'Honest Review',      titleFn: (q: string) => _safeTitle('Is', q, 'Worth It? An Honest Breakdown'),  intent: 'commercial' },
-  { id: 'cost',    label: 'Price Guide',        titleFn: (q: string) => _safeTitle('How Much Does', q, 'Cost? Real Price Breakdown'), intent: 'transactional' },
-  { id: 'safety',  label: 'Safety Guide',       titleFn: (q: string) => _safeTitle('Is', q, 'Safe? What You Need to Know Before Going'), intent: 'informational' },
+  { id: 'honest',  label: 'Honest Review',      titleFn: (q: string) => {
+      const inSeoul = _hasLocation(q) ? '' : ' in Seoul'
+      const topic = _isQuestion(q) ? _cleanKeyword(q) : _cap(q)
+      return _trimTitle(`${topic}${inSeoul}: Is It Worth It? Honest Guide`)
+    }, intent: 'commercial' },
+  { id: 'cost',    label: 'Price Guide',        titleFn: (q: string) => {
+      const inSeoul = _hasLocation(q) ? '' : ' in Seoul'
+      const topic = _isQuestion(q) ? _cleanKeyword(q) : _cap(q)
+      return _trimTitle(`${topic}${inSeoul}: Real Price Guide`)
+    }, intent: 'transactional' },
+  { id: 'safety',  label: 'Safety Guide',       titleFn: (q: string) => {
+      const inSeoul = _hasLocation(q) ? '' : ' in Seoul'
+      const topic = _isQuestion(q) ? _cleanKeyword(q) : _cap(q)
+      return _trimTitle(`${topic}${inSeoul}: Safety Guide for Foreigners`)
+    }, intent: 'informational' },
   { id: 'compare', label: 'Area Comparison',    titleFn: (q: string) => {
       const topic = _isQuestion(q) ? _cleanKeyword(q) : _cap(q)
-      return `Best Areas in Seoul for ${topic} — Where to Go`
+      return _trimTitle(`Best Areas in Seoul for ${topic} — Where to Go`)
     }, intent: 'commercial' },
   { id: 'story',   label: 'First Person Story', titleFn: (q: string) => {
       const topic = _isQuestion(q) ? _cleanKeyword(q) : _cap(q)
       const inSeoul = _hasLocation(topic) ? '' : ' in Seoul'
-      return `I Tried ${topic}${inSeoul} — Here's What Happened`
+      return _trimTitle(`I Tried ${topic}${inSeoul} — Here's What Happened`)
     }, intent: 'informational' },
   { id: 'tips',    label: 'Insider Tips',       titleFn: (q: string) => {
       const topic = _isQuestion(q) ? _cleanKeyword(q) : _cap(q)
       const inSeoul = _hasLocation(topic) ? '' : ' in Seoul'
-      return `${topic}${inSeoul}: 7 Things Nobody Tells You`
+      return _trimTitle(`${topic}${inSeoul}: 7 Things Nobody Tells You`)
     }, intent: 'informational' },
-  { id: 'booking', label: 'Booking Guide',      titleFn: (q: string) => _safeTitle('How to Book', q, 'as a Foreigner'), intent: 'transactional' },
+  { id: 'booking', label: 'Booking Guide',      titleFn: (q: string) => {
+      const inSeoul = _hasLocation(q) ? '' : ' in Seoul'
+      const topic = _isQuestion(q) ? _cleanKeyword(q) : _cap(q)
+      return _trimTitle(`How to Book ${topic}${inSeoul} as a Foreigner`)
+    }, intent: 'transactional' },
   { id: 'before',  label: 'Before/After',       titleFn: (q: string) => {
       const topic = _isQuestion(q) ? _cleanKeyword(q) : _cap(q)
       const inSeoul = _hasLocation(topic) ? '' : ' in Seoul'
-      return `${topic}${inSeoul}: What to Expect Before and After`
+      return _trimTitle(`${topic}${inSeoul}: What to Expect Before and After`)
     }, intent: 'commercial' },
   { id: 'faq',     label: 'FAQ Deep Dive',      titleFn: (q: string) => {
       const topic = _isQuestion(q) ? _cleanKeyword(q) : _cap(q)
       const inSeoul = _hasLocation(topic) ? '' : ' in Seoul'
-      return `${topic}${inSeoul}: Every Question Answered`
+      return _trimTitle(`${topic}${inSeoul}: Every Question Answered`)
     }, intent: 'informational' },
 ]
 
@@ -15643,54 +15697,54 @@ const BLOG_ANGLES = [
 //             없으면 query 그대로 사용
 const CLINIC_KEYWORDS: { query: string; title?: string; area: string; tags: string[]; priority: number }[] = [
   // 🔴 최우선 (검색량 높음)
-  { query: 'skin clinic Seoul foreigners', title: 'Skin Clinic Seoul', area: 'Seoul', tags: ['skin clinic Seoul', 'foreigner friendly', 'English speaking clinic'], priority: 1 },
-  { query: 'botox Seoul', area: 'Seoul', tags: ['botox Seoul', 'anti aging Seoul', 'wrinkle treatment Korea'], priority: 1 },
-  { query: 'laser treatment Seoul', area: 'Seoul', tags: ['laser Seoul', 'skin laser', 'pigmentation treatment'], priority: 1 },
-  { query: 'plastic surgery Seoul', area: 'Seoul', tags: ['plastic surgery Seoul', 'medical tourism Korea', 'cosmetic surgery Seoul'], priority: 1 },
-  { query: 'rhinoplasty Seoul', area: 'Seoul', tags: ['nose job Seoul', 'rhinoplasty Korea', 'nose surgery cost'], priority: 1 },
-  { query: 'Korean skin care clinic', area: 'Seoul', tags: ['Korean clinic', 'K-beauty clinic', 'skin care Seoul'], priority: 1 },
-  { query: 'dermatology clinic Seoul', area: 'Seoul', tags: ['dermatology Seoul', 'skin doctor Seoul', 'dermatologist Korea'], priority: 1 },
-  { query: 'double eyelid surgery Seoul', area: 'Seoul', tags: ['eyelid surgery Seoul', 'eye surgery Korea', 'blepharoplasty Seoul'], priority: 1 },
-  { query: 'filler injection Seoul', area: 'Seoul', tags: ['filler Seoul', 'hyaluronic acid Seoul', 'facial filler Korea'], priority: 1 },
-  { query: 'Gangnam skin clinic', area: 'Gangnam', tags: ['Gangnam clinic', 'Gangnam beauty', 'best clinic Gangnam'], priority: 1 },
+  { query: 'skin clinic Seoul foreigners', title: 'Skin Clinic Seoul for Foreigners', area: 'Seoul', tags: ['skin clinic Seoul', 'foreigner friendly', 'English speaking clinic'], priority: 1 },
+  { query: 'botox Seoul', title: 'Botox in Seoul', area: 'Seoul', tags: ['botox Seoul', 'anti aging Seoul', 'wrinkle treatment Korea'], priority: 1 },
+  { query: 'laser treatment Seoul', title: 'Laser Treatment Seoul', area: 'Seoul', tags: ['laser Seoul', 'skin laser', 'pigmentation treatment'], priority: 1 },
+  { query: 'plastic surgery Seoul', title: 'Plastic Surgery Seoul', area: 'Seoul', tags: ['plastic surgery Seoul', 'medical tourism Korea', 'cosmetic surgery Seoul'], priority: 1 },
+  { query: 'rhinoplasty Seoul', title: 'Rhinoplasty Seoul', area: 'Seoul', tags: ['nose job Seoul', 'rhinoplasty Korea', 'nose surgery cost'], priority: 1 },
+  { query: 'Korean skin care clinic', title: 'Korean Skin Care Clinic', area: 'Seoul', tags: ['Korean clinic', 'K-beauty clinic', 'skin care Seoul'], priority: 1 },
+  { query: 'dermatology clinic Seoul', title: 'Dermatology Clinic Seoul', area: 'Seoul', tags: ['dermatology Seoul', 'skin doctor Seoul', 'dermatologist Korea'], priority: 1 },
+  { query: 'double eyelid surgery Seoul', title: 'Double Eyelid Surgery Seoul', area: 'Seoul', tags: ['eyelid surgery Seoul', 'eye surgery Korea', 'blepharoplasty Seoul'], priority: 1 },
+  { query: 'filler injection Seoul', title: 'Filler Injection Seoul', area: 'Seoul', tags: ['filler Seoul', 'hyaluronic acid Seoul', 'facial filler Korea'], priority: 1 },
+  { query: 'Gangnam skin clinic', title: 'Gangnam Skin Clinic', area: 'Gangnam', tags: ['Gangnam clinic', 'Gangnam beauty', 'best clinic Gangnam'], priority: 1 },
   // 🟠 높음
-  { query: 'HIFU lifting Seoul', area: 'Seoul', tags: ['HIFU Seoul', 'skin lifting Seoul', 'non surgical facelift'], priority: 2 },
-  { query: 'acne treatment Seoul', area: 'Seoul', tags: ['acne clinic Seoul', 'Korean acne treatment', 'pimple treatment Seoul'], priority: 2 },
-  { query: 'glass skin treatment Seoul', area: 'Seoul', tags: ['glass skin Seoul', 'Korean glow', 'skin brightening'], priority: 2 },
-  { query: 'jaw reduction surgery Seoul', area: 'Seoul', tags: ['jaw reduction Seoul', 'V-line surgery', 'face contouring Seoul'], priority: 2 },
-  { query: 'skin booster injection Seoul', area: 'Seoul', tags: ['skin booster Seoul', 'Rejuran Seoul', 'hydration injection'], priority: 2 },
-  { query: 'exosome treatment Seoul', area: 'Seoul', tags: ['exosome Seoul', 'stem cell treatment', 'PDRN Seoul'], priority: 2 },
-  { query: 'microneedling Seoul', area: 'Seoul', tags: ['microneedling Seoul', 'collagen induction', 'RF microneedling Korea'], priority: 2 },
-  { query: 'thread lift Seoul', area: 'Seoul', tags: ['thread lift Seoul', 'non surgical lift Korea', 'PDO thread Seoul'], priority: 2 },
-  { query: 'IPL treatment Seoul', area: 'Seoul', tags: ['IPL Seoul', 'photo rejuvenation Seoul', 'redness treatment'], priority: 2 },
-  { query: 'hydrafacial Seoul', area: 'Seoul', tags: ['hydrafacial Seoul', 'deep cleansing Seoul', 'facial treatment Korea'], priority: 2 },
+  { query: 'HIFU lifting Seoul', title: 'HIFU Lifting Seoul', area: 'Seoul', tags: ['HIFU Seoul', 'skin lifting Seoul', 'non surgical facelift'], priority: 2 },
+  { query: 'acne treatment Seoul', title: 'Acne Treatment Seoul', area: 'Seoul', tags: ['acne clinic Seoul', 'Korean acne treatment', 'pimple treatment Seoul'], priority: 2 },
+  { query: 'glass skin treatment Seoul', title: 'Glass Skin Treatment Seoul', area: 'Seoul', tags: ['glass skin Seoul', 'Korean glow', 'skin brightening'], priority: 2 },
+  { query: 'jaw reduction surgery Seoul', title: 'Jaw Reduction Surgery Seoul', area: 'Seoul', tags: ['jaw reduction Seoul', 'V-line surgery', 'face contouring Seoul'], priority: 2 },
+  { query: 'skin booster injection Seoul', title: 'Skin Booster Injection Seoul', area: 'Seoul', tags: ['skin booster Seoul', 'Rejuran Seoul', 'hydration injection'], priority: 2 },
+  { query: 'exosome treatment Seoul', title: 'Exosome Treatment Seoul', area: 'Seoul', tags: ['exosome Seoul', 'stem cell treatment', 'PDRN Seoul'], priority: 2 },
+  { query: 'microneedling Seoul', title: 'Microneedling Seoul', area: 'Seoul', tags: ['microneedling Seoul', 'collagen induction', 'RF microneedling Korea'], priority: 2 },
+  { query: 'thread lift Seoul', title: 'Thread Lift Seoul', area: 'Seoul', tags: ['thread lift Seoul', 'non surgical lift Korea', 'PDO thread Seoul'], priority: 2 },
+  { query: 'IPL treatment Seoul', title: 'IPL Treatment Seoul', area: 'Seoul', tags: ['IPL Seoul', 'photo rejuvenation Seoul', 'redness treatment'], priority: 2 },
+  { query: 'hydrafacial Seoul', title: 'HydraFacial Seoul', area: 'Seoul', tags: ['hydrafacial Seoul', 'deep cleansing Seoul', 'facial treatment Korea'], priority: 2 },
   // 🟡 중간
-  { query: 'Apgujeong aesthetic clinic', area: 'Apgujeong', tags: ['Apgujeong clinic', 'luxury aesthetic Seoul', 'high end clinic'], priority: 3 },
-  { query: 'Itaewon skin clinic English', area: 'Itaewon', tags: ['Itaewon clinic', 'English speaking doctor Seoul', 'international clinic'], priority: 3 },
-  { query: 'Hongdae skin care Seoul', area: 'Hongdae', tags: ['Hongdae clinic', 'affordable skin Seoul', 'student area Seoul'], priority: 3 },
-  { query: 'anti aging treatment Seoul', area: 'Seoul', tags: ['anti aging Seoul', 'Korean rejuvenation', 'youthful skin Korea'], priority: 3 },
-  { query: 'face contouring surgery Seoul', area: 'Seoul', tags: ['face contouring Seoul', 'Korean beauty surgery', 'facial sculpting'], priority: 3 },
-  { query: 'PRP treatment Seoul', area: 'Seoul', tags: ['PRP Seoul', 'platelet rich plasma', 'vampire facial Korea'], priority: 3 },
-  { query: 'chemical peel Seoul', area: 'Seoul', tags: ['chemical peel Seoul', 'exfoliation Seoul', 'skin renewal Korea'], priority: 3 },
-  { query: 'pigmentation removal Seoul', area: 'Seoul', tags: ['pigmentation Seoul', 'melasma treatment', 'dark spot removal Korea'], priority: 3 },
-  { query: 'liposuction Seoul', area: 'Seoul', tags: ['liposuction Seoul', 'body contouring Korea', 'fat removal Seoul'], priority: 3 },
-  { query: 'cheekbone reduction Seoul', area: 'Seoul', tags: ['zygoma reduction Seoul', 'cheekbone surgery Korea', 'face slim surgery'], priority: 3 },
+  { query: 'Apgujeong aesthetic clinic', title: 'Apgujeong Aesthetic Clinic', area: 'Apgujeong', tags: ['Apgujeong clinic', 'luxury aesthetic Seoul', 'high end clinic'], priority: 3 },
+  { query: 'Itaewon skin clinic English', title: 'Itaewon Skin Clinic', area: 'Itaewon', tags: ['Itaewon clinic', 'English speaking doctor Seoul', 'international clinic'], priority: 3 },
+  { query: 'Hongdae skin care Seoul', title: 'Hongdae Skin Care Clinic', area: 'Hongdae', tags: ['Hongdae clinic', 'affordable skin Seoul', 'student area Seoul'], priority: 3 },
+  { query: 'anti aging treatment Seoul', title: 'Anti-Aging Treatment Seoul', area: 'Seoul', tags: ['anti aging Seoul', 'Korean rejuvenation', 'youthful skin Korea'], priority: 3 },
+  { query: 'face contouring surgery Seoul', title: 'Face Contouring Surgery Seoul', area: 'Seoul', tags: ['face contouring Seoul', 'Korean beauty surgery', 'facial sculpting'], priority: 3 },
+  { query: 'PRP treatment Seoul', title: 'PRP Treatment Seoul', area: 'Seoul', tags: ['PRP Seoul', 'platelet rich plasma', 'vampire facial Korea'], priority: 3 },
+  { query: 'chemical peel Seoul', title: 'Chemical Peel Seoul', area: 'Seoul', tags: ['chemical peel Seoul', 'exfoliation Seoul', 'skin renewal Korea'], priority: 3 },
+  { query: 'pigmentation removal Seoul', title: 'Pigmentation Removal Seoul', area: 'Seoul', tags: ['pigmentation Seoul', 'melasma treatment', 'dark spot removal Korea'], priority: 3 },
+  { query: 'liposuction Seoul', title: 'Liposuction Seoul', area: 'Seoul', tags: ['liposuction Seoul', 'body contouring Korea', 'fat removal Seoul'], priority: 3 },
+  { query: 'cheekbone reduction Seoul', title: 'Cheekbone Reduction Seoul', area: 'Seoul', tags: ['zygoma reduction Seoul', 'cheekbone surgery Korea', 'face slim surgery'], priority: 3 },
   // 🟢 보완
-  { query: 'Ultherapy Seoul', area: 'Seoul', tags: ['Ultherapy Seoul', 'ultrasound skin lifting', 'Ulthera Korea'], priority: 4 },
-  { query: 'fat dissolving injection Seoul', area: 'Seoul', tags: ['fat dissolving Seoul', 'Kybella Seoul', 'double chin removal Korea'], priority: 4 },
-  { query: 'eye bag removal Seoul', area: 'Seoul', tags: ['eye bag removal Seoul', 'under eye treatment', 'lower blepharoplasty Korea'], priority: 4 },
-  { query: 'rosacea treatment Seoul', area: 'Seoul', tags: ['rosacea Seoul', 'skin redness treatment', 'vascular laser Korea'], priority: 4 },
-  { query: 'laser toning Seoul', area: 'Seoul', tags: ['laser toning Seoul', 'Medlite laser', 'skin tone Seoul'], priority: 4 },
-  { query: 'Korean medical tourism beauty', area: 'Seoul', tags: ['medical tourism Seoul', 'beauty travel Korea', 'cosmetic trip Seoul'], priority: 4 },
-  { query: 'how to book skin clinic Seoul', area: 'Seoul', tags: ['booking clinic Seoul', 'WhatsApp clinic Korea', 'foreigner booking'], priority: 4 },
-  { query: 'Myeongdong beauty clinic', area: 'Myeongdong', tags: ['Myeongdong clinic', 'tourist clinic Seoul', 'walk-in clinic Seoul'], priority: 4 },
-  { query: 'forehead filler Seoul', area: 'Seoul', tags: ['forehead filler Seoul', 'temple filler Korea', 'facial volume Seoul'], priority: 4 },
-  { query: 'PDRN injection Seoul', area: 'Seoul', tags: ['PDRN Seoul', 'salmon DNA injection', 'skin repair Korea'], priority: 4 },
-  { query: 'Juvederm Seoul', area: 'Seoul', tags: ['Juvederm Seoul', 'HA filler Korea', 'lip filler Seoul'], priority: 4 },
-  { query: 'what to expect Korean clinic', area: 'Seoul', tags: ['Korean clinic experience', 'first time clinic Seoul', 'clinic guide foreigners'], priority: 4 },
-  { query: 'Seoul aesthetic clinic English speaking', area: 'Seoul', tags: ['English clinic Seoul', 'foreigner friendly aesthetic', 'English speaking doctor'], priority: 4 },
-  { query: 'skin clinic consultation Seoul foreigner', area: 'Seoul', tags: ['clinic consultation', 'free consultation Seoul', 'skin analysis Seoul'], priority: 4 },
-  { query: 'Korean plastic surgery guide tourist', area: 'Seoul', tags: ['plastic surgery guide', 'surgery tourism Seoul', 'cosmetic surgery guide Korea'], priority: 4 },
+  { query: 'Ultherapy Seoul', title: 'Ultherapy Seoul', area: 'Seoul', tags: ['Ultherapy Seoul', 'ultrasound skin lifting', 'Ulthera Korea'], priority: 4 },
+  { query: 'fat dissolving injection Seoul', title: 'Fat Dissolving Injection Seoul', area: 'Seoul', tags: ['fat dissolving Seoul', 'Kybella Seoul', 'double chin removal Korea'], priority: 4 },
+  { query: 'eye bag removal Seoul', title: 'Eye Bag Removal Seoul', area: 'Seoul', tags: ['eye bag removal Seoul', 'under eye treatment', 'lower blepharoplasty Korea'], priority: 4 },
+  { query: 'rosacea treatment Seoul', title: 'Rosacea Treatment Seoul', area: 'Seoul', tags: ['rosacea Seoul', 'skin redness treatment', 'vascular laser Korea'], priority: 4 },
+  { query: 'laser toning Seoul', title: 'Laser Toning Seoul', area: 'Seoul', tags: ['laser toning Seoul', 'Medlite laser', 'skin tone Seoul'], priority: 4 },
+  { query: 'Korean medical tourism beauty', title: 'Korean Beauty Medical Tourism', area: 'Seoul', tags: ['medical tourism Seoul', 'beauty travel Korea', 'cosmetic trip Seoul'], priority: 4 },
+  { query: 'how to book skin clinic Seoul', title: 'How to Book a Skin Clinic Seoul', area: 'Seoul', tags: ['booking clinic Seoul', 'WhatsApp clinic Korea', 'foreigner booking'], priority: 4 },
+  { query: 'Myeongdong beauty clinic', title: 'Myeongdong Beauty Clinic', area: 'Myeongdong', tags: ['Myeongdong clinic', 'tourist clinic Seoul', 'walk-in clinic Seoul'], priority: 4 },
+  { query: 'forehead filler Seoul', title: 'Forehead Filler Seoul', area: 'Seoul', tags: ['forehead filler Seoul', 'temple filler Korea', 'facial volume Seoul'], priority: 4 },
+  { query: 'PDRN injection Seoul', title: 'PDRN Injection Seoul', area: 'Seoul', tags: ['PDRN Seoul', 'salmon DNA injection', 'skin repair Korea'], priority: 4 },
+  { query: 'Juvederm Seoul', title: 'Juvederm Filler Seoul', area: 'Seoul', tags: ['Juvederm Seoul', 'HA filler Korea', 'lip filler Seoul'], priority: 4 },
+  { query: 'what to expect Korean clinic', title: 'What to Expect at a Korean Clinic', area: 'Seoul', tags: ['Korean clinic experience', 'first time clinic Seoul', 'clinic guide foreigners'], priority: 4 },
+  { query: 'Seoul aesthetic clinic English speaking', title: 'English-Speaking Aesthetic Clinic Seoul', area: 'Seoul', tags: ['English clinic Seoul', 'foreigner friendly aesthetic', 'English speaking doctor'], priority: 4 },
+  { query: 'skin clinic consultation Seoul foreigner', title: 'Skin Clinic Consultation Seoul', area: 'Seoul', tags: ['clinic consultation', 'free consultation Seoul', 'skin analysis Seoul'], priority: 4 },
+  { query: 'Korean plastic surgery guide tourist', title: 'Korean Plastic Surgery Guide for Tourists', area: 'Seoul', tags: ['plastic surgery guide', 'surgery tourism Seoul', 'cosmetic surgery guide Korea'], priority: 4 },
   // 🔵 레딧 실제 질문 기반 (r/KoreanBeauty, r/KoreaSeoulBeauty 인기 질문)
   { query: 'factory clinic vs boutique clinic Seoul', title: 'Factory Clinic vs Boutique Clinic Seoul', area: 'Seoul', tags: ['factory clinic Seoul', 'boutique clinic Seoul', 'how to choose clinic Korea'], priority: 1 },
   { query: 'do Seoul clinics charge more for foreigners', title: 'Seoul Clinic Pricing for Foreigners', area: 'Seoul', tags: ['foreigner price Seoul clinic', 'clinic upcharge tourists', 'fair price Seoul beauty'], priority: 1 },
@@ -16529,6 +16583,76 @@ app.post('/api/admin/regen-shop-blog', async (c) => {
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
   }
+})
+
+// ── SEO 타이틀 일괄 수정 API ──
+// 기존 DB 블로그 글 중 잘못된 타이틀 (65자 초과 / "in Seoul" 이중 / 날것 keyword) 수정
+app.post('/api/admin/fix-blog-titles', async (c) => {
+  // 인증은 /api/admin/* 미들웨어에서 처리됨
+  const sql = getDb(c.env)
+  const dryRun = c.req.query('dry') === '1'
+
+  const rows = await sql`SELECT id, slug, title FROM blog_posts WHERE status='published' AND title IS NOT NULL AND title != ''`
+
+  const fixes: { id: string; oldTitle: string; newTitle: string }[] = []
+
+  for (const row of rows) {
+    const orig = (row.title as string) || ''
+    let fixed = orig
+
+    // 1. keyword+in Seoul 이중 제거: "Botox Seoul in Seoul" → "Botox Seoul"
+    fixed = fixed.replace(/\b([\w\s]+Seoul)\s+in Seoul\b/gi, '$1')
+
+    // 2. "in Seoul: …" 패턴에서 앞에 Seoul 이미 있으면 "in Seoul" 제거
+    //    "Laser Treatment Seoul in Seoul: X" → "Laser Treatment Seoul: X"
+    fixed = fixed.replace(/(\bSeoul\b)(\s+in Seoul\b)/gi, '$1')
+
+    // 3. "How to Book X in Seoul as a Foreigner" + X에 "in Seoul" 이미 있으면 중간 "in Seoul" 제거
+    fixed = fixed.replace(/How to Book (.+?) in Seoul as a Foreigner/gi, (match, topic) => {
+      if (/\bSeoul\b/i.test(topic)) return `How to Book ${topic} as a Foreigner`
+      return match
+    })
+
+    // 4. "Is X in Seoul Worth It?" + X에 "Seoul" 이미 있으면 "in Seoul" 제거
+    fixed = fixed.replace(/Is (.+?) in Seoul (Worth It|Safe)\?/gi, (match, topic, ending) => {
+      if (/\bSeoul\b/i.test(topic)) return `Is ${topic} ${ending}?`
+      return match
+    })
+
+    // 5. 타이틀 65자 초과 시 트리밍 (단어 단위, 의미 최대 보존)
+    if (fixed.length > 65) {
+      // 60자까지 자를 때 대시/콜론 기준 우선
+      const dashIdx = fixed.lastIndexOf(' — ', 62)
+      const colonIdx = fixed.lastIndexOf(': ', 62)
+      const spIdx = fixed.lastIndexOf(' ', 62)
+      if (dashIdx > 30) fixed = fixed.substring(0, dashIdx)
+      else if (colonIdx > 30) fixed = fixed.substring(0, colonIdx)
+      else if (spIdx > 25) fixed = fixed.substring(0, spIdx)
+      else fixed = fixed.substring(0, 62)
+    }
+
+    // 변경된 경우만 기록
+    if (fixed !== orig) {
+      fixes.push({ id: row.id as string, oldTitle: orig, newTitle: fixed })
+    }
+  }
+
+  if (!dryRun) {
+    for (const fix of fixes) {
+      const newSlug = makeBlogSlug(fix.newTitle)
+      // 슬러그 충돌 체크 (변경 시에만)
+      const dup = await sql`SELECT id FROM blog_posts WHERE slug=${newSlug} AND id != ${fix.id} LIMIT 1`.catch(() => []) as any[]
+      if (dup.length > 0) continue // 충돌 시 스킵
+      await sql`UPDATE blog_posts SET title=${fix.newTitle}, slug=${newSlug}, updated_at=${new Date().toISOString()} WHERE id=${fix.id}`.catch(() => {})
+    }
+  }
+
+  return c.json({
+    total: rows.length,
+    fixed: fixes.length,
+    dryRun,
+    fixes: fixes.slice(0, 50) // 미리보기용 최대 50개
+  })
 })
 
 // ── 커스텀 404 페이지 ──
