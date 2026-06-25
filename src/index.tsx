@@ -803,8 +803,23 @@ async function initDb(env: any) {
     try { await sql`ALTER TABLE shops_ja ADD COLUMN IF NOT EXISTS google_map_embed TEXT DEFAULT ''` } catch(e) {}
     try { await sql`ALTER TABLE shops_ja ADD COLUMN IF NOT EXISTS photos JSONB DEFAULT '[]'` } catch(e) {}
 
+    // videos_ja — 일본어판 영상 테이블 (EN videos와 완전 분리)
+    await sql`CREATE TABLE IF NOT EXISTS videos_ja (
+      id TEXT PRIMARY KEY, shop_id TEXT REFERENCES shops_ja(id) ON DELETE CASCADE,
+      title TEXT, description TEXT, video_url TEXT, thumbnail TEXT,
+      tags JSONB DEFAULT '[]', views INTEGER DEFAULT 0,
+      likes INTEGER DEFAULT 0, created_at TEXT,
+      video_url_low TEXT DEFAULT '', video_url_mid TEXT DEFAULT '', video_url_high TEXT DEFAULT '',
+      instagram_url TEXT DEFAULT ''
+    )\`
+    try { await sql\`ALTER TABLE videos_ja ADD COLUMN IF NOT EXISTS video_url_low TEXT DEFAULT ''\` } catch(e) {}
+    try { await sql\`ALTER TABLE videos_ja ADD COLUMN IF NOT EXISTS video_url_mid TEXT DEFAULT ''\` } catch(e) {}
+    try { await sql\`ALTER TABLE videos_ja ADD COLUMN IF NOT EXISTS video_url_high TEXT DEFAULT ''\` } catch(e) {}
+    try { await sql\`ALTER TABLE videos_ja ADD COLUMN IF NOT EXISTS instagram_url TEXT DEFAULT ''\` } catch(e) {}
+    try { await sql\`CREATE INDEX IF NOT EXISTS idx_vja_shop ON videos_ja(shop_id)\` } catch(e) {}
+
     // blog_posts_ja — 일본어판 블로그 테이블
-    await sql`CREATE TABLE IF NOT EXISTS blog_posts_ja (
+    await sql\`CREATE TABLE IF NOT EXISTS blog_posts_ja (
       id TEXT PRIMARY KEY,
       slug TEXT UNIQUE NOT NULL,
       title TEXT NOT NULL,
@@ -4369,6 +4384,92 @@ app.delete('/api/ja/blogs/:id', async (c) => {
   }
 })
 
+// ── /api/ja/videos CRUD (EN videos와 완전 분리) ──
+
+// GET /api/ja/videos
+app.get('/api/ja/videos', async (c) => {
+  try {
+    await ensureDb(c.env)
+    const sql = getDb(c.env)
+    const rows = await sql`
+      SELECT v.*, s.name as shop_name, s.category as shop_cat, s.location as shop_location, s.thumbnail as shop_thumb
+      FROM videos_ja v
+      LEFT JOIN shops_ja s ON v.shop_id = s.id
+      ORDER BY v.views DESC, v.created_at DESC
+    `
+    return c.json({ videos: rows })
+  } catch(e: any) {
+    return c.json({ error: 'db_error', message: e?.message || 'unknown' }, 500)
+  }
+})
+
+// GET /api/ja/videos/:id
+app.get('/api/ja/videos/:id', async (c) => {
+  try {
+    await ensureDb(c.env)
+    const sql = getDb(c.env)
+    const rows = await sql`SELECT * FROM videos_ja WHERE id=${c.req.param('id')}`
+    if (!rows.length) return c.json({ error: 'not_found' }, 404)
+    return c.json({ video: rows[0] })
+  } catch(e: any) {
+    return c.json({ error: 'db_error', message: e?.message || 'unknown' }, 500)
+  }
+})
+
+// POST /api/ja/videos — 생성
+app.post('/api/ja/videos', async (c) => {
+  try {
+    await ensureDb(c.env)
+    const sql = getDb(c.env)
+    const body = await c.req.json()
+    const id = body.id || crypto.randomUUID()
+    const now = new Date().toISOString()
+    await sql`INSERT INTO videos_ja (
+      id, shop_id, title, description, video_url, thumbnail, tags,
+      views, likes, created_at, video_url_low, video_url_mid, video_url_high, instagram_url
+    ) VALUES (
+      ${id}, ${body.shop_id||null}, ${body.title||''}, ${body.description||''},
+      ${body.video_url||''}, ${body.thumbnail||''}, ${JSON.stringify(body.tags||[])},
+      0, 0, ${now}, ${body.video_url_low||''}, ${body.video_url_mid||''}, ${body.video_url_high||''},
+      ${body.instagram_url||''}
+    ) ON CONFLICT (id) DO NOTHING`
+    return c.json({ ok: true, id })
+  } catch(e: any) {
+    return c.json({ error: 'db_error', message: e?.message || 'unknown' }, 500)
+  }
+})
+
+// PUT /api/ja/videos/:id — 수정
+app.put('/api/ja/videos/:id', async (c) => {
+  try {
+    await ensureDb(c.env)
+    const sql = getDb(c.env)
+    const body = await c.req.json()
+    await sql`UPDATE videos_ja SET
+      shop_id=${body.shop_id||null}, title=${body.title||''}, description=${body.description||''},
+      video_url=${body.video_url||''}, thumbnail=${body.thumbnail||''},
+      tags=${JSON.stringify(body.tags||[])},
+      video_url_low=${body.video_url_low||''}, video_url_mid=${body.video_url_mid||''},
+      video_url_high=${body.video_url_high||''}, instagram_url=${body.instagram_url||''}
+    WHERE id=${c.req.param('id')}`
+    return c.json({ ok: true })
+  } catch(e: any) {
+    return c.json({ error: 'db_error', message: e?.message || 'unknown' }, 500)
+  }
+})
+
+// DELETE /api/ja/videos/:id
+app.delete('/api/ja/videos/:id', async (c) => {
+  try {
+    await ensureDb(c.env)
+    const sql = getDb(c.env)
+    await sql`DELETE FROM videos_ja WHERE id=${c.req.param('id')}`
+    return c.json({ ok: true })
+  } catch(e: any) {
+    return c.json({ error: 'db_error', message: e?.message || 'unknown' }, 500)
+  }
+})
+
 // ══════════════════════════════════════════════════════
 // 일본어판 프론트엔드 라우트 (/ja/*)
 // ══════════════════════════════════════════════════════
@@ -4390,18 +4491,27 @@ function jaLangNav(currentLang: 'en'|'ja', currentPath: string): string {
 </nav>`
 }
 
-// ══ /ja/* 전체 접근 차단 (일본어판 개발 중 — 모두 EN 홈으로 리다이렉트) ══
-app.get('/ja', (c) => c.redirect('/', 302))
-app.get('/ja/', (c) => c.redirect('/', 302))
-app.get('/ja/*', (c) => c.redirect('/', 302))
-
-// ── /ja 홈 원본 코드 (위 차단 라우트에 의해 도달 불가, 데이터 보존용) ──
-app.get('/__ja_disabled__', async (c) => {
+// ── /ja 홈 (일본어판 메인 페이지) ──
+app.get('/ja', async (c) => {
+  await ensureDb(c.env)
   const sql = getDb(c.env)
   try {
-    const [shopRows] = await Promise.all([
+    const [shopRows, vidRows] = await Promise.all([
       withTimeout(
         sql`SELECT id, name, slug, category, location, thumbnail, rating, review_count, why_choose, description, review_summary, lat, lng, address FROM shops_ja WHERE active=true ORDER BY rating DESC, review_count DESC`,
+        10000, []
+      ),
+      withTimeout(
+        sql`SELECT v.id, v.shop_id, v.title, v.description, v.video_url, v.thumbnail, v.tags, v.views, v.likes, v.created_at,
+               v.video_url_low, v.video_url_mid, v.video_url_high,
+               s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb,
+               s.rating as shop_rating, s.review_count as shop_review_count,
+               s.why_choose as shop_why_choose, s.description as shop_description,
+               s.review_summary as shop_review_summary
+            FROM videos_ja v
+            LEFT JOIN shops_ja s ON v.shop_id=s.id
+            WHERE s.active=true
+            ORDER BY v.views DESC, v.created_at DESC`,
         10000, []
       )
     ])
@@ -4417,6 +4527,31 @@ app.get('/__ja_disabled__', async (c) => {
       reviewSummary: (() => { const rs = r.review_summary; if(!rs) return null; if(typeof rs==='string') return rs; if(typeof rs==='object') return rs; try { return JSON.parse(rs) } catch { return null } })(),
       lat: r.lat || '', lng: r.lng || '', address: r.address || ''
     }))
+
+    // videos_ja 데이터 (EN videos와 완전 분리)
+    const initVideos = vidRows.map((r: any) => {
+      const vUrl = r.video_url || ''
+      const dbThumb = r.thumbnail || ''
+      const autoThumb = (!dbThumb && vUrl && vUrl.includes('cloudinary.com'))
+        ? vUrl.replace('/video/upload/', '/video/upload/so_0,w_600,h_1066,c_fill,q_auto/').replace(/\.mp4$/, '.jpg')
+        : ''
+      const finalThumb = dbThumb || autoThumb
+      const shopThumbRaw = r.shop_thumb || ''
+      const shopThumb = shopThumbRaw.startsWith('http') ? shopThumbRaw : ''
+      return {
+        id: r.id, shopId: r.shop_id,
+        title: cleanVideoTitle(r.title || '', r.shop_name || ''),
+        description: r.description || '',
+        videoUrl: vUrl, thumbnail: finalThumb, tags: r.tags || [],
+        views: r.views || 0, likes: r.likes || 0, createdAt: r.created_at || '',
+        videoUrlLow: r.video_url_low || '', videoUrlMid: r.video_url_mid || '', videoUrlHigh: r.video_url_high || '',
+        shop: { id: r.shop_id, name: r.shop_name || '', category: r.shop_cat || '', location: r.shop_location || '',
+          thumbnail: shopThumb, rating: r.shop_rating || 0, reviewCount: r.shop_review_count || 0,
+          whyChoose: (() => { try { return JSON.parse(r.shop_why_choose||'[]') } catch { return [] } })(),
+          description: r.shop_description || '',
+          reviewSummary: (() => { const rs = r.shop_review_summary; if(!rs) return null; if(typeof rs==='string') return rs; if(typeof rs==='object') return rs; try { return JSON.parse(rs) } catch { return null } })() }
+      }
+    })
 
     const catColorsSSR: Record<string,string> = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',clinic:'#fb923c',makeup:'#c084fc',spa:'#a78bfa',tattoo:'#e879f9'}
     const catFaIconsSSR: Record<string,string> = {skincare:'fa-leaf',makeup:'fa-magic',hair:'fa-cut',headspa:'fa-spa',clinic:'fa-briefcase-medical',spa:'fa-hot-tub',tattoo:'fa-pen-nib'}
@@ -4450,7 +4585,8 @@ app.get('/__ja_disabled__', async (c) => {
     const ssrCountText = `${initShops.length} 店舗`
 
     const gmapKey = getGoogleKey(c.env)
-    const inlineScript = `<script>window.__INIT_VIDEOS__=[];window.__INIT_VIDEOS_ALL__=[];window.__INIT_PLATFORM__=${safeJson(initPlatform)};window.__INIT_SHOPS__=${safeJson(initShops)};window.__GMAP_KEY__=${safeJson(gmapKey)};<\/script>`
+    const initVideosFirst = initVideos.slice(0, 10)
+    const inlineScript = `<script>window.__INIT_VIDEOS__=${safeJson(initVideosFirst)};window.__INIT_VIDEOS_ALL__=${safeJson(initVideos)};window.__INIT_PLATFORM__=${safeJson(initPlatform)};window.__INIT_SHOPS__=${safeJson(initShops)};window.__GMAP_KEY__=${safeJson(gmapKey)};<\/script>`
 
     const catIconMap: Record<string,string> = {clinic:'🏥',headspa:'🧖',makeup:'💄',tattoo:'✏️',hair:'💇',skincare:'🌿',spa:'♨️',dental:'🦷'}
     const catLabelMapSSR_JA: Record<string,string> = {clinic:'スキンクリニック',headspa:'ヘッドスパ',makeup:'メイクスタジオ',tattoo:'タトゥースタジオ',hair:'ヘアサロン',skincare:'スキンケア',spa:'スパ',dental:'デンタルクリニック'}
@@ -4568,7 +4704,7 @@ app.get('/__ja_disabled__', async (c) => {
 
 
 // ── /ja/shops ──
-app.get('/__ja_disabled__/shops', async (c) => {
+app.get('/ja/shops', async (c) => {
   try {
   const sql = getDb(c.env)
   const rows = await sql`SELECT * FROM shops_ja WHERE active=true ORDER BY rating DESC, created_at DESC`
@@ -4877,7 +5013,7 @@ render();
   }
 })
 // ── /ja/blog ──
-app.get('/__ja_disabled__/blog', async (c) => {
+app.get('/ja/blog', async (c) => {
   try {
   await ensureDb(c.env)
   const sql = getDb(c.env)
@@ -4996,7 +5132,7 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;min-height:
   }
 })
 // ── /ja/blog/category/:cat ──
-app.get('/__ja_disabled__/blog/category/:cat', async (c) => {
+app.get('/ja/blog/category/:cat', async (c) => {
   try {
   await ensureDb(c.env)
   const sql = getDb(c.env)
@@ -5135,7 +5271,7 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;min-height:
   }
 })
 // ── /ja/blog/:slug ──
-app.get('/__ja_disabled__/blog/:slug', async (c) => {
+app.get('/ja/blog/:slug', async (c) => {
   await ensureDb(c.env)
   const sql = getDb(c.env)
   const slug = c.req.param('slug')
@@ -5608,7 +5744,7 @@ ${SB_TRACKER_SCRIPT}
   return c.html(finalHtml)
 })
 // ── /ja/shop/:slug ──
-app.get('/__ja_disabled__/shop/:slug', async (c) => {
+app.get('/ja/shop/:slug', async (c) => {
   try {
   const slug = c.req.param('slug')
   // 301 리다이렉트: 구 slug → 신 slug
@@ -8386,15 +8522,26 @@ details[open] .faq-q::after{transform:rotate(180deg)}
 })
 
 // ── /ja/admin ──
-app.get('/__ja_disabled__/admin', async (c) => {
-  // 동일한 인증 미들웨어 사용 (쿠키 또는 token 파라미터)
+// POST /ja/admin — 로그인 처리 (JSON body: {token})
+app.post('/ja/admin', async (c) => {
+  try {
+    const body = await c.req.json()
+    const secret = _getAdminSecret(c.env)
+    if (body.token !== secret) return c.json({ error: 'unauthorized' }, 401)
+    c.header('Set-Cookie', `admin_token=${secret}; Path=/; Max-Age=604800; HttpOnly; Secure; SameSite=Strict`)
+    return c.json({ ok: true })
+  } catch(e) { return c.json({ error: 'bad_request' }, 400) }
+})
+
+app.get('/ja/admin', async (c) => {
+  // 동일한 인증 미들웨어 사용 (쿠키만)
   const cookieHeader = c.req.header('Cookie') || ''
   const cookieToken = cookieHeader.match(/admin_token=([^;]+)/)?.[1] || ''
   const _jaAdminSecret = _getAdminSecret(c.env)
 
   if (cookieToken !== _jaAdminSecret) {
-    const token = c.req.query('token') || ''
-    if (token !== _jaAdminSecret) {
+    // token 쿼리파라미터 방식은 보안상 폐기 (POST로만 인증)
+    if (true) {
       return c.html(`<!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -8413,11 +8560,11 @@ app.get('/__ja_disabled__/admin', async (c) => {
 <p class="err" id="err">パスワードが正しくありません</p>
 </form>
 </div>
-<script>async function login(e){e.preventDefault();window.location.href='/ja/admin?token='+encodeURIComponent(document.getElementById('pw').value);}</script>
+<script>async function login(e){e.preventDefault();var pw=document.getElementById('pw').value;var r=await fetch('/ja/admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:pw})});if(r.ok||r.redirected){window.location.href='/ja/admin';}else{document.getElementById('err').style.display='block';}}</script>
 </body>
 </html>`, 200)
     }
-    c.header('Set-Cookie', `admin_token=${_jaAdminSecret}; Path=/; Max-Age=604800; HttpOnly; Secure; SameSite=Strict`)
+    // 도달 불가 (위 if(true)로 인해) — POST 로그인 후 쿠키로만 접근
     return c.redirect('/ja/admin', 302)
   }
 
@@ -22552,6 +22699,8 @@ textarea{height:80px;resize:none}
   <div class="tab" data-tab="blog"><i class="fas fa-blog"></i> 블로그</div>
   <div class="tab" data-tab="consultations"><i class="fas fa-comments"></i> 상담문의 <span id="consult-new-badge" style="display:none;font-size:9px;background:rgba(239,68,68,.25);color:#ef4444;border-radius:10px;padding:1px 5px;vertical-align:middle"></span></div>
   <div class="tab" data-tab="settings"><i class="fas fa-cog"></i> 설정</div>
+  <div class="tab" data-tab="ja-shops" style="border-left:2px solid rgba(255,77,141,.25);margin-left:4px;padding-left:10px">🇯🇵 JA 업체·영상</div>
+  <div class="tab" data-tab="ja-blog">🇯🇵 JA 블로그</div>
 </div>
 
 <!-- 대시보드 -->
@@ -23641,6 +23790,222 @@ https://seoulbeautytrip.com/video/v178051515735</textarea>
 </div>
 
 <!-- ══════════════════════════════════════════
+     🇯🇵 JA 업체·영상 탭
+══════════════════════════════════════════ -->
+<div class="tab-content" id="tab-ja-shops">
+
+  <!-- 헤더 -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+    <div>
+      <div style="font-size:16px;font-weight:700;color:#fff">🇯🇵 일본어판 업체·영상 관리</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:3px">shops_ja / videos_ja — EN 데이터와 완전 분리됩니다</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="loadJaAll()" style="padding:8px 14px;background:rgba(255,77,141,.15);border:1px solid rgba(255,77,141,.35);border-radius:8px;color:#FF4D8D;font-size:12px;font-weight:700;cursor:pointer">
+        <i class="fas fa-sync-alt"></i> 새로고침
+      </button>
+      <a href="/ja/shops" target="_blank" style="padding:8px 14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.6);font-size:12px;text-decoration:none;display:inline-flex;align-items:center;gap:5px">
+        <i class="fas fa-external-link-alt"></i> JA 쇼핑목록 보기
+      </a>
+    </div>
+  </div>
+
+  <!-- 통계 요약 -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">
+    <div class="card" style="text-align:center;padding:14px 10px">
+      <div id="ja-stat-shops" style="font-size:24px;font-weight:800;color:#FF4D8D">-</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:3px">등록 업체</div>
+    </div>
+    <div class="card" style="text-align:center;padding:14px 10px">
+      <div id="ja-stat-videos" style="font-size:24px;font-weight:800;color:#a78bfa">-</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:3px">등록 영상</div>
+    </div>
+    <div class="card" style="text-align:center;padding:14px 10px">
+      <div id="ja-stat-active" style="font-size:24px;font-weight:800;color:#34d399">-</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:3px">활성 업체</div>
+    </div>
+  </div>
+
+  <!-- 업체 등록 폼 -->
+  <div class="card" style="margin-bottom:16px;border-color:rgba(255,77,141,.25);background:rgba(255,77,141,.04)">
+    <div class="card-header" style="margin-bottom:12px">
+      <div class="card-title"><i class="fas fa-plus-circle" style="color:#FF4D8D"></i> JA 업체 등록</div>
+      <button onclick="toggleJaShopForm()" id="ja-shop-form-toggle" style="padding:6px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.6);font-size:11px;cursor:pointer">
+        <i class="fas fa-chevron-down"></i> 폼 열기
+      </button>
+    </div>
+    <div id="ja-shop-form" style="display:none">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div>
+          <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:4px">업체명 (日) *</label>
+          <input id="ja-shop-name" placeholder="例：ソウル美容クリニック" style="width:100%;padding:9px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:13px;outline:none;box-sizing:border-box">
+        </div>
+        <div>
+          <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:4px">카테고리 *</label>
+          <select id="ja-shop-cat" style="width:100%;padding:9px 12px;background:#1c1c30;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:13px;outline:none">
+            <option value="clinic">🏥 클리닉</option>
+            <option value="headspa">🧖 헤드스파</option>
+            <option value="skincare">✨ 스킨케어</option>
+            <option value="hair">💇 헤어</option>
+            <option value="makeup">💄 메이크업</option>
+            <option value="nail">💅 네일</option>
+            <option value="spa">♨️ 스파</option>
+            <option value="tattoo">✏️ 타투</option>
+            <option value="dental">🦷 치과</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:4px">지역 *</label>
+          <select id="ja-shop-area" style="width:100%;padding:9px 12px;background:#1c1c30;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:13px;outline:none">
+            <option value="gangnam">강남</option>
+            <option value="hongdae">홍대</option>
+            <option value="myeongdong">명동</option>
+            <option value="itaewon">이태원</option>
+            <option value="sinchon">신촌</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:4px">슬러그 (URL) *</label>
+          <input id="ja-shop-slug" placeholder="예：seoul-beauty-clinic-gangnam" style="width:100%;padding:9px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:13px;outline:none;box-sizing:border-box">
+        </div>
+      </div>
+      <div style="margin-bottom:10px">
+        <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:4px">설명 (日)</label>
+        <textarea id="ja-shop-desc" placeholder="일본어 설명..." rows="2" style="width:100%;padding:9px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:13px;outline:none;resize:vertical;box-sizing:border-box"></textarea>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div>
+          <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:4px">인스타그램 URL</label>
+          <input id="ja-shop-ig" placeholder="https://instagram.com/..." style="width:100%;padding:9px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:13px;outline:none;box-sizing:border-box">
+        </div>
+        <div>
+          <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:4px">대표 이미지 URL</label>
+          <input id="ja-shop-img" placeholder="https://..." style="width:100%;padding:9px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:13px;outline:none;box-sizing:border-box">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="createJaShop()" style="padding:10px 20px;background:linear-gradient(135deg,#FF4D8D,#c2185b);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer">
+          <i class="fas fa-save"></i> 등록
+        </button>
+        <button onclick="toggleJaShopForm()" style="padding:10px 16px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:rgba(255,255,255,.5);font-size:13px;cursor:pointer">취소</button>
+      </div>
+      <div id="ja-shop-form-result" style="font-size:12px;margin-top:8px;color:rgba(255,255,255,.5)"></div>
+    </div>
+  </div>
+
+  <!-- 업체 목록 -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-header" style="margin-bottom:12px">
+      <div class="card-title"><i class="fas fa-list" style="color:#60a5fa"></i> JA 업체 목록</div>
+      <input id="ja-shop-search" oninput="filterJaShops(this.value)" placeholder="업체명 검색..." style="padding:7px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:12px;outline:none;width:160px">
+    </div>
+    <div id="ja-shop-list" style="font-size:12px;color:rgba(255,255,255,.4);padding:20px;text-align:center">
+      <i class="fas fa-spinner fa-spin"></i> 로딩 중...
+    </div>
+  </div>
+
+  <!-- JA 영상 목록 -->
+  <div class="card">
+    <div class="card-header" style="margin-bottom:12px">
+      <div class="card-title"><i class="fas fa-film" style="color:#a78bfa"></i> JA 영상 목록 (videos_ja)</div>
+      <button onclick="loadJaAll()" style="padding:6px 12px;background:rgba(167,139,250,.15);border:1px solid rgba(167,139,250,.3);border-radius:8px;color:#a78bfa;font-size:11px;cursor:pointer">
+        <i class="fas fa-sync-alt"></i>
+      </button>
+    </div>
+    <div id="ja-video-list" style="font-size:12px;color:rgba(255,255,255,.4);padding:20px;text-align:center">
+      <i class="fas fa-spinner fa-spin"></i> 로딩 중...
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     🇯🇵 JA 블로그 탭
+══════════════════════════════════════════ -->
+<div class="tab-content" id="tab-ja-blog">
+
+  <!-- 헤더 -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+    <div>
+      <div style="font-size:16px;font-weight:700;color:#fff">🇯🇵 일본어판 블로그 관리</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:3px">blog_posts_ja — EN 블로그와 완전 분리됩니다</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="loadJaBlogList()" style="padding:8px 14px;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.35);border-radius:8px;color:#a5b4fc;font-size:12px;font-weight:700;cursor:pointer">
+        <i class="fas fa-sync-alt"></i> 새로고침
+      </button>
+      <a href="/ja/blog" target="_blank" style="padding:8px 14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.6);font-size:12px;text-decoration:none;display:inline-flex;align-items:center;gap:5px">
+        <i class="fas fa-external-link-alt"></i> JA 블로그 보기
+      </a>
+    </div>
+  </div>
+
+  <!-- JA 블로그 글 등록 폼 -->
+  <div class="card" style="margin-bottom:16px;border-color:rgba(99,102,241,.25);background:rgba(99,102,241,.04)">
+    <div class="card-header" style="margin-bottom:12px">
+      <div class="card-title"><i class="fas fa-plus-circle" style="color:#818cf8"></i> JA 블로그 글 등록</div>
+      <button onclick="toggleJaBlogForm()" id="ja-blog-form-toggle" style="padding:6px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.6);font-size:11px;cursor:pointer">
+        <i class="fas fa-chevron-down"></i> 폼 열기
+      </button>
+    </div>
+    <div id="ja-blog-form" style="display:none">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div>
+          <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:4px">제목 (日) *</label>
+          <input id="ja-blog-title" placeholder="例：江南でおすすめの美容クリニック" style="width:100%;padding:9px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:13px;outline:none;box-sizing:border-box">
+        </div>
+        <div>
+          <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:4px">슬러그 (URL) *</label>
+          <input id="ja-blog-slug" placeholder="gangnam-clinic-guide-ja" style="width:100%;padding:9px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:13px;outline:none;box-sizing:border-box">
+        </div>
+        <div>
+          <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:4px">카테고리</label>
+          <select id="ja-blog-cat" style="width:100%;padding:9px 12px;background:#1c1c30;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:13px;outline:none">
+            <option value="clinic">🏥 클리닉</option>
+            <option value="headspa">🧖 헤드스파</option>
+            <option value="skincare">✨ 스킨케어</option>
+            <option value="hair">💇 헤어</option>
+            <option value="guide">📖 가이드</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:4px">상태</label>
+          <select id="ja-blog-status" style="width:100%;padding:9px 12px;background:#1c1c30;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:13px;outline:none">
+            <option value="published">공개</option>
+            <option value="draft">초안</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-bottom:10px">
+        <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:4px">발췌문 (日)</label>
+        <input id="ja-blog-excerpt" placeholder="요약문..." style="width:100%;padding:9px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:13px;outline:none;box-sizing:border-box">
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:4px">본문 (日) — Markdown/HTML</label>
+        <textarea id="ja-blog-content" placeholder="본문 내용..." rows="5" style="width:100%;padding:9px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:13px;outline:none;resize:vertical;box-sizing:border-box"></textarea>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="createJaBlog()" style="padding:10px 20px;background:linear-gradient(135deg,#6366f1,#4338ca);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer">
+          <i class="fas fa-save"></i> 등록
+        </button>
+        <button onclick="toggleJaBlogForm()" style="padding:10px 16px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:rgba(255,255,255,.5);font-size:13px;cursor:pointer">취소</button>
+      </div>
+      <div id="ja-blog-form-result" style="font-size:12px;margin-top:8px;color:rgba(255,255,255,.5)"></div>
+    </div>
+  </div>
+
+  <!-- JA 블로그 글 목록 -->
+  <div class="card">
+    <div class="card-header" style="margin-bottom:12px">
+      <div class="card-title"><i class="fas fa-list" style="color:#a5b4fc"></i> JA 블로그 글 목록</div>
+      <span id="ja-blog-count" style="font-size:11px;color:rgba(255,255,255,.4)">-</span>
+    </div>
+    <div id="ja-blog-list" style="font-size:12px;color:rgba(255,255,255,.4);padding:20px;text-align:center">
+      <i class="fas fa-spinner fa-spin"></i> 로딩 중...
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
      방문자 행동 분석 탭
 ══════════════════════════════════════════ -->
 <div class="tab-content" id="tab-visitors">
@@ -23884,6 +24249,7 @@ https://seoulbeautytrip.com/video/v178051515735</textarea>
 
 <script>
 var shops=[], videos=[], bookings=[];
+var jaShops=[], jaVideos=[], jaBlogs=[];
 
 // safe-img: data-fallback / data-fallback-text 속성으로 onerror 대체
 document.addEventListener('error', function(e){
@@ -23936,6 +24302,8 @@ document.querySelectorAll('.tab').forEach(function(t){
     if(tabId === 'analytics') loadAnalytics(7);
     if(tabId === 'visitors'){ loadVisitorStats(_vsDays); loadVisitors(); startLivePolling(); }
     if(tabId === 'consultations') loadConsultations();
+    if(tabId === 'ja-shops') loadJaAll();
+    if(tabId === 'ja-blog') loadJaBlogList();
   });
 });
 
@@ -28715,6 +29083,211 @@ window.regenSeoAll = async function regenSeoAll(force) {
   } finally {
     if (btn) { btn.disabled = false; btn.innerHTML = force ? '<i class="fas fa-sync"></i> 전체 업체 SEO 강제 재생성' : '<i class="fas fa-magic"></i> SEO 미생성 업체 일괄 생성'; }
   }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  🇯🇵 JA (일본어판) 관리 함수들
+//  모든 API 경로: /api/ja/* (EN /api/* 와 완전 분리)
+// ═══════════════════════════════════════════════════════════
+
+var _jaLoaded = false;
+
+// JA 업체 + 영상 전체 로드
+function loadJaAll(){
+  var _ah = {'x-admin-token': _GSK_TOKEN};
+  Promise.all([
+    fetch('/api/ja/shops', {headers:_ah}).then(function(r){ return r.json(); }).catch(function(){ return {shops:[]}; }),
+    fetch('/api/ja/videos', {headers:_ah}).then(function(r){ return r.json(); }).catch(function(){ return {videos:[]}; })
+  ]).then(function(results){
+    jaShops  = results[0].shops  || [];
+    jaVideos = results[1].videos || [];
+    // 통계
+    var activeCount = jaShops.filter(function(s){ return s.active; }).length;
+    document.getElementById('ja-stat-shops').textContent  = jaShops.length;
+    document.getElementById('ja-stat-videos').textContent = jaVideos.length;
+    document.getElementById('ja-stat-active').textContent = activeCount;
+    renderJaShops();
+    renderJaVideos();
+    _jaLoaded = true;
+  }).catch(function(e){ console.error('[loadJaAll]', e); });
+}
+
+// JA 업체 목록 렌더
+function renderJaShops(){
+  var el = document.getElementById('ja-shop-list');
+  if(!el) return;
+  var q = (document.getElementById('ja-shop-search')||{}).value || '';
+  var list = q ? jaShops.filter(function(s){ return s.name && s.name.toLowerCase().includes(q.toLowerCase()); }) : jaShops;
+  if(!list.length){ el.innerHTML = '<div style="padding:20px;text-align:center;color:rgba(255,255,255,.3)">등록된 JA 업체가 없습니다</div>'; return; }
+  var catIcon = {clinic:'🏥',headspa:'🧖',skincare:'✨',hair:'💇',makeup:'💄',nail:'💅',spa:'♨️',tattoo:'✏️',dental:'🦷'};
+  el.innerHTML = list.map(function(s){
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.05)">' +
+      '<div style="display:flex;align-items:center;gap:10px">' +
+        (s.cover_image ? '<img src="'+s.cover_image+'" style="width:36px;height:36px;border-radius:8px;object-fit:cover" class="safe-img">' : '<div style="width:36px;height:36px;border-radius:8px;background:rgba(255,77,141,.15);display:flex;align-items:center;justify-content:center;font-size:18px">'+(catIcon[s.category]||'🏪')+'</div>') +
+        '<div>' +
+          '<div style="font-size:13px;font-weight:600;color:#fff">'+(s.name||'(이름 없음)')+'</div>' +
+          '<div style="font-size:11px;color:rgba(255,255,255,.4)">'+(catIcon[s.category]||'')+(s.category||'')+' · '+(s.area||'')+' · <a href="/ja/shop/'+(s.slug||s.id)+'" target="_blank" style="color:#60a5fa;text-decoration:none">/ja/shop/'+s.slug+'</a></div>' +
+        '</div>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:6px">' +
+        '<span style="font-size:10px;padding:3px 8px;border-radius:20px;'+(s.active?'background:rgba(52,211,153,.15);color:#34d399':'background:rgba(239,68,68,.12);color:#f87171')+';">'+(s.active?'활성':'비활성')+'</span>' +
+        '<button onclick="deleteJaShop(\''+s.id+'\')" style="padding:5px 10px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:6px;color:#f87171;font-size:11px;cursor:pointer">삭제</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+// JA 업체 검색 필터
+function filterJaShops(q){
+  renderJaShops();
+}
+
+// JA 영상 목록 렌더
+function renderJaVideos(){
+  var el = document.getElementById('ja-video-list');
+  if(!el) return;
+  if(!jaVideos.length){ el.innerHTML = '<div style="padding:20px;text-align:center;color:rgba(255,255,255,.3)">등록된 JA 영상이 없습니다</div>'; return; }
+  el.innerHTML = jaVideos.map(function(v){
+    return '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.05)">' +
+      (v.thumbnail ? '<img src="'+v.thumbnail+'" style="width:54px;height:36px;border-radius:6px;object-fit:cover" class="safe-img">' : '<div style="width:54px;height:36px;border-radius:6px;background:rgba(167,139,250,.15);display:flex;align-items:center;justify-content:center">🎬</div>') +
+      '<div style="flex:1">' +
+        '<div style="font-size:13px;font-weight:600;color:#fff">'+(v.title||'제목 없음')+'</div>' +
+        '<div style="font-size:11px;color:rgba(255,255,255,.4)">'+(v.shop_name||v.shop_id||'-')+' · 조회 '+(v.views||0)+'</div>' +
+      '</div>' +
+      '<button onclick="deleteJaVideo(\''+v.id+'\')" style="padding:5px 10px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:6px;color:#f87171;font-size:11px;cursor:pointer">삭제</button>' +
+    '</div>';
+  }).join('');
+}
+
+// JA 업체 등록 폼 토글
+function toggleJaShopForm(){
+  var f = document.getElementById('ja-shop-form');
+  var btn = document.getElementById('ja-shop-form-toggle');
+  if(!f) return;
+  var isOpen = f.style.display !== 'none';
+  f.style.display = isOpen ? 'none' : 'block';
+  if(btn) btn.innerHTML = isOpen ? '<i class="fas fa-chevron-down"></i> 폼 열기' : '<i class="fas fa-chevron-up"></i> 폼 닫기';
+}
+
+// JA 업체 등록
+function createJaShop(){
+  var name = (document.getElementById('ja-shop-name')||{}).value || '';
+  var cat  = (document.getElementById('ja-shop-cat')||{}).value  || 'clinic';
+  var area = (document.getElementById('ja-shop-area')||{}).value || 'gangnam';
+  var slug = (document.getElementById('ja-shop-slug')||{}).value || '';
+  var desc = (document.getElementById('ja-shop-desc')||{}).value || '';
+  var ig   = (document.getElementById('ja-shop-ig')||{}).value   || '';
+  var img  = (document.getElementById('ja-shop-img')||{}).value  || '';
+  var res  = document.getElementById('ja-shop-form-result');
+  if(!name || !slug){ if(res) res.innerHTML = '<span style="color:#f87171">❌ 업체명과 슬러그는 필수입니다</span>'; return; }
+  fetch('/api/ja/shops', {
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-admin-token':_GSK_TOKEN},
+    body:JSON.stringify({name:name,category:cat,area:area,slug:slug,description:desc,instagram_url:ig,cover_image:img,active:true})
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if(d.id){
+      if(res) res.innerHTML = '<span style="color:#34d399">✅ 등록 완료: '+name+'</span>';
+      ['ja-shop-name','ja-shop-slug','ja-shop-desc','ja-shop-ig','ja-shop-img'].forEach(function(id){ var el=document.getElementById(id); if(el) el.value=''; });
+      loadJaAll();
+    } else {
+      if(res) res.innerHTML = '<span style="color:#f87171">❌ 오류: '+(d.error||JSON.stringify(d))+'</span>';
+    }
+  }).catch(function(e){ if(res) res.innerHTML = '<span style="color:#f87171">❌ '+e.message+'</span>'; });
+}
+
+// JA 업체 삭제
+function deleteJaShop(id){
+  if(!confirm('JA 업체를 삭제하시겠습니까? (연결된 영상도 삭제됩니다)')) return;
+  fetch('/api/ja/shops/'+id,{method:'DELETE',headers:{'x-admin-token':_GSK_TOKEN}})
+    .then(function(){ loadJaAll(); })
+    .catch(function(e){ alert('삭제 실패: '+e.message); });
+}
+
+// JA 영상 삭제
+function deleteJaVideo(id){
+  if(!confirm('JA 영상을 삭제하시겠습니까?')) return;
+  fetch('/api/ja/videos/'+id,{method:'DELETE',headers:{'x-admin-token':_GSK_TOKEN}})
+    .then(function(){ loadJaAll(); })
+    .catch(function(e){ alert('삭제 실패: '+e.message); });
+}
+
+// ── JA 블로그 관련 ──
+
+// JA 블로그 목록 로드
+function loadJaBlogList(){
+  var _ah = {'x-admin-token': _GSK_TOKEN};
+  fetch('/api/ja/blogs', {headers:_ah}).then(function(r){ return r.json(); }).then(function(d){
+    jaBlogs = d.posts || d || [];
+    var countEl = document.getElementById('ja-blog-count');
+    if(countEl) countEl.textContent = '총 '+jaBlogs.length+'개';
+    renderJaBlogList();
+  }).catch(function(e){ console.error('[loadJaBlogList]', e); });
+}
+
+// JA 블로그 목록 렌더
+function renderJaBlogList(){
+  var el = document.getElementById('ja-blog-list');
+  if(!el) return;
+  if(!jaBlogs.length){ el.innerHTML = '<div style="padding:20px;text-align:center;color:rgba(255,255,255,.3)">등록된 JA 블로그 글이 없습니다</div>'; return; }
+  el.innerHTML = jaBlogs.map(function(p){
+    var statusColor = p.status==='published' ? 'rgba(52,211,153,.15);color:#34d399' : 'rgba(251,191,36,.15);color:#fbbf24';
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.05)">' +
+      '<div style="flex:1">' +
+        '<div style="font-size:13px;font-weight:600;color:#fff">'+(p.title||'제목 없음')+'</div>' +
+        '<div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:2px">' +
+          '<a href="/ja/blog/'+(p.slug||p.id)+'" target="_blank" style="color:#60a5fa;text-decoration:none">/ja/blog/'+p.slug+'</a>' +
+          ' · '+(p.category||'-')+' · '+(p.created_at?p.created_at.substring(0,10):'') +
+        '</div>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:6px;margin-left:10px">' +
+        '<span style="font-size:10px;padding:3px 8px;border-radius:20px;background:'+statusColor+'">'+(p.status||'draft')+'</span>' +
+        '<button onclick="deleteJaBlog(\''+p.id+'\')" style="padding:5px 10px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:6px;color:#f87171;font-size:11px;cursor:pointer">삭제</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+// JA 블로그 등록 폼 토글
+function toggleJaBlogForm(){
+  var f = document.getElementById('ja-blog-form');
+  var btn = document.getElementById('ja-blog-form-toggle');
+  if(!f) return;
+  var isOpen = f.style.display !== 'none';
+  f.style.display = isOpen ? 'none' : 'block';
+  if(btn) btn.innerHTML = isOpen ? '<i class="fas fa-chevron-down"></i> 폼 열기' : '<i class="fas fa-chevron-up"></i> 폼 닫기';
+}
+
+// JA 블로그 등록
+function createJaBlog(){
+  var title   = (document.getElementById('ja-blog-title')||{}).value   || '';
+  var slug    = (document.getElementById('ja-blog-slug')||{}).value    || '';
+  var cat     = (document.getElementById('ja-blog-cat')||{}).value     || 'guide';
+  var status  = (document.getElementById('ja-blog-status')||{}).value  || 'published';
+  var excerpt = (document.getElementById('ja-blog-excerpt')||{}).value || '';
+  var content = (document.getElementById('ja-blog-content')||{}).value || '';
+  var res     = document.getElementById('ja-blog-form-result');
+  if(!title || !slug){ if(res) res.innerHTML = '<span style="color:#f87171">❌ 제목과 슬러그는 필수입니다</span>'; return; }
+  fetch('/api/ja/blogs', {
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-admin-token':_GSK_TOKEN},
+    body:JSON.stringify({title:title,slug:slug,category:cat,status:status,excerpt:excerpt,content:content})
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if(d.id){
+      if(res) res.innerHTML = '<span style="color:#34d399">✅ 등록 완료: '+title+'</span>';
+      ['ja-blog-title','ja-blog-slug','ja-blog-excerpt','ja-blog-content'].forEach(function(id){ var el=document.getElementById(id); if(el) el.value=''; });
+      loadJaBlogList();
+    } else {
+      if(res) res.innerHTML = '<span style="color:#f87171">❌ 오류: '+(d.error||JSON.stringify(d))+'</span>';
+    }
+  }).catch(function(e){ if(res) res.innerHTML = '<span style="color:#f87171">❌ '+e.message+'</span>'; });
+}
+
+// JA 블로그 삭제
+function deleteJaBlog(id){
+  if(!confirm('JA 블로그 글을 삭제하시겠습니까?')) return;
+  fetch('/api/ja/blogs/'+id,{method:'DELETE',headers:{'x-admin-token':_GSK_TOKEN}})
+    .then(function(){ loadJaBlogList(); })
+    .catch(function(e){ alert('삭제 실패: '+e.message); });
 }
 
 </script>
