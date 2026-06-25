@@ -19338,6 +19338,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 </div>
 
 __INLINE_DATA_PLACEHOLDER__
+<!-- HLS.js: Cloudflare Stream m3u8 재생 지원 (Safari 제외 브라우저용) -->
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.8/dist/hls.min.js"></script>
 <script>
 // 언어 자동 리다이렉트 비활성화 (일본어판 개발 중)
 var vids = [], isMuted = true, liked = {}, platform = {}, allShopsData = [];
@@ -19736,11 +19738,28 @@ function getNetworkTier() {
   } catch(e) { return 'mid'; }
 }
 
+// ── isStreamUrl: Cloudflare Stream iframe URL 판별 ──
+function isStreamUrl(url) {
+  return url && (url.includes('videodelivery.net') || url.includes('cloudflarestream.com'));
+}
+
+// ── getStreamHlsUrl: iframe URL → HLS m3u8 URL 변환 ──
+// iframe.videodelivery.net/{id} → customer-8905c179.cloudflarestream.com/{id}/manifest/video.m3u8
+function getStreamHlsUrl(iframeUrl) {
+  var m = iframeUrl.match(/videodelivery\.net\/([a-f0-9]+)/);
+  if(m) return 'https://customer-8905c179.cloudflarestream.com/' + m[1] + '/manifest/video.m3u8';
+  var m2 = iframeUrl.match(/cloudflarestream\.com\/([a-f0-9]+)/);
+  if(m2) return 'https://customer-8905c179.cloudflarestream.com/' + m2[1] + '/manifest/video.m3u8';
+  return iframeUrl;
+}
+
 // ── cdnVideo: DB에 저장된 eager 변환 URL 사용 (on-the-fly 변환 완전 제거) ──
 // DB URL이 없는 기존 영상은 원본 URL 그대로 반환 (크래딧 소모 없음)
 // v 객체에 videoUrlLow/Mid/High가 있으면 네트워크 속도에 맞는 URL 반환
 function cdnVideo(url, isFirst, v) {
   if(!url) return url;
+  // Cloudflare Stream URL → HLS m3u8으로 변환
+  if(isStreamUrl(url)) return getStreamHlsUrl(url);
   // DB에 eager 변환 URL이 저장되어 있으면 네트워크 속도에 맞게 선택
   if(v && (v.videoUrlLow || v.videoUrlMid || v.videoUrlHigh)) {
     var tier = isFirst ? 'low' : getNetworkTier(); // 첫 영상은 항상 low (preload 최우선)
@@ -20039,10 +20058,33 @@ function buildSlide(v, idx) {
   })(v, idx, shop);
 }
 
+// ── HLS.js 초기화: m3u8 URL을 <video>에 연결 ──
+function attachHls(vid, hlsUrl) {
+  if(!vid || !hlsUrl) return;
+  if(vid.canPlayType('application/vnd.apple.mpegurl')) {
+    // Safari/iOS: 네이티브 HLS 지원
+    vid.src = hlsUrl;
+  } else if(window.Hls && window.Hls.isSupported()) {
+    var hls = new window.Hls({ startLevel: -1, autoStartLoad: true });
+    hls.loadSource(hlsUrl);
+    hls.attachMedia(vid);
+    vid._hls = hls;
+  } else {
+    // fallback: 직접 src 세팅 시도
+    vid.src = hlsUrl;
+  }
+}
+
 function loadVidSrc(vid){
-  if(vid && !vid.src && vid.dataset.src){
-    vid.preload = 'auto';
-    vid.src = vid.dataset.src;
+  if(!vid) return;
+  var src = vid.dataset.src || vid.src;
+  if(!src) return;
+  if(vid.src && vid.src === src) return; // 이미 로드됨
+  vid.preload = 'auto';
+  if(src.includes('.m3u8')) {
+    attachHls(vid, src);
+  } else if(!vid.src) {
+    vid.src = src;
   }
 }
 
@@ -20064,7 +20106,12 @@ function preloadNext(idx){
   // (CDN immutable 캐시 + Vercel HTML 캐시로 bandwidth 여유 충분)
   if(ni1 && !ni1.src && ni1.dataset.src){
     ni1.preload = 'metadata';
-    ni1.src = ni1.dataset.src;
+    var _ds1 = ni1.dataset.src;
+    if(_ds1.includes('.m3u8')) {
+      attachHls(ni1, _ds1);
+    } else {
+      ni1.src = _ds1;
+    }
     _preloadTimers.push(setTimeout(function(){
       if(ni1 && ni1.src && ni1.readyState < 3){
         ni1.preload = 'auto';

@@ -24956,6 +24956,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 </div>
 
 __INLINE_DATA_PLACEHOLDER__
+<!-- HLS.js: Cloudflare Stream m3u8 \uC7AC\uC0DD \uC9C0\uC6D0 (Safari \uC81C\uC678 \uBE0C\uB77C\uC6B0\uC800\uC6A9) -->
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.8/dist/hls.min.js"><\/script>
 <script>
 // \uC5B8\uC5B4 \uC790\uB3D9 \uB9AC\uB2E4\uC774\uB809\uD2B8 \uBE44\uD65C\uC131\uD654 (\uC77C\uBCF8\uC5B4\uD310 \uAC1C\uBC1C \uC911)
 var vids = [], isMuted = true, liked = {}, platform = {}, allShopsData = [];
@@ -25354,11 +25356,28 @@ function getNetworkTier() {
   } catch(e) { return 'mid'; }
 }
 
+// \u2500\u2500 isStreamUrl: Cloudflare Stream iframe URL \uD310\uBCC4 \u2500\u2500
+function isStreamUrl(url) {
+  return url && (url.includes('videodelivery.net') || url.includes('cloudflarestream.com'));
+}
+
+// \u2500\u2500 getStreamHlsUrl: iframe URL \u2192 HLS m3u8 URL \uBCC0\uD658 \u2500\u2500
+// iframe.videodelivery.net/{id} \u2192 customer-8905c179.cloudflarestream.com/{id}/manifest/video.m3u8
+function getStreamHlsUrl(iframeUrl) {
+  var m = iframeUrl.match(/videodelivery.net/([a-f0-9]+)/);
+  if(m) return 'https://customer-8905c179.cloudflarestream.com/' + m[1] + '/manifest/video.m3u8';
+  var m2 = iframeUrl.match(/cloudflarestream.com/([a-f0-9]+)/);
+  if(m2) return 'https://customer-8905c179.cloudflarestream.com/' + m2[1] + '/manifest/video.m3u8';
+  return iframeUrl;
+}
+
 // \u2500\u2500 cdnVideo: DB\uC5D0 \uC800\uC7A5\uB41C eager \uBCC0\uD658 URL \uC0AC\uC6A9 (on-the-fly \uBCC0\uD658 \uC644\uC804 \uC81C\uAC70) \u2500\u2500
 // DB URL\uC774 \uC5C6\uB294 \uAE30\uC874 \uC601\uC0C1\uC740 \uC6D0\uBCF8 URL \uADF8\uB300\uB85C \uBC18\uD658 (\uD06C\uB798\uB527 \uC18C\uBAA8 \uC5C6\uC74C)
 // v \uAC1D\uCCB4\uC5D0 videoUrlLow/Mid/High\uAC00 \uC788\uC73C\uBA74 \uB124\uD2B8\uC6CC\uD06C \uC18D\uB3C4\uC5D0 \uB9DE\uB294 URL \uBC18\uD658
 function cdnVideo(url, isFirst, v) {
   if(!url) return url;
+  // Cloudflare Stream URL \u2192 HLS m3u8\uC73C\uB85C \uBCC0\uD658
+  if(isStreamUrl(url)) return getStreamHlsUrl(url);
   // DB\uC5D0 eager \uBCC0\uD658 URL\uC774 \uC800\uC7A5\uB418\uC5B4 \uC788\uC73C\uBA74 \uB124\uD2B8\uC6CC\uD06C \uC18D\uB3C4\uC5D0 \uB9DE\uAC8C \uC120\uD0DD
   if(v && (v.videoUrlLow || v.videoUrlMid || v.videoUrlHigh)) {
     var tier = isFirst ? 'low' : getNetworkTier(); // \uCCAB \uC601\uC0C1\uC740 \uD56D\uC0C1 low (preload \uCD5C\uC6B0\uC120)
@@ -25657,10 +25676,33 @@ function buildSlide(v, idx) {
   })(v, idx, shop);
 }
 
+// \u2500\u2500 HLS.js \uCD08\uAE30\uD654: m3u8 URL\uC744 <video>\uC5D0 \uC5F0\uACB0 \u2500\u2500
+function attachHls(vid, hlsUrl) {
+  if(!vid || !hlsUrl) return;
+  if(vid.canPlayType('application/vnd.apple.mpegurl')) {
+    // Safari/iOS: \uB124\uC774\uD2F0\uBE0C HLS \uC9C0\uC6D0
+    vid.src = hlsUrl;
+  } else if(window.Hls && window.Hls.isSupported()) {
+    var hls = new window.Hls({ startLevel: -1, autoStartLoad: true });
+    hls.loadSource(hlsUrl);
+    hls.attachMedia(vid);
+    vid._hls = hls;
+  } else {
+    // fallback: \uC9C1\uC811 src \uC138\uD305 \uC2DC\uB3C4
+    vid.src = hlsUrl;
+  }
+}
+
 function loadVidSrc(vid){
-  if(vid && !vid.src && vid.dataset.src){
-    vid.preload = 'auto';
-    vid.src = vid.dataset.src;
+  if(!vid) return;
+  var src = vid.dataset.src || vid.src;
+  if(!src) return;
+  if(vid.src && vid.src === src) return; // \uC774\uBBF8 \uB85C\uB4DC\uB428
+  vid.preload = 'auto';
+  if(src.includes('.m3u8')) {
+    attachHls(vid, src);
+  } else if(!vid.src) {
+    vid.src = src;
   }
 }
 
@@ -25682,7 +25724,12 @@ function preloadNext(idx){
   // (CDN immutable \uCE90\uC2DC + Vercel HTML \uCE90\uC2DC\uB85C bandwidth \uC5EC\uC720 \uCDA9\uBD84)
   if(ni1 && !ni1.src && ni1.dataset.src){
     ni1.preload = 'metadata';
-    ni1.src = ni1.dataset.src;
+    var _ds1 = ni1.dataset.src;
+    if(_ds1.includes('.m3u8')) {
+      attachHls(ni1, _ds1);
+    } else {
+      ni1.src = _ds1;
+    }
     _preloadTimers.push(setTimeout(function(){
       if(ni1 && ni1.src && ni1.readyState < 3){
         ni1.preload = 'auto';
