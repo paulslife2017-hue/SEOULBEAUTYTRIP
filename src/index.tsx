@@ -805,21 +805,25 @@ async function initDb(env: any) {
 
     // videos_ja — 일본어판 영상 테이블 (EN videos와 완전 분리)
     await sql`CREATE TABLE IF NOT EXISTS videos_ja (
-      id TEXT PRIMARY KEY, shop_id TEXT REFERENCES shops_ja(id) ON DELETE CASCADE,
-      title TEXT, description TEXT, video_url TEXT, thumbnail TEXT,
-      tags JSONB DEFAULT '[]', views INTEGER DEFAULT 0,
-      likes INTEGER DEFAULT 0, created_at TEXT,
-      video_url_low TEXT DEFAULT '', video_url_mid TEXT DEFAULT '', video_url_high TEXT DEFAULT '',
+      id TEXT PRIMARY KEY,
+      shop_id TEXT,
+      title TEXT,
+      description TEXT,
+      video_url TEXT,
+      thumbnail TEXT,
+      tags TEXT DEFAULT '[]',
+      views INTEGER DEFAULT 0,
+      likes INTEGER DEFAULT 0,
+      created_at TEXT,
+      video_url_low TEXT DEFAULT '',
+      video_url_mid TEXT DEFAULT '',
+      video_url_high TEXT DEFAULT '',
       instagram_url TEXT DEFAULT ''
-    )\`
-    try { await sql\`ALTER TABLE videos_ja ADD COLUMN IF NOT EXISTS video_url_low TEXT DEFAULT ''\` } catch(e) {}
-    try { await sql\`ALTER TABLE videos_ja ADD COLUMN IF NOT EXISTS video_url_mid TEXT DEFAULT ''\` } catch(e) {}
-    try { await sql\`ALTER TABLE videos_ja ADD COLUMN IF NOT EXISTS video_url_high TEXT DEFAULT ''\` } catch(e) {}
-    try { await sql\`ALTER TABLE videos_ja ADD COLUMN IF NOT EXISTS instagram_url TEXT DEFAULT ''\` } catch(e) {}
-    try { await sql\`CREATE INDEX IF NOT EXISTS idx_vja_shop ON videos_ja(shop_id)\` } catch(e) {}
+    )`
+    try { await sql`CREATE INDEX IF NOT EXISTS idx_vja_shop ON videos_ja(shop_id)` } catch(e) {}
 
     // blog_posts_ja — 일본어판 블로그 테이블
-    await sql\`CREATE TABLE IF NOT EXISTS blog_posts_ja (
+    await sql`CREATE TABLE IF NOT EXISTS blog_posts_ja (
       id TEXT PRIMARY KEY,
       slug TEXT UNIQUE NOT NULL,
       title TEXT NOT NULL,
@@ -828,7 +832,7 @@ async function initDb(env: any) {
       excerpt TEXT DEFAULT '',
       category TEXT DEFAULT '',
       area TEXT DEFAULT '',
-      tags JSONB DEFAULT '[]',
+      tags TEXT DEFAULT '[]',
       cover_image TEXT DEFAULT '',
       status TEXT DEFAULT 'draft',
       views INTEGER DEFAULT 0,
@@ -837,7 +841,7 @@ async function initDb(env: any) {
       updated_at TEXT
     )`
 
-    // 샘플 데이터 삽입 (비어있을 때만)
+    // EN 샘플 데이터 삽입 (비어있을 때만)
     const cnt = await sql`SELECT COUNT(*) as c FROM shops`
     if (Number(cnt[0].c) === 0) {
       for (const s of shops) {
@@ -853,6 +857,129 @@ async function initDb(env: any) {
         await sql`INSERT INTO videos VALUES (
           ${v.id},${v.shopId},${v.title},${v.description},${v.videoUrl},
           ${v.thumbnail},${JSON.stringify(v.tags)},${v.views},${v.likes},${v.createdAt}
+        ) ON CONFLICT (id) DO NOTHING`
+      }
+    }
+
+    // ── JA 샘플 데이터 삽입 (shops_ja 비어있을 때만) ──
+    // EN 데이터와 완전히 분리된 독립 데이터셋
+    const cntJa = await sql`SELECT COUNT(*) as c FROM shops_ja`
+    if (Number(cntJa[0].c) === 0) {
+      const nowIso = new Date().toISOString()
+
+      // JA 샘플 업체 3개
+      const jaShopSamples = [
+        {
+          id: 'ja-s-001',
+          name: 'ビューティクリニック江南',
+          slug: 'beauty-clinic-gangnam-ja',
+          category: 'clinic',
+          location: 'Gangnam, Seoul',
+          address: '강남구 논현로, 서울',
+          description: '江南にある外国人向けの美容クリニックです。日本語スタッフが常駐しており、安心して施術が受けられます。ボトックス・ヒアルロン酸・肌管理など幅広いメニューを提供しています。',
+          thumbnail: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=800&q=80',
+          rating: 4.9, reviewCount: 128, active: true
+        },
+        {
+          id: 'ja-s-002',
+          name: '弘大ヘッドスパ専門店',
+          slug: 'headspa-hongdae-ja',
+          category: 'headspa',
+          location: 'Hongdae, Seoul',
+          address: '마포구 홍대, 서울',
+          description: '弘大の人気ヘッドスパ専門店。韓国式の本格的な頭皮ケアと頭皮マッサージが体験できます。日本語での予約・説明対応可能です。施術後は頭が軽く、すっきりとした感覚に。',
+          thumbnail: 'https://images.unsplash.com/photo-1560869713-7d0a29430803?w=800&q=80',
+          rating: 4.8, reviewCount: 95, active: true
+        },
+        {
+          id: 'ja-s-003',
+          name: '明洞ヘアサロン K-STYLE',
+          slug: 'hair-salon-myeongdong-ja',
+          category: 'hair',
+          location: 'Myeongdong, Seoul',
+          address: '중구 명동, 서울',
+          description: '明洞中心部にある韓国式ヘアサロン。K-POPアイドルスタイルや韓国パーマ、カラーリングが得意で、日本人観光客から大人気のサロンです。日本語スタッフが対応します。',
+          thumbnail: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=800&q=80',
+          rating: 4.7, reviewCount: 213, active: true
+        }
+      ]
+
+      for (const s of jaShopSamples) {
+        const emptyStr = ''
+        const emptyArr = JSON.stringify([])
+        const metaDesc = s.description.substring(0, 120)
+        await sql`INSERT INTO shops_ja (
+          id, name, slug, category, location, address,
+          google_map_url, google_map_embed,
+          price_range, hours, services, service_prices,
+          description, meta_description, seo_keywords, seo_text,
+          why_choose, rating, review_count, thumbnail, photos,
+          commission, active, created_at,
+          lat, lng, reviews, google_place_id, menu_items, editor_note, whatsapp
+        ) VALUES (
+          ${s.id}, ${s.name}, ${s.slug}, ${s.category}, ${s.location}, ${s.address},
+          ${emptyStr}, ${emptyStr},
+          ${emptyStr}, ${emptyStr}, ${emptyArr}, ${emptyArr},
+          ${s.description}, ${metaDesc}, ${emptyStr}, ${emptyStr},
+          ${emptyArr}, ${s.rating}, ${s.reviewCount}, ${s.thumbnail}, ${emptyArr},
+          ${15}, ${s.active}, ${nowIso},
+          ${emptyStr}, ${emptyStr}, ${emptyArr}, ${emptyStr}, ${emptyArr}, ${emptyStr}, ${emptyStr}
+        ) ON CONFLICT (id) DO NOTHING`
+      }
+
+      // JA 샘플 블로그 2개
+      const jaBlogSamples = [
+        {
+          id: 'ja-b-001',
+          slug: 'gangnam-skin-clinic-guide-japanese',
+          title: '【2026年版】江南の外国人向けスキンクリニック完全ガイド',
+          excerpt: '江南でおすすめのスキンクリニックを厳選して紹介。日本語対応・予約方法も詳しく解説します。',
+          content: `<h2>江南のスキンクリニックを選ぶポイント</h2>
+<p>ソウル・江南は韓国の美容医療の中心地です。外国人向けのクリニックも多く、日本語や英語での対応が可能なところも増えています。</p>
+<h2>おすすめのメニュー</h2>
+<ul>
+<li><strong>ボトックス注射</strong> — 日本の半額以下で受けられることも</li>
+<li><strong>ヒアルロン酸フィラー</strong> — 自然なボリュームアップ</li>
+<li><strong>肌管理（スキン管理）</strong> — 韓国独自のフェイシャルケア</li>
+<li><strong>レーザートーニング</strong> — シミ・くすみ改善</li>
+</ul>
+<h2>予約方法</h2>
+<p>Seoul Beauty Tripを通じてWhatsAppで日本語予約ができます。当日予約もOKです。</p>`,
+          category: 'clinic',
+          status: 'published'
+        },
+        {
+          id: 'ja-b-002',
+          slug: 'headspa-seoul-complete-guide',
+          title: 'ソウルのヘッドスパ完全ガイド — 弘大・江南のおすすめ店舗',
+          excerpt: 'ソウルで本場の韓国式ヘッドスパを体験！弘大・江南エリアのおすすめ店舗と予約方法を紹介します。',
+          content: `<h2>韓国式ヘッドスパとは？</h2>
+<p>韓国式ヘッドスパは、頭皮の汚れ・皮脂を徹底的に除去し、頭皮環境を整える本格的なケアです。抜け毛や頭皮のかゆみに悩む方にも人気です。</p>
+<h2>弘大エリアのヘッドスパ</h2>
+<p>弘大（ホンデ）は若者の街として有名ですが、リーズナブルなヘッドスパ専門店が集まるエリアでもあります。</p>
+<h2>江南エリアのヘッドスパ</h2>
+<p>江南はやや高級志向のヘッドスパが多く、プレミアムな体験ができます。施術時間も長め（90〜120分）が一般的です。</p>
+<h2>料金目安</h2>
+<ul>
+<li>60分コース: 40,000〜60,000ウォン</li>
+<li>90分コース: 70,000〜100,000ウォン</li>
+<li>プレミアム120分: 120,000ウォン〜</li>
+</ul>`,
+          category: 'headspa',
+          status: 'published'
+        }
+      ]
+
+      for (const b of jaBlogSamples) {
+        await sql`INSERT INTO blog_posts_ja (
+          id, slug, title, meta_description, content, excerpt,
+          category, area, tags, cover_image, status, views,
+          shop_id, created_at, updated_at
+        ) VALUES (
+          ${b.id}, ${b.slug}, ${b.title}, ${b.excerpt}, ${b.content}, ${b.excerpt},
+          ${b.category}, ${'gangnam' as string}, ${JSON.stringify([b.category,'seoul','japan'])}, ${'' as string},
+          ${b.status}, ${0},
+          ${null as any}, ${nowIso}, ${nowIso}
         ) ON CONFLICT (id) DO NOTHING`
       }
     }
