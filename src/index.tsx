@@ -15760,15 +15760,18 @@ function _safeTitle(prefix: string, q: string, suffix: string): string {
 }
 
 // 타이틀을 65자 이하로 트리밍 (단어 단위 끊기, 의미 손상 최소화)
-function _trimTitle(title: string, maxLen = 65): string {
+// _trimTitle: title 단독 기준 45자로 제한 (title + ' | Seoul Beauty Trip' = 최대 65자)
+// Google 검색결과 title 최대 = 65자 (픽셀 기준 ~580px)
+// suffix ' | Seoul Beauty Trip' = 20자이므로 title 단독 최대 = 45자
+function _trimTitle(title: string, maxLen = 45): string {
   if (title.length <= maxLen) return title
   // 대시 앞쪽 우선 시도
   const dashIdx = title.lastIndexOf(' — ', maxLen)
-  if (dashIdx > 30) return title.substring(0, dashIdx)
+  if (dashIdx > 20) return title.substring(0, dashIdx)
   const colonIdx = title.lastIndexOf(': ', maxLen)
-  if (colonIdx > 30) return title.substring(0, colonIdx)
+  if (colonIdx > 20) return title.substring(0, colonIdx)
   const spIdx = title.lastIndexOf(' ', maxLen)
-  if (spIdx > 20) return title.substring(0, spIdx)
+  if (spIdx > 15) return title.substring(0, spIdx)
   return title.substring(0, maxLen)
 }
 
@@ -16753,16 +16756,16 @@ app.post('/api/admin/fix-blog-titles', async (c) => {
       return match
     })
 
-    // 5. 타이틀 65자 초과 시 트리밍 (단어 단위, 의미 최대 보존)
-    if (fixed.length > 65) {
-      // 60자까지 자를 때 대시/콜론 기준 우선
-      const dashIdx = fixed.lastIndexOf(' — ', 62)
-      const colonIdx = fixed.lastIndexOf(': ', 62)
-      const spIdx = fixed.lastIndexOf(' ', 62)
-      if (dashIdx > 30) fixed = fixed.substring(0, dashIdx)
-      else if (colonIdx > 30) fixed = fixed.substring(0, colonIdx)
-      else if (spIdx > 25) fixed = fixed.substring(0, spIdx)
-      else fixed = fixed.substring(0, 62)
+    // 5. title 단독 45자 초과 시 트리밍
+    //    (title + ' | Seoul Beauty Trip'(20자) = 최대 65자 목표)
+    if (fixed.length > 45) {
+      const dashIdx = fixed.lastIndexOf(' — ', 45)
+      const colonIdx = fixed.lastIndexOf(': ', 45)
+      const spIdx = fixed.lastIndexOf(' ', 45)
+      if (dashIdx > 20) fixed = fixed.substring(0, dashIdx)
+      else if (colonIdx > 20) fixed = fixed.substring(0, colonIdx)
+      else if (spIdx > 15) fixed = fixed.substring(0, spIdx)
+      else fixed = fixed.substring(0, 45)
     }
 
     // 변경된 경우만 기록
