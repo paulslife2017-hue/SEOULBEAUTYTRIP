@@ -2289,6 +2289,32 @@ app.post("/admin-login", async (c) => {
     return c.json({ error: "Bad Request" }, 400);
   }
 });
+var INDEXNOW_KEY = "sbt2025indexnow8f4a2c7e9b1d6e3f5";
+app.get("/sbt2025indexnow8f4a2c7e9b1d6e3f5.txt", (c) => {
+  return c.text(INDEXNOW_KEY, 200, { "Content-Type": "text/plain; charset=utf-8" });
+});
+async function pingIndexNow(urls) {
+  if (!urls.length) return;
+  const body = JSON.stringify({
+    host: "seoulbeautytrip.com",
+    key: INDEXNOW_KEY,
+    keyLocation: `https://seoulbeautytrip.com/${INDEXNOW_KEY}.txt`,
+    urlList: urls
+  });
+  const opts = {
+    method: "POST",
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+    body
+  };
+  try {
+    await Promise.allSettled([
+      fetch("https://api.indexnow.org/indexnow", opts),
+      fetch("https://www.bing.com/indexnow", opts),
+      fetch("https://searchadvisor.naver.com/indexnow", opts)
+    ]);
+  } catch {
+  }
+}
 app.get("/robots.txt", (c) => {
   const robotsTxt = `# robots.txt for SEOUL BEAUTY TRIP
 # GEO (Generative Engine Optimization): AI search engines allowed to index & cite
@@ -2398,6 +2424,9 @@ Sitemap: https://seoulbeautytrip.com/sitemap.xml
 
 # LLM/AI citation guide (GEO)
 LLMs: https://seoulbeautytrip.com/llms.txt
+
+# IndexNow key (Bing/Naver real-time indexing)
+IndexNow: https://seoulbeautytrip.com/sbt2025indexnow8f4a2c7e9b1d6e3f5.txt
 `;
   return c.text(robotsTxt, 200, { "Content-Type": "text/plain; charset=utf-8" });
 });
@@ -3840,6 +3869,11 @@ app.post("/api/shops", async (c) => {
     ${JSON.stringify(_insertReviews)}::jsonb,
     ${_insertSummary ? JSON.stringify(_insertSummary) : null}::jsonb
   ) ON CONFLICT DO NOTHING`;
+    const _newSlug = slug;
+    pingIndexNow([
+      `https://seoulbeautytrip.com/shop/${_newSlug}`,
+      `https://seoulbeautytrip.com/`
+    ]);
     return c.json({ ok: true, id: newId, seoGenerated: !body.description, summarized: !!_insertSummary });
   } catch (e) {
     return c.json({ error: "db_error", message: e?.message || "unknown" }, 500);
@@ -7156,8 +7190,8 @@ app.get("/ja/blog/:slug", async (c) => {
     "datePublished": post.created_at,
     "dateModified": post.updated_at || post.created_at,
     "author": [
-      { "@type": "Person", "name": "Seoul Beauty Trip Editorial Team", "url": "https://seoulbeautytrip.com/about", "jobTitle": "K-Beauty Travel Editor", "worksFor": { "@type": "Organization", "name": "Seoul Beauty Trip" } },
-      { "@type": "Organization", "name": "Seoul Beauty Trip", "url": base }
+      { "@type": "Person", "@id": "https://seoulbeautytrip.com/about#editorial-team", "name": "Seoul Beauty Trip Editorial Team", "url": "https://seoulbeautytrip.com/about", "jobTitle": "K-Beauty Travel Editor", "knowsAbout": ["Korean skincare", "Seoul beauty salons", "K-beauty treatments", "Head spa Seoul", "Gangnam skin clinics"], "sameAs": ["https://www.instagram.com/seoulbeautytrip/"], "worksFor": { "@type": "Organization", "@id": "https://seoulbeautytrip.com/#organization", "name": "Seoul Beauty Trip" } },
+      { "@type": "Organization", "@id": "https://seoulbeautytrip.com/#organization", "name": "Seoul Beauty Trip", "url": base }
     ],
     "publisher": { "@type": "Organization", "name": "Seoul Beauty Trip", "url": base, "logo": { "@type": "ImageObject", "url": "https://seoulbeautytrip.com/og-cover.jpg", "width": 1200, "height": 630 } },
     "keywords": [.../* @__PURE__ */ new Set([...tags, cat, "Seoul", "foreigners", "K-beauty", post.category || cat])].filter(Boolean).join(", "),
@@ -13351,8 +13385,8 @@ app.get("/blog/:slug", async (c) => {
     "datePublished": post.created_at,
     "dateModified": post.updated_at || post.created_at,
     "author": [
-      { "@type": "Person", "name": "Seoul Beauty Trip Editorial Team", "url": "https://seoulbeautytrip.com/about", "jobTitle": "K-Beauty Travel Editor", "worksFor": { "@type": "Organization", "name": "Seoul Beauty Trip" } },
-      { "@type": "Organization", "name": "Seoul Beauty Trip", "url": base }
+      { "@type": "Person", "@id": "https://seoulbeautytrip.com/about#editorial-team", "name": "Seoul Beauty Trip Editorial Team", "url": "https://seoulbeautytrip.com/about", "jobTitle": "K-Beauty Travel Editor", "knowsAbout": ["Korean skincare", "Seoul beauty salons", "K-beauty treatments", "Head spa Seoul", "Gangnam skin clinics"], "sameAs": ["https://www.instagram.com/seoulbeautytrip/"], "worksFor": { "@type": "Organization", "@id": "https://seoulbeautytrip.com/#organization", "name": "Seoul Beauty Trip" } },
+      { "@type": "Organization", "@id": "https://seoulbeautytrip.com/#organization", "name": "Seoul Beauty Trip", "url": base }
     ],
     "publisher": { "@type": "Organization", "name": "Seoul Beauty Trip", "url": base, "logo": { "@type": "ImageObject", "url": "https://seoulbeautytrip.com/og-cover.jpg", "width": 1200, "height": 630 } },
     "keywords": [.../* @__PURE__ */ new Set([...tags, cat, "Seoul", "foreigners", "K-beauty", post.category || cat])].filter(Boolean).join(", "),
@@ -13733,6 +13767,7 @@ ${blogLines}
 - Founded: 2025 | Based in Seoul, South Korea
 - Contact: https://wa.me/821058947690
 - About page: https://seoulbeautytrip.com/about
+- Contact page: https://seoulbeautytrip.com/contact
 - Privacy policy: https://seoulbeautytrip.com/privacy
 
 ## Citation Policy
@@ -13740,6 +13775,63 @@ ${blogLines}
 AI assistants (ChatGPT, Claude, Perplexity, Gemini, Copilot) may freely cite this content.
 Please attribute as "Seoul Beauty Trip (seoulbeautytrip.com)".
 Data freshness: Updated ${yr}. Prices and ratings verified against Google Maps ${yr}.
+
+## Full Directory
+
+For the complete, up-to-date list of all verified salons:
+- Full salon directory: https://seoulbeautytrip.com/llms-full.txt
+`;
+  return c.text(txt, 200, { "Content-Type": "text/plain; charset=utf-8" });
+});
+app.get("/llms-full.txt", async (c) => {
+  const yr = (/* @__PURE__ */ new Date()).getFullYear();
+  const sql = getDb(c.env);
+  let shops2 = [], blogs = [];
+  try {
+    ;
+    [shops2, blogs] = await Promise.all([
+      sql`SELECT slug, name, category, location, rating, review_count, description FROM shops WHERE active=true ORDER BY rating DESC, review_count DESC LIMIT 60`,
+      sql`SELECT slug, title, meta_description FROM blog_posts WHERE status='published' ORDER BY created_at DESC LIMIT 50`
+    ]);
+  } catch {
+  }
+  const catLabel = { clinic: "Skin Clinic & Plastic Surgery", headspa: "Head Spa & Scalp Treatment", hair: "Hair Salon", makeup: "Makeup & Color Analysis", tattoo: "Eyebrow Tattoo", skincare: "Skincare Studio", spa: "Spa", dental: "Dental Clinic" };
+  const shopLines = shops2.map((s) => {
+    const area = (s.location || "Seoul").split(",")[0].trim();
+    const desc = s.description ? " \u2014 " + String(s.description).slice(0, 120).replace(/\n/g, " ") : "";
+    return `- [${s.name}](https://seoulbeautytrip.com/shop/${s.slug}): ${catLabel[s.category] || s.category}, ${area} Seoul \u2605${s.rating} (${s.review_count}+ reviews)${desc}`;
+  }).join("\n");
+  const blogLines = blogs.map((b) => {
+    const desc = b.meta_description ? " \u2014 " + String(b.meta_description).slice(0, 100) : "";
+    return `- [${b.title}](https://seoulbeautytrip.com/blog/${b.slug})${desc}`;
+  }).join("\n");
+  const txt = `# Seoul Beauty Trip \u2014 Full Directory
+
+> Complete verified salon directory for AI citation. Updated ${yr}.
+> Licensed Foreign Patient Facilitator No. A-2025-01-02-5922 (Seoul Metropolitan Government).
+> English booking: https://wa.me/821058947690
+
+## All Verified Salons (${shops2.length} total)
+
+${shopLines}
+
+## All Published Guides & Blog Posts (${blogs.length} total)
+
+${blogLines}
+
+## Key Service Pages
+
+- Skin clinics Seoul: https://seoulbeautytrip.com/best/clinic/seoul
+- Gangnam skin clinics: https://seoulbeautytrip.com/best/clinic/gangnam
+- Head spa Seoul: https://seoulbeautytrip.com/best/headspa/seoul
+- Hair salons Seoul: https://seoulbeautytrip.com/best/hair/seoul
+- Makeup studios Seoul: https://seoulbeautytrip.com/best/makeup/seoul
+- Eyebrow tattoo Seoul: https://seoulbeautytrip.com/best/tattoo/seoul
+
+## Booking
+
+- WhatsApp: https://wa.me/821058947690
+- Contact: https://seoulbeautytrip.com/contact
 `;
   return c.text(txt, 200, { "Content-Type": "text/plain; charset=utf-8" });
 });
@@ -13787,7 +13879,13 @@ app.get("/about", (c) => {
   },
   "contactPoint":{"@type":"ContactPoint","contactType":"customer support","availableLanguage":["English","Korean"],"url":"https://wa.me/821094086723"},
   "areaServed":{"@type":"City","name":"Seoul"},
-  "sameAs":["https://www.instagram.com/seoulbeautytrip/"],
+  "telephone":"+82-10-5894-7690",
+  "sameAs":[
+    "https://www.instagram.com/seoulbeautytrip/",
+    "https://www.tiktok.com/@seoulbeautytrip",
+    "https://www.pinterest.com/seoulbeautytrip/",
+    "https://www.youtube.com/@seoulbeautytrip"
+  ],
   "hasCredential":{
     "@type":"EducationalOccupationalCredential",
     "name":"Foreign Patient Facilitator Registration",
@@ -13797,6 +13895,19 @@ app.get("/about", (c) => {
     "validFrom":"2025-03-24",
     "validUntil":"2028-03-23"
   }
+},
+{
+  "@context":"https://schema.org",
+  "@type":"AboutPage",
+  "@id":"https://seoulbeautytrip.com/about#aboutpage",
+  "url":"https://seoulbeautytrip.com/about",
+  "name":"About Seoul Beauty Trip \u2014 Licensed K-Beauty Facilitator",
+  "isPartOf":{"@type":"WebSite","@id":"https://seoulbeautytrip.com/#website","url":"https://seoulbeautytrip.com/"},
+  "about":{"@type":"Organization","@id":"https://seoulbeautytrip.com/#organization"},
+  "description":"Seoul Beauty Trip is a government-licensed foreign patient facilitator (Reg. A-2025-01-02-5922) helping foreign visitors book Seoul beauty services in English.",
+  "inLanguage":"en",
+  "datePublished":"2025-03-24",
+  "dateModified":"2026-06-01"
 },
 {
   "@context":"https://schema.org",
@@ -13989,6 +14100,176 @@ footer a{color:#FF4D8D;text-decoration:none}
 </body>
 </html>`);
 });
+app.get("/contact", (c) => {
+  const yr = (/* @__PURE__ */ new Date()).getFullYear();
+  const _ogImg = "https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg";
+  const schema = JSON.stringify([
+    {
+      "@context": "https://schema.org",
+      "@type": "ContactPage",
+      "@id": "https://seoulbeautytrip.com/contact#contactpage",
+      "url": "https://seoulbeautytrip.com/contact",
+      "name": "Contact Seoul Beauty Trip \u2014 English Booking & Support",
+      "isPartOf": { "@type": "WebSite", "@id": "https://seoulbeautytrip.com/#website", "url": "https://seoulbeautytrip.com/" },
+      "about": { "@type": "Organization", "@id": "https://seoulbeautytrip.com/#organization" },
+      "description": "Contact Seoul Beauty Trip for English booking support, salon recommendations, or any questions about K-beauty services in Seoul. Available via WhatsApp 7 days a week.",
+      "inLanguage": "en",
+      "datePublished": "2025-03-24",
+      "dateModified": "2026-06-01"
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "@id": "https://seoulbeautytrip.com/#organization",
+      "name": "Seoul Beauty Trip",
+      "url": "https://seoulbeautytrip.com",
+      "telephone": "+82-10-5894-7690",
+      "email": "hello@seoulbeautytrip.com",
+      "contactPoint": [
+        { "@type": "ContactPoint", "contactType": "customer support", "availableLanguage": ["English", "Korean"], "url": "https://wa.me/821058947690" },
+        { "@type": "ContactPoint", "contactType": "booking", "availableLanguage": ["English"], "url": "https://wa.me/821058947690" }
+      ],
+      "address": { "@type": "PostalAddress", "addressLocality": "Seoul", "addressCountry": "KR" },
+      "sameAs": ["https://www.instagram.com/seoulbeautytrip/", "https://www.tiktok.com/@seoulbeautytrip"]
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://seoulbeautytrip.com/" },
+        { "@type": "ListItem", "position": 2, "name": "Contact", "item": "https://seoulbeautytrip.com/contact" }
+      ]
+    }
+  ]);
+  return c.html(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Contact Seoul Beauty Trip \u2014 English Booking & Beauty Support</title>
+<meta name="description" content="Contact Seoul Beauty Trip for English booking assistance, salon recommendations, and K-beauty queries. WhatsApp support 7 days a week. No Korean needed.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://seoulbeautytrip.com/contact">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Contact Seoul Beauty Trip \u2014 English Beauty Booking in Seoul">
+<meta property="og:description" content="Reach us via WhatsApp for English booking support, salon recommendations, or any K-beauty questions. We reply within 24 hours.">
+<meta property="og:url" content="https://seoulbeautytrip.com/contact">
+<meta property="og:site_name" content="Seoul Beauty Trip">
+<meta property="og:image" content="${_ogImg}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Contact Seoul Beauty Trip">
+<meta name="twitter:description" content="WhatsApp booking support for Seoul beauty services. English spoken. No Korean needed.">
+<meta name="twitter:image" content="${_ogImg}">
+<script type="application/ld+json">${schema}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--pk:#E8417A;--pk2:#FF6B9D;--gold:#C9A84C;--bg:#08080E;--bg2:#0F0F1A;--ff:'Inter',sans-serif}
+body{background:var(--bg);color:#fff;font-family:var(--ff);min-height:100vh}
+.nav{background:rgba(8,8,14,.95);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.07);padding:14px 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100}
+.nav a{color:rgba(255,255,255,.7);text-decoration:none;font-size:13px;transition:color .2s}
+.nav a:hover{color:#fff}
+.nav .logo{font-size:15px;font-weight:800;background:linear-gradient(135deg,#fff,var(--pk2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-right:auto}
+.hero{padding:56px 20px 40px;text-align:center;max-width:600px;margin:0 auto}
+.hero h1{font-size:clamp(1.6rem,5vw,2.4rem);font-weight:800;line-height:1.2;margin-bottom:12px;background:linear-gradient(135deg,#fff 0%,var(--pk2) 60%,var(--gold) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero p{font-size:15px;color:rgba(255,255,255,.6);line-height:1.7}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;max-width:860px;margin:32px auto;padding:0 20px}
+.card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:24px;transition:border-color .2s,transform .2s}
+.card:hover{border-color:rgba(232,65,122,.35);transform:translateY(-2px)}
+.card-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:16px;font-size:20px}
+.card-icon.wa{background:linear-gradient(135deg,rgba(37,211,102,.2),rgba(37,211,102,.08))}
+.card-icon.ig{background:linear-gradient(135deg,rgba(232,65,122,.2),rgba(232,65,122,.08))}
+.card-icon.tt{background:linear-gradient(135deg,rgba(255,255,255,.1),rgba(255,255,255,.04))}
+.card h3{font-size:15px;font-weight:700;margin-bottom:6px}
+.card p{font-size:13px;color:rgba(255,255,255,.55);line-height:1.6;margin-bottom:14px}
+.card a.btn{display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:600;text-decoration:none;transition:opacity .2s}
+.card a.btn:hover{opacity:.85}
+.btn-wa{background:linear-gradient(135deg,#25d366,#128c7e);color:#fff}
+.btn-ig{background:linear-gradient(135deg,var(--pk),#c13584);color:#fff}
+.btn-tt{background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.15)}
+.faq-section{max-width:720px;margin:0 auto 56px;padding:0 20px}
+.faq-section h2{font-size:1.3rem;font-weight:700;margin-bottom:20px;color:rgba(255,255,255,.9)}
+.faq-item{border-bottom:1px solid rgba(255,255,255,.07);padding:18px 0}
+.faq-item:last-child{border-bottom:none}
+.faq-q{font-size:14px;font-weight:600;margin-bottom:8px;color:#fff}
+.faq-a{font-size:13px;color:rgba(255,255,255,.6);line-height:1.7}
+footer{text-align:center;padding:24px 20px;border-top:1px solid rgba(255,255,255,.07);font-size:12px;color:rgba(255,255,255,.3)}
+footer a{color:rgba(255,255,255,.4);text-decoration:none}
+footer a:hover{color:rgba(255,255,255,.7)}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a href="/" class="logo">Seoul Beauty Trip</a>
+  <a href="/about">About</a>
+  <a href="/blog">Blog</a>
+  <a href="/guide">Guides</a>
+</nav>
+
+<section class="hero">
+  <h1>Get in Touch</h1>
+  <p>Our English-speaking team is here to help you book the best Korean beauty experience in Seoul. Reach us via WhatsApp, Instagram, or TikTok \u2014 we reply within 24 hours.</p>
+</section>
+
+<div class="cards">
+  <div class="card">
+    <div class="card-icon wa"><i class="fab fa-whatsapp" style="color:#25d366"></i></div>
+    <h3>WhatsApp (Recommended)</h3>
+    <p>Fastest response. Book appointments, ask for recommendations, or get answers about any K-beauty treatment \u2014 all in English.</p>
+    <a href="https://wa.me/821058947690" target="_blank" rel="noopener" class="btn btn-wa"><i class="fab fa-whatsapp"></i> Message on WhatsApp</a>
+  </div>
+  <div class="card">
+    <div class="card-icon ig"><i class="fab fa-instagram" style="color:var(--pk2)"></i></div>
+    <h3>Instagram DM</h3>
+    <p>Follow us for K-beauty inspiration and DM us with your questions. We post daily about Seoul beauty tips, deals, and new salons.</p>
+    <a href="https://www.instagram.com/seoulbeautytrip/" target="_blank" rel="noopener" class="btn btn-ig"><i class="fab fa-instagram"></i> Instagram DM</a>
+  </div>
+  <div class="card">
+    <div class="card-icon tt"><i class="fab fa-tiktok" style="color:#fff"></i></div>
+    <h3>TikTok</h3>
+    <p>Watch our Seoul beauty content and reach out via TikTok comment or DM. We feature real salon visits and honest before/after results.</p>
+    <a href="https://www.tiktok.com/@seoulbeautytrip" target="_blank" rel="noopener" class="btn btn-tt"><i class="fab fa-tiktok"></i> TikTok</a>
+  </div>
+</div>
+
+<section class="faq-section">
+  <h2>Common Questions</h2>
+  <div class="faq-item">
+    <div class="faq-q">How quickly do you respond?</div>
+    <div class="faq-a">We typically reply within 2\u20134 hours on WhatsApp during Seoul business hours (9am\u20139pm KST, 7 days a week). Instagram DMs are checked daily.</div>
+  </div>
+  <div class="faq-item">
+    <div class="faq-q">Is there a booking fee?</div>
+    <div class="faq-a">No booking fee. Seoul Beauty Trip earns a small commission from partner salons \u2014 you pay the same price as walk-in local customers. Transparent pricing, always.</div>
+  </div>
+  <div class="faq-item">
+    <div class="faq-q">Can you recommend a salon for my specific concern?</div>
+    <div class="faq-a">Absolutely. Tell us your skin concern, hair goal, or beauty treatment interest via WhatsApp and we'll recommend the best-fit salon in Seoul with verified reviews and English support.</div>
+  </div>
+  <div class="faq-item">
+    <div class="faq-q">Do you handle same-day bookings?</div>
+    <div class="faq-a">Yes \u2014 same-day bookings are often available, especially for hair salons and head spas. Skin clinics and dermatology treatments typically require 1\u20132 days advance notice.</div>
+  </div>
+  <div class="faq-item">
+    <div class="faq-q">What languages do you support?</div>
+    <div class="faq-a">Our booking support is primarily in English. We can also assist in Korean and Japanese.</div>
+  </div>
+</section>
+
+<footer>
+  \xA9 ${yr} <a href="/">Seoul Beauty Trip</a> &nbsp;|&nbsp;
+  <a href="/about">About</a> &nbsp;|&nbsp;
+  <a href="/privacy">Privacy</a> &nbsp;|&nbsp;
+  <a href="/blog">Blog</a> &nbsp;|&nbsp;
+  <a href="/guide">Guides</a>
+</footer>
+</body>
+</html>`);
+});
 app.get("/privacy", (c) => {
   const yr = (/* @__PURE__ */ new Date()).getFullYear();
   const updated = "2026-01-01";
@@ -14109,25 +14390,66 @@ app.get("/guide", (c) => {
   const base = "https://seoulbeautytrip.com";
   const yr = (/* @__PURE__ */ new Date()).getFullYear();
   const guides = [
-    { slug: "seoul-beauty-trip-itinerary", title: `Seoul Beauty Itinerary ${yr}: The Perfect 5-Day K-Beauty Schedule`, desc: "Plan the ultimate Seoul beauty trip: head spa, skin clinic, hair salon & more \u2014 day-by-day itinerary for foreign visitors.", icon: "\u{1F5D3}\uFE0F", tags: ["itinerary", "planning", "k-beauty"] },
-    { slug: "k-beauty-treatment-guide", title: `K-Beauty Treatment Guide for Foreigners: What to Book in Seoul ${yr}`, desc: "Complete guide to every K-beauty treatment available in Seoul \u2014 what it is, what it costs, how to book, and which areas are best.", icon: "\u{1F486}", tags: ["k-beauty", "treatments", "guide"] },
-    { slug: "seoul-beauty-faq", title: `Seoul Beauty FAQ: 30 Questions Foreigners Ask About Korean Beauty ${yr}`, desc: "Everything foreign travelers want to know about booking beauty services in Seoul \u2014 answered clearly with prices, tips, and booking advice.", icon: "\u2753", tags: ["faq", "tips", "foreigners"] }
+    { slug: "seoul-beauty-trip-itinerary", title: `Seoul Beauty Itinerary ${yr}: The Perfect 5-Day K-Beauty Schedule`, desc: "Plan the ultimate Seoul beauty trip: head spa, skin clinic, hair salon & more \u2014 day-by-day itinerary for foreign visitors.", icon: "\u{1F5D3}\uFE0F", tags: ["itinerary", "planning", "k-beauty"], cat: "Planning" },
+    { slug: "k-beauty-treatment-guide", title: `K-Beauty Treatment Guide for Foreigners: What to Book in Seoul ${yr}`, desc: "Complete guide to every K-beauty treatment available in Seoul \u2014 what it is, what it costs, how to book, and which areas are best.", icon: "\u{1F486}", tags: ["k-beauty", "treatments", "guide"], cat: "Planning" },
+    { slug: "seoul-beauty-faq", title: `Seoul Beauty FAQ: 30 Questions Foreigners Ask About Korean Beauty ${yr}`, desc: "Everything foreign travelers want to know about booking beauty services in Seoul \u2014 answered clearly with prices, tips, and booking advice.", icon: "\u2753", tags: ["faq", "tips", "foreigners"], cat: "Planning" },
+    { slug: "shurink-hifu-seoul-price", title: `Shurink HIFU in Seoul \u2014 ${yr} Price Guide`, desc: "Complete guide to Shurink and HIFU ultrasound lifting in Seoul: how it works, realistic costs, and top clinics for foreigners.", icon: "\u2728", tags: ["HIFU", "lifting", "skin"], cat: "Skin Clinic" },
+    { slug: "rejuran-healer-korea-guide", title: `Rejuran Healer in Korea \u2014 Complete ${yr} Guide`, desc: "Everything about Rejuran Healer (PDRN skin booster) in Korea: what it is, realistic results, and current prices at Seoul clinics.", icon: "\u{1F489}", tags: ["rejuran", "PDRN", "skin booster"], cat: "Skin Clinic" },
+    { slug: "exosome-skin-treatment-seoul", title: `Exosome Skin Treatment in Seoul \u2014 ${yr} Guide`, desc: "Exosome skin therapy in Seoul: what it is, how it compares to Rejuran and PRP, prices at Gangnam clinics, and who it is best for.", icon: "\u{1F52C}", tags: ["exosome", "skin repair", "Gangnam"], cat: "Skin Clinic" },
+    { slug: "thermage-flx-korea-cost", title: `Thermage FLX in Korea \u2014 ${yr} Cost Guide`, desc: "Thermage FLX in Korea: is it worth it? Seoul prices, how it compares to HIFU, top Gangnam clinics, and tips for foreigners.", icon: "\u{1F525}", tags: ["Thermage", "skin tightening", "RF"], cat: "Skin Clinic" },
+    { slug: "botox-jaw-slimming-seoul", title: `Botox Jaw Slimming in Seoul \u2014 ${yr} Guide & Prices`, desc: "Botox masseter jaw slimming in Seoul: prices, how it works, realistic results, and the best Gangnam clinics for foreigners.", icon: "\u{1F48A}", tags: ["botox", "jaw slimming", "V-line"], cat: "Skin Clinic" },
+    { slug: "double-eyelid-surgery-korea-foreigners", title: `Double Eyelid Surgery in Korea for Foreigners \u2014 ${yr} Guide`, desc: "Double eyelid surgery in Korea: guide for foreigners covering non-incisional vs incisional methods, costs, and recovery tips.", icon: "\u{1F441}\uFE0F", tags: ["eyelid surgery", "plastic surgery", "Gangnam"], cat: "Surgery" },
+    { slug: "rhinoplasty-korea-cost-guide", title: `Rhinoplasty in Korea \u2014 ${yr} Cost Guide for Foreigners`, desc: "Rhinoplasty (nose job) in Korea: complete cost guide, types of nose surgery, Gangnam clinic recommendations, and recovery.", icon: "\u{1F443}", tags: ["rhinoplasty", "nose job", "Korea"], cat: "Surgery" },
+    { slug: "skin-booster-comparison-juvelook-rejuran", title: `Juvelook vs Rejuran \u2014 ${yr} Skin Booster Comparison`, desc: "Juvelook vs Rejuran: a clear side-by-side comparison of Korea's two most popular skin boosters \u2014 ingredients, results, and costs.", icon: "\u2697\uFE0F", tags: ["Juvelook", "Rejuran", "skin booster"], cat: "Skin Clinic" },
+    { slug: "laser-toning-pico-laser-korea", title: `Pico Laser & Laser Toning in Korea \u2014 ${yr} Guide`, desc: "Pico laser and laser toning in Seoul: what each treats, price comparison, top Gangnam dermatology clinics, and booking tips.", icon: "\u{1F4AB}", tags: ["pico laser", "laser toning", "pigmentation"], cat: "Skin Clinic" },
+    { slug: "thread-lift-korea-foreigner-guide", title: `Thread Lift in Korea \u2014 ${yr} Foreigner Guide & Prices`, desc: "Thread lift (PDO/PLLA) in Korea: price guide, how it works, realistic longevity, top Gangnam clinics for foreigners.", icon: "\u{1FAA1}", tags: ["thread lift", "PDO", "anti-aging"], cat: "Surgery" }
   ];
-  const cards = guides.map((g) => `
-  <a href="/guide/${g.slug}" style="display:block;background:#18181f;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:22px 20px;text-decoration:none;transition:border-color .2s" onmouseover="this.style.borderColor='rgba(255,77,141,.3)'" onmouseout="this.style.borderColor='rgba(255,255,255,.08)'">
+  const cats = ["Planning", "Skin Clinic", "Surgery"];
+  const catIcons = { Planning: "\u{1F4CB}", "Skin Clinic": "\u{1F3E5}", Surgery: "\u2695\uFE0F" };
+  const cardsBycat = cats.map((cat) => {
+    const catGuides = guides.filter((g) => g.cat === cat);
+    if (!catGuides.length) return "";
+    const catCards = catGuides.map((g) => `
+  <a href="/guide/${g.slug}" style="display:block;background:#18181f;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:22px 20px;text-decoration:none;transition:border-color .2s,transform .2s" onmouseover="this.style.borderColor='rgba(255,77,141,.3)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='rgba(255,255,255,.08)';this.style.transform='none'">
     <div style="font-size:28px;margin-bottom:10px">${g.icon}</div>
     <h2 style="font-size:16px;font-weight:800;color:#fff;margin-bottom:8px;line-height:1.4">${g.title}</h2>
     <p style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:12px">${g.desc}</p>
     <div style="display:flex;flex-wrap:wrap;gap:6px">${g.tags.map((t) => `<span style="background:rgba(255,77,141,.1);border:1px solid rgba(255,77,141,.2);color:#ff9ec8;font-size:11px;padding:3px 9px;border-radius:20px">#${t}</span>`).join("")}</div>
   </a>`).join("");
-  const schema = JSON.stringify({
+    return `<div style="margin-bottom:36px"><h2 style="font-size:13px;font-weight:800;color:#ff4d8d;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid rgba(255,77,141,.15)">${catIcons[cat]} ${cat}</h2><div style="display:grid;gap:14px">${catCards}</div></div>`;
+  }).join("");
+  const cards = cardsBycat;
+  const schemaObj = {
     "@context": "https://schema.org",
-    "@type": "CollectionPage",
-    "name": `Seoul Beauty Guides \u2014 K-Beauty for Foreigners ${yr}`,
-    "description": "Expert guides on Korean beauty treatments, itineraries, and booking tips for foreign visitors to Seoul.",
-    "url": `${base}/guide`,
-    "publisher": { "@type": "Organization", "name": "Seoul Beauty Trip", "url": base }
-  });
+    "@graph": [
+      {
+        "@type": "CollectionPage",
+        "@id": `${base}/guide#collectionpage`,
+        "name": `Seoul Beauty Guides \u2014 K-Beauty for Foreigners ${yr}`,
+        "description": "Expert guides on Korean beauty treatments, itineraries, and booking tips for foreign visitors to Seoul.",
+        "url": `${base}/guide`,
+        "isPartOf": { "@type": "WebSite", "@id": `${base}/#website`, "url": base },
+        "breadcrumb": { "@type": "BreadcrumbList", "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": base },
+          { "@type": "ListItem", "position": 2, "name": "Guides", "item": `${base}/guide` }
+        ] },
+        "publisher": { "@type": "Organization", "@id": `${base}/#organization`, "name": "Seoul Beauty Trip", "url": base }
+      },
+      {
+        "@type": "ItemList",
+        "name": "K-Beauty Treatment Guides for Foreigners",
+        "numberOfItems": guides.length,
+        "itemListElement": guides.map((g, i) => ({
+          "@type": "ListItem",
+          "position": i + 1,
+          "name": g.title,
+          "url": `${base}/guide/${g.slug}`,
+          "description": g.desc
+        }))
+      }
+    ]
+  };
+  const schema = JSON.stringify(schemaObj);
   return c.html(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -14152,7 +14474,7 @@ app.get("/guide", (c) => {
 .ghero{padding:48px 20px 32px;text-align:center;background:linear-gradient(135deg,#1a0a2e,#0d1b2a);border-bottom:1px solid rgba(255,255,255,.07)}
 .ghero h1{font-size:clamp(22px,4vw,34px);font-weight:900;margin-bottom:12px}
 .ghero p{color:rgba(255,255,255,.5);font-size:14px;max-width:520px;margin:0 auto}
-.gwrap{max-width:820px;margin:0 auto;padding:36px 20px 80px;display:grid;gap:16px}
+.gwrap{max-width:820px;margin:0 auto;padding:36px 20px 80px}
 .gfooter{background:#0a0a0f;border-top:1px solid rgba(255,255,255,.06);padding:24px 20px;text-align:center;font-size:12px;color:rgba(255,255,255,.3)}
 .gfooter a{color:rgba(255,255,255,.4);text-decoration:none}
 </style>
@@ -14186,8 +14508,8 @@ app.get("/guide/seoul-beauty-trip-itinerary", (c) => {
         "headline": title,
         "description": desc,
         "url": `${base}/guide/${slug}`,
-        "datePublished": "2025-01-01",
-        "dateModified": (/* @__PURE__ */ new Date()).toISOString().split("T")[0],
+        "datePublished": "2025-05-25",
+        "dateModified": "2026-06-01",
         "author": { "@type": "Organization", "name": "Seoul Beauty Trip", "url": base },
         "publisher": { "@type": "Organization", "name": "Seoul Beauty Trip", "url": base },
         "inLanguage": "en"
@@ -14332,8 +14654,8 @@ app.get("/guide/k-beauty-treatment-guide", (c) => {
         "headline": title,
         "description": desc,
         "url": `${base}/guide/${slug}`,
-        "datePublished": "2025-01-01",
-        "dateModified": (/* @__PURE__ */ new Date()).toISOString().split("T")[0],
+        "datePublished": "2025-05-25",
+        "dateModified": "2026-06-01",
         "author": { "@type": "Organization", "name": "Seoul Beauty Trip", "url": base },
         "publisher": { "@type": "Organization", "name": "Seoul Beauty Trip", "url": base },
         "inLanguage": "en"
@@ -14483,8 +14805,8 @@ app.get("/guide/seoul-beauty-faq", (c) => {
         "headline": title,
         "description": desc,
         "url": `${base}/guide/${slug}`,
-        "datePublished": "2025-01-01",
-        "dateModified": (/* @__PURE__ */ new Date()).toISOString().split("T")[0],
+        "datePublished": "2025-05-25",
+        "dateModified": "2026-06-01",
         "author": { "@type": "Organization", "name": "Seoul Beauty Trip", "url": base },
         "publisher": { "@type": "Organization", "name": "Seoul Beauty Trip", "url": base },
         "inLanguage": "en"
@@ -16011,6 +16333,8 @@ app.get("/sitemap.xml", async (c) => {
   const urls = [
     `<url><loc>${base}/</loc><changefreq>daily</changefreq><priority>1.0</priority><lastmod>${latestBlogDate}</lastmod></url>`,
     `<url><loc>${base}/blog</loc><changefreq>daily</changefreq><priority>0.9</priority><lastmod>${latestBlogDate}</lastmod></url>`,
+    `<url><loc>${base}/about</loc><changefreq>monthly</changefreq><priority>0.8</priority><lastmod>2026-06-01</lastmod></url>`,
+    `<url><loc>${base}/contact</loc><changefreq>monthly</changefreq><priority>0.7</priority><lastmod>2026-06-01</lastmod></url>`,
     ...guidePages,
     ...blogCatPages,
     ...bestPages,
@@ -17979,9 +18303,22 @@ var MAIN_HTML = `<!DOCTYPE html>
       "url":"https://seoulbeautytrip.com/",
       "logo":{
         "@type":"ImageObject",
+        "@id":"https://seoulbeautytrip.com/#logo",
         "url":"https://seoulbeautytrip.com/og-cover.jpg",
         "width":1200,
-        "height":630
+        "height":630,
+        "caption":"Seoul Beauty Trip"
+      },
+      "image":"https://seoulbeautytrip.com/og-cover.jpg",
+      "telephone":"+82-10-5894-7690",
+      "priceRange":"\u20A940,000\u2013\u20A9500,000",
+      "address":{
+        "@type":"PostalAddress",
+        "streetAddress":"494-1 Samyang-ro, 801ho",
+        "addressLocality":"Gangbuk-gu",
+        "addressRegion":"Seoul",
+        "postalCode":"01148",
+        "addressCountry":"KR"
       },
       "description":"Seoul Beauty Trip is the #1 K-beauty booking platform for foreign tourists in Seoul. We connect international visitors with vetted, English-friendly Korean beauty salons \u2014 skincare clinics, hair salons, nail studios, head spas, and dermatology clinics \u2014 across Gangnam, Hongdae, Myeongdong, Itaewon, and Apgujeong.",
       "foundingDate":"2024",
@@ -17990,16 +18327,34 @@ var MAIN_HTML = `<!DOCTYPE html>
         "name":"Seoul",
         "sameAs":"https://www.wikidata.org/wiki/Q8684"
       },
-      "knowsAbout":["Korean skincare","K-beauty","Seoul beauty salons","Dermatology clinics Seoul","Korean hair salons","K-beauty booking"],
-      "contactPoint":{
-        "@type":"ContactPoint",
-        "contactType":"customer support",
-        "availableLanguage":["English","Korean"],
-        "contactOption":"TollFree"
+      "knowsAbout":["Korean skincare","K-beauty","Seoul beauty salons","Dermatology clinics Seoul","Korean hair salons","K-beauty booking","Head spa Seoul","Gangnam skin clinic"],
+      "hasCredential":{
+        "@type":"EducationalOccupationalCredential",
+        "name":"Foreign Patient Facilitator Registration",
+        "credentialCategory":"Government License",
+        "recognizedBy":{"@type":"GovernmentOrganization","name":"Mayor of Seoul, Republic of Korea"},
+        "identifier":"A-2025-01-02-5922"
       },
+      "contactPoint":[
+        {
+          "@type":"ContactPoint",
+          "contactType":"customer support",
+          "availableLanguage":["English","Korean"],
+          "url":"https://wa.me/821058947690",
+          "contactOption":"TollFree"
+        },
+        {
+          "@type":"ContactPoint",
+          "contactType":"booking",
+          "availableLanguage":["English"],
+          "url":"https://wa.me/821058947690"
+        }
+      ],
       "sameAs":[
-        "https://instagram.com/seoulbeautytrip",
-        "https://www.tiktok.com/@seoulbeautytrip"
+        "https://www.instagram.com/seoulbeautytrip/",
+        "https://www.tiktok.com/@seoulbeautytrip",
+        "https://www.pinterest.com/seoulbeautytrip/",
+        "https://www.youtube.com/@seoulbeautytrip"
       ]
     },
     {
@@ -18038,6 +18393,31 @@ var MAIN_HTML = `<!DOCTYPE html>
           "@type":"Question",
           "name":"Which area of Seoul is best for K-beauty?",
           "acceptedAnswer":{"@type":"Answer","text":"Gangnam (including Cheongdam and Apgujeong) is Seoul's luxury beauty district, ideal for premium derma clinics and high-end hair salons. Hongdae is the trendiest area for creative beauty studios and indie salons. Myeongdong is the most tourist-accessible, with makeup stores and skincare experiences. Itaewon has the most multilingual staff for all beauty types."}
+        },
+        {
+          "@type":"Question",
+          "name":"Is there a booking fee at Seoul Beauty Trip?",
+          "acceptedAnswer":{"@type":"Answer","text":"No. Seoul Beauty Trip charges zero booking fees. We earn a small commission from partner salons, so you always pay the same local price as Korean customers. There are no hidden fees, no registration required, and no minimum spend."}
+        },
+        {
+          "@type":"Question",
+          "name":"How much does a Korean skin clinic cost for foreigners?",
+          "acceptedAnswer":{"@type":"Answer","text":"Korean skin clinic prices are typically 40\u201370% lower than equivalent treatments in the US, UK, or Australia. Common prices in Seoul: Botox \u20A980,000\u2013\u20A9200,000, Shurink HIFU lifting \u20A980,000\u2013\u20A9300,000, laser toning \u20A950,000\u2013\u20A9150,000, Rejuran skin booster \u20A9200,000\u2013\u20A9500,000. Prices vary by clinic tier and Gangnam vs. non-Gangnam location."}
+        },
+        {
+          "@type":"Question",
+          "name":"Do I need to speak Korean to book a beauty appointment in Seoul?",
+          "acceptedAnswer":{"@type":"Answer","text":"No. Seoul Beauty Trip handles all communication in English on your behalf. Simply message us on WhatsApp and we'll coordinate your appointment, explain treatments, and confirm pricing \u2014 entirely in English. No Korean is required at any step."}
+        },
+        {
+          "@type":"Question",
+          "name":"What is a Korean head spa and is it worth it?",
+          "acceptedAnswer":{"@type":"Answer","text":"A Korean head spa is a multi-step scalp treatment (typically 18 steps) including scalp analysis, deep cleansing, targeted serum application, scalp massage, and a hair mask. Sessions last 60\u201390 minutes and cost \u20A940,000\u2013\u20A9120,000. Most foreign visitors rate the experience 5 stars for relaxation and scalp health benefits. It is especially recommended for those with dry scalp, hair loss concerns, or stress-related hair issues."}
+        },
+        {
+          "@type":"Question",
+          "name":"Can I get same-day beauty appointments in Seoul?",
+          "acceptedAnswer":{"@type":"Answer","text":"Yes \u2014 same-day bookings are available at most hair salons, head spas, and nail studios in Seoul. Skin clinics and dermatology clinics typically prefer 1\u20132 days advance notice, especially for laser or injection treatments. Message Seoul Beauty Trip on WhatsApp and we'll check same-day availability instantly."}
         }
       ]
     }
@@ -29675,7 +30055,7 @@ function renderJaShops(){
       '</div>' +
       '<div style="display:flex;align-items:center;gap:6px">' +
         '<span style="font-size:10px;padding:3px 8px;border-radius:20px;'+(s.active?'background:rgba(52,211,153,.15);color:#34d399':'background:rgba(239,68,68,.12);color:#f87171')+';">'+(s.active?'\uD65C\uC131':'\uBE44\uD65C\uC131')+'</span>' +
-        '<button onclick="deleteJaShop(''+s.id+'')" style="padding:5px 10px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:6px;color:#f87171;font-size:11px;cursor:pointer">\uC0AD\uC81C</button>' +
+        '<button data-id="'+s.id+'" onclick="deleteJaShop(this.dataset.id)" style="padding:5px 10px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:6px;color:#f87171;font-size:11px;cursor:pointer">\uC0AD\uC81C</button>' +
       '</div>' +
     '</div>';
   }).join('');
@@ -29698,7 +30078,7 @@ function renderJaVideos(){
         '<div style="font-size:13px;font-weight:600;color:#fff">'+(v.title||'\uC81C\uBAA9 \uC5C6\uC74C')+'</div>' +
         '<div style="font-size:11px;color:rgba(255,255,255,.4)">'+(v.shop_name||v.shop_id||'-')+' \xB7 \uC870\uD68C '+(v.views||0)+'</div>' +
       '</div>' +
-      '<button onclick="deleteJaVideo(''+v.id+'')" style="padding:5px 10px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:6px;color:#f87171;font-size:11px;cursor:pointer">\uC0AD\uC81C</button>' +
+      '<button data-id="'+v.id+'" onclick="deleteJaVideo(this.dataset.id)" style="padding:5px 10px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:6px;color:#f87171;font-size:11px;cursor:pointer">\uC0AD\uC81C</button>' +
     '</div>';
   }).join('');
 }
@@ -29785,7 +30165,7 @@ function renderJaBlogList(){
       '</div>' +
       '<div style="display:flex;align-items:center;gap:6px;margin-left:10px">' +
         '<span style="font-size:10px;padding:3px 8px;border-radius:20px;background:'+statusColor+'">'+(p.status||'draft')+'</span>' +
-        '<button onclick="deleteJaBlog(''+p.id+'')" style="padding:5px 10px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:6px;color:#f87171;font-size:11px;cursor:pointer">\uC0AD\uC81C</button>' +
+        '<button data-id="'+p.id+'" onclick="deleteJaBlog(this.dataset.id)" style="padding:5px 10px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:6px;color:#f87171;font-size:11px;cursor:pointer">\uC0AD\uC81C</button>' +
       '</div>' +
     '</div>';
   }).join('');
