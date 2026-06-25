@@ -8130,7 +8130,22 @@ async function initDb(env) {
       await sql`ALTER TABLE shops_ja ADD COLUMN IF NOT EXISTS photos JSONB DEFAULT '[]'`;
     } catch (e) {
     }
-    await sql`CREATE TABLE IF NOT EXISTS blog_posts_ja (
+    await sql`CREATE TABLE IF NOT EXISTS videos_ja (
+      id TEXT PRIMARY KEY, shop_id TEXT REFERENCES shops_ja(id) ON DELETE CASCADE,
+      title TEXT, description TEXT, video_url TEXT, thumbnail TEXT,
+      tags JSONB DEFAULT '[]', views INTEGER DEFAULT 0,
+      likes INTEGER DEFAULT 0, created_at TEXT,
+      video_url_low TEXT DEFAULT '', video_url_mid TEXT DEFAULT '', video_url_high TEXT DEFAULT '',
+      instagram_url TEXT DEFAULT ''
+    )\`
+    try { await sql\`ALTER TABLE videos_ja ADD COLUMN IF NOT EXISTS video_url_low TEXT DEFAULT ''\` } catch(e) {}
+    try { await sql\`ALTER TABLE videos_ja ADD COLUMN IF NOT EXISTS video_url_mid TEXT DEFAULT ''\` } catch(e) {}
+    try { await sql\`ALTER TABLE videos_ja ADD COLUMN IF NOT EXISTS video_url_high TEXT DEFAULT ''\` } catch(e) {}
+    try { await sql\`ALTER TABLE videos_ja ADD COLUMN IF NOT EXISTS instagram_url TEXT DEFAULT ''\` } catch(e) {}
+    try { await sql\`CREATE INDEX IF NOT EXISTS idx_vja_shop ON videos_ja(shop_id)\` } catch(e) {}
+
+    // blog_posts_ja — 일본어판 블로그 테이블
+    await sql\`CREATE TABLE IF NOT EXISTS blog_posts_ja (
       id TEXT PRIMARY KEY,
       slug TEXT UNIQUE NOT NULL,
       title TEXT NOT NULL,
@@ -11192,15 +11207,101 @@ app.delete("/api/ja/blogs/:id", async (c) => {
     return c.json({ error: "db_error", message: e?.message || "unknown" }, 500);
   }
 });
-app.get("/ja", (c) => c.redirect("/", 302));
-app.get("/ja/", (c) => c.redirect("/", 302));
-app.get("/ja/*", (c) => c.redirect("/", 302));
-app.get("/__ja_disabled__", async (c) => {
+app.get("/api/ja/videos", async (c) => {
+  try {
+    await ensureDb(c.env);
+    const sql = getDb(c.env);
+    const rows = await sql`
+      SELECT v.*, s.name as shop_name, s.category as shop_cat, s.location as shop_location, s.thumbnail as shop_thumb
+      FROM videos_ja v
+      LEFT JOIN shops_ja s ON v.shop_id = s.id
+      ORDER BY v.views DESC, v.created_at DESC
+    `;
+    return c.json({ videos: rows });
+  } catch (e) {
+    return c.json({ error: "db_error", message: e?.message || "unknown" }, 500);
+  }
+});
+app.get("/api/ja/videos/:id", async (c) => {
+  try {
+    await ensureDb(c.env);
+    const sql = getDb(c.env);
+    const rows = await sql`SELECT * FROM videos_ja WHERE id=${c.req.param("id")}`;
+    if (!rows.length) return c.json({ error: "not_found" }, 404);
+    return c.json({ video: rows[0] });
+  } catch (e) {
+    return c.json({ error: "db_error", message: e?.message || "unknown" }, 500);
+  }
+});
+app.post("/api/ja/videos", async (c) => {
+  try {
+    await ensureDb(c.env);
+    const sql = getDb(c.env);
+    const body = await c.req.json();
+    const id = body.id || crypto.randomUUID();
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    await sql`INSERT INTO videos_ja (
+      id, shop_id, title, description, video_url, thumbnail, tags,
+      views, likes, created_at, video_url_low, video_url_mid, video_url_high, instagram_url
+    ) VALUES (
+      ${id}, ${body.shop_id || null}, ${body.title || ""}, ${body.description || ""},
+      ${body.video_url || ""}, ${body.thumbnail || ""}, ${JSON.stringify(body.tags || [])},
+      0, 0, ${now}, ${body.video_url_low || ""}, ${body.video_url_mid || ""}, ${body.video_url_high || ""},
+      ${body.instagram_url || ""}
+    ) ON CONFLICT (id) DO NOTHING`;
+    return c.json({ ok: true, id });
+  } catch (e) {
+    return c.json({ error: "db_error", message: e?.message || "unknown" }, 500);
+  }
+});
+app.put("/api/ja/videos/:id", async (c) => {
+  try {
+    await ensureDb(c.env);
+    const sql = getDb(c.env);
+    const body = await c.req.json();
+    await sql`UPDATE videos_ja SET
+      shop_id=${body.shop_id || null}, title=${body.title || ""}, description=${body.description || ""},
+      video_url=${body.video_url || ""}, thumbnail=${body.thumbnail || ""},
+      tags=${JSON.stringify(body.tags || [])},
+      video_url_low=${body.video_url_low || ""}, video_url_mid=${body.video_url_mid || ""},
+      video_url_high=${body.video_url_high || ""}, instagram_url=${body.instagram_url || ""}
+    WHERE id=${c.req.param("id")}`;
+    return c.json({ ok: true });
+  } catch (e) {
+    return c.json({ error: "db_error", message: e?.message || "unknown" }, 500);
+  }
+});
+app.delete("/api/ja/videos/:id", async (c) => {
+  try {
+    await ensureDb(c.env);
+    const sql = getDb(c.env);
+    await sql`DELETE FROM videos_ja WHERE id=${c.req.param("id")}`;
+    return c.json({ ok: true });
+  } catch (e) {
+    return c.json({ error: "db_error", message: e?.message || "unknown" }, 500);
+  }
+});
+app.get("/ja", async (c) => {
+  await ensureDb(c.env);
   const sql = getDb(c.env);
   try {
-    const [shopRows] = await Promise.all([
+    const [shopRows, vidRows] = await Promise.all([
       withTimeout(
         sql`SELECT id, name, slug, category, location, thumbnail, rating, review_count, why_choose, description, review_summary, lat, lng, address FROM shops_ja WHERE active=true ORDER BY rating DESC, review_count DESC`,
+        1e4,
+        []
+      ),
+      withTimeout(
+        sql`SELECT v.id, v.shop_id, v.title, v.description, v.video_url, v.thumbnail, v.tags, v.views, v.likes, v.created_at,
+               v.video_url_low, v.video_url_mid, v.video_url_high,
+               s.category as shop_cat, s.name as shop_name, s.location as shop_location, s.thumbnail as shop_thumb,
+               s.rating as shop_rating, s.review_count as shop_review_count,
+               s.why_choose as shop_why_choose, s.description as shop_description,
+               s.review_summary as shop_review_summary
+            FROM videos_ja v
+            LEFT JOIN shops_ja s ON v.shop_id=s.id
+            WHERE s.active=true
+            ORDER BY v.views DESC, v.created_at DESC`,
         1e4,
         []
       )
@@ -11239,6 +11340,57 @@ app.get("/__ja_disabled__", async (c) => {
       lng: r.lng || "",
       address: r.address || ""
     }));
+    const initVideos = vidRows.map((r) => {
+      const vUrl = r.video_url || "";
+      const dbThumb = r.thumbnail || "";
+      const autoThumb = !dbThumb && vUrl && vUrl.includes("cloudinary.com") ? vUrl.replace("/video/upload/", "/video/upload/so_0,w_600,h_1066,c_fill,q_auto/").replace(/\.mp4$/, ".jpg") : "";
+      const finalThumb = dbThumb || autoThumb;
+      const shopThumbRaw = r.shop_thumb || "";
+      const shopThumb = shopThumbRaw.startsWith("http") ? shopThumbRaw : "";
+      return {
+        id: r.id,
+        shopId: r.shop_id,
+        title: cleanVideoTitle(r.title || "", r.shop_name || ""),
+        description: r.description || "",
+        videoUrl: vUrl,
+        thumbnail: finalThumb,
+        tags: r.tags || [],
+        views: r.views || 0,
+        likes: r.likes || 0,
+        createdAt: r.created_at || "",
+        videoUrlLow: r.video_url_low || "",
+        videoUrlMid: r.video_url_mid || "",
+        videoUrlHigh: r.video_url_high || "",
+        shop: {
+          id: r.shop_id,
+          name: r.shop_name || "",
+          category: r.shop_cat || "",
+          location: r.shop_location || "",
+          thumbnail: shopThumb,
+          rating: r.shop_rating || 0,
+          reviewCount: r.shop_review_count || 0,
+          whyChoose: (() => {
+            try {
+              return JSON.parse(r.shop_why_choose || "[]");
+            } catch {
+              return [];
+            }
+          })(),
+          description: r.shop_description || "",
+          reviewSummary: (() => {
+            const rs = r.shop_review_summary;
+            if (!rs) return null;
+            if (typeof rs === "string") return rs;
+            if (typeof rs === "object") return rs;
+            try {
+              return JSON.parse(rs);
+            } catch {
+              return null;
+            }
+          })()
+        }
+      };
+    });
     const catColorsSSR = { skincare: "#f472b6", headspa: "#67e8f9", hair: "#60a5fa", clinic: "#fb923c", makeup: "#c084fc", spa: "#a78bfa", tattoo: "#e879f9" };
     const catFaIconsSSR = { skincare: "fa-leaf", makeup: "fa-magic", hair: "fa-cut", headspa: "fa-spa", clinic: "fa-briefcase-medical", spa: "fa-hot-tub", tattoo: "fa-pen-nib" };
     const catLabelsSSR = { skincare: "\u30B9\u30AD\u30F3\u30B1\u30A2", makeup: "\u30E1\u30A4\u30AF", hair: "\u30D8\u30A2\u30B5\u30ED\u30F3", headspa: "\u30D8\u30C3\u30C9\u30B9\u30D1", clinic: "\u30AF\u30EA\u30CB\u30C3\u30AF", spa: "\u30B9\u30D1", tattoo: "\u7709\u30A2\u30FC\u30C8" };
@@ -11269,7 +11421,8 @@ app.get("/__ja_disabled__", async (c) => {
     }).join("");
     const ssrCountText = `${initShops.length} \u5E97\u8217`;
     const gmapKey = getGoogleKey(c.env);
-    const inlineScript = `<script>window.__INIT_VIDEOS__=[];window.__INIT_VIDEOS_ALL__=[];window.__INIT_PLATFORM__=${safeJson(initPlatform)};window.__INIT_SHOPS__=${safeJson(initShops)};window.__GMAP_KEY__=${safeJson(gmapKey)};<\/script>`;
+    const initVideosFirst = initVideos.slice(0, 10);
+    const inlineScript = `<script>window.__INIT_VIDEOS__=${safeJson(initVideosFirst)};window.__INIT_VIDEOS_ALL__=${safeJson(initVideos)};window.__INIT_PLATFORM__=${safeJson(initPlatform)};window.__INIT_SHOPS__=${safeJson(initShops)};window.__GMAP_KEY__=${safeJson(gmapKey)};<\/script>`;
     const catIconMap = { clinic: "\u{1F3E5}", headspa: "\u{1F9D6}", makeup: "\u{1F484}", tattoo: "\u270F\uFE0F", hair: "\u{1F487}", skincare: "\u{1F33F}", spa: "\u2668\uFE0F", dental: "\u{1F9B7}" };
     const catLabelMapSSR_JA = { clinic: "\u30B9\u30AD\u30F3\u30AF\u30EA\u30CB\u30C3\u30AF", headspa: "\u30D8\u30C3\u30C9\u30B9\u30D1", makeup: "\u30E1\u30A4\u30AF\u30B9\u30BF\u30B8\u30AA", tattoo: "\u30BF\u30C8\u30A5\u30FC\u30B9\u30BF\u30B8\u30AA", hair: "\u30D8\u30A2\u30B5\u30ED\u30F3", skincare: "\u30B9\u30AD\u30F3\u30B1\u30A2", spa: "\u30B9\u30D1", dental: "\u30C7\u30F3\u30BF\u30EB\u30AF\u30EA\u30CB\u30C3\u30AF" };
     const ssrShopCards_JA = initShops.slice(0, 20).map((s) => {
@@ -11376,7 +11529,7 @@ try { localStorage.setItem('_sb_lang_pref','ja'); } catch(e) {}`
     return c.html(MAIN_HTML.replace("__INLINE_DATA_PLACEHOLDER__", "").replace("__SSR_FEATURED__", ""), 500);
   }
 });
-app.get("/__ja_disabled__/shops", async (c) => {
+app.get("/ja/shops", async (c) => {
   try {
     const sql = getDb(c.env);
     const rows = await sql`SELECT * FROM shops_ja WHERE active=true ORDER BY rating DESC, created_at DESC`;
@@ -11682,7 +11835,7 @@ render();
     return c.html("<h1>Service temporarily unavailable</h1>", 500);
   }
 });
-app.get("/__ja_disabled__/blog", async (c) => {
+app.get("/ja/blog", async (c) => {
   try {
     await ensureDb(c.env);
     const sql = getDb(c.env);
@@ -11797,7 +11950,7 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;min-height:
     return c.html("<h1>Service temporarily unavailable</h1>", 500);
   }
 });
-app.get("/__ja_disabled__/blog/category/:cat", async (c) => {
+app.get("/ja/blog/category/:cat", async (c) => {
   try {
     await ensureDb(c.env);
     const sql = getDb(c.env);
@@ -11928,7 +12081,7 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;min-height:
     return c.redirect("/ja/blog", 302);
   }
 });
-app.get("/__ja_disabled__/blog/:slug", async (c) => {
+app.get("/ja/blog/:slug", async (c) => {
   await ensureDb(c.env);
   const sql = getDb(c.env);
   const slug = c.req.param("slug");
@@ -12370,7 +12523,7 @@ ${SB_TRACKER_SCRIPT}
   const finalHtml = html.replace("BLOG_READMIN_PLACEHOLDER", String(readMin)).replace("BLOG_COVER_PLACEHOLDER", coverHtml).replace("BLOG_PHOTO_GALLERY_PLACEHOLDER", photoGalleryHtml).replace("BLOG_CONTENT_PLACEHOLDER", post.content || "").replace("BLOG_TAGS_PLACEHOLDER", tagsHtml).replace("BLOG_CLINIC_SHOPS_PLACEHOLDER", clinicShopsHtml).replace("BLOG_BEST_LINKS_PLACEHOLDER", bestLinksHtml).replace("BLOG_RELATED_PLACEHOLDER", relatedHtml);
   return c.html(finalHtml);
 });
-app.get("/__ja_disabled__/shop/:slug", async (c) => {
+app.get("/ja/shop/:slug", async (c) => {
   try {
     const slug = c.req.param("slug");
     if (SLUG_REDIRECTS[slug]) return c.redirect("/shop/" + SLUG_REDIRECTS[slug], 301);
@@ -14892,13 +15045,23 @@ details[open] .faq-q::after{transform:rotate(180deg)}
 </body>
 </html>`);
 });
-app.get("/__ja_disabled__/admin", async (c) => {
+app.post("/ja/admin", async (c) => {
+  try {
+    const body = await c.req.json();
+    const secret = _getAdminSecret(c.env);
+    if (body.token !== secret) return c.json({ error: "unauthorized" }, 401);
+    c.header("Set-Cookie", `admin_token=${secret}; Path=/; Max-Age=604800; HttpOnly; Secure; SameSite=Strict`);
+    return c.json({ ok: true });
+  } catch (e) {
+    return c.json({ error: "bad_request" }, 400);
+  }
+});
+app.get("/ja/admin", async (c) => {
   const cookieHeader = c.req.header("Cookie") || "";
   const cookieToken = cookieHeader.match(/admin_token=([^;]+)/)?.[1] || "";
   const _jaAdminSecret = _getAdminSecret(c.env);
   if (cookieToken !== _jaAdminSecret) {
-    const token = c.req.query("token") || "";
-    if (token !== _jaAdminSecret) {
+    if (true) {
       return c.html(`<!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -14917,11 +15080,10 @@ app.get("/__ja_disabled__/admin", async (c) => {
 <p class="err" id="err">\u30D1\u30B9\u30EF\u30FC\u30C9\u304C\u6B63\u3057\u304F\u3042\u308A\u307E\u305B\u3093</p>
 </form>
 </div>
-<script>async function login(e){e.preventDefault();window.location.href='/ja/admin?token='+encodeURIComponent(document.getElementById('pw').value);}<\/script>
+<script>async function login(e){e.preventDefault();var pw=document.getElementById('pw').value;var r=await fetch('/ja/admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:pw})});if(r.ok||r.redirected){window.location.href='/ja/admin';}else{document.getElementById('err').style.display='block';}}<\/script>
 </body>
 </html>`, 200);
     }
-    c.header("Set-Cookie", `admin_token=${_jaAdminSecret}; Path=/; Max-Age=604800; HttpOnly; Secure; SameSite=Strict`);
     return c.redirect("/ja/admin", 302);
   }
   return c.html(`<!DOCTYPE html>
@@ -28164,6 +28326,8 @@ textarea{height:80px;resize:none}
   <div class="tab" data-tab="blog"><i class="fas fa-blog"></i> \uBE14\uB85C\uADF8</div>
   <div class="tab" data-tab="consultations"><i class="fas fa-comments"></i> \uC0C1\uB2F4\uBB38\uC758 <span id="consult-new-badge" style="display:none;font-size:9px;background:rgba(239,68,68,.25);color:#ef4444;border-radius:10px;padding:1px 5px;vertical-align:middle"></span></div>
   <div class="tab" data-tab="settings"><i class="fas fa-cog"></i> \uC124\uC815</div>
+  <div class="tab" data-tab="ja-shops" style="border-left:2px solid rgba(255,77,141,.25);margin-left:4px;padding-left:10px">\u{1F1EF}\u{1F1F5} JA \uC5C5\uCCB4\xB7\uC601\uC0C1</div>
+  <div class="tab" data-tab="ja-blog">\u{1F1EF}\u{1F1F5} JA \uBE14\uB85C\uADF8</div>
 </div>
 
 <!-- \uB300\uC2DC\uBCF4\uB4DC -->
@@ -29253,6 +29417,222 @@ https://seoulbeautytrip.com/video/v178051515735</textarea>
 </div>
 
 <!-- \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+     \u{1F1EF}\u{1F1F5} JA \uC5C5\uCCB4\xB7\uC601\uC0C1 \uD0ED
+\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 -->
+<div class="tab-content" id="tab-ja-shops">
+
+  <!-- \uD5E4\uB354 -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+    <div>
+      <div style="font-size:16px;font-weight:700;color:#fff">\u{1F1EF}\u{1F1F5} \uC77C\uBCF8\uC5B4\uD310 \uC5C5\uCCB4\xB7\uC601\uC0C1 \uAD00\uB9AC</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:3px">shops_ja / videos_ja \u2014 EN \uB370\uC774\uD130\uC640 \uC644\uC804 \uBD84\uB9AC\uB429\uB2C8\uB2E4</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="loadJaAll()" style="padding:8px 14px;background:rgba(255,77,141,.15);border:1px solid rgba(255,77,141,.35);border-radius:8px;color:#FF4D8D;font-size:12px;font-weight:700;cursor:pointer">
+        <i class="fas fa-sync-alt"></i> \uC0C8\uB85C\uACE0\uCE68
+      </button>
+      <a href="/ja/shops" target="_blank" style="padding:8px 14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.6);font-size:12px;text-decoration:none;display:inline-flex;align-items:center;gap:5px">
+        <i class="fas fa-external-link-alt"></i> JA \uC1FC\uD551\uBAA9\uB85D \uBCF4\uAE30
+      </a>
+    </div>
+  </div>
+
+  <!-- \uD1B5\uACC4 \uC694\uC57D -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">
+    <div class="card" style="text-align:center;padding:14px 10px">
+      <div id="ja-stat-shops" style="font-size:24px;font-weight:800;color:#FF4D8D">-</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:3px">\uB4F1\uB85D \uC5C5\uCCB4</div>
+    </div>
+    <div class="card" style="text-align:center;padding:14px 10px">
+      <div id="ja-stat-videos" style="font-size:24px;font-weight:800;color:#a78bfa">-</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:3px">\uB4F1\uB85D \uC601\uC0C1</div>
+    </div>
+    <div class="card" style="text-align:center;padding:14px 10px">
+      <div id="ja-stat-active" style="font-size:24px;font-weight:800;color:#34d399">-</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:3px">\uD65C\uC131 \uC5C5\uCCB4</div>
+    </div>
+  </div>
+
+  <!-- \uC5C5\uCCB4 \uB4F1\uB85D \uD3FC -->
+  <div class="card" style="margin-bottom:16px;border-color:rgba(255,77,141,.25);background:rgba(255,77,141,.04)">
+    <div class="card-header" style="margin-bottom:12px">
+      <div class="card-title"><i class="fas fa-plus-circle" style="color:#FF4D8D"></i> JA \uC5C5\uCCB4 \uB4F1\uB85D</div>
+      <button onclick="toggleJaShopForm()" id="ja-shop-form-toggle" style="padding:6px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.6);font-size:11px;cursor:pointer">
+        <i class="fas fa-chevron-down"></i> \uD3FC \uC5F4\uAE30
+      </button>
+    </div>
+    <div id="ja-shop-form" style="display:none">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div>
+          <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:4px">\uC5C5\uCCB4\uBA85 (\u65E5) *</label>
+          <input id="ja-shop-name" placeholder="\u4F8B\uFF1A\u30BD\u30A6\u30EB\u7F8E\u5BB9\u30AF\u30EA\u30CB\u30C3\u30AF" style="width:100%;padding:9px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:13px;outline:none;box-sizing:border-box">
+        </div>
+        <div>
+          <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:4px">\uCE74\uD14C\uACE0\uB9AC *</label>
+          <select id="ja-shop-cat" style="width:100%;padding:9px 12px;background:#1c1c30;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:13px;outline:none">
+            <option value="clinic">\u{1F3E5} \uD074\uB9AC\uB2C9</option>
+            <option value="headspa">\u{1F9D6} \uD5E4\uB4DC\uC2A4\uD30C</option>
+            <option value="skincare">\u2728 \uC2A4\uD0A8\uCF00\uC5B4</option>
+            <option value="hair">\u{1F487} \uD5E4\uC5B4</option>
+            <option value="makeup">\u{1F484} \uBA54\uC774\uD06C\uC5C5</option>
+            <option value="nail">\u{1F485} \uB124\uC77C</option>
+            <option value="spa">\u2668\uFE0F \uC2A4\uD30C</option>
+            <option value="tattoo">\u270F\uFE0F \uD0C0\uD22C</option>
+            <option value="dental">\u{1F9B7} \uCE58\uACFC</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:4px">\uC9C0\uC5ED *</label>
+          <select id="ja-shop-area" style="width:100%;padding:9px 12px;background:#1c1c30;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:13px;outline:none">
+            <option value="gangnam">\uAC15\uB0A8</option>
+            <option value="hongdae">\uD64D\uB300</option>
+            <option value="myeongdong">\uBA85\uB3D9</option>
+            <option value="itaewon">\uC774\uD0DC\uC6D0</option>
+            <option value="sinchon">\uC2E0\uCD0C</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:4px">\uC2AC\uB7EC\uADF8 (URL) *</label>
+          <input id="ja-shop-slug" placeholder="\uC608\uFF1Aseoul-beauty-clinic-gangnam" style="width:100%;padding:9px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:13px;outline:none;box-sizing:border-box">
+        </div>
+      </div>
+      <div style="margin-bottom:10px">
+        <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:4px">\uC124\uBA85 (\u65E5)</label>
+        <textarea id="ja-shop-desc" placeholder="\uC77C\uBCF8\uC5B4 \uC124\uBA85..." rows="2" style="width:100%;padding:9px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:13px;outline:none;resize:vertical;box-sizing:border-box"></textarea>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div>
+          <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:4px">\uC778\uC2A4\uD0C0\uADF8\uB7A8 URL</label>
+          <input id="ja-shop-ig" placeholder="https://instagram.com/..." style="width:100%;padding:9px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:13px;outline:none;box-sizing:border-box">
+        </div>
+        <div>
+          <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:4px">\uB300\uD45C \uC774\uBBF8\uC9C0 URL</label>
+          <input id="ja-shop-img" placeholder="https://..." style="width:100%;padding:9px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:13px;outline:none;box-sizing:border-box">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="createJaShop()" style="padding:10px 20px;background:linear-gradient(135deg,#FF4D8D,#c2185b);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer">
+          <i class="fas fa-save"></i> \uB4F1\uB85D
+        </button>
+        <button onclick="toggleJaShopForm()" style="padding:10px 16px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:rgba(255,255,255,.5);font-size:13px;cursor:pointer">\uCDE8\uC18C</button>
+      </div>
+      <div id="ja-shop-form-result" style="font-size:12px;margin-top:8px;color:rgba(255,255,255,.5)"></div>
+    </div>
+  </div>
+
+  <!-- \uC5C5\uCCB4 \uBAA9\uB85D -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-header" style="margin-bottom:12px">
+      <div class="card-title"><i class="fas fa-list" style="color:#60a5fa"></i> JA \uC5C5\uCCB4 \uBAA9\uB85D</div>
+      <input id="ja-shop-search" oninput="filterJaShops(this.value)" placeholder="\uC5C5\uCCB4\uBA85 \uAC80\uC0C9..." style="padding:7px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:12px;outline:none;width:160px">
+    </div>
+    <div id="ja-shop-list" style="font-size:12px;color:rgba(255,255,255,.4);padding:20px;text-align:center">
+      <i class="fas fa-spinner fa-spin"></i> \uB85C\uB529 \uC911...
+    </div>
+  </div>
+
+  <!-- JA \uC601\uC0C1 \uBAA9\uB85D -->
+  <div class="card">
+    <div class="card-header" style="margin-bottom:12px">
+      <div class="card-title"><i class="fas fa-film" style="color:#a78bfa"></i> JA \uC601\uC0C1 \uBAA9\uB85D (videos_ja)</div>
+      <button onclick="loadJaAll()" style="padding:6px 12px;background:rgba(167,139,250,.15);border:1px solid rgba(167,139,250,.3);border-radius:8px;color:#a78bfa;font-size:11px;cursor:pointer">
+        <i class="fas fa-sync-alt"></i>
+      </button>
+    </div>
+    <div id="ja-video-list" style="font-size:12px;color:rgba(255,255,255,.4);padding:20px;text-align:center">
+      <i class="fas fa-spinner fa-spin"></i> \uB85C\uB529 \uC911...
+    </div>
+  </div>
+</div>
+
+<!-- \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+     \u{1F1EF}\u{1F1F5} JA \uBE14\uB85C\uADF8 \uD0ED
+\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 -->
+<div class="tab-content" id="tab-ja-blog">
+
+  <!-- \uD5E4\uB354 -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+    <div>
+      <div style="font-size:16px;font-weight:700;color:#fff">\u{1F1EF}\u{1F1F5} \uC77C\uBCF8\uC5B4\uD310 \uBE14\uB85C\uADF8 \uAD00\uB9AC</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:3px">blog_posts_ja \u2014 EN \uBE14\uB85C\uADF8\uC640 \uC644\uC804 \uBD84\uB9AC\uB429\uB2C8\uB2E4</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="loadJaBlogList()" style="padding:8px 14px;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.35);border-radius:8px;color:#a5b4fc;font-size:12px;font-weight:700;cursor:pointer">
+        <i class="fas fa-sync-alt"></i> \uC0C8\uB85C\uACE0\uCE68
+      </button>
+      <a href="/ja/blog" target="_blank" style="padding:8px 14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.6);font-size:12px;text-decoration:none;display:inline-flex;align-items:center;gap:5px">
+        <i class="fas fa-external-link-alt"></i> JA \uBE14\uB85C\uADF8 \uBCF4\uAE30
+      </a>
+    </div>
+  </div>
+
+  <!-- JA \uBE14\uB85C\uADF8 \uAE00 \uB4F1\uB85D \uD3FC -->
+  <div class="card" style="margin-bottom:16px;border-color:rgba(99,102,241,.25);background:rgba(99,102,241,.04)">
+    <div class="card-header" style="margin-bottom:12px">
+      <div class="card-title"><i class="fas fa-plus-circle" style="color:#818cf8"></i> JA \uBE14\uB85C\uADF8 \uAE00 \uB4F1\uB85D</div>
+      <button onclick="toggleJaBlogForm()" id="ja-blog-form-toggle" style="padding:6px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.6);font-size:11px;cursor:pointer">
+        <i class="fas fa-chevron-down"></i> \uD3FC \uC5F4\uAE30
+      </button>
+    </div>
+    <div id="ja-blog-form" style="display:none">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div>
+          <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:4px">\uC81C\uBAA9 (\u65E5) *</label>
+          <input id="ja-blog-title" placeholder="\u4F8B\uFF1A\u6C5F\u5357\u3067\u304A\u3059\u3059\u3081\u306E\u7F8E\u5BB9\u30AF\u30EA\u30CB\u30C3\u30AF" style="width:100%;padding:9px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:13px;outline:none;box-sizing:border-box">
+        </div>
+        <div>
+          <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:4px">\uC2AC\uB7EC\uADF8 (URL) *</label>
+          <input id="ja-blog-slug" placeholder="gangnam-clinic-guide-ja" style="width:100%;padding:9px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:13px;outline:none;box-sizing:border-box">
+        </div>
+        <div>
+          <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:4px">\uCE74\uD14C\uACE0\uB9AC</label>
+          <select id="ja-blog-cat" style="width:100%;padding:9px 12px;background:#1c1c30;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:13px;outline:none">
+            <option value="clinic">\u{1F3E5} \uD074\uB9AC\uB2C9</option>
+            <option value="headspa">\u{1F9D6} \uD5E4\uB4DC\uC2A4\uD30C</option>
+            <option value="skincare">\u2728 \uC2A4\uD0A8\uCF00\uC5B4</option>
+            <option value="hair">\u{1F487} \uD5E4\uC5B4</option>
+            <option value="guide">\u{1F4D6} \uAC00\uC774\uB4DC</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:4px">\uC0C1\uD0DC</label>
+          <select id="ja-blog-status" style="width:100%;padding:9px 12px;background:#1c1c30;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:13px;outline:none">
+            <option value="published">\uACF5\uAC1C</option>
+            <option value="draft">\uCD08\uC548</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-bottom:10px">
+        <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:4px">\uBC1C\uCDCC\uBB38 (\u65E5)</label>
+        <input id="ja-blog-excerpt" placeholder="\uC694\uC57D\uBB38..." style="width:100%;padding:9px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:13px;outline:none;box-sizing:border-box">
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:4px">\uBCF8\uBB38 (\u65E5) \u2014 Markdown/HTML</label>
+        <textarea id="ja-blog-content" placeholder="\uBCF8\uBB38 \uB0B4\uC6A9..." rows="5" style="width:100%;padding:9px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:13px;outline:none;resize:vertical;box-sizing:border-box"></textarea>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="createJaBlog()" style="padding:10px 20px;background:linear-gradient(135deg,#6366f1,#4338ca);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer">
+          <i class="fas fa-save"></i> \uB4F1\uB85D
+        </button>
+        <button onclick="toggleJaBlogForm()" style="padding:10px 16px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:rgba(255,255,255,.5);font-size:13px;cursor:pointer">\uCDE8\uC18C</button>
+      </div>
+      <div id="ja-blog-form-result" style="font-size:12px;margin-top:8px;color:rgba(255,255,255,.5)"></div>
+    </div>
+  </div>
+
+  <!-- JA \uBE14\uB85C\uADF8 \uAE00 \uBAA9\uB85D -->
+  <div class="card">
+    <div class="card-header" style="margin-bottom:12px">
+      <div class="card-title"><i class="fas fa-list" style="color:#a5b4fc"></i> JA \uBE14\uB85C\uADF8 \uAE00 \uBAA9\uB85D</div>
+      <span id="ja-blog-count" style="font-size:11px;color:rgba(255,255,255,.4)">-</span>
+    </div>
+    <div id="ja-blog-list" style="font-size:12px;color:rgba(255,255,255,.4);padding:20px;text-align:center">
+      <i class="fas fa-spinner fa-spin"></i> \uB85C\uB529 \uC911...
+    </div>
+  </div>
+</div>
+
+<!-- \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
      \uBC29\uBB38\uC790 \uD589\uB3D9 \uBD84\uC11D \uD0ED
 \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 -->
 <div class="tab-content" id="tab-visitors">
@@ -29496,6 +29876,7 @@ https://seoulbeautytrip.com/video/v178051515735</textarea>
 
 <script>
 var shops=[], videos=[], bookings=[];
+var jaShops=[], jaVideos=[], jaBlogs=[];
 
 // safe-img: data-fallback / data-fallback-text \uC18D\uC131\uC73C\uB85C onerror \uB300\uCCB4
 document.addEventListener('error', function(e){
@@ -29548,6 +29929,8 @@ document.querySelectorAll('.tab').forEach(function(t){
     if(tabId === 'analytics') loadAnalytics(7);
     if(tabId === 'visitors'){ loadVisitorStats(_vsDays); loadVisitors(); startLivePolling(); }
     if(tabId === 'consultations') loadConsultations();
+    if(tabId === 'ja-shops') loadJaAll();
+    if(tabId === 'ja-blog') loadJaBlogList();
   });
 });
 
@@ -34327,6 +34710,211 @@ window.regenSeoAll = async function regenSeoAll(force) {
   } finally {
     if (btn) { btn.disabled = false; btn.innerHTML = force ? '<i class="fas fa-sync"></i> \uC804\uCCB4 \uC5C5\uCCB4 SEO \uAC15\uC81C \uC7AC\uC0DD\uC131' : '<i class="fas fa-magic"></i> SEO \uBBF8\uC0DD\uC131 \uC5C5\uCCB4 \uC77C\uAD04 \uC0DD\uC131'; }
   }
+}
+
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+//  \u{1F1EF}\u{1F1F5} JA (\uC77C\uBCF8\uC5B4\uD310) \uAD00\uB9AC \uD568\uC218\uB4E4
+//  \uBAA8\uB4E0 API \uACBD\uB85C: /api/ja/* (EN /api/* \uC640 \uC644\uC804 \uBD84\uB9AC)
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+
+var _jaLoaded = false;
+
+// JA \uC5C5\uCCB4 + \uC601\uC0C1 \uC804\uCCB4 \uB85C\uB4DC
+function loadJaAll(){
+  var _ah = {'x-admin-token': _GSK_TOKEN};
+  Promise.all([
+    fetch('/api/ja/shops', {headers:_ah}).then(function(r){ return r.json(); }).catch(function(){ return {shops:[]}; }),
+    fetch('/api/ja/videos', {headers:_ah}).then(function(r){ return r.json(); }).catch(function(){ return {videos:[]}; })
+  ]).then(function(results){
+    jaShops  = results[0].shops  || [];
+    jaVideos = results[1].videos || [];
+    // \uD1B5\uACC4
+    var activeCount = jaShops.filter(function(s){ return s.active; }).length;
+    document.getElementById('ja-stat-shops').textContent  = jaShops.length;
+    document.getElementById('ja-stat-videos').textContent = jaVideos.length;
+    document.getElementById('ja-stat-active').textContent = activeCount;
+    renderJaShops();
+    renderJaVideos();
+    _jaLoaded = true;
+  }).catch(function(e){ console.error('[loadJaAll]', e); });
+}
+
+// JA \uC5C5\uCCB4 \uBAA9\uB85D \uB80C\uB354
+function renderJaShops(){
+  var el = document.getElementById('ja-shop-list');
+  if(!el) return;
+  var q = (document.getElementById('ja-shop-search')||{}).value || '';
+  var list = q ? jaShops.filter(function(s){ return s.name && s.name.toLowerCase().includes(q.toLowerCase()); }) : jaShops;
+  if(!list.length){ el.innerHTML = '<div style="padding:20px;text-align:center;color:rgba(255,255,255,.3)">\uB4F1\uB85D\uB41C JA \uC5C5\uCCB4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4</div>'; return; }
+  var catIcon = {clinic:'\u{1F3E5}',headspa:'\u{1F9D6}',skincare:'\u2728',hair:'\u{1F487}',makeup:'\u{1F484}',nail:'\u{1F485}',spa:'\u2668\uFE0F',tattoo:'\u270F\uFE0F',dental:'\u{1F9B7}'};
+  el.innerHTML = list.map(function(s){
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.05)">' +
+      '<div style="display:flex;align-items:center;gap:10px">' +
+        (s.cover_image ? '<img src="'+s.cover_image+'" style="width:36px;height:36px;border-radius:8px;object-fit:cover" class="safe-img">' : '<div style="width:36px;height:36px;border-radius:8px;background:rgba(255,77,141,.15);display:flex;align-items:center;justify-content:center;font-size:18px">'+(catIcon[s.category]||'\u{1F3EA}')+'</div>') +
+        '<div>' +
+          '<div style="font-size:13px;font-weight:600;color:#fff">'+(s.name||'(\uC774\uB984 \uC5C6\uC74C)')+'</div>' +
+          '<div style="font-size:11px;color:rgba(255,255,255,.4)">'+(catIcon[s.category]||'')+(s.category||'')+' \xB7 '+(s.area||'')+' \xB7 <a href="/ja/shop/'+(s.slug||s.id)+'" target="_blank" style="color:#60a5fa;text-decoration:none">/ja/shop/'+s.slug+'</a></div>' +
+        '</div>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:6px">' +
+        '<span style="font-size:10px;padding:3px 8px;border-radius:20px;'+(s.active?'background:rgba(52,211,153,.15);color:#34d399':'background:rgba(239,68,68,.12);color:#f87171')+';">'+(s.active?'\uD65C\uC131':'\uBE44\uD65C\uC131')+'</span>' +
+        '<button onclick="deleteJaShop(''+s.id+'')" style="padding:5px 10px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:6px;color:#f87171;font-size:11px;cursor:pointer">\uC0AD\uC81C</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+// JA \uC5C5\uCCB4 \uAC80\uC0C9 \uD544\uD130
+function filterJaShops(q){
+  renderJaShops();
+}
+
+// JA \uC601\uC0C1 \uBAA9\uB85D \uB80C\uB354
+function renderJaVideos(){
+  var el = document.getElementById('ja-video-list');
+  if(!el) return;
+  if(!jaVideos.length){ el.innerHTML = '<div style="padding:20px;text-align:center;color:rgba(255,255,255,.3)">\uB4F1\uB85D\uB41C JA \uC601\uC0C1\uC774 \uC5C6\uC2B5\uB2C8\uB2E4</div>'; return; }
+  el.innerHTML = jaVideos.map(function(v){
+    return '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.05)">' +
+      (v.thumbnail ? '<img src="'+v.thumbnail+'" style="width:54px;height:36px;border-radius:6px;object-fit:cover" class="safe-img">' : '<div style="width:54px;height:36px;border-radius:6px;background:rgba(167,139,250,.15);display:flex;align-items:center;justify-content:center">\u{1F3AC}</div>') +
+      '<div style="flex:1">' +
+        '<div style="font-size:13px;font-weight:600;color:#fff">'+(v.title||'\uC81C\uBAA9 \uC5C6\uC74C')+'</div>' +
+        '<div style="font-size:11px;color:rgba(255,255,255,.4)">'+(v.shop_name||v.shop_id||'-')+' \xB7 \uC870\uD68C '+(v.views||0)+'</div>' +
+      '</div>' +
+      '<button onclick="deleteJaVideo(''+v.id+'')" style="padding:5px 10px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:6px;color:#f87171;font-size:11px;cursor:pointer">\uC0AD\uC81C</button>' +
+    '</div>';
+  }).join('');
+}
+
+// JA \uC5C5\uCCB4 \uB4F1\uB85D \uD3FC \uD1A0\uAE00
+function toggleJaShopForm(){
+  var f = document.getElementById('ja-shop-form');
+  var btn = document.getElementById('ja-shop-form-toggle');
+  if(!f) return;
+  var isOpen = f.style.display !== 'none';
+  f.style.display = isOpen ? 'none' : 'block';
+  if(btn) btn.innerHTML = isOpen ? '<i class="fas fa-chevron-down"></i> \uD3FC \uC5F4\uAE30' : '<i class="fas fa-chevron-up"></i> \uD3FC \uB2EB\uAE30';
+}
+
+// JA \uC5C5\uCCB4 \uB4F1\uB85D
+function createJaShop(){
+  var name = (document.getElementById('ja-shop-name')||{}).value || '';
+  var cat  = (document.getElementById('ja-shop-cat')||{}).value  || 'clinic';
+  var area = (document.getElementById('ja-shop-area')||{}).value || 'gangnam';
+  var slug = (document.getElementById('ja-shop-slug')||{}).value || '';
+  var desc = (document.getElementById('ja-shop-desc')||{}).value || '';
+  var ig   = (document.getElementById('ja-shop-ig')||{}).value   || '';
+  var img  = (document.getElementById('ja-shop-img')||{}).value  || '';
+  var res  = document.getElementById('ja-shop-form-result');
+  if(!name || !slug){ if(res) res.innerHTML = '<span style="color:#f87171">\u274C \uC5C5\uCCB4\uBA85\uACFC \uC2AC\uB7EC\uADF8\uB294 \uD544\uC218\uC785\uB2C8\uB2E4</span>'; return; }
+  fetch('/api/ja/shops', {
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-admin-token':_GSK_TOKEN},
+    body:JSON.stringify({name:name,category:cat,area:area,slug:slug,description:desc,instagram_url:ig,cover_image:img,active:true})
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if(d.id){
+      if(res) res.innerHTML = '<span style="color:#34d399">\u2705 \uB4F1\uB85D \uC644\uB8CC: '+name+'</span>';
+      ['ja-shop-name','ja-shop-slug','ja-shop-desc','ja-shop-ig','ja-shop-img'].forEach(function(id){ var el=document.getElementById(id); if(el) el.value=''; });
+      loadJaAll();
+    } else {
+      if(res) res.innerHTML = '<span style="color:#f87171">\u274C \uC624\uB958: '+(d.error||JSON.stringify(d))+'</span>';
+    }
+  }).catch(function(e){ if(res) res.innerHTML = '<span style="color:#f87171">\u274C '+e.message+'</span>'; });
+}
+
+// JA \uC5C5\uCCB4 \uC0AD\uC81C
+function deleteJaShop(id){
+  if(!confirm('JA \uC5C5\uCCB4\uB97C \uC0AD\uC81C\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C? (\uC5F0\uACB0\uB41C \uC601\uC0C1\uB3C4 \uC0AD\uC81C\uB429\uB2C8\uB2E4)')) return;
+  fetch('/api/ja/shops/'+id,{method:'DELETE',headers:{'x-admin-token':_GSK_TOKEN}})
+    .then(function(){ loadJaAll(); })
+    .catch(function(e){ alert('\uC0AD\uC81C \uC2E4\uD328: '+e.message); });
+}
+
+// JA \uC601\uC0C1 \uC0AD\uC81C
+function deleteJaVideo(id){
+  if(!confirm('JA \uC601\uC0C1\uC744 \uC0AD\uC81C\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?')) return;
+  fetch('/api/ja/videos/'+id,{method:'DELETE',headers:{'x-admin-token':_GSK_TOKEN}})
+    .then(function(){ loadJaAll(); })
+    .catch(function(e){ alert('\uC0AD\uC81C \uC2E4\uD328: '+e.message); });
+}
+
+// \u2500\u2500 JA \uBE14\uB85C\uADF8 \uAD00\uB828 \u2500\u2500
+
+// JA \uBE14\uB85C\uADF8 \uBAA9\uB85D \uB85C\uB4DC
+function loadJaBlogList(){
+  var _ah = {'x-admin-token': _GSK_TOKEN};
+  fetch('/api/ja/blogs', {headers:_ah}).then(function(r){ return r.json(); }).then(function(d){
+    jaBlogs = d.posts || d || [];
+    var countEl = document.getElementById('ja-blog-count');
+    if(countEl) countEl.textContent = '\uCD1D '+jaBlogs.length+'\uAC1C';
+    renderJaBlogList();
+  }).catch(function(e){ console.error('[loadJaBlogList]', e); });
+}
+
+// JA \uBE14\uB85C\uADF8 \uBAA9\uB85D \uB80C\uB354
+function renderJaBlogList(){
+  var el = document.getElementById('ja-blog-list');
+  if(!el) return;
+  if(!jaBlogs.length){ el.innerHTML = '<div style="padding:20px;text-align:center;color:rgba(255,255,255,.3)">\uB4F1\uB85D\uB41C JA \uBE14\uB85C\uADF8 \uAE00\uC774 \uC5C6\uC2B5\uB2C8\uB2E4</div>'; return; }
+  el.innerHTML = jaBlogs.map(function(p){
+    var statusColor = p.status==='published' ? 'rgba(52,211,153,.15);color:#34d399' : 'rgba(251,191,36,.15);color:#fbbf24';
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.05)">' +
+      '<div style="flex:1">' +
+        '<div style="font-size:13px;font-weight:600;color:#fff">'+(p.title||'\uC81C\uBAA9 \uC5C6\uC74C')+'</div>' +
+        '<div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:2px">' +
+          '<a href="/ja/blog/'+(p.slug||p.id)+'" target="_blank" style="color:#60a5fa;text-decoration:none">/ja/blog/'+p.slug+'</a>' +
+          ' \xB7 '+(p.category||'-')+' \xB7 '+(p.created_at?p.created_at.substring(0,10):'') +
+        '</div>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:6px;margin-left:10px">' +
+        '<span style="font-size:10px;padding:3px 8px;border-radius:20px;background:'+statusColor+'">'+(p.status||'draft')+'</span>' +
+        '<button onclick="deleteJaBlog(''+p.id+'')" style="padding:5px 10px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:6px;color:#f87171;font-size:11px;cursor:pointer">\uC0AD\uC81C</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+// JA \uBE14\uB85C\uADF8 \uB4F1\uB85D \uD3FC \uD1A0\uAE00
+function toggleJaBlogForm(){
+  var f = document.getElementById('ja-blog-form');
+  var btn = document.getElementById('ja-blog-form-toggle');
+  if(!f) return;
+  var isOpen = f.style.display !== 'none';
+  f.style.display = isOpen ? 'none' : 'block';
+  if(btn) btn.innerHTML = isOpen ? '<i class="fas fa-chevron-down"></i> \uD3FC \uC5F4\uAE30' : '<i class="fas fa-chevron-up"></i> \uD3FC \uB2EB\uAE30';
+}
+
+// JA \uBE14\uB85C\uADF8 \uB4F1\uB85D
+function createJaBlog(){
+  var title   = (document.getElementById('ja-blog-title')||{}).value   || '';
+  var slug    = (document.getElementById('ja-blog-slug')||{}).value    || '';
+  var cat     = (document.getElementById('ja-blog-cat')||{}).value     || 'guide';
+  var status  = (document.getElementById('ja-blog-status')||{}).value  || 'published';
+  var excerpt = (document.getElementById('ja-blog-excerpt')||{}).value || '';
+  var content = (document.getElementById('ja-blog-content')||{}).value || '';
+  var res     = document.getElementById('ja-blog-form-result');
+  if(!title || !slug){ if(res) res.innerHTML = '<span style="color:#f87171">\u274C \uC81C\uBAA9\uACFC \uC2AC\uB7EC\uADF8\uB294 \uD544\uC218\uC785\uB2C8\uB2E4</span>'; return; }
+  fetch('/api/ja/blogs', {
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-admin-token':_GSK_TOKEN},
+    body:JSON.stringify({title:title,slug:slug,category:cat,status:status,excerpt:excerpt,content:content})
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if(d.id){
+      if(res) res.innerHTML = '<span style="color:#34d399">\u2705 \uB4F1\uB85D \uC644\uB8CC: '+title+'</span>';
+      ['ja-blog-title','ja-blog-slug','ja-blog-excerpt','ja-blog-content'].forEach(function(id){ var el=document.getElementById(id); if(el) el.value=''; });
+      loadJaBlogList();
+    } else {
+      if(res) res.innerHTML = '<span style="color:#f87171">\u274C \uC624\uB958: '+(d.error||JSON.stringify(d))+'</span>';
+    }
+  }).catch(function(e){ if(res) res.innerHTML = '<span style="color:#f87171">\u274C '+e.message+'</span>'; });
+}
+
+// JA \uBE14\uB85C\uADF8 \uC0AD\uC81C
+function deleteJaBlog(id){
+  if(!confirm('JA \uBE14\uB85C\uADF8 \uAE00\uC744 \uC0AD\uC81C\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?')) return;
+  fetch('/api/ja/blogs/'+id,{method:'DELETE',headers:{'x-admin-token':_GSK_TOKEN}})
+    .then(function(){ loadJaBlogList(); })
+    .catch(function(e){ alert('\uC0AD\uC81C \uC2E4\uD328: '+e.message); });
 }
 
 <\/script>
