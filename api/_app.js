@@ -2184,20 +2184,17 @@ app.use("*", async (c, next) => {
   }
   await next();
 });
-var ADMIN_SECRET = "0907";
+function _getAdminSecret(env) {
+  return env?.ADMIN_SECRET || (typeof process !== "undefined" ? process.env.ADMIN_SECRET || "" : "") || "change-me-in-env";
+}
 app.use("/admin", async (c, next) => {
-  const envToken = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== "undefined" ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || "" : "");
+  const adminSecret = _getAdminSecret(c.env);
   const authHeader = c.req.header("Authorization") || "";
   const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
-  const queryToken = c.req.query("token") || "";
   const cookieHeader = c.req.header("Cookie") || "";
   const cookieToken = cookieHeader.match(/admin_token=([^;]+)/)?.[1] || "";
-  const provided = bearerToken || queryToken || cookieToken;
-  const isValid = provided === ADMIN_SECRET || envToken && provided === envToken;
-  if (isValid && queryToken) {
-    c.header("Set-Cookie", `admin_token=${ADMIN_SECRET}; Path=/; Max-Age=604800; HttpOnly; SameSite=Lax`);
-    return c.redirect("/admin", 302);
-  }
+  const provided = bearerToken || cookieToken;
+  const isValid = provided === adminSecret;
   if (!isValid) {
     return c.html(`<!DOCTYPE html>
 <html lang="en">
@@ -2237,29 +2234,60 @@ async function login(e) {
   document.getElementById('err').style.display = 'none';
   document.getElementById('spin').style.display = 'block';
   document.getElementById('btn').disabled = true;
-  // \uC11C\uBC84\uAC00 ?token= \uAC80\uC99D \uD6C4 \uCFE0\uD0A4 \uBC1C\uAE09 + 302 \uB9AC\uB2E4\uC774\uB809\uD2B8 \u2192 \uBE0C\uB77C\uC6B0\uC800\uAC00 \uC790\uB3D9\uC73C\uB85C /admin \uC774\uB3D9
-  window.location.href = '/admin?token=' + encodeURIComponent(pw);
+  try {
+    const r = await fetch('/admin-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pw }),
+      credentials: 'same-origin'
+    });
+    if (r.ok) {
+      window.location.href = '/admin';
+    } else {
+      document.getElementById('err').style.display = 'block';
+      document.getElementById('spin').style.display = 'none';
+      document.getElementById('btn').disabled = false;
+    }
+  } catch(err) {
+    document.getElementById('err').style.display = 'block';
+    document.getElementById('spin').style.display = 'none';
+    document.getElementById('btn').disabled = false;
+  }
 }
 </script>
 </body>
 </html>`, 200);
   }
-  c.header("Set-Cookie", `admin_token=${ADMIN_SECRET}; Path=/; Max-Age=604800; HttpOnly; SameSite=Lax`);
+  c.header("Set-Cookie", `admin_token=${adminSecret}; Path=/; Max-Age=604800; HttpOnly; Secure; SameSite=Strict`);
   await next();
 });
 app.use("/api/admin/*", async (c, next) => {
-  const envToken = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== "undefined" ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || "" : "");
   const authHeader = c.req.header("Authorization") || "";
   const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
   const cookieHeader = c.req.header("Cookie") || "";
   const cookieToken = cookieHeader.match(/admin_token=([^;]+)/)?.[1] || "";
   const secretHeader = c.req.header("x-admin-secret") || c.req.query("secret") || "";
+  const adminSecret = _getAdminSecret(c.env);
   const provided = bearerToken || cookieToken || secretHeader;
-  const isValid = provided === ADMIN_SECRET || envToken && provided === envToken;
+  const isValid = provided === adminSecret;
   if (!isValid) {
     return c.json({ error: "Unauthorized" }, 401);
   }
   await next();
+});
+app.post("/admin-login", async (c) => {
+  try {
+    const body = await c.req.json();
+    const password = body?.password || "";
+    const adminSecret = _getAdminSecret(c.env);
+    if (!password || password !== adminSecret) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+    c.header("Set-Cookie", `admin_token=${adminSecret}; Path=/; Max-Age=604800; HttpOnly; Secure; SameSite=Strict`);
+    return c.json({ ok: true });
+  } catch {
+    return c.json({ error: "Bad Request" }, 400);
+  }
 });
 app.get("/robots.txt", (c) => {
   const robotsTxt = `# robots.txt for SEOUL BEAUTY TRIP
@@ -3587,6 +3615,14 @@ Return ONLY a single valid JSON object \u2014 no markdown, no explanation:
   }
 }
 app.post("/api/shops", async (c) => {
+  const _authCookie = (c.req.header("Cookie") || "").match(/admin_token=([^;]+)/)?.[1] || "";
+  const _authBearer = (() => {
+    const h = c.req.header("Authorization") || "";
+    return h.startsWith("Bearer ") ? h.slice(7).trim() : "";
+  })();
+  const _authSecret = c.req.header("x-admin-secret") || "";
+  const _authProvided = _authCookie || _authBearer || _authSecret;
+  if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: "Unauthorized" }, 401);
   try {
     const sql = getDb(c.env);
     const body = await c.req.json();
@@ -3670,6 +3706,14 @@ app.post("/api/shops", async (c) => {
   }
 });
 app.put("/api/shops/:id", async (c) => {
+  const _authCookie = (c.req.header("Cookie") || "").match(/admin_token=([^;]+)/)?.[1] || "";
+  const _authBearer = (() => {
+    const h = c.req.header("Authorization") || "";
+    return h.startsWith("Bearer ") ? h.slice(7).trim() : "";
+  })();
+  const _authSecret = c.req.header("x-admin-secret") || "";
+  const _authProvided = _authCookie || _authBearer || _authSecret;
+  if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: "Unauthorized" }, 401);
   try {
     const sql = getDb(c.env);
     const body = await c.req.json();
@@ -3749,6 +3793,14 @@ app.put("/api/shops/:id", async (c) => {
   }
 });
 app.patch("/api/shops/:id", async (c) => {
+  const _authCookie = (c.req.header("Cookie") || "").match(/admin_token=([^;]+)/)?.[1] || "";
+  const _authBearer = (() => {
+    const h = c.req.header("Authorization") || "";
+    return h.startsWith("Bearer ") ? h.slice(7).trim() : "";
+  })();
+  const _authSecret = c.req.header("x-admin-secret") || "";
+  const _authProvided = _authCookie || _authBearer || _authSecret;
+  if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: "Unauthorized" }, 401);
   try {
     const sql = getDb(c.env);
     const body = await c.req.json();
@@ -3776,6 +3828,14 @@ app.patch("/api/shops/:id", async (c) => {
   }
 });
 app.delete("/api/shops/:id", async (c) => {
+  const _authCookie = (c.req.header("Cookie") || "").match(/admin_token=([^;]+)/)?.[1] || "";
+  const _authBearer = (() => {
+    const h = c.req.header("Authorization") || "";
+    return h.startsWith("Bearer ") ? h.slice(7).trim() : "";
+  })();
+  const _authSecret = c.req.header("x-admin-secret") || "";
+  const _authProvided = _authCookie || _authBearer || _authSecret;
+  if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: "Unauthorized" }, 401);
   try {
     const sql = getDb(c.env);
     await sql`DELETE FROM shops WHERE id=${c.req.param("id")}`;
@@ -3819,6 +3879,14 @@ app.post("/api/admin/restore-shop", async (c) => {
   }
 });
 app.post("/api/videos", async (c) => {
+  const _authCookie = (c.req.header("Cookie") || "").match(/admin_token=([^;]+)/)?.[1] || "";
+  const _authBearer = (() => {
+    const h = c.req.header("Authorization") || "";
+    return h.startsWith("Bearer ") ? h.slice(7).trim() : "";
+  })();
+  const _authSecret = c.req.header("x-admin-secret") || "";
+  const _authProvided = _authCookie || _authBearer || _authSecret;
+  if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: "Unauthorized" }, 401);
   const sql = getDb(c.env);
   const body = await c.req.json();
   const newId = "v" + Date.now();
@@ -3852,6 +3920,14 @@ app.post("/api/videos", async (c) => {
   return c.json({ ok: true, id: newId, descriptionGenerated: !body.description && !!description, tagsGenerated: !body.tags?.length && !!autoTags.length });
 });
 app.delete("/api/videos/:id", async (c) => {
+  const _authCookie = (c.req.header("Cookie") || "").match(/admin_token=([^;]+)/)?.[1] || "";
+  const _authBearer = (() => {
+    const h = c.req.header("Authorization") || "";
+    return h.startsWith("Bearer ") ? h.slice(7).trim() : "";
+  })();
+  const _authSecret = c.req.header("x-admin-secret") || "";
+  const _authProvided = _authCookie || _authBearer || _authSecret;
+  if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: "Unauthorized" }, 401);
   const sql = getDb(c.env);
   await sql`DELETE FROM videos WHERE id=${c.req.param("id")}`;
   return c.json({ ok: true });
@@ -4042,6 +4118,14 @@ app.post("/api/videos/gen-description-bulk", async (c) => {
   return c.json({ ok: true, updated, failed, total: rows.length });
 });
 app.put("/api/videos/:id", async (c) => {
+  const _authCookie = (c.req.header("Cookie") || "").match(/admin_token=([^;]+)/)?.[1] || "";
+  const _authBearer = (() => {
+    const h = c.req.header("Authorization") || "";
+    return h.startsWith("Bearer ") ? h.slice(7).trim() : "";
+  })();
+  const _authSecret = c.req.header("x-admin-secret") || "";
+  const _authProvided = _authCookie || _authBearer || _authSecret;
+  if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: "Unauthorized" }, 401);
   const sql = getDb(c.env);
   const body = await c.req.json();
   if (body.titleOnly) {
@@ -4160,6 +4244,14 @@ app.put("/api/consultations/:id", async (c) => {
   }
 });
 app.get("/api/stats", async (c) => {
+  const _authCookie = (c.req.header("Cookie") || "").match(/admin_token=([^;]+)/)?.[1] || "";
+  const _authBearer = (() => {
+    const h = c.req.header("Authorization") || "";
+    return h.startsWith("Bearer ") ? h.slice(7).trim() : "";
+  })();
+  const _authSecret = c.req.header("x-admin-secret") || "";
+  const _authProvided = _authCookie || _authBearer || _authSecret;
+  if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: "Unauthorized" }, 401);
   try {
     const sql = getDb(c.env);
     const [vStats] = await sql`SELECT COALESCE(SUM(views),0) as total_views, COUNT(*) as total FROM videos`;
@@ -4848,9 +4940,14 @@ app.post("/api/track", async (c) => {
   }
 });
 app.get("/api/visitors", async (c) => {
-  const auth = c.req.header("x-admin-token") || c.req.query("token") || "";
-  const token = c.env?.GSK_TOKEN || c.env?.gsk_token || "";
-  if (token && auth !== token) return c.json({ error: "Unauthorized" }, 401);
+  const _authCookie = (c.req.header("Cookie") || "").match(/admin_token=([^;]+)/)?.[1] || "";
+  const _authBearer = (() => {
+    const h = c.req.header("Authorization") || "";
+    return h.startsWith("Bearer ") ? h.slice(7).trim() : "";
+  })();
+  const _authSecret = c.req.header("x-admin-secret") || "";
+  const _authProvided = _authCookie || _authBearer || _authSecret;
+  if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: "Unauthorized" }, 401);
   try {
     const sql = getDb(c.env);
     const limit = parseInt(c.req.query("limit") || "50");
@@ -4899,9 +4996,14 @@ app.get("/api/visitors", async (c) => {
   }
 });
 app.get("/api/visitors/:sessionId", async (c) => {
-  const auth = c.req.header("x-admin-token") || c.req.query("token") || "";
-  const token = c.env?.GSK_TOKEN || c.env?.gsk_token || "";
-  if (token && auth !== token) return c.json({ error: "Unauthorized" }, 401);
+  const _authCookie = (c.req.header("Cookie") || "").match(/admin_token=([^;]+)/)?.[1] || "";
+  const _authBearer = (() => {
+    const h = c.req.header("Authorization") || "";
+    return h.startsWith("Bearer ") ? h.slice(7).trim() : "";
+  })();
+  const _authSecret = c.req.header("x-admin-secret") || "";
+  const _authProvided = _authCookie || _authBearer || _authSecret;
+  if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: "Unauthorized" }, 401);
   try {
     const sql = getDb(c.env);
     const sid = c.req.param("sessionId");
@@ -4960,9 +5062,14 @@ app.get("/api/visitors/:sessionId", async (c) => {
   }
 });
 app.get("/api/visitors-live", async (c) => {
-  const auth = c.req.header("x-admin-token") || c.req.query("token") || "";
-  const token = c.env?.GSK_TOKEN || c.env?.gsk_token || "";
-  if (token && auth !== token) return c.json({ error: "Unauthorized" }, 401);
+  const _authCookie = (c.req.header("Cookie") || "").match(/admin_token=([^;]+)/)?.[1] || "";
+  const _authBearer = (() => {
+    const h = c.req.header("Authorization") || "";
+    return h.startsWith("Bearer ") ? h.slice(7).trim() : "";
+  })();
+  const _authSecret = c.req.header("x-admin-secret") || "";
+  const _authProvided = _authCookie || _authBearer || _authSecret;
+  if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: "Unauthorized" }, 401);
   try {
     const sql = getDb(c.env);
     const liveSessions = await sql`
@@ -5022,9 +5129,14 @@ app.get("/api/visitors-live", async (c) => {
   }
 });
 app.get("/api/visitors-stats", async (c) => {
-  const auth = c.req.header("x-admin-token") || c.req.query("token") || "";
-  const token = c.env?.GSK_TOKEN || c.env?.gsk_token || "";
-  if (token && auth !== token) return c.json({ error: "Unauthorized" }, 401);
+  const _authCookie = (c.req.header("Cookie") || "").match(/admin_token=([^;]+)/)?.[1] || "";
+  const _authBearer = (() => {
+    const h = c.req.header("Authorization") || "";
+    return h.startsWith("Bearer ") ? h.slice(7).trim() : "";
+  })();
+  const _authSecret = c.req.header("x-admin-secret") || "";
+  const _authProvided = _authCookie || _authBearer || _authSecret;
+  if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: "Unauthorized" }, 401);
   try {
     const sql = getDb(c.env);
     const days = parseInt(c.req.query("days") || "7");
@@ -5601,6 +5713,14 @@ app.get("/api/blogs/:slug", async (c) => {
   }
 });
 app.post("/api/blogs", async (c) => {
+  const _authCookie = (c.req.header("Cookie") || "").match(/admin_token=([^;]+)/)?.[1] || "";
+  const _authBearer = (() => {
+    const h = c.req.header("Authorization") || "";
+    return h.startsWith("Bearer ") ? h.slice(7).trim() : "";
+  })();
+  const _authSecret = c.req.header("x-admin-secret") || "";
+  const _authProvided = _authCookie || _authBearer || _authSecret;
+  if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: "Unauthorized" }, 401);
   try {
     await ensureDb(c.env);
     const sql = getDb(c.env);
@@ -5638,6 +5758,14 @@ app.post("/api/blogs", async (c) => {
   }
 });
 app.put("/api/blogs/:id", async (c) => {
+  const _authCookie = (c.req.header("Cookie") || "").match(/admin_token=([^;]+)/)?.[1] || "";
+  const _authBearer = (() => {
+    const h = c.req.header("Authorization") || "";
+    return h.startsWith("Bearer ") ? h.slice(7).trim() : "";
+  })();
+  const _authSecret = c.req.header("x-admin-secret") || "";
+  const _authProvided = _authCookie || _authBearer || _authSecret;
+  if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: "Unauthorized" }, 401);
   await ensureDb(c.env);
   const sql = getDb(c.env);
   const body = await c.req.json();
@@ -5677,6 +5805,14 @@ app.put("/api/blogs/:id", async (c) => {
   return c.json({ ok: true });
 });
 app.delete("/api/blogs/:id", async (c) => {
+  const _authCookie = (c.req.header("Cookie") || "").match(/admin_token=([^;]+)/)?.[1] || "";
+  const _authBearer = (() => {
+    const h = c.req.header("Authorization") || "";
+    return h.startsWith("Bearer ") ? h.slice(7).trim() : "";
+  })();
+  const _authSecret = c.req.header("x-admin-secret") || "";
+  const _authProvided = _authCookie || _authBearer || _authSecret;
+  if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: "Unauthorized" }, 401);
   await ensureDb(c.env);
   const sql = getDb(c.env);
   await sql`DELETE FROM blog_posts WHERE id=${c.req.param("id")}`;
@@ -6514,6 +6650,15 @@ app.get("/__ja_disabled__/blog/category/:cat", async (c) => {
 <meta property="og:description" content="${metaDesc}">
 <meta property="og:url" content="${canonicalUrl}">
 <meta property="og:type" content="website">
+<meta property="og:image" content="https://seoulbeautytrip.com/og-cover.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="${catLabel} in Seoul \u2014 K-Beauty Guides for Foreigners">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${catLabel} in Seoul \u2014 K-Beauty Guides for Foreigners">
+<meta name="twitter:description" content="${metaDesc}">
+<meta name="twitter:image" content="https://seoulbeautytrip.com/og-cover.jpg">
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"CollectionPage","url":"${canonicalUrl}","name":"${catLabel} Seoul Guide","description":"${metaDesc}","breadcrumb":{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"${base}"},{"@type":"ListItem","position":2,"name":"Blog","item":"${base}/blog"},{"@type":"ListItem","position":3,"name":"${catLabel}","item":"${canonicalUrl}"}]}}</script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" media="print" onload="this.media='all'">
 <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"></noscript>
@@ -6716,6 +6861,10 @@ app.get("/__ja_disabled__/blog/:slug", async (c) => {
 <meta property="og:image:height" content="630">
 <meta property="og:image:type" content="image/jpeg">
 <meta property="og:image:alt" content="${post.title}">
+<meta property="article:published_time" content="${post.created_at || ""}">
+<meta property="article:modified_time" content="${post.updated_at || post.created_at || ""}">
+<meta property="article:author" content="https://seoulbeautytrip.com/about">
+<meta property="article:section" content="${post.category || "guide"}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${post.title}">
 <meta name="twitter:description" content="${post.meta_description || ""}">
@@ -6732,7 +6881,7 @@ app.get("/__ja_disabled__/blog/:slug", async (c) => {
       { "@type": "Person", "name": "Seoul Beauty Trip Editorial Team", "url": "https://seoulbeautytrip.com/about", "jobTitle": "K-Beauty Travel Editor", "worksFor": { "@type": "Organization", "name": "Seoul Beauty Trip" } },
       { "@type": "Organization", "name": "Seoul Beauty Trip", "url": base }
     ],
-    "publisher": { "@type": "Organization", "name": "Seoul Beauty Trip", "url": base, "logo": { "@type": "ImageObject", "url": "https://seoulbeautytrip.com/favicon.ico" } },
+    "publisher": { "@type": "Organization", "name": "Seoul Beauty Trip", "url": base, "logo": { "@type": "ImageObject", "url": "https://seoulbeautytrip.com/og-cover.jpg", "width": 1200, "height": 630 } },
     "keywords": [.../* @__PURE__ */ new Set([...tags, cat, "Seoul", "foreigners", "K-beauty", post.category || cat])].filter(Boolean).join(", "),
     "articleSection": cat,
     "inLanguage": "ja",
@@ -7093,8 +7242,19 @@ People: `);
     };
     const _catLabel = _catTitleLabels[_shopCat] || _shopCat.charAt(0).toUpperCase() + _shopCat.slice(1);
     const _areaFinal = ["cheongdam", "apgujeong", "sinsa", "nonhyeon"].some((a) => _shopArea.toLowerCase().includes(a)) ? "Gangnam" : _shopArea;
-    const _pageTitleFull = shop.name + " \u2014 " + _areaFinal + " " + _catLabel + " Seoul | Seoul Beauty Trip";
-    const _pageTitle = _pageTitleFull.length <= 65 ? _pageTitleFull : shop.name.substring(0, Math.min(shop.name.length, 40)) + " \u2014 " + _catLabel + " " + _areaFinal + " Seoul | Seoul Beauty Trip";
+    const _titleSuffix = " | Seoul Beauty Trip";
+    const _pageTitleFull = shop.name + " \u2014 " + _areaFinal + " " + _catLabel + " Seoul" + _titleSuffix;
+    let _pageTitle = _pageTitleFull;
+    if (_pageTitleFull.length > 65) {
+      const _shortCat = _catLabel.split(" ").slice(-1)[0];
+      const _t2 = shop.name + " \u2014 " + _areaFinal + " " + _shortCat + " Seoul" + _titleSuffix;
+      if (_t2.length <= 65) {
+        _pageTitle = _t2;
+      } else {
+        const _nameCut = shop.name.length > 35 ? shop.name.substring(0, 35).trimEnd() : shop.name;
+        _pageTitle = _nameCut + " \u2014 " + _shortCat + " " + _areaFinal + " Seoul" + _titleSuffix;
+      }
+    }
     const _metaDescLabels = {
       clinic: _clinicSubtype.toLowerCase(),
       hair: "hair salon",
@@ -7191,13 +7351,21 @@ ${SB_TRACKER_SCRIPT}
 
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="${canonicalUrl}">
+<!-- hreflang: JA + EN -->
+<link rel="alternate" hreflang="ja" href="${canonicalUrl}">
+<link rel="alternate" hreflang="en" href="https://seoulbeautytrip.com/shop/${shop.slug}">
+<link rel="alternate" hreflang="x-default" href="https://seoulbeautytrip.com/shop/${shop.slug}">
 <!-- Open Graph -->
 <meta property="og:type" content="business.business">
 <meta property="og:title" content="${_ogTitle}">
 <meta property="og:description" content="${trimDesc(shop.metaDescription || shop.description || "")}">
 <meta property="og:image" content="${ogImage}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="${shop.name} ${_catLabel} Seoul">
 <meta property="og:url" content="${canonicalUrl}">
 <meta property="og:site_name" content="Seoul Beauty Trip">
+<meta property="og:locale" content="ja_JP">
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${shop.name} | Seoul Beauty Trip">
@@ -7216,7 +7384,7 @@ ${SB_TRACKER_SCRIPT}
       "description":"${(shop.description || "").replace(/"/g, "'")}",
       "image":${(() => {
       const imgs = [ogImage, ...(shop.photos || []).map((p) => p.startsWith("http") ? p : base + p)].filter(Boolean);
-      return JSON.stringify(imgs.map((u) => ({ "@type": "ImageObject", "url": u, "thumbnailUrl": u })));
+      return JSON.stringify(imgs.map((u) => ({ "@type": "ImageObject", "url": u, "width": 1200, "height": 630, "thumbnailUrl": u })));
     })()},
       "url":"${canonicalUrl}",
       "address":{
@@ -8334,18 +8502,26 @@ app.get("/best/clinic/gangnam", (c) => {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Best Plastic Surgery Clinics Gangnam Seoul ${yr} | Seoul Beauty Trip</title>
 <meta name="description" content="Plastic surgery &amp; skin clinics in Gangnam Seoul \u2014 top 30 ranked by ${yr} patient reviews. Board-certified surgeons, English-friendly booking, honest prices for international visitors.">
+<meta name="robots" content="index, follow">
 <link rel="canonical" href="https://seoulbeautytrip.com/best/clinic/gangnam">
+<!-- hreflang: EN only (JA \uBC84\uC804 \uC5C6\uC74C) -->
+<link rel="alternate" hreflang="en" href="https://seoulbeautytrip.com/best/clinic/gangnam">
+<link rel="alternate" hreflang="x-default" href="https://seoulbeautytrip.com/best/clinic/gangnam">
+<meta property="og:site_name" content="Seoul Beauty Trip">
 <meta property="og:title" content="Best Plastic Surgery Clinics Gangnam Seoul ${yr} | Seoul Beauty Trip">
 <meta property="og:description" content="Verified list of the 30 best aesthetic clinics in Gangnam &amp; Seocho. English booking available.">
 <meta property="og:url" content="https://seoulbeautytrip.com/best/clinic/gangnam">
 <meta property="og:type" content="article">
-<meta property="og:image" content="https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg">
+<meta property="og:image" content="https://seoulbeautytrip.com/og-cover.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:type" content="image/jpeg">
 <meta property="og:image:alt" content="Best Plastic Surgery Clinics in Gangnam Seoul \u2014 Seoul Beauty Trip">
+<meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg">
+<meta name="twitter:title" content="Best Plastic Surgery Clinics Gangnam Seoul ${yr}">
+<meta name="twitter:description" content="Top 30 aesthetic clinics in Gangnam & Seocho \u2014 ranked by patient reviews. English booking available.">
+<meta name="twitter:image" content="https://seoulbeautytrip.com/og-cover.jpg">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@graph":[
   {"@type":"ItemList","name":"Best Plastic Surgery &amp; Skin Clinics in Gangnam Seoul ${yr}","numberOfItems":30,"itemListElement":[${itemListEl}]},
@@ -8862,12 +9038,20 @@ ${SB_TRACKER_SCRIPT}
 <meta name="robots" content="${shops2.length >= 3 ? "index, follow" : "noindex, follow"}">
 <meta name="keywords" content="${catLabel} Seoul foreigners, best ${catLabel.toLowerCase()} ${areaLabel} Seoul, ${catLabel.toLowerCase()} Seoul English, ${areaLabel} beauty Seoul, Korean ${catLabel.toLowerCase()} tourists, book ${catLabel.toLowerCase()} Seoul WhatsApp">
 <link rel="canonical" href="${pageUrl}">
+<!-- hreflang: JA + EN -->
+<link rel="alternate" hreflang="ja" href="${pageUrl}">
+<link rel="alternate" hreflang="en" href="${pageUrl.replace("/ja/best/", "/best/")}">
+<link rel="alternate" hreflang="x-default" href="${pageUrl.replace("/ja/best/", "/best/")}">
 <meta property="og:type" content="website">
 <meta property="og:title" content="${titleMain} | Seoul Beauty Trip">
 <meta property="og:description" content="${metaDesc}">
 <meta property="og:image" content="${shops2[0]?.thumbnail ? shops2[0].thumbnail.startsWith("http") ? shops2[0].thumbnail : base + shops2[0].thumbnail : "https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg"}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Best ${catLabel} in ${areaLabel} Seoul for Foreigners">
 <meta property="og:url" content="${pageUrl}">
 <meta property="og:site_name" content="Seoul Beauty Trip">
+<meta property="og:locale" content="ja_JP">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${titleMain} | Seoul Beauty Trip">
 <meta name="twitter:description" content="${metaDesc}">
@@ -9503,10 +9687,10 @@ details[open] .faq-q::after{transform:rotate(180deg)}
 app.get("/__ja_disabled__/admin", async (c) => {
   const cookieHeader = c.req.header("Cookie") || "";
   const cookieToken = cookieHeader.match(/admin_token=([^;]+)/)?.[1] || "";
-  const ADMIN_SECRET2 = "0907";
-  if (cookieToken !== ADMIN_SECRET2) {
+  const _jaAdminSecret = _getAdminSecret(c.env);
+  if (cookieToken !== _jaAdminSecret) {
     const token = c.req.query("token") || "";
-    if (token !== ADMIN_SECRET2) {
+    if (token !== _jaAdminSecret) {
       return c.html(`<!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -9529,7 +9713,7 @@ app.get("/__ja_disabled__/admin", async (c) => {
 </body>
 </html>`, 200);
     }
-    c.header("Set-Cookie", `admin_token=${ADMIN_SECRET2}; Path=/; Max-Age=604800; HttpOnly; SameSite=Lax`);
+    c.header("Set-Cookie", `admin_token=${_jaAdminSecret}; Path=/; Max-Age=604800; HttpOnly; Secure; SameSite=Strict`);
     return c.redirect("/ja/admin", 302);
   }
   return c.html(`<!DOCTYPE html>
@@ -9648,7 +9832,8 @@ textarea{min-height:100px;resize:vertical}
 
 </div><!-- /adm-body -->
 <script>
-var _token = '0907';
+// _token: \uCFE0\uD0A4 \uAE30\uBC18 \uC778\uC99D \uC0AC\uC6A9 (admin_token \uCFE0\uD0A4\uAC00 \uC790\uB3D9 \uCCA8\uBD80\uB428)
+var _token = '';  // \uC0AC\uC6A9\uD558\uC9C0 \uC54A\uC74C \u2014 fetch \uC2DC credentials:'same-origin'\uC73C\uB85C \uCFE0\uD0A4 \uC790\uB3D9 \uC804\uC1A1
 var _shops = [], _blogs = [];
 
 function switchTab(t) {
@@ -10167,8 +10352,19 @@ People: `);
     };
     const _catLabel = _catTitleLabels[_shopCat] || _shopCat.charAt(0).toUpperCase() + _shopCat.slice(1);
     const _areaFinal = ["cheongdam", "apgujeong", "sinsa", "nonhyeon"].some((a) => _shopArea.toLowerCase().includes(a)) ? "Gangnam" : _shopArea;
-    const _pageTitleFull = shop.name + " \u2014 " + _areaFinal + " " + _catLabel + " Seoul | Seoul Beauty Trip";
-    const _pageTitle = _pageTitleFull.length <= 65 ? _pageTitleFull : shop.name.substring(0, Math.min(shop.name.length, 40)) + " \u2014 " + _catLabel + " " + _areaFinal + " Seoul | Seoul Beauty Trip";
+    const _titleSuffix = " | Seoul Beauty Trip";
+    const _pageTitleFull = shop.name + " \u2014 " + _areaFinal + " " + _catLabel + " Seoul" + _titleSuffix;
+    let _pageTitle = _pageTitleFull;
+    if (_pageTitleFull.length > 65) {
+      const _shortCat = _catLabel.split(" ").slice(-1)[0];
+      const _t2 = shop.name + " \u2014 " + _areaFinal + " " + _shortCat + " Seoul" + _titleSuffix;
+      if (_t2.length <= 65) {
+        _pageTitle = _t2;
+      } else {
+        const _nameCut = shop.name.length > 35 ? shop.name.substring(0, 35).trimEnd() : shop.name;
+        _pageTitle = _nameCut + " \u2014 " + _shortCat + " " + _areaFinal + " Seoul" + _titleSuffix;
+      }
+    }
     const _metaDescLabels = {
       clinic: _clinicSubtype.toLowerCase(),
       hair: "hair salon",
@@ -10265,13 +10461,21 @@ ${SB_TRACKER_SCRIPT}
 
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="${canonicalUrl}">
+<!-- hreflang: EN + JA -->
+<link rel="alternate" hreflang="en" href="${canonicalUrl}">
+<link rel="alternate" hreflang="ja" href="https://seoulbeautytrip.com/ja/shop/${shop.slug}">
+<link rel="alternate" hreflang="x-default" href="${canonicalUrl}">
 <!-- Open Graph -->
 <meta property="og:type" content="business.business">
 <meta property="og:title" content="${_ogTitle}">
 <meta property="og:description" content="${trimDesc(shop.metaDescription || shop.description || "")}">
 <meta property="og:image" content="${ogImage}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="${shop.name} ${_catLabel} Seoul">
 <meta property="og:url" content="${canonicalUrl}">
 <meta property="og:site_name" content="Seoul Beauty Trip">
+<meta property="og:locale" content="en_US">
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${shop.name} | Seoul Beauty Trip">
@@ -10290,7 +10494,7 @@ ${SB_TRACKER_SCRIPT}
       "description":"${(shop.description || "").replace(/"/g, "'")}",
       "image":${(() => {
       const imgs = [ogImage, ...(shop.photos || []).map((p) => p.startsWith("http") ? p : base + p)].filter(Boolean);
-      return JSON.stringify(imgs.map((u) => ({ "@type": "ImageObject", "url": u, "thumbnailUrl": u })));
+      return JSON.stringify(imgs.map((u) => ({ "@type": "ImageObject", "url": u, "width": 1200, "height": 630, "thumbnailUrl": u })));
     })()},
       "url":"${canonicalUrl}",
       "address":{
@@ -11452,16 +11656,24 @@ ${SB_TRACKER_SCRIPT}
 <meta name="robots" content="${shops2.length >= 3 ? "index, follow" : "noindex, follow"}">
 <meta name="keywords" content="${catLabel} Seoul foreigners, best ${catLabel.toLowerCase()} ${areaLabel} Seoul, ${catLabel.toLowerCase()} Seoul English, ${areaLabel} beauty Seoul, Korean ${catLabel.toLowerCase()} tourists, book ${catLabel.toLowerCase()} Seoul WhatsApp">
 <link rel="canonical" href="${pageUrl}">
+<!-- hreflang: EN + JA -->
+<link rel="alternate" hreflang="en" href="${pageUrl}">
+<link rel="alternate" hreflang="ja" href="${pageUrl.replace("/best/", "/ja/best/")}">
+<link rel="alternate" hreflang="x-default" href="${pageUrl}">
 <meta property="og:type" content="website">
 <meta property="og:title" content="${titleMain} | Seoul Beauty Trip">
 <meta property="og:description" content="${metaDesc}">
-<meta property="og:image" content="${shops2[0]?.thumbnail ? shops2[0].thumbnail.startsWith("http") ? shops2[0].thumbnail : base + shops2[0].thumbnail : "https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg"}">
+<meta property="og:image" content="https://seoulbeautytrip.com/og-cover.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Best ${catLabel} in ${areaLabel} Seoul for Foreigners">
 <meta property="og:url" content="${pageUrl}">
 <meta property="og:site_name" content="Seoul Beauty Trip">
+<meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${titleMain} | Seoul Beauty Trip">
 <meta name="twitter:description" content="${metaDesc}">
-<meta name="twitter:image" content="${shops2[0]?.thumbnail || "https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg"}">
+<meta name="twitter:image" content="https://seoulbeautytrip.com/og-cover.jpg">
 <script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@graph": schemaGraph })}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
@@ -12139,8 +12351,25 @@ app.get("/shops", async (c) => {
 ${SB_TRACKER_SCRIPT}
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Seoul Beauty Catalog \u2014 All K-Beauty Shops | Seoul Beauty Trip</title>
-<meta name="description" content="Browse all Korean beauty salons in Seoul \u2014 foreigner-friendly with English support.">
+<meta name="description" content="Browse all Korean beauty salons in Seoul \u2014 foreigner-friendly with English support. Skin clinics, head spas, hair salons, nail studios and more.">
+<meta name="robots" content="index, follow">
 <link rel="canonical" href="https://seoulbeautytrip.com/shops">
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Seoul Beauty Trip">
+<meta property="og:title" content="Seoul Beauty Catalog \u2014 All K-Beauty Shops in Seoul">
+<meta property="og:description" content="Browse all Korean beauty salons in Seoul \u2014 foreigner-friendly with English support. Skin clinics, head spas, hair salons, nail studios and more.">
+<meta property="og:url" content="https://seoulbeautytrip.com/shops">
+<meta property="og:image" content="https://seoulbeautytrip.com/og-cover.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Seoul K-Beauty Shops \u2014 Clinics, Salons & Spas for Foreigners">
+<meta property="og:locale" content="en_US">
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Seoul Beauty Catalog \u2014 All K-Beauty Shops in Seoul">
+<meta name="twitter:description" content="Browse all Korean beauty salons in Seoul \u2014 skin clinics, head spas, hair salons for foreigners.">
+<meta name="twitter:image" content="https://seoulbeautytrip.com/og-cover.jpg">
 <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
@@ -12818,6 +13047,10 @@ app.get("/blog/:slug", async (c) => {
 <meta property="og:image:height" content="630">
 <meta property="og:image:type" content="image/jpeg">
 <meta property="og:image:alt" content="${post.title}">
+<meta property="article:published_time" content="${post.created_at || ""}">
+<meta property="article:modified_time" content="${post.updated_at || post.created_at || ""}">
+<meta property="article:author" content="https://seoulbeautytrip.com/about">
+<meta property="article:section" content="${post.category || "guide"}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${(post.title || "").replace(/\b([\w\s]+Seoul)\s+in Seoul\b/gi, "$1").replace(/(\bSeoul\b)(\s+in Seoul\b)/gi, "$1").replace(/\s{2,}/g, " ").trim()}">
 <meta name="twitter:description" content="${post.meta_description || ""}">
@@ -12834,7 +13067,7 @@ app.get("/blog/:slug", async (c) => {
       { "@type": "Person", "name": "Seoul Beauty Trip Editorial Team", "url": "https://seoulbeautytrip.com/about", "jobTitle": "K-Beauty Travel Editor", "worksFor": { "@type": "Organization", "name": "Seoul Beauty Trip" } },
       { "@type": "Organization", "name": "Seoul Beauty Trip", "url": base }
     ],
-    "publisher": { "@type": "Organization", "name": "Seoul Beauty Trip", "url": base, "logo": { "@type": "ImageObject", "url": "https://seoulbeautytrip.com/favicon.ico" } },
+    "publisher": { "@type": "Organization", "name": "Seoul Beauty Trip", "url": base, "logo": { "@type": "ImageObject", "url": "https://seoulbeautytrip.com/og-cover.jpg", "width": 1200, "height": 630 } },
     "keywords": [.../* @__PURE__ */ new Set([...tags, cat, "Seoul", "foreigners", "K-beauty", post.category || cat])].filter(Boolean).join(", "),
     "articleSection": cat,
     "inLanguage": "en",
@@ -13478,9 +13711,25 @@ app.get("/privacy", (c) => {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Privacy Policy | Seoul Beauty Trip</title>
-<meta name="description" content="Privacy Policy for Seoul Beauty Trip. How we collect, use and protect your personal information.">
+<meta name="description" content="Privacy Policy for Seoul Beauty Trip. How we collect, use and protect your personal information when using our Korean beauty booking service.">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://seoulbeautytrip.com/privacy">
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Seoul Beauty Trip">
+<meta property="og:title" content="Privacy Policy | Seoul Beauty Trip">
+<meta property="og:description" content="How Seoul Beauty Trip collects, uses and protects your personal information when booking Korean beauty services.">
+<meta property="og:url" content="https://seoulbeautytrip.com/privacy">
+<meta property="og:image" content="https://seoulbeautytrip.com/og-cover.jpg">
+<meta property="og:locale" content="en_US">
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Privacy Policy | Seoul Beauty Trip">
+<meta name="twitter:description" content="How Seoul Beauty Trip protects your personal information.">
+<!-- Schema.org -->
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebPage","name":"Privacy Policy","url":"https://seoulbeautytrip.com/privacy","description":"Privacy Policy for Seoul Beauty Trip K-beauty booking service.","publisher":{"@type":"Organization","name":"Seoul Beauty Trip","url":"https://seoulbeautytrip.com","logo":{"@type":"ImageObject","url":"https://seoulbeautytrip.com/og-cover.jpg","width":1200,"height":630}}}
+</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fff;color:#1a1a2e;line-height:1.7}
@@ -14054,7 +14303,12 @@ app.get("/guide/shurink-hifu-seoul-price", (c) => {
 <title>Shurink HIFU in Seoul \u2014 ${yr} Price Guide | Seoul Beauty Trip</title>
 <meta name="description" content="Complete ${yr} guide to Shurink and HIFU ultrasound lifting in Seoul: how it works, realistic costs (\u20A9200K\u2013\u20A9900K), top Gangnam clinics, and what to expect.">
 <link rel="canonical" href="https://seoulbeautytrip.com/guide/shurink-hifu-seoul-price">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Shurink HIFU in Seoul \u2014 ${yr} Price Guide","author":{"@type":"Organization","name":"Seoul Beauty Trip"},"publisher":{"@type":"Organization","name":"Seoul Beauty Trip","logo":{"@type":"ImageObject","url":"https://seoulbeautytrip.com/favicon.ico"}},"datePublished":"${yr}-01-01","dateModified":"${yr}-06-01"}</script>
+<meta property="og:image" content="https://seoulbeautytrip.com/og-cover.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://seoulbeautytrip.com/og-cover.jpg">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Shurink HIFU in Seoul \u2014 ${yr} Price Guide","author":{"@type":"Organization","name":"Seoul Beauty Trip"},"publisher":{"@type":"Organization","name":"Seoul Beauty Trip","logo":{"@type":"ImageObject","url":"https://seoulbeautytrip.com/og-cover.jpg","width":1200,"height":630}},"datePublished":"2025-05-25","dateModified":"2026-06-01"}</script>
 ${GUIDE_COMMON_CSS}
 </head>
 <body>
@@ -14189,7 +14443,12 @@ app.get("/guide/rejuran-healer-korea-guide", (c) => {
 <title>Rejuran Healer in Korea \u2014 Complete ${yr} Guide | Seoul Beauty Trip</title>
 <meta name="description" content="Everything about Rejuran Healer (PDRN skin booster) in Korea: what it is, realistic results, ${yr} prices in Seoul, top clinics, and how to book as a foreigner.">
 <link rel="canonical" href="https://seoulbeautytrip.com/guide/rejuran-healer-korea-guide">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Rejuran Healer in Korea \u2014 Complete ${yr} Guide","author":{"@type":"Organization","name":"Seoul Beauty Trip"},"datePublished":"${yr}-01-01","dateModified":"${yr}-06-01"}</script>
+<meta property="og:image" content="https://seoulbeautytrip.com/og-cover.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://seoulbeautytrip.com/og-cover.jpg">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Rejuran Healer in Korea \u2014 Complete ${yr} Guide","author":{"@type":"Organization","name":"Seoul Beauty Trip"},"datePublished":"2025-05-25","dateModified":"2026-06-01"}</script>
 ${GUIDE_COMMON_CSS}
 </head>
 <body>
@@ -14334,6 +14593,11 @@ app.get("/guide/exosome-skin-treatment-seoul", (c) => {
 <title>Exosome Skin Treatment in Seoul \u2014 ${yr} Guide | Seoul Beauty Trip</title>
 <meta name="description" content="Exosome skin therapy in Seoul: what it is, how it compares to Rejuran and PRP, ${yr} prices at Gangnam clinics, and who it is best suited for.">
 <link rel="canonical" href="https://seoulbeautytrip.com/guide/exosome-skin-treatment-seoul">
+<meta property="og:image" content="https://seoulbeautytrip.com/og-cover.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://seoulbeautytrip.com/og-cover.jpg">
 ${GUIDE_COMMON_CSS}
 </head>
 <body>
@@ -14451,6 +14715,11 @@ app.get("/guide/thermage-flx-korea-cost", (c) => {
 <title>Thermage FLX in Korea \u2014 ${yr} Cost Guide | Seoul Beauty Trip</title>
 <meta name="description" content="Thermage FLX in Korea: is it worth it? ${yr} Seoul prices (\u20A9600K\u2013\u20A91.5M), how it compares to HIFU, top Gangnam clinics, and honest patient experience.">
 <link rel="canonical" href="https://seoulbeautytrip.com/guide/thermage-flx-korea-cost">
+<meta property="og:image" content="https://seoulbeautytrip.com/og-cover.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://seoulbeautytrip.com/og-cover.jpg">
 ${GUIDE_COMMON_CSS}
 </head>
 <body>
@@ -14570,6 +14839,11 @@ app.get("/guide/botox-jaw-slimming-seoul", (c) => {
 <title>Botox Jaw Slimming in Seoul \u2014 ${yr} Guide &amp; Prices | Seoul Beauty Trip</title>
 <meta name="description" content="Botox masseter jaw slimming in Seoul: ${yr} prices (\u20A980K\u2013\u20A9200K), how it works, realistic results, and which Gangnam clinics offer the best value for foreigners.">
 <link rel="canonical" href="https://seoulbeautytrip.com/guide/botox-jaw-slimming-seoul">
+<meta property="og:image" content="https://seoulbeautytrip.com/og-cover.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://seoulbeautytrip.com/og-cover.jpg">
 ${GUIDE_COMMON_CSS}
 </head>
 <body>
@@ -14688,6 +14962,11 @@ app.get("/guide/double-eyelid-surgery-korea-foreigners", (c) => {
 <title>Double Eyelid Surgery in Korea for Foreigners \u2014 ${yr} Guide | Seoul Beauty Trip</title>
 <meta name="description" content="Double eyelid surgery in Korea: ${yr} guide for foreigners covering non-incisional vs incisional methods, realistic costs (\u20A9500K\u2013\u20A92M), recovery, and top Gangnam clinics.">
 <link rel="canonical" href="https://seoulbeautytrip.com/guide/double-eyelid-surgery-korea-foreigners">
+<meta property="og:image" content="https://seoulbeautytrip.com/og-cover.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://seoulbeautytrip.com/og-cover.jpg">
 ${GUIDE_COMMON_CSS}
 </head>
 <body>
@@ -14816,6 +15095,11 @@ app.get("/guide/rhinoplasty-korea-cost-guide", (c) => {
 <title>Rhinoplasty in Korea \u2014 ${yr} Cost Guide for Foreigners | Seoul Beauty Trip</title>
 <meta name="description" content="Rhinoplasty (nose job) in Korea: complete ${yr} cost guide, types of nose surgery, Gangnam clinic recommendations, recovery planning, and honest Q&A for international patients.">
 <link rel="canonical" href="https://seoulbeautytrip.com/guide/rhinoplasty-korea-cost-guide">
+<meta property="og:image" content="https://seoulbeautytrip.com/og-cover.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://seoulbeautytrip.com/og-cover.jpg">
 ${GUIDE_COMMON_CSS}
 </head>
 <body>
@@ -14940,6 +15224,11 @@ app.get("/guide/skin-booster-comparison-juvelook-rejuran", (c) => {
 <title>Juvelook vs Rejuran \u2014 ${yr} Skin Booster Comparison | Seoul Beauty Trip</title>
 <meta name="description" content="Juvelook vs Rejuran: a clear side-by-side comparison of Korea's two most popular skin boosters \u2014 ingredients, results, ${yr} Seoul prices, and who should choose which.">
 <link rel="canonical" href="https://seoulbeautytrip.com/guide/skin-booster-comparison-juvelook-rejuran">
+<meta property="og:image" content="https://seoulbeautytrip.com/og-cover.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://seoulbeautytrip.com/og-cover.jpg">
 ${GUIDE_COMMON_CSS}
 </head>
 <body>
@@ -15070,6 +15359,11 @@ app.get("/guide/laser-toning-pico-laser-korea", (c) => {
 <title>Pico Laser &amp; Laser Toning in Korea \u2014 ${yr} Guide | Seoul Beauty Trip</title>
 <meta name="description" content="Pico laser and laser toning in Seoul: what each treats, ${yr} price comparison, top Gangnam dermatology clinics, and who is the best candidate for each treatment.">
 <link rel="canonical" href="https://seoulbeautytrip.com/guide/laser-toning-pico-laser-korea">
+<meta property="og:image" content="https://seoulbeautytrip.com/og-cover.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://seoulbeautytrip.com/og-cover.jpg">
 ${GUIDE_COMMON_CSS}
 </head>
 <body>
@@ -15198,6 +15492,11 @@ app.get("/guide/thread-lift-korea-foreigner-guide", (c) => {
 <title>Thread Lift in Korea \u2014 ${yr} Foreigner Guide &amp; Prices | Seoul Beauty Trip</title>
 <meta name="description" content="Thread lift (PDO/PLLA) in Korea: ${yr} price guide, how it works, realistic longevity, top Gangnam clinics, and practical tips for international patients.">
 <link rel="canonical" href="https://seoulbeautytrip.com/guide/thread-lift-korea-foreigner-guide">
+<meta property="og:image" content="https://seoulbeautytrip.com/og-cover.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://seoulbeautytrip.com/og-cover.jpg">
 ${GUIDE_COMMON_CSS}
 </head>
 <body>
@@ -15370,16 +15669,17 @@ app.get("/sitemap.xml", async (c) => {
       const cat = r.category;
       catTotalCount[cat] = (catTotalCount[cat] || 0) + Number(r.cnt);
     }
-    bestPages.push(`<url><loc>${base}/best/clinic/gangnam</loc><changefreq>monthly</changefreq><priority>0.95</priority><lastmod>${today}</lastmod></url>`);
+    const latestShopDate = Object.values(shopDates).sort().reverse()[0] || today;
+    bestPages.push(`<url><loc>${base}/best/clinic/gangnam</loc><changefreq>monthly</changefreq><priority>0.95</priority><lastmod>${latestShopDate}</lastmod></url>`);
     for (const cat of Object.keys(CATEGORY_LABELS)) {
       if ((catTotalCount[cat] || 0) >= 1) {
-        bestPages.push(`<url><loc>${base}/best/${cat}/seoul</loc><changefreq>weekly</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`);
+        bestPages.push(`<url><loc>${base}/best/${cat}/seoul</loc><changefreq>weekly</changefreq><priority>0.9</priority><lastmod>${latestShopDate}</lastmod></url>`);
       }
       for (const area of Object.keys(JA_AREA_LABELS)) {
         if (area === "seoul") continue;
         if (cat === "clinic" && area === "gangnam") continue;
         if ((catAreaCount[`${cat}|${area}`] || 0) >= 1) {
-          bestPages.push(`<url><loc>${base}/best/${cat}/${area}</loc><changefreq>monthly</changefreq><priority>0.8</priority><lastmod>${today}</lastmod></url>`);
+          bestPages.push(`<url><loc>${base}/best/${cat}/${area}</loc><changefreq>monthly</changefreq><priority>0.8</priority><lastmod>${latestShopDate}</lastmod></url>`);
         }
       }
     }
@@ -15388,34 +15688,42 @@ app.get("/sitemap.xml", async (c) => {
       bestPages.push(`<url><loc>${base}/best/${cat}/seoul</loc><changefreq>weekly</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`);
     }
   }
-  const blogCatSet = /* @__PURE__ */ new Set();
+  const blogCatDateMap = {};
   try {
-    const catRows = await sql`SELECT DISTINCT category FROM blog_posts WHERE status='published' AND category IS NOT NULL AND category!=''`;
-    for (const r of catRows) blogCatSet.add(r.category);
+    const catRows = await sql`SELECT category, MAX(COALESCE(updated_at, created_at)) as latest FROM blog_posts WHERE status='published' AND category IS NOT NULL AND category!='' GROUP BY category`;
+    for (const r of catRows) {
+      const cat = r.category;
+      const rawDate = r.latest;
+      blogCatDateMap[cat] = rawDate ? new Date(rawDate).toISOString().split("T")[0] : today;
+    }
   } catch (e) {
   }
-  const blogCatPages = Array.from(blogCatSet).map(
-    (cat) => `<url><loc>${base}/blog/category/${cat}</loc><changefreq>weekly</changefreq><priority>0.85</priority><lastmod>${today}</lastmod></url>`
+  const blogCatPages = Object.entries(blogCatDateMap).map(
+    ([cat, d]) => `<url><loc>${base}/blog/category/${cat}</loc><changefreq>weekly</changefreq><priority>0.85</priority><lastmod>${d}</lastmod></url>`
   );
-  const guidePages = [
-    "/guide",
-    "/guide/seoul-beauty-trip-itinerary",
-    "/guide/k-beauty-treatment-guide",
-    "/guide/seoul-beauty-faq",
-    "/guide/shurink-hifu-seoul-price",
-    "/guide/rejuran-healer-korea-guide",
-    "/guide/exosome-skin-treatment-seoul",
-    "/guide/thermage-flx-korea-cost",
-    "/guide/botox-jaw-slimming-seoul",
-    "/guide/double-eyelid-surgery-korea-foreigners",
-    "/guide/rhinoplasty-korea-cost-guide",
-    "/guide/skin-booster-comparison-juvelook-rejuran",
-    "/guide/laser-toning-pico-laser-korea",
-    "/guide/thread-lift-korea-foreigner-guide"
-  ].map((p) => `<url><loc>${base}${p}</loc><changefreq>monthly</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`);
+  const guideDates = {
+    "/guide": "2025-05-25",
+    "/guide/seoul-beauty-trip-itinerary": "2025-05-25",
+    "/guide/k-beauty-treatment-guide": "2025-05-25",
+    "/guide/seoul-beauty-faq": "2025-05-25",
+    "/guide/shurink-hifu-seoul-price": "2025-05-25",
+    "/guide/rejuran-healer-korea-guide": "2025-05-28",
+    "/guide/exosome-skin-treatment-seoul": "2025-05-28",
+    "/guide/thermage-flx-korea-cost": "2025-05-28",
+    "/guide/botox-jaw-slimming-seoul": "2025-05-30",
+    "/guide/double-eyelid-surgery-korea-foreigners": "2025-05-30",
+    "/guide/rhinoplasty-korea-cost-guide": "2025-06-01",
+    "/guide/skin-booster-comparison-juvelook-rejuran": "2025-06-01",
+    "/guide/laser-toning-pico-laser-korea": "2025-06-01",
+    "/guide/thread-lift-korea-foreigner-guide": "2025-06-01"
+  };
+  const guidePages = Object.entries(guideDates).map(
+    ([p, d]) => `<url><loc>${base}${p}</loc><changefreq>monthly</changefreq><priority>0.9</priority><lastmod>${d}</lastmod></url>`
+  );
+  const latestBlogDate = blogSlugs.length > 0 ? Object.values(blogDates).sort().reverse()[0] || today : today;
   const urls = [
-    `<url><loc>${base}/</loc><changefreq>daily</changefreq><priority>1.0</priority><lastmod>${today}</lastmod></url>`,
-    `<url><loc>${base}/blog</loc><changefreq>daily</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`,
+    `<url><loc>${base}/</loc><changefreq>daily</changefreq><priority>1.0</priority><lastmod>${latestBlogDate}</lastmod></url>`,
+    `<url><loc>${base}/blog</loc><changefreq>daily</changefreq><priority>0.9</priority><lastmod>${latestBlogDate}</lastmod></url>`,
     ...guidePages,
     ...blogCatPages,
     ...bestPages,
@@ -15663,6 +15971,14 @@ async function getGa4Token(serviceAccountJson, scope) {
   return d.access_token;
 }
 app.get("/api/analytics", async (c) => {
+  const _authCookie = (c.req.header("Cookie") || "").match(/admin_token=([^;]+)/)?.[1] || "";
+  const _authBearer = (() => {
+    const h = c.req.header("Authorization") || "";
+    return h.startsWith("Bearer ") ? h.slice(7).trim() : "";
+  })();
+  const _authSecret = c.req.header("x-admin-secret") || "";
+  const _authProvided = _authCookie || _authBearer || _authSecret;
+  if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: "Unauthorized" }, 401);
   try {
     const saKey = c.env?.GA4_SERVICE_ACCOUNT_KEY || (typeof process !== "undefined" ? process.env.GA4_SERVICE_ACCOUNT_KEY : void 0) || GA4_SA_KEY_DEFAULT;
     const propId = c.env?.GA4_PROPERTY_ID || (typeof process !== "undefined" ? process.env.GA4_PROPERTY_ID : void 0) || GA4_PROPERTY_ID_DEFAULT;
@@ -15791,6 +16107,14 @@ app.get("/api/analytics", async (c) => {
   }
 });
 app.get("/api/search-console", async (c) => {
+  const _authCookie = (c.req.header("Cookie") || "").match(/admin_token=([^;]+)/)?.[1] || "";
+  const _authBearer = (() => {
+    const h = c.req.header("Authorization") || "";
+    return h.startsWith("Bearer ") ? h.slice(7).trim() : "";
+  })();
+  const _authSecret = c.req.header("x-admin-secret") || "";
+  const _authProvided = _authCookie || _authBearer || _authSecret;
+  if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: "Unauthorized" }, 401);
   try {
     const saKey = c.env?.GA4_SERVICE_ACCOUNT_KEY || (typeof process !== "undefined" ? process.env.GA4_SERVICE_ACCOUNT_KEY : void 0) || GA4_SA_KEY_DEFAULT;
     const days = parseInt(c.req.query("days") || "28");
@@ -16234,14 +16558,14 @@ function _cleanKeyword(q) {
   const cleaned = qLow.replace(/^(is|are|do|does|did|should|why|what|how to|how|can|will|was|were|i tried|i)\s+/i, "").replace(/\b(more for|charge more|worth it|as a foreigner|for foreigners?|safe for|in seoul|in korea)\b/gi, "").replace(/\s{2,}/g, " ").trim();
   return _cap(cleaned);
 }
-function _trimTitle(title, maxLen = 65) {
+function _trimTitle(title, maxLen = 45) {
   if (title.length <= maxLen) return title;
   const dashIdx = title.lastIndexOf(" \u2014 ", maxLen);
-  if (dashIdx > 30) return title.substring(0, dashIdx);
+  if (dashIdx > 20) return title.substring(0, dashIdx);
   const colonIdx = title.lastIndexOf(": ", maxLen);
-  if (colonIdx > 30) return title.substring(0, colonIdx);
+  if (colonIdx > 20) return title.substring(0, colonIdx);
   const spIdx = title.lastIndexOf(" ", maxLen);
-  if (spIdx > 20) return title.substring(0, spIdx);
+  if (spIdx > 15) return title.substring(0, spIdx);
   return title.substring(0, maxLen);
 }
 var BLOG_ANGLES = [
@@ -17008,14 +17332,14 @@ app.post("/api/admin/fix-blog-titles", async (c) => {
       if (/\bSeoul\b/i.test(topic)) return `Is ${topic} ${ending}?`;
       return match2;
     });
-    if (fixed.length > 65) {
-      const dashIdx = fixed.lastIndexOf(" \u2014 ", 62);
-      const colonIdx = fixed.lastIndexOf(": ", 62);
-      const spIdx = fixed.lastIndexOf(" ", 62);
-      if (dashIdx > 30) fixed = fixed.substring(0, dashIdx);
-      else if (colonIdx > 30) fixed = fixed.substring(0, colonIdx);
-      else if (spIdx > 25) fixed = fixed.substring(0, spIdx);
-      else fixed = fixed.substring(0, 62);
+    if (fixed.length > 45) {
+      const dashIdx = fixed.lastIndexOf(" \u2014 ", 45);
+      const colonIdx = fixed.lastIndexOf(": ", 45);
+      const spIdx = fixed.lastIndexOf(" ", 45);
+      if (dashIdx > 20) fixed = fixed.substring(0, dashIdx);
+      else if (colonIdx > 20) fixed = fixed.substring(0, colonIdx);
+      else if (spIdx > 15) fixed = fixed.substring(0, spIdx);
+      else fixed = fixed.substring(0, 45);
     }
     if (fixed !== orig) {
       fixes.push({ id: row.id, oldTitle: orig, newTitle: fixed });
@@ -17368,7 +17692,7 @@ var MAIN_HTML = `<!DOCTYPE html>
       "url":"https://seoulbeautytrip.com/",
       "logo":{
         "@type":"ImageObject",
-        "url":"https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg",
+        "url":"https://seoulbeautytrip.com/og-cover.jpg",
         "width":1200,
         "height":630
       },
@@ -28582,7 +28906,7 @@ window.kwVolume = async function kwVolume() {
   resultEl.innerHTML = '<div style="color:rgba(255,255,255,.3);font-size:12px;text-align:center;padding:10px">\u23F3 SerpApi Google Trends \uC870\uD68C \uC911...<br><span style="font-size:11px">\uD0A4\uC6CC\uB4DC\uB2F9 2\uD68C API \uD638\uCD9C, \uC7A0\uC2DC \uAE30\uB2E4\uB824\uC8FC\uC138\uC694</span></div>';
   try {
     var r = await fetch('/api/admin/keyword-volume?keywords=' + encodeURIComponent(input), {
-      headers: { 'Authorization': 'Bearer 0907' }
+      credentials: 'same-origin'
     });
     var d = await r.json();
     if (!r.ok || d.error) { resultEl.innerHTML = '<div style="color:#fca5a5;font-size:12px">\u274C ' + (d.error||'\uC624\uB958') + '</div>'; return; }
@@ -28605,7 +28929,7 @@ window.kwIdeas = async function kwIdeas() {
   resultEl.innerHTML = '<div style="color:rgba(255,255,255,.3);font-size:12px;text-align:center;padding:10px">\u23F3 SerpApi \uD0A4\uC6CC\uB4DC \uBC1C\uAD74 \uC911...<br><span style="font-size:11px">Google Autocomplete + Related Searches \uC870\uD68C</span></div>';
   try {
     var r = await fetch('/api/admin/keyword-ideas?seed=' + encodeURIComponent(seed), {
-      headers: { 'Authorization': 'Bearer 0907' }
+      credentials: 'same-origin'
     });
     var d = await r.json();
     if (!r.ok || d.error) { resultEl.innerHTML = '<div style="color:#fca5a5;font-size:12px">\u274C ' + (d.error||'\uC624\uB958') + '</div>'; return; }

@@ -5064,6 +5064,15 @@ app.get('/__ja_disabled__/blog/category/:cat', async (c) => {
 <meta property="og:description" content="${metaDesc}">
 <meta property="og:url" content="${canonicalUrl}">
 <meta property="og:type" content="website">
+<meta property="og:image" content="https://seoulbeautytrip.com/og-cover.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="${catLabel} in Seoul — K-Beauty Guides for Foreigners">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${catLabel} in Seoul — K-Beauty Guides for Foreigners">
+<meta name="twitter:description" content="${metaDesc}">
+<meta name="twitter:image" content="https://seoulbeautytrip.com/og-cover.jpg">
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"CollectionPage","url":"${canonicalUrl}","name":"${catLabel} Seoul Guide","description":"${metaDesc}","breadcrumb":{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"${base}"},{"@type":"ListItem","position":2,"name":"Blog","item":"${base}/blog"},{"@type":"ListItem","position":3,"name":"${catLabel}","item":"${canonicalUrl}"}]}}</script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" media="print" onload="this.media='all'">
 <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"></noscript>
@@ -5279,6 +5288,10 @@ app.get('/__ja_disabled__/blog/:slug', async (c) => {
 <meta property="og:image:height" content="630">
 <meta property="og:image:type" content="image/jpeg">
 <meta property="og:image:alt" content="${post.title}">
+<meta property="article:published_time" content="${post.created_at||''}">
+<meta property="article:modified_time" content="${post.updated_at||post.created_at||''}">
+<meta property="article:author" content="https://seoulbeautytrip.com/about">
+<meta property="article:section" content="${(post.category||'guide')}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${post.title}">
 <meta name="twitter:description" content="${post.meta_description||''}">
@@ -5295,7 +5308,7 @@ app.get('/__ja_disabled__/blog/:slug', async (c) => {
     {"@type":"Person","name":"Seoul Beauty Trip Editorial Team","url":"https://seoulbeautytrip.com/about","jobTitle":"K-Beauty Travel Editor","worksFor":{"@type":"Organization","name":"Seoul Beauty Trip"}},
     {"@type":"Organization","name":"Seoul Beauty Trip","url":base}
   ],
-  "publisher":{"@type":"Organization","name":"Seoul Beauty Trip","url":base,"logo":{"@type":"ImageObject","url":"https://seoulbeautytrip.com/favicon.ico"}},
+  "publisher":{"@type":"Organization","name":"Seoul Beauty Trip","url":base,"logo":{"@type":"ImageObject","url":"https://seoulbeautytrip.com/og-cover.jpg","width":1200,"height":630}},
   "keywords": [...new Set([...tags, cat, 'Seoul', 'foreigners', 'K-beauty', post.category||cat])].filter(Boolean).join(', '),
   "articleSection": cat,
   "inLanguage":"ja",
@@ -5781,13 +5794,21 @@ ${SB_TRACKER_SCRIPT}
 
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="${canonicalUrl}">
+<!-- hreflang: JA + EN -->
+<link rel="alternate" hreflang="ja" href="${canonicalUrl}">
+<link rel="alternate" hreflang="en" href="https://seoulbeautytrip.com/shop/${shop.slug}">
+<link rel="alternate" hreflang="x-default" href="https://seoulbeautytrip.com/shop/${shop.slug}">
 <!-- Open Graph -->
 <meta property="og:type" content="business.business">
 <meta property="og:title" content="${_ogTitle}">
 <meta property="og:description" content="${trimDesc(shop.metaDescription||shop.description||'')}">
 <meta property="og:image" content="${ogImage}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="${shop.name} ${_catLabel} Seoul">
 <meta property="og:url" content="${canonicalUrl}">
 <meta property="og:site_name" content="Seoul Beauty Trip">
+<meta property="og:locale" content="ja_JP">
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${shop.name} | Seoul Beauty Trip">
@@ -5804,7 +5825,7 @@ ${SB_TRACKER_SCRIPT}
       "name":"${shop.name}",
       "alternateName":"${shop.name} Seoul",
       "description":"${(shop.description||'').replace(/"/g,"'")}",
-      "image":${(()=>{const imgs=[ogImage,...(shop.photos||[]).map((p:string)=>p.startsWith('http')?p:base+p)].filter(Boolean);return JSON.stringify(imgs.map(u=>({'@type':'ImageObject','url':u,'thumbnailUrl':u})));})()},
+      "image":${(()=>{const imgs=[ogImage,...(shop.photos||[]).map((p:string)=>p.startsWith('http')?p:base+p)].filter(Boolean);return JSON.stringify(imgs.map(u=>({'@type':'ImageObject','url':u,'width':1200,'height':630,'thumbnailUrl':u})));})()},
       "url":"${canonicalUrl}",
       "address":{
         "@type":"PostalAddress",
@@ -7040,18 +7061,26 @@ app.get('/best/clinic/gangnam', (c) => {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Best Plastic Surgery Clinics Gangnam Seoul ${yr} | Seoul Beauty Trip</title>
 <meta name="description" content="Plastic surgery &amp; skin clinics in Gangnam Seoul — top 30 ranked by ${yr} patient reviews. Board-certified surgeons, English-friendly booking, honest prices for international visitors.">
+<meta name="robots" content="index, follow">
 <link rel="canonical" href="https://seoulbeautytrip.com/best/clinic/gangnam">
+<!-- hreflang: EN only (JA 버전 없음) -->
+<link rel="alternate" hreflang="en" href="https://seoulbeautytrip.com/best/clinic/gangnam">
+<link rel="alternate" hreflang="x-default" href="https://seoulbeautytrip.com/best/clinic/gangnam">
+<meta property="og:site_name" content="Seoul Beauty Trip">
 <meta property="og:title" content="Best Plastic Surgery Clinics Gangnam Seoul ${yr} | Seoul Beauty Trip">
 <meta property="og:description" content="Verified list of the 30 best aesthetic clinics in Gangnam &amp; Seocho. English booking available.">
 <meta property="og:url" content="https://seoulbeautytrip.com/best/clinic/gangnam">
 <meta property="og:type" content="article">
-<meta property="og:image" content="https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg">
+<meta property="og:image" content="https://seoulbeautytrip.com/og-cover.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:type" content="image/jpeg">
 <meta property="og:image:alt" content="Best Plastic Surgery Clinics in Gangnam Seoul — Seoul Beauty Trip">
+<meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg">
+<meta name="twitter:title" content="Best Plastic Surgery Clinics Gangnam Seoul ${yr}">
+<meta name="twitter:description" content="Top 30 aesthetic clinics in Gangnam & Seocho — ranked by patient reviews. English booking available.">
+<meta name="twitter:image" content="https://seoulbeautytrip.com/og-cover.jpg">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@graph":[
   {"@type":"ItemList","name":"Best Plastic Surgery &amp; Skin Clinics in Gangnam Seoul ${yr}","numberOfItems":30,"itemListElement":[${itemListEl}]},
@@ -7709,12 +7738,20 @@ ${SB_TRACKER_SCRIPT}
 <meta name="robots" content="${shops.length >= 3 ? 'index, follow' : 'noindex, follow'}">
 <meta name="keywords" content="${catLabel} Seoul foreigners, best ${catLabel.toLowerCase()} ${areaLabel} Seoul, ${catLabel.toLowerCase()} Seoul English, ${areaLabel} beauty Seoul, Korean ${catLabel.toLowerCase()} tourists, book ${catLabel.toLowerCase()} Seoul WhatsApp">
 <link rel="canonical" href="${pageUrl}">
+<!-- hreflang: JA + EN -->
+<link rel="alternate" hreflang="ja" href="${pageUrl}">
+<link rel="alternate" hreflang="en" href="${pageUrl.replace('/ja/best/','/best/')}">
+<link rel="alternate" hreflang="x-default" href="${pageUrl.replace('/ja/best/','/best/')}">
 <meta property="og:type" content="website">
 <meta property="og:title" content="${titleMain} | Seoul Beauty Trip">
 <meta property="og:description" content="${metaDesc}">
 <meta property="og:image" content="${shops[0]?.thumbnail ? (shops[0].thumbnail.startsWith('http') ? shops[0].thumbnail : base+shops[0].thumbnail) : 'https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg'}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Best ${catLabel} in ${areaLabel} Seoul for Foreigners">
 <meta property="og:url" content="${pageUrl}">
 <meta property="og:site_name" content="Seoul Beauty Trip">
+<meta property="og:locale" content="ja_JP">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${titleMain} | Seoul Beauty Trip">
 <meta name="twitter:description" content="${metaDesc}">
@@ -9213,13 +9250,21 @@ ${SB_TRACKER_SCRIPT}
 
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="${canonicalUrl}">
+<!-- hreflang: EN + JA -->
+<link rel="alternate" hreflang="en" href="${canonicalUrl}">
+<link rel="alternate" hreflang="ja" href="https://seoulbeautytrip.com/ja/shop/${shop.slug}">
+<link rel="alternate" hreflang="x-default" href="${canonicalUrl}">
 <!-- Open Graph -->
 <meta property="og:type" content="business.business">
 <meta property="og:title" content="${_ogTitle}">
 <meta property="og:description" content="${trimDesc(shop.metaDescription||shop.description||'')}">
 <meta property="og:image" content="${ogImage}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="${shop.name} ${_catLabel} Seoul">
 <meta property="og:url" content="${canonicalUrl}">
 <meta property="og:site_name" content="Seoul Beauty Trip">
+<meta property="og:locale" content="en_US">
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${shop.name} | Seoul Beauty Trip">
@@ -9236,7 +9281,7 @@ ${SB_TRACKER_SCRIPT}
       "name":"${shop.name}",
       "alternateName":"${shop.name} Seoul",
       "description":"${(shop.description||'').replace(/"/g,"'")}",
-      "image":${(()=>{const imgs=[ogImage,...(shop.photos||[]).map((p:string)=>p.startsWith('http')?p:base+p)].filter(Boolean);return JSON.stringify(imgs.map(u=>({'@type':'ImageObject','url':u,'thumbnailUrl':u})));})()},
+      "image":${(()=>{const imgs=[ogImage,...(shop.photos||[]).map((p:string)=>p.startsWith('http')?p:base+p)].filter(Boolean);return JSON.stringify(imgs.map(u=>({'@type':'ImageObject','url':u,'width':1200,'height':630,'thumbnailUrl':u})));})()},
       "url":"${canonicalUrl}",
       "address":{
         "@type":"PostalAddress",
@@ -10650,16 +10695,24 @@ ${SB_TRACKER_SCRIPT}
 <meta name="robots" content="${shops.length >= 3 ? 'index, follow' : 'noindex, follow'}">
 <meta name="keywords" content="${catLabel} Seoul foreigners, best ${catLabel.toLowerCase()} ${areaLabel} Seoul, ${catLabel.toLowerCase()} Seoul English, ${areaLabel} beauty Seoul, Korean ${catLabel.toLowerCase()} tourists, book ${catLabel.toLowerCase()} Seoul WhatsApp">
 <link rel="canonical" href="${pageUrl}">
+<!-- hreflang: EN + JA -->
+<link rel="alternate" hreflang="en" href="${pageUrl}">
+<link rel="alternate" hreflang="ja" href="${pageUrl.replace('/best/','/ja/best/')}">
+<link rel="alternate" hreflang="x-default" href="${pageUrl}">
 <meta property="og:type" content="website">
 <meta property="og:title" content="${titleMain} | Seoul Beauty Trip">
 <meta property="og:description" content="${metaDesc}">
-<meta property="og:image" content="${shops[0]?.thumbnail ? (shops[0].thumbnail.startsWith('http') ? shops[0].thumbnail : base+shops[0].thumbnail) : 'https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg'}">
+<meta property="og:image" content="https://seoulbeautytrip.com/og-cover.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Best ${catLabel} in ${areaLabel} Seoul for Foreigners">
 <meta property="og:url" content="${pageUrl}">
 <meta property="og:site_name" content="Seoul Beauty Trip">
+<meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${titleMain} | Seoul Beauty Trip">
 <meta name="twitter:description" content="${metaDesc}">
-<meta name="twitter:image" content="${shops[0]?.thumbnail || 'https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg'}">
+<meta name="twitter:image" content="https://seoulbeautytrip.com/og-cover.jpg">
 <script type="application/ld+json">${JSON.stringify({'@context':'https://schema.org','@graph':schemaGraph})}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
@@ -11340,9 +11393,26 @@ app.get('/shops', async (c) => {
 </script>
 ${SB_TRACKER_SCRIPT}
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Seoul Beauty Catalog \u2014 All K-Beauty Shops | Seoul Beauty Trip</title>
-<meta name="description" content="Browse all Korean beauty salons in Seoul \u2014 foreigner-friendly with English support.">
+<title>Seoul Beauty Catalog — All K-Beauty Shops | Seoul Beauty Trip</title>
+<meta name="description" content="Browse all Korean beauty salons in Seoul — foreigner-friendly with English support. Skin clinics, head spas, hair salons, nail studios and more.">
+<meta name="robots" content="index, follow">
 <link rel="canonical" href="https://seoulbeautytrip.com/shops">
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Seoul Beauty Trip">
+<meta property="og:title" content="Seoul Beauty Catalog — All K-Beauty Shops in Seoul">
+<meta property="og:description" content="Browse all Korean beauty salons in Seoul — foreigner-friendly with English support. Skin clinics, head spas, hair salons, nail studios and more.">
+<meta property="og:url" content="https://seoulbeautytrip.com/shops">
+<meta property="og:image" content="https://seoulbeautytrip.com/og-cover.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Seoul K-Beauty Shops — Clinics, Salons & Spas for Foreigners">
+<meta property="og:locale" content="en_US">
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Seoul Beauty Catalog — All K-Beauty Shops in Seoul">
+<meta name="twitter:description" content="Browse all Korean beauty salons in Seoul — skin clinics, head spas, hair salons for foreigners.">
+<meta name="twitter:image" content="https://seoulbeautytrip.com/og-cover.jpg">
 <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
@@ -12072,6 +12142,10 @@ app.get('/blog/:slug', async (c) => {
 <meta property="og:image:height" content="630">
 <meta property="og:image:type" content="image/jpeg">
 <meta property="og:image:alt" content="${post.title}">
+<meta property="article:published_time" content="${post.created_at||''}">
+<meta property="article:modified_time" content="${post.updated_at||post.created_at||''}">
+<meta property="article:author" content="https://seoulbeautytrip.com/about">
+<meta property="article:section" content="${(post.category||'guide')}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${(post.title||'').replace(/\b([\w\s]+Seoul)\s+in Seoul\b/gi,'$1').replace(/(\bSeoul\b)(\s+in Seoul\b)/gi,'$1').replace(/\s{2,}/g,' ').trim()}">
 <meta name="twitter:description" content="${post.meta_description||''}">
@@ -12088,7 +12162,7 @@ app.get('/blog/:slug', async (c) => {
     {"@type":"Person","name":"Seoul Beauty Trip Editorial Team","url":"https://seoulbeautytrip.com/about","jobTitle":"K-Beauty Travel Editor","worksFor":{"@type":"Organization","name":"Seoul Beauty Trip"}},
     {"@type":"Organization","name":"Seoul Beauty Trip","url":base}
   ],
-  "publisher":{"@type":"Organization","name":"Seoul Beauty Trip","url":base,"logo":{"@type":"ImageObject","url":"https://seoulbeautytrip.com/favicon.ico"}},
+  "publisher":{"@type":"Organization","name":"Seoul Beauty Trip","url":base,"logo":{"@type":"ImageObject","url":"https://seoulbeautytrip.com/og-cover.jpg","width":1200,"height":630}},
   "keywords": [...new Set([...tags, cat, 'Seoul', 'foreigners', 'K-beauty', post.category||cat])].filter(Boolean).join(', '),
   "articleSection": cat,
   "inLanguage":"en",
@@ -12760,9 +12834,25 @@ app.get('/privacy', (c) => {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Privacy Policy | Seoul Beauty Trip</title>
-<meta name="description" content="Privacy Policy for Seoul Beauty Trip. How we collect, use and protect your personal information.">
+<meta name="description" content="Privacy Policy for Seoul Beauty Trip. How we collect, use and protect your personal information when using our Korean beauty booking service.">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://seoulbeautytrip.com/privacy">
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Seoul Beauty Trip">
+<meta property="og:title" content="Privacy Policy | Seoul Beauty Trip">
+<meta property="og:description" content="How Seoul Beauty Trip collects, uses and protects your personal information when booking Korean beauty services.">
+<meta property="og:url" content="https://seoulbeautytrip.com/privacy">
+<meta property="og:image" content="https://seoulbeautytrip.com/og-cover.jpg">
+<meta property="og:locale" content="en_US">
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Privacy Policy | Seoul Beauty Trip">
+<meta name="twitter:description" content="How Seoul Beauty Trip protects your personal information.">
+<!-- Schema.org -->
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebPage","name":"Privacy Policy","url":"https://seoulbeautytrip.com/privacy","description":"Privacy Policy for Seoul Beauty Trip K-beauty booking service.","publisher":{"@type":"Organization","name":"Seoul Beauty Trip","url":"https://seoulbeautytrip.com","logo":{"@type":"ImageObject","url":"https://seoulbeautytrip.com/og-cover.jpg","width":1200,"height":630}}}
+</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fff;color:#1a1a2e;line-height:1.7}
@@ -13362,7 +13452,12 @@ app.get('/guide/shurink-hifu-seoul-price', (c) => {
 <title>Shurink HIFU in Seoul — ${yr} Price Guide | Seoul Beauty Trip</title>
 <meta name="description" content="Complete ${yr} guide to Shurink and HIFU ultrasound lifting in Seoul: how it works, realistic costs (₩200K–₩900K), top Gangnam clinics, and what to expect.">
 <link rel="canonical" href="https://seoulbeautytrip.com/guide/shurink-hifu-seoul-price">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Shurink HIFU in Seoul — ${yr} Price Guide","author":{"@type":"Organization","name":"Seoul Beauty Trip"},"publisher":{"@type":"Organization","name":"Seoul Beauty Trip","logo":{"@type":"ImageObject","url":"https://seoulbeautytrip.com/favicon.ico"}},"datePublished":"${yr}-01-01","dateModified":"${yr}-06-01"}</script>
+<meta property="og:image" content="https://seoulbeautytrip.com/og-cover.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://seoulbeautytrip.com/og-cover.jpg">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Shurink HIFU in Seoul — ${yr} Price Guide","author":{"@type":"Organization","name":"Seoul Beauty Trip"},"publisher":{"@type":"Organization","name":"Seoul Beauty Trip","logo":{"@type":"ImageObject","url":"https://seoulbeautytrip.com/og-cover.jpg","width":1200,"height":630}},"datePublished":"2025-05-25","dateModified":"2026-06-01"}</script>
 ${GUIDE_COMMON_CSS}
 </head>
 <body>
@@ -13499,7 +13594,12 @@ app.get('/guide/rejuran-healer-korea-guide', (c) => {
 <title>Rejuran Healer in Korea — Complete ${yr} Guide | Seoul Beauty Trip</title>
 <meta name="description" content="Everything about Rejuran Healer (PDRN skin booster) in Korea: what it is, realistic results, ${yr} prices in Seoul, top clinics, and how to book as a foreigner.">
 <link rel="canonical" href="https://seoulbeautytrip.com/guide/rejuran-healer-korea-guide">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Rejuran Healer in Korea — Complete ${yr} Guide","author":{"@type":"Organization","name":"Seoul Beauty Trip"},"datePublished":"${yr}-01-01","dateModified":"${yr}-06-01"}</script>
+<meta property="og:image" content="https://seoulbeautytrip.com/og-cover.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://seoulbeautytrip.com/og-cover.jpg">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Rejuran Healer in Korea — Complete ${yr} Guide","author":{"@type":"Organization","name":"Seoul Beauty Trip"},"datePublished":"2025-05-25","dateModified":"2026-06-01"}</script>
 ${GUIDE_COMMON_CSS}
 </head>
 <body>
@@ -13646,6 +13746,11 @@ app.get('/guide/exosome-skin-treatment-seoul', (c) => {
 <title>Exosome Skin Treatment in Seoul — ${yr} Guide | Seoul Beauty Trip</title>
 <meta name="description" content="Exosome skin therapy in Seoul: what it is, how it compares to Rejuran and PRP, ${yr} prices at Gangnam clinics, and who it is best suited for.">
 <link rel="canonical" href="https://seoulbeautytrip.com/guide/exosome-skin-treatment-seoul">
+<meta property="og:image" content="https://seoulbeautytrip.com/og-cover.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://seoulbeautytrip.com/og-cover.jpg">
 ${GUIDE_COMMON_CSS}
 </head>
 <body>
@@ -13765,6 +13870,11 @@ app.get('/guide/thermage-flx-korea-cost', (c) => {
 <title>Thermage FLX in Korea — ${yr} Cost Guide | Seoul Beauty Trip</title>
 <meta name="description" content="Thermage FLX in Korea: is it worth it? ${yr} Seoul prices (₩600K–₩1.5M), how it compares to HIFU, top Gangnam clinics, and honest patient experience.">
 <link rel="canonical" href="https://seoulbeautytrip.com/guide/thermage-flx-korea-cost">
+<meta property="og:image" content="https://seoulbeautytrip.com/og-cover.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://seoulbeautytrip.com/og-cover.jpg">
 ${GUIDE_COMMON_CSS}
 </head>
 <body>
@@ -13886,6 +13996,11 @@ app.get('/guide/botox-jaw-slimming-seoul', (c) => {
 <title>Botox Jaw Slimming in Seoul — ${yr} Guide &amp; Prices | Seoul Beauty Trip</title>
 <meta name="description" content="Botox masseter jaw slimming in Seoul: ${yr} prices (₩80K–₩200K), how it works, realistic results, and which Gangnam clinics offer the best value for foreigners.">
 <link rel="canonical" href="https://seoulbeautytrip.com/guide/botox-jaw-slimming-seoul">
+<meta property="og:image" content="https://seoulbeautytrip.com/og-cover.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://seoulbeautytrip.com/og-cover.jpg">
 ${GUIDE_COMMON_CSS}
 </head>
 <body>
@@ -14006,6 +14121,11 @@ app.get('/guide/double-eyelid-surgery-korea-foreigners', (c) => {
 <title>Double Eyelid Surgery in Korea for Foreigners — ${yr} Guide | Seoul Beauty Trip</title>
 <meta name="description" content="Double eyelid surgery in Korea: ${yr} guide for foreigners covering non-incisional vs incisional methods, realistic costs (₩500K–₩2M), recovery, and top Gangnam clinics.">
 <link rel="canonical" href="https://seoulbeautytrip.com/guide/double-eyelid-surgery-korea-foreigners">
+<meta property="og:image" content="https://seoulbeautytrip.com/og-cover.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://seoulbeautytrip.com/og-cover.jpg">
 ${GUIDE_COMMON_CSS}
 </head>
 <body>
@@ -14136,6 +14256,11 @@ app.get('/guide/rhinoplasty-korea-cost-guide', (c) => {
 <title>Rhinoplasty in Korea — ${yr} Cost Guide for Foreigners | Seoul Beauty Trip</title>
 <meta name="description" content="Rhinoplasty (nose job) in Korea: complete ${yr} cost guide, types of nose surgery, Gangnam clinic recommendations, recovery planning, and honest Q&A for international patients.">
 <link rel="canonical" href="https://seoulbeautytrip.com/guide/rhinoplasty-korea-cost-guide">
+<meta property="og:image" content="https://seoulbeautytrip.com/og-cover.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://seoulbeautytrip.com/og-cover.jpg">
 ${GUIDE_COMMON_CSS}
 </head>
 <body>
@@ -14262,6 +14387,11 @@ app.get('/guide/skin-booster-comparison-juvelook-rejuran', (c) => {
 <title>Juvelook vs Rejuran — ${yr} Skin Booster Comparison | Seoul Beauty Trip</title>
 <meta name="description" content="Juvelook vs Rejuran: a clear side-by-side comparison of Korea's two most popular skin boosters — ingredients, results, ${yr} Seoul prices, and who should choose which.">
 <link rel="canonical" href="https://seoulbeautytrip.com/guide/skin-booster-comparison-juvelook-rejuran">
+<meta property="og:image" content="https://seoulbeautytrip.com/og-cover.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://seoulbeautytrip.com/og-cover.jpg">
 ${GUIDE_COMMON_CSS}
 </head>
 <body>
@@ -14394,6 +14524,11 @@ app.get('/guide/laser-toning-pico-laser-korea', (c) => {
 <title>Pico Laser &amp; Laser Toning in Korea — ${yr} Guide | Seoul Beauty Trip</title>
 <meta name="description" content="Pico laser and laser toning in Seoul: what each treats, ${yr} price comparison, top Gangnam dermatology clinics, and who is the best candidate for each treatment.">
 <link rel="canonical" href="https://seoulbeautytrip.com/guide/laser-toning-pico-laser-korea">
+<meta property="og:image" content="https://seoulbeautytrip.com/og-cover.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://seoulbeautytrip.com/og-cover.jpg">
 ${GUIDE_COMMON_CSS}
 </head>
 <body>
@@ -14524,6 +14659,11 @@ app.get('/guide/thread-lift-korea-foreigner-guide', (c) => {
 <title>Thread Lift in Korea — ${yr} Foreigner Guide &amp; Prices | Seoul Beauty Trip</title>
 <meta name="description" content="Thread lift (PDO/PLLA) in Korea: ${yr} price guide, how it works, realistic longevity, top Gangnam clinics, and practical tips for international patients.">
 <link rel="canonical" href="https://seoulbeautytrip.com/guide/thread-lift-korea-foreigner-guide">
+<meta property="og:image" content="https://seoulbeautytrip.com/og-cover.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://seoulbeautytrip.com/og-cover.jpg">
 ${GUIDE_COMMON_CSS}
 </head>
 <body>
@@ -14709,19 +14849,21 @@ app.get('/sitemap.xml', async (c) => {
       const cat = r.category as string
       catTotalCount[cat] = (catTotalCount[cat] || 0) + Number(r.cnt)
     }
+    // shop 중 가장 최근 업데이트 날짜 (best 페이지 lastmod 기준)
+    const latestShopDate = Object.values(shopDates).sort().reverse()[0] || today
     // /best/clinic/gangnam 전용 하드코딩 라우트는 항상 최우선 포함
-    bestPages.push(`<url><loc>${base}/best/clinic/gangnam</loc><changefreq>monthly</changefreq><priority>0.95</priority><lastmod>${today}</lastmod></url>`)
+    bestPages.push(`<url><loc>${base}/best/clinic/gangnam</loc><changefreq>monthly</changefreq><priority>0.95</priority><lastmod>${latestShopDate}</lastmod></url>`)
     for (const cat of Object.keys(CATEGORY_LABELS)) {
       // seoul: 업체 1개 이상인 카테고리만 포함 (0개면 404이므로 제외)
       if ((catTotalCount[cat] || 0) >= 1) {
-        bestPages.push(`<url><loc>${base}/best/${cat}/seoul</loc><changefreq>weekly</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`)
+        bestPages.push(`<url><loc>${base}/best/${cat}/seoul</loc><changefreq>weekly</changefreq><priority>0.9</priority><lastmod>${latestShopDate}</lastmod></url>`)
       }
       // 특정 지역: 업체 1개 이상이면 sitemap 포함 (noindex여도 크롤은 허용)
       for (const area of Object.keys(JA_AREA_LABELS)) {
         if (area === 'seoul') continue
         if (cat === 'clinic' && area === 'gangnam') continue // 위에서 추가
         if ((catAreaCount[`${cat}|${area}`] || 0) >= 1) {
-          bestPages.push(`<url><loc>${base}/best/${cat}/${area}</loc><changefreq>monthly</changefreq><priority>0.8</priority><lastmod>${today}</lastmod></url>`)
+          bestPages.push(`<url><loc>${base}/best/${cat}/${area}</loc><changefreq>monthly</changefreq><priority>0.8</priority><lastmod>${latestShopDate}</lastmod></url>`)
         }
       }
     }
@@ -14732,36 +14874,49 @@ app.get('/sitemap.xml', async (c) => {
     }
   }
 
-  // 블로그 카테고리 페이지 — 실제 글 있는 카테고리만
-  const blogCatSet = new Set<string>()
+  // 블로그 카테고리 페이지 — 실제 글 있는 카테고리만 + 해당 카테고리 최신 포스트 날짜
+  const blogCatDateMap: Record<string, string> = {}
   try {
-    const catRows = await sql`SELECT DISTINCT category FROM blog_posts WHERE status='published' AND category IS NOT NULL AND category!=''`
-    for (const r of catRows) blogCatSet.add(r.category as string)
+    const catRows = await sql`SELECT category, MAX(COALESCE(updated_at, created_at)) as latest FROM blog_posts WHERE status='published' AND category IS NOT NULL AND category!='' GROUP BY category`
+    for (const r of catRows) {
+      const cat = r.category as string
+      const rawDate = r.latest
+      blogCatDateMap[cat] = rawDate ? new Date(rawDate).toISOString().split('T')[0] : today
+    }
   } catch(e) {}
-  const blogCatPages = Array.from(blogCatSet).map(cat =>
-    `<url><loc>${base}/blog/category/${cat}</loc><changefreq>weekly</changefreq><priority>0.85</priority><lastmod>${today}</lastmod></url>`
+  const blogCatPages = Object.entries(blogCatDateMap).map(([cat, d]) =>
+    `<url><loc>${base}/blog/category/${cat}</loc><changefreq>weekly</changefreq><priority>0.85</priority><lastmod>${d}</lastmod></url>`
   )
 
-  const guidePages = [
-    '/guide',
-    '/guide/seoul-beauty-trip-itinerary',
-    '/guide/k-beauty-treatment-guide',
-    '/guide/seoul-beauty-faq',
-    '/guide/shurink-hifu-seoul-price',
-    '/guide/rejuran-healer-korea-guide',
-    '/guide/exosome-skin-treatment-seoul',
-    '/guide/thermage-flx-korea-cost',
-    '/guide/botox-jaw-slimming-seoul',
-    '/guide/double-eyelid-surgery-korea-foreigners',
-    '/guide/rhinoplasty-korea-cost-guide',
-    '/guide/skin-booster-comparison-juvelook-rejuran',
-    '/guide/laser-toning-pico-laser-korea',
-    '/guide/thread-lift-korea-foreigner-guide',
-  ].map(p => `<url><loc>${base}${p}</loc><changefreq>monthly</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`)
+  // guide 페이지별 실제 배포/수정 날짜 (SEO 신선도 신호 정확화)
+  const guideDates: Record<string, string> = {
+    '/guide': '2025-05-25',
+    '/guide/seoul-beauty-trip-itinerary': '2025-05-25',
+    '/guide/k-beauty-treatment-guide': '2025-05-25',
+    '/guide/seoul-beauty-faq': '2025-05-25',
+    '/guide/shurink-hifu-seoul-price': '2025-05-25',
+    '/guide/rejuran-healer-korea-guide': '2025-05-28',
+    '/guide/exosome-skin-treatment-seoul': '2025-05-28',
+    '/guide/thermage-flx-korea-cost': '2025-05-28',
+    '/guide/botox-jaw-slimming-seoul': '2025-05-30',
+    '/guide/double-eyelid-surgery-korea-foreigners': '2025-05-30',
+    '/guide/rhinoplasty-korea-cost-guide': '2025-06-01',
+    '/guide/skin-booster-comparison-juvelook-rejuran': '2025-06-01',
+    '/guide/laser-toning-pico-laser-korea': '2025-06-01',
+    '/guide/thread-lift-korea-foreigner-guide': '2025-06-01',
+  }
+  const guidePages = Object.entries(guideDates).map(([p, d]) =>
+    `<url><loc>${base}${p}</loc><changefreq>monthly</changefreq><priority>0.9</priority><lastmod>${d}</lastmod></url>`
+  )
+
+  // 홈/블로그 lastmod = 가장 최근 블로그 포스트 날짜 (없으면 today)
+  const latestBlogDate = blogSlugs.length > 0
+    ? Object.values(blogDates).sort().reverse()[0] || today
+    : today
 
   const urls = [
-    `<url><loc>${base}/</loc><changefreq>daily</changefreq><priority>1.0</priority><lastmod>${today}</lastmod></url>`,
-    `<url><loc>${base}/blog</loc><changefreq>daily</changefreq><priority>0.9</priority><lastmod>${today}</lastmod></url>`,
+    `<url><loc>${base}/</loc><changefreq>daily</changefreq><priority>1.0</priority><lastmod>${latestBlogDate}</lastmod></url>`,
+    `<url><loc>${base}/blog</loc><changefreq>daily</changefreq><priority>0.9</priority><lastmod>${latestBlogDate}</lastmod></url>`,
     ...guidePages,
     ...blogCatPages,
     ...bestPages,
@@ -17129,7 +17284,7 @@ const MAIN_HTML = `<!DOCTYPE html>
       "url":"https://seoulbeautytrip.com/",
       "logo":{
         "@type":"ImageObject",
-        "url":"https://res.cloudinary.com/dc0ouozcd/video/upload/so_0,w_1200,h_630,c_fill,q_80/v1779652741/seoul-beauty/tuynkcoz6ni4eedmspsa.jpg",
+        "url":"https://seoulbeautytrip.com/og-cover.jpg",
         "width":1200,
         "height":630
       },
