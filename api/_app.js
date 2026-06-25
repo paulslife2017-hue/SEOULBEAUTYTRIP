@@ -2923,21 +2923,26 @@ async function initDb(env) {
     } catch (e) {
     }
     await sql`CREATE TABLE IF NOT EXISTS videos_ja (
-      id TEXT PRIMARY KEY, shop_id TEXT REFERENCES shops_ja(id) ON DELETE CASCADE,
-      title TEXT, description TEXT, video_url TEXT, thumbnail TEXT,
-      tags JSONB DEFAULT '[]', views INTEGER DEFAULT 0,
-      likes INTEGER DEFAULT 0, created_at TEXT,
-      video_url_low TEXT DEFAULT '', video_url_mid TEXT DEFAULT '', video_url_high TEXT DEFAULT '',
+      id TEXT PRIMARY KEY,
+      shop_id TEXT,
+      title TEXT,
+      description TEXT,
+      video_url TEXT,
+      thumbnail TEXT,
+      tags TEXT DEFAULT '[]',
+      views INTEGER DEFAULT 0,
+      likes INTEGER DEFAULT 0,
+      created_at TEXT,
+      video_url_low TEXT DEFAULT '',
+      video_url_mid TEXT DEFAULT '',
+      video_url_high TEXT DEFAULT '',
       instagram_url TEXT DEFAULT ''
-    )\`
-    try { await sql\`ALTER TABLE videos_ja ADD COLUMN IF NOT EXISTS video_url_low TEXT DEFAULT ''\` } catch(e) {}
-    try { await sql\`ALTER TABLE videos_ja ADD COLUMN IF NOT EXISTS video_url_mid TEXT DEFAULT ''\` } catch(e) {}
-    try { await sql\`ALTER TABLE videos_ja ADD COLUMN IF NOT EXISTS video_url_high TEXT DEFAULT ''\` } catch(e) {}
-    try { await sql\`ALTER TABLE videos_ja ADD COLUMN IF NOT EXISTS instagram_url TEXT DEFAULT ''\` } catch(e) {}
-    try { await sql\`CREATE INDEX IF NOT EXISTS idx_vja_shop ON videos_ja(shop_id)\` } catch(e) {}
-
-    // blog_posts_ja — 일본어판 블로그 테이블
-    await sql\`CREATE TABLE IF NOT EXISTS blog_posts_ja (
+    )`;
+    try {
+      await sql`CREATE INDEX IF NOT EXISTS idx_vja_shop ON videos_ja(shop_id)`;
+    } catch (e) {
+    }
+    await sql`CREATE TABLE IF NOT EXISTS blog_posts_ja (
       id TEXT PRIMARY KEY,
       slug TEXT UNIQUE NOT NULL,
       title TEXT NOT NULL,
@@ -2946,7 +2951,7 @@ async function initDb(env) {
       excerpt TEXT DEFAULT '',
       category TEXT DEFAULT '',
       area TEXT DEFAULT '',
-      tags JSONB DEFAULT '[]',
+      tags TEXT DEFAULT '[]',
       cover_image TEXT DEFAULT '',
       status TEXT DEFAULT 'draft',
       views INTEGER DEFAULT 0,
@@ -2969,6 +2974,126 @@ async function initDb(env) {
         await sql`INSERT INTO videos VALUES (
           ${v.id},${v.shopId},${v.title},${v.description},${v.videoUrl},
           ${v.thumbnail},${JSON.stringify(v.tags)},${v.views},${v.likes},${v.createdAt}
+        ) ON CONFLICT (id) DO NOTHING`;
+      }
+    }
+    const cntJa = await sql`SELECT COUNT(*) as c FROM shops_ja`;
+    if (Number(cntJa[0].c) === 0) {
+      const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+      const jaShopSamples = [
+        {
+          id: "ja-s-001",
+          name: "\u30D3\u30E5\u30FC\u30C6\u30A3\u30AF\u30EA\u30CB\u30C3\u30AF\u6C5F\u5357",
+          slug: "beauty-clinic-gangnam-ja",
+          category: "clinic",
+          location: "Gangnam, Seoul",
+          address: "\uAC15\uB0A8\uAD6C \uB17C\uD604\uB85C, \uC11C\uC6B8",
+          description: "\u6C5F\u5357\u306B\u3042\u308B\u5916\u56FD\u4EBA\u5411\u3051\u306E\u7F8E\u5BB9\u30AF\u30EA\u30CB\u30C3\u30AF\u3067\u3059\u3002\u65E5\u672C\u8A9E\u30B9\u30BF\u30C3\u30D5\u304C\u5E38\u99D0\u3057\u3066\u304A\u308A\u3001\u5B89\u5FC3\u3057\u3066\u65BD\u8853\u304C\u53D7\u3051\u3089\u308C\u307E\u3059\u3002\u30DC\u30C8\u30C3\u30AF\u30B9\u30FB\u30D2\u30A2\u30EB\u30ED\u30F3\u9178\u30FB\u808C\u7BA1\u7406\u306A\u3069\u5E45\u5E83\u3044\u30E1\u30CB\u30E5\u30FC\u3092\u63D0\u4F9B\u3057\u3066\u3044\u307E\u3059\u3002",
+          thumbnail: "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=800&q=80",
+          rating: 4.9,
+          reviewCount: 128,
+          active: true
+        },
+        {
+          id: "ja-s-002",
+          name: "\u5F18\u5927\u30D8\u30C3\u30C9\u30B9\u30D1\u5C02\u9580\u5E97",
+          slug: "headspa-hongdae-ja",
+          category: "headspa",
+          location: "Hongdae, Seoul",
+          address: "\uB9C8\uD3EC\uAD6C \uD64D\uB300, \uC11C\uC6B8",
+          description: "\u5F18\u5927\u306E\u4EBA\u6C17\u30D8\u30C3\u30C9\u30B9\u30D1\u5C02\u9580\u5E97\u3002\u97D3\u56FD\u5F0F\u306E\u672C\u683C\u7684\u306A\u982D\u76AE\u30B1\u30A2\u3068\u982D\u76AE\u30DE\u30C3\u30B5\u30FC\u30B8\u304C\u4F53\u9A13\u3067\u304D\u307E\u3059\u3002\u65E5\u672C\u8A9E\u3067\u306E\u4E88\u7D04\u30FB\u8AAC\u660E\u5BFE\u5FDC\u53EF\u80FD\u3067\u3059\u3002\u65BD\u8853\u5F8C\u306F\u982D\u304C\u8EFD\u304F\u3001\u3059\u3063\u304D\u308A\u3068\u3057\u305F\u611F\u899A\u306B\u3002",
+          thumbnail: "https://images.unsplash.com/photo-1560869713-7d0a29430803?w=800&q=80",
+          rating: 4.8,
+          reviewCount: 95,
+          active: true
+        },
+        {
+          id: "ja-s-003",
+          name: "\u660E\u6D1E\u30D8\u30A2\u30B5\u30ED\u30F3 K-STYLE",
+          slug: "hair-salon-myeongdong-ja",
+          category: "hair",
+          location: "Myeongdong, Seoul",
+          address: "\uC911\uAD6C \uBA85\uB3D9, \uC11C\uC6B8",
+          description: "\u660E\u6D1E\u4E2D\u5FC3\u90E8\u306B\u3042\u308B\u97D3\u56FD\u5F0F\u30D8\u30A2\u30B5\u30ED\u30F3\u3002K-POP\u30A2\u30A4\u30C9\u30EB\u30B9\u30BF\u30A4\u30EB\u3084\u97D3\u56FD\u30D1\u30FC\u30DE\u3001\u30AB\u30E9\u30FC\u30EA\u30F3\u30B0\u304C\u5F97\u610F\u3067\u3001\u65E5\u672C\u4EBA\u89B3\u5149\u5BA2\u304B\u3089\u5927\u4EBA\u6C17\u306E\u30B5\u30ED\u30F3\u3067\u3059\u3002\u65E5\u672C\u8A9E\u30B9\u30BF\u30C3\u30D5\u304C\u5BFE\u5FDC\u3057\u307E\u3059\u3002",
+          thumbnail: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=800&q=80",
+          rating: 4.7,
+          reviewCount: 213,
+          active: true
+        }
+      ];
+      for (const s of jaShopSamples) {
+        const emptyStr = "";
+        const emptyArr = JSON.stringify([]);
+        const metaDesc = s.description.substring(0, 120);
+        await sql`INSERT INTO shops_ja (
+          id, name, slug, category, location, address,
+          google_map_url, google_map_embed,
+          price_range, hours, services, service_prices,
+          description, meta_description, seo_keywords, seo_text,
+          why_choose, rating, review_count, thumbnail, photos,
+          commission, active, created_at,
+          lat, lng, reviews, google_place_id, menu_items, editor_note, whatsapp
+        ) VALUES (
+          ${s.id}, ${s.name}, ${s.slug}, ${s.category}, ${s.location}, ${s.address},
+          ${emptyStr}, ${emptyStr},
+          ${emptyStr}, ${emptyStr}, ${emptyArr}, ${emptyArr},
+          ${s.description}, ${metaDesc}, ${emptyStr}, ${emptyStr},
+          ${emptyArr}, ${s.rating}, ${s.reviewCount}, ${s.thumbnail}, ${emptyArr},
+          ${15}, ${s.active}, ${nowIso},
+          ${emptyStr}, ${emptyStr}, ${emptyArr}, ${emptyStr}, ${emptyArr}, ${emptyStr}, ${emptyStr}
+        ) ON CONFLICT (id) DO NOTHING`;
+      }
+      const jaBlogSamples = [
+        {
+          id: "ja-b-001",
+          slug: "gangnam-skin-clinic-guide-japanese",
+          title: "\u30102026\u5E74\u7248\u3011\u6C5F\u5357\u306E\u5916\u56FD\u4EBA\u5411\u3051\u30B9\u30AD\u30F3\u30AF\u30EA\u30CB\u30C3\u30AF\u5B8C\u5168\u30AC\u30A4\u30C9",
+          excerpt: "\u6C5F\u5357\u3067\u304A\u3059\u3059\u3081\u306E\u30B9\u30AD\u30F3\u30AF\u30EA\u30CB\u30C3\u30AF\u3092\u53B3\u9078\u3057\u3066\u7D39\u4ECB\u3002\u65E5\u672C\u8A9E\u5BFE\u5FDC\u30FB\u4E88\u7D04\u65B9\u6CD5\u3082\u8A73\u3057\u304F\u89E3\u8AAC\u3057\u307E\u3059\u3002",
+          content: `<h2>\u6C5F\u5357\u306E\u30B9\u30AD\u30F3\u30AF\u30EA\u30CB\u30C3\u30AF\u3092\u9078\u3076\u30DD\u30A4\u30F3\u30C8</h2>
+<p>\u30BD\u30A6\u30EB\u30FB\u6C5F\u5357\u306F\u97D3\u56FD\u306E\u7F8E\u5BB9\u533B\u7642\u306E\u4E2D\u5FC3\u5730\u3067\u3059\u3002\u5916\u56FD\u4EBA\u5411\u3051\u306E\u30AF\u30EA\u30CB\u30C3\u30AF\u3082\u591A\u304F\u3001\u65E5\u672C\u8A9E\u3084\u82F1\u8A9E\u3067\u306E\u5BFE\u5FDC\u304C\u53EF\u80FD\u306A\u3068\u3053\u308D\u3082\u5897\u3048\u3066\u3044\u307E\u3059\u3002</p>
+<h2>\u304A\u3059\u3059\u3081\u306E\u30E1\u30CB\u30E5\u30FC</h2>
+<ul>
+<li><strong>\u30DC\u30C8\u30C3\u30AF\u30B9\u6CE8\u5C04</strong> \u2014 \u65E5\u672C\u306E\u534A\u984D\u4EE5\u4E0B\u3067\u53D7\u3051\u3089\u308C\u308B\u3053\u3068\u3082</li>
+<li><strong>\u30D2\u30A2\u30EB\u30ED\u30F3\u9178\u30D5\u30A3\u30E9\u30FC</strong> \u2014 \u81EA\u7136\u306A\u30DC\u30EA\u30E5\u30FC\u30E0\u30A2\u30C3\u30D7</li>
+<li><strong>\u808C\u7BA1\u7406\uFF08\u30B9\u30AD\u30F3\u7BA1\u7406\uFF09</strong> \u2014 \u97D3\u56FD\u72EC\u81EA\u306E\u30D5\u30A7\u30A4\u30B7\u30E3\u30EB\u30B1\u30A2</li>
+<li><strong>\u30EC\u30FC\u30B6\u30FC\u30C8\u30FC\u30CB\u30F3\u30B0</strong> \u2014 \u30B7\u30DF\u30FB\u304F\u3059\u307F\u6539\u5584</li>
+</ul>
+<h2>\u4E88\u7D04\u65B9\u6CD5</h2>
+<p>Seoul Beauty Trip\u3092\u901A\u3058\u3066WhatsApp\u3067\u65E5\u672C\u8A9E\u4E88\u7D04\u304C\u3067\u304D\u307E\u3059\u3002\u5F53\u65E5\u4E88\u7D04\u3082OK\u3067\u3059\u3002</p>`,
+          category: "clinic",
+          status: "published"
+        },
+        {
+          id: "ja-b-002",
+          slug: "headspa-seoul-complete-guide",
+          title: "\u30BD\u30A6\u30EB\u306E\u30D8\u30C3\u30C9\u30B9\u30D1\u5B8C\u5168\u30AC\u30A4\u30C9 \u2014 \u5F18\u5927\u30FB\u6C5F\u5357\u306E\u304A\u3059\u3059\u3081\u5E97\u8217",
+          excerpt: "\u30BD\u30A6\u30EB\u3067\u672C\u5834\u306E\u97D3\u56FD\u5F0F\u30D8\u30C3\u30C9\u30B9\u30D1\u3092\u4F53\u9A13\uFF01\u5F18\u5927\u30FB\u6C5F\u5357\u30A8\u30EA\u30A2\u306E\u304A\u3059\u3059\u3081\u5E97\u8217\u3068\u4E88\u7D04\u65B9\u6CD5\u3092\u7D39\u4ECB\u3057\u307E\u3059\u3002",
+          content: `<h2>\u97D3\u56FD\u5F0F\u30D8\u30C3\u30C9\u30B9\u30D1\u3068\u306F\uFF1F</h2>
+<p>\u97D3\u56FD\u5F0F\u30D8\u30C3\u30C9\u30B9\u30D1\u306F\u3001\u982D\u76AE\u306E\u6C5A\u308C\u30FB\u76AE\u8102\u3092\u5FB9\u5E95\u7684\u306B\u9664\u53BB\u3057\u3001\u982D\u76AE\u74B0\u5883\u3092\u6574\u3048\u308B\u672C\u683C\u7684\u306A\u30B1\u30A2\u3067\u3059\u3002\u629C\u3051\u6BDB\u3084\u982D\u76AE\u306E\u304B\u3086\u307F\u306B\u60A9\u3080\u65B9\u306B\u3082\u4EBA\u6C17\u3067\u3059\u3002</p>
+<h2>\u5F18\u5927\u30A8\u30EA\u30A2\u306E\u30D8\u30C3\u30C9\u30B9\u30D1</h2>
+<p>\u5F18\u5927\uFF08\u30DB\u30F3\u30C7\uFF09\u306F\u82E5\u8005\u306E\u8857\u3068\u3057\u3066\u6709\u540D\u3067\u3059\u304C\u3001\u30EA\u30FC\u30BA\u30CA\u30D6\u30EB\u306A\u30D8\u30C3\u30C9\u30B9\u30D1\u5C02\u9580\u5E97\u304C\u96C6\u307E\u308B\u30A8\u30EA\u30A2\u3067\u3082\u3042\u308A\u307E\u3059\u3002</p>
+<h2>\u6C5F\u5357\u30A8\u30EA\u30A2\u306E\u30D8\u30C3\u30C9\u30B9\u30D1</h2>
+<p>\u6C5F\u5357\u306F\u3084\u3084\u9AD8\u7D1A\u5FD7\u5411\u306E\u30D8\u30C3\u30C9\u30B9\u30D1\u304C\u591A\u304F\u3001\u30D7\u30EC\u30DF\u30A2\u30E0\u306A\u4F53\u9A13\u304C\u3067\u304D\u307E\u3059\u3002\u65BD\u8853\u6642\u9593\u3082\u9577\u3081\uFF0890\u301C120\u5206\uFF09\u304C\u4E00\u822C\u7684\u3067\u3059\u3002</p>
+<h2>\u6599\u91D1\u76EE\u5B89</h2>
+<ul>
+<li>60\u5206\u30B3\u30FC\u30B9: 40,000\u301C60,000\u30A6\u30A9\u30F3</li>
+<li>90\u5206\u30B3\u30FC\u30B9: 70,000\u301C100,000\u30A6\u30A9\u30F3</li>
+<li>\u30D7\u30EC\u30DF\u30A2\u30E0120\u5206: 120,000\u30A6\u30A9\u30F3\u301C</li>
+</ul>`,
+          category: "headspa",
+          status: "published"
+        }
+      ];
+      for (const b of jaBlogSamples) {
+        await sql`INSERT INTO blog_posts_ja (
+          id, slug, title, meta_description, content, excerpt,
+          category, area, tags, cover_image, status, views,
+          shop_id, created_at, updated_at
+        ) VALUES (
+          ${b.id}, ${b.slug}, ${b.title}, ${b.excerpt}, ${b.content}, ${b.excerpt},
+          ${b.category}, ${"gangnam"}, ${JSON.stringify([b.category, "seoul", "japan"])}, ${""},
+          ${b.status}, ${0},
+          ${null}, ${nowIso}, ${nowIso}
         ) ON CONFLICT (id) DO NOTHING`;
       }
     }
