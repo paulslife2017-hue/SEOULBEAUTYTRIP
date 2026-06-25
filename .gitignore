@@ -32,3 +32,11 @@ lerna-debug.log*
 # misc
 .DS_Store
 .vercel
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Wrangler local state
+.wrangler/
