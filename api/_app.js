@@ -16355,6 +16355,7 @@ app.get("/sitemap.xml", async (c) => {
 });
 var withTimeout = (promise, ms, fallback) => Promise.race([promise, new Promise((resolve) => setTimeout(() => resolve(fallback), ms))]);
 app.get("/", async (c) => {
+  return c.redirect("/guide", 302);
   const sql = getDb(c.env);
   try {
     const [vidRows, shopRows] = await Promise.all([

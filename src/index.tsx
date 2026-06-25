@@ -15553,6 +15553,8 @@ const withTimeout = (promise: Promise<any>, ms: number, fallback: any): Promise<
   Promise.race([promise, new Promise<any>(resolve => setTimeout(() => resolve(fallback), ms))])
 
 app.get('/', async (c) => {
+  // ── 임시 리다이렉트: Cloudinary 대역폭 초과로 비디오 비활성화 (7월 1일 복구 예정) ──
+  return c.redirect('/guide', 302)
   const sql = getDb(c.env)
   try {
     // ── 병렬로 두 쿼리 동시 실행 (순차→병렬: ~2x 속도 향상) ──
