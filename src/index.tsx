@@ -29258,7 +29258,7 @@ function renderJaShops(){
       '</div>' +
       '<div style="display:flex;align-items:center;gap:6px">' +
         '<span style="font-size:10px;padding:3px 8px;border-radius:20px;'+(s.active?'background:rgba(52,211,153,.15);color:#34d399':'background:rgba(239,68,68,.12);color:#f87171')+';">'+(s.active?'활성':'비활성')+'</span>' +
-        '<button onclick="deleteJaShop(\''+s.id+'\')" style="padding:5px 10px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:6px;color:#f87171;font-size:11px;cursor:pointer">삭제</button>' +
+        '<button data-id="'+s.id+'" onclick="deleteJaShop(this.dataset.id)" style="padding:5px 10px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:6px;color:#f87171;font-size:11px;cursor:pointer">삭제</button>' +
       '</div>' +
     '</div>';
   }).join('');
@@ -29281,7 +29281,7 @@ function renderJaVideos(){
         '<div style="font-size:13px;font-weight:600;color:#fff">'+(v.title||'제목 없음')+'</div>' +
         '<div style="font-size:11px;color:rgba(255,255,255,.4)">'+(v.shop_name||v.shop_id||'-')+' · 조회 '+(v.views||0)+'</div>' +
       '</div>' +
-      '<button onclick="deleteJaVideo(\''+v.id+'\')" style="padding:5px 10px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:6px;color:#f87171;font-size:11px;cursor:pointer">삭제</button>' +
+      '<button data-id="'+v.id+'" onclick="deleteJaVideo(this.dataset.id)" style="padding:5px 10px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:6px;color:#f87171;font-size:11px;cursor:pointer">삭제</button>' +
     '</div>';
   }).join('');
 }
@@ -29368,7 +29368,7 @@ function renderJaBlogList(){
       '</div>' +
       '<div style="display:flex;align-items:center;gap:6px;margin-left:10px">' +
         '<span style="font-size:10px;padding:3px 8px;border-radius:20px;background:'+statusColor+'">'+(p.status||'draft')+'</span>' +
-        '<button onclick="deleteJaBlog(\''+p.id+'\')" style="padding:5px 10px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:6px;color:#f87171;font-size:11px;cursor:pointer">삭제</button>' +
+        '<button data-id="'+p.id+'" onclick="deleteJaBlog(this.dataset.id)" style="padding:5px 10px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:6px;color:#f87171;font-size:11px;cursor:pointer">삭제</button>' +
       '</div>' +
     '</div>';
   }).join('');
