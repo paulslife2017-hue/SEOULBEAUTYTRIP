@@ -21563,7 +21563,6 @@ app.get("/sitemap.xml", async (c) => {
 });
 var withTimeout = (promise, ms2, fallback) => Promise.race([promise, new Promise((resolve) => setTimeout(() => resolve(fallback), ms2))]);
 app.get("/", async (c) => {
-  return c.redirect("/guide", 302);
   const sql = getDb(c.env);
   try {
     const [vidRows, shopRows] = await Promise.all([
@@ -24886,7 +24885,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 <!-- PC \uC0AC\uC774\uB4DC \uB124\uBE44 (\u22651024px) -->
 <nav id="pc-sidenav" aria-label="Site navigation">
   <div class="pnav-logo"><i class="fas fa-star"></i></div>
-  <button class="pnav-btn active" id="pnav-reels" data-tab="reels" aria-label="Home">
+  <button class="pnav-btn active" id="pnav-reels" data-tab="reels" aria-label="Home" style="display:none">
     <i class="fas fa-home"></i><span>Home</span>
   </button>
   <button class="pnav-btn" id="pnav-browse" data-tab="browse" aria-label="Explore">
@@ -24921,7 +24920,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 
 <!-- \uD558\uB2E8 \uD0ED\uBC14 (\uBAA8\uBC14\uC77C \uC804\uC6A9) -->
 <nav id="bottom-tabs" aria-label="Main navigation">
-  <button class="btab active" id="btab-reels" data-tab="reels" aria-label="Home">
+  <button class="btab active" id="btab-reels" data-tab="reels" aria-label="Home" style="display:none">
     <i class="fas fa-home"></i><span>Home</span>
   </button>
   <button class="btab" id="btab-browse" data-tab="browse" aria-label="Explore">
@@ -27297,7 +27296,7 @@ var _TAB_COLORS = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',clinic:'#
 var _TAB_ICONS  = {skincare:'&#127807;',headspa:'&#128134;',hair:'&#9986;',clinic:'&#128137;',makeup:'&#128132;',spa:'&#9992;',tattoo:'&#9999;'};
 
 // \u2500\u2500 \uD0ED \uC0C1\uD0DC \uC804\uC5ED \uBCC0\uC218 \u2500\u2500
-var _activeTab    = 'reels';
+var _activeTab    = 'browse'; // \uC784\uC2DC: \uD648(reels) \uBE44\uD65C\uC131\uD654 \u2014 Cloudinary 7\uC6D4 1\uC77C \uBCF5\uAD6C \uD6C4 'reels'\uB85C \uC6D0\uBCF5
 var _browseBuilt  = false;
 var _mapBuilt     = false;
 var _advisorBuilt = false;
@@ -27360,7 +27359,7 @@ document.addEventListener('DOMContentLoaded', function() {
   if (vm) vm.style.display = 'none';
   if (va) va.style.display = 'none';
   document.querySelectorAll('.btab, .pnav-btn').forEach(function(btn) {
-    btn.addEventListener('click', function() { switchTab(btn.dataset.tab || 'reels'); });
+    btn.addEventListener('click', function() { switchTab(btn.dataset.tab || 'browse'); });
   });
   window.addEventListener('resize', function() {
     var nowPC = _isPC_check();
@@ -27369,6 +27368,8 @@ document.addEventListener('DOMContentLoaded', function() {
       if (_activeTab !== 'reels') { var t = _activeTab; _activeTab = 'reels'; switchTab(t); }
     }
   });
+  // \uC784\uC2DC: \uC9C4\uC785 \uC2DC browse \uD0ED\uC73C\uB85C \uC790\uB3D9 \uC804\uD658 (\uD648 \uC601\uC0C1 \uBE44\uD65C\uC131\uD654)
+  setTimeout(function(){ switchTab('browse'); }, 50);
   // URL \uD30C\uB77C\uBBF8\uD130\uB85C \uD0ED \uC790\uB3D9 \uC804\uD658 (?tab=map, ?tab=browse)
   (function(){
     var sp = new URLSearchParams(window.location.search);

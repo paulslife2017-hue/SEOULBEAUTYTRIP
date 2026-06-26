@@ -15553,8 +15553,6 @@ const withTimeout = (promise: Promise<any>, ms: number, fallback: any): Promise<
   Promise.race([promise, new Promise<any>(resolve => setTimeout(() => resolve(fallback), ms))])
 
 app.get('/', async (c) => {
-  // ── 임시 리다이렉트: Cloudinary 대역폭 초과로 비디오 비활성화 (7월 1일 복구 예정) ──
-  return c.redirect('/guide', 302)
   const sql = getDb(c.env)
   try {
     // ── 병렬로 두 쿼리 동시 실행 (순차→병렬: ~2x 속도 향상) ──
@@ -19269,7 +19267,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 <!-- PC 사이드 네비 (≥1024px) -->
 <nav id="pc-sidenav" aria-label="Site navigation">
   <div class="pnav-logo"><i class="fas fa-star"></i></div>
-  <button class="pnav-btn active" id="pnav-reels" data-tab="reels" aria-label="Home">
+  <button class="pnav-btn active" id="pnav-reels" data-tab="reels" aria-label="Home" style="display:none">
     <i class="fas fa-home"></i><span>Home</span>
   </button>
   <button class="pnav-btn" id="pnav-browse" data-tab="browse" aria-label="Explore">
@@ -19304,7 +19302,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 
 <!-- 하단 탭바 (모바일 전용) -->
 <nav id="bottom-tabs" aria-label="Main navigation">
-  <button class="btab active" id="btab-reels" data-tab="reels" aria-label="Home">
+  <button class="btab active" id="btab-reels" data-tab="reels" aria-label="Home" style="display:none">
     <i class="fas fa-home"></i><span>Home</span>
   </button>
   <button class="btab" id="btab-browse" data-tab="browse" aria-label="Explore">
@@ -21680,7 +21678,7 @@ var _TAB_COLORS = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',clinic:'#
 var _TAB_ICONS  = {skincare:'&#127807;',headspa:'&#128134;',hair:'&#9986;',clinic:'&#128137;',makeup:'&#128132;',spa:'&#9992;',tattoo:'&#9999;'};
 
 // ── 탭 상태 전역 변수 ──
-var _activeTab    = 'reels';
+var _activeTab    = 'browse'; // 임시: 홈(reels) 비활성화 — Cloudinary 7월 1일 복구 후 'reels'로 원복
 var _browseBuilt  = false;
 var _mapBuilt     = false;
 var _advisorBuilt = false;
@@ -21743,7 +21741,7 @@ document.addEventListener('DOMContentLoaded', function() {
   if (vm) vm.style.display = 'none';
   if (va) va.style.display = 'none';
   document.querySelectorAll('.btab, .pnav-btn').forEach(function(btn) {
-    btn.addEventListener('click', function() { switchTab(btn.dataset.tab || 'reels'); });
+    btn.addEventListener('click', function() { switchTab(btn.dataset.tab || 'browse'); });
   });
   window.addEventListener('resize', function() {
     var nowPC = _isPC_check();
@@ -21752,6 +21750,8 @@ document.addEventListener('DOMContentLoaded', function() {
       if (_activeTab !== 'reels') { var t = _activeTab; _activeTab = 'reels'; switchTab(t); }
     }
   });
+  // 임시: 진입 시 browse 탭으로 자동 전환 (홈 영상 비활성화)
+  setTimeout(function(){ switchTab('browse'); }, 50);
   // URL 파라미터로 탭 자동 전환 (?tab=map, ?tab=browse)
   (function(){
     var sp = new URLSearchParams(window.location.search);
