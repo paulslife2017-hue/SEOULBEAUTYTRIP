@@ -19890,6 +19890,12 @@ function _checkLdReady() {
   if(!_ldReadyFlags.shops || !_ldReadyFlags.videos) return;
   _injectVideoIntoShops();
 
+  // \u2500\u2500 \uC784\uC2DC: \uD648 \uC601\uC0C1 \uBE44\uD65C\uC131\uD654 \uC911 \u2192 \uC2A4\uD50C\uB798\uC2DC \uC989\uC2DC \uC228\uAE30\uACE0 browse \uD0ED\uC73C\uB85C \uC804\uD658 \u2500\u2500
+  hideLd();
+  setTimeout(function(){ switchTab('browse'); }, 50);
+  return;
+  // \u2500\u2500 \uC6D0\uBCF5 \uC2DC \uC704 3\uC904 \uC81C\uAC70 \u2500\u2500
+
   var v0 = document.getElementById('vid0');
 
   // \uCCAB \uC601\uC0C1\uC774 \uC774\uBBF8 \uCDA9\uBD84\uD788 \uBC84\uD37C\uB9C1\uB410\uC73C\uBA74 \uC989\uC2DC \uC228\uAE40
@@ -22160,8 +22166,6 @@ document.addEventListener('DOMContentLoaded', function() {
       if (_activeTab !== 'reels') { var t = _activeTab; _activeTab = 'reels'; switchTab(t); }
     }
   });
-  // \uC784\uC2DC: \uC9C4\uC785 \uC2DC browse \uD0ED\uC73C\uB85C \uC790\uB3D9 \uC804\uD658 (\uD648 \uC601\uC0C1 \uBE44\uD65C\uC131\uD654)
-  setTimeout(function(){ switchTab('browse'); }, 50);
   // URL \uD30C\uB77C\uBBF8\uD130\uB85C \uD0ED \uC790\uB3D9 \uC804\uD658 (?tab=map, ?tab=browse)
   (function(){
     var sp = new URLSearchParams(window.location.search);
