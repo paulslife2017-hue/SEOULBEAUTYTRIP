@@ -19677,10 +19677,10 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 <!-- PC \uC0AC\uC774\uB4DC \uB124\uBE44 (\u22651024px) -->
 <nav id="pc-sidenav" aria-label="Site navigation">
   <div class="pnav-logo"><i class="fas fa-star"></i></div>
-  <button class="pnav-btn active" id="pnav-reels" data-tab="reels" aria-label="Home" style="display:none">
+  <button class="pnav-btn" id="pnav-reels" data-tab="reels" aria-label="Home" style="display:none">
     <i class="fas fa-home"></i><span>Home</span>
   </button>
-  <button class="pnav-btn" id="pnav-browse" data-tab="browse" aria-label="Explore">
+  <button class="pnav-btn active" id="pnav-browse" data-tab="browse" aria-label="Explore">
     <i class="fas fa-search"></i><span>Explore</span>
   </button>
   <button class="pnav-btn" id="pnav-map" data-tab="map" aria-label="Map">
@@ -19712,10 +19712,10 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 
 <!-- \uD558\uB2E8 \uD0ED\uBC14 (\uBAA8\uBC14\uC77C \uC804\uC6A9) -->
 <nav id="bottom-tabs" aria-label="Main navigation">
-  <button class="btab active" id="btab-reels" data-tab="reels" aria-label="Home" style="display:none">
+  <button class="btab" id="btab-reels" data-tab="reels" aria-label="Home" style="display:none">
     <i class="fas fa-home"></i><span>Home</span>
   </button>
-  <button class="btab" id="btab-browse" data-tab="browse" aria-label="Explore">
+  <button class="btab active" id="btab-browse" data-tab="browse" aria-label="Explore">
     <i class="fas fa-search"></i><span>Explore</span>
   </button>
   <button class="btab" id="btab-map" data-tab="map" aria-label="Map">
