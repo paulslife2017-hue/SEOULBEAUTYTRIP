@@ -19481,49 +19481,26 @@ function _checkLdReady() {
   _injectVideoIntoShops();
 
   // ── 임시: 홈 영상 비활성화 중 → 스플래시 즉시 숨기고 browse 탭으로 전환 ──
+  // 원복 시: 아래 블록 주석 해제하고 임시 블록 제거
   hideLd();
   setTimeout(function(){ switchTab('browse'); }, 50);
-  return;
-  // ── 원복 시 위 3줄 제거 ──
 
+  /* [원복 시 주석 해제]
   var v0 = document.getElementById('vid0');
-
-  // 첫 영상이 이미 충분히 버퍼링됐으면 즉시 숨김
-  if(v0 && v0.readyState >= 3) { // HAVE_FUTURE_DATA 이상
-    hideLd();
-    return;
-  }
-
-  // 첫 영상 src 먼저 세팅 (아직 안 됐으면 — data-src 방식 슬라이드용)
-  if(v0 && !v0.src && v0.dataset.src) {
-    v0.preload = 'auto';
-    v0.src = v0.dataset.src;
-    v0.load();
-  }
-
-  // canplay 이벤트 감지 → 즉시 숨김
+  if(v0 && v0.readyState >= 3) { hideLd(); return; }
+  if(v0 && !v0.src && v0.dataset.src) { v0.preload='auto'; v0.src=v0.dataset.src; v0.load(); }
   if(v0 && v0.src) {
-    // readyState >= 2면 이미 현재 프레임 있음 → 바로 hideLd (canplay 놓쳤을 경우 대비)
-    if(v0.readyState >= 2) {
-      hideLd();
-      return;
-    }
+    if(v0.readyState >= 2) { hideLd(); return; }
     var _canPlayFired = false;
-    function _onCanPlay() {
-      if(_canPlayFired) return;
-      _canPlayFired = true;
-      v0.removeEventListener('canplay', _onCanPlay);
-      v0.removeEventListener('canplaythrough', _onCanPlay);
-      hideLd();
-    }
-    v0.addEventListener('canplay', _onCanPlay, {once: true});
-    v0.addEventListener('canplaythrough', _onCanPlay, {once: true});
+    v0.addEventListener('canplay', function() {
+      if(_canPlayFired) return; _canPlayFired=true; hideLd();
+    }, {once:true});
+    v0.addEventListener('canplaythrough', function() {
+      if(_canPlayFired) return; _canPlayFired=true; hideLd();
+    }, {once:true});
   }
-
-  // 최대 fallback: 3초 (네트워크 느린 경우)
-  if(!_ldFallbackTimer) {
-    _ldFallbackTimer = setTimeout(function(){ hideLd(); }, 3000);
-  }
+  if(!_ldFallbackTimer) { _ldFallbackTimer = setTimeout(function(){ hideLd(); }, 3000); }
+  [원복 끝] */
 }
 
 /* vids 배열에서 shopId 기준으로 영상 정보를 allShopsData에 주입 */
@@ -19752,10 +19729,17 @@ function isStreamUrl(url) {
 // ── getStreamHlsUrl: iframe URL → HLS m3u8 URL 변환 ──
 // iframe.videodelivery.net/{id} → customer-8905c179.cloudflarestream.com/{id}/manifest/video.m3u8
 function getStreamHlsUrl(iframeUrl) {
-  var m = iframeUrl.match(/videodelivery\.net\/([a-f0-9]+)/);
-  if(m) return 'https://customer-8905c179.cloudflarestream.com/' + m[1] + '/manifest/video.m3u8';
-  var m2 = iframeUrl.match(/cloudflarestream\.com\/([a-f0-9]+)/);
-  if(m2) return 'https://customer-8905c179.cloudflarestream.com/' + m2[1] + '/manifest/video.m3u8';
+  // 정규식 대신 문자열 split 방식 (template literal 빌드 시 regex 이스케이프 손실 방지)
+  var base = 'https://customer-8905c179.cloudflarestream.com/';
+  var markers = ['videodelivery.net/', 'cloudflarestream.com/'];
+  for(var i = 0; i < markers.length; i++) {
+    var idx = iframeUrl.indexOf(markers[i]);
+    if(idx >= 0) {
+      var after = iframeUrl.slice(idx + markers[i].length);
+      var id = after.split('/')[0].split('?')[0];
+      if(id) return base + id + '/manifest/video.m3u8';
+    }
+  }
   return iframeUrl;
 }
 

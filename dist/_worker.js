@@ -25099,49 +25099,26 @@ function _checkLdReady() {
   _injectVideoIntoShops();
 
   // \u2500\u2500 \uC784\uC2DC: \uD648 \uC601\uC0C1 \uBE44\uD65C\uC131\uD654 \uC911 \u2192 \uC2A4\uD50C\uB798\uC2DC \uC989\uC2DC \uC228\uAE30\uACE0 browse \uD0ED\uC73C\uB85C \uC804\uD658 \u2500\u2500
+  // \uC6D0\uBCF5 \uC2DC: \uC544\uB798 \uBE14\uB85D \uC8FC\uC11D \uD574\uC81C\uD558\uACE0 \uC784\uC2DC \uBE14\uB85D \uC81C\uAC70
   hideLd();
   setTimeout(function(){ switchTab('browse'); }, 50);
-  return;
-  // \u2500\u2500 \uC6D0\uBCF5 \uC2DC \uC704 3\uC904 \uC81C\uAC70 \u2500\u2500
 
+  /* [\uC6D0\uBCF5 \uC2DC \uC8FC\uC11D \uD574\uC81C]
   var v0 = document.getElementById('vid0');
-
-  // \uCCAB \uC601\uC0C1\uC774 \uC774\uBBF8 \uCDA9\uBD84\uD788 \uBC84\uD37C\uB9C1\uB410\uC73C\uBA74 \uC989\uC2DC \uC228\uAE40
-  if(v0 && v0.readyState >= 3) { // HAVE_FUTURE_DATA \uC774\uC0C1
-    hideLd();
-    return;
-  }
-
-  // \uCCAB \uC601\uC0C1 src \uBA3C\uC800 \uC138\uD305 (\uC544\uC9C1 \uC548 \uB410\uC73C\uBA74 \u2014 data-src \uBC29\uC2DD \uC2AC\uB77C\uC774\uB4DC\uC6A9)
-  if(v0 && !v0.src && v0.dataset.src) {
-    v0.preload = 'auto';
-    v0.src = v0.dataset.src;
-    v0.load();
-  }
-
-  // canplay \uC774\uBCA4\uD2B8 \uAC10\uC9C0 \u2192 \uC989\uC2DC \uC228\uAE40
+  if(v0 && v0.readyState >= 3) { hideLd(); return; }
+  if(v0 && !v0.src && v0.dataset.src) { v0.preload='auto'; v0.src=v0.dataset.src; v0.load(); }
   if(v0 && v0.src) {
-    // readyState >= 2\uBA74 \uC774\uBBF8 \uD604\uC7AC \uD504\uB808\uC784 \uC788\uC74C \u2192 \uBC14\uB85C hideLd (canplay \uB193\uCCE4\uC744 \uACBD\uC6B0 \uB300\uBE44)
-    if(v0.readyState >= 2) {
-      hideLd();
-      return;
-    }
+    if(v0.readyState >= 2) { hideLd(); return; }
     var _canPlayFired = false;
-    function _onCanPlay() {
-      if(_canPlayFired) return;
-      _canPlayFired = true;
-      v0.removeEventListener('canplay', _onCanPlay);
-      v0.removeEventListener('canplaythrough', _onCanPlay);
-      hideLd();
-    }
-    v0.addEventListener('canplay', _onCanPlay, {once: true});
-    v0.addEventListener('canplaythrough', _onCanPlay, {once: true});
+    v0.addEventListener('canplay', function() {
+      if(_canPlayFired) return; _canPlayFired=true; hideLd();
+    }, {once:true});
+    v0.addEventListener('canplaythrough', function() {
+      if(_canPlayFired) return; _canPlayFired=true; hideLd();
+    }, {once:true});
   }
-
-  // \uCD5C\uB300 fallback: 3\uCD08 (\uB124\uD2B8\uC6CC\uD06C \uB290\uB9B0 \uACBD\uC6B0)
-  if(!_ldFallbackTimer) {
-    _ldFallbackTimer = setTimeout(function(){ hideLd(); }, 3000);
-  }
+  if(!_ldFallbackTimer) { _ldFallbackTimer = setTimeout(function(){ hideLd(); }, 3000); }
+  [\uC6D0\uBCF5 \uB05D] */
 }
 
 /* vids \uBC30\uC5F4\uC5D0\uC11C shopId \uAE30\uC900\uC73C\uB85C \uC601\uC0C1 \uC815\uBCF4\uB97C allShopsData\uC5D0 \uC8FC\uC785 */
@@ -25370,10 +25347,17 @@ function isStreamUrl(url) {
 // \u2500\u2500 getStreamHlsUrl: iframe URL \u2192 HLS m3u8 URL \uBCC0\uD658 \u2500\u2500
 // iframe.videodelivery.net/{id} \u2192 customer-8905c179.cloudflarestream.com/{id}/manifest/video.m3u8
 function getStreamHlsUrl(iframeUrl) {
-  var m = iframeUrl.match(/videodelivery.net/([a-f0-9]+)/);
-  if(m) return 'https://customer-8905c179.cloudflarestream.com/' + m[1] + '/manifest/video.m3u8';
-  var m2 = iframeUrl.match(/cloudflarestream.com/([a-f0-9]+)/);
-  if(m2) return 'https://customer-8905c179.cloudflarestream.com/' + m2[1] + '/manifest/video.m3u8';
+  // \uC815\uADDC\uC2DD \uB300\uC2E0 \uBB38\uC790\uC5F4 split \uBC29\uC2DD (template literal \uBE4C\uB4DC \uC2DC regex \uC774\uC2A4\uCF00\uC774\uD504 \uC190\uC2E4 \uBC29\uC9C0)
+  var base = 'https://customer-8905c179.cloudflarestream.com/';
+  var markers = ['videodelivery.net/', 'cloudflarestream.com/'];
+  for(var i = 0; i < markers.length; i++) {
+    var idx = iframeUrl.indexOf(markers[i]);
+    if(idx >= 0) {
+      var after = iframeUrl.slice(idx + markers[i].length);
+      var id = after.split('/')[0].split('?')[0];
+      if(id) return base + id + '/manifest/video.m3u8';
+    }
+  }
   return iframeUrl;
 }
 
