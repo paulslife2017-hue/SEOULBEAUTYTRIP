@@ -19480,6 +19480,12 @@ function _checkLdReady() {
   if(!_ldReadyFlags.shops || !_ldReadyFlags.videos) return;
   _injectVideoIntoShops();
 
+  // ── 임시: 홈 영상 비활성화 중 → 스플래시 즉시 숨기고 browse 탭으로 전환 ──
+  hideLd();
+  setTimeout(function(){ switchTab('browse'); }, 50);
+  return;
+  // ── 원복 시 위 3줄 제거 ──
+
   var v0 = document.getElementById('vid0');
 
   // 첫 영상이 이미 충분히 버퍼링됐으면 즉시 숨김
@@ -21750,8 +21756,6 @@ document.addEventListener('DOMContentLoaded', function() {
       if (_activeTab !== 'reels') { var t = _activeTab; _activeTab = 'reels'; switchTab(t); }
     }
   });
-  // 임시: 진입 시 browse 탭으로 자동 전환 (홈 영상 비활성화)
-  setTimeout(function(){ switchTab('browse'); }, 50);
   // URL 파라미터로 탭 자동 전환 (?tab=map, ?tab=browse)
   (function(){
     var sp = new URLSearchParams(window.location.search);
