@@ -21531,9 +21531,27 @@ document.addEventListener('DOMContentLoaded', function(){
   window.checkAdminPw = function(){
     var pw = document.getElementById('adminPwInput').value;
     if(!pw) return;
-    // 프론트에서 비교하지 않고 서버로 바로 전송 → 서버가 검증
-    // (클라이언트 JS에 비밀번호 노출 방지)
-    window.location.href = '/admin?token=' + encodeURIComponent(pw);
+    var btn = document.querySelector('#adminModal button[type="submit"]');
+    var err = document.getElementById('adminPwErr');
+    if(btn) btn.disabled = true;
+    if(err) err.style.display = 'none';
+    // POST /admin-login 으로 쿠키 발급 받은 뒤 /admin 으로 이동
+    fetch('/admin-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pw }),
+      credentials: 'same-origin'
+    }).then(function(r){
+      if(r.ok){
+        window.location.href = '/admin';
+      } else {
+        if(err){ err.style.display = 'block'; }
+        if(btn){ btn.disabled = false; }
+      }
+    }).catch(function(){
+      if(err){ err.style.display = 'block'; }
+      if(btn){ btn.disabled = false; }
+    });
   };
 
   /* ── PC: cats bar wheel → horizontal scroll ── */
