@@ -21941,9 +21941,27 @@ document.addEventListener('DOMContentLoaded', function(){
   window.checkAdminPw = function(){
     var pw = document.getElementById('adminPwInput').value;
     if(!pw) return;
-    // \uD504\uB860\uD2B8\uC5D0\uC11C \uBE44\uAD50\uD558\uC9C0 \uC54A\uACE0 \uC11C\uBC84\uB85C \uBC14\uB85C \uC804\uC1A1 \u2192 \uC11C\uBC84\uAC00 \uAC80\uC99D
-    // (\uD074\uB77C\uC774\uC5B8\uD2B8 JS\uC5D0 \uBE44\uBC00\uBC88\uD638 \uB178\uCD9C \uBC29\uC9C0)
-    window.location.href = '/admin?token=' + encodeURIComponent(pw);
+    var btn = document.querySelector('#adminModal button[type="submit"]');
+    var err = document.getElementById('adminPwErr');
+    if(btn) btn.disabled = true;
+    if(err) err.style.display = 'none';
+    // POST /admin-login \uC73C\uB85C \uCFE0\uD0A4 \uBC1C\uAE09 \uBC1B\uC740 \uB4A4 /admin \uC73C\uB85C \uC774\uB3D9
+    fetch('/admin-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pw }),
+      credentials: 'same-origin'
+    }).then(function(r){
+      if(r.ok){
+        window.location.href = '/admin';
+      } else {
+        if(err){ err.style.display = 'block'; }
+        if(btn){ btn.disabled = false; }
+      }
+    }).catch(function(){
+      if(err){ err.style.display = 'block'; }
+      if(btn){ btn.disabled = false; }
+    });
   };
 
   /* \u2500\u2500 PC: cats bar wheel \u2192 horizontal scroll \u2500\u2500 */
