@@ -23692,31 +23692,38 @@ textarea{height:80px;resize:none}
 
     <!-- 영상 파일 업로드 -->
     <div style="margin-bottom:14px">
-      <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:5px"><i class="fas fa-video" style="color:#FF4D8D"></i> 영상 파일 <span style="color:rgba(255,255,255,.3)">(선택 · 업로드 후 자동 등록)</span></label>
-      <!-- 숨겨진 파일 input -->
+      <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:8px">
+        <i class="fas fa-video" style="color:#FF4D8D;margin-right:4px"></i> 영상 파일
+        <span style="color:rgba(255,255,255,.28)">(선택 · 파일 선택 즉시 자동 업로드)</span>
+      </label>
+
+      <!-- hidden inputs -->
       <input type="file" id="qr-video-file" accept="video/*" style="display:none">
-      <!-- hidden: 업로드 완료 후 URL 저장 (원본 + eager 변환 3종) -->
       <input type="hidden" id="qr-video">
       <input type="hidden" id="qr-video-url-low">
       <input type="hidden" id="qr-video-url-mid">
       <input type="hidden" id="qr-video-url-high">
       <input type="hidden" id="qr-video-thumb">
-      <!-- 업로드 버튼 영역 -->
-      <div style="display:flex;align-items:center;gap:8px">
-        <button type="button" id="qr-video-btn"
-          onclick="document.getElementById('qr-video-file').click()"
-          style="flex:1;padding:10px 14px;background:rgba(255,77,141,.1);border:1.5px dashed rgba(255,77,141,.4);border-radius:10px;color:rgba(255,77,141,.8);font-size:12px;font-weight:700;cursor:pointer;text-align:center;transition:all .2s">
-          <i class="fas fa-cloud-upload-alt"></i> 영상 파일 선택
-        </button>
-        <!-- 선택된 파일명 / 완료 표시 -->
-        <span id="qr-video-name" style="font-size:11px;color:rgba(255,255,255,.4);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">파일 미선택</span>
-      </div>
-      <!-- 업로드 진행률 바 -->
-      <div id="qr-video-progress-wrap" style="display:none;margin-top:8px">
-        <div style="background:rgba(255,255,255,.1);border-radius:4px;overflow:hidden;height:5px">
-          <div id="qr-video-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#FF4D8D,#9B59B6);transition:width .3s"></div>
+
+      <!-- 드롭존 (클릭 = 파일선택) -->
+      <div id="qr-drop-zone"
+        onclick="document.getElementById('qr-video-file').click()"
+        style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+               height:120px;border:2px dashed rgba(255,77,141,.35);border-radius:14px;cursor:pointer;
+               background:rgba(255,77,141,.04);transition:all .2s;user-select:none">
+        <i id="qr-drop-icon" class="fas fa-cloud-upload-alt" style="font-size:28px;color:rgba(255,77,141,.5)"></i>
+        <div style="text-align:center">
+          <div id="qr-video-name" style="font-size:12px;font-weight:700;color:rgba(255,255,255,.4)">클릭하여 영상 파일 선택</div>
+          <div id="qr-video-sub" style="font-size:10px;color:rgba(255,255,255,.22);margin-top:3px">MP4 · MOV · AVI 등 영상 형식</div>
         </div>
-        <div id="qr-video-progress-text" style="font-size:11px;color:#fbbf24;margin-top:4px;text-align:center"></div>
+      </div>
+
+      <!-- 진행률 바 -->
+      <div id="qr-video-progress-wrap" style="display:none;margin-top:10px">
+        <div style="height:5px;background:rgba(255,255,255,.07);border-radius:99px;overflow:hidden;margin-bottom:6px">
+          <div id="qr-video-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#FF4D8D,#9B59B6);border-radius:99px;transition:width .25s ease"></div>
+        </div>
+        <div id="qr-video-progress-text" style="font-size:11px;color:rgba(255,255,255,.45);text-align:center"></div>
       </div>
     </div>
 
@@ -26959,111 +26966,137 @@ window.qrSetCat = function(cat) {
   });
 };
 
-// ── 빠른 등록: 영상 파일 선택 핸들러 ──
+// ── 빠른 등록: 영상 파일 선택 → Stream TUS 자동 업로드 ──
 (function(){
   var fileInput = document.getElementById('qr-video-file');
   if(!fileInput) return;
+
   fileInput.addEventListener('change', function(){
     var file = this.files && this.files[0];
     if(!file) return;
+    this.value = ''; // 같은 파일 재선택 허용
+
+    var dropZone  = document.getElementById('qr-drop-zone');
     var nameEl    = document.getElementById('qr-video-name');
-    var btn       = document.getElementById('qr-video-btn');
+    var subEl     = document.getElementById('qr-video-sub');
+    var icon      = document.getElementById('qr-drop-icon');
     var progWrap  = document.getElementById('qr-video-progress-wrap');
     var progBar   = document.getElementById('qr-video-progress-bar');
     var progText  = document.getElementById('qr-video-progress-text');
     var hiddenUrl = document.getElementById('qr-video');
 
-    // 파일명 표시
-    nameEl.textContent = file.name;
-    nameEl.style.color = '#fbbf24';
+    var mb = (file.size / 1024 / 1024).toFixed(1);
 
-    // 진행 UI 표시
-    progWrap.style.display = 'block';
-    progBar.style.width = '0%';
-    progText.textContent = '서명 발급 중...';
-    btn.disabled = true;
-    btn.style.opacity = '0.6';
+    // ── 드롭존 → 업로드 중 상태 ──
+    function setUploading(){
+      dropZone.style.cursor = 'default';
+      dropZone.onclick = null;
+      dropZone.style.borderColor = 'rgba(251,191,36,.5)';
+      dropZone.style.background  = 'rgba(251,191,36,.05)';
+      icon.className = 'fas fa-spinner fa-spin';
+      icon.style.color = '#fbbf24';
+      nameEl.style.color = '#fbbf24';
+      nameEl.textContent = file.name;
+      if(subEl) subEl.textContent = mb + 'MB · 업로드 중...';
+      progWrap.style.display = 'block';
+      progBar.style.width = '0%';
+      progBar.style.background = 'linear-gradient(90deg,#FF4D8D,#9B59B6)';
+      progText.style.color = 'rgba(255,255,255,.45)';
+      progText.textContent = 'URL 발급 중...';
+    }
 
-    // ① 서버에서 Cloudflare Stream TUS 업로드 URL 발급
-    var mb = (file.size/1024/1024).toFixed(1);
-    progText.textContent = 'Stream URL 발급 중...';
-    progBar.style.width = '5%';
+    // ── 완료 상태 ──
+    function setDone(){
+      dropZone.style.borderColor = 'rgba(52,211,153,.5)';
+      dropZone.style.background  = 'rgba(52,211,153,.05)';
+      icon.className = 'fas fa-check-circle';
+      icon.style.color = '#34d399';
+      nameEl.style.color = '#34d399';
+      nameEl.textContent = '✅ 업로드 완료 · ' + file.name;
+      if(subEl) subEl.textContent = mb + 'MB — 등록 버튼을 눌러 저장하세요';
+      if(subEl) subEl.style.color = 'rgba(52,211,153,.6)';
+      progBar.style.width = '100%';
+      progBar.style.background = 'linear-gradient(90deg,#34d399,#10b981)';
+      progText.style.color = '#4ade80';
+      progText.textContent = 'Stream 업로드 완료 ✓';
+      // 재선택 허용
+      dropZone.style.cursor = 'pointer';
+      dropZone.onclick = function(){ document.getElementById('qr-video-file').click(); };
+    }
 
+    // ── 오류 상태 ──
+    function setError(msg){
+      dropZone.style.borderColor = 'rgba(248,113,113,.5)';
+      dropZone.style.background  = 'rgba(248,113,113,.05)';
+      icon.className = 'fas fa-exclamation-circle';
+      icon.style.color = '#f87171';
+      nameEl.style.color = '#f87171';
+      nameEl.textContent = '업로드 실패 — 다시 클릭하여 재시도';
+      if(subEl) subEl.textContent = msg || '오류 발생';
+      if(subEl) subEl.style.color = 'rgba(248,113,113,.6)';
+      progBar.style.width = '100%';
+      progBar.style.background = 'linear-gradient(90deg,#f87171,#ef4444)';
+      progText.style.color = '#f87171';
+      progText.textContent = '❌ ' + (msg || '오류');
+      hiddenUrl.value = '';
+      dropZone.style.cursor = 'pointer';
+      dropZone.onclick = function(){ document.getElementById('qr-video-file').click(); };
+    }
+
+    setUploading();
+
+    // ① Stream TUS URL 발급
     fetch('/api/stream-upload-url', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ fileSize: file.size, fileName: file.name }),
       credentials: 'same-origin'
     })
-      .then(function(r){ return r.json(); })
-      .then(function(info){
-        if(info.error) throw new Error(info.error);
-        progText.textContent = '업로드 중... (' + mb + 'MB)';
-        progBar.style.width = '10%';
+    .then(function(r){ return r.json(); })
+    .then(function(info){
+      if(info.error) throw new Error(info.error);
+      progText.textContent = '업로드 중... 0%';
+      progBar.style.width = '5%';
 
-        // ② TUS 프로토콜로 Cloudflare Stream에 직접 업로드
-        return new Promise(function(resolve, reject){
-          var xhr = new XMLHttpRequest();
-          xhr.open('PATCH', info.uploadUrl);
-          xhr.setRequestHeader('Content-Type', 'application/offset+octet-stream');
-          xhr.setRequestHeader('Tus-Resumable', '1.0.0');
-          xhr.setRequestHeader('Upload-Offset', '0');
-          xhr.setRequestHeader('Content-Length', String(file.size));
+      // ② TUS PATCH 직접 업로드
+      return new Promise(function(resolve, reject){
+        var xhr = new XMLHttpRequest();
+        xhr.open('PATCH', info.uploadUrl);
+        xhr.setRequestHeader('Content-Type', 'application/offset+octet-stream');
+        xhr.setRequestHeader('Tus-Resumable', '1.0.0');
+        xhr.setRequestHeader('Upload-Offset', '0');
+        xhr.setRequestHeader('Content-Length', String(file.size));
 
-          xhr.upload.addEventListener('progress', function(e){
-            if(e.lengthComputable){
-              var pct = Math.round((e.loaded / e.total) * 88) + 10; // 10~98%
-              progBar.style.width = pct + '%';
-              progText.textContent = '업로드 중... ' + pct + '%';
-            }
-          });
-          xhr.addEventListener('load', function(){
-            if(xhr.status === 204 || xhr.status === 200){
-              resolve(info);
-            } else {
-              reject(new Error('HTTP ' + xhr.status));
-            }
-          });
-          xhr.addEventListener('error', function(){ reject(new Error('네트워크 오류')); });
-          xhr.send(file);
+        xhr.upload.addEventListener('progress', function(e){
+          if(e.lengthComputable){
+            var pct = Math.round((e.loaded / e.total) * 93) + 5;
+            progBar.style.width = pct + '%';
+            progText.textContent = '업로드 중... ' + pct + '%';
+            if(subEl) subEl.textContent = mb + 'MB · ' + pct + '% 완료';
+          }
         });
-      })
-      .then(function(info){
-        // Stream iframeUrl을 video_url로, hlsUrl을 video_url_high로 저장
-        hiddenUrl.value = info.iframeUrl;
-        var elLow  = document.getElementById('qr-video-url-low');
-        var elMid  = document.getElementById('qr-video-url-mid');
-        var elHigh = document.getElementById('qr-video-url-high');
-        if(elLow)  elLow.value  = info.hlsUrl;   // HLS (재생용)
-        if(elMid)  elMid.value  = info.iframeUrl; // iframe embed
-        if(elHigh) elHigh.value = info.hlsUrl;
-
-        // thumbnail hidden에 저장
-        var thumbEl = document.getElementById('qr-video-thumb');
-        if(thumbEl) thumbEl.value = info.thumbUrl || '';
-
-        progBar.style.width = '100%';
-        progText.style.color = '#4ade80';
-        progText.textContent = '✅ Stream 업로드 완료!';
-        btn.textContent = '✓ 완료 (재선택)';
-        btn.style.background = 'rgba(16,185,129,.15)';
-        btn.style.borderColor = 'rgba(16,185,129,.5)';
-        btn.style.color = '#4ade80';
-        btn.style.opacity = '1';
-        btn.disabled = false;
-        nameEl.style.color = '#4ade80';
-      })
-      .catch(function(err){
-        progText.style.color = '#f87171';
-        progText.textContent = '❌ ' + (err.message || '오류');
-        btn.style.opacity = '1';
-        btn.disabled = false;
-        nameEl.style.color = '#f87171';
-        nameEl.textContent = '다시 선택해주세요';
-        hiddenUrl.value = '';
+        xhr.addEventListener('load', function(){
+          if(xhr.status === 204 || xhr.status === 200){ resolve(info); }
+          else { reject(new Error('HTTP ' + xhr.status)); }
+        });
+        xhr.addEventListener('error', function(){ reject(new Error('네트워크 오류')); });
+        xhr.send(file);
       });
-
-    this.value = ''; // 같은 파일 재선택 허용
+    })
+    .then(function(info){
+      // ③ hidden input에 URL 저장
+      hiddenUrl.value = info.iframeUrl;
+      var elLow  = document.getElementById('qr-video-url-low');
+      var elMid  = document.getElementById('qr-video-url-mid');
+      var elHigh = document.getElementById('qr-video-url-high');
+      var elThumb = document.getElementById('qr-video-thumb');
+      if(elLow)  elLow.value   = info.hlsUrl;
+      if(elMid)  elMid.value   = info.iframeUrl;
+      if(elHigh) elHigh.value  = info.hlsUrl;
+      if(elThumb) elThumb.value = info.thumbUrl || '';
+      setDone();
+    })
+    .catch(function(err){ setError(err.message); });
   });
 })();
 
@@ -27280,18 +27313,20 @@ window.quickRegister = async function quickRegister() {
 
     // 영상 업로드 UI 초기화
     var resetName = document.getElementById('qr-video-name');
-    if(resetName){ resetName.textContent = '파일 미선택'; resetName.style.color = 'rgba(255,255,255,.4)'; }
+    if(resetName){ resetName.textContent = '클릭하여 영상 파일 선택'; resetName.style.color = 'rgba(255,255,255,.4)'; }
+    var resetSub = document.getElementById('qr-video-sub');
+    if(resetSub){ resetSub.textContent = 'MP4 · MOV · AVI 등 영상 형식'; resetSub.style.color = 'rgba(255,255,255,.22)'; }
+    var resetIcon = document.getElementById('qr-drop-icon');
+    if(resetIcon){ resetIcon.className = 'fas fa-cloud-upload-alt'; resetIcon.style.color = 'rgba(255,77,141,.5)'; }
+    var resetDrop = document.getElementById('qr-drop-zone');
+    if(resetDrop){
+      resetDrop.style.borderColor = 'rgba(255,77,141,.35)';
+      resetDrop.style.background  = 'rgba(255,77,141,.04)';
+      resetDrop.style.cursor = 'pointer';
+      resetDrop.onclick = function(){ document.getElementById('qr-video-file').click(); };
+    }
     var resetProg = document.getElementById('qr-video-progress-wrap');
     if(resetProg){ resetProg.style.display = 'none'; }
-    var resetBtn2 = document.getElementById('qr-video-btn');
-    if(resetBtn2){
-      resetBtn2.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> 영상 파일 선택';
-      resetBtn2.style.background = 'rgba(255,77,141,.1)';
-      resetBtn2.style.borderColor = 'rgba(255,77,141,.4)';
-      resetBtn2.style.color = 'rgba(255,77,141,.8)';
-      resetBtn2.style.opacity = '1';
-      resetBtn2.disabled = false;
-    }
 
     // 업체 목록 새로고침
     if (typeof loadShopList === 'function') loadShopList();
@@ -27383,188 +27418,262 @@ document.addEventListener('change', function(e){
 });
 
 // ══════════════════════════════════════════════════════
-//  영상 교체 모달 (Cloudflare Stream TUS 업로드)
+//  영상 교체 / 신규 업로드 모달 (Cloudflare Stream TUS)
 // ══════════════════════════════════════════════════════
 window.openVideoReplaceModal = function(shopId, videoId){
-  // 기존 모달 제거
-  var old = document.getElementById('vr-modal-overlay');
+  var old = document.getElementById('vr-overlay');
   if(old) old.remove();
 
+  var isNew = !videoId;
+
+  /* ── 모달 마크업 ── */
   var overlay = document.createElement('div');
-  overlay.id = 'vr-modal-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;padding:16px';
-
-  overlay.innerHTML = [
-    '<div id="vr-modal" style="width:100%;max-width:440px;background:#1a1a2e;border:1px solid rgba(255,77,141,.35);border-radius:18px;padding:28px 24px;position:relative">',
-      '<button id="vr-close" style="position:absolute;top:14px;right:16px;background:none;border:none;color:rgba(255,255,255,.45);font-size:20px;cursor:pointer;line-height:1">✕</button>',
-      '<h3 style="margin:0 0 6px;font-size:16px;font-weight:800;color:#fff">',
-        (videoId ? '<i class="fas fa-video" style="color:#fb923c;margin-right:7px"></i>영상 교체' : '<i class="fas fa-cloud-upload-alt" style="color:#fb923c;margin-right:7px"></i>영상 업로드'),
-      '</h3>',
-      '<p style="margin:0 0 20px;font-size:12px;color:rgba(255,255,255,.4)">',
-        (videoId ? '기존 영상을 새 파일로 교체합니다.' : '이 업체에 새 영상을 등록합니다.'),
-      '</p>',
-
-      // 파일 선택 영역
-      '<label id="vr-drop-zone" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;',
-        'height:110px;border:2px dashed rgba(251,146,60,.4);border-radius:12px;cursor:pointer;',
-        'background:rgba(251,146,60,.05);transition:.15s;margin-bottom:16px">',
-        '<i class="fas fa-film" style="font-size:26px;color:rgba(251,146,60,.6)"></i>',
-        '<span id="vr-file-name" style="font-size:12px;color:rgba(255,255,255,.4)">클릭하여 영상 파일 선택</span>',
-        '<input type="file" id="vr-file-input" accept="video/*" style="display:none">',
-      '</label>',
-
-      // 진행률 바
-      '<div id="vr-prog-wrap" style="display:none;margin-bottom:16px">',
-        '<div style="height:6px;background:rgba(255,255,255,.08);border-radius:99px;overflow:hidden;margin-bottom:7px">',
-          '<div id="vr-prog-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#fb923c,#f43f5e);border-radius:99px;transition:width .2s"></div>',
-        '</div>',
-        '<div id="vr-prog-text" style="font-size:11px;color:rgba(255,255,255,.5);text-align:center"></div>',
-      '</div>',
-
-      // 업로드 버튼
-      '<button id="vr-upload-btn" disabled style="width:100%;padding:12px;background:rgba(251,146,60,.18);border:1.5px solid rgba(251,146,60,.4);',
-        'border-radius:10px;color:#fb923c;font-size:13px;font-weight:700;cursor:not-allowed;opacity:.5;transition:.15s">',
-        '<i class="fas fa-upload" style="margin-right:6px"></i>업로드 시작',
-      '</button>',
-    '</div>'
+  overlay.id = 'vr-overlay';
+  overlay.style.cssText = [
+    'position:fixed;inset:0;z-index:9999;',
+    'background:rgba(0,0,0,.80);',
+    'display:flex;align-items:center;justify-content:center;padding:20px'
   ].join('');
+
+  overlay.innerHTML =
+    '<div id="vr-box" style="' +
+      'width:100%;max-width:420px;background:#16162a;' +
+      'border:1px solid rgba(255,255,255,.1);border-radius:20px;' +
+      'padding:28px 24px 24px;position:relative;' +
+      'box-shadow:0 24px 80px rgba(0,0,0,.6)">' +
+
+      /* 닫기 버튼 */
+      '<button id="vr-x" style="' +
+        'position:absolute;top:16px;right:18px;' +
+        'background:none;border:none;color:rgba(255,255,255,.35);' +
+        'font-size:18px;cursor:pointer;line-height:1;padding:4px">✕</button>' +
+
+      /* 타이틀 */
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">' +
+        '<div style="width:36px;height:36px;border-radius:10px;background:rgba(251,146,60,.15);' +
+          'display:flex;align-items:center;justify-content:center;flex-shrink:0">' +
+          '<i class="fas ' + (isNew ? 'fa-cloud-upload-alt' : 'fa-video') + '" style="color:#fb923c;font-size:16px"></i>' +
+        '</div>' +
+        '<div>' +
+          '<div style="font-size:15px;font-weight:800;color:#fff">' + (isNew ? '영상 업로드' : '영상 교체') + '</div>' +
+          '<div style="font-size:11px;color:rgba(255,255,255,.35);margin-top:2px">' +
+            (isNew ? '이 업체에 새 영상을 등록합니다' : '기존 영상을 새 파일로 교체합니다') +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+
+      /* 드롭존 */
+      '<div id="vr-drop" style="' +
+        'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;' +
+        'height:140px;border:2px dashed rgba(251,146,60,.35);border-radius:14px;' +
+        'background:rgba(251,146,60,.04);cursor:pointer;transition:all .2s;margin-bottom:16px">' +
+        '<i id="vr-icon" class="fas fa-film" style="font-size:32px;color:rgba(251,146,60,.5)"></i>' +
+        '<div style="text-align:center">' +
+          '<div id="vr-fname" style="font-size:13px;font-weight:600;color:rgba(255,255,255,.35)">클릭하여 영상 파일 선택</div>' +
+          '<div id="vr-fsub" style="font-size:11px;color:rgba(255,255,255,.2);margin-top:3px">MP4 · MOV · AVI 등 영상 형식</div>' +
+        '</div>' +
+        '<input type="file" id="vr-input" accept="video/*" style="display:none">' +
+      '</div>' +
+
+      /* 진행률 */
+      '<div id="vr-prog-wrap" style="display:none;margin-bottom:16px">' +
+        '<div style="height:5px;background:rgba(255,255,255,.07);border-radius:99px;overflow:hidden;margin-bottom:7px">' +
+          '<div id="vr-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#fb923c,#f43f5e);border-radius:99px;transition:width .2s"></div>' +
+        '</div>' +
+        '<div id="vr-ptext" style="font-size:11px;color:rgba(255,255,255,.4);text-align:center"></div>' +
+      '</div>' +
+
+      /* 업로드 버튼 */
+      '<button id="vr-btn" disabled style="' +
+        'width:100%;padding:13px;border-radius:12px;border:1.5px solid rgba(251,146,60,.35);' +
+        'background:rgba(251,146,60,.12);color:#fb923c;' +
+        'font-size:13px;font-weight:800;cursor:not-allowed;opacity:.45;transition:all .2s">' +
+        '<i class="fas fa-upload" style="margin-right:7px"></i>업로드 시작' +
+      '</button>' +
+
+    '</div>';
 
   document.body.appendChild(overlay);
 
-  // ── 요소 참조 ──
-  var fileInput  = document.getElementById('vr-file-input');
-  var dropZone   = document.getElementById('vr-drop-zone');
-  var fileName   = document.getElementById('vr-file-name');
-  var progWrap   = document.getElementById('vr-prog-wrap');
-  var progBar    = document.getElementById('vr-prog-bar');
-  var progText   = document.getElementById('vr-prog-text');
-  var uploadBtn  = document.getElementById('vr-upload-btn');
-  var closeBtn   = document.getElementById('vr-close');
-  var selectedFile = null;
+  /* ── 요소 참조 ── */
+  var drop     = document.getElementById('vr-drop');
+  var input    = document.getElementById('vr-input');
+  var icon     = document.getElementById('vr-icon');
+  var fname    = document.getElementById('vr-fname');
+  var fsub     = document.getElementById('vr-fsub');
+  var progWrap = document.getElementById('vr-prog-wrap');
+  var bar      = document.getElementById('vr-bar');
+  var ptext    = document.getElementById('vr-ptext');
+  var btn      = document.getElementById('vr-btn');
+  var xBtn     = document.getElementById('vr-x');
+  var selFile  = null;
 
-  // ── 닫기 ──
-  closeBtn.addEventListener('click', function(){ overlay.remove(); });
-  overlay.addEventListener('click', function(e){ if(e.target === overlay) overlay.remove(); });
+  /* ── 닫기 ── */
+  xBtn.onclick = function(){ overlay.remove(); };
+  overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
 
-  // ── 파일 선택 ──
-  fileInput.addEventListener('change', function(){
-    if(fileInput.files && fileInput.files[0]){
-      selectedFile = fileInput.files[0];
-      var mb = (selectedFile.size/1024/1024).toFixed(1);
-      fileName.textContent = selectedFile.name + ' (' + mb + 'MB)';
-      fileName.style.color = 'rgba(255,255,255,.75)';
-      dropZone.style.borderColor = 'rgba(251,146,60,.7)';
-      dropZone.style.background = 'rgba(251,146,60,.1)';
-      uploadBtn.disabled = false;
-      uploadBtn.style.cursor = 'pointer';
-      uploadBtn.style.opacity = '1';
-    }
+  /* ── 드롭존 클릭 ── */
+  drop.onclick = function(){ input.click(); };
+
+  /* ── 파일 선택 ── */
+  input.addEventListener('change', function(){
+    if(!this.files || !this.files[0]) return;
+    selFile = this.files[0];
+    this.value = '';
+    var mb = (selFile.size/1024/1024).toFixed(1);
+    drop.style.borderColor = 'rgba(251,146,60,.7)';
+    drop.style.background  = 'rgba(251,146,60,.09)';
+    icon.className  = 'fas fa-file-video';
+    icon.style.color = '#fb923c';
+    fname.textContent = selFile.name;
+    fname.style.color = 'rgba(255,255,255,.8)';
+    fsub.textContent  = mb + 'MB — 준비됨';
+    fsub.style.color  = 'rgba(251,146,60,.6)';
+    btn.disabled = false;
+    btn.style.cursor  = 'pointer';
+    btn.style.opacity = '1';
+    btn.style.borderColor = 'rgba(251,146,60,.6)';
+    btn.style.background  = 'rgba(251,146,60,.2)';
   });
 
-  // ── 업로드 버튼 클릭 ──
-  uploadBtn.addEventListener('click', function(){
-    if(!selectedFile) return;
-    uploadBtn.disabled = true;
-    uploadBtn.style.opacity = '0.5';
-    closeBtn.style.pointerEvents = 'none'; // 업로드 중 닫기 방지
+  /* ── 상태 함수 ── */
+  function setUploading(){
+    drop.style.cursor = 'default';
+    drop.onclick = null;
+    xBtn.style.pointerEvents = 'none';
+    btn.disabled = true;
+    btn.style.opacity = '0.45';
+    icon.className = 'fas fa-spinner fa-spin';
+    icon.style.color = '#fbbf24';
+    fname.style.color = '#fbbf24';
     progWrap.style.display = 'block';
-    progBar.style.width = '0%';
-    progText.style.color = 'rgba(255,255,255,.5)';
-    progText.textContent = 'Stream URL 발급 중...';
+    bar.style.width = '0%';
+    bar.style.background = 'linear-gradient(90deg,#fb923c,#f43f5e)';
+    ptext.style.color = 'rgba(255,255,255,.4)';
+    ptext.textContent = 'URL 발급 중...';
+  }
 
-    var adminToken = document.cookie.match(/admin_token=([^;]+)/);
-    var authHeader = adminToken ? { 'x-admin-secret': adminToken[1] } : {};
+  function setDone(){
+    drop.style.borderColor = 'rgba(52,211,153,.5)';
+    drop.style.background  = 'rgba(52,211,153,.06)';
+    icon.className  = 'fas fa-check-circle';
+    icon.style.color = '#34d399';
+    fname.style.color = '#34d399';
+    fsub.textContent  = '완료 ✓';
+    fsub.style.color  = 'rgba(52,211,153,.6)';
+    bar.style.width = '100%';
+    bar.style.background = 'linear-gradient(90deg,#34d399,#10b981)';
+    ptext.style.color = '#4ade80';
+    ptext.textContent = (isNew ? '✅ 업로드 완료!' : '✅ 영상 교체 완료!');
+    btn.textContent = '✓ 완료';
+    btn.style.background  = 'rgba(52,211,153,.15)';
+    btn.style.borderColor = 'rgba(52,211,153,.4)';
+    btn.style.color = '#34d399';
+  }
 
-    // ① TUS 업로드 URL 발급
+  function setError(msg){
+    drop.style.borderColor = 'rgba(248,113,113,.5)';
+    drop.style.background  = 'rgba(248,113,113,.05)';
+    icon.className  = 'fas fa-exclamation-circle';
+    icon.style.color = '#f87171';
+    fname.style.color = '#f87171';
+    fname.textContent = '오류 — 다시 클릭하여 재시도';
+    fsub.textContent  = msg || '오류 발생';
+    fsub.style.color  = 'rgba(248,113,113,.6)';
+    bar.style.width = '100%';
+    bar.style.background = 'linear-gradient(90deg,#f87171,#ef4444)';
+    ptext.style.color = '#f87171';
+    ptext.textContent = '❌ ' + (msg || '오류');
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+    xBtn.style.pointerEvents = '';
+    drop.style.cursor = 'pointer';
+    drop.onclick = function(){ input.click(); };
+  }
+
+  /* ── 업로드 실행 ── */
+  btn.addEventListener('click', function(){
+    if(!selFile) return;
+    setUploading();
+
+    var mb = (selFile.size/1024/1024).toFixed(1);
+    var ck = document.cookie.match(/admin_token=([^;]+)/);
+    var ah = ck ? {'x-admin-secret': ck[1]} : {};
+
+    /* ① TUS URL 발급 */
     fetch('/api/stream-upload-url', {
       method: 'POST',
-      headers: Object.assign({ 'Content-Type': 'application/json' }, authHeader),
-      body: JSON.stringify({ fileSize: selectedFile.size, fileName: selectedFile.name }),
+      headers: Object.assign({'Content-Type':'application/json'}, ah),
+      body: JSON.stringify({fileSize: selFile.size, fileName: selFile.name}),
       credentials: 'same-origin'
     })
     .then(function(r){ return r.json(); })
     .then(function(info){
       if(info.error) throw new Error(info.error);
-      progBar.style.width = '8%';
-      progText.textContent = '업로드 중...';
+      ptext.textContent = '업로드 중... 0%';
+      bar.style.width = '5%';
 
-      // ② TUS PATCH 업로드
+      /* ② PATCH 업로드 */
       return new Promise(function(resolve, reject){
         var xhr = new XMLHttpRequest();
         xhr.open('PATCH', info.uploadUrl);
-        xhr.setRequestHeader('Content-Type', 'application/offset+octet-stream');
-        xhr.setRequestHeader('Tus-Resumable', '1.0.0');
-        xhr.setRequestHeader('Upload-Offset', '0');
-        xhr.setRequestHeader('Content-Length', String(selectedFile.size));
+        xhr.setRequestHeader('Content-Type','application/offset+octet-stream');
+        xhr.setRequestHeader('Tus-Resumable','1.0.0');
+        xhr.setRequestHeader('Upload-Offset','0');
+        xhr.setRequestHeader('Content-Length', String(selFile.size));
 
         xhr.upload.addEventListener('progress', function(e){
           if(e.lengthComputable){
-            var pct = Math.round((e.loaded/e.total)*88)+8;
-            progBar.style.width = pct + '%';
-            progText.textContent = '업로드 중... ' + pct + '%';
+            var pct = Math.round((e.loaded/e.total)*91)+5;
+            bar.style.width = pct+'%';
+            ptext.textContent = '업로드 중... '+pct+'%  ('+mb+'MB)';
+            fsub.textContent  = pct+'% 완료';
           }
         });
         xhr.addEventListener('load', function(){
-          if(xhr.status === 204 || xhr.status === 200){ resolve(info); }
-          else { reject(new Error('HTTP ' + xhr.status)); }
+          if(xhr.status===204||xhr.status===200) resolve(info);
+          else reject(new Error('HTTP '+xhr.status));
         });
         xhr.addEventListener('error', function(){ reject(new Error('네트워크 오류')); });
-        xhr.send(selectedFile);
+        xhr.send(selFile);
       });
     })
     .then(function(info){
-      progBar.style.width = '98%';
-      progText.textContent = 'DB 저장 중...';
+      bar.style.width = '98%';
+      ptext.textContent = 'DB 저장 중...';
 
-      // ③ DB 저장: videoId 있으면 PUT(교체), 없으면 POST(신규)
-      var isNew = !videoId;
-      var url    = isNew ? '/api/videos' : '/api/videos/' + videoId;
+      /* ③ DB 저장 */
+      var url    = isNew ? '/api/videos' : '/api/videos/'+videoId;
       var method = isNew ? 'POST' : 'PUT';
-
-      // 업체의 첫 번째 영상 제목 기본값 (업체명 활용)
-      var shopCard = document.querySelector('[data-shop-id="'+shopId+'"]');
-      var defaultTitle = shopCard ? (shopCard.closest('[data-shop-id]')?.textContent?.trim()?.slice(0,30) || '영상') : '영상';
+      var shopHd = document.querySelector('.shop-accordion-hd[data-shop-id="'+shopId+'"]');
+      var defTitle = shopHd ? (shopHd.querySelector('div')?.textContent?.trim()?.slice(0,30)||'영상') : '영상';
 
       var payload = isNew
-        ? { shopId: shopId, title: defaultTitle, videoUrl: info.iframeUrl, thumbnail: info.thumbUrl,
-            videoUrlLow: info.hlsUrl, videoUrlMid: info.iframeUrl, videoUrlHigh: info.hlsUrl }
-        : { videoUrlOnly: true, videoUrl: info.iframeUrl, thumbnail: info.thumbUrl,
-            videoUrlLow: info.hlsUrl, videoUrlMid: info.iframeUrl, videoUrlHigh: info.hlsUrl };
+        ? {shopId:shopId, title:defTitle,
+           videoUrl:info.iframeUrl, thumbnail:info.thumbUrl,
+           videoUrlLow:info.hlsUrl, videoUrlMid:info.iframeUrl, videoUrlHigh:info.hlsUrl}
+        : {videoUrlOnly:true,
+           videoUrl:info.iframeUrl, thumbnail:info.thumbUrl,
+           videoUrlLow:info.hlsUrl, videoUrlMid:info.iframeUrl, videoUrlHigh:info.hlsUrl};
 
       return fetch(url, {
         method: method,
-        headers: Object.assign({ 'Content-Type': 'application/json' }, authHeader),
+        headers: Object.assign({'Content-Type':'application/json'}, ah),
         body: JSON.stringify(payload),
         credentials: 'same-origin'
-      }).then(function(r){ return r.json(); }).then(function(res){
-        if(res.error) throw new Error(res.error);
-        return res;
-      });
+      })
+      .then(function(r){ return r.json(); })
+      .then(function(res){ if(res.error) throw new Error(res.error); return res; });
     })
     .then(function(){
-      progBar.style.width = '100%';
-      progBar.style.background = 'linear-gradient(90deg,#34d399,#10b981)';
-      progText.style.color = '#4ade80';
-      progText.textContent = '✅ ' + (videoId ? '영상 교체 완료!' : '영상 업로드 완료!');
-      uploadBtn.textContent = '✓ 완료';
-      uploadBtn.style.background = 'rgba(52,211,153,.15)';
-      uploadBtn.style.borderColor = 'rgba(52,211,153,.4)';
-      uploadBtn.style.color = '#4ade80';
-
-      // 2초 후 모달 닫고 목록 갱신
+      setDone();
       setTimeout(function(){
         overlay.remove();
-        if(typeof renderShops === 'function') renderShops();
-      }, 1800);
+        if(typeof renderShops==='function') renderShops();
+      }, 1600);
     })
-    .catch(function(err){
-      progBar.style.background = 'linear-gradient(90deg,#f87171,#ef4444)';
-      progText.style.color = '#f87171';
-      progText.textContent = '❌ ' + (err.message || '오류 발생');
-      uploadBtn.disabled = false;
-      uploadBtn.style.opacity = '1';
-      closeBtn.style.pointerEvents = '';
-    });
+    .catch(function(err){ setError(err.message); });
   });
 };
 

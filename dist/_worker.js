@@ -29302,31 +29302,38 @@ textarea{height:80px;resize:none}
 
     <!-- \uC601\uC0C1 \uD30C\uC77C \uC5C5\uB85C\uB4DC -->
     <div style="margin-bottom:14px">
-      <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:5px"><i class="fas fa-video" style="color:#FF4D8D"></i> \uC601\uC0C1 \uD30C\uC77C <span style="color:rgba(255,255,255,.3)">(\uC120\uD0DD \xB7 \uC5C5\uB85C\uB4DC \uD6C4 \uC790\uB3D9 \uB4F1\uB85D)</span></label>
-      <!-- \uC228\uACA8\uC9C4 \uD30C\uC77C input -->
+      <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:8px">
+        <i class="fas fa-video" style="color:#FF4D8D;margin-right:4px"></i> \uC601\uC0C1 \uD30C\uC77C
+        <span style="color:rgba(255,255,255,.28)">(\uC120\uD0DD \xB7 \uD30C\uC77C \uC120\uD0DD \uC989\uC2DC \uC790\uB3D9 \uC5C5\uB85C\uB4DC)</span>
+      </label>
+
+      <!-- hidden inputs -->
       <input type="file" id="qr-video-file" accept="video/*" style="display:none">
-      <!-- hidden: \uC5C5\uB85C\uB4DC \uC644\uB8CC \uD6C4 URL \uC800\uC7A5 (\uC6D0\uBCF8 + eager \uBCC0\uD658 3\uC885) -->
       <input type="hidden" id="qr-video">
       <input type="hidden" id="qr-video-url-low">
       <input type="hidden" id="qr-video-url-mid">
       <input type="hidden" id="qr-video-url-high">
       <input type="hidden" id="qr-video-thumb">
-      <!-- \uC5C5\uB85C\uB4DC \uBC84\uD2BC \uC601\uC5ED -->
-      <div style="display:flex;align-items:center;gap:8px">
-        <button type="button" id="qr-video-btn"
-          onclick="document.getElementById('qr-video-file').click()"
-          style="flex:1;padding:10px 14px;background:rgba(255,77,141,.1);border:1.5px dashed rgba(255,77,141,.4);border-radius:10px;color:rgba(255,77,141,.8);font-size:12px;font-weight:700;cursor:pointer;text-align:center;transition:all .2s">
-          <i class="fas fa-cloud-upload-alt"></i> \uC601\uC0C1 \uD30C\uC77C \uC120\uD0DD
-        </button>
-        <!-- \uC120\uD0DD\uB41C \uD30C\uC77C\uBA85 / \uC644\uB8CC \uD45C\uC2DC -->
-        <span id="qr-video-name" style="font-size:11px;color:rgba(255,255,255,.4);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">\uD30C\uC77C \uBBF8\uC120\uD0DD</span>
-      </div>
-      <!-- \uC5C5\uB85C\uB4DC \uC9C4\uD589\uB960 \uBC14 -->
-      <div id="qr-video-progress-wrap" style="display:none;margin-top:8px">
-        <div style="background:rgba(255,255,255,.1);border-radius:4px;overflow:hidden;height:5px">
-          <div id="qr-video-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#FF4D8D,#9B59B6);transition:width .3s"></div>
+
+      <!-- \uB4DC\uB86D\uC874 (\uD074\uB9AD = \uD30C\uC77C\uC120\uD0DD) -->
+      <div id="qr-drop-zone"
+        onclick="document.getElementById('qr-video-file').click()"
+        style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+               height:120px;border:2px dashed rgba(255,77,141,.35);border-radius:14px;cursor:pointer;
+               background:rgba(255,77,141,.04);transition:all .2s;user-select:none">
+        <i id="qr-drop-icon" class="fas fa-cloud-upload-alt" style="font-size:28px;color:rgba(255,77,141,.5)"></i>
+        <div style="text-align:center">
+          <div id="qr-video-name" style="font-size:12px;font-weight:700;color:rgba(255,255,255,.4)">\uD074\uB9AD\uD558\uC5EC \uC601\uC0C1 \uD30C\uC77C \uC120\uD0DD</div>
+          <div id="qr-video-sub" style="font-size:10px;color:rgba(255,255,255,.22);margin-top:3px">MP4 \xB7 MOV \xB7 AVI \uB4F1 \uC601\uC0C1 \uD615\uC2DD</div>
         </div>
-        <div id="qr-video-progress-text" style="font-size:11px;color:#fbbf24;margin-top:4px;text-align:center"></div>
+      </div>
+
+      <!-- \uC9C4\uD589\uB960 \uBC14 -->
+      <div id="qr-video-progress-wrap" style="display:none;margin-top:10px">
+        <div style="height:5px;background:rgba(255,255,255,.07);border-radius:99px;overflow:hidden;margin-bottom:6px">
+          <div id="qr-video-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#FF4D8D,#9B59B6);border-radius:99px;transition:width .25s ease"></div>
+        </div>
+        <div id="qr-video-progress-text" style="font-size:11px;color:rgba(255,255,255,.45);text-align:center"></div>
       </div>
     </div>
 
@@ -32569,111 +32576,137 @@ window.qrSetCat = function(cat) {
   });
 };
 
-// \u2500\u2500 \uBE60\uB978 \uB4F1\uB85D: \uC601\uC0C1 \uD30C\uC77C \uC120\uD0DD \uD578\uB4E4\uB7EC \u2500\u2500
+// \u2500\u2500 \uBE60\uB978 \uB4F1\uB85D: \uC601\uC0C1 \uD30C\uC77C \uC120\uD0DD \u2192 Stream TUS \uC790\uB3D9 \uC5C5\uB85C\uB4DC \u2500\u2500
 (function(){
   var fileInput = document.getElementById('qr-video-file');
   if(!fileInput) return;
+
   fileInput.addEventListener('change', function(){
     var file = this.files && this.files[0];
     if(!file) return;
+    this.value = ''; // \uAC19\uC740 \uD30C\uC77C \uC7AC\uC120\uD0DD \uD5C8\uC6A9
+
+    var dropZone  = document.getElementById('qr-drop-zone');
     var nameEl    = document.getElementById('qr-video-name');
-    var btn       = document.getElementById('qr-video-btn');
+    var subEl     = document.getElementById('qr-video-sub');
+    var icon      = document.getElementById('qr-drop-icon');
     var progWrap  = document.getElementById('qr-video-progress-wrap');
     var progBar   = document.getElementById('qr-video-progress-bar');
     var progText  = document.getElementById('qr-video-progress-text');
     var hiddenUrl = document.getElementById('qr-video');
 
-    // \uD30C\uC77C\uBA85 \uD45C\uC2DC
-    nameEl.textContent = file.name;
-    nameEl.style.color = '#fbbf24';
+    var mb = (file.size / 1024 / 1024).toFixed(1);
 
-    // \uC9C4\uD589 UI \uD45C\uC2DC
-    progWrap.style.display = 'block';
-    progBar.style.width = '0%';
-    progText.textContent = '\uC11C\uBA85 \uBC1C\uAE09 \uC911...';
-    btn.disabled = true;
-    btn.style.opacity = '0.6';
+    // \u2500\u2500 \uB4DC\uB86D\uC874 \u2192 \uC5C5\uB85C\uB4DC \uC911 \uC0C1\uD0DC \u2500\u2500
+    function setUploading(){
+      dropZone.style.cursor = 'default';
+      dropZone.onclick = null;
+      dropZone.style.borderColor = 'rgba(251,191,36,.5)';
+      dropZone.style.background  = 'rgba(251,191,36,.05)';
+      icon.className = 'fas fa-spinner fa-spin';
+      icon.style.color = '#fbbf24';
+      nameEl.style.color = '#fbbf24';
+      nameEl.textContent = file.name;
+      if(subEl) subEl.textContent = mb + 'MB \xB7 \uC5C5\uB85C\uB4DC \uC911...';
+      progWrap.style.display = 'block';
+      progBar.style.width = '0%';
+      progBar.style.background = 'linear-gradient(90deg,#FF4D8D,#9B59B6)';
+      progText.style.color = 'rgba(255,255,255,.45)';
+      progText.textContent = 'URL \uBC1C\uAE09 \uC911...';
+    }
 
-    // \u2460 \uC11C\uBC84\uC5D0\uC11C Cloudflare Stream TUS \uC5C5\uB85C\uB4DC URL \uBC1C\uAE09
-    var mb = (file.size/1024/1024).toFixed(1);
-    progText.textContent = 'Stream URL \uBC1C\uAE09 \uC911...';
-    progBar.style.width = '5%';
+    // \u2500\u2500 \uC644\uB8CC \uC0C1\uD0DC \u2500\u2500
+    function setDone(){
+      dropZone.style.borderColor = 'rgba(52,211,153,.5)';
+      dropZone.style.background  = 'rgba(52,211,153,.05)';
+      icon.className = 'fas fa-check-circle';
+      icon.style.color = '#34d399';
+      nameEl.style.color = '#34d399';
+      nameEl.textContent = '\u2705 \uC5C5\uB85C\uB4DC \uC644\uB8CC \xB7 ' + file.name;
+      if(subEl) subEl.textContent = mb + 'MB \u2014 \uB4F1\uB85D \uBC84\uD2BC\uC744 \uB20C\uB7EC \uC800\uC7A5\uD558\uC138\uC694';
+      if(subEl) subEl.style.color = 'rgba(52,211,153,.6)';
+      progBar.style.width = '100%';
+      progBar.style.background = 'linear-gradient(90deg,#34d399,#10b981)';
+      progText.style.color = '#4ade80';
+      progText.textContent = 'Stream \uC5C5\uB85C\uB4DC \uC644\uB8CC \u2713';
+      // \uC7AC\uC120\uD0DD \uD5C8\uC6A9
+      dropZone.style.cursor = 'pointer';
+      dropZone.onclick = function(){ document.getElementById('qr-video-file').click(); };
+    }
 
+    // \u2500\u2500 \uC624\uB958 \uC0C1\uD0DC \u2500\u2500
+    function setError(msg){
+      dropZone.style.borderColor = 'rgba(248,113,113,.5)';
+      dropZone.style.background  = 'rgba(248,113,113,.05)';
+      icon.className = 'fas fa-exclamation-circle';
+      icon.style.color = '#f87171';
+      nameEl.style.color = '#f87171';
+      nameEl.textContent = '\uC5C5\uB85C\uB4DC \uC2E4\uD328 \u2014 \uB2E4\uC2DC \uD074\uB9AD\uD558\uC5EC \uC7AC\uC2DC\uB3C4';
+      if(subEl) subEl.textContent = msg || '\uC624\uB958 \uBC1C\uC0DD';
+      if(subEl) subEl.style.color = 'rgba(248,113,113,.6)';
+      progBar.style.width = '100%';
+      progBar.style.background = 'linear-gradient(90deg,#f87171,#ef4444)';
+      progText.style.color = '#f87171';
+      progText.textContent = '\u274C ' + (msg || '\uC624\uB958');
+      hiddenUrl.value = '';
+      dropZone.style.cursor = 'pointer';
+      dropZone.onclick = function(){ document.getElementById('qr-video-file').click(); };
+    }
+
+    setUploading();
+
+    // \u2460 Stream TUS URL \uBC1C\uAE09
     fetch('/api/stream-upload-url', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ fileSize: file.size, fileName: file.name }),
       credentials: 'same-origin'
     })
-      .then(function(r){ return r.json(); })
-      .then(function(info){
-        if(info.error) throw new Error(info.error);
-        progText.textContent = '\uC5C5\uB85C\uB4DC \uC911... (' + mb + 'MB)';
-        progBar.style.width = '10%';
+    .then(function(r){ return r.json(); })
+    .then(function(info){
+      if(info.error) throw new Error(info.error);
+      progText.textContent = '\uC5C5\uB85C\uB4DC \uC911... 0%';
+      progBar.style.width = '5%';
 
-        // \u2461 TUS \uD504\uB85C\uD1A0\uCF5C\uB85C Cloudflare Stream\uC5D0 \uC9C1\uC811 \uC5C5\uB85C\uB4DC
-        return new Promise(function(resolve, reject){
-          var xhr = new XMLHttpRequest();
-          xhr.open('PATCH', info.uploadUrl);
-          xhr.setRequestHeader('Content-Type', 'application/offset+octet-stream');
-          xhr.setRequestHeader('Tus-Resumable', '1.0.0');
-          xhr.setRequestHeader('Upload-Offset', '0');
-          xhr.setRequestHeader('Content-Length', String(file.size));
+      // \u2461 TUS PATCH \uC9C1\uC811 \uC5C5\uB85C\uB4DC
+      return new Promise(function(resolve, reject){
+        var xhr = new XMLHttpRequest();
+        xhr.open('PATCH', info.uploadUrl);
+        xhr.setRequestHeader('Content-Type', 'application/offset+octet-stream');
+        xhr.setRequestHeader('Tus-Resumable', '1.0.0');
+        xhr.setRequestHeader('Upload-Offset', '0');
+        xhr.setRequestHeader('Content-Length', String(file.size));
 
-          xhr.upload.addEventListener('progress', function(e){
-            if(e.lengthComputable){
-              var pct = Math.round((e.loaded / e.total) * 88) + 10; // 10~98%
-              progBar.style.width = pct + '%';
-              progText.textContent = '\uC5C5\uB85C\uB4DC \uC911... ' + pct + '%';
-            }
-          });
-          xhr.addEventListener('load', function(){
-            if(xhr.status === 204 || xhr.status === 200){
-              resolve(info);
-            } else {
-              reject(new Error('HTTP ' + xhr.status));
-            }
-          });
-          xhr.addEventListener('error', function(){ reject(new Error('\uB124\uD2B8\uC6CC\uD06C \uC624\uB958')); });
-          xhr.send(file);
+        xhr.upload.addEventListener('progress', function(e){
+          if(e.lengthComputable){
+            var pct = Math.round((e.loaded / e.total) * 93) + 5;
+            progBar.style.width = pct + '%';
+            progText.textContent = '\uC5C5\uB85C\uB4DC \uC911... ' + pct + '%';
+            if(subEl) subEl.textContent = mb + 'MB \xB7 ' + pct + '% \uC644\uB8CC';
+          }
         });
-      })
-      .then(function(info){
-        // Stream iframeUrl\uC744 video_url\uB85C, hlsUrl\uC744 video_url_high\uB85C \uC800\uC7A5
-        hiddenUrl.value = info.iframeUrl;
-        var elLow  = document.getElementById('qr-video-url-low');
-        var elMid  = document.getElementById('qr-video-url-mid');
-        var elHigh = document.getElementById('qr-video-url-high');
-        if(elLow)  elLow.value  = info.hlsUrl;   // HLS (\uC7AC\uC0DD\uC6A9)
-        if(elMid)  elMid.value  = info.iframeUrl; // iframe embed
-        if(elHigh) elHigh.value = info.hlsUrl;
-
-        // thumbnail hidden\uC5D0 \uC800\uC7A5
-        var thumbEl = document.getElementById('qr-video-thumb');
-        if(thumbEl) thumbEl.value = info.thumbUrl || '';
-
-        progBar.style.width = '100%';
-        progText.style.color = '#4ade80';
-        progText.textContent = '\u2705 Stream \uC5C5\uB85C\uB4DC \uC644\uB8CC!';
-        btn.textContent = '\u2713 \uC644\uB8CC (\uC7AC\uC120\uD0DD)';
-        btn.style.background = 'rgba(16,185,129,.15)';
-        btn.style.borderColor = 'rgba(16,185,129,.5)';
-        btn.style.color = '#4ade80';
-        btn.style.opacity = '1';
-        btn.disabled = false;
-        nameEl.style.color = '#4ade80';
-      })
-      .catch(function(err){
-        progText.style.color = '#f87171';
-        progText.textContent = '\u274C ' + (err.message || '\uC624\uB958');
-        btn.style.opacity = '1';
-        btn.disabled = false;
-        nameEl.style.color = '#f87171';
-        nameEl.textContent = '\uB2E4\uC2DC \uC120\uD0DD\uD574\uC8FC\uC138\uC694';
-        hiddenUrl.value = '';
+        xhr.addEventListener('load', function(){
+          if(xhr.status === 204 || xhr.status === 200){ resolve(info); }
+          else { reject(new Error('HTTP ' + xhr.status)); }
+        });
+        xhr.addEventListener('error', function(){ reject(new Error('\uB124\uD2B8\uC6CC\uD06C \uC624\uB958')); });
+        xhr.send(file);
       });
-
-    this.value = ''; // \uAC19\uC740 \uD30C\uC77C \uC7AC\uC120\uD0DD \uD5C8\uC6A9
+    })
+    .then(function(info){
+      // \u2462 hidden input\uC5D0 URL \uC800\uC7A5
+      hiddenUrl.value = info.iframeUrl;
+      var elLow  = document.getElementById('qr-video-url-low');
+      var elMid  = document.getElementById('qr-video-url-mid');
+      var elHigh = document.getElementById('qr-video-url-high');
+      var elThumb = document.getElementById('qr-video-thumb');
+      if(elLow)  elLow.value   = info.hlsUrl;
+      if(elMid)  elMid.value   = info.iframeUrl;
+      if(elHigh) elHigh.value  = info.hlsUrl;
+      if(elThumb) elThumb.value = info.thumbUrl || '';
+      setDone();
+    })
+    .catch(function(err){ setError(err.message); });
   });
 })();
 
@@ -32890,18 +32923,20 @@ window.quickRegister = async function quickRegister() {
 
     // \uC601\uC0C1 \uC5C5\uB85C\uB4DC UI \uCD08\uAE30\uD654
     var resetName = document.getElementById('qr-video-name');
-    if(resetName){ resetName.textContent = '\uD30C\uC77C \uBBF8\uC120\uD0DD'; resetName.style.color = 'rgba(255,255,255,.4)'; }
+    if(resetName){ resetName.textContent = '\uD074\uB9AD\uD558\uC5EC \uC601\uC0C1 \uD30C\uC77C \uC120\uD0DD'; resetName.style.color = 'rgba(255,255,255,.4)'; }
+    var resetSub = document.getElementById('qr-video-sub');
+    if(resetSub){ resetSub.textContent = 'MP4 \xB7 MOV \xB7 AVI \uB4F1 \uC601\uC0C1 \uD615\uC2DD'; resetSub.style.color = 'rgba(255,255,255,.22)'; }
+    var resetIcon = document.getElementById('qr-drop-icon');
+    if(resetIcon){ resetIcon.className = 'fas fa-cloud-upload-alt'; resetIcon.style.color = 'rgba(255,77,141,.5)'; }
+    var resetDrop = document.getElementById('qr-drop-zone');
+    if(resetDrop){
+      resetDrop.style.borderColor = 'rgba(255,77,141,.35)';
+      resetDrop.style.background  = 'rgba(255,77,141,.04)';
+      resetDrop.style.cursor = 'pointer';
+      resetDrop.onclick = function(){ document.getElementById('qr-video-file').click(); };
+    }
     var resetProg = document.getElementById('qr-video-progress-wrap');
     if(resetProg){ resetProg.style.display = 'none'; }
-    var resetBtn2 = document.getElementById('qr-video-btn');
-    if(resetBtn2){
-      resetBtn2.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> \uC601\uC0C1 \uD30C\uC77C \uC120\uD0DD';
-      resetBtn2.style.background = 'rgba(255,77,141,.1)';
-      resetBtn2.style.borderColor = 'rgba(255,77,141,.4)';
-      resetBtn2.style.color = 'rgba(255,77,141,.8)';
-      resetBtn2.style.opacity = '1';
-      resetBtn2.disabled = false;
-    }
 
     // \uC5C5\uCCB4 \uBAA9\uB85D \uC0C8\uB85C\uACE0\uCE68
     if (typeof loadShopList === 'function') loadShopList();
@@ -32993,188 +33028,262 @@ document.addEventListener('change', function(e){
 });
 
 // \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
-//  \uC601\uC0C1 \uAD50\uCCB4 \uBAA8\uB2EC (Cloudflare Stream TUS \uC5C5\uB85C\uB4DC)
+//  \uC601\uC0C1 \uAD50\uCCB4 / \uC2E0\uADDC \uC5C5\uB85C\uB4DC \uBAA8\uB2EC (Cloudflare Stream TUS)
 // \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 window.openVideoReplaceModal = function(shopId, videoId){
-  // \uAE30\uC874 \uBAA8\uB2EC \uC81C\uAC70
-  var old = document.getElementById('vr-modal-overlay');
+  var old = document.getElementById('vr-overlay');
   if(old) old.remove();
 
+  var isNew = !videoId;
+
+  /* \u2500\u2500 \uBAA8\uB2EC \uB9C8\uD06C\uC5C5 \u2500\u2500 */
   var overlay = document.createElement('div');
-  overlay.id = 'vr-modal-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;padding:16px';
-
-  overlay.innerHTML = [
-    '<div id="vr-modal" style="width:100%;max-width:440px;background:#1a1a2e;border:1px solid rgba(255,77,141,.35);border-radius:18px;padding:28px 24px;position:relative">',
-      '<button id="vr-close" style="position:absolute;top:14px;right:16px;background:none;border:none;color:rgba(255,255,255,.45);font-size:20px;cursor:pointer;line-height:1">\u2715</button>',
-      '<h3 style="margin:0 0 6px;font-size:16px;font-weight:800;color:#fff">',
-        (videoId ? '<i class="fas fa-video" style="color:#fb923c;margin-right:7px"></i>\uC601\uC0C1 \uAD50\uCCB4' : '<i class="fas fa-cloud-upload-alt" style="color:#fb923c;margin-right:7px"></i>\uC601\uC0C1 \uC5C5\uB85C\uB4DC'),
-      '</h3>',
-      '<p style="margin:0 0 20px;font-size:12px;color:rgba(255,255,255,.4)">',
-        (videoId ? '\uAE30\uC874 \uC601\uC0C1\uC744 \uC0C8 \uD30C\uC77C\uB85C \uAD50\uCCB4\uD569\uB2C8\uB2E4.' : '\uC774 \uC5C5\uCCB4\uC5D0 \uC0C8 \uC601\uC0C1\uC744 \uB4F1\uB85D\uD569\uB2C8\uB2E4.'),
-      '</p>',
-
-      // \uD30C\uC77C \uC120\uD0DD \uC601\uC5ED
-      '<label id="vr-drop-zone" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;',
-        'height:110px;border:2px dashed rgba(251,146,60,.4);border-radius:12px;cursor:pointer;',
-        'background:rgba(251,146,60,.05);transition:.15s;margin-bottom:16px">',
-        '<i class="fas fa-film" style="font-size:26px;color:rgba(251,146,60,.6)"></i>',
-        '<span id="vr-file-name" style="font-size:12px;color:rgba(255,255,255,.4)">\uD074\uB9AD\uD558\uC5EC \uC601\uC0C1 \uD30C\uC77C \uC120\uD0DD</span>',
-        '<input type="file" id="vr-file-input" accept="video/*" style="display:none">',
-      '</label>',
-
-      // \uC9C4\uD589\uB960 \uBC14
-      '<div id="vr-prog-wrap" style="display:none;margin-bottom:16px">',
-        '<div style="height:6px;background:rgba(255,255,255,.08);border-radius:99px;overflow:hidden;margin-bottom:7px">',
-          '<div id="vr-prog-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#fb923c,#f43f5e);border-radius:99px;transition:width .2s"></div>',
-        '</div>',
-        '<div id="vr-prog-text" style="font-size:11px;color:rgba(255,255,255,.5);text-align:center"></div>',
-      '</div>',
-
-      // \uC5C5\uB85C\uB4DC \uBC84\uD2BC
-      '<button id="vr-upload-btn" disabled style="width:100%;padding:12px;background:rgba(251,146,60,.18);border:1.5px solid rgba(251,146,60,.4);',
-        'border-radius:10px;color:#fb923c;font-size:13px;font-weight:700;cursor:not-allowed;opacity:.5;transition:.15s">',
-        '<i class="fas fa-upload" style="margin-right:6px"></i>\uC5C5\uB85C\uB4DC \uC2DC\uC791',
-      '</button>',
-    '</div>'
+  overlay.id = 'vr-overlay';
+  overlay.style.cssText = [
+    'position:fixed;inset:0;z-index:9999;',
+    'background:rgba(0,0,0,.80);',
+    'display:flex;align-items:center;justify-content:center;padding:20px'
   ].join('');
+
+  overlay.innerHTML =
+    '<div id="vr-box" style="' +
+      'width:100%;max-width:420px;background:#16162a;' +
+      'border:1px solid rgba(255,255,255,.1);border-radius:20px;' +
+      'padding:28px 24px 24px;position:relative;' +
+      'box-shadow:0 24px 80px rgba(0,0,0,.6)">' +
+
+      /* \uB2EB\uAE30 \uBC84\uD2BC */
+      '<button id="vr-x" style="' +
+        'position:absolute;top:16px;right:18px;' +
+        'background:none;border:none;color:rgba(255,255,255,.35);' +
+        'font-size:18px;cursor:pointer;line-height:1;padding:4px">\u2715</button>' +
+
+      /* \uD0C0\uC774\uD2C0 */
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">' +
+        '<div style="width:36px;height:36px;border-radius:10px;background:rgba(251,146,60,.15);' +
+          'display:flex;align-items:center;justify-content:center;flex-shrink:0">' +
+          '<i class="fas ' + (isNew ? 'fa-cloud-upload-alt' : 'fa-video') + '" style="color:#fb923c;font-size:16px"></i>' +
+        '</div>' +
+        '<div>' +
+          '<div style="font-size:15px;font-weight:800;color:#fff">' + (isNew ? '\uC601\uC0C1 \uC5C5\uB85C\uB4DC' : '\uC601\uC0C1 \uAD50\uCCB4') + '</div>' +
+          '<div style="font-size:11px;color:rgba(255,255,255,.35);margin-top:2px">' +
+            (isNew ? '\uC774 \uC5C5\uCCB4\uC5D0 \uC0C8 \uC601\uC0C1\uC744 \uB4F1\uB85D\uD569\uB2C8\uB2E4' : '\uAE30\uC874 \uC601\uC0C1\uC744 \uC0C8 \uD30C\uC77C\uB85C \uAD50\uCCB4\uD569\uB2C8\uB2E4') +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+
+      /* \uB4DC\uB86D\uC874 */
+      '<div id="vr-drop" style="' +
+        'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;' +
+        'height:140px;border:2px dashed rgba(251,146,60,.35);border-radius:14px;' +
+        'background:rgba(251,146,60,.04);cursor:pointer;transition:all .2s;margin-bottom:16px">' +
+        '<i id="vr-icon" class="fas fa-film" style="font-size:32px;color:rgba(251,146,60,.5)"></i>' +
+        '<div style="text-align:center">' +
+          '<div id="vr-fname" style="font-size:13px;font-weight:600;color:rgba(255,255,255,.35)">\uD074\uB9AD\uD558\uC5EC \uC601\uC0C1 \uD30C\uC77C \uC120\uD0DD</div>' +
+          '<div id="vr-fsub" style="font-size:11px;color:rgba(255,255,255,.2);margin-top:3px">MP4 \xB7 MOV \xB7 AVI \uB4F1 \uC601\uC0C1 \uD615\uC2DD</div>' +
+        '</div>' +
+        '<input type="file" id="vr-input" accept="video/*" style="display:none">' +
+      '</div>' +
+
+      /* \uC9C4\uD589\uB960 */
+      '<div id="vr-prog-wrap" style="display:none;margin-bottom:16px">' +
+        '<div style="height:5px;background:rgba(255,255,255,.07);border-radius:99px;overflow:hidden;margin-bottom:7px">' +
+          '<div id="vr-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#fb923c,#f43f5e);border-radius:99px;transition:width .2s"></div>' +
+        '</div>' +
+        '<div id="vr-ptext" style="font-size:11px;color:rgba(255,255,255,.4);text-align:center"></div>' +
+      '</div>' +
+
+      /* \uC5C5\uB85C\uB4DC \uBC84\uD2BC */
+      '<button id="vr-btn" disabled style="' +
+        'width:100%;padding:13px;border-radius:12px;border:1.5px solid rgba(251,146,60,.35);' +
+        'background:rgba(251,146,60,.12);color:#fb923c;' +
+        'font-size:13px;font-weight:800;cursor:not-allowed;opacity:.45;transition:all .2s">' +
+        '<i class="fas fa-upload" style="margin-right:7px"></i>\uC5C5\uB85C\uB4DC \uC2DC\uC791' +
+      '</button>' +
+
+    '</div>';
 
   document.body.appendChild(overlay);
 
-  // \u2500\u2500 \uC694\uC18C \uCC38\uC870 \u2500\u2500
-  var fileInput  = document.getElementById('vr-file-input');
-  var dropZone   = document.getElementById('vr-drop-zone');
-  var fileName   = document.getElementById('vr-file-name');
-  var progWrap   = document.getElementById('vr-prog-wrap');
-  var progBar    = document.getElementById('vr-prog-bar');
-  var progText   = document.getElementById('vr-prog-text');
-  var uploadBtn  = document.getElementById('vr-upload-btn');
-  var closeBtn   = document.getElementById('vr-close');
-  var selectedFile = null;
+  /* \u2500\u2500 \uC694\uC18C \uCC38\uC870 \u2500\u2500 */
+  var drop     = document.getElementById('vr-drop');
+  var input    = document.getElementById('vr-input');
+  var icon     = document.getElementById('vr-icon');
+  var fname    = document.getElementById('vr-fname');
+  var fsub     = document.getElementById('vr-fsub');
+  var progWrap = document.getElementById('vr-prog-wrap');
+  var bar      = document.getElementById('vr-bar');
+  var ptext    = document.getElementById('vr-ptext');
+  var btn      = document.getElementById('vr-btn');
+  var xBtn     = document.getElementById('vr-x');
+  var selFile  = null;
 
-  // \u2500\u2500 \uB2EB\uAE30 \u2500\u2500
-  closeBtn.addEventListener('click', function(){ overlay.remove(); });
-  overlay.addEventListener('click', function(e){ if(e.target === overlay) overlay.remove(); });
+  /* \u2500\u2500 \uB2EB\uAE30 \u2500\u2500 */
+  xBtn.onclick = function(){ overlay.remove(); };
+  overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
 
-  // \u2500\u2500 \uD30C\uC77C \uC120\uD0DD \u2500\u2500
-  fileInput.addEventListener('change', function(){
-    if(fileInput.files && fileInput.files[0]){
-      selectedFile = fileInput.files[0];
-      var mb = (selectedFile.size/1024/1024).toFixed(1);
-      fileName.textContent = selectedFile.name + ' (' + mb + 'MB)';
-      fileName.style.color = 'rgba(255,255,255,.75)';
-      dropZone.style.borderColor = 'rgba(251,146,60,.7)';
-      dropZone.style.background = 'rgba(251,146,60,.1)';
-      uploadBtn.disabled = false;
-      uploadBtn.style.cursor = 'pointer';
-      uploadBtn.style.opacity = '1';
-    }
+  /* \u2500\u2500 \uB4DC\uB86D\uC874 \uD074\uB9AD \u2500\u2500 */
+  drop.onclick = function(){ input.click(); };
+
+  /* \u2500\u2500 \uD30C\uC77C \uC120\uD0DD \u2500\u2500 */
+  input.addEventListener('change', function(){
+    if(!this.files || !this.files[0]) return;
+    selFile = this.files[0];
+    this.value = '';
+    var mb = (selFile.size/1024/1024).toFixed(1);
+    drop.style.borderColor = 'rgba(251,146,60,.7)';
+    drop.style.background  = 'rgba(251,146,60,.09)';
+    icon.className  = 'fas fa-file-video';
+    icon.style.color = '#fb923c';
+    fname.textContent = selFile.name;
+    fname.style.color = 'rgba(255,255,255,.8)';
+    fsub.textContent  = mb + 'MB \u2014 \uC900\uBE44\uB428';
+    fsub.style.color  = 'rgba(251,146,60,.6)';
+    btn.disabled = false;
+    btn.style.cursor  = 'pointer';
+    btn.style.opacity = '1';
+    btn.style.borderColor = 'rgba(251,146,60,.6)';
+    btn.style.background  = 'rgba(251,146,60,.2)';
   });
 
-  // \u2500\u2500 \uC5C5\uB85C\uB4DC \uBC84\uD2BC \uD074\uB9AD \u2500\u2500
-  uploadBtn.addEventListener('click', function(){
-    if(!selectedFile) return;
-    uploadBtn.disabled = true;
-    uploadBtn.style.opacity = '0.5';
-    closeBtn.style.pointerEvents = 'none'; // \uC5C5\uB85C\uB4DC \uC911 \uB2EB\uAE30 \uBC29\uC9C0
+  /* \u2500\u2500 \uC0C1\uD0DC \uD568\uC218 \u2500\u2500 */
+  function setUploading(){
+    drop.style.cursor = 'default';
+    drop.onclick = null;
+    xBtn.style.pointerEvents = 'none';
+    btn.disabled = true;
+    btn.style.opacity = '0.45';
+    icon.className = 'fas fa-spinner fa-spin';
+    icon.style.color = '#fbbf24';
+    fname.style.color = '#fbbf24';
     progWrap.style.display = 'block';
-    progBar.style.width = '0%';
-    progText.style.color = 'rgba(255,255,255,.5)';
-    progText.textContent = 'Stream URL \uBC1C\uAE09 \uC911...';
+    bar.style.width = '0%';
+    bar.style.background = 'linear-gradient(90deg,#fb923c,#f43f5e)';
+    ptext.style.color = 'rgba(255,255,255,.4)';
+    ptext.textContent = 'URL \uBC1C\uAE09 \uC911...';
+  }
 
-    var adminToken = document.cookie.match(/admin_token=([^;]+)/);
-    var authHeader = adminToken ? { 'x-admin-secret': adminToken[1] } : {};
+  function setDone(){
+    drop.style.borderColor = 'rgba(52,211,153,.5)';
+    drop.style.background  = 'rgba(52,211,153,.06)';
+    icon.className  = 'fas fa-check-circle';
+    icon.style.color = '#34d399';
+    fname.style.color = '#34d399';
+    fsub.textContent  = '\uC644\uB8CC \u2713';
+    fsub.style.color  = 'rgba(52,211,153,.6)';
+    bar.style.width = '100%';
+    bar.style.background = 'linear-gradient(90deg,#34d399,#10b981)';
+    ptext.style.color = '#4ade80';
+    ptext.textContent = (isNew ? '\u2705 \uC5C5\uB85C\uB4DC \uC644\uB8CC!' : '\u2705 \uC601\uC0C1 \uAD50\uCCB4 \uC644\uB8CC!');
+    btn.textContent = '\u2713 \uC644\uB8CC';
+    btn.style.background  = 'rgba(52,211,153,.15)';
+    btn.style.borderColor = 'rgba(52,211,153,.4)';
+    btn.style.color = '#34d399';
+  }
 
-    // \u2460 TUS \uC5C5\uB85C\uB4DC URL \uBC1C\uAE09
+  function setError(msg){
+    drop.style.borderColor = 'rgba(248,113,113,.5)';
+    drop.style.background  = 'rgba(248,113,113,.05)';
+    icon.className  = 'fas fa-exclamation-circle';
+    icon.style.color = '#f87171';
+    fname.style.color = '#f87171';
+    fname.textContent = '\uC624\uB958 \u2014 \uB2E4\uC2DC \uD074\uB9AD\uD558\uC5EC \uC7AC\uC2DC\uB3C4';
+    fsub.textContent  = msg || '\uC624\uB958 \uBC1C\uC0DD';
+    fsub.style.color  = 'rgba(248,113,113,.6)';
+    bar.style.width = '100%';
+    bar.style.background = 'linear-gradient(90deg,#f87171,#ef4444)';
+    ptext.style.color = '#f87171';
+    ptext.textContent = '\u274C ' + (msg || '\uC624\uB958');
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+    xBtn.style.pointerEvents = '';
+    drop.style.cursor = 'pointer';
+    drop.onclick = function(){ input.click(); };
+  }
+
+  /* \u2500\u2500 \uC5C5\uB85C\uB4DC \uC2E4\uD589 \u2500\u2500 */
+  btn.addEventListener('click', function(){
+    if(!selFile) return;
+    setUploading();
+
+    var mb = (selFile.size/1024/1024).toFixed(1);
+    var ck = document.cookie.match(/admin_token=([^;]+)/);
+    var ah = ck ? {'x-admin-secret': ck[1]} : {};
+
+    /* \u2460 TUS URL \uBC1C\uAE09 */
     fetch('/api/stream-upload-url', {
       method: 'POST',
-      headers: Object.assign({ 'Content-Type': 'application/json' }, authHeader),
-      body: JSON.stringify({ fileSize: selectedFile.size, fileName: selectedFile.name }),
+      headers: Object.assign({'Content-Type':'application/json'}, ah),
+      body: JSON.stringify({fileSize: selFile.size, fileName: selFile.name}),
       credentials: 'same-origin'
     })
     .then(function(r){ return r.json(); })
     .then(function(info){
       if(info.error) throw new Error(info.error);
-      progBar.style.width = '8%';
-      progText.textContent = '\uC5C5\uB85C\uB4DC \uC911...';
+      ptext.textContent = '\uC5C5\uB85C\uB4DC \uC911... 0%';
+      bar.style.width = '5%';
 
-      // \u2461 TUS PATCH \uC5C5\uB85C\uB4DC
+      /* \u2461 PATCH \uC5C5\uB85C\uB4DC */
       return new Promise(function(resolve, reject){
         var xhr = new XMLHttpRequest();
         xhr.open('PATCH', info.uploadUrl);
-        xhr.setRequestHeader('Content-Type', 'application/offset+octet-stream');
-        xhr.setRequestHeader('Tus-Resumable', '1.0.0');
-        xhr.setRequestHeader('Upload-Offset', '0');
-        xhr.setRequestHeader('Content-Length', String(selectedFile.size));
+        xhr.setRequestHeader('Content-Type','application/offset+octet-stream');
+        xhr.setRequestHeader('Tus-Resumable','1.0.0');
+        xhr.setRequestHeader('Upload-Offset','0');
+        xhr.setRequestHeader('Content-Length', String(selFile.size));
 
         xhr.upload.addEventListener('progress', function(e){
           if(e.lengthComputable){
-            var pct = Math.round((e.loaded/e.total)*88)+8;
-            progBar.style.width = pct + '%';
-            progText.textContent = '\uC5C5\uB85C\uB4DC \uC911... ' + pct + '%';
+            var pct = Math.round((e.loaded/e.total)*91)+5;
+            bar.style.width = pct+'%';
+            ptext.textContent = '\uC5C5\uB85C\uB4DC \uC911... '+pct+'%  ('+mb+'MB)';
+            fsub.textContent  = pct+'% \uC644\uB8CC';
           }
         });
         xhr.addEventListener('load', function(){
-          if(xhr.status === 204 || xhr.status === 200){ resolve(info); }
-          else { reject(new Error('HTTP ' + xhr.status)); }
+          if(xhr.status===204||xhr.status===200) resolve(info);
+          else reject(new Error('HTTP '+xhr.status));
         });
         xhr.addEventListener('error', function(){ reject(new Error('\uB124\uD2B8\uC6CC\uD06C \uC624\uB958')); });
-        xhr.send(selectedFile);
+        xhr.send(selFile);
       });
     })
     .then(function(info){
-      progBar.style.width = '98%';
-      progText.textContent = 'DB \uC800\uC7A5 \uC911...';
+      bar.style.width = '98%';
+      ptext.textContent = 'DB \uC800\uC7A5 \uC911...';
 
-      // \u2462 DB \uC800\uC7A5: videoId \uC788\uC73C\uBA74 PUT(\uAD50\uCCB4), \uC5C6\uC73C\uBA74 POST(\uC2E0\uADDC)
-      var isNew = !videoId;
-      var url    = isNew ? '/api/videos' : '/api/videos/' + videoId;
+      /* \u2462 DB \uC800\uC7A5 */
+      var url    = isNew ? '/api/videos' : '/api/videos/'+videoId;
       var method = isNew ? 'POST' : 'PUT';
-
-      // \uC5C5\uCCB4\uC758 \uCCAB \uBC88\uC9F8 \uC601\uC0C1 \uC81C\uBAA9 \uAE30\uBCF8\uAC12 (\uC5C5\uCCB4\uBA85 \uD65C\uC6A9)
-      var shopCard = document.querySelector('[data-shop-id="'+shopId+'"]');
-      var defaultTitle = shopCard ? (shopCard.closest('[data-shop-id]')?.textContent?.trim()?.slice(0,30) || '\uC601\uC0C1') : '\uC601\uC0C1';
+      var shopHd = document.querySelector('.shop-accordion-hd[data-shop-id="'+shopId+'"]');
+      var defTitle = shopHd ? (shopHd.querySelector('div')?.textContent?.trim()?.slice(0,30)||'\uC601\uC0C1') : '\uC601\uC0C1';
 
       var payload = isNew
-        ? { shopId: shopId, title: defaultTitle, videoUrl: info.iframeUrl, thumbnail: info.thumbUrl,
-            videoUrlLow: info.hlsUrl, videoUrlMid: info.iframeUrl, videoUrlHigh: info.hlsUrl }
-        : { videoUrlOnly: true, videoUrl: info.iframeUrl, thumbnail: info.thumbUrl,
-            videoUrlLow: info.hlsUrl, videoUrlMid: info.iframeUrl, videoUrlHigh: info.hlsUrl };
+        ? {shopId:shopId, title:defTitle,
+           videoUrl:info.iframeUrl, thumbnail:info.thumbUrl,
+           videoUrlLow:info.hlsUrl, videoUrlMid:info.iframeUrl, videoUrlHigh:info.hlsUrl}
+        : {videoUrlOnly:true,
+           videoUrl:info.iframeUrl, thumbnail:info.thumbUrl,
+           videoUrlLow:info.hlsUrl, videoUrlMid:info.iframeUrl, videoUrlHigh:info.hlsUrl};
 
       return fetch(url, {
         method: method,
-        headers: Object.assign({ 'Content-Type': 'application/json' }, authHeader),
+        headers: Object.assign({'Content-Type':'application/json'}, ah),
         body: JSON.stringify(payload),
         credentials: 'same-origin'
-      }).then(function(r){ return r.json(); }).then(function(res){
-        if(res.error) throw new Error(res.error);
-        return res;
-      });
+      })
+      .then(function(r){ return r.json(); })
+      .then(function(res){ if(res.error) throw new Error(res.error); return res; });
     })
     .then(function(){
-      progBar.style.width = '100%';
-      progBar.style.background = 'linear-gradient(90deg,#34d399,#10b981)';
-      progText.style.color = '#4ade80';
-      progText.textContent = '\u2705 ' + (videoId ? '\uC601\uC0C1 \uAD50\uCCB4 \uC644\uB8CC!' : '\uC601\uC0C1 \uC5C5\uB85C\uB4DC \uC644\uB8CC!');
-      uploadBtn.textContent = '\u2713 \uC644\uB8CC';
-      uploadBtn.style.background = 'rgba(52,211,153,.15)';
-      uploadBtn.style.borderColor = 'rgba(52,211,153,.4)';
-      uploadBtn.style.color = '#4ade80';
-
-      // 2\uCD08 \uD6C4 \uBAA8\uB2EC \uB2EB\uACE0 \uBAA9\uB85D \uAC31\uC2E0
+      setDone();
       setTimeout(function(){
         overlay.remove();
-        if(typeof renderShops === 'function') renderShops();
-      }, 1800);
+        if(typeof renderShops==='function') renderShops();
+      }, 1600);
     })
-    .catch(function(err){
-      progBar.style.background = 'linear-gradient(90deg,#f87171,#ef4444)';
-      progText.style.color = '#f87171';
-      progText.textContent = '\u274C ' + (err.message || '\uC624\uB958 \uBC1C\uC0DD');
-      uploadBtn.disabled = false;
-      uploadBtn.style.opacity = '1';
-      closeBtn.style.pointerEvents = '';
-    });
+    .catch(function(err){ setError(err.message); });
   });
 };
 
