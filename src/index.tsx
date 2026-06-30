@@ -20014,7 +20014,7 @@ function buildSlide(v, idx) {
 
   // Stream iframe이면 SDK player 초기화 (mute 제어용)
   if(isDirectStream){
-    var iframeEl = document.getElementById('vid'+idx) as HTMLIFrameElement;
+    var iframeEl = document.getElementById('vid'+idx);
     if(iframeEl){
       // SDK 로드 완료 후 초기화 (비동기 대비)
       if(window['Stream']) {

@@ -20417,7 +20417,7 @@ function buildSlide(v, idx) {
 
   // Stream iframe\uC774\uBA74 SDK player \uCD08\uAE30\uD654 (mute \uC81C\uC5B4\uC6A9)
   if(isDirectStream){
-    var iframeEl = document.getElementById('vid'+idx) as HTMLIFrameElement;
+    var iframeEl = document.getElementById('vid'+idx);
     if(iframeEl){
       // SDK \uB85C\uB4DC \uC644\uB8CC \uD6C4 \uCD08\uAE30\uD654 (\uBE44\uB3D9\uAE30 \uB300\uBE44)
       if(window['Stream']) {
