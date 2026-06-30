@@ -19502,10 +19502,15 @@ function _preloadFirstVideoEarly(){
   function _try(){
     var v0 = document.getElementById('vid0');
     if(!v0 || !v0.dataset.src) return;
-    if(v0.src) return;
+    if(v0.src || v0._hls) return; // 이미 로드 중
     v0.preload = 'auto';
-    v0.src = v0.dataset.src;
-    v0.load();
+    var _ds0 = v0.dataset.src;
+    if(_ds0.includes('.m3u8')) {
+      attachHls(v0, _ds0);
+    } else {
+      v0.src = _ds0;
+      v0.load();
+    }
   }
   // 즉시 시도 + DOM 준비 후 한 번 더
   _try();
@@ -19527,7 +19532,12 @@ function _checkLdReady() {
 
   var v0 = document.getElementById('vid0');
   if(v0 && v0.readyState >= 3) { hideLd(); return; }
-  if(v0 && !v0.src && v0.dataset.src) { v0.preload='auto'; v0.src=v0.dataset.src; v0.load(); }
+  if(v0 && !v0.src && !v0._hls && v0.dataset.src) {
+    v0.preload='auto';
+    var _ds0chk = v0.dataset.src;
+    if(_ds0chk.includes('.m3u8')) { attachHls(v0, _ds0chk); }
+    else { v0.src=_ds0chk; v0.load(); }
+  }
   if(v0 && v0.src) {
     if(v0.readyState >= 2) { hideLd(); return; }
     var _canPlayFired = false;
@@ -19781,22 +19791,21 @@ function getStreamHlsUrl(iframeUrl) {
   return iframeUrl;
 }
 
-// ── cdnVideo: DB에 저장된 eager 변환 URL 사용 (on-the-fly 변환 완전 제거) ──
-// DB URL이 없는 기존 영상은 원본 URL 그대로 반환 (크래딧 소모 없음)
-// v 객체에 videoUrlLow/Mid/High가 있으면 네트워크 속도에 맞는 URL 반환
+// ── cdnVideo: DB 저장 URL 우선 사용, Stream URL은 fallback 변환 ──
+// 우선순위: 1) DB videoUrlLow/Mid/High → 2) isStreamUrl 변환 → 3) 원본 그대로
 function cdnVideo(url, isFirst, v) {
   if(!url) return url;
-  // Cloudflare Stream URL → HLS m3u8으로 변환
-  if(isStreamUrl(url)) return getStreamHlsUrl(url);
-  // DB에 eager 변환 URL이 저장되어 있으면 네트워크 속도에 맞게 선택
+  // 1순위: DB에 eager 변환 URL이 있으면 그걸 사용 (네트워크 tier에 맞게)
   if(v && (v.videoUrlLow || v.videoUrlMid || v.videoUrlHigh)) {
-    var tier = isFirst ? 'low' : getNetworkTier(); // 첫 영상은 항상 low (preload 최우선)
+    var tier = isFirst ? 'low' : getNetworkTier();
     if(tier === 'low'  && v.videoUrlLow)  return v.videoUrlLow;
     if(tier === 'high' && v.videoUrlHigh) return v.videoUrlHigh;
-    if(v.videoUrlMid) return v.videoUrlMid;
-    if(v.videoUrlLow) return v.videoUrlLow;  // fallback
+    if(v.videoUrlMid)  return v.videoUrlMid;
+    if(v.videoUrlLow)  return v.videoUrlLow;
   }
-  // DB URL 없는 기존 영상 → 원본 그대로 (on-the-fly 변환 없음 = 크래딧 0)
+  // 2순위: DB에 저장 URL 없고, videoUrl이 Stream URL이면 HLS로 변환
+  if(isStreamUrl(url)) return getStreamHlsUrl(url);
+  // 3순위: 그 외 원본 그대로
   return url;
 }
 
@@ -19822,9 +19831,12 @@ function buildSlide(v, idx) {
   // idx=0: src 즉시 + preload=auto (첫 화면 즉시 재생)
   // idx=1: src 즉시 + preload=metadata (moov atom 미리 취득, 버퍼링은 preloadNext가 제어)
   // idx>=2: data-src만 (lazy, preloadNext가 타이밍 제어)
+  // [M11] m3u8(HLS) URL은 src 직접 세팅 불가 (Chrome/Firefox) → 항상 data-src만 세팅, attachHls()로 연결
   var vidSrc = cdnVideo(v.videoUrl, idx === 0, v);
   var vidPreload = idx === 0 ? 'auto' : (idx === 1 ? 'metadata' : 'none');
-  var vidSrcAttr = idx <= 1
+  var isHlsSrc = vidSrc && vidSrc.includes('.m3u8');
+  // HLS URL이면 data-src만 (attachHls가 이후 연결), 일반 MP4면 idx<=1에서 src 직접 세팅
+  var vidSrcAttr = (!isHlsSrc && idx <= 1)
     ? 'src="'+esc(vidSrc)+'"'
     : 'data-src="'+esc(vidSrc)+'"';
 
@@ -19871,10 +19883,14 @@ function buildSlide(v, idx) {
     var bufIc  = document.getElementById('bufic'+vidIdx);
 
     if(ve) {
-      // idx<=1은 이미 src가 세팅됨. data-src는 항상 세팅 (오류 시 재시도 참조용)
+      // data-src는 항상 세팅 (오류 시 재시도 참조용)
       var _vidUrl = esc(cdnVideo(v.videoUrl, vidIdx === 0, v));
       ve.setAttribute('data-src', _vidUrl);
-      // idx<=1: src 이미 있음. idx>=2: src 없고 data-src만 있음 (_playVid에서 lazy 세팅)
+      // HLS m3u8 URL이고 idx<=1이면 즉시 attachHls() 호출 (src 직접 세팅 불가)
+      if(vidIdx <= 1 && _vidUrl.includes('.m3u8') && !ve.src) {
+        ve.preload = vidIdx === 0 ? 'auto' : 'metadata';
+        attachHls(ve, _vidUrl);
+      }
 
       // ── 버퍼링 스피너 제어 ──
       function showBuf(){ if(bufIc) bufIc.style.display='flex'; }
@@ -19901,8 +19917,15 @@ function buildSlide(v, idx) {
         if(ve.dataset.src && !ve.dataset.retried){
           ve.dataset.retried = '1';
           setTimeout(function(){
-            ve.src = ve.dataset.src;
-            ve.load();
+            var _retryUrl = ve.dataset.src;
+            if(_retryUrl.includes('.m3u8')) {
+              // HLS: 기존 HLS 인스턴스 파괴 후 재연결
+              if(ve._hls){ ve._hls.destroy(); ve._hls = null; }
+              attachHls(ve, _retryUrl);
+            } else {
+              ve.src = _retryUrl;
+              ve.load();
+            }
             ve.play().catch(function(){});
           }, 1500);
         }
@@ -19918,8 +19941,15 @@ function buildSlide(v, idx) {
           // LOADING(2)이 아닌데 재생 중 → 실제 stall → src 재세팅
           if(ve.dataset.src && !ve.paused && ve.networkState !== 2){
             var savedTime = ve.currentTime || 0;
-            ve.src = ve.dataset.src;
-            ve.load();
+            var _stallUrl = ve.dataset.src;
+            if(_stallUrl.includes('.m3u8')) {
+              // HLS: 인스턴스 재생성
+              if(ve._hls){ ve._hls.destroy(); ve._hls = null; }
+              attachHls(ve, _stallUrl);
+            } else {
+              ve.src = _stallUrl;
+              ve.load();
+            }
             ve.addEventListener('loadedmetadata', function _st(){
               ve.removeEventListener('loadedmetadata', _st);
               // 저장된 위치로 복원 후 재생
@@ -20054,7 +20084,7 @@ function preloadNext(idx){
 
   // +1 영상: src 즉시 세팅 + 0.3초 후 본격 버퍼링
   // (CDN immutable 캐시 + Vercel HTML 캐시로 bandwidth 여유 충분)
-  if(ni1 && !ni1.src && ni1.dataset.src){
+  if(ni1 && !ni1.src && !ni1._hls && ni1.dataset.src){
     ni1.preload = 'metadata';
     var _ds1 = ni1.dataset.src;
     if(_ds1.includes('.m3u8')) {
@@ -20081,9 +20111,14 @@ function preloadNext(idx){
   // +2 영상: 1.5초 뒤 metadata만 (기존 4초 → 1.5초)
   _preloadTimers.push(setTimeout(function(){
     var ni2 = document.getElementById('vid'+(idx+2));
-    if(ni2 && !ni2.src && ni2.dataset.src){
+    if(ni2 && !ni2.src && !ni2._hls && ni2.dataset.src){
       ni2.preload = 'metadata';
-      ni2.src = ni2.dataset.src;
+      var _ds2 = ni2.dataset.src;
+      if(_ds2.includes('.m3u8')) {
+        attachHls(ni2, _ds2);
+      } else {
+        ni2.src = _ds2;
+      }
     }
   }, 1500));
 }
@@ -20096,8 +20131,14 @@ function _playVid(vid, bufIc){
   var _srcJustSet = false;
   if(!vid.src && vid.dataset.src){
     vid.preload = 'auto';
-    vid.src = vid.dataset.src;
-    vid.load();
+    var _ds = vid.dataset.src;
+    if(_ds.includes('.m3u8')) {
+      // HLS m3u8: attachHls() 통해 HLS.js 또는 네이티브 HLS 연결
+      attachHls(vid, _ds);
+    } else {
+      vid.src = _ds;
+      vid.load();
+    }
     _srcJustSet = true;
   }
 
