@@ -21469,22 +21469,14 @@ window.toggleMute=function(){
   _syncMuteUI();
   // 일반 video 태그 음소거 반영
   document.querySelectorAll('video').forEach(function(v){v.muted=isMuted;});
-  // Cloudflare Stream iframe: SDK로 muted 제어
-  // SDK가 비동기 초기화이므로 canplay 이후에도 재시도
+  // Cloudflare Stream iframe: src의 muted 파라미터 교체
+  // iframe은 cross-origin이라 SDK muted setter가 동작 안 함
+  // src 교체 시 영상 재시작되지만 muted=false로 소리 켜는 유일한 방법
   document.querySelectorAll('iframe.stream-iframe').forEach(function(f){
-    function _applyMute(){
-      try{
-        // @ts-ignore
-        var player = window.Stream && window.Stream(f);
-        if(!player) return;
-        player.muted = isMuted;
-        if(!isMuted){ player.volume = 1; }
-      }catch(e){}
-    }
-    _applyMute();
-    // SDK 초기화 지연 대비 재시도 (100ms, 500ms)
-    setTimeout(_applyMute, 100);
-    setTimeout(_applyMute, 500);
+    var src = f.getAttribute('src') || '';
+    if(!src) return;
+    var newSrc = src.replace(/(muted=)(true|false)/g, '$1' + (isMuted ? 'true' : 'false'));
+    if(newSrc !== src){ f.setAttribute('src', newSrc); }
   });
 };
 function showToast(msg){

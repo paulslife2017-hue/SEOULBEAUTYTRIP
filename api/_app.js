@@ -21872,22 +21872,14 @@ window.toggleMute=function(){
   _syncMuteUI();
   // \uC77C\uBC18 video \uD0DC\uADF8 \uC74C\uC18C\uAC70 \uBC18\uC601
   document.querySelectorAll('video').forEach(function(v){v.muted=isMuted;});
-  // Cloudflare Stream iframe: SDK\uB85C muted \uC81C\uC5B4
-  // SDK\uAC00 \uBE44\uB3D9\uAE30 \uCD08\uAE30\uD654\uC774\uBBC0\uB85C canplay \uC774\uD6C4\uC5D0\uB3C4 \uC7AC\uC2DC\uB3C4
+  // Cloudflare Stream iframe: src\uC758 muted \uD30C\uB77C\uBBF8\uD130 \uAD50\uCCB4
+  // iframe\uC740 cross-origin\uC774\uB77C SDK muted setter\uAC00 \uB3D9\uC791 \uC548 \uD568
+  // src \uAD50\uCCB4 \uC2DC \uC601\uC0C1 \uC7AC\uC2DC\uC791\uB418\uC9C0\uB9CC muted=false\uB85C \uC18C\uB9AC \uCF1C\uB294 \uC720\uC77C\uD55C \uBC29\uBC95
   document.querySelectorAll('iframe.stream-iframe').forEach(function(f){
-    function _applyMute(){
-      try{
-        // @ts-ignore
-        var player = window.Stream && window.Stream(f);
-        if(!player) return;
-        player.muted = isMuted;
-        if(!isMuted){ player.volume = 1; }
-      }catch(e){}
-    }
-    _applyMute();
-    // SDK \uCD08\uAE30\uD654 \uC9C0\uC5F0 \uB300\uBE44 \uC7AC\uC2DC\uB3C4 (100ms, 500ms)
-    setTimeout(_applyMute, 100);
-    setTimeout(_applyMute, 500);
+    var src = f.getAttribute('src') || '';
+    if(!src) return;
+    var newSrc = src.replace(/(muted=)(true|false)/g, '$1' + (isMuted ? 'true' : 'false'));
+    if(newSrc !== src){ f.setAttribute('src', newSrc); }
   });
 };
 function showToast(msg){
