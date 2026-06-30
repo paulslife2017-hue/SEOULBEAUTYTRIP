@@ -1432,9 +1432,9 @@ app.post('/api/stream-upload-url', async (c) => {
     const uploadUrl  = r.headers.get('location') || ''
     const streamId   = r.headers.get('stream-media-id') || ''
     if(!uploadUrl || !streamId) return c.json({ error: 'uploadUrl/streamId 없음' }, 500)
-    const hlsUrl    = `https://customer-8905c179.cloudflarestream.com/${streamId}/manifest/video.m3u8`
+    const hlsUrl    = `https://customer-vs1t1h596ww60ujj.cloudflarestream.com/${streamId}/manifest/video.m3u8`
     const iframeUrl = `https://iframe.videodelivery.net/${streamId}`
-    const thumbUrl  = `https://customer-8905c179.cloudflarestream.com/${streamId}/thumbnails/thumbnail.jpg`
+    const thumbUrl  = `https://customer-vs1t1h596ww60ujj.cloudflarestream.com/${streamId}/thumbnails/thumbnail.jpg`
     return c.json({ uploadUrl, streamId, hlsUrl, iframeUrl, thumbUrl })
   } catch(e: any) {
     return c.json({ error: e.message || 'Stream URL 발급 실패' }, 500)
@@ -19765,10 +19765,10 @@ function isStreamUrl(url) {
 }
 
 // ── getStreamHlsUrl: iframe URL → HLS m3u8 URL 변환 ──
-// iframe.videodelivery.net/{id} → customer-8905c179.cloudflarestream.com/{id}/manifest/video.m3u8
+// iframe.videodelivery.net/{id} → customer-vs1t1h596ww60ujj.cloudflarestream.com/{id}/manifest/video.m3u8
 function getStreamHlsUrl(iframeUrl) {
   // 정규식 대신 문자열 split 방식 (template literal 빌드 시 regex 이스케이프 손실 방지)
-  var base = 'https://customer-8905c179.cloudflarestream.com/';
+  var base = 'https://customer-vs1t1h596ww60ujj.cloudflarestream.com/';
   var markers = ['videodelivery.net/', 'cloudflarestream.com/'];
   for(var i = 0; i < markers.length; i++) {
     var idx = iframeUrl.indexOf(markers[i]);
