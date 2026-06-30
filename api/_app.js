@@ -4018,6 +4018,10 @@ app.put("/api/shops/:id", async (c) => {
     menu_items=${JSON.stringify(body.menuItems || [])},
     editor_note=${body.editorNote || ""}
     WHERE id=${c.req.param("id")}`;
+    pingIndexNow([
+      `https://seoulbeautytrip.com/shop/${slugVal}`,
+      `https://seoulbeautytrip.com/`
+    ]);
     return c.json({ ok: true, seoGenerated: !body.description || !!body.regenerateSeo });
   } catch (e) {
     return c.json({ error: "db_error", message: e?.message || "unknown" }, 500);
@@ -4149,6 +4153,18 @@ app.post("/api/videos", async (c) => {
       ${finalThumb},${JSON.stringify(autoTags)},0,0,${today},
       ${urlLow},${urlMid},${urlHigh},${instagramUrl}
     )`;
+    if (body.shopId) {
+      try {
+        const _shopRow = await sql`SELECT slug FROM shops WHERE id=${body.shopId} LIMIT 1`;
+        if (_shopRow.length && _shopRow[0].slug) {
+          pingIndexNow([
+            `https://seoulbeautytrip.com/shop/${_shopRow[0].slug}`,
+            `https://seoulbeautytrip.com/`
+          ]);
+        }
+      } catch {
+      }
+    }
     return c.json({ ok: true, id: newId, descriptionGenerated: !body.description && !!description, tagsGenerated: !body.tags?.length && !!autoTags.length });
   } catch (e) {
     console.error("[POST /api/videos]", e?.message || e);
@@ -4402,6 +4418,19 @@ app.put("/api/videos/:id", async (c) => {
         tags=${JSON.stringify(body.tags || [])},
         instagram_url=${body.instagramUrl || ""}
         WHERE id=${c.req.param("id")}`;
+    }
+    try {
+      const _vRow = await sql`SELECT shop_id FROM videos WHERE id=${c.req.param("id")} LIMIT 1`;
+      if (_vRow.length && _vRow[0].shop_id) {
+        const _sRow = await sql`SELECT slug FROM shops WHERE id=${_vRow[0].shop_id} LIMIT 1`;
+        if (_sRow.length && _sRow[0].slug) {
+          pingIndexNow([
+            `https://seoulbeautytrip.com/shop/${_sRow[0].slug}`,
+            `https://seoulbeautytrip.com/`
+          ]);
+        }
+      }
+    } catch {
     }
     return c.json({ ok: true });
   } catch (e) {
@@ -5154,6 +5183,10 @@ app.post("/api/quick-register", async (c) => {
           ${videoUrlLow || null}, ${videoUrlMid || null}, ${videoUrlHigh || null}, ${instagramUrl || ""})
       `;
     }
+    pingIndexNow([
+      `https://seoulbeautytrip.com/shop/${slug}`,
+      `https://seoulbeautytrip.com/`
+    ]);
     return c.json({
       success: true,
       shopId,
@@ -6094,6 +6127,11 @@ app.post("/api/blogs", async (c) => {
     (id,slug,title,meta_description,content,excerpt,category,area,tags,cover_image,status,views,created_at,updated_at)
     VALUES (${id},${slug},${title},${metaDescription},${content},${excerpt},${category},${area},${JSON.stringify(tags)},${coverImage},${status},0,${now},${now})
     ON CONFLICT (slug) DO NOTHING`;
+    pingIndexNow([
+      `https://seoulbeautytrip.com/blog/${slug}`,
+      `https://seoulbeautytrip.com/blog`,
+      `https://seoulbeautytrip.com/`
+    ]);
     return c.json({ ok: true, id, slug, aiGenerated: !body.content });
   } catch (e) {
     return c.json({ error: "db_error", message: "unknown" }, 500);
@@ -6145,6 +6183,11 @@ app.put("/api/blogs/:id", async (c) => {
       status=${body.status || "published"},
       updated_at=${now}
       WHERE id=${c.req.param("id")}`;
+    const _blogSlug = body.slug || makeBlogSlug(body.title || "");
+    pingIndexNow([
+      `https://seoulbeautytrip.com/blog/${_blogSlug}`,
+      `https://seoulbeautytrip.com/blog`
+    ]);
     return c.json({ ok: true });
   } catch (e) {
     console.error("[PUT /api/blogs/:id]", e?.message || e);
@@ -6218,6 +6261,10 @@ app.post("/api/ja/shops", async (c) => {
       ${body.lat || ""},${body.lng || ""},${JSON.stringify(body.reviews || [])},${body.googlePlaceId || ""},
       ${JSON.stringify(body.menuItems || [])},${body.editorNote || ""},${body.whatsapp || ""}
     ) ON CONFLICT (id) DO NOTHING`;
+    pingIndexNow([
+      `https://seoulbeautytrip.com/ja/shop/${slug}`,
+      `https://seoulbeautytrip.com/ja`
+    ]);
     return c.json({ ok: true, id, slug });
   } catch (e) {
     return c.json({ error: "db_error", message: e?.message || "unknown" }, 500);
@@ -6252,6 +6299,10 @@ app.put("/api/ja/shops/:id", async (c) => {
       menu_items=${JSON.stringify(body.menuItems || [])},
       editor_note=${body.editorNote || ""},whatsapp=${body.whatsapp || ""}
       WHERE id=${c.req.param("id")}`;
+    pingIndexNow([
+      `https://seoulbeautytrip.com/ja/shop/${slug}`,
+      `https://seoulbeautytrip.com/ja`
+    ]);
     return c.json({ ok: true });
   } catch (e) {
     return c.json({ error: "db_error", message: e?.message || "unknown" }, 500);
@@ -6309,6 +6360,10 @@ app.post("/api/ja/blogs", async (c) => {
       ${body.excerpt || ""},${body.category || ""},${body.area || ""},${JSON.stringify(body.tags || [])},
       ${body.coverImage || ""},${body.status || "published"},0,${now},${now})
       ON CONFLICT (slug) DO NOTHING`;
+    pingIndexNow([
+      `https://seoulbeautytrip.com/ja/blog/${slug}`,
+      `https://seoulbeautytrip.com/ja`
+    ]);
     return c.json({ ok: true, id, slug });
   } catch (e) {
     return c.json({ error: "db_error", message: e?.message || "unknown" }, 500);
@@ -6336,6 +6391,11 @@ app.put("/api/ja/blogs/:id", async (c) => {
       status=${body.status || "published"},
       updated_at=${now}
       WHERE id=${c.req.param("id")}`;
+    const _jaBlogSlug = body.slug || makeBlogSlug(body.title || "");
+    pingIndexNow([
+      `https://seoulbeautytrip.com/ja/blog/${_jaBlogSlug}`,
+      `https://seoulbeautytrip.com/ja`
+    ]);
     return c.json({ ok: true });
   } catch (e) {
     return c.json({ error: "db_error", message: e?.message || "unknown" }, 500);
@@ -6399,6 +6459,18 @@ app.post("/api/ja/videos", async (c) => {
       0, 0, ${now}, ${body.video_url_low || ""}, ${body.video_url_mid || ""}, ${body.video_url_high || ""},
       ${body.instagram_url || ""}
     ) ON CONFLICT (id) DO NOTHING`;
+    if (body.shop_id) {
+      try {
+        const _jaShopRow = await sql`SELECT slug FROM shops_ja WHERE id=${body.shop_id} LIMIT 1`;
+        if (_jaShopRow.length && _jaShopRow[0].slug) {
+          pingIndexNow([
+            `https://seoulbeautytrip.com/ja/shop/${_jaShopRow[0].slug}`,
+            `https://seoulbeautytrip.com/ja`
+          ]);
+        }
+      } catch {
+      }
+    }
     return c.json({ ok: true, id });
   } catch (e) {
     return c.json({ error: "db_error", message: e?.message || "unknown" }, 500);
@@ -6419,6 +6491,19 @@ app.put("/api/ja/videos/:id", async (c) => {
       video_url_low=${body.video_url_low || ""}, video_url_mid=${body.video_url_mid || ""},
       video_url_high=${body.video_url_high || ""}, instagram_url=${body.instagram_url || ""}
     WHERE id=${c.req.param("id")}`;
+    try {
+      const _jaVRow = await sql`SELECT shop_id FROM videos_ja WHERE id=${c.req.param("id")} LIMIT 1`;
+      if (_jaVRow.length && _jaVRow[0].shop_id) {
+        const _jaSRow = await sql`SELECT slug FROM shops_ja WHERE id=${_jaVRow[0].shop_id} LIMIT 1`;
+        if (_jaSRow.length && _jaSRow[0].slug) {
+          pingIndexNow([
+            `https://seoulbeautytrip.com/ja/shop/${_jaSRow[0].slug}`,
+            `https://seoulbeautytrip.com/ja`
+          ]);
+        }
+      }
+    } catch {
+    }
     return c.json({ ok: true });
   } catch (e) {
     return c.json({ error: "db_error", message: e?.message || "unknown" }, 500);
