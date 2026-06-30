@@ -25448,70 +25448,6 @@ function buildSlide(v, idx) {
     '<div id="playic'+idx+'" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:4;width:56px;height:56px;border-radius:50%;background:rgba(0,0,0,.55);align-items:center;justify-content:center;pointer-events:none;backdrop-filter:blur(4px)"><i class="fas fa-pause" style="font-size:20px;color:#fff"></i></div>' +
     '<div id="bufic'+idx+'" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:5;pointer-events:none"><div style="width:40px;height:40px;border:3px solid rgba(255,255,255,.15);border-top-color:rgba(255,255,255,.8);border-radius:50%;animation:spin .7s linear infinite"></div></div>' +
     '<div class="ov"></div>' +
-    '<div class="info">' +
-      '<div class="btns-row">' +
-        '<div class="shop-info-block">'
-          +'<div class="shop-info-name"><i class="fas fa-store si-icon"></i>'+esc(shop.name||'')+'</div>'
-          +(areaOnly(shop.location||'')
-            ?'<div class="shop-info-loc"><i class="fas fa-map-marker-alt"></i>'+esc(areaOnly(shop.location||''))+'</div>'
-            :'')
-          +(function(){
-            // 1\uC21C\uC704: review_summary (\uC601\uC5B4 \uB9AC\uBDF0 \uAE30\uBC18 AI \uC694\uC57D)
-            var _rs = shop.reviewSummary;
-            var _l = '';
-            if(_rs && typeof _rs === 'string' && _rs.trim()) {
-              _l = _rs.trim();
-            } else if(_rs && typeof _rs === 'object' && _rs.vibe) {
-              _l = String(_rs.vibe).trim();
-            }
-            // 2\uC21C\uC704: whyChoose[0]
-            if(!_l){
-              var _w = (shop.whyChoose)||[];
-              _l = _w.length ? _w[0].trim() : '';
-              while(_l.length>0 && !/[a-zA-Z0-9]/.test(_l[0])){ _l=_l.slice(1); }
-            }
-            if(!_l) return '';
-            if(_l.length>55) _l=_l.slice(0,54)+'\u2026';
-            return '<div class="shop-info-tagline">'+esc(_l)+'</div>';
-          }())
-        +'</div>' +
-        '<div class="shop-thumb-card" id="wabtn'+idx+'">'
-          +'<div class="shop-thumb-wrap">'
-            +(shop.thumbnail
-              ? '<img src="'+esc(cdnImg(shop.thumbnail,144,144))+'" alt="'+esc(shop.name||'')+'" loading="lazy">'
-              : '<div style="width:100%;height:100%;background:linear-gradient(135deg,#1a1a2e,#0d0d1a)"></div>')
-            // \uD558\uB2E8 \uC624\uBC84\uB808\uC774: \uBCC4\uC810 + \uCE74\uD14C\uACE0\uB9AC \uC544\uC774\uCF58
-            +'<div class="stc-bottom">'
-              +(shop.rating ? '<span class="stc-rating">\u2605 '+esc(String(shop.rating))+'</span>' : '<span class="stc-rating" style="opacity:.5">\u2605</span>')
-              +'<i class="fas '+(catFaIcons[shop.category]||'fa-star')+' stc-cat-icon"></i>'
-            +'</div>'
-          +'</div>'
-          +'<div class="shop-thumb-lbl">View info</div>'
-        +'</div>' +
-      '</div>' +
-      (function(){
-        var why = (shop.whyChoose) || [];
-        var reviewCount = (shop.reviewCount) || 0;
-        var rating = (shop.rating) || 0;
-        // whyChoose[0] \uB610\uB294 \uB9AC\uBDF0 \uCCAB \uBB38\uC7A5\uC5D0\uC11C \uD575\uC2EC \uD55C \uC904 \uCD94\uCD9C
-        var line = '';
-        if(why.length) {
-          line = why[0].trim();
-          while(line.length > 0 && !/[a-zA-Z0-9\uAC00-\uD7A3]/.test(line[0])) { line = line.slice(1); }
-        } else if(shop.reviews && shop.reviews.length) {
-          var _goodRevs = shop.reviews.filter(function(rv){ return (rv.rating||0) >= 4; });
-          if(_goodRevs.length) {
-            var txt = (_goodRevs[0].text||'').split(String.fromCharCode(10)).join(' ');
-            line = txt.length > 72 ? txt.slice(0,70)+'\u2026' : txt;
-          }
-        }
-        if(!line) return '';
-        var ratingBadge = rating
-          ? '<span class="srv-badge">\u2605 '+esc(String(rating))+(reviewCount?' \xB7 '+reviewCount+' reviews':'')+'</span>'
-          : '';
-        return '<div class="slide-rv-summary">'+ratingBadge+'<span class="srv-line">'+esc(line)+'</span></div>';
-      }()) +
-    '</div>' +
     '<div class="hint"><i class="fas fa-chevron-up" style="font-size:10px"></i><span>Swipe Up</span></div>';
 
   feed.appendChild(s);
@@ -25620,20 +25556,6 @@ function buildSlide(v, idx) {
         else { ve.pause(); }
       });
     }
-
-    document.getElementById('wabtn'+vidIdx).onclick = function(e){
-      e.stopPropagation();
-      // GA4: Book \uBC84\uD2BC \uD074\uB9AD (\uBE44\uB514\uC624 \uD53C\uB4DC)
-      if(typeof gtag==='function') gtag('event','book_btn_click',{event_category:'conversion',event_label:shopData?shopData.name:'unknown',shop_name:shopData?shopData.name:'',shop_category:shopData?shopData.category:'',video_id:vid.id,page_location:window.location.href});
-      // \uAD00\uB9AC\uC790 DB \uCD94\uC801
-      if(window._sbSend) window._sbSend('book_click',{
-        shop_id: vid.shopId||(shopData?shopData.id:''),
-        shop_name: shopData?shopData.name:'',
-        target: vid.id
-      });
-      // \uD56D\uC0C1 \uBAA8\uB2EC \uC5F4\uAE30 (\uC0C1\uC138 \uD398\uC774\uC9C0\uC640 \uB3D9\uC77C \uCF58\uD150\uCE20)
-      openShopModal(vid.shopId||shopData.id);
-    };
 
     var infoEl = s.querySelector('.info');
     if(infoEl) infoEl.addEventListener('click', function(e){ e.stopPropagation(); });
