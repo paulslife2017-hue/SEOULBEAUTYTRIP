@@ -19839,10 +19839,12 @@ function buildSlide(v, idx) {
   var vidSrcAttr = (!isHlsSrc && idx <= 1)
     ? 'src="'+esc(vidSrc)+'"'
     : 'data-src="'+esc(vidSrc)+'"';
+  // iframe URL: HLS 오류 시 폴백용 (CF Stream iframe embed)
+  var iframeSrcAttr = v.videoUrl && isStreamUrl(v.videoUrl) ? ' data-iframe-src="'+esc(v.videoUrl)+'"' : '';
 
   s.innerHTML =
     (thumb ? '<img class="bg-img" src="'+esc(thumb)+'" alt="'+esc(v.title||shop.name||'')+'" loading="'+imgLoading+'" decoding="async"'+imgPriority+' onload="imgLoaded(this)" onerror="imgLoaded(this)">' : '<div class="bg-img loaded" style="background:linear-gradient(135deg,#1a0a14 0%,#1c0e22 40%,#0f0816 100%)"></div>') +
-    '<video id="vid'+idx+'" loop muted playsinline preload="'+vidPreload+'" poster="'+esc(thumb)+'" '+vidSrcAttr+'></video>' +
+    '<video id="vid'+idx+'" loop muted playsinline preload="'+vidPreload+'" poster="'+esc(thumb)+'" '+vidSrcAttr+iframeSrcAttr+'></video>' +
     '<div id="playic'+idx+'" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:4;width:56px;height:56px;border-radius:50%;background:rgba(0,0,0,.55);align-items:center;justify-content:center;pointer-events:none;backdrop-filter:blur(4px)"><i class="fas fa-pause" style="font-size:20px;color:#fff"></i></div>' +
     '<div id="bufic'+idx+'" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:5;pointer-events:none"><div style="width:40px;height:40px;border:3px solid rgba(255,255,255,.15);border-top-color:rgba(255,255,255,.8);border-radius:50%;animation:spin .7s linear infinite"></div></div>' +
     '<div class="ov"></div>' +
@@ -20048,6 +20050,26 @@ function attachHls(vid, hlsUrl) {
     var hls = new window.Hls({ startLevel: -1, autoStartLoad: true });
     hls.loadSource(hlsUrl);
     hls.attachMedia(vid);
+    hls.on(window.Hls.Events.ERROR, function(event, data) {
+      if(data.fatal) {
+        // fatal 오류: iframe 폴백으로 교체
+        var iframeUrl = vid.dataset.iframeSrc || '';
+        if(iframeUrl) {
+          var slide = vid.closest('.slide');
+          if(slide) {
+            var iframe = document.createElement('iframe');
+            iframe.src = iframeUrl;
+            iframe.allow = 'autoplay; fullscreen';
+            iframe.setAttribute('allowfullscreen', '');
+            iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none;z-index:2;';
+            slide.appendChild(iframe);
+            vid.style.display = 'none';
+          }
+        }
+        hls.destroy();
+        vid._hls = null;
+      }
+    });
     vid._hls = hls;
   } else {
     // fallback: 직접 src 세팅 시도
