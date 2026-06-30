@@ -1084,11 +1084,16 @@ app.get('/api/shops', async (c) => {
   }
 })
 app.get('/api/shops/:id', async (c) => {
-  const sql = getDb(c.env)
-  const rows = await withTimeout(sql`SELECT * FROM shops WHERE id=${c.req.param('id')}`, 10000, [])
-  if (!rows.length) return c.json({ error: 'Not found' }, 404)
-  const vidRows = await withTimeout(sql`SELECT * FROM videos WHERE shop_id=${c.req.param('id')} ORDER BY created_at DESC`, 8000, [])
-  return c.json({ shop: rowToShop(rows[0]), videos: vidRows.map(rowToVideo) })
+  try {
+    const sql = getDb(c.env)
+    const rows = await withTimeout(sql`SELECT * FROM shops WHERE id=${c.req.param('id')}`, 10000, [])
+    if (!rows.length) return c.json({ error: 'Not found' }, 404)
+    const vidRows = await withTimeout(sql`SELECT * FROM videos WHERE shop_id=${c.req.param('id')} ORDER BY created_at DESC`, 8000, [])
+    return c.json({ shop: rowToShop(rows[0]), videos: vidRows.map(rowToVideo) })
+  } catch(e: any) {
+    console.error('[GET /api/shops/:id]', e?.message || e)
+    return c.json({ error: e?.message || 'DB error' }, 500)
+  }
 })
 // ── 구글맵 단축URL 언팩 → 업체명·주소·지역 반환 ──
 app.post('/api/resolve-gmap', async (c) => {
@@ -2131,47 +2136,48 @@ app.post('/api/videos', async (c) => {
   const _authSecret = c.req.header('x-admin-secret') || ''
   const _authProvided = _authCookie || _authBearer || _authSecret
   if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
-  const sql = getDb(c.env)
-  const body = await c.req.json()
-  const newId = 'v' + Date.now()
-  const today = new Date().toISOString().split('T')[0]
+  try {
+    const sql = getDb(c.env)
+    const body = await c.req.json().catch(() => ({})) as any
+    const newId = 'v' + Date.now()
+    const today = new Date().toISOString().split('T')[0]
 
-  // description + tags 없으면 AI 자동 생성
-  let description = body.description || ''
-  let autoTags: string[] = body.tags || []
-  if (!description || !autoTags.length) {
-    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== 'undefined' ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || '' : '')
-    if (apiKey && body.shopId) {
-      const shopRows = await sql`SELECT name, category, location, services FROM shops WHERE id=${body.shopId}` as any[]
-      if (shopRows.length) {
-        const shop = { name: shopRows[0].name, category: shopRows[0].category, location: shopRows[0].location, services: JSON.parse(shopRows[0].services||'[]') }
-        const video = { title: body.title||'', tags: autoTags }
-        if (!description) description = await genVideoDescription(video, shop, apiKey)
-        if (!autoTags.length) autoTags = await genVideoTags(video, shop, apiKey)
+    // description + tags 없으면 AI 자동 생성
+    let description = body.description || ''
+    let autoTags: string[] = body.tags || []
+    if (!description || !autoTags.length) {
+      const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== 'undefined' ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || '' : '')
+      if (apiKey && body.shopId) {
+        const shopRows = await sql`SELECT name, category, location, services FROM shops WHERE id=${body.shopId}` as any[]
+        if (shopRows.length) {
+          const shop = { name: shopRows[0].name, category: shopRows[0].category, location: shopRows[0].location, services: JSON.parse(shopRows[0].services||'[]') }
+          const video = { title: body.title||'', tags: autoTags }
+          if (!description) description = await genVideoDescription(video, shop, apiKey)
+          if (!autoTags.length) autoTags = await genVideoTags(video, shop, apiKey)
+        }
       }
     }
+
+    const vUrl = body.videoUrl || ''
+    const autoThumb = (!body.thumbnail && vUrl && vUrl.includes('cloudinary.com'))
+      ? vUrl.replace('/video/upload/', '/video/upload/so_0,w_600,h_1066,c_fill,q_auto/').replace(/\.mp4$/, '.jpg')
+      : ''
+    const finalThumb = body.thumbnail || autoThumb
+    const urlLow  = body.videoUrlLow  || null
+    const urlMid  = body.videoUrlMid  || null
+    const urlHigh = body.videoUrlHigh || null
+    const instagramUrl = body.instagramUrl || ''
+
+    await sql`INSERT INTO videos (id,shop_id,title,description,video_url,thumbnail,tags,views,likes,created_at,video_url_low,video_url_mid,video_url_high,instagram_url) VALUES (
+      ${newId},${body.shopId||''},${body.title||''},${description},${vUrl},
+      ${finalThumb},${JSON.stringify(autoTags)},0,0,${today},
+      ${urlLow},${urlMid},${urlHigh},${instagramUrl}
+    )`
+    return c.json({ ok: true, id: newId, descriptionGenerated: !body.description && !!description, tagsGenerated: !body.tags?.length && !!autoTags.length })
+  } catch(e: any) {
+    console.error('[POST /api/videos]', e?.message || e)
+    return c.json({ ok: false, error: e?.message || 'DB error' }, 500)
   }
-
-  // thumbnail: 클라이언트가 보낸 값 우선, 없으면 Cloudinary so_0 첫프레임 자동 생성
-  const vUrl = body.videoUrl || ''
-  const autoThumb = (!body.thumbnail && vUrl && vUrl.includes('cloudinary.com'))
-    ? vUrl.replace('/video/upload/', '/video/upload/so_0,w_600,h_1066,c_fill,q_auto/').replace(/\.mp4$/, '.jpg')
-    : ''
-  const finalThumb = body.thumbnail || autoThumb
-
-  // eager 변환 URL (Cloudinary 업로드 시 pre-generated → 크래딧 절약)
-  // 클라이언트가 eager 결과를 보내주면 저장, 없으면 null
-  const urlLow  = body.videoUrlLow  || null
-  const urlMid  = body.videoUrlMid  || null
-  const urlHigh = body.videoUrlHigh || null
-
-  const instagramUrl = body.instagramUrl || ''
-  await sql`INSERT INTO videos (id,shop_id,title,description,video_url,thumbnail,tags,views,likes,created_at,video_url_low,video_url_mid,video_url_high,instagram_url) VALUES (
-    ${newId},${body.shopId||''},${body.title||''},${description},${vUrl},
-    ${finalThumb},${JSON.stringify(autoTags)},0,0,${today},
-    ${urlLow},${urlMid},${urlHigh},${instagramUrl}
-  )`
-  return c.json({ ok: true, id: newId, descriptionGenerated: !body.description && !!description, tagsGenerated: !body.tags?.length && !!autoTags.length })
 })
 app.delete('/api/videos/:id', async (c) => {
   // 어드민 인증 확인
@@ -2180,9 +2186,14 @@ app.delete('/api/videos/:id', async (c) => {
   const _authSecret = c.req.header('x-admin-secret') || ''
   const _authProvided = _authCookie || _authBearer || _authSecret
   if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
-  const sql = getDb(c.env)
-  await sql`DELETE FROM videos WHERE id=${c.req.param('id')}`
-  return c.json({ ok: true })
+  try {
+    const sql = getDb(c.env)
+    await sql`DELETE FROM videos WHERE id=${c.req.param('id')}`
+    return c.json({ ok: true })
+  } catch(e: any) {
+    console.error('[DELETE /api/videos/:id]', e?.message || e)
+    return c.json({ ok: false, error: e?.message || 'DB error' }, 500)
+  }
 })
 
 // ── AI description 생성 헬퍼 ──
@@ -2272,26 +2283,39 @@ Rules:
 
 // POST /api/videos/:id/gen-description — 개별 영상 AI description 생성
 app.post('/api/videos/:id/gen-description', async (c) => {
-  const sql = getDb(c.env)
-  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== 'undefined' ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || '' : '')
-  if (!apiKey) return c.json({ ok: false, error: 'No API key' }, 400)
+  // ── admin 인증 확인 ──
+  const _aC = (c.req.header('Cookie') || '').match(/admin_token=([^;]+)/)?.[1] || ''
+  const _aS = c.req.header('x-admin-secret') || c.req.query('secret') || ''
+  if ((_aC || _aS) !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
+  try {
+    const sql = getDb(c.env)
+    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== 'undefined' ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || '' : '')
+    if (!apiKey) return c.json({ ok: false, error: 'No API key' }, 400)
 
-  const vid = await sql`SELECT v.*, s.name as shop_name, s.category as shop_cat, s.location as shop_loc, s.services as shop_svcs FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE v.id=${c.req.param('id')}` as any[]
-  if (!vid.length) return c.json({ ok: false, error: 'Not found' }, 404)
+    const vid = await sql`SELECT v.*, s.name as shop_name, s.category as shop_cat, s.location as shop_loc, s.services as shop_svcs FROM videos v LEFT JOIN shops s ON v.shop_id=s.id WHERE v.id=${c.req.param('id')}` as any[]
+    if (!vid.length) return c.json({ ok: false, error: 'Not found' }, 404)
 
-  const v = vid[0]
-  const shop = { name: v.shop_name, category: v.shop_cat, location: v.shop_loc, services: JSON.parse(v.shop_svcs||'[]') }
-  const video = { id: v.id, title: v.title, tags: JSON.parse(v.tags||'[]') }
+    const v = vid[0]
+    const shop = { name: v.shop_name, category: v.shop_cat, location: v.shop_loc, services: JSON.parse(v.shop_svcs||'[]') }
+    const video = { id: v.id, title: v.title, tags: JSON.parse(v.tags||'[]') }
 
-  const desc = await genVideoDescription(video, shop, apiKey)
-  if (!desc) return c.json({ ok: false, error: 'AI generation failed' }, 500)
+    const desc = await genVideoDescription(video, shop, apiKey)
+    if (!desc) return c.json({ ok: false, error: 'AI generation failed' }, 500)
 
-  await sql`UPDATE videos SET description=${desc} WHERE id=${c.req.param('id')}`
-  return c.json({ ok: true, description: desc })
+    await sql`UPDATE videos SET description=${desc} WHERE id=${c.req.param('id')}`
+    return c.json({ ok: true, description: desc })
+  } catch(e: any) {
+    console.error('[POST /api/videos/:id/gen-description]', e?.message || e)
+    return c.json({ ok: false, error: e?.message || 'DB error' }, 500)
+  }
 })
 
 // POST /api/shops/fill-seo-bulk — 누락 SEO 필드 일괄 AI 생성
 app.post('/api/shops/fill-seo-bulk', async (c) => {
+  // ── admin 인증 확인 ──
+  const _aC = (c.req.header('Cookie') || '').match(/admin_token=([^;]+)/)?.[1] || ''
+  const _aS = c.req.header('x-admin-secret') || c.req.query('secret') || ''
+  if ((_aC || _aS) !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
   const sql = getDb(c.env)
   const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== 'undefined' ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || '' : '')
   if (!apiKey) return c.json({ ok: false, error: 'No API key' }, 400)
@@ -2371,6 +2395,10 @@ app.post('/api/shops/fill-seo-bulk', async (c) => {
 
 // POST /api/videos/gen-description-bulk — 빈 description/tags 영상 일괄 AI 생성
 app.post('/api/videos/gen-description-bulk', async (c) => {
+  // ── admin 인증 확인 ──
+  const _aC = (c.req.header('Cookie') || '').match(/admin_token=([^;]+)/)?.[1] || ''
+  const _aS = c.req.header('x-admin-secret') || c.req.query('secret') || ''
+  if ((_aC || _aS) !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
   const sql = getDb(c.env)
   const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== 'undefined' ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || '' : '')
   if (!apiKey) return c.json({ ok: false, error: 'No API key' }, 400)
@@ -2419,30 +2447,33 @@ app.put('/api/videos/:id', async (c) => {
   const _authSecret = c.req.header('x-admin-secret') || ''
   const _authProvided = _authCookie || _authBearer || _authSecret
   if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
-  const sql = getDb(c.env)
-  const body = await c.req.json()
-  // title만 넘어온 경우 title만 업데이트, 나머지 필드는 기존값 유지
-  if(body.titleOnly) {
-    await sql`UPDATE videos SET title=${body.title||''} WHERE id=${c.req.param('id')}`
-  } else if(body.videoUrlOnly) {
-    // 영상 교체 전용: video_url + thumbnail + low/mid/high 만 업데이트
-    await sql`UPDATE videos SET
-      video_url=${body.videoUrl||''},
-      thumbnail=${body.thumbnail||''},
-      video_url_low=${body.videoUrlLow||null},
-      video_url_mid=${body.videoUrlMid||null},
-      video_url_high=${body.videoUrlHigh||null}
-      WHERE id=${c.req.param('id')}`
-  } else {
-    await sql`UPDATE videos SET
-      title=${body.title||''},
-      description=${body.description||''},
-      thumbnail=${body.thumbnail||''},
-      tags=${JSON.stringify(body.tags||[])},
-      instagram_url=${body.instagramUrl||''}
-      WHERE id=${c.req.param('id')}`
+  try {
+    const sql = getDb(c.env)
+    const body = await c.req.json().catch(() => ({})) as any
+    if(body.titleOnly) {
+      await sql`UPDATE videos SET title=${body.title||''} WHERE id=${c.req.param('id')}`
+    } else if(body.videoUrlOnly) {
+      await sql`UPDATE videos SET
+        video_url=${body.videoUrl||''},
+        thumbnail=${body.thumbnail||''},
+        video_url_low=${body.videoUrlLow||null},
+        video_url_mid=${body.videoUrlMid||null},
+        video_url_high=${body.videoUrlHigh||null}
+        WHERE id=${c.req.param('id')}`
+    } else {
+      await sql`UPDATE videos SET
+        title=${body.title||''},
+        description=${body.description||''},
+        thumbnail=${body.thumbnail||''},
+        tags=${JSON.stringify(body.tags||[])},
+        instagram_url=${body.instagramUrl||''}
+        WHERE id=${c.req.param('id')}`
+    }
+    return c.json({ ok: true })
+  } catch(e: any) {
+    console.error('[PUT /api/videos/:id]', e?.message || e)
+    return c.json({ ok: false, error: e?.message || 'DB error' }, 500)
   }
-  return c.json({ ok: true })
 })
 app.post('/api/videos/:id/view', async (c) => {
   const sql = getDb(c.env)
@@ -2476,29 +2507,46 @@ app.post('/api/videos/:id/view', async (c) => {
 })
 
 app.get('/api/bookings', async (c) => {
-  const sql = getDb(c.env)
-  const rows = await sql`SELECT * FROM bookings ORDER BY created_at DESC`
-  return c.json({ bookings: rows.map(rowToBooking) })
+  try {
+    const sql = getDb(c.env)
+    const rows = await sql`SELECT * FROM bookings ORDER BY created_at DESC`
+    return c.json({ bookings: rows.map(rowToBooking) })
+  } catch(e: any) {
+    console.error('[GET /api/bookings]', e?.message || e)
+    return c.json({ bookings: [], error: e?.message || 'DB error' }, 200)
+  }
 })
 app.post('/api/bookings', async (c) => {
-  const sql = getDb(c.env)
-  const body = await c.req.json()
-  const shopRows = await sql`SELECT name, commission FROM shops WHERE id=${body.shopId||''}`
-  const shop = shopRows[0]
-  const newId = 'b' + Date.now()
-  const today = new Date().toISOString().split('T')[0]
-  await sql`INSERT INTO bookings (id,shop_id,shop_name,name,email,phone,service,people,date,message,status,commission_rate,estimated_amount,created_at) VALUES (
-    ${newId},${body.shopId||''},${shop?.name||body.shopName||''},${body.name||''},${body.email||''},
-    ${body.phone||''},${body.service||''},${body.people||'1'},${body.date||''},${body.message||''},
-    'new',${shop?.commission||10},${body.estimatedAmount||''},${today}
-  )`
-  return c.json({ ok: true })
+  try {
+    const sql = getDb(c.env)
+    const body = await c.req.json().catch(() => ({})) as any
+    const shopRows = await sql`SELECT name, commission FROM shops WHERE id=${body.shopId||''}`
+    const shop = shopRows[0]
+    const newId = 'b' + Date.now()
+    const today = new Date().toISOString().split('T')[0]
+    await sql`INSERT INTO bookings (id,shop_id,shop_name,name,email,phone,service,people,date,message,status,commission_rate,estimated_amount,created_at) VALUES (
+      ${newId},${body.shopId||''},${shop?.name||body.shopName||''},${body.name||''},${body.email||''},
+      ${body.phone||''},${body.service||''},${body.people||'1'},${body.date||''},${body.message||''},
+      'new',${shop?.commission||10},${body.estimatedAmount||''},${today}
+    )`
+    return c.json({ ok: true })
+  } catch(e: any) {
+    console.error('[POST /api/bookings]', e?.message || e)
+    return c.json({ ok: false, error: e?.message || 'DB error' }, 500)
+  }
 })
 app.put('/api/bookings/:id/status', async (c) => {
-  const sql = getDb(c.env)
-  const { status } = await c.req.json()
-  await sql`UPDATE bookings SET status=${status} WHERE id=${c.req.param('id')}`
-  return c.json({ ok: true })
+  try {
+    const body = await c.req.json().catch(() => ({})) as any
+    const { status } = body
+    if (!status) return c.json({ ok: false, error: 'status required' }, 400)
+    const sql = getDb(c.env)
+    await sql`UPDATE bookings SET status=${status} WHERE id=${c.req.param('id')}`
+    return c.json({ ok: true })
+  } catch(e: any) {
+    console.error('[PUT /api/bookings/:id/status]', e?.message || e)
+    return c.json({ ok: false, error: e?.message || 'DB error' }, 500)
+  }
 })
 
 // ══════════════════════════════════════════════════════
@@ -3783,29 +3831,39 @@ app.get('/api/visitors-stats', async (c) => {
 // ── 일괄 SEO 재생성 API ──
 // ── POST /api/admin/reset-video-views — 영상 조회수 초기화 ──
 app.post('/api/admin/reset-video-views', async (c) => {
-  const sql = getDb(c.env)
-  await sql`UPDATE videos SET views=0`
-  await sql`DELETE FROM video_views_log`
-  const [cnt] = await sql`SELECT COUNT(*) as c FROM videos`
-  return c.json({ ok: true, message: `Reset views=0 for ${cnt.c} videos, cleared view log` })
+  try {
+    const sql = getDb(c.env)
+    await sql`UPDATE videos SET views=0`
+    await sql`DELETE FROM video_views_log`
+    const [cnt] = await sql`SELECT COUNT(*) as c FROM videos`
+    return c.json({ ok: true, message: `Reset views=0 for ${(cnt as any).c} videos, cleared view log` })
+  } catch(e: any) {
+    console.error('[POST /api/admin/reset-video-views]', e?.message || e)
+    return c.json({ ok: false, error: e?.message || 'DB error' }, 500)
+  }
 })
 
 // ── POST /api/admin/fix-video-thumbnails ──
 // thumbnail이 비어있는 영상들에 Cloudinary so_0 자동 썸네일을 DB에 일괄 저장
 app.post('/api/admin/fix-video-thumbnails', async (c) => {
-  const sql = getDb(c.env)
-  const rows = await sql`SELECT id, video_url FROM videos WHERE (thumbnail IS NULL OR thumbnail='') AND video_url IS NOT NULL AND video_url != ''` as any[]
-  let fixed = 0
-  for (const r of rows) {
-    const vUrl = r.video_url || ''
-    if (!vUrl.includes('cloudinary.com')) continue
-    const thumb = vUrl
-      .replace('/video/upload/', '/video/upload/so_0,w_600,h_1066,c_fill,q_auto/')
-      .replace(/\.mp4$/, '.jpg')
-    await sql`UPDATE videos SET thumbnail=${thumb} WHERE id=${r.id}`
-    fixed++
+  try {
+    const sql = getDb(c.env)
+    const rows = await sql`SELECT id, video_url FROM videos WHERE (thumbnail IS NULL OR thumbnail='') AND video_url IS NOT NULL AND video_url != ''` as any[]
+    let fixed = 0
+    for (const r of rows) {
+      const vUrl = r.video_url || ''
+      if (!vUrl.includes('cloudinary.com')) continue
+      const thumb = vUrl
+        .replace('/video/upload/', '/video/upload/so_0,w_600,h_1066,c_fill,q_auto/')
+        .replace(/\.mp4$/, '.jpg')
+      await sql`UPDATE videos SET thumbnail=${thumb} WHERE id=${r.id}`
+      fixed++
+    }
+    return c.json({ ok: true, fixed, total: rows.length })
+  } catch(e: any) {
+    console.error('[POST /api/admin/fix-video-thumbnails]', e?.message || e)
+    return c.json({ ok: false, error: e?.message || 'DB error' }, 500)
   }
-  return c.json({ ok: true, fixed, total: rows.length })
 })
 
 // ── POST /api/admin/migrate-video-urls ──
@@ -3815,81 +3873,84 @@ app.post('/api/admin/fix-video-thumbnails', async (c) => {
 // ⚠️  이 엔드포인트는 Cloudinary 크래딧을 1회 소모 (마이그레이션 시에만 호출)
 // 단, 이후 재생 시에는 DB URL 그대로 사용 → 추가 크래딧 없음
 app.post('/api/admin/migrate-video-urls', async (c) => {
-  const sql = getDb(c.env)
-  // force=true: fl_progressive 미적용 영상 포함 전체 재변환
-  const body = await c.req.json().catch(() => ({})) as any
-  const force = body?.force === true
+  try {
+    const sql = getDb(c.env)
+    // force=true: fl_progressive 미적용 영상 포함 전체 재변환
+    const body = await c.req.json().catch(() => ({})) as any
+    const force = body?.force === true
 
-  const rows = await sql`
-    SELECT id, video_url, video_url_low FROM videos
-    WHERE video_url IS NOT NULL AND video_url != ''
-      AND video_url LIKE '%res.cloudinary.com%'
-  ` as any[]
+    const rows = await sql`
+      SELECT id, video_url, video_url_low FROM videos
+      WHERE video_url IS NOT NULL AND video_url != ''
+        AND video_url LIKE '%res.cloudinary.com%'
+    ` as any[]
 
-  // force=false: fl_progressive 미적용이거나 아직 없는 영상만 처리
-  const targets = force
-    ? rows
-    : rows.filter((r: any) => !r.video_url_low || !r.video_url_low.includes('fl_progressive'))
+    // force=false: fl_progressive 미적용이거나 아직 없는 영상만 처리
+    const targets = force
+      ? rows
+      : rows.filter((r: any) => !r.video_url_low || !r.video_url_low.includes('fl_progressive'))
 
-  let migrated = 0
-  for (const r of targets) {
-    const base = r.video_url as string
-    const makeCldUrl = (transform: string) =>
-      base.replace('/video/upload/', '/video/upload/' + transform + '/')
+    let migrated = 0
+    for (const r of targets) {
+      const base = r.video_url as string
+      const makeCldUrl = (transform: string) =>
+        base.replace('/video/upload/', '/video/upload/' + transform + '/')
 
-    // fl_progressive:steep: moov atom을 파일 맨 앞으로 이동 → 첫 바이트부터 재생 가능
-    // 비트레이트: 300k(low)/600k(mid)/1200k(high) - 릴스 수준 즉시 재생 달성
-    const urlLow  = makeCldUrl('fl_progressive:steep,q_auto:low,w_360,h_640,c_fill,vc_h264,br_300k,f_mp4')
-    const urlMid  = makeCldUrl('fl_progressive:steep,q_auto:good,w_480,h_854,c_fill,vc_h264,br_600k,f_mp4')
-    const urlHigh = makeCldUrl('fl_progressive:steep,q_auto:good,w_720,h_1280,c_fill,vc_h264,br_1200k,f_mp4')
+      const urlLow  = makeCldUrl('fl_progressive:steep,q_auto:low,w_360,h_640,c_fill,vc_h264,br_300k,f_mp4')
+      const urlMid  = makeCldUrl('fl_progressive:steep,q_auto:good,w_480,h_854,c_fill,vc_h264,br_600k,f_mp4')
+      const urlHigh = makeCldUrl('fl_progressive:steep,q_auto:good,w_720,h_1280,c_fill,vc_h264,br_1200k,f_mp4')
 
-    await sql`UPDATE videos SET video_url_low=${urlLow}, video_url_mid=${urlMid}, video_url_high=${urlHigh} WHERE id=${r.id}`
-    migrated++
+      await sql`UPDATE videos SET video_url_low=${urlLow}, video_url_mid=${urlMid}, video_url_high=${urlHigh} WHERE id=${r.id}`
+      migrated++
+    }
+    return c.json({ ok: true, migrated, total: targets.length,
+      note: force
+        ? '전체 강제 재마이그레이션 완료 (fl_progressive:steep + 비트레이트 최적화)'
+        : `fl_progressive 미적용 ${migrated}개 영상 마이그레이션 완료` })
+  } catch(e: any) {
+    console.error('[POST /api/admin/migrate-video-urls]', e?.message || e)
+    return c.json({ ok: false, error: e?.message || 'DB error' }, 500)
   }
-  return c.json({ ok: true, migrated, total: targets.length,
-    note: force
-      ? '전체 강제 재마이그레이션 완료 (fl_progressive:steep + 비트레이트 최적화)'
-      : `fl_progressive 미적용 ${migrated}개 영상 마이그레이션 완료` })
 })
 
 // POST /api/admin/fix-slugs
 // → 모든 업체 slug를 name+location 기반으로 재생성 (숫자 suffix → 지역명 suffix)
 // ══════════════════════════════════════════
 app.post('/api/admin/fix-slugs', async (c) => {
-  const sql = getDb(c.env)
-  const rows = await sql`SELECT id, name, location, slug FROM shops ORDER BY created_at ASC`
-  const results: {id:string, name:string, old:string, new:string}[] = []
-  const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+  try {
+    const sql = getDb(c.env)
+    const rows = await sql`SELECT id, name, location, slug FROM shops ORDER BY created_at ASC`
+    const results: {id:string, name:string, old:string, new:string}[] = []
+    const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
-  for (const row of rows) {
-    const base = clean(row.name || '') || 'shop'
-    // 지역명: 첫 파트만 사용
-    const parts = (row.location || '').split(',').map((p: string) => p.trim()).filter(Boolean)
-    const area = clean(parts[0] || '')
+    for (const row of rows) {
+      const base = clean(row.name || '') || 'shop'
+      const parts = (row.location || '').split(',').map((p: string) => p.trim()).filter(Boolean)
+      const area = clean(parts[0] || '')
 
-    // ✅ 핵심: base(name) 또는 기존 slug 어느 쪽에도 area가 없을 때만 추가
-    // - base에 포함: "fleur-jardin-myeongdong" → name clean 결과에 myeongdong 있음 → 추가 안 함
-    // - slug에 포함: 기존 slug가 이미 올바른 경우도 재추가 방지
-    const baseHasArea = area && base.includes(area)
-    const slugHasArea = area && row.slug.includes(area)
-    const candidate = (area && !baseHasArea && !slugHasArea) ? `${base}-${area}` : base
+      const baseHasArea = area && base.includes(area)
+      const slugHasArea = area && row.slug.includes(area)
+      const candidate = (area && !baseHasArea && !slugHasArea) ? `${base}-${area}` : base
 
-    // 자기 자신 제외 중복 확인
-    const conflict = await sql`SELECT slug FROM shops WHERE slug=${candidate} AND id!=${row.id}`
-    let newSlug = candidate
-    if (conflict.length > 0) {
-      for (let n = 2; n <= 99; n++) {
-        const s = `${candidate}-${n}`
-        const c2 = await sql`SELECT slug FROM shops WHERE slug=${s} AND id!=${row.id}`
-        if (!c2.length) { newSlug = s; break }
+      const conflict = await sql`SELECT slug FROM shops WHERE slug=${candidate} AND id!=${row.id}`
+      let newSlug = candidate
+      if (conflict.length > 0) {
+        for (let n = 2; n <= 99; n++) {
+          const s = `${candidate}-${n}`
+          const c2 = await sql`SELECT slug FROM shops WHERE slug=${s} AND id!=${row.id}`
+          if (!c2.length) { newSlug = s; break }
+        }
+      }
+      if (newSlug !== row.slug) {
+        await sql`UPDATE shops SET slug=${newSlug} WHERE id=${row.id}`
+        results.push({ id: row.id, name: row.name, old: row.slug, new: newSlug })
       }
     }
-    if (newSlug !== row.slug) {
-      await sql`UPDATE shops SET slug=${newSlug} WHERE id=${row.id}`
-      results.push({ id: row.id, name: row.name, old: row.slug, new: newSlug })
-    }
+    return c.json({ ok: true, updated: results.length, results })
+  } catch(e: any) {
+    console.error('[POST /api/admin/fix-slugs]', e?.message || e)
+    return c.json({ ok: false, error: e?.message || 'DB error' }, 500)
   }
-  return c.json({ ok: true, updated: results.length, results })
 })
 
 // POST /api/admin/regenerate-seo-all
@@ -4366,45 +4427,49 @@ app.put('/api/blogs/:id', async (c) => {
   const _authSecret = c.req.header('x-admin-secret') || ''
   const _authProvided = _authCookie || _authBearer || _authSecret
   if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
-  await ensureDb(c.env)
-  const sql = getDb(c.env)
-  const body = await c.req.json()
-  const now = new Date().toISOString()
-  const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== 'undefined' ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || '' : '')
+  try {
+    await ensureDb(c.env)
+    const sql = getDb(c.env)
+    const body = await c.req.json().catch(() => ({})) as any
+    const now = new Date().toISOString()
+    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || c.env?.GENSPARK_TOKEN || c.env?.genspark_token || (typeof process !== 'undefined' ? process.env.GSK_TOKEN || process.env.gsk_token || process.env.GENSPARK_TOKEN || '' : '')
 
-  let content = body.content || ''
-  let excerpt = body.excerpt || ''
-  let metaDescription = body.metaDescription || ''
-  let tags: string[] = body.tags || []
+    let content = body.content || ''
+    let excerpt = body.excerpt || ''
+    let metaDescription = body.metaDescription || ''
+    let tags: string[] = body.tags || []
 
-  // regenerate 요청 시 AI 재생성
-  if (body.regenerate && apiKey) {
-    const gen = await autoGenBlog({
-      title: body.title, category: body.category,
-      area: body.area, keywords: body.keywords || []
-    }, apiKey)
-    if (gen) {
-      content = gen.content
-      excerpt = gen.excerpt
-      metaDescription = gen.metaDescription
-      tags = gen.tags
+    if (body.regenerate && apiKey) {
+      const gen = await autoGenBlog({
+        title: body.title, category: body.category,
+        area: body.area, keywords: body.keywords || []
+      }, apiKey)
+      if (gen) {
+        content = gen.content
+        excerpt = gen.excerpt
+        metaDescription = gen.metaDescription
+        tags = gen.tags
+      }
     }
-  }
 
-  await sql`UPDATE blog_posts SET
-    title=${body.title||''},
-    slug=${body.slug||makeBlogSlug(body.title||'')},
-    meta_description=${metaDescription},
-    content=${content},
-    excerpt=${excerpt},
-    category=${body.category||''},
-    area=${body.area||''},
-    tags=${JSON.stringify(tags)},
-    cover_image=${body.coverImage||''},
-    status=${body.status||'published'},
-    updated_at=${now}
-    WHERE id=${c.req.param('id')}`
-  return c.json({ ok: true })
+    await sql`UPDATE blog_posts SET
+      title=${body.title||''},
+      slug=${body.slug||makeBlogSlug(body.title||'')},
+      meta_description=${metaDescription},
+      content=${content},
+      excerpt=${excerpt},
+      category=${body.category||''},
+      area=${body.area||''},
+      tags=${JSON.stringify(tags)},
+      cover_image=${body.coverImage||''},
+      status=${body.status||'published'},
+      updated_at=${now}
+      WHERE id=${c.req.param('id')}`
+    return c.json({ ok: true })
+  } catch(e: any) {
+    console.error('[PUT /api/blogs/:id]', e?.message || e)
+    return c.json({ ok: false, error: e?.message || 'DB error' }, 500)
+  }
 })
 
 // DELETE /api/blogs/:id
@@ -4415,10 +4480,15 @@ app.delete('/api/blogs/:id', async (c) => {
   const _authSecret = c.req.header('x-admin-secret') || ''
   const _authProvided = _authCookie || _authBearer || _authSecret
   if (_authProvided !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
-  await ensureDb(c.env)
-  const sql = getDb(c.env)
-  await sql`DELETE FROM blog_posts WHERE id=${c.req.param('id')}`
-  return c.json({ ok: true })
+  try {
+    await ensureDb(c.env)
+    const sql = getDb(c.env)
+    await sql`DELETE FROM blog_posts WHERE id=${c.req.param('id')}`
+    return c.json({ ok: true })
+  } catch(e: any) {
+    console.error('[DELETE /api/blogs/:id]', e?.message || e)
+    return c.json({ ok: false, error: e?.message || 'DB error' }, 500)
+  }
 })
 
 // ══════════════════════════════════════════════════════
@@ -4453,6 +4523,10 @@ app.get('/api/ja/shops/:id', async (c) => {
 // POST /api/ja/shops — 생성
 app.post('/api/ja/shops', async (c) => {
   try {
+  // ── admin 인증 확인 ──
+  const _aC = (c.req.header('Cookie') || '').match(/admin_token=([^;]+)/)?.[1] || ''
+  const _aS = c.req.header('x-admin-secret') || c.req.query('secret') || ''
+  if ((_aC || _aS) !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
     await ensureDb(c.env)
     const sql = getDb(c.env)
     const body = await c.req.json() as any
@@ -4484,6 +4558,10 @@ app.post('/api/ja/shops', async (c) => {
 // PUT /api/ja/shops/:id — 수정
 app.put('/api/ja/shops/:id', async (c) => {
   try {
+  // ── admin 인증 확인 ──
+  const _aC = (c.req.header('Cookie') || '').match(/admin_token=([^;]+)/)?.[1] || ''
+  const _aS = c.req.header('x-admin-secret') || c.req.query('secret') || ''
+  if ((_aC || _aS) !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
     await ensureDb(c.env)
     const sql = getDb(c.env)
     const body = await c.req.json() as any
@@ -4517,6 +4595,10 @@ app.put('/api/ja/shops/:id', async (c) => {
 // DELETE /api/ja/shops/:id
 app.delete('/api/ja/shops/:id', async (c) => {
   try {
+  // ── admin 인증 확인 ──
+  const _aC = (c.req.header('Cookie') || '').match(/admin_token=([^;]+)/)?.[1] || ''
+  const _aS = c.req.header('x-admin-secret') || c.req.query('secret') || ''
+  if ((_aC || _aS) !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
     await ensureDb(c.env)
     const sql = getDb(c.env)
     await sql`DELETE FROM shops_ja WHERE id=${c.req.param('id')}`
@@ -4557,6 +4639,10 @@ app.get('/api/ja/blogs/:slug', async (c) => {
 // POST /api/ja/blogs — 생성
 app.post('/api/ja/blogs', async (c) => {
   try {
+  // ── admin 인증 확인 ──
+  const _aC = (c.req.header('Cookie') || '').match(/admin_token=([^;]+)/)?.[1] || ''
+  const _aS = c.req.header('x-admin-secret') || c.req.query('secret') || ''
+  if ((_aC || _aS) !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
     await ensureDb(c.env)
     const sql = getDb(c.env)
     const body = await c.req.json() as any
@@ -4578,6 +4664,10 @@ app.post('/api/ja/blogs', async (c) => {
 // PUT /api/ja/blogs/:id — 수정
 app.put('/api/ja/blogs/:id', async (c) => {
   try {
+  // ── admin 인증 확인 ──
+  const _aC = (c.req.header('Cookie') || '').match(/admin_token=([^;]+)/)?.[1] || ''
+  const _aS = c.req.header('x-admin-secret') || c.req.query('secret') || ''
+  if ((_aC || _aS) !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
     await ensureDb(c.env)
     const sql = getDb(c.env)
     const body = await c.req.json() as any
@@ -4604,6 +4694,10 @@ app.put('/api/ja/blogs/:id', async (c) => {
 // DELETE /api/ja/blogs/:id
 app.delete('/api/ja/blogs/:id', async (c) => {
   try {
+  // ── admin 인증 확인 ──
+  const _aC = (c.req.header('Cookie') || '').match(/admin_token=([^;]+)/)?.[1] || ''
+  const _aS = c.req.header('x-admin-secret') || c.req.query('secret') || ''
+  if ((_aC || _aS) !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
     await ensureDb(c.env)
     const sql = getDb(c.env)
     await sql`DELETE FROM blog_posts_ja WHERE id=${c.req.param('id')}`
@@ -4648,6 +4742,10 @@ app.get('/api/ja/videos/:id', async (c) => {
 // POST /api/ja/videos — 생성
 app.post('/api/ja/videos', async (c) => {
   try {
+  // ── admin 인증 확인 ──
+  const _aC = (c.req.header('Cookie') || '').match(/admin_token=([^;]+)/)?.[1] || ''
+  const _aS = c.req.header('x-admin-secret') || c.req.query('secret') || ''
+  if ((_aC || _aS) !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
     await ensureDb(c.env)
     const sql = getDb(c.env)
     const body = await c.req.json()
@@ -4671,6 +4769,10 @@ app.post('/api/ja/videos', async (c) => {
 // PUT /api/ja/videos/:id — 수정
 app.put('/api/ja/videos/:id', async (c) => {
   try {
+  // ── admin 인증 확인 ──
+  const _aC = (c.req.header('Cookie') || '').match(/admin_token=([^;]+)/)?.[1] || ''
+  const _aS = c.req.header('x-admin-secret') || c.req.query('secret') || ''
+  if ((_aC || _aS) !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
     await ensureDb(c.env)
     const sql = getDb(c.env)
     const body = await c.req.json()
@@ -4690,6 +4792,10 @@ app.put('/api/ja/videos/:id', async (c) => {
 // DELETE /api/ja/videos/:id
 app.delete('/api/ja/videos/:id', async (c) => {
   try {
+  // ── admin 인증 확인 ──
+  const _aC = (c.req.header('Cookie') || '').match(/admin_token=([^;]+)/)?.[1] || ''
+  const _aS = c.req.header('x-admin-secret') || c.req.query('secret') || ''
+  if ((_aC || _aS) !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
     await ensureDb(c.env)
     const sql = getDb(c.env)
     await sql`DELETE FROM videos_ja WHERE id=${c.req.param('id')}`
@@ -7735,7 +7841,7 @@ const JA_BEST_CAT_REDIRECTS: Record<string, string> = {
   'spa':             'headspa',
 }
 
-app.get('/best/:category/:area', async (c) => {
+app.get('/ja/best/:category/:area', async (c) => {
   const catSlug  = c.req.param('category').toLowerCase()
   const areaSlug = c.req.param('area').toLowerCase()
 
