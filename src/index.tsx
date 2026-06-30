@@ -19983,16 +19983,23 @@ function buildSlide(v, idx) {
   var vidSrc = cdnVideo(v.videoUrl, idx === 0, v);
   var vidPreload = idx === 0 ? 'auto' : (idx === 1 ? 'metadata' : 'none');
   var isHlsSrc = vidSrc && vidSrc.includes('.m3u8');
+  // [FIX] isStreamUrl → iframe을 직접 사용 (HLS 변환 시 계정 불일치로 404 발생)
+  var isDirectStream = v.videoUrl && isStreamUrl(v.videoUrl);
   // HLS URL이면 data-src만 (attachHls가 이후 연결), 일반 MP4면 idx<=1에서 src 직접 세팅
   var vidSrcAttr = (!isHlsSrc && idx <= 1)
     ? 'src="'+esc(vidSrc)+'"'
     : 'data-src="'+esc(vidSrc)+'"';
-  // iframe URL: HLS 오류 시 폴백용 (CF Stream iframe embed)
-  var iframeSrcAttr = v.videoUrl && isStreamUrl(v.videoUrl) ? ' data-iframe-src="'+esc(v.videoUrl)+'"' : '';
+  // iframe URL: Stream URL이면 처음부터 iframe 직접 사용 (HLS fallback 아님)
+  var iframeSrcAttr = isDirectStream ? ' data-iframe-src="'+esc(v.videoUrl)+'"' : '';
+
+  // Stream URL(iframe embed)이면 video 태그 없이 iframe을 바로 렌더링
+  var videoOrIframe = isDirectStream
+    ? '<iframe id="vid'+idx+'" class="stream-iframe" src="'+esc(v.videoUrl)+'?autoplay=true&muted=true&loop=true&controls=false&preload=auto" allow="autoplay; fullscreen" allowfullscreen style="position:absolute;inset:0;width:100%;height:100%;border:none;z-index:1;touch-action:pan-y;pointer-events:none"></iframe>'
+    : '<video id="vid'+idx+'" loop muted playsinline preload="'+vidPreload+'" poster="'+esc(thumb)+'" '+vidSrcAttr+iframeSrcAttr+'></video>';
 
   s.innerHTML =
     (thumb ? '<img class="bg-img" src="'+esc(thumb)+'" alt="'+esc(v.title||shop.name||'')+'" loading="'+imgLoading+'" decoding="async"'+imgPriority+' onload="imgLoaded(this)" onerror="imgLoaded(this)">' : '<div class="bg-img loaded" style="background:linear-gradient(135deg,#1a0a14 0%,#1c0e22 40%,#0f0816 100%)"></div>') +
-    '<video id="vid'+idx+'" loop muted playsinline preload="'+vidPreload+'" poster="'+esc(thumb)+'" '+vidSrcAttr+iframeSrcAttr+'></video>' +
+    videoOrIframe +
     '<div id="playic'+idx+'" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:4;width:56px;height:56px;border-radius:50%;background:rgba(0,0,0,.55);align-items:center;justify-content:center;pointer-events:none;backdrop-filter:blur(4px)"><i class="fas fa-pause" style="font-size:20px;color:#fff"></i></div>' +
     '<div id="bufic'+idx+'" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:5;pointer-events:none"><div style="width:40px;height:40px;border:3px solid rgba(255,255,255,.15);border-top-color:rgba(255,255,255,.8);border-radius:50%;animation:spin .7s linear infinite"></div></div>' +
     '<div class="ov"></div>' +
@@ -20026,11 +20033,26 @@ function buildSlide(v, idx) {
     feed.appendChild(cfCard);
   }
 
-  (function(vid, vidIdx, shopData) {
+  (function(vid, vidIdx, shopData, _isStream) {
     var ve     = document.getElementById('vid'+vidIdx);
     var ov     = s.querySelector('.ov');
     var playIc = document.getElementById('playic'+vidIdx);
     var bufIc  = document.getElementById('bufic'+vidIdx);
+
+    // Stream iframe: video 이벤트 불필요, 스피너 즉시 숨김, ov 클릭만 처리
+    if(_isStream) {
+      if(bufIc) bufIc.style.display = 'none';
+      if(playIc) playIc.style.display = 'none';
+      if(ov) {
+        ov.addEventListener('click', function(e){
+          e.stopPropagation();
+          // iframe은 직접 제어 불가 — ov 클릭 시 아무 동작 없음 (재생은 자동)
+        });
+      }
+      var infoEl2 = s.querySelector('.info');
+      if(infoEl2) infoEl2.addEventListener('click', function(e){ e.stopPropagation(); });
+      return;
+    }
 
     if(ve) {
       // data-src는 항상 세팅 (오류 시 재시도 참조용)
@@ -20195,7 +20217,7 @@ function buildSlide(v, idx) {
         }
       });
     }
-  })(v, idx, shop);
+  })(v, idx, shop, isDirectStream);
 }
 
 // ── HLS.js 초기화: m3u8 URL을 <video>에 연결 ──
@@ -20320,6 +20342,8 @@ function preloadNext(idx){
 
 function _playVid(vid, bufIc){
   if(!vid) return;
+  // Stream iframe은 autoplay URL로 이미 재생됨 → video API 호출 불필요
+  if(vid.tagName === 'IFRAME') return;
   vid.muted = isMuted;
 
   // src 미세팅이면 지금 세팅 + 명시적 load() 호출
@@ -20440,7 +20464,7 @@ function setupObs(){
         // 이전 슬라이드 정지
         if(_curIdx >= 0){
           var prevVid = document.getElementById('vid'+_curIdx);
-          if(prevVid && !prevVid.paused){ prevVid.pause(); }
+          if(prevVid && prevVid.tagName !== 'IFRAME' && !prevVid.paused){ prevVid.pause(); }
         }
 
         // GA4 추적
@@ -20478,7 +20502,7 @@ function setupObs(){
 
       } else {
         // 화면 밖 → 정지 + 스피너 제거
-        if(vid && !vid.paused){ vid.pause(); }
+        if(vid && vid.tagName !== 'IFRAME' && !vid.paused){ vid.pause(); }
         if(bufIc) bufIc.style.display = 'none';
       }
     });
