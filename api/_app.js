@@ -8221,6 +8221,35 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 .sp-float{position:fixed;bottom:0;left:0;right:0;z-index:100;padding:10px 16px 12px;background:linear-gradient(to top,rgba(8,8,14,.98) 60%,transparent);padding-bottom:calc(10px + env(safe-area-inset-bottom))}
 .sp-float a{display:flex;align-items:center;justify-content:center;gap:10px;padding:15px;background:linear-gradient(135deg,#25D366,#0EA855);border-radius:14px;color:#fff;font-size:16px;font-weight:800;text-decoration:none;box-shadow:0 4px 20px rgba(37,211,102,.4);min-height:52px}
 @media(min-width:600px){.sp-float{left:50%;right:auto;width:560px;transform:translateX(-50%);background:none;padding:0 0 20px}}
+/* \u2500\u2500 PC 2\uCEEC\uB7FC \uB808\uC774\uC544\uC6C3 (900px+) \u2500\u2500 */
+@media(min-width:900px){
+  .sp-hero{max-width:100%;height:420px}
+  .sp-gallery{max-width:100%}
+  body>.sp-float{display:none}
+  .sp-pc-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:32px;max-width:1160px;margin:0 auto;padding:24px 32px 80px;align-items:start}
+  .sp-pc-main{min-width:0}
+  .sp-pc-sidebar{position:sticky;top:80px;display:flex;flex-direction:column;gap:16px}
+  .sp-wrap{display:none}
+}
+@media(max-width:899px){
+  .sp-pc-layout{display:none}
+}
+/* PC \uC0AC\uC774\uB4DC\uBC14 \uCE74\uB4DC */
+.sp-sidebar-book{background:linear-gradient(135deg,rgba(37,211,102,.12),rgba(14,168,85,.06));border:1px solid rgba(37,211,102,.3);border-radius:20px;padding:22px 20px;text-align:center}
+.sp-sidebar-book-title{font-size:13px;font-weight:800;color:rgba(255,255,255,.5);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px}
+.sp-sidebar-book-name{font-size:18px;font-weight:800;color:#fff;margin-bottom:4px;line-height:1.3}
+.sp-sidebar-book-cat{font-size:12px;color:rgba(255,255,255,.45);margin-bottom:18px}
+.sp-sidebar-wa{display:flex;align-items:center;justify-content:center;gap:10px;padding:16px;background:linear-gradient(135deg,#25D366,#0EA855);border-radius:14px;color:#fff;font-size:15px;font-weight:800;text-decoration:none;box-shadow:0 6px 24px rgba(37,211,102,.35);transition:opacity .2s;width:100%;box-sizing:border-box}
+.sp-sidebar-wa:hover{opacity:.88}
+.sp-sidebar-map-btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px;background:linear-gradient(135deg,rgba(66,133,244,.18),rgba(52,168,83,.12));border:1px solid rgba(66,133,244,.35);border-radius:14px;color:#93c5fd;font-size:14px;font-weight:700;text-decoration:none;transition:opacity .2s;margin-top:10px;width:100%;box-sizing:border-box}
+.sp-sidebar-map-btn:hover{opacity:.8}
+.sp-sidebar-info{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:18px 16px}
+.sp-sidebar-info-row{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px;color:rgba(255,255,255,.72)}
+.sp-sidebar-info-row:last-child{border-bottom:none;padding-bottom:0}
+.sp-sidebar-info-icon{width:28px;height:28px;border-radius:8px;background:rgba(232,65,122,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sp-sidebar-info-icon i{color:var(--pk);font-size:11px}
+.sp-sidebar-info-label{font-size:10px;color:rgba(255,255,255,.35);font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-bottom:2px}
+.sp-sidebar-info-val{font-size:13px;color:rgba(255,255,255,.82);font-weight:600}
 /* REVIEWS \u2014 \uC0C1\uC138\uD398\uC774\uC9C0 & \uBAA8\uB2EC \uACF5\uD1B5 */
 .sp-reviews-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
 .sp-reviews-score{display:flex;align-items:center;gap:10px}
@@ -8674,6 +8703,111 @@ ${(() => {
   </div>
 
   <div style="height:100px"></div>
+</div>
+
+
+<!-- \u2500\u2500 PC 2\uCEEC\uB7FC \uB808\uC774\uC544\uC6C3 (900px \uC774\uC0C1\uC5D0\uC11C\uB9CC \uD45C\uC2DC) \u2500\u2500 -->
+<div class="sp-pc-layout">
+  <!-- \uC67C\uCABD \uBA54\uC778 -->
+  <div class="sp-pc-main">
+    ${(() => {
+      const _pcAbout = shop.description ? `
+      <div class="sp-about-box" style="margin-bottom:24px">
+        <div class="sp-about-head">
+          <div class="sp-about-icon"><i class="fas fa-star"></i></div>
+          <div class="sp-about-title">About ${shop.name}</div>
+        </div>
+        <p class="sp-about-text">${shop.description}</p>
+        <div class="sp-about-tags">
+          <span class="sp-about-tag tag-en"><i class="fas fa-language" style="font-size:9px;margin-right:3px"></i>English Friendly</span>
+          <span class="sp-about-tag tag-trust"><i class="fas fa-check-circle" style="font-size:9px;margin-right:3px"></i>Verified</span>
+          <span class="sp-about-tag tag-intl"><i class="fas fa-globe" style="font-size:9px;margin-right:3px"></i>Foreigner Welcome</span>
+        </div>
+      </div>` : "";
+      const _pcWhyHtml = Array.isArray(shop.whyChoose) && shop.whyChoose.length ? `<div class="sp-sec" style="margin-bottom:24px">
+          <div class="sp-sec-title"><i class="fas fa-thumbs-up"></i> Why Choose ${shop.name}</div>
+          <div class="sp-why-list">${shop.whyChoose.slice(0, 6).map((w) => `<div class="sp-why-item"><i class="fas fa-check-circle sp-why-icon"></i><span class="sp-why-text">${w}</span></div>`).join("")}</div>
+        </div>` : "";
+      const _pcSvcHtml = Array.isArray(shop.services) && shop.services.length ? `<div class="sp-sec" style="margin-bottom:24px">
+          <div class="sp-sec-title"><i class="fas fa-sparkles"></i> Services</div>
+          <div class="sp-svc-tags">${shop.services.map((s) => `<span class="sp-svc-tag"><i class="fas fa-circle-dot"></i>${s}</span>`).join("")}</div>
+        </div>` : "";
+      const _pcPriceHtml = Array.isArray(shop.servicePrices) && shop.servicePrices.length ? `<div class="sp-sec" style="margin-bottom:24px">
+          <div class="sp-sec-title"><i class="fas fa-tag"></i> Price Guide</div>
+          <div class="sp-price-list">${shop.servicePrices.slice(0, 8).map((p) => `<div class="sp-price-item"><span class="sp-price-name">${p.name || p}</span><span class="sp-price-val">${p.price || ""}</span></div>`).join("")}</div>
+        </div>` : "";
+      const _pcReviews = Array.isArray(shop.reviews) && shop.reviews.length ? `<div class="sp-sec" style="margin-bottom:24px">
+          <div class="sp-reviews-header">
+            <div class="sp-reviews-score">
+              <div class="sp-reviews-big-num">${shop.rating}</div>
+              <div class="sp-reviews-score-right">
+                <div class="sp-reviews-stars-row">${Array.from({ length: 5 }, (_, i) => `<span style="color:${i < Math.round(Number(shop.rating || 5)) ? "#fbbf24" : "rgba(255,255,255,.2)"}">\u2605</span>`).join("")}</div>
+                <div class="sp-reviews-total">${shop.reviewCount}+ reviews</div>
+              </div>
+            </div>
+          </div>
+          <div class="sp-reviews-wrap">${shop.reviews.slice(0, 4).map((r) => `
+            <div class="sp-review-card">
+              <div class="sp-review-avatar" style="background:linear-gradient(135deg,#FF4D8D,#9B59B6)">${(r.author || r.name || "?").charAt(0).toUpperCase()}</div>
+              <div class="sp-review-body">
+                <div class="sp-review-top">
+                  <span class="sp-review-author">${r.author || r.name || "Visitor"}</span>
+                  <span class="sp-review-stars">${"\u2605".repeat(Math.min(5, Number(r.rating || 5)))}</span>
+                </div>
+                <div class="sp-review-text">${(r.text || r.content || "").slice(0, 200)}${(r.text || r.content || "").length > 200 ? "\u2026" : ""}</div>
+              </div>
+            </div>`).join("")}</div>
+        </div>` : "";
+      const _pcSeoHtml = shop.seoText ? `<div class="sp-seo-block" style="margin-bottom:24px">
+          <div class="sp-seo-block-head"><i class="fas fa-book-open"></i><span>About ${shop.category} in ${(shop.location || "Seoul").split(",")[0]}</span></div>
+          ${shop.seoText}
+        </div>` : "";
+      const _pcMapHtml = shop.googleMapEmbed ? `<div class="sp-sec" style="margin-bottom:24px">
+          <div class="sp-sec-title"><i class="fas fa-map-marker-alt"></i> Location</div>
+          ${shop.address ? `<div class="sp-addr-row" style="margin-bottom:12px"><i class="fas fa-location-dot"></i><span>${shop.address}</span></div>` : ""}
+          <div class="sp-map"><iframe src="${shop.googleMapEmbed}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="${shop.name} map"></iframe></div>
+          ${shop.googleMapUrl ? `<a href="${shop.googleMapUrl}" target="_blank" class="sp-map-link"><i class="fas fa-directions"></i> Get Directions on Google Maps</a>` : ""}
+        </div>` : shop.address ? `<div class="sp-addr-row" style="margin-bottom:24px"><i class="fas fa-location-dot"></i><span>${shop.address}</span></div>` : "";
+      return _pcAbout + _pcWhyHtml + _pcSvcHtml + _pcPriceHtml + _pcReviews + _pcSeoHtml + _pcMapHtml;
+    })()}
+  </div>
+  <!-- \uC624\uB978\uCABD \uC0AC\uC774\uB4DC\uBC14 -->
+  <div class="sp-pc-sidebar">
+    <div class="sp-sidebar-book">
+      <div class="sp-sidebar-book-title">Book Now</div>
+      <div class="sp-sidebar-book-name">${shop.name}</div>
+      <div class="sp-sidebar-book-cat">${_catLabel} \xB7 ${_areaFinal}, Seoul</div>
+      <a href="${waUrl}" target="_blank" rel="noopener" class="sp-sidebar-wa" onclick="(function(){
+        var sn='${shop.name.replace(/'/g, "\\'").replace(/"/g, "&quot;")}';
+        var sc='${shop.category}';
+        var si='${shop.id}';
+        if(typeof gtag==='function')gtag('event','whatsapp_click',{event_category:'conversion',event_label:sn,shop_name:sn,shop_category:sc,page_location:window.location.href});
+        if(typeof _sbSend==='function')_sbSend('book_click',{shop_id:si,shop_name:sn,shop_category:sc,target:'whatsapp_sidebar'});
+      })()">
+        <i class="fab fa-whatsapp" style="font-size:20px"></i> Book via WhatsApp
+      </a>
+      ${shop.googleMapUrl ? `<a href="${shop.googleMapUrl}" target="_blank" rel="noopener" class="sp-sidebar-map-btn"><i class="fas fa-map-marker-alt"></i> View on Google Maps</a>` : ""}
+      <p style="font-size:11px;color:rgba(255,255,255,.35);margin:12px 0 0;line-height:1.6">Free booking \xB7 English support<br>No hidden fees</p>
+    </div>
+    <div class="sp-sidebar-info">
+      ${shop.rating && shop.reviewCount ? `<div class="sp-sidebar-info-row">
+        <div class="sp-sidebar-info-icon"><i class="fas fa-star"></i></div>
+        <div><div class="sp-sidebar-info-label">Rating</div><div class="sp-sidebar-info-val" style="color:#fbbf24">${shop.rating} / 5 <span style="color:rgba(255,255,255,.4);font-size:12px">(${shop.reviewCount}+)</span></div></div>
+      </div>` : ""}
+      ${shop.location ? `<div class="sp-sidebar-info-row">
+        <div class="sp-sidebar-info-icon"><i class="fas fa-map-marker-alt"></i></div>
+        <div><div class="sp-sidebar-info-label">Location</div><div class="sp-sidebar-info-val">${shop.location.includes("Seoul") ? shop.location : shop.location + ", Seoul"}</div></div>
+      </div>` : ""}
+      ${shop.hours ? `<div class="sp-sidebar-info-row">
+        <div class="sp-sidebar-info-icon"><i class="fas fa-clock"></i></div>
+        <div><div class="sp-sidebar-info-label">Hours</div><div class="sp-sidebar-info-val" style="font-size:12px;font-weight:500;white-space:pre-line">${shop.hours}</div></div>
+      </div>` : ""}
+      ${shop.priceRange ? `<div class="sp-sidebar-info-row">
+        <div class="sp-sidebar-info-icon"><i class="fas fa-won-sign"></i></div>
+        <div><div class="sp-sidebar-info-label">Price Range</div><div class="sp-sidebar-info-val">${shop.priceRange}</div></div>
+      </div>` : ""}
+    </div>
+  </div>
 </div>
 
 <div class="sp-float">
@@ -11341,6 +11475,35 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 .sp-float{position:fixed;bottom:0;left:0;right:0;z-index:100;padding:10px 16px 12px;background:linear-gradient(to top,rgba(8,8,14,.98) 60%,transparent);padding-bottom:calc(10px + env(safe-area-inset-bottom))}
 .sp-float a{display:flex;align-items:center;justify-content:center;gap:10px;padding:15px;background:linear-gradient(135deg,#25D366,#0EA855);border-radius:14px;color:#fff;font-size:16px;font-weight:800;text-decoration:none;box-shadow:0 4px 20px rgba(37,211,102,.4);min-height:52px}
 @media(min-width:600px){.sp-float{left:50%;right:auto;width:560px;transform:translateX(-50%);background:none;padding:0 0 20px}}
+/* \u2500\u2500 PC 2\uCEEC\uB7FC \uB808\uC774\uC544\uC6C3 (900px+) \u2500\u2500 */
+@media(min-width:900px){
+  .sp-hero{max-width:100%;height:420px}
+  .sp-gallery{max-width:100%}
+  body>.sp-float{display:none}
+  .sp-pc-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:32px;max-width:1160px;margin:0 auto;padding:24px 32px 80px;align-items:start}
+  .sp-pc-main{min-width:0}
+  .sp-pc-sidebar{position:sticky;top:80px;display:flex;flex-direction:column;gap:16px}
+  .sp-wrap{display:none}
+}
+@media(max-width:899px){
+  .sp-pc-layout{display:none}
+}
+/* PC \uC0AC\uC774\uB4DC\uBC14 \uCE74\uB4DC */
+.sp-sidebar-book{background:linear-gradient(135deg,rgba(37,211,102,.12),rgba(14,168,85,.06));border:1px solid rgba(37,211,102,.3);border-radius:20px;padding:22px 20px;text-align:center}
+.sp-sidebar-book-title{font-size:13px;font-weight:800;color:rgba(255,255,255,.5);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px}
+.sp-sidebar-book-name{font-size:18px;font-weight:800;color:#fff;margin-bottom:4px;line-height:1.3}
+.sp-sidebar-book-cat{font-size:12px;color:rgba(255,255,255,.45);margin-bottom:18px}
+.sp-sidebar-wa{display:flex;align-items:center;justify-content:center;gap:10px;padding:16px;background:linear-gradient(135deg,#25D366,#0EA855);border-radius:14px;color:#fff;font-size:15px;font-weight:800;text-decoration:none;box-shadow:0 6px 24px rgba(37,211,102,.35);transition:opacity .2s;width:100%;box-sizing:border-box}
+.sp-sidebar-wa:hover{opacity:.88}
+.sp-sidebar-map-btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px;background:linear-gradient(135deg,rgba(66,133,244,.18),rgba(52,168,83,.12));border:1px solid rgba(66,133,244,.35);border-radius:14px;color:#93c5fd;font-size:14px;font-weight:700;text-decoration:none;transition:opacity .2s;margin-top:10px;width:100%;box-sizing:border-box}
+.sp-sidebar-map-btn:hover{opacity:.8}
+.sp-sidebar-info{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:18px 16px}
+.sp-sidebar-info-row{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px;color:rgba(255,255,255,.72)}
+.sp-sidebar-info-row:last-child{border-bottom:none;padding-bottom:0}
+.sp-sidebar-info-icon{width:28px;height:28px;border-radius:8px;background:rgba(232,65,122,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sp-sidebar-info-icon i{color:var(--pk);font-size:11px}
+.sp-sidebar-info-label{font-size:10px;color:rgba(255,255,255,.35);font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-bottom:2px}
+.sp-sidebar-info-val{font-size:13px;color:rgba(255,255,255,.82);font-weight:600}
 /* REVIEWS \u2014 \uC0C1\uC138\uD398\uC774\uC9C0 & \uBAA8\uB2EC \uACF5\uD1B5 */
 .sp-reviews-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
 .sp-reviews-score{display:flex;align-items:center;gap:10px}
@@ -11794,6 +11957,111 @@ ${(() => {
   </div>
 
   <div style="height:100px"></div>
+</div>
+
+
+<!-- \u2500\u2500 PC 2\uCEEC\uB7FC \uB808\uC774\uC544\uC6C3 (900px \uC774\uC0C1\uC5D0\uC11C\uB9CC \uD45C\uC2DC) \u2500\u2500 -->
+<div class="sp-pc-layout">
+  <!-- \uC67C\uCABD \uBA54\uC778 -->
+  <div class="sp-pc-main">
+    ${(() => {
+      const _pcAbout = shop.description ? `
+      <div class="sp-about-box" style="margin-bottom:24px">
+        <div class="sp-about-head">
+          <div class="sp-about-icon"><i class="fas fa-star"></i></div>
+          <div class="sp-about-title">About ${shop.name}</div>
+        </div>
+        <p class="sp-about-text">${shop.description}</p>
+        <div class="sp-about-tags">
+          <span class="sp-about-tag tag-en"><i class="fas fa-language" style="font-size:9px;margin-right:3px"></i>English Friendly</span>
+          <span class="sp-about-tag tag-trust"><i class="fas fa-check-circle" style="font-size:9px;margin-right:3px"></i>Verified</span>
+          <span class="sp-about-tag tag-intl"><i class="fas fa-globe" style="font-size:9px;margin-right:3px"></i>Foreigner Welcome</span>
+        </div>
+      </div>` : "";
+      const _pcWhyHtml = Array.isArray(shop.whyChoose) && shop.whyChoose.length ? `<div class="sp-sec" style="margin-bottom:24px">
+          <div class="sp-sec-title"><i class="fas fa-thumbs-up"></i> Why Choose ${shop.name}</div>
+          <div class="sp-why-list">${shop.whyChoose.slice(0, 6).map((w) => `<div class="sp-why-item"><i class="fas fa-check-circle sp-why-icon"></i><span class="sp-why-text">${w}</span></div>`).join("")}</div>
+        </div>` : "";
+      const _pcSvcHtml = Array.isArray(shop.services) && shop.services.length ? `<div class="sp-sec" style="margin-bottom:24px">
+          <div class="sp-sec-title"><i class="fas fa-sparkles"></i> Services</div>
+          <div class="sp-svc-tags">${shop.services.map((s) => `<span class="sp-svc-tag"><i class="fas fa-circle-dot"></i>${s}</span>`).join("")}</div>
+        </div>` : "";
+      const _pcPriceHtml = Array.isArray(shop.servicePrices) && shop.servicePrices.length ? `<div class="sp-sec" style="margin-bottom:24px">
+          <div class="sp-sec-title"><i class="fas fa-tag"></i> Price Guide</div>
+          <div class="sp-price-list">${shop.servicePrices.slice(0, 8).map((p) => `<div class="sp-price-item"><span class="sp-price-name">${p.name || p}</span><span class="sp-price-val">${p.price || ""}</span></div>`).join("")}</div>
+        </div>` : "";
+      const _pcReviews = Array.isArray(shop.reviews) && shop.reviews.length ? `<div class="sp-sec" style="margin-bottom:24px">
+          <div class="sp-reviews-header">
+            <div class="sp-reviews-score">
+              <div class="sp-reviews-big-num">${shop.rating}</div>
+              <div class="sp-reviews-score-right">
+                <div class="sp-reviews-stars-row">${Array.from({ length: 5 }, (_, i) => `<span style="color:${i < Math.round(Number(shop.rating || 5)) ? "#fbbf24" : "rgba(255,255,255,.2)"}">\u2605</span>`).join("")}</div>
+                <div class="sp-reviews-total">${shop.reviewCount}+ reviews</div>
+              </div>
+            </div>
+          </div>
+          <div class="sp-reviews-wrap">${shop.reviews.slice(0, 4).map((r) => `
+            <div class="sp-review-card">
+              <div class="sp-review-avatar" style="background:linear-gradient(135deg,#FF4D8D,#9B59B6)">${(r.author || r.name || "?").charAt(0).toUpperCase()}</div>
+              <div class="sp-review-body">
+                <div class="sp-review-top">
+                  <span class="sp-review-author">${r.author || r.name || "Visitor"}</span>
+                  <span class="sp-review-stars">${"\u2605".repeat(Math.min(5, Number(r.rating || 5)))}</span>
+                </div>
+                <div class="sp-review-text">${(r.text || r.content || "").slice(0, 200)}${(r.text || r.content || "").length > 200 ? "\u2026" : ""}</div>
+              </div>
+            </div>`).join("")}</div>
+        </div>` : "";
+      const _pcSeoHtml = shop.seoText ? `<div class="sp-seo-block" style="margin-bottom:24px">
+          <div class="sp-seo-block-head"><i class="fas fa-book-open"></i><span>About ${shop.category} in ${(shop.location || "Seoul").split(",")[0]}</span></div>
+          ${shop.seoText}
+        </div>` : "";
+      const _pcMapHtml = shop.googleMapEmbed ? `<div class="sp-sec" style="margin-bottom:24px">
+          <div class="sp-sec-title"><i class="fas fa-map-marker-alt"></i> Location</div>
+          ${shop.address ? `<div class="sp-addr-row" style="margin-bottom:12px"><i class="fas fa-location-dot"></i><span>${shop.address}</span></div>` : ""}
+          <div class="sp-map"><iframe src="${shop.googleMapEmbed}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="${shop.name} map"></iframe></div>
+          ${shop.googleMapUrl ? `<a href="${shop.googleMapUrl}" target="_blank" class="sp-map-link"><i class="fas fa-directions"></i> Get Directions on Google Maps</a>` : ""}
+        </div>` : shop.address ? `<div class="sp-addr-row" style="margin-bottom:24px"><i class="fas fa-location-dot"></i><span>${shop.address}</span></div>` : "";
+      return _pcAbout + _pcWhyHtml + _pcSvcHtml + _pcPriceHtml + _pcReviews + _pcSeoHtml + _pcMapHtml;
+    })()}
+  </div>
+  <!-- \uC624\uB978\uCABD \uC0AC\uC774\uB4DC\uBC14 -->
+  <div class="sp-pc-sidebar">
+    <div class="sp-sidebar-book">
+      <div class="sp-sidebar-book-title">Book Now</div>
+      <div class="sp-sidebar-book-name">${shop.name}</div>
+      <div class="sp-sidebar-book-cat">${_catLabel} \xB7 ${_areaFinal}, Seoul</div>
+      <a href="${waUrl}" target="_blank" rel="noopener" class="sp-sidebar-wa" onclick="(function(){
+        var sn='${shop.name.replace(/'/g, "\\'").replace(/"/g, "&quot;")}';
+        var sc='${shop.category}';
+        var si='${shop.id}';
+        if(typeof gtag==='function')gtag('event','whatsapp_click',{event_category:'conversion',event_label:sn,shop_name:sn,shop_category:sc,page_location:window.location.href});
+        if(typeof _sbSend==='function')_sbSend('book_click',{shop_id:si,shop_name:sn,shop_category:sc,target:'whatsapp_sidebar'});
+      })()">
+        <i class="fab fa-whatsapp" style="font-size:20px"></i> Book via WhatsApp
+      </a>
+      ${shop.googleMapUrl ? `<a href="${shop.googleMapUrl}" target="_blank" rel="noopener" class="sp-sidebar-map-btn"><i class="fas fa-map-marker-alt"></i> View on Google Maps</a>` : ""}
+      <p style="font-size:11px;color:rgba(255,255,255,.35);margin:12px 0 0;line-height:1.6">Free booking \xB7 English support<br>No hidden fees</p>
+    </div>
+    <div class="sp-sidebar-info">
+      ${shop.rating && shop.reviewCount ? `<div class="sp-sidebar-info-row">
+        <div class="sp-sidebar-info-icon"><i class="fas fa-star"></i></div>
+        <div><div class="sp-sidebar-info-label">Rating</div><div class="sp-sidebar-info-val" style="color:#fbbf24">${shop.rating} / 5 <span style="color:rgba(255,255,255,.4);font-size:12px">(${shop.reviewCount}+)</span></div></div>
+      </div>` : ""}
+      ${shop.location ? `<div class="sp-sidebar-info-row">
+        <div class="sp-sidebar-info-icon"><i class="fas fa-map-marker-alt"></i></div>
+        <div><div class="sp-sidebar-info-label">Location</div><div class="sp-sidebar-info-val">${shop.location.includes("Seoul") ? shop.location : shop.location + ", Seoul"}</div></div>
+      </div>` : ""}
+      ${shop.hours ? `<div class="sp-sidebar-info-row">
+        <div class="sp-sidebar-info-icon"><i class="fas fa-clock"></i></div>
+        <div><div class="sp-sidebar-info-label">Hours</div><div class="sp-sidebar-info-val" style="font-size:12px;font-weight:500;white-space:pre-line">${shop.hours}</div></div>
+      </div>` : ""}
+      ${shop.priceRange ? `<div class="sp-sidebar-info-row">
+        <div class="sp-sidebar-info-icon"><i class="fas fa-won-sign"></i></div>
+        <div><div class="sp-sidebar-info-label">Price Range</div><div class="sp-sidebar-info-val">${shop.priceRange}</div></div>
+      </div>` : ""}
+    </div>
+  </div>
 </div>
 
 <div class="sp-float">
