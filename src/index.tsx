@@ -19538,7 +19538,8 @@ function _checkLdReady() {
     if(_ds0chk.includes('.m3u8')) { attachHls(v0, _ds0chk); }
     else { v0.src=_ds0chk; v0.load(); }
   }
-  if(v0 && v0.src) {
+  // HLS 영상이거나 일반 영상 모두 canplay 이벤트로 hideLd 처리
+  if(v0) {
     if(v0.readyState >= 2) { hideLd(); return; }
     var _canPlayFired = false;
     v0.addEventListener('canplay', function() {
@@ -19547,6 +19548,12 @@ function _checkLdReady() {
     v0.addEventListener('canplaythrough', function() {
       if(_canPlayFired) return; _canPlayFired=true; hideLd();
     }, {once:true});
+    // HLS: MANIFEST_PARSED 이벤트로도 hideLd (src가 없어도 재생 준비 완료 감지)
+    if(v0._hls) {
+      v0._hls.on(window.Hls.Events.MANIFEST_PARSED, function() {
+        if(_canPlayFired) return; _canPlayFired=true; hideLd();
+      });
+    }
   }
   if(!_ldFallbackTimer) { _ldFallbackTimer = setTimeout(function(){ hideLd(); }, 3000); }
 }
@@ -19886,12 +19893,14 @@ function buildSlide(v, idx) {
 
     if(ve) {
       // data-src는 항상 세팅 (오류 시 재시도 참조용)
-      var _vidUrl = esc(cdnVideo(v.videoUrl, vidIdx === 0, v));
+      // ⚠️ attachHls()에 전달할 URL은 esc() 미적용 원본 URL 사용 (HTML 인코딩 방지)
+      var _rawVidUrl = cdnVideo(v.videoUrl, vidIdx === 0, v);
+      var _vidUrl = esc(_rawVidUrl);
       ve.setAttribute('data-src', _vidUrl);
       // HLS m3u8 URL이고 idx<=1이면 즉시 attachHls() 호출 (src 직접 세팅 불가)
-      if(vidIdx <= 1 && _vidUrl.includes('.m3u8') && !ve.src) {
+      if(vidIdx <= 1 && _rawVidUrl && _rawVidUrl.includes('.m3u8') && !ve.src) {
         ve.preload = vidIdx === 0 ? 'auto' : 'metadata';
-        attachHls(ve, _vidUrl);
+        attachHls(ve, _rawVidUrl);
       }
 
       // ── 버퍼링 스피너 제어 ──
@@ -20043,11 +20052,20 @@ function buildSlide(v, idx) {
 // ── HLS.js 초기화: m3u8 URL을 <video>에 연결 ──
 function attachHls(vid, hlsUrl) {
   if(!vid || !hlsUrl) return;
+  // 이미 동일한 URL로 HLS 인스턴스 있으면 중복 생성 방지
+  if(vid._hls && vid._hlsUrl === hlsUrl) return;
+  // 기존 인스턴스 정리
+  if(vid._hls) { try{ vid._hls.destroy(); }catch(e){} vid._hls = null; }
   if(vid.canPlayType('application/vnd.apple.mpegurl')) {
     // Safari/iOS: 네이티브 HLS 지원
     vid.src = hlsUrl;
   } else if(window.Hls && window.Hls.isSupported()) {
-    var hls = new window.Hls({ startLevel: -1, autoStartLoad: true });
+    var hls = new window.Hls({
+      startLevel: -1,
+      autoStartLoad: true,
+      maxMaxBufferLength: 30,
+      enableWorker: true
+    });
     hls.loadSource(hlsUrl);
     hls.attachMedia(vid);
     hls.on(window.Hls.Events.ERROR, function(event, data) {
@@ -20057,20 +20075,26 @@ function attachHls(vid, hlsUrl) {
         if(iframeUrl) {
           var slide = vid.closest('.slide');
           if(slide) {
-            var iframe = document.createElement('iframe');
-            iframe.src = iframeUrl;
-            iframe.allow = 'autoplay; fullscreen';
-            iframe.setAttribute('allowfullscreen', '');
-            iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none;z-index:2;';
-            slide.appendChild(iframe);
-            vid.style.display = 'none';
+            // 이미 iframe이 있으면 중복 추가 방지
+            if(!slide.querySelector('iframe.hls-fallback')) {
+              var iframe = document.createElement('iframe');
+              iframe.className = 'hls-fallback';
+              iframe.src = iframeUrl;
+              iframe.allow = 'autoplay; fullscreen';
+              iframe.setAttribute('allowfullscreen', '');
+              iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none;z-index:2;';
+              slide.appendChild(iframe);
+              vid.style.display = 'none';
+            }
           }
         }
-        hls.destroy();
+        try{ hls.destroy(); }catch(e){}
         vid._hls = null;
+        vid._hlsUrl = null;
       }
     });
     vid._hls = hls;
+    vid._hlsUrl = hlsUrl;
   } else {
     // fallback: 직접 src 세팅 시도
     vid.src = hlsUrl;
