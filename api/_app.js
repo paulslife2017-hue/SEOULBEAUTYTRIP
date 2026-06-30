@@ -21873,12 +21873,21 @@ window.toggleMute=function(){
   // \uC77C\uBC18 video \uD0DC\uADF8 \uC74C\uC18C\uAC70 \uBC18\uC601
   document.querySelectorAll('video').forEach(function(v){v.muted=isMuted;});
   // Cloudflare Stream iframe: SDK\uB85C muted \uC81C\uC5B4
+  // SDK\uAC00 \uBE44\uB3D9\uAE30 \uCD08\uAE30\uD654\uC774\uBBC0\uB85C canplay \uC774\uD6C4\uC5D0\uB3C4 \uC7AC\uC2DC\uB3C4
   document.querySelectorAll('iframe.stream-iframe').forEach(function(f){
-    try{
-      // @ts-ignore
-      var player = window.Stream && window.Stream(f);
-      if(player){ player.muted = isMuted; }
-    }catch(e){}
+    function _applyMute(){
+      try{
+        // @ts-ignore
+        var player = window.Stream && window.Stream(f);
+        if(!player) return;
+        player.muted = isMuted;
+        if(!isMuted){ player.volume = 1; }
+      }catch(e){}
+    }
+    _applyMute();
+    // SDK \uCD08\uAE30\uD654 \uC9C0\uC5F0 \uB300\uBE44 \uC7AC\uC2DC\uB3C4 (100ms, 500ms)
+    setTimeout(_applyMute, 100);
+    setTimeout(_applyMute, 500);
   });
 };
 function showToast(msg){

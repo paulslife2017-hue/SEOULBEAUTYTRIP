@@ -21470,12 +21470,21 @@ window.toggleMute=function(){
   // 일반 video 태그 음소거 반영
   document.querySelectorAll('video').forEach(function(v){v.muted=isMuted;});
   // Cloudflare Stream iframe: SDK로 muted 제어
+  // SDK가 비동기 초기화이므로 canplay 이후에도 재시도
   document.querySelectorAll('iframe.stream-iframe').forEach(function(f){
-    try{
-      // @ts-ignore
-      var player = window.Stream && window.Stream(f);
-      if(player){ player.muted = isMuted; }
-    }catch(e){}
+    function _applyMute(){
+      try{
+        // @ts-ignore
+        var player = window.Stream && window.Stream(f);
+        if(!player) return;
+        player.muted = isMuted;
+        if(!isMuted){ player.volume = 1; }
+      }catch(e){}
+    }
+    _applyMute();
+    // SDK 초기화 지연 대비 재시도 (100ms, 500ms)
+    setTimeout(_applyMute, 100);
+    setTimeout(_applyMute, 500);
   });
 };
 function showToast(msg){
