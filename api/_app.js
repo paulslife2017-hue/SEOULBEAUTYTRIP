@@ -3528,8 +3528,8 @@ app.get("/api/upload-sign-image", async (c) => {
 });
 app.post("/api/stream-upload-url", async (c) => {
   try {
-    const CF_ACCOUNT = c.env?.CF_STREAM_ACCOUNT || "";
-    const CF_TOKEN = c.env?.CF_STREAM_TOKEN || "";
+    const CF_ACCOUNT = c.env?.CF_STREAM_ACCOUNT || (typeof process !== "undefined" ? process.env.CF_STREAM_ACCOUNT : "") || "";
+    const CF_TOKEN = c.env?.CF_STREAM_TOKEN || (typeof process !== "undefined" ? process.env.CF_STREAM_TOKEN : "") || "";
     if (!CF_ACCOUNT || !CF_TOKEN) return c.json({ error: "Stream \uD658\uACBD\uBCC0\uC218 \uBBF8\uC124\uC815" }, 500);
     const { fileSize, fileName } = await c.req.json();
     if (!fileSize || !fileName) return c.json({ error: "fileSize, fileName \uD544\uC218" }, 400);

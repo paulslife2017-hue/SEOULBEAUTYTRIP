@@ -1431,11 +1431,15 @@ app.get('/api/upload-sign-image', async (c) => {
 
 // ── Cloudflare Stream TUS 업로드 URL 발급 ──
 // 프론트에서 파일 크기+파일명을 보내면 → TUS upload URL + stream media ID 반환
-// CF_STREAM_ACCOUNT / CF_STREAM_TOKEN 은 .dev.vars(로컬) 또는 CF Pages 환경변수(프로덕션)에서 주입
+// CF_STREAM_ACCOUNT / CF_STREAM_TOKEN 은 .dev.vars(로컬) 또는 CF Pages/Vercel 환경변수(프로덕션)에서 주입
 app.post('/api/stream-upload-url', async (c) => {
   try {
-    const CF_ACCOUNT = (c.env as any)?.CF_STREAM_ACCOUNT || ''
-    const CF_TOKEN   = (c.env as any)?.CF_STREAM_TOKEN   || ''
+    const CF_ACCOUNT = (c.env as any)?.CF_STREAM_ACCOUNT
+      || (typeof process !== 'undefined' ? process.env.CF_STREAM_ACCOUNT : '')
+      || ''
+    const CF_TOKEN   = (c.env as any)?.CF_STREAM_TOKEN
+      || (typeof process !== 'undefined' ? process.env.CF_STREAM_TOKEN : '')
+      || ''
     if(!CF_ACCOUNT || !CF_TOKEN) return c.json({ error: 'Stream 환경변수 미설정' }, 500)
     const { fileSize, fileName } = await c.req.json()
     if(!fileSize || !fileName) return c.json({ error: 'fileSize, fileName 필수' }, 400)
