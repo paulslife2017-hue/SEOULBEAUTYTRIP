@@ -1,6 +1,6 @@
 # prod
 dist/
-api/
+# api/ 전체를 git 추적 (Vercel 자동배포: _app.js + index.ts 필요)
 
 # dev
 .yarn/
