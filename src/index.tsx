@@ -21659,8 +21659,8 @@ function _setNavActive(tab) {
   document.querySelectorAll('.pnav-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.tab === tab); });
 }
 
-function switchTab(tab) {
-  if (_activeTab === tab) return;
+function switchTab(tab, _force) {
+  if (!_force && _activeTab === tab) return;
   _activeTab = tab;
   _setNavActive(tab);
   var pcLayout    = document.getElementById('pc-layout');
@@ -21708,6 +21708,8 @@ document.addEventListener('DOMContentLoaded', function() {
   if (vb) vb.style.display = 'none';
   if (vm) vm.style.display = 'none';
   if (va) va.style.display = 'none';
+  // 초기 reels 상태 강제 적용: pc-layout 표시 + hd 표시 + 네비 active
+  switchTab('reels', true);
   document.querySelectorAll('.btab, .pnav-btn').forEach(function(btn) {
     btn.addEventListener('click', function() { switchTab(btn.dataset.tab || 'browse'); });
   });
