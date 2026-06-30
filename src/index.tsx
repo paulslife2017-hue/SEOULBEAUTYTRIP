@@ -19267,7 +19267,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 <!-- PC 사이드 네비 (≥1024px) -->
 <nav id="pc-sidenav" aria-label="Site navigation">
   <div class="pnav-logo"><i class="fas fa-star"></i></div>
-  <button class="pnav-btn" id="pnav-reels" data-tab="reels" aria-label="Home" style="display:none">
+  <button class="pnav-btn" id="pnav-reels" data-tab="reels" aria-label="Home">
     <i class="fas fa-home"></i><span>Home</span>
   </button>
   <button class="pnav-btn active" id="pnav-browse" data-tab="browse" aria-label="Explore">
@@ -19302,7 +19302,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 
 <!-- 하단 탭바 (모바일 전용) -->
 <nav id="bottom-tabs" aria-label="Main navigation">
-  <button class="btab" id="btab-reels" data-tab="reels" aria-label="Home" style="display:none">
+  <button class="btab" id="btab-reels" data-tab="reels" aria-label="Home">
     <i class="fas fa-home"></i><span>Home</span>
   </button>
   <button class="btab active" id="btab-browse" data-tab="browse" aria-label="Explore">
@@ -19480,12 +19480,6 @@ function _checkLdReady() {
   if(!_ldReadyFlags.shops || !_ldReadyFlags.videos) return;
   _injectVideoIntoShops();
 
-  // ── 임시: 홈 영상 비활성화 중 → 스플래시 즉시 숨기고 browse 탭으로 전환 ──
-  // 원복 시: 아래 블록 주석 해제하고 임시 블록 제거
-  hideLd();
-  setTimeout(function(){ switchTab('browse'); }, 50);
-
-  /* [원복 시 주석 해제]
   var v0 = document.getElementById('vid0');
   if(v0 && v0.readyState >= 3) { hideLd(); return; }
   if(v0 && !v0.src && v0.dataset.src) { v0.preload='auto'; v0.src=v0.dataset.src; v0.load(); }
@@ -19500,7 +19494,6 @@ function _checkLdReady() {
     }, {once:true});
   }
   if(!_ldFallbackTimer) { _ldFallbackTimer = setTimeout(function(){ hideLd(); }, 3000); }
-  [원복 끝] */
 }
 
 /* vids 배열에서 shopId 기준으로 영상 정보를 allShopsData에 주입 */
@@ -21686,7 +21679,7 @@ var _TAB_COLORS = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',clinic:'#
 var _TAB_ICONS  = {skincare:'&#127807;',headspa:'&#128134;',hair:'&#9986;',clinic:'&#128137;',makeup:'&#128132;',spa:'&#9992;',tattoo:'&#9999;'};
 
 // ── 탭 상태 전역 변수 ──
-var _activeTab    = 'browse'; // 임시: 홈(reels) 비활성화 — Cloudinary 7월 1일 복구 후 'reels'로 원복
+var _activeTab    = 'reels';
 var _browseBuilt  = false;
 var _mapBuilt     = false;
 var _advisorBuilt = false;

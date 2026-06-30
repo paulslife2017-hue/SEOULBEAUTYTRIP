@@ -19677,7 +19677,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 <!-- PC \uC0AC\uC774\uB4DC \uB124\uBE44 (\u22651024px) -->
 <nav id="pc-sidenav" aria-label="Site navigation">
   <div class="pnav-logo"><i class="fas fa-star"></i></div>
-  <button class="pnav-btn" id="pnav-reels" data-tab="reels" aria-label="Home" style="display:none">
+  <button class="pnav-btn" id="pnav-reels" data-tab="reels" aria-label="Home">
     <i class="fas fa-home"></i><span>Home</span>
   </button>
   <button class="pnav-btn active" id="pnav-browse" data-tab="browse" aria-label="Explore">
@@ -19712,7 +19712,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 
 <!-- \uD558\uB2E8 \uD0ED\uBC14 (\uBAA8\uBC14\uC77C \uC804\uC6A9) -->
 <nav id="bottom-tabs" aria-label="Main navigation">
-  <button class="btab" id="btab-reels" data-tab="reels" aria-label="Home" style="display:none">
+  <button class="btab" id="btab-reels" data-tab="reels" aria-label="Home">
     <i class="fas fa-home"></i><span>Home</span>
   </button>
   <button class="btab active" id="btab-browse" data-tab="browse" aria-label="Explore">
@@ -19890,12 +19890,6 @@ function _checkLdReady() {
   if(!_ldReadyFlags.shops || !_ldReadyFlags.videos) return;
   _injectVideoIntoShops();
 
-  // \u2500\u2500 \uC784\uC2DC: \uD648 \uC601\uC0C1 \uBE44\uD65C\uC131\uD654 \uC911 \u2192 \uC2A4\uD50C\uB798\uC2DC \uC989\uC2DC \uC228\uAE30\uACE0 browse \uD0ED\uC73C\uB85C \uC804\uD658 \u2500\u2500
-  // \uC6D0\uBCF5 \uC2DC: \uC544\uB798 \uBE14\uB85D \uC8FC\uC11D \uD574\uC81C\uD558\uACE0 \uC784\uC2DC \uBE14\uB85D \uC81C\uAC70
-  hideLd();
-  setTimeout(function(){ switchTab('browse'); }, 50);
-
-  /* [\uC6D0\uBCF5 \uC2DC \uC8FC\uC11D \uD574\uC81C]
   var v0 = document.getElementById('vid0');
   if(v0 && v0.readyState >= 3) { hideLd(); return; }
   if(v0 && !v0.src && v0.dataset.src) { v0.preload='auto'; v0.src=v0.dataset.src; v0.load(); }
@@ -19910,7 +19904,6 @@ function _checkLdReady() {
     }, {once:true});
   }
   if(!_ldFallbackTimer) { _ldFallbackTimer = setTimeout(function(){ hideLd(); }, 3000); }
-  [\uC6D0\uBCF5 \uB05D] */
 }
 
 /* vids \uBC30\uC5F4\uC5D0\uC11C shopId \uAE30\uC900\uC73C\uB85C \uC601\uC0C1 \uC815\uBCF4\uB97C allShopsData\uC5D0 \uC8FC\uC785 */
@@ -22096,7 +22089,7 @@ var _TAB_COLORS = {skincare:'#f472b6',headspa:'#67e8f9',hair:'#60a5fa',clinic:'#
 var _TAB_ICONS  = {skincare:'&#127807;',headspa:'&#128134;',hair:'&#9986;',clinic:'&#128137;',makeup:'&#128132;',spa:'&#9992;',tattoo:'&#9999;'};
 
 // \u2500\u2500 \uD0ED \uC0C1\uD0DC \uC804\uC5ED \uBCC0\uC218 \u2500\u2500
-var _activeTab    = 'browse'; // \uC784\uC2DC: \uD648(reels) \uBE44\uD65C\uC131\uD654 \u2014 Cloudinary 7\uC6D4 1\uC77C \uBCF5\uAD6C \uD6C4 'reels'\uB85C \uC6D0\uBCF5
+var _activeTab    = 'reels';
 var _browseBuilt  = false;
 var _mapBuilt     = false;
 var _advisorBuilt = false;
