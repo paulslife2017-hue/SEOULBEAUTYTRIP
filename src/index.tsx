@@ -7045,7 +7045,7 @@ ${(()=>{
       let displayTitle = (v.title||'').trim();
       if(!displayTitle || displayTitle===shop.name || /^[a-zA-Z0-9_.~-]{8,}$/.test(displayTitle)) displayTitle = shop.name;
       const instUrl = v.instagramUrl || '';
-      return '<div class="sp-vid-card" data-vid-url="'+vidUrl+'" data-vid-thumb="'+thumb+'" data-vid-instagram="'+instUrl+'" onclick="playSpVid('+vi+')">'
+      return '<div class="sp-vid-card" data-vid-url="'+vidUrl+'" data-vid-thumb="'+thumb+'" data-vid-instagram="'+instUrl+'" data-shop-id="'+shop.id+'" onclick="playSpVid('+vi+')">'
         +(vidUrl?'<video class="sp-vid-inline" data-src="'+vidUrl+'" poster="'+thumb+'" loop muted playsinline preload="metadata" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px;display:block"></video>':'')
         +(thumb?'<img class="sp-vid-poster" src="'+thumb+'" alt="'+displayTitle+'" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px;transition:opacity .4s">':'<div class="sp-vid-poster" style="position:absolute;inset:0;background:#111;border-radius:14px"></div>')
         +'<div class="sp-play-ic"><i class="fas fa-play" style="font-size:14px;color:#fff;margin-left:2px"></i></div>'
@@ -7341,7 +7341,7 @@ function spToggleReviews(btn){
   }
 }
 
-// 영상 카드 클릭 → 중앙 모달 (로딩 스피너 + 소리 토글)
+// 영상 카드 클릭 → 중앙 모달 (로딩 스피너 + 소리 토글 + BOOK 버튼)
 var _spVidMuted = false;
 function playSpVid(idx){
   var cards = document.querySelectorAll('.sp-vid-card');
@@ -7350,6 +7350,7 @@ function playSpVid(idx){
   var vidUrl   = card.getAttribute('data-vid-url');
   var thumb    = card.getAttribute('data-vid-thumb');
   var instRaw  = card.getAttribute('data-vid-instagram') || '';
+  var shopId   = card.getAttribute('data-shop-id') || '';
   if(!vidUrl) return;
 
   var old = document.getElementById('sp-vid-ov');
@@ -7393,6 +7394,12 @@ function playSpVid(idx){
     +'<button id="sp-vid-ov-mute" style="position:absolute;top:-42px;left:0;width:34px;height:34px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);border-radius:50%;color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2">'
       +'<i class="fas '+muteIcon+'"></i>'
     +'</button>'
+    // BOOK 버튼 (shopId 있을 때만)
+    +(shopId
+      ? '<button id="sp-vid-ov-book" style="position:absolute;top:-42px;left:46px;height:34px;padding:0 14px;background:linear-gradient(135deg,#FF4D8D,#c0255a);border:none;border-radius:17px;color:#fff;font-size:12px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;z-index:2;letter-spacing:.3px;box-shadow:0 3px 12px rgba(255,77,141,.4)">'
+        +'<i class="fas fa-calendar-check" style="font-size:11px"></i>BOOK'
+      +'</button>'
+      : '')
     // 로딩 스피너 (영상 로드 전 표시)
     +'<div id="sp-vid-ov-spin" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:1;border-radius:18px;background:rgba(0,0,0,.6)">'
       +'<div style="width:36px;height:36px;border:3px solid rgba(255,255,255,.15);border-top-color:#FF4D8D;border-radius:50%;animation:spSpinAnim .7s linear infinite"></div>'
@@ -7449,6 +7456,34 @@ function playSpVid(idx){
     if(vid) vid.muted = _spVidMuted;
     _updateMuteBtn();
   });
+
+  // BOOK 버튼 → 업체 상세 모달
+  var bookBtn = document.getElementById('sp-vid-ov-book');
+  if(bookBtn && shopId){
+    bookBtn.addEventListener('click', function(e){
+      e.stopPropagation();
+      if(vid && !vid.paused) vid.pause();
+      if(typeof openShopModal === 'function') openShopModal(shopId);
+    });
+  }
+
+  // 탭 전환 시 일시정지 / 복귀 시 재개
+  function _spVidVisHandler(){
+    if(!document.getElementById('sp-vid-ov')){
+      document.removeEventListener('visibilitychange', _spVidVisHandler);
+      return;
+    }
+    var v2 = document.getElementById('sp-vid-ov-video');
+    if(!v2) return;
+    if(document.hidden){ v2.pause(); } else { v2.play().catch(function(){}); }
+  }
+  document.addEventListener('visibilitychange', _spVidVisHandler);
+  (new MutationObserver(function(ms, ob){
+    if(!document.getElementById('sp-vid-ov')){
+      document.removeEventListener('visibilitychange', _spVidVisHandler);
+      ob.disconnect();
+    }
+  })).observe(document.body, {childList:true});
 }
 function openMapUrl(el){
   var u=el.getAttribute('data-map-url');
@@ -10515,7 +10550,7 @@ ${(()=>{
       let displayTitle = (v.title||'').trim();
       if(!displayTitle || displayTitle===shop.name || /^[a-zA-Z0-9_.~-]{8,}$/.test(displayTitle)) displayTitle = shop.name;
       const instUrl = v.instagramUrl || '';
-      return '<div class="sp-vid-card" data-vid-url="'+vidUrl+'" data-vid-thumb="'+thumb+'" data-vid-instagram="'+instUrl+'" onclick="playSpVid('+vi+')">'
+      return '<div class="sp-vid-card" data-vid-url="'+vidUrl+'" data-vid-thumb="'+thumb+'" data-vid-instagram="'+instUrl+'" data-shop-id="'+shop.id+'" onclick="playSpVid('+vi+')">'
         +(vidUrl?'<video class="sp-vid-inline" data-src="'+vidUrl+'" poster="'+thumb+'" loop muted playsinline preload="metadata" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px;display:block"></video>':'')
         +(thumb?'<img class="sp-vid-poster" src="'+thumb+'" alt="'+displayTitle+'" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px;transition:opacity .4s">':'<div class="sp-vid-poster" style="position:absolute;inset:0;background:#111;border-radius:14px"></div>')
         +'<div class="sp-play-ic"><i class="fas fa-play" style="font-size:14px;color:#fff;margin-left:2px"></i></div>'
@@ -10811,7 +10846,7 @@ function spToggleReviews(btn){
   }
 }
 
-// 영상 카드 클릭 → 중앙 모달 (로딩 스피너 + 소리 토글)
+// 영상 카드 클릭 → 중앙 모달 (로딩 스피너 + 소리 토글 + BOOK 버튼)
 var _spVidMuted = false;
 function playSpVid(idx){
   var cards = document.querySelectorAll('.sp-vid-card');
@@ -10820,6 +10855,7 @@ function playSpVid(idx){
   var vidUrl   = card.getAttribute('data-vid-url');
   var thumb    = card.getAttribute('data-vid-thumb');
   var instRaw  = card.getAttribute('data-vid-instagram') || '';
+  var shopId   = card.getAttribute('data-shop-id') || '';
   if(!vidUrl) return;
 
   var old = document.getElementById('sp-vid-ov');
@@ -10863,6 +10899,12 @@ function playSpVid(idx){
     +'<button id="sp-vid-ov-mute" style="position:absolute;top:-42px;left:0;width:34px;height:34px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);border-radius:50%;color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2">'
       +'<i class="fas '+muteIcon+'"></i>'
     +'</button>'
+    // BOOK 버튼 (shopId 있을 때만)
+    +(shopId
+      ? '<button id="sp-vid-ov-book" style="position:absolute;top:-42px;left:46px;height:34px;padding:0 14px;background:linear-gradient(135deg,#FF4D8D,#c0255a);border:none;border-radius:17px;color:#fff;font-size:12px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;z-index:2;letter-spacing:.3px;box-shadow:0 3px 12px rgba(255,77,141,.4)">'
+        +'<i class="fas fa-calendar-check" style="font-size:11px"></i>BOOK'
+      +'</button>'
+      : '')
     // 로딩 스피너 (영상 로드 전 표시)
     +'<div id="sp-vid-ov-spin" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:1;border-radius:18px;background:rgba(0,0,0,.6)">'
       +'<div style="width:36px;height:36px;border:3px solid rgba(255,255,255,.15);border-top-color:#FF4D8D;border-radius:50%;animation:spSpinAnim .7s linear infinite"></div>'
@@ -10919,6 +10961,34 @@ function playSpVid(idx){
     if(vid) vid.muted = _spVidMuted;
     _updateMuteBtn();
   });
+
+  // BOOK 버튼 → 업체 상세 모달
+  var bookBtn = document.getElementById('sp-vid-ov-book');
+  if(bookBtn && shopId){
+    bookBtn.addEventListener('click', function(e){
+      e.stopPropagation();
+      if(vid && !vid.paused) vid.pause();
+      if(typeof openShopModal === 'function') openShopModal(shopId);
+    });
+  }
+
+  // 탭 전환 시 일시정지 / 복귀 시 재개
+  function _spVidVisHandler(){
+    if(!document.getElementById('sp-vid-ov')){
+      document.removeEventListener('visibilitychange', _spVidVisHandler);
+      return;
+    }
+    var v2 = document.getElementById('sp-vid-ov-video');
+    if(!v2) return;
+    if(document.hidden){ v2.pause(); } else { v2.play().catch(function(){}); }
+  }
+  document.addEventListener('visibilitychange', _spVidVisHandler);
+  (new MutationObserver(function(ms, ob){
+    if(!document.getElementById('sp-vid-ov')){
+      document.removeEventListener('visibilitychange', _spVidVisHandler);
+      ob.disconnect();
+    }
+  })).observe(document.body, {childList:true});
 }
 function openMapUrl(el){
   var u=el.getAttribute('data-map-url');
@@ -21243,7 +21313,7 @@ function renderShopModal(shop) {
         return t;
       })();
       var vViews = v.views >= 1000 ? (v.views/1000).toFixed(1)+'K' : String(v.views||0);
-      return '<div class="m-vid-card" id="mVidCard'+vi+'" onclick="mVidPlay('+vi+',this)">'
+      return '<div class="m-vid-card" id="mVidCard'+vi+'" data-shop-id="'+esc(shop.id||'')+'" onclick="mVidPlay('+vi+',this)">'
         +(vUrl?'<video data-src="'+esc(vUrl)+'" loop muted playsinline preload="none"></video>':'')
         +(vThumb?'<img src="'+esc(vThumb)+'" alt="'+esc(vTitle)+'" loading="lazy" decoding="async">':'<div style="position:absolute;inset:0;background:#111"></div>')
         +'<div class="m-vid-card-ov">'
@@ -21415,6 +21485,9 @@ function mVidPlay(idx, card) {
     card.classList.remove('vid-on');
     vid.pause();
     vid.currentTime = 0;
+    // BOOK 버튼 숨김
+    var bookOld = card.querySelector('.m-vid-book-btn');
+    if(bookOld) bookOld.style.display = 'none';
   } else {
     // src 로드 후 재생 (data-src → src 지연 로드)
     if(vid.dataset.src && !vid.dataset.loaded) {
@@ -21427,6 +21500,43 @@ function mVidPlay(idx, card) {
     if(p && p.catch) p.catch(function(){});
     // 소리 버튼 아이콘 업데이트
     _mVidUpdateMuteBtn(card);
+
+    // BOOK 버튼 표시 (shopId 있을 때)
+    var shopId = card.getAttribute('data-shop-id') || '';
+    if(shopId){
+      var bookBtn = card.querySelector('.m-vid-book-btn');
+      if(!bookBtn){
+        bookBtn = document.createElement('button');
+        bookBtn.className = 'm-vid-book-btn';
+        bookBtn.style.cssText = 'position:absolute;bottom:48px;left:50%;transform:translateX(-50%);'
+          +'height:30px;padding:0 14px;background:linear-gradient(135deg,#FF4D8D,#c0255a);'
+          +'border:none;border-radius:15px;color:#fff;font-size:11px;font-weight:800;'
+          +'cursor:pointer;display:flex;align-items:center;gap:5px;z-index:10;'
+          +'letter-spacing:.3px;box-shadow:0 3px 10px rgba(255,77,141,.5);white-space:nowrap;'
+          +'pointer-events:auto';
+        bookBtn.innerHTML = '<i class="fas fa-calendar-check" style="font-size:10px"></i>BOOK';
+        bookBtn.addEventListener('click', function(e){
+          e.stopPropagation();
+          // 영상 일시정지
+          if(vid && !vid.paused) vid.pause();
+          card.classList.remove('vid-on');
+          // 업체 상세 모달 열기
+          if(typeof openShopModal === 'function') openShopModal(shopId);
+        });
+        card.appendChild(bookBtn);
+      } else {
+        bookBtn.style.display = 'flex';
+      }
+    }
+
+    // 탭 전환 시 일시정지 / 복귀 시 재개 (현재 재생 카드 기준)
+    if(!card._mVidVisHandler){
+      card._mVidVisHandler = function(){
+        if(!card.classList.contains('vid-on')) return;
+        if(document.hidden){ vid.pause(); } else { vid.play().catch(function(){}); }
+      };
+      document.addEventListener('visibilitychange', card._mVidVisHandler);
+    }
   }
 }
 function mVidMute(e, btn) {

@@ -8509,7 +8509,7 @@ ${(() => {
         let displayTitle = (v.title || "").trim();
         if (!displayTitle || displayTitle === shop.name || /^[a-zA-Z0-9_.~-]{8,}$/.test(displayTitle)) displayTitle = shop.name;
         const instUrl = v.instagramUrl || "";
-        return '<div class="sp-vid-card" data-vid-url="' + vidUrl + '" data-vid-thumb="' + thumb + '" data-vid-instagram="' + instUrl + '" onclick="playSpVid(' + vi + ')">' + (vidUrl ? '<video class="sp-vid-inline" data-src="' + vidUrl + '" poster="' + thumb + '" loop muted playsinline preload="metadata" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px;display:block"></video>' : "") + (thumb ? '<img class="sp-vid-poster" src="' + thumb + '" alt="' + displayTitle + '" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px;transition:opacity .4s">' : '<div class="sp-vid-poster" style="position:absolute;inset:0;background:#111;border-radius:14px"></div>') + '<div class="sp-play-ic"><i class="fas fa-play" style="font-size:14px;color:#fff;margin-left:2px"></i></div><div class="sp-vid-card-ov"><div class="sp-vid-card-title">' + displayTitle + "</div></div></div>";
+        return '<div class="sp-vid-card" data-vid-url="' + vidUrl + '" data-vid-thumb="' + thumb + '" data-vid-instagram="' + instUrl + '" data-shop-id="' + shop.id + '" onclick="playSpVid(' + vi + ')">' + (vidUrl ? '<video class="sp-vid-inline" data-src="' + vidUrl + '" poster="' + thumb + '" loop muted playsinline preload="metadata" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px;display:block"></video>' : "") + (thumb ? '<img class="sp-vid-poster" src="' + thumb + '" alt="' + displayTitle + '" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px;transition:opacity .4s">' : '<div class="sp-vid-poster" style="position:absolute;inset:0;background:#111;border-radius:14px"></div>') + '<div class="sp-play-ic"><i class="fas fa-play" style="font-size:14px;color:#fff;margin-left:2px"></i></div><div class="sp-vid-card-ov"><div class="sp-vid-card-title">' + displayTitle + "</div></div></div>";
       }).join("");
       const gridClass = shopVideos.length === 1 ? "sp-vid-grid single-vid" : "sp-vid-grid";
       return '<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-play-circle" style="color:var(--pk);margin-right:4px"></i>Videos <span style="font-size:10px;color:rgba(255,255,255,.3);font-weight:400;letter-spacing:0">(' + shopVideos.length + ')</span></div><div class="' + gridClass + '">' + cardsHtml + "</div></div>";
@@ -8769,7 +8769,7 @@ function spToggleReviews(btn){
   }
 }
 
-// \uC601\uC0C1 \uCE74\uB4DC \uD074\uB9AD \u2192 \uC911\uC559 \uBAA8\uB2EC (\uB85C\uB529 \uC2A4\uD53C\uB108 + \uC18C\uB9AC \uD1A0\uAE00)
+// \uC601\uC0C1 \uCE74\uB4DC \uD074\uB9AD \u2192 \uC911\uC559 \uBAA8\uB2EC (\uB85C\uB529 \uC2A4\uD53C\uB108 + \uC18C\uB9AC \uD1A0\uAE00 + BOOK \uBC84\uD2BC)
 var _spVidMuted = false;
 function playSpVid(idx){
   var cards = document.querySelectorAll('.sp-vid-card');
@@ -8778,6 +8778,7 @@ function playSpVid(idx){
   var vidUrl   = card.getAttribute('data-vid-url');
   var thumb    = card.getAttribute('data-vid-thumb');
   var instRaw  = card.getAttribute('data-vid-instagram') || '';
+  var shopId   = card.getAttribute('data-shop-id') || '';
   if(!vidUrl) return;
 
   var old = document.getElementById('sp-vid-ov');
@@ -8821,6 +8822,12 @@ function playSpVid(idx){
     +'<button id="sp-vid-ov-mute" style="position:absolute;top:-42px;left:0;width:34px;height:34px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);border-radius:50%;color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2">'
       +'<i class="fas '+muteIcon+'"></i>'
     +'</button>'
+    // BOOK \uBC84\uD2BC (shopId \uC788\uC744 \uB54C\uB9CC)
+    +(shopId
+      ? '<button id="sp-vid-ov-book" style="position:absolute;top:-42px;left:46px;height:34px;padding:0 14px;background:linear-gradient(135deg,#FF4D8D,#c0255a);border:none;border-radius:17px;color:#fff;font-size:12px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;z-index:2;letter-spacing:.3px;box-shadow:0 3px 12px rgba(255,77,141,.4)">'
+        +'<i class="fas fa-calendar-check" style="font-size:11px"></i>BOOK'
+      +'</button>'
+      : '')
     // \uB85C\uB529 \uC2A4\uD53C\uB108 (\uC601\uC0C1 \uB85C\uB4DC \uC804 \uD45C\uC2DC)
     +'<div id="sp-vid-ov-spin" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:1;border-radius:18px;background:rgba(0,0,0,.6)">'
       +'<div style="width:36px;height:36px;border:3px solid rgba(255,255,255,.15);border-top-color:#FF4D8D;border-radius:50%;animation:spSpinAnim .7s linear infinite"></div>'
@@ -8877,6 +8884,34 @@ function playSpVid(idx){
     if(vid) vid.muted = _spVidMuted;
     _updateMuteBtn();
   });
+
+  // BOOK \uBC84\uD2BC \u2192 \uC5C5\uCCB4 \uC0C1\uC138 \uBAA8\uB2EC
+  var bookBtn = document.getElementById('sp-vid-ov-book');
+  if(bookBtn && shopId){
+    bookBtn.addEventListener('click', function(e){
+      e.stopPropagation();
+      if(vid && !vid.paused) vid.pause();
+      if(typeof openShopModal === 'function') openShopModal(shopId);
+    });
+  }
+
+  // \uD0ED \uC804\uD658 \uC2DC \uC77C\uC2DC\uC815\uC9C0 / \uBCF5\uADC0 \uC2DC \uC7AC\uAC1C
+  function _spVidVisHandler(){
+    if(!document.getElementById('sp-vid-ov')){
+      document.removeEventListener('visibilitychange', _spVidVisHandler);
+      return;
+    }
+    var v2 = document.getElementById('sp-vid-ov-video');
+    if(!v2) return;
+    if(document.hidden){ v2.pause(); } else { v2.play().catch(function(){}); }
+  }
+  document.addEventListener('visibilitychange', _spVidVisHandler);
+  (new MutationObserver(function(ms, ob){
+    if(!document.getElementById('sp-vid-ov')){
+      document.removeEventListener('visibilitychange', _spVidVisHandler);
+      ob.disconnect();
+    }
+  })).observe(document.body, {childList:true});
 }
 function openMapUrl(el){
   var u=el.getAttribute('data-map-url');
@@ -11629,7 +11664,7 @@ ${(() => {
         let displayTitle = (v.title || "").trim();
         if (!displayTitle || displayTitle === shop.name || /^[a-zA-Z0-9_.~-]{8,}$/.test(displayTitle)) displayTitle = shop.name;
         const instUrl = v.instagramUrl || "";
-        return '<div class="sp-vid-card" data-vid-url="' + vidUrl + '" data-vid-thumb="' + thumb + '" data-vid-instagram="' + instUrl + '" onclick="playSpVid(' + vi + ')">' + (vidUrl ? '<video class="sp-vid-inline" data-src="' + vidUrl + '" poster="' + thumb + '" loop muted playsinline preload="metadata" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px;display:block"></video>' : "") + (thumb ? '<img class="sp-vid-poster" src="' + thumb + '" alt="' + displayTitle + '" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px;transition:opacity .4s">' : '<div class="sp-vid-poster" style="position:absolute;inset:0;background:#111;border-radius:14px"></div>') + '<div class="sp-play-ic"><i class="fas fa-play" style="font-size:14px;color:#fff;margin-left:2px"></i></div><div class="sp-vid-card-ov"><div class="sp-vid-card-title">' + displayTitle + "</div></div></div>";
+        return '<div class="sp-vid-card" data-vid-url="' + vidUrl + '" data-vid-thumb="' + thumb + '" data-vid-instagram="' + instUrl + '" data-shop-id="' + shop.id + '" onclick="playSpVid(' + vi + ')">' + (vidUrl ? '<video class="sp-vid-inline" data-src="' + vidUrl + '" poster="' + thumb + '" loop muted playsinline preload="metadata" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px;display:block"></video>' : "") + (thumb ? '<img class="sp-vid-poster" src="' + thumb + '" alt="' + displayTitle + '" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px;transition:opacity .4s">' : '<div class="sp-vid-poster" style="position:absolute;inset:0;background:#111;border-radius:14px"></div>') + '<div class="sp-play-ic"><i class="fas fa-play" style="font-size:14px;color:#fff;margin-left:2px"></i></div><div class="sp-vid-card-ov"><div class="sp-vid-card-title">' + displayTitle + "</div></div></div>";
       }).join("");
       const gridClass = shopVideos.length === 1 ? "sp-vid-grid single-vid" : "sp-vid-grid";
       return '<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-play-circle" style="color:var(--pk);margin-right:4px"></i>Videos <span style="font-size:10px;color:rgba(255,255,255,.3);font-weight:400;letter-spacing:0">(' + shopVideos.length + ')</span></div><div class="' + gridClass + '">' + cardsHtml + "</div></div>";
@@ -11889,7 +11924,7 @@ function spToggleReviews(btn){
   }
 }
 
-// \uC601\uC0C1 \uCE74\uB4DC \uD074\uB9AD \u2192 \uC911\uC559 \uBAA8\uB2EC (\uB85C\uB529 \uC2A4\uD53C\uB108 + \uC18C\uB9AC \uD1A0\uAE00)
+// \uC601\uC0C1 \uCE74\uB4DC \uD074\uB9AD \u2192 \uC911\uC559 \uBAA8\uB2EC (\uB85C\uB529 \uC2A4\uD53C\uB108 + \uC18C\uB9AC \uD1A0\uAE00 + BOOK \uBC84\uD2BC)
 var _spVidMuted = false;
 function playSpVid(idx){
   var cards = document.querySelectorAll('.sp-vid-card');
@@ -11898,6 +11933,7 @@ function playSpVid(idx){
   var vidUrl   = card.getAttribute('data-vid-url');
   var thumb    = card.getAttribute('data-vid-thumb');
   var instRaw  = card.getAttribute('data-vid-instagram') || '';
+  var shopId   = card.getAttribute('data-shop-id') || '';
   if(!vidUrl) return;
 
   var old = document.getElementById('sp-vid-ov');
@@ -11941,6 +11977,12 @@ function playSpVid(idx){
     +'<button id="sp-vid-ov-mute" style="position:absolute;top:-42px;left:0;width:34px;height:34px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);border-radius:50%;color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2">'
       +'<i class="fas '+muteIcon+'"></i>'
     +'</button>'
+    // BOOK \uBC84\uD2BC (shopId \uC788\uC744 \uB54C\uB9CC)
+    +(shopId
+      ? '<button id="sp-vid-ov-book" style="position:absolute;top:-42px;left:46px;height:34px;padding:0 14px;background:linear-gradient(135deg,#FF4D8D,#c0255a);border:none;border-radius:17px;color:#fff;font-size:12px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;z-index:2;letter-spacing:.3px;box-shadow:0 3px 12px rgba(255,77,141,.4)">'
+        +'<i class="fas fa-calendar-check" style="font-size:11px"></i>BOOK'
+      +'</button>'
+      : '')
     // \uB85C\uB529 \uC2A4\uD53C\uB108 (\uC601\uC0C1 \uB85C\uB4DC \uC804 \uD45C\uC2DC)
     +'<div id="sp-vid-ov-spin" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:1;border-radius:18px;background:rgba(0,0,0,.6)">'
       +'<div style="width:36px;height:36px;border:3px solid rgba(255,255,255,.15);border-top-color:#FF4D8D;border-radius:50%;animation:spSpinAnim .7s linear infinite"></div>'
@@ -11997,6 +12039,34 @@ function playSpVid(idx){
     if(vid) vid.muted = _spVidMuted;
     _updateMuteBtn();
   });
+
+  // BOOK \uBC84\uD2BC \u2192 \uC5C5\uCCB4 \uC0C1\uC138 \uBAA8\uB2EC
+  var bookBtn = document.getElementById('sp-vid-ov-book');
+  if(bookBtn && shopId){
+    bookBtn.addEventListener('click', function(e){
+      e.stopPropagation();
+      if(vid && !vid.paused) vid.pause();
+      if(typeof openShopModal === 'function') openShopModal(shopId);
+    });
+  }
+
+  // \uD0ED \uC804\uD658 \uC2DC \uC77C\uC2DC\uC815\uC9C0 / \uBCF5\uADC0 \uC2DC \uC7AC\uAC1C
+  function _spVidVisHandler(){
+    if(!document.getElementById('sp-vid-ov')){
+      document.removeEventListener('visibilitychange', _spVidVisHandler);
+      return;
+    }
+    var v2 = document.getElementById('sp-vid-ov-video');
+    if(!v2) return;
+    if(document.hidden){ v2.pause(); } else { v2.play().catch(function(){}); }
+  }
+  document.addEventListener('visibilitychange', _spVidVisHandler);
+  (new MutationObserver(function(ms, ob){
+    if(!document.getElementById('sp-vid-ov')){
+      document.removeEventListener('visibilitychange', _spVidVisHandler);
+      ob.disconnect();
+    }
+  })).observe(document.body, {childList:true});
 }
 function openMapUrl(el){
   var u=el.getAttribute('data-map-url');
@@ -21619,7 +21689,7 @@ function renderShopModal(shop) {
         return t;
       })();
       var vViews = v.views >= 1000 ? (v.views/1000).toFixed(1)+'K' : String(v.views||0);
-      return '<div class="m-vid-card" id="mVidCard'+vi+'" onclick="mVidPlay('+vi+',this)">'
+      return '<div class="m-vid-card" id="mVidCard'+vi+'" data-shop-id="'+esc(shop.id||'')+'" onclick="mVidPlay('+vi+',this)">'
         +(vUrl?'<video data-src="'+esc(vUrl)+'" loop muted playsinline preload="none"></video>':'')
         +(vThumb?'<img src="'+esc(vThumb)+'" alt="'+esc(vTitle)+'" loading="lazy" decoding="async">':'<div style="position:absolute;inset:0;background:#111"></div>')
         +'<div class="m-vid-card-ov">'
@@ -21791,6 +21861,9 @@ function mVidPlay(idx, card) {
     card.classList.remove('vid-on');
     vid.pause();
     vid.currentTime = 0;
+    // BOOK \uBC84\uD2BC \uC228\uAE40
+    var bookOld = card.querySelector('.m-vid-book-btn');
+    if(bookOld) bookOld.style.display = 'none';
   } else {
     // src \uB85C\uB4DC \uD6C4 \uC7AC\uC0DD (data-src \u2192 src \uC9C0\uC5F0 \uB85C\uB4DC)
     if(vid.dataset.src && !vid.dataset.loaded) {
@@ -21803,6 +21876,43 @@ function mVidPlay(idx, card) {
     if(p && p.catch) p.catch(function(){});
     // \uC18C\uB9AC \uBC84\uD2BC \uC544\uC774\uCF58 \uC5C5\uB370\uC774\uD2B8
     _mVidUpdateMuteBtn(card);
+
+    // BOOK \uBC84\uD2BC \uD45C\uC2DC (shopId \uC788\uC744 \uB54C)
+    var shopId = card.getAttribute('data-shop-id') || '';
+    if(shopId){
+      var bookBtn = card.querySelector('.m-vid-book-btn');
+      if(!bookBtn){
+        bookBtn = document.createElement('button');
+        bookBtn.className = 'm-vid-book-btn';
+        bookBtn.style.cssText = 'position:absolute;bottom:48px;left:50%;transform:translateX(-50%);'
+          +'height:30px;padding:0 14px;background:linear-gradient(135deg,#FF4D8D,#c0255a);'
+          +'border:none;border-radius:15px;color:#fff;font-size:11px;font-weight:800;'
+          +'cursor:pointer;display:flex;align-items:center;gap:5px;z-index:10;'
+          +'letter-spacing:.3px;box-shadow:0 3px 10px rgba(255,77,141,.5);white-space:nowrap;'
+          +'pointer-events:auto';
+        bookBtn.innerHTML = '<i class="fas fa-calendar-check" style="font-size:10px"></i>BOOK';
+        bookBtn.addEventListener('click', function(e){
+          e.stopPropagation();
+          // \uC601\uC0C1 \uC77C\uC2DC\uC815\uC9C0
+          if(vid && !vid.paused) vid.pause();
+          card.classList.remove('vid-on');
+          // \uC5C5\uCCB4 \uC0C1\uC138 \uBAA8\uB2EC \uC5F4\uAE30
+          if(typeof openShopModal === 'function') openShopModal(shopId);
+        });
+        card.appendChild(bookBtn);
+      } else {
+        bookBtn.style.display = 'flex';
+      }
+    }
+
+    // \uD0ED \uC804\uD658 \uC2DC \uC77C\uC2DC\uC815\uC9C0 / \uBCF5\uADC0 \uC2DC \uC7AC\uAC1C (\uD604\uC7AC \uC7AC\uC0DD \uCE74\uB4DC \uAE30\uC900)
+    if(!card._mVidVisHandler){
+      card._mVidVisHandler = function(){
+        if(!card.classList.contains('vid-on')) return;
+        if(document.hidden){ vid.pause(); } else { vid.play().catch(function(){}); }
+      };
+      document.addEventListener('visibilitychange', card._mVidVisHandler);
+    }
   }
 }
 function mVidMute(e, btn) {
