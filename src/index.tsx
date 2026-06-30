@@ -19561,7 +19561,9 @@ function _checkLdReady() {
       });
     }
   }
-  if(!_ldFallbackTimer) { _ldFallbackTimer = setTimeout(function(){ hideLd(); }, 3000); }
+  // ✅ 안전망: 기존 타이머와 무관하게 항상 1.5초 안에 hideLd 보장
+  // (loadVideos의 3초 타이머가 이미 있어도 별도 단기 타이머 세팅)
+  setTimeout(function(){ if(!_ldHidden) hideLd(); }, 1500);
 }
 
 /* vids 배열에서 shopId 기준으로 영상 정보를 allShopsData에 주입 */
@@ -19647,10 +19649,10 @@ function loadVideos(cat) {
     renderFeed();
     setLdProgress(85);
     _ldReadyFlags.videos = true;
-    // [버그 수정] 인라인 데이터로 즉시 완료해도 fallback timer는 반드시 세팅
-    // prefetchShops가 느릴 경우 shops 플래그를 기다리다 무한 대기하는 것 방지
+    // ✅ 안전망: shops/videos 모두 준비됐고 데이터도 있으면 최대 1.5초 내 hideLd 보장
+    // (HLS canplay/MANIFEST_PARSED 이벤트가 안 와도 화면이 뜨도록)
     if(!_ldFallbackTimer) {
-      _ldFallbackTimer = setTimeout(function(){ hideLd(); hideCatLoading(); }, 3000);
+      _ldFallbackTimer = setTimeout(function(){ hideLd(); hideCatLoading(); }, 1500);
     }
     _checkLdReady();
     return;
@@ -19686,8 +19688,8 @@ function loadVideos(cat) {
       if(_ldHidden) { setupObs(); }
       if(!_ldHidden){ hideLd(); }
     });
-  // 최대 fallback: 3초
-  if(!_ldFallbackTimer) _ldFallbackTimer = setTimeout(function(){ hideLd(); hideCatLoading(); }, 3000);
+  // 최대 fallback: 1.5초
+  if(!_ldFallbackTimer) _ldFallbackTimer = setTimeout(function(){ hideLd(); hideCatLoading(); }, 1500);
 }
 
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
