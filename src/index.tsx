@@ -19312,10 +19312,10 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 <!-- PC 사이드 네비 (≥1024px) -->
 <nav id="pc-sidenav" aria-label="Site navigation">
   <div class="pnav-logo"><i class="fas fa-star"></i></div>
-  <button class="pnav-btn" id="pnav-reels" data-tab="reels" aria-label="Home">
+  <button class="pnav-btn active" id="pnav-reels" data-tab="reels" aria-label="Home">
     <i class="fas fa-home"></i><span>Home</span>
   </button>
-  <button class="pnav-btn active" id="pnav-browse" data-tab="browse" aria-label="Explore">
+  <button class="pnav-btn" id="pnav-browse" data-tab="browse" aria-label="Explore">
     <i class="fas fa-search"></i><span>Explore</span>
   </button>
   <button class="pnav-btn" id="pnav-map" data-tab="map" aria-label="Map">
@@ -19347,10 +19347,10 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 
 <!-- 하단 탭바 (모바일 전용) -->
 <nav id="bottom-tabs" aria-label="Main navigation">
-  <button class="btab" id="btab-reels" data-tab="reels" aria-label="Home">
+  <button class="btab active" id="btab-reels" data-tab="reels" aria-label="Home">
     <i class="fas fa-home"></i><span>Home</span>
   </button>
-  <button class="btab active" id="btab-browse" data-tab="browse" aria-label="Explore">
+  <button class="btab" id="btab-browse" data-tab="browse" aria-label="Explore">
     <i class="fas fa-search"></i><span>Explore</span>
   </button>
   <button class="btab" id="btab-map" data-tab="map" aria-label="Map">
