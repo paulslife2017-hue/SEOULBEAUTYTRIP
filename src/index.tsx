@@ -1407,21 +1407,21 @@ app.get('/api/upload-sign-image', async (c) => {
 
 // ── Cloudflare Stream TUS 업로드 URL 발급 ──
 // 프론트에서 파일 크기+파일명을 보내면 → TUS upload URL + stream media ID 반환
-const CF_STREAM = {
-  ACCOUNT: '8905c179d6f8ebc3126a02e34e74e02d',
-  TOKEN:   'CF_STREAM_TOKEN_REMOVED',
-}
+// CF_STREAM_ACCOUNT / CF_STREAM_TOKEN 은 .dev.vars(로컬) 또는 CF Pages 환경변수(프로덕션)에서 주입
 app.post('/api/stream-upload-url', async (c) => {
   try {
+    const CF_ACCOUNT = (c.env as any)?.CF_STREAM_ACCOUNT || ''
+    const CF_TOKEN   = (c.env as any)?.CF_STREAM_TOKEN   || ''
+    if(!CF_ACCOUNT || !CF_TOKEN) return c.json({ error: 'Stream 환경변수 미설정' }, 500)
     const { fileSize, fileName } = await c.req.json()
     if(!fileSize || !fileName) return c.json({ error: 'fileSize, fileName 필수' }, 400)
     const nameb64 = btoa(unescape(encodeURIComponent(fileName.slice(0, 80))))
     const r = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${CF_STREAM.ACCOUNT}/stream?direct_user=true`,
+      `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT}/stream?direct_user=true`,
       {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${CF_STREAM.TOKEN}`,
+          'Authorization': `Bearer ${CF_TOKEN}`,
           'Tus-Resumable': '1.0.0',
           'Upload-Length': String(fileSize),
           'Upload-Metadata': `name ${nameb64}`,
@@ -1432,9 +1432,9 @@ app.post('/api/stream-upload-url', async (c) => {
     const uploadUrl  = r.headers.get('location') || ''
     const streamId   = r.headers.get('stream-media-id') || ''
     if(!uploadUrl || !streamId) return c.json({ error: 'uploadUrl/streamId 없음' }, 500)
-    const hlsUrl     = `https://customer-8905c179.cloudflarestream.com/${streamId}/manifest/video.m3u8`
-    const iframeUrl  = `https://iframe.videodelivery.net/${streamId}`
-    const thumbUrl   = `https://customer-8905c179.cloudflarestream.com/${streamId}/thumbnails/thumbnail.jpg`
+    const hlsUrl    = `https://customer-8905c179.cloudflarestream.com/${streamId}/manifest/video.m3u8`
+    const iframeUrl = `https://iframe.videodelivery.net/${streamId}`
+    const thumbUrl  = `https://customer-8905c179.cloudflarestream.com/${streamId}/thumbnails/thumbnail.jpg`
     return c.json({ uploadUrl, streamId, hlsUrl, iframeUrl, thumbUrl })
   } catch(e: any) {
     return c.json({ error: e.message || 'Stream URL 발급 실패' }, 500)
