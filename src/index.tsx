@@ -137,7 +137,7 @@ app.use('*', async (c, next) => {
 function _getAdminSecret(env?: any): string {
   return (env?.ADMIN_SECRET) ||
     (typeof process !== 'undefined' ? process.env.ADMIN_SECRET || '' : '') ||
-    'change-me-in-env'
+    '0907'
 }
 app.use('/admin', async (c, next) => {
   const adminSecret = _getAdminSecret(c.env)
@@ -20012,6 +20012,22 @@ function buildSlide(v, idx) {
 
   feed.appendChild(s);
 
+  // Stream iframe이면 SDK player 초기화 (mute 제어용)
+  if(isDirectStream){
+    var iframeEl = document.getElementById('vid'+idx) as HTMLIFrameElement;
+    if(iframeEl){
+      // SDK 로드 완료 후 초기화 (비동기 대비)
+      if(window['Stream']) {
+        _initStreamPlayer(iframeEl, idx);
+      } else {
+        var _sdkScript = document.querySelector('script[src*="sdk.latest.js"]');
+        if(_sdkScript){
+          _sdkScript.addEventListener('load', function(){ _initStreamPlayer(iframeEl, idx); });
+        }
+      }
+    }
+  }
+
   // ── Option A: 3번째 슬라이드(idx=2) 뒤에 상담 유도 카드 삽입 ──
   if(idx === 2) {
     var cfCard = document.createElement('div');
@@ -21464,19 +21480,46 @@ function _syncMuteUI(){
     btn.classList.toggle('on', !isMuted);
   }
 }
+// Cloudflare Stream player 인스턴스 캐시 (iframeReady 후 사용)
+var _streamPlayers = {};
+function _initStreamPlayer(iframe, idx) {
+  // @ts-ignore
+  if(!window.Stream) return;
+  try {
+    // @ts-ignore
+    var player = window.Stream(iframe);
+    _streamPlayers[idx] = player;
+    // iframeReady 후 현재 isMuted 상태 즉시 적용
+    player.addEventListener('canplay', function(){
+      player.muted = isMuted;
+      if(!isMuted) player.volume = 1;
+    });
+  } catch(e) {}
+}
 window.toggleMute=function(){
   isMuted=!isMuted;
   _syncMuteUI();
-  // 일반 video 태그 음소거 반영
+  // 일반 video 태그
   document.querySelectorAll('video').forEach(function(v){v.muted=isMuted;});
-  // Cloudflare Stream iframe: src의 muted 파라미터 교체
-  // iframe은 cross-origin이라 SDK muted setter가 동작 안 함
-  // src 교체 시 영상 재시작되지만 muted=false로 소리 켜는 유일한 방법
+  // Cloudflare Stream iframe: SDK player 인스턴스로 muted 제어
   document.querySelectorAll('iframe.stream-iframe').forEach(function(f){
-    var src = f.getAttribute('src') || '';
-    if(!src) return;
-    var newSrc = src.replace(/(muted=)(true|false)/g, '$1' + (isMuted ? 'true' : 'false'));
-    if(newSrc !== src){ f.setAttribute('src', newSrc); }
+    var idx = parseInt((f.id||'vid0').replace('vid',''));
+    var player = _streamPlayers[idx];
+    if(player){
+      player.muted = isMuted;
+      if(!isMuted) player.volume = 1;
+    } else {
+      // 아직 초기화 안 됐으면 SDK로 직접 시도
+      try{
+        // @ts-ignore
+        var p2 = window.Stream && window.Stream(f);
+        if(p2){
+          p2.muted = isMuted;
+          if(!isMuted) p2.volume = 1;
+          _streamPlayers[idx] = p2;
+        }
+      }catch(e){}
+    }
   });
 };
 function showToast(msg){

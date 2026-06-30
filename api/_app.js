@@ -2185,7 +2185,7 @@ app.use("*", async (c, next) => {
   await next();
 });
 function _getAdminSecret(env) {
-  return env?.ADMIN_SECRET || (typeof process !== "undefined" ? process.env.ADMIN_SECRET || "" : "") || "change-me-in-env";
+  return env?.ADMIN_SECRET || (typeof process !== "undefined" ? process.env.ADMIN_SECRET || "" : "") || "0907";
 }
 app.use("/admin", async (c, next) => {
   const adminSecret = _getAdminSecret(c.env);
@@ -20415,6 +20415,22 @@ function buildSlide(v, idx) {
 
   feed.appendChild(s);
 
+  // Stream iframe\uC774\uBA74 SDK player \uCD08\uAE30\uD654 (mute \uC81C\uC5B4\uC6A9)
+  if(isDirectStream){
+    var iframeEl = document.getElementById('vid'+idx) as HTMLIFrameElement;
+    if(iframeEl){
+      // SDK \uB85C\uB4DC \uC644\uB8CC \uD6C4 \uCD08\uAE30\uD654 (\uBE44\uB3D9\uAE30 \uB300\uBE44)
+      if(window['Stream']) {
+        _initStreamPlayer(iframeEl, idx);
+      } else {
+        var _sdkScript = document.querySelector('script[src*="sdk.latest.js"]');
+        if(_sdkScript){
+          _sdkScript.addEventListener('load', function(){ _initStreamPlayer(iframeEl, idx); });
+        }
+      }
+    }
+  }
+
   // \u2500\u2500 Option A: 3\uBC88\uC9F8 \uC2AC\uB77C\uC774\uB4DC(idx=2) \uB4A4\uC5D0 \uC0C1\uB2F4 \uC720\uB3C4 \uCE74\uB4DC \uC0BD\uC785 \u2500\u2500
   if(idx === 2) {
     var cfCard = document.createElement('div');
@@ -21867,19 +21883,46 @@ function _syncMuteUI(){
     btn.classList.toggle('on', !isMuted);
   }
 }
+// Cloudflare Stream player \uC778\uC2A4\uD134\uC2A4 \uCE90\uC2DC (iframeReady \uD6C4 \uC0AC\uC6A9)
+var _streamPlayers = {};
+function _initStreamPlayer(iframe, idx) {
+  // @ts-ignore
+  if(!window.Stream) return;
+  try {
+    // @ts-ignore
+    var player = window.Stream(iframe);
+    _streamPlayers[idx] = player;
+    // iframeReady \uD6C4 \uD604\uC7AC isMuted \uC0C1\uD0DC \uC989\uC2DC \uC801\uC6A9
+    player.addEventListener('canplay', function(){
+      player.muted = isMuted;
+      if(!isMuted) player.volume = 1;
+    });
+  } catch(e) {}
+}
 window.toggleMute=function(){
   isMuted=!isMuted;
   _syncMuteUI();
-  // \uC77C\uBC18 video \uD0DC\uADF8 \uC74C\uC18C\uAC70 \uBC18\uC601
+  // \uC77C\uBC18 video \uD0DC\uADF8
   document.querySelectorAll('video').forEach(function(v){v.muted=isMuted;});
-  // Cloudflare Stream iframe: src\uC758 muted \uD30C\uB77C\uBBF8\uD130 \uAD50\uCCB4
-  // iframe\uC740 cross-origin\uC774\uB77C SDK muted setter\uAC00 \uB3D9\uC791 \uC548 \uD568
-  // src \uAD50\uCCB4 \uC2DC \uC601\uC0C1 \uC7AC\uC2DC\uC791\uB418\uC9C0\uB9CC muted=false\uB85C \uC18C\uB9AC \uCF1C\uB294 \uC720\uC77C\uD55C \uBC29\uBC95
+  // Cloudflare Stream iframe: SDK player \uC778\uC2A4\uD134\uC2A4\uB85C muted \uC81C\uC5B4
   document.querySelectorAll('iframe.stream-iframe').forEach(function(f){
-    var src = f.getAttribute('src') || '';
-    if(!src) return;
-    var newSrc = src.replace(/(muted=)(true|false)/g, '$1' + (isMuted ? 'true' : 'false'));
-    if(newSrc !== src){ f.setAttribute('src', newSrc); }
+    var idx = parseInt((f.id||'vid0').replace('vid',''));
+    var player = _streamPlayers[idx];
+    if(player){
+      player.muted = isMuted;
+      if(!isMuted) player.volume = 1;
+    } else {
+      // \uC544\uC9C1 \uCD08\uAE30\uD654 \uC548 \uB410\uC73C\uBA74 SDK\uB85C \uC9C1\uC811 \uC2DC\uB3C4
+      try{
+        // @ts-ignore
+        var p2 = window.Stream && window.Stream(f);
+        if(p2){
+          p2.muted = isMuted;
+          if(!isMuted) p2.volume = 1;
+          _streamPlayers[idx] = p2;
+        }
+      }catch(e){}
+    }
   });
 };
 function showToast(msg){
