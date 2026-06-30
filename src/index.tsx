@@ -1021,20 +1021,27 @@ async function initDb(env: any) {
 
 // ── lazy init: 첫 요청 시 1회만 실행 ──
 let _dbInited = false
+let _dbInitRetryAt = 0  // 마지막 실패 후 재시도 시점 (ms)
 async function ensureDb(env: any) {
+  const now = Date.now()
+  // 이미 성공적으로 초기화됐으면 skip
   if (_dbInited) return
+  // 마지막 실패 후 30초 내에는 재시도 안 함 (연속 오류로 CPU 낭비 방지)
+  if (_dbInitRetryAt && now - _dbInitRetryAt < 30000) return
   _dbInited = true
+  _dbInitRetryAt = 0
   try {
     // CF Workers: initDb는 백그라운드에서 비동기 실행 (CPU 제한 방지)
     // DB 테이블은 이미 존재하므로 쿼리 실패해도 기존 데이터 정상 조회 가능
-    // waitUntil이 없는 환경에서는 fire-and-forget으로 실행
     initDb(env).catch((e: any) => {
       _dbInited = false
+      _dbInitRetryAt = Date.now()
       console.error('[initDb background] error:', e?.message || e)
     })
-  } catch(e) {
+  } catch(e: any) {
     _dbInited = false
-    // initDb 자체 오류는 무시 (이미 초기화된 DB면 쿼리 정상 동작)
+    _dbInitRetryAt = Date.now()
+    console.error('[ensureDb] error:', e?.message || e)
   }
 }
 
@@ -1064,12 +1071,17 @@ app.get('/api/videos', async (c) => {
 })
 
 app.get('/api/shops', async (c) => {
-  const sql = getDb(c.env)
-  const rows = await withTimeout(
-    sql`SELECT * FROM shops ORDER BY created_at DESC`,
-    15000, []
-  )
-  return c.json({ shops: rows.map(rowToShop) })
+  try {
+    const sql = getDb(c.env)
+    const rows = await withTimeout(
+      sql`SELECT * FROM shops ORDER BY created_at DESC`,
+      15000, []
+    )
+    return c.json({ shops: rows.map(rowToShop) })
+  } catch(e: any) {
+    console.error('[api/shops] error:', e?.message || e)
+    return c.json({ shops: [], error: e?.message || 'DB error' }, 200)
+  }
 })
 app.get('/api/shops/:id', async (c) => {
   const sql = getDb(c.env)
@@ -19464,17 +19476,20 @@ function thumbImgLoaded(el){ el.classList.add('img-loaded'); if(el.parentElement
    2) 즉시 첫 영상 src 세팅 (다운로드 시작)
    3) 스플래시 페이드(400ms)하는 동안 동시에 다운로드
    4) 페이드 끝 → setupObs() → play()
-   최대 fallback: 5초 */
+   최대 보장: 3초 절대 안전망 (어떤 경우에도 화면이 떠야 함) */
 var _ldStartTime = Date.now();
-var _MIN_SPLASH_MS = 0;
 var _ldReadyFlags = { shops: false, videos: false };
-var _ldFallbackTimer = null;
+var _ldFallbackTimer = null;   // loadVideos/fetch 경로 fallback 타이머
+var _ldSafeTimer = null;       // _checkLdReady 안전망 타이머 (별도 변수로 관리)
 var _ldHidden = false;
-// 스플래시: 최소 대기 없음 — 데이터+첫영상 준비되면 즉시 표시 (릴스 방식)
-// 최대 fallback: 3초 (네트워크 장애 대비)
-var _SPLASH_DURATION_MS = 0; // 강제 대기 제거
+
+// ✅ 절대 보장 안전망: 스크립트 실행 즉시 3초 타이머 세팅
+// _checkLdReady / loadVideos / prefetchShops 어느 것도 호출 안 돼도 화면 보장
+var _ldAbsoluteTimer = setTimeout(function(){
+  if(!_ldHidden) hideLd();
+}, 3000);
+
 _preloadFirstVideoEarly(); // 스플래시 뜨자마자 즉시 첫 영상 다운로드 시작
-// 강제 타이머 제거 — _checkLdReady()가 데이터 준비 즉시 hideLd() 호출
 
 /* 프로그레스 바 단계 제어 */
 function setLdProgress(pct) {
@@ -19485,11 +19500,14 @@ function setLdProgress(pct) {
   prog.style.width = pct + '%';
 }
 
-/* loading hide */
+/* loading hide — 한 번만 실행, 모든 타이머 정리 후 페이드아웃 */
 function hideLd(){
   if(_ldHidden) return;
   _ldHidden = true;
+  // 모든 관련 타이머 정리
   if(_ldFallbackTimer){ clearTimeout(_ldFallbackTimer); _ldFallbackTimer = null; }
+  if(_ldSafeTimer){ clearTimeout(_ldSafeTimer); _ldSafeTimer = null; }
+  if(_ldAbsoluteTimer){ clearTimeout(_ldAbsoluteTimer); }
   var ld = document.getElementById('ld');
   if(!ld){ setupObs(); return; }
   setLdProgress(100);
@@ -19510,7 +19528,8 @@ function _preloadFirstVideoEarly(){
     if(!v0 || !v0.dataset.src) return;
     if(v0.src || v0._hls) return; // 이미 로드 중
     v0.preload = 'auto';
-    var _ds0 = v0.dataset.src;
+    // data-src는 HTML 인코딩 되어있을 수 있으므로 디코딩 후 사용
+    var _ds0 = _decodeHtmlUrl(v0.dataset.src);
     if(_ds0.includes('.m3u8')) {
       attachHls(v0, _ds0);
     } else {
@@ -19531,6 +19550,17 @@ function _preloadFirstVideo(){
   _preloadFirstVideoEarly();
 }
 
+/* HTML 인코딩된 URL 디코딩 헬퍼 — esc()로 인코딩된 data-src를 attachHls에 전달 전 복원 */
+function _decodeHtmlUrl(s) {
+  if(!s) return '';
+  return String(s)
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'");
+}
+
 /* shops + videos 둘 다 준비되면 → 첫 영상이 재생 가능하면 즉시 hideLd (릴스 방식) */
 function _checkLdReady() {
   if(!_ldReadyFlags.shops || !_ldReadyFlags.videos) return;
@@ -19540,30 +19570,27 @@ function _checkLdReady() {
   if(v0 && v0.readyState >= 3) { hideLd(); return; }
   if(v0 && !v0.src && !v0._hls && v0.dataset.src) {
     v0.preload='auto';
-    var _ds0chk = v0.dataset.src;
+    var _ds0chk = _decodeHtmlUrl(v0.dataset.src);
     if(_ds0chk.includes('.m3u8')) { attachHls(v0, _ds0chk); }
     else { v0.src=_ds0chk; v0.load(); }
   }
-  // HLS 영상이거나 일반 영상 모두 canplay 이벤트로 hideLd 처리
+  // 모든 이벤트로 hideLd 처리
   if(v0) {
     if(v0.readyState >= 2) { hideLd(); return; }
     var _canPlayFired = false;
-    v0.addEventListener('canplay', function() {
-      if(_canPlayFired) return; _canPlayFired=true; hideLd();
-    }, {once:true});
-    v0.addEventListener('canplaythrough', function() {
-      if(_canPlayFired) return; _canPlayFired=true; hideLd();
-    }, {once:true});
-    // HLS: MANIFEST_PARSED 이벤트로도 hideLd (src가 없어도 재생 준비 완료 감지)
-    if(v0._hls) {
+    function _onCanPlay(){ if(_canPlayFired) return; _canPlayFired=true; hideLd(); }
+    v0.addEventListener('canplay', _onCanPlay, {once:true});
+    v0.addEventListener('canplaythrough', _onCanPlay, {once:true});
+    // HLS: MANIFEST_PARSED 이벤트로도 hideLd
+    if(v0._hls && window.Hls) {
       v0._hls.on(window.Hls.Events.MANIFEST_PARSED, function() {
         if(_canPlayFired) return; _canPlayFired=true; hideLd();
       });
     }
   }
-  // ✅ 안전망: 기존 타이머와 무관하게 항상 1.5초 안에 hideLd 보장
-  // (loadVideos의 3초 타이머가 이미 있어도 별도 단기 타이머 세팅)
-  setTimeout(function(){ if(!_ldHidden) hideLd(); }, 1500);
+  // ✅ 안전망: _checkLdReady 호출 후 최대 1.5초 내 hideLd 보장 (별도 변수로 관리)
+  if(_ldSafeTimer) clearTimeout(_ldSafeTimer);
+  _ldSafeTimer = setTimeout(function(){ if(!_ldHidden) hideLd(); }, 1500);
 }
 
 /* vids 배열에서 shopId 기준으로 영상 정보를 allShopsData에 주입 */
@@ -19642,6 +19669,7 @@ function loadVideos(cat) {
       : window.__INIT_VIDEOS__;
     window.__INIT_VIDEOS__ = null;
     window.__INIT_VIDEOS_ALL__ = null;
+    // 셔플
     for(var i=vids.length-1;i>0;i--){
       var j=Math.floor(Math.random()*(i+1));
       var tmp=vids[i]; vids[i]=vids[j]; vids[j]=tmp;
@@ -19649,15 +19677,14 @@ function loadVideos(cat) {
     renderFeed();
     setLdProgress(85);
     _ldReadyFlags.videos = true;
-    // ✅ 안전망: shops/videos 모두 준비됐고 데이터도 있으면 최대 1.5초 내 hideLd 보장
-    // (HLS canplay/MANIFEST_PARSED 이벤트가 안 와도 화면이 뜨도록)
+    // ✅ fallback: 인라인 데이터 있으면 1.5초 내 hideLd 보장
     if(!_ldFallbackTimer) {
-      _ldFallbackTimer = setTimeout(function(){ hideLd(); hideCatLoading(); }, 1500);
+      _ldFallbackTimer = setTimeout(function(){ if(!_ldHidden){ hideLd(); hideCatLoading(); } }, 1500);
     }
     _checkLdReady();
     return;
   }
-  // 카테고리 전환
+  // 카테고리 전환 (또는 인라인 데이터 없을 때 fetch)
   var isCatSwitch = _ldHidden;
   if(isCatSwitch) {
     showSkeletonFeed();
@@ -19673,7 +19700,6 @@ function loadVideos(cat) {
       }
       hideCatLoading();
       renderFeed();
-      // 카테고리 전환 후 setupObs 강제 실행 보장
       if(_ldHidden) { setupObs(); }
       if(!_ldHidden){
         setLdProgress(85);
@@ -19688,8 +19714,8 @@ function loadVideos(cat) {
       if(_ldHidden) { setupObs(); }
       if(!_ldHidden){ hideLd(); }
     });
-  // 최대 fallback: 1.5초
-  if(!_ldFallbackTimer) _ldFallbackTimer = setTimeout(function(){ hideLd(); hideCatLoading(); }, 1500);
+  // 최대 fallback: 1.5초 (fetch 완료 전에도 화면 보장)
+  if(!_ldFallbackTimer) _ldFallbackTimer = setTimeout(function(){ if(!_ldHidden){ hideLd(); hideCatLoading(); } }, 1500);
 }
 
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -19936,7 +19962,7 @@ function buildSlide(v, idx) {
         if(ve.dataset.src && !ve.dataset.retried){
           ve.dataset.retried = '1';
           setTimeout(function(){
-            var _retryUrl = ve.dataset.src;
+            var _retryUrl = _decodeHtmlUrl(ve.dataset.src);
             if(_retryUrl.includes('.m3u8')) {
               // HLS: 기존 HLS 인스턴스 파괴 후 재연결
               if(ve._hls){ ve._hls.destroy(); ve._hls = null; }
@@ -19960,7 +19986,7 @@ function buildSlide(v, idx) {
           // LOADING(2)이 아닌데 재생 중 → 실제 stall → src 재세팅
           if(ve.dataset.src && !ve.paused && ve.networkState !== 2){
             var savedTime = ve.currentTime || 0;
-            var _stallUrl = ve.dataset.src;
+            var _stallUrl = _decodeHtmlUrl(ve.dataset.src);
             if(_stallUrl.includes('.m3u8')) {
               // HLS: 인스턴스 재생성
               if(ve._hls){ ve._hls.destroy(); ve._hls = null; }
@@ -20111,7 +20137,9 @@ function attachHls(vid, hlsUrl) {
 
 function loadVidSrc(vid){
   if(!vid) return;
-  var src = vid.dataset.src || vid.src;
+  // data-src는 HTML 인코딩 되어있을 수 있으므로 디코딩 후 사용
+  var rawSrc = vid.dataset.src ? _decodeHtmlUrl(vid.dataset.src) : '';
+  var src = rawSrc || vid.src;
   if(!src) return;
   if(vid.src && vid.src === src) return; // 이미 로드됨
   vid.preload = 'auto';
@@ -20137,10 +20165,9 @@ function preloadNext(idx){
   var ni2 = document.getElementById('vid'+(idx+2));
 
   // +1 영상: src 즉시 세팅 + 0.3초 후 본격 버퍼링
-  // (CDN immutable 캐시 + Vercel HTML 캐시로 bandwidth 여유 충분)
   if(ni1 && !ni1.src && !ni1._hls && ni1.dataset.src){
     ni1.preload = 'metadata';
-    var _ds1 = ni1.dataset.src;
+    var _ds1 = _decodeHtmlUrl(ni1.dataset.src);
     if(_ds1.includes('.m3u8')) {
       attachHls(ni1, _ds1);
     } else {
@@ -20153,7 +20180,6 @@ function preloadNext(idx){
       }
     }, 300));
   } else if(ni1 && ni1.src && ni1.readyState < 2){
-    // src는 있지만 버퍼링 부족 → 0.3초 후 load()
     _preloadTimers.push(setTimeout(function(){
       if(ni1 && ni1.src && ni1.readyState < 3){
         ni1.preload = 'auto';
@@ -20162,12 +20188,12 @@ function preloadNext(idx){
     }, 300));
   }
 
-  // +2 영상: 1.5초 뒤 metadata만 (기존 4초 → 1.5초)
+  // +2 영상: 1.5초 뒤 metadata만
   _preloadTimers.push(setTimeout(function(){
     var ni2 = document.getElementById('vid'+(idx+2));
     if(ni2 && !ni2.src && !ni2._hls && ni2.dataset.src){
       ni2.preload = 'metadata';
-      var _ds2 = ni2.dataset.src;
+      var _ds2 = _decodeHtmlUrl(ni2.dataset.src);
       if(_ds2.includes('.m3u8')) {
         attachHls(ni2, _ds2);
       } else {
@@ -20185,7 +20211,7 @@ function _playVid(vid, bufIc){
   var _srcJustSet = false;
   if(!vid.src && vid.dataset.src){
     vid.preload = 'auto';
-    var _ds = vid.dataset.src;
+    var _ds = _decodeHtmlUrl(vid.dataset.src);
     if(_ds.includes('.m3u8')) {
       // HLS m3u8: attachHls() 통해 HLS.js 또는 네이티브 HLS 연결
       attachHls(vid, _ds);
