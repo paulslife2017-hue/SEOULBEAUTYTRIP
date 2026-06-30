@@ -19994,7 +19994,7 @@ function buildSlide(v, idx) {
 
   // Stream URL(iframe embed)이면 video 태그 없이 iframe을 바로 렌더링
   var videoOrIframe = isDirectStream
-    ? '<iframe id="vid'+idx+'" class="stream-iframe" src="'+esc(v.videoUrl)+'?autoplay=true&muted=true&loop=true&controls=false&preload=auto" allow="autoplay; fullscreen" allowfullscreen style="position:absolute;inset:0;width:100%;height:100%;border:none;z-index:1;touch-action:pan-y;pointer-events:none"></iframe>'
+    ? '<iframe id="vid'+idx+'" class="stream-iframe" src="'+esc(v.videoUrl)+'?autoplay=true&muted=true&loop=true&controls=0&preload=auto" allow="autoplay; fullscreen" allowfullscreen style="position:absolute;inset:0;width:100%;height:100%;border:none;z-index:1;touch-action:pan-y;pointer-events:none"></iframe>'
     : '<video id="vid'+idx+'" loop muted playsinline preload="'+vidPreload+'" poster="'+esc(thumb)+'" '+vidSrcAttr+iframeSrcAttr+'></video>';
 
   s.innerHTML =
