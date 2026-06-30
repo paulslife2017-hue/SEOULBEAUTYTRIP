@@ -19913,6 +19913,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 __INLINE_DATA_PLACEHOLDER__
 <!-- HLS.js: Cloudflare Stream m3u8 \uC7AC\uC0DD \uC9C0\uC6D0 (Safari \uC81C\uC678 \uBE0C\uB77C\uC6B0\uC800\uC6A9) -->
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.8/dist/hls.min.js"></script>
+<!-- Cloudflare Stream Player SDK: iframe mute/unmute \uC81C\uC5B4\uC6A9 -->
+<script src="https://embed.cloudflarestream.com/embed/sdk.latest.js"></script>
 <script>
 // \uC5B8\uC5B4 \uC790\uB3D9 \uB9AC\uB2E4\uC774\uB809\uD2B8 \uBE44\uD65C\uC131\uD654 (\uC77C\uBCF8\uC5B4\uD310 \uAC1C\uBC1C \uC911)
 var vids = [], isMuted = true, liked = {}, platform = {}, allShopsData = [];
@@ -21868,8 +21870,16 @@ function _syncMuteUI(){
 window.toggleMute=function(){
   isMuted=!isMuted;
   _syncMuteUI();
-  // \uD604\uC7AC \uC7AC\uC0DD \uC911\uC778 \uBAA8\uB4E0 video\uC5D0 \uC989\uC2DC \uBC18\uC601
+  // \uC77C\uBC18 video \uD0DC\uADF8 \uC74C\uC18C\uAC70 \uBC18\uC601
   document.querySelectorAll('video').forEach(function(v){v.muted=isMuted;});
+  // Cloudflare Stream iframe: SDK\uB85C muted \uC81C\uC5B4
+  document.querySelectorAll('iframe.stream-iframe').forEach(function(f){
+    try{
+      // @ts-ignore
+      var player = window.Stream && window.Stream(f);
+      if(player){ player.muted = isMuted; }
+    }catch(e){}
+  });
 };
 function showToast(msg){
   var t=document.getElementById('toast');

@@ -19510,6 +19510,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 __INLINE_DATA_PLACEHOLDER__
 <!-- HLS.js: Cloudflare Stream m3u8 재생 지원 (Safari 제외 브라우저용) -->
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.8/dist/hls.min.js"></script>
+<!-- Cloudflare Stream Player SDK: iframe mute/unmute 제어용 -->
+<script src="https://embed.cloudflarestream.com/embed/sdk.latest.js"></script>
 <script>
 // 언어 자동 리다이렉트 비활성화 (일본어판 개발 중)
 var vids = [], isMuted = true, liked = {}, platform = {}, allShopsData = [];
@@ -21465,8 +21467,16 @@ function _syncMuteUI(){
 window.toggleMute=function(){
   isMuted=!isMuted;
   _syncMuteUI();
-  // 현재 재생 중인 모든 video에 즉시 반영
+  // 일반 video 태그 음소거 반영
   document.querySelectorAll('video').forEach(function(v){v.muted=isMuted;});
+  // Cloudflare Stream iframe: SDK로 muted 제어
+  document.querySelectorAll('iframe.stream-iframe').forEach(function(f){
+    try{
+      // @ts-ignore
+      var player = window.Stream && window.Stream(f);
+      if(player){ player.muted = isMuted; }
+    }catch(e){}
+  });
 };
 function showToast(msg){
   var t=document.getElementById('toast');
