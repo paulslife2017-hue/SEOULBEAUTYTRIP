@@ -18312,8 +18312,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   transition:filter .5s ease,transform .5s ease;
 }
 .bg-img.loaded{filter:blur(0);transform:scale(1)}
-.slide video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;background:#000}
-.ov{position:absolute;inset:0;z-index:2;background:linear-gradient(to bottom,rgba(0,0,0,.08) 0%,transparent 25%,transparent 40%,rgba(0,0,0,.2) 60%,rgba(0,0,0,.7) 80%,rgba(0,0,0,.92) 100%);cursor:pointer}
+.slide video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;background:#000;touch-action:pan-y;pointer-events:none}
+.ov{position:absolute;inset:0;z-index:2;background:linear-gradient(to bottom,rgba(0,0,0,.08) 0%,transparent 25%,transparent 40%,rgba(0,0,0,.2) 60%,rgba(0,0,0,.7) 80%,rgba(0,0,0,.92) 100%);cursor:pointer;touch-action:pan-y}
 /* ── 슬라이드 정보 영역 ── */
 .info{position:absolute;bottom:0;left:0;right:0;padding:12px 16px 20px;z-index:3;display:flex;flex-direction:column;gap:0}
 /* 모바일: 슬라이드 높이가 이미 safe-area를 제외하므로 info는 단순 padding만 */
@@ -19293,7 +19293,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .adv-success-msg{font-size:12px;color:rgba(255,255,255,.45);line-height:1.7}
 
 /* ── 상담 피드 카드 (Option A) ── */
-.consult-feed-card{background:linear-gradient(135deg,rgba(232,65,122,.18),rgba(168,85,247,.14));border:1px solid rgba(232,65,122,.3);border-radius:20px;margin:0 14px 10px;padding:20px 18px;display:flex;flex-direction:column;gap:12px}
+.consult-feed-card{background:linear-gradient(135deg,rgba(232,65,122,.18),rgba(168,85,247,.14));border:1px solid rgba(232,65,122,.3);border-radius:20px;margin:0 14px 10px;padding:20px 18px;display:flex;flex-direction:column;gap:12px;scroll-snap-align:none}
 .cfc-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(232,65,122,.2);border:1px solid rgba(232,65,122,.35);border-radius:20px;padding:4px 10px;font-size:10px;font-weight:800;color:#f472b6;letter-spacing:.3px;align-self:flex-start}
 .cfc-title{font-size:17px;font-weight:900;color:#fff;line-height:1.35}
 .cfc-title span{color:#f472b6}
@@ -20222,7 +20222,7 @@ function attachHls(vid, hlsUrl) {
               iframe.src = iframeUrl;
               iframe.allow = 'autoplay; fullscreen';
               iframe.setAttribute('allowfullscreen', '');
-              iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none;z-index:2;';
+              iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none;z-index:2;touch-action:pan-y;';
               slide.appendChild(iframe);
               vid.style.display = 'none';
             }
