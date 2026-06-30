@@ -200,10 +200,11 @@ async function login(e) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password: pw }),
-      credentials: 'same-origin'
+      credentials: 'include'
     });
     if (r.ok) {
-      window.location.href = '/admin';
+      // 쿠키가 완전히 적용된 후 이동 (SameSite=Lax 쿠키 전달 보장)
+      setTimeout(function(){ window.location.replace('/admin'); }, 100);
     } else {
       document.getElementById('err').style.display = 'block';
       document.getElementById('spin').style.display = 'none';
@@ -221,7 +222,7 @@ async function login(e) {
   }
 
   // 인증 성공: 세션 쿠키 갱신 후 next()
-  c.header('Set-Cookie', `admin_token=${adminSecret}; Path=/; Max-Age=604800; HttpOnly; Secure; SameSite=Strict`)
+  c.header('Set-Cookie', `admin_token=${adminSecret}; Path=/; Max-Age=604800; HttpOnly; Secure; SameSite=Lax`)
   await next()
 })
 
@@ -251,7 +252,7 @@ app.post('/admin-login', async (c) => {
     if (!password || password !== adminSecret) {
       return c.json({ error: 'Unauthorized' }, 401)
     }
-    c.header('Set-Cookie', `admin_token=${adminSecret}; Path=/; Max-Age=604800; HttpOnly; Secure; SameSite=Strict`)
+    c.header('Set-Cookie', `admin_token=${adminSecret}; Path=/; Max-Age=604800; HttpOnly; Secure; SameSite=Lax`)
     return c.json({ ok: true })
   } catch {
     return c.json({ error: 'Bad Request' }, 400)
@@ -8863,7 +8864,7 @@ app.post('/ja/admin', async (c) => {
     const body = await c.req.json()
     const secret = _getAdminSecret(c.env)
     if (body.token !== secret) return c.json({ error: 'unauthorized' }, 401)
-    c.header('Set-Cookie', `admin_token=${secret}; Path=/; Max-Age=604800; HttpOnly; Secure; SameSite=Strict`)
+    c.header('Set-Cookie', `admin_token=${secret}; Path=/; Max-Age=604800; HttpOnly; Secure; SameSite=Lax`)
     return c.json({ ok: true })
   } catch(e) { return c.json({ error: 'bad_request' }, 400) }
 })
@@ -20051,9 +20052,11 @@ function buildSlide(v, idx) {
       ve.addEventListener('stalled',  showBuf);   // 네트워크 지연
       ve.addEventListener('seeking',  showBuf);
       ve.addEventListener('canplay',  hideBuf);   // 재생 준비 완료
-      ve.addEventListener('playing',  hideBuf);   // 실제 재생 시작
-      ve.addEventListener('play',     function(){ hideBuf(); if(playIc) playIc.style.display='none'; });
-      ve.addEventListener('pause',    function(){ hideBuf(); if(playIc) playIc.style.display='flex'; });
+      // _userPaused: 사용자가 직접 탭해서 정지한 경우만 true (자동 pause는 false)
+      var _userPaused = false;
+      ve.addEventListener('play',     function(){ hideBuf(); _userPaused=false; if(playIc) playIc.style.display='none'; });
+      ve.addEventListener('playing',  function(){ hideBuf(); _userPaused=false; if(playIc) playIc.style.display='none'; });
+      ve.addEventListener('pause',    function(){ hideBuf(); if(_userPaused && playIc) playIc.style.display='flex'; });
       // [M10] iOS Safari: loop 속성 있어도 일부 버전에서 ended 발생 후 멈춤
       // ended 이벤트 시 수동으로 currentTime=0 후 재생
       ve.addEventListener('ended', function(){
@@ -20119,8 +20122,14 @@ function buildSlide(v, idx) {
     if(ov && ve) {
       ov.addEventListener('click', function(e){
         e.stopPropagation();
-        if(ve.paused){ ve.muted=isMuted; ve.play().catch(function(){}); }
-        else { ve.pause(); }
+        if(ve.paused){
+          _userPaused = false;
+          ve.muted=isMuted; ve.play().catch(function(){});
+          if(playIc) playIc.style.display='none';
+        } else {
+          _userPaused = true;
+          ve.pause();
+        }
       });
     }
 
