@@ -5636,6 +5636,43 @@ app.post("/api/admin/migrate-video-urls", async (c) => {
     return c.json({ ok: false, error: e?.message || "DB error" }, 500);
   }
 });
+app.post("/api/admin/indexnow-submit", async (c) => {
+  try {
+    const sitemapRes = await fetch("https://seoulbeautytrip.com/sitemap.xml");
+    const sitemapXml = await sitemapRes.text();
+    const urls = Array.from(sitemapXml.matchAll(/<loc>(https?:\/\/[^<]+)<\/loc>/g)).map((m) => m[1].trim());
+    if (!urls.length) return c.json({ error: "sitemap URL \uD30C\uC2F1 \uC2E4\uD328" }, 500);
+    const body = JSON.stringify({
+      host: "seoulbeautytrip.com",
+      key: INDEXNOW_KEY,
+      keyLocation: `https://seoulbeautytrip.com/${INDEXNOW_KEY}.txt`,
+      urlList: urls
+    });
+    const opts = {
+      method: "POST",
+      headers: { "Content-Type": "application/json; charset=utf-8" },
+      body
+    };
+    const [r1, r2, r3] = await Promise.allSettled([
+      fetch("https://api.indexnow.org/indexnow", opts),
+      fetch("https://www.bing.com/indexnow", opts),
+      fetch("https://searchadvisor.naver.com/indexnow", opts)
+    ]);
+    const status = (r) => r.status === "fulfilled" ? r.value.status : `err:${r.reason?.message?.slice(0, 30)}`;
+    return c.json({
+      ok: true,
+      submitted: urls.length,
+      results: {
+        indexnow: status(r1),
+        bing: status(r2),
+        naver: status(r3)
+      },
+      sample: urls.slice(0, 5)
+    });
+  } catch (e) {
+    return c.json({ error: e.message }, 500);
+  }
+});
 app.post("/api/admin/fix-slugs", async (c) => {
   try {
     const sql = getDb(c.env);
@@ -25003,6 +25040,22 @@ https://seoulbeautytrip.com/video/v178051515735</textarea>
 </div>
 
 <div class="tab-content" id="tab-settings">
+  <!-- \u2500\u2500 IndexNow \uC77C\uAD04 \uC81C\uCD9C \uCE74\uB4DC \u2500\u2500 -->
+  <div class="card" style="margin-bottom:16px;border-color:rgba(52,211,153,.25);background:rgba(52,211,153,.04)">
+    <div class="card-title" style="margin-bottom:4px">
+      <i class="fas fa-bolt" style="color:#34d399"></i> \uAC80\uC0C9\uC5D4\uC9C4 \uC0C9\uC778 \uC989\uC2DC \uC81C\uCD9C
+      <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,.35);margin-left:6px">Bing \xB7 Naver \xB7 IndexNow</span>
+    </div>
+    <div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:14px">
+      sitemap\uC758 \uC804\uCCB4 URL(<span id="indexnow-url-count">246</span>\uAC1C)\uC744 Bing Webmaster, Naver SearchAdvisor, IndexNow\uC5D0 \uD55C \uBC88\uC5D0 \uC81C\uCD9C\uD569\uB2C8\uB2E4.<br>
+      <span style="color:rgba(52,211,153,.7)">\uBE0C\uB79C\uB4DC\uBA85 \uAC80\uC0C9 \uB178\uCD9C \uC548 \uB420 \uB54C, \uC2E0\uADDC \uD398\uC774\uC9C0 \uCD94\uAC00 \uD6C4 \uC989\uC2DC \uC2E4\uD589\uD558\uC138\uC694.</span>
+    </div>
+    <button onclick="submitIndexNow()" id="indexnow-btn"
+      style="padding:10px 20px;background:linear-gradient(135deg,rgba(52,211,153,.25),rgba(16,185,129,.2));border:1.5px solid rgba(52,211,153,.4);border-radius:10px;color:#34d399;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:7px">
+      <i class="fas fa-paper-plane"></i> \uC804\uCCB4 URL \uC0C9\uC778 \uC81C\uCD9C
+    </button>
+    <div id="indexnow-result" style="font-size:11px;margin-top:10px;color:rgba(255,255,255,.5)"></div>
+  </div>
   <!-- API \uD1A0\uD070 \uC124\uC815 \uCE74\uB4DC -->
   <div class="card" style="margin-bottom:16px;border-color:rgba(251,191,36,.25);background:rgba(251,191,36,.05)">
     <div class="card-title" style="margin-bottom:4px"><i class="fas fa-key" style="color:#fbbf24"></i> AI API \uD1A0\uD070 \uC124\uC815</div>
@@ -30353,6 +30406,39 @@ function updateSlugPreview() {
 }
 
 /* \u2500\u2500 \uC804\uCCB4 Slug \uC815\uB9AC \u2500\u2500 */
+window.submitIndexNow = async function submitIndexNow() {
+  var btn = document.getElementById('indexnow-btn');
+  var resultEl = document.getElementById('indexnow-result');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> \uC81C\uCD9C \uC911...'; }
+  if (resultEl) resultEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Bing \xB7 Naver \xB7 IndexNow\uC5D0 \uC81C\uCD9C \uC911...';
+  try {
+    var res = await fetch('/api/admin/indexnow-submit', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + _GSK_TOKEN }
+    });
+    var data = await res.json();
+    if (data.ok) {
+      var r = data.results || {};
+      var bingOk  = r.bing === 200 || r.bing === 202;
+      var naverOk = r.naver === 200 || r.naver === 202;
+      var inowOk  = r.indexnow === 200 || r.indexnow === 202;
+      if (resultEl) resultEl.innerHTML =
+        '<span style="color:#34d399"><i class="fas fa-check-circle"></i> \uC81C\uCD9C \uC644\uB8CC \u2014 <b>' + data.submitted + '\uAC1C</b> URL</span><br>' +
+        '<span style="font-size:10px;color:rgba(255,255,255,.4);margin-top:4px;display:block">' +
+        'Bing: <b style="color:' + (bingOk?'#34d399':'#fbbf24') + '">' + r.bing + '</b> &nbsp;' +
+        'Naver: <b style="color:' + (naverOk?'#34d399':'#fbbf24') + '">' + r.naver + '</b> &nbsp;' +
+        'IndexNow: <b style="color:' + (inowOk?'#34d399':'#fbbf24') + '">' + r.indexnow + '</b>' +
+        '<br>\uBCF4\uD1B5 1~3\uC77C \uB0B4 Bing/Naver \uAC80\uC0C9 \uACB0\uACFC\uC5D0 \uBC18\uC601\uB429\uB2C8\uB2E4.</span>';
+      if (document.getElementById('indexnow-url-count')) document.getElementById('indexnow-url-count').textContent = data.submitted;
+    } else {
+      if (resultEl) resultEl.innerHTML = '<span style="color:#ef4444">\u274C ' + (data.error||'\uC624\uB958') + '</span>';
+    }
+  } catch(e) {
+    if (resultEl) resultEl.innerHTML = '<span style="color:#ef4444">\u274C ' + e.message + '</span>';
+  }
+  if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> \uC804\uCCB4 URL \uC0C9\uC778 \uC81C\uCD9C'; }
+};
+
 window.fixAllSlugs = async function fixAllSlugs() {
   var btn = document.getElementById('fix-slugs-btn');
   var statusEl = document.getElementById('regen-status');

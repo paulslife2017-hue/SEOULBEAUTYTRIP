@@ -3927,6 +3927,52 @@ app.post('/api/admin/migrate-video-urls', async (c) => {
   }
 })
 
+// POST /api/admin/indexnow-submit — sitemap 전체 URL을 Bing/Naver/IndexNow에 일괄 제출
+app.post('/api/admin/indexnow-submit', async (c) => {
+  try {
+    // sitemap.xml에서 모든 URL 파싱
+    const sitemapRes = await fetch('https://seoulbeautytrip.com/sitemap.xml')
+    const sitemapXml = await sitemapRes.text()
+    const urls = Array.from(sitemapXml.matchAll(/<loc>(https?:\/\/[^<]+)<\/loc>/g)).map(m => m[1].trim())
+    if (!urls.length) return c.json({ error: 'sitemap URL 파싱 실패' }, 500)
+
+    // IndexNow는 한 번에 최대 10,000개까지 가능 — 전체 한 방에 제출
+    const body = JSON.stringify({
+      host: 'seoulbeautytrip.com',
+      key: INDEXNOW_KEY,
+      keyLocation: `https://seoulbeautytrip.com/${INDEXNOW_KEY}.txt`,
+      urlList: urls
+    })
+    const opts: RequestInit = {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      body
+    }
+
+    const [r1, r2, r3] = await Promise.allSettled([
+      fetch('https://api.indexnow.org/indexnow', opts),
+      fetch('https://www.bing.com/indexnow', opts),
+      fetch('https://searchadvisor.naver.com/indexnow', opts)
+    ])
+
+    const status = (r: PromiseSettledResult<Response>) =>
+      r.status === 'fulfilled' ? r.value.status : `err:${(r as any).reason?.message?.slice(0,30)}`
+
+    return c.json({
+      ok: true,
+      submitted: urls.length,
+      results: {
+        indexnow: status(r1),
+        bing:     status(r2),
+        naver:    status(r3)
+      },
+      sample: urls.slice(0, 5)
+    })
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+})
+
 // POST /api/admin/fix-slugs
 // → 모든 업체 slug를 name+location 기반으로 재생성 (숫자 suffix → 지역명 suffix)
 // ══════════════════════════════════════════
@@ -24614,6 +24660,22 @@ https://seoulbeautytrip.com/video/v178051515735</textarea>
 </div>
 
 <div class="tab-content" id="tab-settings">
+  <!-- ── IndexNow 일괄 제출 카드 ── -->
+  <div class="card" style="margin-bottom:16px;border-color:rgba(52,211,153,.25);background:rgba(52,211,153,.04)">
+    <div class="card-title" style="margin-bottom:4px">
+      <i class="fas fa-bolt" style="color:#34d399"></i> 검색엔진 색인 즉시 제출
+      <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,.35);margin-left:6px">Bing · Naver · IndexNow</span>
+    </div>
+    <div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:14px">
+      sitemap의 전체 URL(<span id="indexnow-url-count">246</span>개)을 Bing Webmaster, Naver SearchAdvisor, IndexNow에 한 번에 제출합니다.<br>
+      <span style="color:rgba(52,211,153,.7)">브랜드명 검색 노출 안 될 때, 신규 페이지 추가 후 즉시 실행하세요.</span>
+    </div>
+    <button onclick="submitIndexNow()" id="indexnow-btn"
+      style="padding:10px 20px;background:linear-gradient(135deg,rgba(52,211,153,.25),rgba(16,185,129,.2));border:1.5px solid rgba(52,211,153,.4);border-radius:10px;color:#34d399;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:7px">
+      <i class="fas fa-paper-plane"></i> 전체 URL 색인 제출
+    </button>
+    <div id="indexnow-result" style="font-size:11px;margin-top:10px;color:rgba(255,255,255,.5)"></div>
+  </div>
   <!-- API 토큰 설정 카드 -->
   <div class="card" style="margin-bottom:16px;border-color:rgba(251,191,36,.25);background:rgba(251,191,36,.05)">
     <div class="card-title" style="margin-bottom:4px"><i class="fas fa-key" style="color:#fbbf24"></i> AI API 토큰 설정</div>
@@ -29964,6 +30026,39 @@ function updateSlugPreview() {
 }
 
 /* ── 전체 Slug 정리 ── */
+window.submitIndexNow = async function submitIndexNow() {
+  var btn = document.getElementById('indexnow-btn');
+  var resultEl = document.getElementById('indexnow-result');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 제출 중...'; }
+  if (resultEl) resultEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Bing · Naver · IndexNow에 제출 중...';
+  try {
+    var res = await fetch('/api/admin/indexnow-submit', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + _GSK_TOKEN }
+    });
+    var data = await res.json();
+    if (data.ok) {
+      var r = data.results || {};
+      var bingOk  = r.bing === 200 || r.bing === 202;
+      var naverOk = r.naver === 200 || r.naver === 202;
+      var inowOk  = r.indexnow === 200 || r.indexnow === 202;
+      if (resultEl) resultEl.innerHTML =
+        '<span style="color:#34d399"><i class="fas fa-check-circle"></i> 제출 완료 — <b>' + data.submitted + '개</b> URL</span><br>' +
+        '<span style="font-size:10px;color:rgba(255,255,255,.4);margin-top:4px;display:block">' +
+        'Bing: <b style="color:' + (bingOk?'#34d399':'#fbbf24') + '">' + r.bing + '</b> &nbsp;' +
+        'Naver: <b style="color:' + (naverOk?'#34d399':'#fbbf24') + '">' + r.naver + '</b> &nbsp;' +
+        'IndexNow: <b style="color:' + (inowOk?'#34d399':'#fbbf24') + '">' + r.indexnow + '</b>' +
+        '<br>보통 1~3일 내 Bing/Naver 검색 결과에 반영됩니다.</span>';
+      if (document.getElementById('indexnow-url-count')) document.getElementById('indexnow-url-count').textContent = data.submitted;
+    } else {
+      if (resultEl) resultEl.innerHTML = '<span style="color:#ef4444">❌ ' + (data.error||'오류') + '</span>';
+    }
+  } catch(e) {
+    if (resultEl) resultEl.innerHTML = '<span style="color:#ef4444">❌ ' + e.message + '</span>';
+  }
+  if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> 전체 URL 색인 제출'; }
+};
+
 window.fixAllSlugs = async function fixAllSlugs() {
   var btn = document.getElementById('fix-slugs-btn');
   var statusEl = document.getElementById('regen-status');
