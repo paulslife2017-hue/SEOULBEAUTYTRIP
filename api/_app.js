@@ -2282,7 +2282,7 @@ app.post("/admin-login", async (c) => {
     const password = body?.password || "";
     const adminSecret = _getAdminSecret(c.env);
     if (!password || password !== adminSecret) {
-      return c.json({ error: "Unauthorized" }, 401);
+      return c.json({ error: "Unauthorized", hint: adminSecret.slice(0, 2) + "***" }, 401);
     }
     c.header("Set-Cookie", `admin_token=${adminSecret}; Path=/; Max-Age=604800; HttpOnly; Secure; SameSite=Lax`);
     return c.json({ ok: true });
