@@ -1025,10 +1025,16 @@ async function ensureDb(env: any) {
   if (_dbInited) return
   _dbInited = true
   try {
-    await initDb(env)
+    // CF Workers: initDb는 백그라운드에서 비동기 실행 (CPU 제한 방지)
+    // DB 테이블은 이미 존재하므로 쿼리 실패해도 기존 데이터 정상 조회 가능
+    // waitUntil이 없는 환경에서는 fire-and-forget으로 실행
+    initDb(env).catch((e: any) => {
+      _dbInited = false
+      console.error('[initDb background] error:', e?.message || e)
+    })
   } catch(e) {
-    _dbInited = false  // 실패 시 재시도 허용
-    throw e
+    _dbInited = false
+    // initDb 자체 오류는 무시 (이미 초기화된 DB면 쿼리 정상 동작)
   }
 }
 
