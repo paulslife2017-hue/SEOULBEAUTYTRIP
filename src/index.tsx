@@ -4540,6 +4540,8 @@ app.post('/api/blogs', async (c) => {
   const keywords: string[] = body.keywords || []
   const coverImage = body.coverImage || ''
   const status = body.status || 'published'
+  // published_at 또는 created_at으로 과거 날짜 지정 가능
+  const postDate = body.published_at || body.created_at || now
 
   // content 없으면 AI 자동 생성
   if (!content && title && apiKey) {
@@ -4556,7 +4558,7 @@ app.post('/api/blogs', async (c) => {
 
   await sql`INSERT INTO blog_posts
     (id,slug,title,meta_description,content,excerpt,category,area,tags,cover_image,status,views,created_at,updated_at)
-    VALUES (${id},${slug},${title},${metaDescription},${content},${excerpt},${category},${area},${JSON.stringify(tags)},${coverImage},${status},0,${now},${now})
+    VALUES (${id},${slug},${title},${metaDescription},${content},${excerpt},${category},${area},${JSON.stringify(tags)},${coverImage},${status},0,${postDate},${now})
     ON CONFLICT (slug) DO NOTHING`
 
   // IndexNow ping — 새 블로그 등록 시 실시간 색인
@@ -4604,6 +4606,8 @@ app.put('/api/blogs/:id', async (c) => {
       }
     }
 
+    // published_at 또는 created_at으로 날짜 변경 가능
+    const _putDate = body.published_at || body.created_at
     await sql`UPDATE blog_posts SET
       title=${body.title||''},
       slug=${body.slug||makeBlogSlug(body.title||'')},
@@ -4615,6 +4619,7 @@ app.put('/api/blogs/:id', async (c) => {
       tags=${JSON.stringify(tags)},
       cover_image=${body.coverImage||''},
       status=${body.status||'published'},
+      created_at=${_putDate ? _putDate : sql`created_at`},
       updated_at=${now}
       WHERE id=${c.req.param('id')}`
     // IndexNow ping — 블로그 수정 시 실시간 색인
@@ -5022,11 +5027,13 @@ app.post('/api/ja/blogs', async (c) => {
     const id = 'b' + Date.now()
     const now = new Date().toISOString()
     const slug = body.slug || makeBlogSlug(body.title || '')
+    // published_at 또는 created_at으로 과거 날짜 지정 가능
+    const jaPostDate = body.published_at || body.created_at || now
     await sql`INSERT INTO blog_posts_ja
       (id,slug,title,meta_description,content,excerpt,category,area,tags,cover_image,status,views,created_at,updated_at)
       VALUES (${id},${slug},${body.title||''},${body.metaDescription||''},${body.content||''},
       ${body.excerpt||''},${body.category||''},${body.area||''},${JSON.stringify(body.tags||[])},
-      ${body.coverImage||''},${body.status||'published'},0,${now},${now})
+      ${body.coverImage||''},${body.status||'published'},0,${jaPostDate},${now})
       ON CONFLICT (slug) DO NOTHING`
     // IndexNow ping — JA 새 블로그 등록 시 실시간 색인
     pingIndexNow([
@@ -5050,6 +5057,8 @@ app.put('/api/ja/blogs/:id', async (c) => {
     const sql = getDb(c.env)
     const body = await c.req.json() as any
     const now = new Date().toISOString()
+    // published_at 또는 created_at으로 날짜 변경 가능
+    const _jaPutDate = body.published_at || body.created_at
     await sql`UPDATE blog_posts_ja SET
       title=${body.title||''},
       slug=${body.slug||makeBlogSlug(body.title||'')},
@@ -5061,6 +5070,7 @@ app.put('/api/ja/blogs/:id', async (c) => {
       tags=${JSON.stringify(body.tags||[])},
       cover_image=${body.coverImage||''},
       status=${body.status||'published'},
+      created_at=${_jaPutDate ? _jaPutDate : sql`created_at`},
       updated_at=${now}
       WHERE id=${c.req.param('id')}`
     // IndexNow ping — JA 블로그 수정 시 실시간 색인

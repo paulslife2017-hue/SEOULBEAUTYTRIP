@@ -6163,6 +6163,7 @@ app.post("/api/blogs", async (c) => {
     const keywords = body.keywords || [];
     const coverImage = body.coverImage || "";
     const status = body.status || "published";
+    const postDate = body.published_at || body.created_at || now;
     if (!content && title && apiKey) {
       const gen = await autoGenBlog({ title, category, area, keywords }, apiKey);
       if (gen) {
@@ -6175,7 +6176,7 @@ app.post("/api/blogs", async (c) => {
     const slug = body.slug || makeBlogSlug(title);
     await sql`INSERT INTO blog_posts
     (id,slug,title,meta_description,content,excerpt,category,area,tags,cover_image,status,views,created_at,updated_at)
-    VALUES (${id},${slug},${title},${metaDescription},${content},${excerpt},${category},${area},${JSON.stringify(tags)},${coverImage},${status},0,${now},${now})
+    VALUES (${id},${slug},${title},${metaDescription},${content},${excerpt},${category},${area},${JSON.stringify(tags)},${coverImage},${status},0,${postDate},${now})
     ON CONFLICT (slug) DO NOTHING`;
     pingIndexNow([
       `https://seoulbeautytrip.com/blog/${slug}`,
@@ -6220,6 +6221,7 @@ app.put("/api/blogs/:id", async (c) => {
         tags = gen.tags;
       }
     }
+    const _putDate = body.published_at || body.created_at;
     await sql`UPDATE blog_posts SET
       title=${body.title || ""},
       slug=${body.slug || makeBlogSlug(body.title || "")},
@@ -6231,6 +6233,7 @@ app.put("/api/blogs/:id", async (c) => {
       tags=${JSON.stringify(tags)},
       cover_image=${body.coverImage || ""},
       status=${body.status || "published"},
+      created_at=${_putDate ? _putDate : sql`created_at`},
       updated_at=${now}
       WHERE id=${c.req.param("id")}`;
     const _blogSlug = body.slug || makeBlogSlug(body.title || "");
@@ -6589,11 +6592,12 @@ app.post("/api/ja/blogs", async (c) => {
     const id = "b" + Date.now();
     const now = (/* @__PURE__ */ new Date()).toISOString();
     const slug = body.slug || makeBlogSlug(body.title || "");
+    const jaPostDate = body.published_at || body.created_at || now;
     await sql`INSERT INTO blog_posts_ja
       (id,slug,title,meta_description,content,excerpt,category,area,tags,cover_image,status,views,created_at,updated_at)
       VALUES (${id},${slug},${body.title || ""},${body.metaDescription || ""},${body.content || ""},
       ${body.excerpt || ""},${body.category || ""},${body.area || ""},${JSON.stringify(body.tags || [])},
-      ${body.coverImage || ""},${body.status || "published"},0,${now},${now})
+      ${body.coverImage || ""},${body.status || "published"},0,${jaPostDate},${now})
       ON CONFLICT (slug) DO NOTHING`;
     pingIndexNow([
       `https://seoulbeautytrip.com/ja/blog/${slug}`,
@@ -6613,6 +6617,7 @@ app.put("/api/ja/blogs/:id", async (c) => {
     const sql = getDb(c.env);
     const body = await c.req.json();
     const now = (/* @__PURE__ */ new Date()).toISOString();
+    const _jaPutDate = body.published_at || body.created_at;
     await sql`UPDATE blog_posts_ja SET
       title=${body.title || ""},
       slug=${body.slug || makeBlogSlug(body.title || "")},
@@ -6624,6 +6629,7 @@ app.put("/api/ja/blogs/:id", async (c) => {
       tags=${JSON.stringify(body.tags || [])},
       cover_image=${body.coverImage || ""},
       status=${body.status || "published"},
+      created_at=${_jaPutDate ? _jaPutDate : sql`created_at`},
       updated_at=${now}
       WHERE id=${c.req.param("id")}`;
     const _jaBlogSlug = body.slug || makeBlogSlug(body.title || "");
