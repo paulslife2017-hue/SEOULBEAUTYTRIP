@@ -6841,6 +6841,26 @@ app.get("/ja", async (c) => {
     let html = MAIN_HTML.replace("__INLINE_DATA_PLACEHOLDER__", inlineScript).replace("__SSR_FEATURED__", ssrFeaturedBlock);
     html = html.replace(/href="\/shops"/g, 'href="/ja/shops"');
     html = html.replace(/href="\/blog"/g, 'href="/ja/blog"');
+    html = html.replace(
+      `<a href="/ja" onclick="try{localStorage.setItem('_sb_lang_pref','ja')}catch(e){}" class="lang-btn" aria-label="\u65E5\u672C\u8A9E\u7248\u3078">\u{1F1EF}\u{1F1F5} <span>JP</span></a>`,
+      `<a href="/" onclick="try{localStorage.setItem('_sb_lang_pref','en')}catch(e){}" class="lang-btn" aria-label="English version">\u{1F1EC}\u{1F1E7} <span>EN</span></a>`
+    );
+    html = html.replace(
+      `<a href="/ja" onclick="try{localStorage.setItem('_sb_lang_pref','ja')}catch(e){}" class="btab lang-tab" aria-label="\u65E5\u672C\u8A9E">
+    <span style="font-size:16px">\u{1F1EF}\u{1F1F5}</span><span>JP</span>
+  </a>`,
+      `<a href="/" onclick="try{localStorage.setItem('_sb_lang_pref','en')}catch(e){}" class="btab lang-tab" aria-label="English">
+    <span style="font-size:16px">\u{1F1EC}\u{1F1E7}</span><span>EN</span>
+  </a>`
+    );
+    html = html.replace(
+      `<a href="/ja" onclick="try{localStorage.setItem('_sb_lang_pref','ja')}catch(e){}" class="pnav-btn lang-pnav" aria-label="\u65E5\u672C\u8A9E\u7248">
+    <span style="font-size:18px;line-height:1">\u{1F1EF}\u{1F1F5}</span><span>JP</span>
+  </a>`,
+      `<a href="/" onclick="try{localStorage.setItem('_sb_lang_pref','en')}catch(e){}" class="pnav-btn lang-pnav" aria-label="English">
+    <span style="font-size:18px;line-height:1">\u{1F1EC}\u{1F1E7}</span><span>EN</span>
+  </a>`
+    );
     html = html.replace('<html lang="en">', '<html lang="ja">');
     html = html.replace(
       "<title>Seoul Beauty for Foreigners \u2014 Clinics &amp; Salons | Seoul Beauty Trip</title>",
@@ -17061,7 +17081,16 @@ app.get("/", async (c) => {
     const ssrCountText = `${initShops.length} shops`;
     const initVideosFirst = initVideos.slice(0, 10);
     const gmapKey = getGoogleKey(c.env);
-    const inlineScript = `${videoLdScript}<script>window.__INIT_VIDEOS__=${safeJson(initVideosFirst)};window.__INIT_VIDEOS_ALL__=${safeJson(initVideos)};window.__INIT_PLATFORM__=${safeJson(initPlatform)};window.__INIT_SHOPS__=${safeJson(initShops)};window.__GMAP_KEY__=${safeJson(gmapKey)};</script>`;
+    const langDetectScript = `<script>
+// \u2500\u2500 \uBE0C\uB77C\uC6B0\uC800 \uC5B8\uC5B4 \uC790\uB3D9\uAC10\uC9C0: \uC77C\uBCF8\uC5B4 \uC0AC\uC6A9\uC790\uB97C /ja\uB85C \uB9AC\uB2E4\uC774\uB809\uD2B8 \u2500\u2500
+(function(){
+  try {
+    var lang = (navigator.language || navigator.userLanguage || '').toLowerCase();
+    if (localStorage.getItem('_sb_lang_pref') === 'en') return; // EN \uBA85\uC2DC \uC120\uD0DD \uC2DC \uC720\uC9C0
+    if (lang.startsWith('ja')) { window.location.replace('/ja'); }
+  } catch(e) {}
+})();</script>`;
+    const inlineScript = `${videoLdScript}${langDetectScript}<script>window.__INIT_VIDEOS__=${safeJson(initVideosFirst)};window.__INIT_VIDEOS_ALL__=${safeJson(initVideos)};window.__INIT_PLATFORM__=${safeJson(initPlatform)};window.__INIT_SHOPS__=${safeJson(initShops)};window.__GMAP_KEY__=${safeJson(gmapKey)};</script>`;
     const catIconMap = { clinic: "\u{1F3E5}", headspa: "\u{1F9D6}", makeup: "\u{1F484}", tattoo: "\u270F\uFE0F", hair: "\u{1F487}", skincare: "\u{1F33F}", spa: "\u2668\uFE0F", dental: "\u{1F9B7}" };
     const catLabelMapSSR = { clinic: "Skin Clinic", headspa: "Head Spa", makeup: "Makeup Studio", tattoo: "Tattoo Studio", hair: "Hair Salon", skincare: "Skincare", spa: "Spa", dental: "Dental" };
     const ssrFeaturedCards = initShops.slice(0, 20).map((s) => {
@@ -19066,6 +19095,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .hd-right{display:flex;align-items:center;gap:8px}
 .mute-btn{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);color:rgba(255,255,255,.5);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
 .mute-btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.lang-btn{display:flex;align-items:center;gap:3px;padding:4px 8px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.55);text-decoration:none;font-size:11px;font-weight:700;letter-spacing:.03em;transition:all .18s;white-space:nowrap;flex-shrink:0}
+.lang-btn:hover{background:rgba(255,77,141,.15);border-color:rgba(255,77,141,.4);color:#FF85B3}
 /* \u2500\u2500 \uCE74\uD14C\uACE0\uB9AC \uD0ED \u2500\u2500 */
 .cats{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;padding-bottom:12px;-webkit-overflow-scrolling:touch;touch-action:pan-x}
 .cats::-webkit-scrollbar{display:none}
@@ -19563,6 +19594,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .btab.active::after{content:'';position:absolute;top:0;left:50%;
   transform:translateX(-50%);width:32px;height:2px;
   background:linear-gradient(90deg,#FF4D8D,#a855f7);border-radius:0 0 3px 3px}
+.lang-tab{text-decoration:none;flex:1}
+.lang-pnav{text-decoration:none;margin-top:auto}
 
 /* \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
    Browse / Map \uBDF0
@@ -20165,7 +20198,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
       </div>
     </div>
     <div class="hd-right">
-      <!-- JA \uBC84\uD2BC \uBE44\uD65C\uC131\uD654 (\uC77C\uBCF8\uC5B4\uD310 \uAC1C\uBC1C \uC911) -->
+      <a href="/ja" onclick="try{localStorage.setItem('_sb_lang_pref','ja')}catch(e){}" class="lang-btn" aria-label="\u65E5\u672C\u8A9E\u7248\u3078">\u{1F1EF}\u{1F1F5} <span>JP</span></a>
       <button class="srch-btn" id="srchToggle" onclick="toggleSearch()" aria-label="Search shops"><i class="fas fa-search"></i></button>
       <button class="mute-btn" id="muteBtn" onclick="toggleMute()"><i class="fas fa-volume-mute"></i></button>
     </div>
@@ -20230,7 +20263,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   <button class="pnav-btn" id="pnav-advisor" data-tab="advisor" aria-label="Advisor" style="display:none">
     <i class="fas fa-user-tie"></i><span>Advisor</span>
   </button>
-  <!-- \uD558\uB2E8 nav JA \uBC84\uD2BC \uBE44\uD65C\uC131\uD654 (\uC77C\uBCF8\uC5B4\uD310 \uAC1C\uBC1C \uC911) -->
+  <a href="/ja" onclick="try{localStorage.setItem('_sb_lang_pref','ja')}catch(e){}" class="pnav-btn lang-pnav" aria-label="\u65E5\u672C\u8A9E\u7248">
+    <span style="font-size:18px;line-height:1">\u{1F1EF}\u{1F1F5}</span><span>JP</span>
+  </a>
 </nav>
 
 <!-- PC \uCF58\uD150\uCE20 \uD328\uB110 (\uCC3E\uAE30/\uB9F5) -->
@@ -20265,6 +20300,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   <button class="btab" id="btab-advisor" data-tab="advisor" aria-label="Advisor" style="display:none">
     <i class="fas fa-user-tie"></i><span>Advisor</span>
   </button>
+  <a href="/ja" onclick="try{localStorage.setItem('_sb_lang_pref','ja')}catch(e){}" class="btab lang-tab" aria-label="\u65E5\u672C\u8A9E">
+    <span style="font-size:16px">\u{1F1EF}\u{1F1F5}</span><span>JP</span>
+  </a>
 </nav>
 
 <!-- \uAD00\uB9AC\uC790 \uBAA8\uB2EC: JS\uB85C \uB3D9\uC801 \uC0BD\uC785 (\uD06C\uB864\uB7EC HTML\uC5D0 \uB178\uCD9C \uBC29\uC9C0) -->

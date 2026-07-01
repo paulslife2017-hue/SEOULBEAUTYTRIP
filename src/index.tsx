@@ -5284,6 +5284,19 @@ app.get('/ja', async (c) => {
     // /shops → /ja/shops, /blog → /ja/blog (링크만)
     html = html.replace(/href="\/shops"/g, 'href="/ja/shops"')
     html = html.replace(/href="\/blog"/g, 'href="/ja/blog"')
+    // lang-btn/tab/pnav: JA 홈에서는 → / (EN 전환), 🇬🇧 EN으로 표시
+    html = html.replace(
+      '<a href="/ja" onclick="try{localStorage.setItem(\'_sb_lang_pref\',\'ja\')}catch(e){}" class="lang-btn" aria-label="日本語版へ">🇯🇵 <span>JP</span></a>',
+      '<a href="/" onclick="try{localStorage.setItem(\'_sb_lang_pref\',\'en\')}catch(e){}" class="lang-btn" aria-label="English version">🇬🇧 <span>EN</span></a>'
+    )
+    html = html.replace(
+      '<a href="/ja" onclick="try{localStorage.setItem(\'_sb_lang_pref\',\'ja\')}catch(e){}" class="btab lang-tab" aria-label="日本語">\n    <span style="font-size:16px">🇯🇵</span><span>JP</span>\n  </a>',
+      '<a href="/" onclick="try{localStorage.setItem(\'_sb_lang_pref\',\'en\')}catch(e){}" class="btab lang-tab" aria-label="English">\n    <span style="font-size:16px">🇬🇧</span><span>EN</span>\n  </a>'
+    )
+    html = html.replace(
+      '<a href="/ja" onclick="try{localStorage.setItem(\'_sb_lang_pref\',\'ja\')}catch(e){}" class="pnav-btn lang-pnav" aria-label="日本語版">\n    <span style="font-size:18px;line-height:1">🇯🇵</span><span>JP</span>\n  </a>',
+      '<a href="/" onclick="try{localStorage.setItem(\'_sb_lang_pref\',\'en\')}catch(e){}" class="pnav-btn lang-pnav" aria-label="English">\n    <span style="font-size:18px;line-height:1">🇬🇧</span><span>EN</span>\n  </a>'
+    )
 
     // ── 일본어화 replace 체인 ──
     // lang
@@ -16289,8 +16302,17 @@ app.get('/', async (c) => {
     // 초기 로드 10개만 → HTML 크기 대폭 감소 (나머지는 JS lazy 로드)
     const initVideosFirst = initVideos.slice(0, 10)
     const gmapKey = getGoogleKey(c.env)
-    // 언어 자동감지 리다이렉트 비활성화 (일본어판 개발 중)
-    const inlineScript = `${videoLdScript}<script>window.__INIT_VIDEOS__=${safeJson(initVideosFirst)};window.__INIT_VIDEOS_ALL__=${safeJson(initVideos)};window.__INIT_PLATFORM__=${safeJson(initPlatform)};window.__INIT_SHOPS__=${safeJson(initShops)};window.__GMAP_KEY__=${safeJson(gmapKey)};<\/script>`
+    // 언어 자동감지 스크립트: JA 브라우저 → /ja 자동 리다이렉트 (EN 선택 기록 없을 때)
+    const langDetectScript = `<script>
+// ── 브라우저 언어 자동감지: 일본어 사용자를 /ja로 리다이렉트 ──
+(function(){
+  try {
+    var lang = (navigator.language || navigator.userLanguage || '').toLowerCase();
+    if (localStorage.getItem('_sb_lang_pref') === 'en') return; // EN 명시 선택 시 유지
+    if (lang.startsWith('ja')) { window.location.replace('/ja'); }
+  } catch(e) {}
+})();<\/script>`
+    const inlineScript = `${videoLdScript}${langDetectScript}<script>window.__INIT_VIDEOS__=${safeJson(initVideosFirst)};window.__INIT_VIDEOS_ALL__=${safeJson(initVideos)};window.__INIT_PLATFORM__=${safeJson(initPlatform)};window.__INIT_SHOPS__=${safeJson(initShops)};window.__GMAP_KEY__=${safeJson(gmapKey)};<\/script>`
 
     // SSR placeholders를 실제 콘텐츠로 교체
     // 상위 20개 살롱을 풍부한 카드로 삽입 (구글봇: 살롱명·카테고리·지역·설명 키워드 인덱싱)
@@ -18713,6 +18735,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .hd-right{display:flex;align-items:center;gap:8px}
 .mute-btn{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);color:rgba(255,255,255,.5);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
 .mute-btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.lang-btn{display:flex;align-items:center;gap:3px;padding:4px 8px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.55);text-decoration:none;font-size:11px;font-weight:700;letter-spacing:.03em;transition:all .18s;white-space:nowrap;flex-shrink:0}
+.lang-btn:hover{background:rgba(255,77,141,.15);border-color:rgba(255,77,141,.4);color:#FF85B3}
 /* ── 카테고리 탭 ── */
 .cats{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;padding-bottom:12px;-webkit-overflow-scrolling:touch;touch-action:pan-x}
 .cats::-webkit-scrollbar{display:none}
@@ -19210,6 +19234,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
 .btab.active::after{content:'';position:absolute;top:0;left:50%;
   transform:translateX(-50%);width:32px;height:2px;
   background:linear-gradient(90deg,#FF4D8D,#a855f7);border-radius:0 0 3px 3px}
+.lang-tab{text-decoration:none;flex:1}
+.lang-pnav{text-decoration:none;margin-top:auto}
 
 /* ════════════════════════════════════════
    Browse / Map 뷰
@@ -19812,7 +19838,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
       </div>
     </div>
     <div class="hd-right">
-      <!-- JA 버튼 비활성화 (일본어판 개발 중) -->
+      <a href="/ja" onclick="try{localStorage.setItem('_sb_lang_pref','ja')}catch(e){}" class="lang-btn" aria-label="日本語版へ">🇯🇵 <span>JP</span></a>
       <button class="srch-btn" id="srchToggle" onclick="toggleSearch()" aria-label="Search shops"><i class="fas fa-search"></i></button>
       <button class="mute-btn" id="muteBtn" onclick="toggleMute()"><i class="fas fa-volume-mute"></i></button>
     </div>
@@ -19877,7 +19903,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   <button class="pnav-btn" id="pnav-advisor" data-tab="advisor" aria-label="Advisor" style="display:none">
     <i class="fas fa-user-tie"></i><span>Advisor</span>
   </button>
-  <!-- 하단 nav JA 버튼 비활성화 (일본어판 개발 중) -->
+  <a href="/ja" onclick="try{localStorage.setItem('_sb_lang_pref','ja')}catch(e){}" class="pnav-btn lang-pnav" aria-label="日本語版">
+    <span style="font-size:18px;line-height:1">🇯🇵</span><span>JP</span>
+  </a>
 </nav>
 
 <!-- PC 콘텐츠 패널 (찾기/맵) -->
@@ -19912,6 +19940,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:#fff;font-famil
   <button class="btab" id="btab-advisor" data-tab="advisor" aria-label="Advisor" style="display:none">
     <i class="fas fa-user-tie"></i><span>Advisor</span>
   </button>
+  <a href="/ja" onclick="try{localStorage.setItem('_sb_lang_pref','ja')}catch(e){}" class="btab lang-tab" aria-label="日本語">
+    <span style="font-size:16px">🇯🇵</span><span>JP</span>
+  </a>
 </nav>
 
 <!-- 관리자 모달: JS로 동적 삽입 (크롤러 HTML에 노출 방지) -->
