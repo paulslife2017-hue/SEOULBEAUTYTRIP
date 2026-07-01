@@ -23904,74 +23904,74 @@ window.selectMapShop  = function() {};
       </div>
       <div style="background:#f0fdf4;border-radius:12px;padding:14px 8px">
         <div style="font-size:1.4rem;font-weight:800;color:#16a34a">4.9★</div>
-        <div style="font-size:.75rem;color:#555;margin-top:3px;line-height:1.4">Average Rating<br>Across All Salons</div>
+        <div style="font-size:.75rem;color:#555;margin-top:3px;line-height:1.4">平均評価<br>全サロン</div>
       </div>
       <div style="background:#eff6ff;border-radius:12px;padding:14px 8px">
         <div style="font-size:1.4rem;font-weight:800;color:#2563eb">100%</div>
-        <div style="font-size:.75rem;color:#555;margin-top:3px;line-height:1.4">English Booking<br>via WhatsApp</div>
+        <div style="font-size:.75rem;color:#555;margin-top:3px;line-height:1.4">WhatsApp<br>日本語予約OK</div>
       </div>
     </div>
 
     <h2 style="font-size:1.1rem;font-weight:700;color:#1a1a2e;margin-bottom:10px">
-      Why Foreigners Choose Seoul Beauty Trip
+      外国人に選ばれる理由
     </h2>
     <ul style="list-style:none;padding:0;margin:0 0 28px;display:flex;flex-direction:column;gap:8px">
       <li style="display:flex;align-items:flex-start;gap:10px;font-size:.88rem;color:#374151;line-height:1.7">
         <span style="color:#e91e8c;font-size:1rem;flex-shrink:0;margin-top:2px">✓</span>
-        <span><strong>100% English booking via WhatsApp</strong> — No Korean needed. Our concierge handles all salon communication, appointment confirmation, and pricing questions in English.</span>
+        <span><strong>100% WhatsApp日本語予約対応</strong> — 韓国語不要。コンシェルジュが予約確認・料金案内をすべて日本語でサポート。</span>
       </li>
       <li style="display:flex;align-items:flex-start;gap:10px;font-size:.88rem;color:#374151;line-height:1.7">
         <span style="color:#e91e8c;font-size:1rem;flex-shrink:0;margin-top:2px">✓</span>
-        <span><strong>Hand-verified salons only</strong> — Every listing is personally visited or thoroughly vetted for foreigner-friendliness, English menu availability, and service quality.</span>
+        <span><strong>厳選サロンのみ掲載</strong> — すべての店舗を実地確認またはスタッフが徹底審査。外国人対応・日本語メニュー・サービス品質を保証。</span>
       </li>
       <li style="display:flex;align-items:flex-start;gap:10px;font-size:.88rem;color:#374151;line-height:1.7">
         <span style="color:#e91e8c;font-size:1rem;flex-shrink:0;margin-top:2px">✓</span>
-        <span><strong>Real international reviews</strong> — Ratings from verified foreign visitors (US, UK, Australia, Japan, SEA) who have experienced the services firsthand.</span>
+        <span><strong>リアルな外国人口コミ</strong> — 日本・米国・英国・オーストラリア・東南アジアなど実際に体験した外国人旅行者の評価。</span>
       </li>
       <li style="display:flex;align-items:flex-start;gap:10px;font-size:.88rem;color:#374151;line-height:1.7">
         <span style="color:#e91e8c;font-size:1rem;flex-shrink:0;margin-top:2px">✓</span>
-        <span><strong>Transparent pricing in English</strong> — Know the exact cost of every treatment before you walk through the door. No surprise charges.</span>
+        <span><strong>料金の透明性</strong> — 来店前に施術ごとの正確な料金を確認可能。隠れた追加料金なし。</span>
       </li>
       <li style="display:flex;align-items:flex-start;gap:10px;font-size:.88rem;color:#374151;line-height:1.7">
         <span style="color:#e91e8c;font-size:1rem;flex-shrink:0;margin-top:2px">✓</span>
-        <span><strong>Coverage across all major Seoul districts</strong> — <a href="/best/clinic/gangnam" style="color:#e91e8c;font-weight:600;text-decoration:none">Gangnam</a>, <a href="/best/hair/hongdae" style="color:#e91e8c;font-weight:600;text-decoration:none">Hongdae</a>, Itaewon, Myeongdong, Apgujeong &amp; more. Over 10 neighborhoods covered.</span>
+        <span><strong>ソウル主要エリアを網羅</strong> — <a href="/ja/shops" style="color:#e91e8c;font-weight:600;text-decoration:none">江南</a>・<a href="/ja/shops" style="color:#e91e8c;font-weight:600;text-decoration:none">弘大</a>・梨泰院・明洞・狎鴎亭など10エリア以上対応。</span>
       </li>
       <li style="display:flex;align-items:flex-start;gap:10px;font-size:.88rem;color:#374151;line-height:1.7">
         <span style="color:#e91e8c;font-size:1rem;flex-shrink:0;margin-top:2px">✓</span>
-        <span><strong>Short video previews</strong> — Watch real treatment footage before booking so you know exactly what to expect at each salon.</span>
+        <span><strong>施術動画プレビュー</strong> — 予約前にリアルな施術動画を視聴。どんな体験が待っているか事前確認できます。</span>
       </li>
     </ul>
 
     <h2 style="font-size:1.1rem;font-weight:700;color:#1a1a2e;margin-bottom:10px">
-      Seoul's Best K-Beauty Districts for Foreign Visitors
+      ソウルのおすすめKビューティーエリア
     </h2>
     <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px">
       <div style="padding:12px 14px;background:#f9fafb;border-radius:12px;border-left:3px solid #e91e8c">
-        <div style="font-size:.88rem;font-weight:700;color:#1a1a2e;margin-bottom:4px">🏆 <a href="/best/clinic/gangnam" style="color:#1a1a2e;text-decoration:none">Gangnam &amp; Cheongdam</a> — Premium K-Beauty Hub</div>
-        <div style="font-size:.82rem;color:#555;line-height:1.7">Home to Seoul's top-tier dermatology clinics, luxury skincare studios, and high-end hair salons. Known globally for medical beauty tourism — Shurink HIFU, PRP, laser skin resurfacing, and skin booster treatments are all available at 40–60% less than Western prices. Recommended for first-time K-beauty tourists who want results-driven treatments.</div>
+        <div style="font-size:.88rem;font-weight:700;color:#1a1a2e;margin-bottom:4px">🏆 <a href="/ja/shops" style="color:#1a1a2e;text-decoration:none">江南・清潭</a> — プレミアムKビューティー拠点</div>
+        <div style="font-size:.82rem;color:#555;line-height:1.7">ソウルトップクラスの皮膚科・スキンケアスタジオ・高級ヘアサロンが集結。シュリンクHIFU・PRP・レーザー美肌など欧米比40〜60%オフで受けられる医療美容の聖地。K-beauty初心者にも最適。</div>
       </div>
       <div style="padding:12px 14px;background:#f9fafb;border-radius:12px;border-left:3px solid #9c27b0">
-        <div style="font-size:.88rem;font-weight:700;color:#1a1a2e;margin-bottom:4px">🎨 <a href="/best/hair/hongdae" style="color:#1a1a2e;text-decoration:none">Hongdae</a> — Creative &amp; Trendy</div>
-        <div style="font-size:.82rem;color:#555;line-height:1.7">Seoul's most artistic beauty district — head spas with scalp detox rituals, K-pop inspired hair salons, and unique skincare studios. Popular with younger travelers and creative types who want unique, Instagrammable beauty experiences at accessible prices.</div>
+        <div style="font-size:.88rem;font-weight:700;color:#1a1a2e;margin-bottom:4px">🎨 <a href="/ja/shops" style="color:#1a1a2e;text-decoration:none">弘大</a> — クリエイティブ＆トレンド</div>
+        <div style="font-size:.82rem;color:#555;line-height:1.7">ソウル随一のアーティスティックなビューティー街。頭皮デトックスヘッドスパ・K-POPインスパイアのヘアサロンが充実。インスタ映えする体験を求める若い旅行者に大人気。</div>
       </div>
       <div style="padding:12px 14px;background:#f9fafb;border-radius:12px;border-left:3px solid #2196f3">
-        <div style="font-size:.88rem;font-weight:700;color:#1a1a2e;margin-bottom:4px">🌍 Itaewon &amp; Myeongdong — Most Foreigner-Friendly</div>
-        <div style="font-size:.82rem;color:#555;line-height:1.7">The most accessible areas for first-time visitors to Korea. Salons here have multilingual staff, English-language menus, and experience with all skin tones and hair textures. Ideal for tourists staying near central Seoul who want convenient, English-friendly beauty experiences.</div>
+        <div style="font-size:.88rem;font-weight:700;color:#1a1a2e;margin-bottom:4px">🌍 梨泰院・明洞 — 外国人に最もやさしいエリア</div>
+        <div style="font-size:.82rem;color:#555;line-height:1.7">韓国初訪問者に最もアクセスしやすいエリア。多言語スタッフ・日本語メニュー対応のサロンが揃い、すべての肌タイプ・髪質に対応。ソウル中心部滞在の旅行者に最適。</div>
       </div>
       <div style="padding:12px 14px;background:#f9fafb;border-radius:12px;border-left:3px solid #ff9800">
-        <div style="font-size:.88rem;font-weight:700;color:#1a1a2e;margin-bottom:4px">💎 <a href="/best/headspa/apgujeong" style="color:#1a1a2e;text-decoration:none">Apgujeong (Rodeo Street)</a> — Luxury Beauty Elite</div>
-        <div style="font-size:.82rem;color:#555;line-height:1.7">Seoul's most exclusive beauty zone, adjacent to Gangnam. Home to celebrity-frequented spas, luxury eyebrow tattoo studios, and premium anti-aging clinics. The area where Korean entertainment industry professionals get their beauty treatments.</div>
+        <div style="font-size:.88rem;font-weight:700;color:#1a1a2e;margin-bottom:4px">💎 <a href="/ja/shops" style="color:#1a1a2e;text-decoration:none">狎鴎亭（ロデオ通り）</a> — ラグジュアリービューティーの頂点</div>
+        <div style="font-size:.82rem;color:#555;line-height:1.7">江南隣接のソウル最高級ビューティーゾーン。芸能人御用達のスパ・アイブロウスタジオ・プレミアムアンチエイジングクリニックが集結する韓国芸能界のビューティー聖地。</div>
       </div>
     </div>
 
     <h2 style="font-size:1.1rem;font-weight:700;color:#1a1a2e;margin-bottom:10px">
-      How to Book a Korean Beauty Salon as a Foreigner
+      韓国美容サロンの予約方法
     </h2>
     <ol style="padding-left:18px;margin:0 0 24px;display:flex;flex-direction:column;gap:8px">
-      <li style="font-size:.88rem;color:#374151;line-height:1.7"><strong>Browse &amp; choose</strong> — Explore 48+ verified salons using the video feed or catalog above. Filter by category (clinic, hair, head spa, nail, etc.) or search by name.</li>
-      <li style="font-size:.88rem;color:#374151;line-height:1.7"><strong>Check the salon page</strong> — Each salon page shows real photos, service prices in English, Google ratings, customer reviews, and available treatments.</li>
-      <li style="font-size:.88rem;color:#374151;line-height:1.7"><strong>Tap "Book via WhatsApp"</strong> — A pre-filled booking message is sent to Seoul Beauty Trip's English concierge. We confirm your appointment, explain pricing, and answer any questions.</li>
-      <li style="font-size:.88rem;color:#374151;line-height:1.7"><strong>Visit &amp; enjoy</strong> — Walk in on your confirmed date. The salon is briefed in advance on your service needs. Same-day bookings are often available.</li>
+      <li style="font-size:.88rem;color:#374151;line-height:1.7"><strong>サロンを探す</strong> — 上部の動画フィードまたはカタログから60以上の厳選サロンをチェック。カテゴリ（クリニック・ヘア・ヘッドスパなど）や名前で絞り込み可能。</li>
+      <li style="font-size:.88rem;color:#374151;line-height:1.7"><strong>店舗ページを確認</strong> — 各サロンページで実際の写真・料金・Googleの評価・口コミ・施術メニューを日本語で確認できます。</li>
+      <li style="font-size:.88rem;color:#374151;line-height:1.7"><strong>「WhatsAppで予約する」をタップ</strong> — 予約メッセージが自動入力されてSeoul Beauty Tripの日本語コンシェルジュに送信。予約確認・料金説明・質問に日本語対応します。</li>
+      <li style="font-size:.88rem;color:#374151;line-height:1.7"><strong>来店＆体験</strong> — 確定した日時に来店するだけ。事前にサロンへ施術内容を伝達済み。当日予約も多数対応。</li>
     </ol>
 
     <h2 style="font-size:1.1rem;font-weight:700;color:#1a1a2e;margin-bottom:10px">
