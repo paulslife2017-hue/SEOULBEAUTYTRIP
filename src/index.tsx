@@ -455,6 +455,9 @@ interface Shop {
   menuItems: {name: string; price: string; description: string; image: string}[]
   whyChoose: string[]
   reviewSummary: string | { vibe: string; strengths: string[]; bestFor: string } | null
+  whatsapp?: string
+  en_shop_id?: string  // shops_ja 전용: 연결된 EN shops.id
+  seoText?: string
 }
 
 interface Video {
@@ -514,7 +517,9 @@ function rowToShop(r: any): Shop {
     whyChoose: (() => { if(!r.why_choose) return []; if(Array.isArray(r.why_choose)) return r.why_choose; try { return JSON.parse(r.why_choose) } catch { return [] } })(),
     menuItems: (() => { if(!r.menu_items) return []; if(Array.isArray(r.menu_items)) return r.menu_items; try { return JSON.parse(r.menu_items) } catch { return [] } })(),
     seoText: r.seo_text || '',
-    reviewSummary: (() => { if(!r.review_summary) return null; if(typeof r.review_summary === 'string') return r.review_summary; if(typeof r.review_summary === 'object' && !Array.isArray(r.review_summary)) return r.review_summary; try { return JSON.parse(r.review_summary) } catch { return null } })()
+    reviewSummary: (() => { if(!r.review_summary) return null; if(typeof r.review_summary === 'string') return r.review_summary; if(typeof r.review_summary === 'object' && !Array.isArray(r.review_summary)) return r.review_summary; try { return JSON.parse(r.review_summary) } catch { return null } })(),
+    whatsapp: r.whatsapp || '',
+    en_shop_id: r.en_shop_id || ''
   }
 }
 // Cloudinary video URL → 썸네일 자동 생성 (so_0 = 첫 프레임)
@@ -844,6 +849,9 @@ async function initDb(env: any) {
     try { await sql`ALTER TABLE shops_ja ADD COLUMN IF NOT EXISTS whatsapp TEXT DEFAULT ''` } catch(e) {}
     try { await sql`ALTER TABLE shops_ja ADD COLUMN IF NOT EXISTS google_map_embed TEXT DEFAULT ''` } catch(e) {}
     try { await sql`ALTER TABLE shops_ja ADD COLUMN IF NOT EXISTS photos JSONB DEFAULT '[]'` } catch(e) {}
+    // EN-JA 연결 컬럼: shops.id 참조
+    try { await sql`ALTER TABLE shops_ja ADD COLUMN IF NOT EXISTS en_shop_id TEXT DEFAULT ''` } catch(e) {}
+    try { await sql`CREATE INDEX IF NOT EXISTS idx_sja_en_shop ON shops_ja(en_shop_id)` } catch(e) {}
 
     // videos_ja — 일본어판 영상 테이블 (EN videos와 완전 분리)
     await sql`CREATE TABLE IF NOT EXISTS videos_ja (
@@ -3327,6 +3335,7 @@ app.post('/api/quick-register', async (c) => {
     // DB 저장 완료 후 waitUntil로 비동기 실행 → 실패해도 등록 자체는 성공
     // ① 리뷰 요약: Gemini API는 항상 사용 가능 (apiKey 불필요)
     // ② 블로그 생성: apiKey(GSK_TOKEN) 있을 때만
+    // ③ JA 자동번역: EN 등록과 동시에 항상 실행 (apiKey 있을 때만)
     {
       const _bgSql = sql
       const _bgName = engName
@@ -3340,6 +3349,18 @@ app.post('/api/quick-register', async (c) => {
       const _bgDesc = description
       const _bgWhyChoose = whyChoose
       const _bgSeoText = seoTextVal
+      // ③ JA 번역용 추가 필드 캡처 (DB SELECT 없이 직접 전달)
+      const _bgSlug = slug
+      const _bgAddress = resolvedData.address || ''
+      const _bgHours = resolvedData.hours || ''
+      const _bgThumbnail = thumbnail
+      const _bgPhotos = photos
+      const _bgLat = resolvedData.lat || ''
+      const _bgLng = resolvedData.lng || ''
+      const _bgGmapUrl = gmapUrl
+      const _bgPlaceId = resolvedData.placeId || resolvedData.googlePlaceId || ''
+      const _bgMetaDesc = metaDescription
+      const _bgSeoKeywords = seoKeywords
 
       const _bgTask = (async () => {
         // ① 리뷰 요약 생성 — apiKey 없어도 Gemini로 항상 실행
@@ -3363,6 +3384,35 @@ app.post('/api/quick-register', async (c) => {
               seoText: _bgSeoText, whyChoose: _bgWhyChoose
             }, _bgKey, _bgSql)
           } catch { /* 블로그 생성 실패해도 업체 등록에는 영향 없음 */ }
+        }
+
+        // ③ JA 자동번역 — EN 업체 등록 시 JA도 동시 번역 등록 (apiKey 있을 때만)
+        if (_bgKey) {
+          try {
+            await translateShopToJa({
+              id: _bgId,
+              name: _bgName,
+              slug: _bgSlug,
+              category: _bgCat,
+              location: _bgLoc,
+              address: _bgAddress,
+              hours: _bgHours,
+              rating: _bgRating,
+              reviewCount: _bgReviewCount,
+              description: _bgDesc,
+              whyChoose: _bgWhyChoose,
+              metaDescription: _bgMetaDesc,
+              seoKeywords: _bgSeoKeywords,
+              seoText: _bgSeoText,
+              thumbnail: _bgThumbnail,
+              photos: _bgPhotos,
+              lat: _bgLat,
+              lng: _bgLng,
+              google_map_url: _bgGmapUrl,
+              google_place_id: _bgPlaceId,
+              reviews: _bgReviews,
+            }, _bgKey, _bgSql)
+          } catch { /* JA 번역 실패해도 EN 등록에는 영향 없음 */ }
         }
       })()
 
@@ -4601,6 +4651,142 @@ app.delete('/api/blogs/:id', async (c) => {
 // ══════════════════════════════════════════════════════
 // 일본어판 API 라우트 (/api/ja/*)
 // ══════════════════════════════════════════════════════
+
+// ── EN 업체 → JA 자동번역 헬퍼 ──────────────────────────────────────────────
+// quick-register 백그라운드 & translate-shop API 양쪽에서 공유
+async function translateShopToJa(enShop: any, apiKey: string, sql: any): Promise<string|null> {
+  const id = enShop.id
+  // 이미 번역된 경우 스킵
+  const existing = await sql`SELECT id FROM shops_ja WHERE en_shop_id=${id} LIMIT 1`
+  if (existing.length > 0) return existing[0].id
+
+  let jaName = enShop.name || ''
+  let jaDesc = ''
+  let jaWhyChoose: string[] = []
+  let jaSeoText = ''
+  let jaMetaDesc = ''
+
+  if (apiKey) {
+    try {
+      const prompt = `You are a professional Japanese translator for a Seoul beauty travel site.
+Translate the following English shop information into natural Japanese for Japanese tourists visiting Seoul.
+Keep the shop name in English (do NOT translate the shop name).
+For seoText: rewrite it in Japanese as proper HTML with <h2 class="sp-seo-h2"> and <p class="sp-seo-p"> tags.
+Respond ONLY with valid JSON, no markdown:
+{
+  "description": "Japanese description (2-3 sentences, natural Japanese)",
+  "whyChoose": ["reason1 in Japanese", "reason2", "reason3", "reason4", "reason5"],
+  "metaDescription": "Japanese meta description (under 120 chars)",
+  "seoText": "Japanese SEO HTML text with sp-seo-h2/sp-seo-p tags (4 sections)"
+}
+
+SHOP DATA:
+name: ${enShop.name}
+category: ${enShop.category}
+location: ${enShop.location}
+description: ${enShop.description || ''}
+whyChoose: ${JSON.stringify(enShop.whyChoose || [])}
+rating: ${enShop.rating}
+reviewCount: ${enShop.reviewCount}`
+
+      const r = await fetch('https://api.genspark.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }], max_tokens: 1800, temperature: 0.3 })
+      })
+      if (r.ok) {
+        const d: any = await r.json()
+        const raw = d.choices?.[0]?.message?.content || ''
+        const jsonStr = raw.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim()
+        const parsed = JSON.parse(jsonStr)
+        jaDesc       = parsed.description    || ''
+        jaWhyChoose  = parsed.whyChoose      || []
+        jaSeoText    = parsed.seoText        || ''
+        jaMetaDesc   = parsed.metaDescription || ''
+      }
+    } catch { /* GPT 실패 시 EN 텍스트 그대로 사용 */ }
+  }
+
+  // GPT 실패 폴백: EN 원문 그대로
+  if (!jaDesc)      jaDesc      = enShop.description || ''
+  if (!jaWhyChoose.length) jaWhyChoose = enShop.whyChoose || []
+  if (!jaMetaDesc)  jaMetaDesc  = enShop.metaDescription || ''
+  if (!jaSeoText)   jaSeoText   = enShop.seoText || ''
+
+  // slug 동일 사용 (EN과 동일 slug → JA URL도 같은 업체 구분)
+  const jaId = 'sja' + Date.now() + Math.floor(Math.random()*1000)
+  const slug = enShop.slug || ''
+
+  await sql`INSERT INTO shops_ja (
+    id, name, slug, category, location, address,
+    google_map_url, google_map_embed, hours, price_range,
+    services, service_prices, description,
+    meta_description, seo_keywords, seo_text, why_choose,
+    rating, review_count, thumbnail, photos,
+    lat, lng, reviews, google_place_id,
+    active, created_at, en_shop_id, whatsapp
+  ) VALUES (
+    ${jaId}, ${enShop.name||''}, ${slug}, ${enShop.category||''},
+    ${enShop.location||''}, ${enShop.address||''},
+    ${enShop.googleMapUrl||enShop.google_map_url||''}, ${enShop.googleMapEmbed||enShop.google_map_embed||''},
+    ${enShop.hours||''}, ${enShop.priceRange||enShop.price_range||''},
+    ${JSON.stringify(enShop.services||[])}, ${JSON.stringify(enShop.servicePrices||enShop.service_prices||[])},
+    ${jaDesc}, ${jaMetaDesc},
+    ${enShop.seoKeywords||enShop.seo_keywords||''}, ${jaSeoText},
+    ${JSON.stringify(jaWhyChoose)},
+    ${enShop.rating||5.0}, ${enShop.reviewCount||enShop.review_count||0},
+    ${enShop.thumbnail||''}, ${JSON.stringify(enShop.photos||[])},
+    ${enShop.lat||''}, ${enShop.lng||''},
+    ${JSON.stringify(enShop.reviews||[])}, ${enShop.googlePlaceId||enShop.google_place_id||''},
+    true, NOW(), ${id}, ${enShop.whatsapp||''}
+  ) ON CONFLICT (id) DO NOTHING`
+
+  return jaId
+}
+
+// POST /api/ja/translate-shop — EN 업체 ID → JA 자동번역 등록
+// body: { shopId: "s..." }  (EN shops.id)
+app.post('/api/ja/translate-shop', async (c) => {
+  try {
+    const _aC = (c.req.header('Cookie') || '').match(/admin_token=([^;]+)/)?.[1] || ''
+    const _aS = c.req.header('x-admin-secret') || c.req.header('x-admin-token') || c.req.query('secret') || ''
+    if ((_aC || _aS) !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
+
+    const sql = getDb(c.env)
+    const { shopId } = await c.req.json() as { shopId: string }
+    if (!shopId) return c.json({ error: 'shopId required' }, 400)
+
+    // EN 업체 조회
+    const rows = await sql`SELECT * FROM shops WHERE id=${shopId} LIMIT 1`
+    if (!rows.length) return c.json({ error: 'EN shop not found' }, 404)
+    const enShop = rows[0]
+
+    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || ''
+    const jaId = await translateShopToJa({
+      ...enShop,
+      whyChoose: JSON.parse(enShop.why_choose||'[]'),
+      servicePrices: JSON.parse(enShop.service_prices||'[]'),
+      services: JSON.parse(enShop.services||'[]'),
+      reviews: JSON.parse(enShop.reviews||'[]'),
+      photos: JSON.parse(enShop.photos||'[]'),
+      googleMapUrl: enShop.google_map_url,
+      googleMapEmbed: enShop.google_map_embed,
+      googlePlaceId: enShop.google_place_id,
+      reviewCount: enShop.review_count,
+      metaDescription: enShop.meta_description,
+      seoKeywords: enShop.seo_keywords,
+      seoText: enShop.seo_text,
+      priceRange: enShop.price_range,
+    }, apiKey, sql)
+
+    if (!jaId) return c.json({ error: 'already_exists', message: '이미 JA 번역이 존재합니다' }, 409)
+
+    pingIndexNow([`https://seoulbeautytrip.com/ja/shop/${enShop.slug}`, `https://seoulbeautytrip.com/ja`])
+    return c.json({ ok: true, jaId, slug: enShop.slug, enShopId: shopId })
+  } catch(e: any) {
+    return c.json({ error: e.message || 'translate error' }, 500)
+  }
+})
 
 // GET /api/ja/shops
 app.get('/api/ja/shops', async (c) => {
@@ -6242,7 +6428,8 @@ app.get('/ja/shop/:slug', async (c) => {
   const shopRows = await withTimeout(sql`SELECT * FROM shops_ja WHERE slug=${slug}`, 15000, [])
   if (!shopRows.length) return c.notFound()
   const shop = rowToShop(shopRows[0])
-  const vidRows = await withTimeout(sql`SELECT * FROM videos WHERE shop_id=${shop.id} ORDER BY views DESC`, 15000, [])
+  // JA 페이지는 videos_ja만 사용 — EN videos 절대 참조하지 않음
+  const vidRows = await withTimeout(sql`SELECT * FROM videos_ja WHERE shop_id=${shop.id} ORDER BY views DESC`, 15000, [])
   const shopVideos = vidRows.map((r: any) => rowToVideo({ ...r, shop_name: shop.name }))
   // 같은 카테고리 업체 (본인 제외, 전체 풀에서 랜덤 6개 — 매 방문마다 다른 추천)
   const relatedPool = await withTimeout(sql`
@@ -24955,27 +25142,31 @@ https://seoulbeautytrip.com/video/v178051515735</textarea>
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
     <div>
       <div style="font-size:16px;font-weight:700;color:#fff">🇯🇵 일본어판 업체·영상 관리</div>
-      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:3px">shops_ja / videos_ja — EN 데이터와 완전 분리됩니다</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:3px">EN 업체에서 한 클릭으로 JA 번역 등록 — videos_ja는 완전 분리</div>
     </div>
     <div style="display:flex;gap:8px">
       <button onclick="loadJaAll()" style="padding:8px 14px;background:rgba(255,77,141,.15);border:1px solid rgba(255,77,141,.35);border-radius:8px;color:#FF4D8D;font-size:12px;font-weight:700;cursor:pointer">
         <i class="fas fa-sync-alt"></i> 새로고침
       </button>
       <a href="/ja/shops" target="_blank" style="padding:8px 14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.6);font-size:12px;text-decoration:none;display:inline-flex;align-items:center;gap:5px">
-        <i class="fas fa-external-link-alt"></i> JA 쇼핑목록 보기
+        <i class="fas fa-external-link-alt"></i> JA 홈 보기
       </a>
     </div>
   </div>
 
   <!-- 통계 요약 -->
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
+    <div class="card" style="text-align:center;padding:14px 10px">
+      <div id="ja-stat-en-shops" style="font-size:24px;font-weight:800;color:#60a5fa">-</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:3px">EN 업체</div>
+    </div>
     <div class="card" style="text-align:center;padding:14px 10px">
       <div id="ja-stat-shops" style="font-size:24px;font-weight:800;color:#FF4D8D">-</div>
-      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:3px">등록 업체</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:3px">JA 번역 완료</div>
     </div>
     <div class="card" style="text-align:center;padding:14px 10px">
       <div id="ja-stat-videos" style="font-size:24px;font-weight:800;color:#a78bfa">-</div>
-      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:3px">등록 영상</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:3px">JA 영상</div>
     </div>
     <div class="card" style="text-align:center;padding:14px 10px">
       <div id="ja-stat-active" style="font-size:24px;font-weight:800;color:#34d399">-</div>
@@ -24983,15 +25174,46 @@ https://seoulbeautytrip.com/video/v178051515735</textarea>
     </div>
   </div>
 
-  <!-- 업체 등록 폼 -->
-  <div class="card" style="margin-bottom:16px;border-color:rgba(255,77,141,.25);background:rgba(255,77,141,.04)">
+  <!-- ── EN 업체 목록 → JA 번역 등록 패널 ── -->
+  <div class="card" style="margin-bottom:16px;border-color:rgba(96,165,250,.25);background:rgba(96,165,250,.04)">
     <div class="card-header" style="margin-bottom:12px">
-      <div class="card-title"><i class="fas fa-plus-circle" style="color:#FF4D8D"></i> JA 업체 등록</div>
-      <button onclick="toggleJaShopForm()" id="ja-shop-form-toggle" style="padding:6px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.6);font-size:11px;cursor:pointer">
-        <i class="fas fa-chevron-down"></i> 폼 열기
+      <div class="card-title"><i class="fas fa-language" style="color:#60a5fa"></i> EN 업체 → JA 번역 등록</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input id="ja-en-search" oninput="filterJaEnShops(this.value)" placeholder="업체명 검색..." style="padding:7px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:12px;outline:none;width:140px">
+        <button onclick="translateAllPending()" id="ja-translate-all-btn" style="padding:7px 12px;background:rgba(255,77,141,.15);border:1px solid rgba(255,77,141,.35);border-radius:8px;color:#FF4D8D;font-size:11px;font-weight:700;cursor:pointer">
+          <i class="fas fa-magic"></i> 미번역 전체 등록
+        </button>
+      </div>
+    </div>
+    <div style="font-size:11px;color:rgba(255,255,255,.35);margin-bottom:10px;padding:0 2px">
+      ✅ = 이미 JA 번역 완료 &nbsp;|&nbsp; 🇯🇵 버튼 = GPT-4o-mini로 자동번역 후 등록
+    </div>
+    <div id="ja-en-shop-list" style="font-size:12px;color:rgba(255,255,255,.4);padding:20px;text-align:center">
+      <i class="fas fa-spinner fa-spin"></i> 로딩 중...
+    </div>
+    <div id="ja-translate-progress" style="display:none;padding:10px 12px;background:rgba(255,77,141,.08);border-radius:8px;margin-top:10px;font-size:12px;color:#FF4D8D"></div>
+  </div>
+
+  <!-- ── JA 업체 목록 (번역 완료된 것들) ── -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-header" style="margin-bottom:12px">
+      <div class="card-title"><i class="fas fa-list" style="color:#60a5fa"></i> JA 업체 목록 <span id="ja-shops-count" style="font-size:11px;color:rgba(255,255,255,.3);font-weight:400"></span></div>
+      <input id="ja-shop-search" oninput="filterJaShops(this.value)" placeholder="업체명 검색..." style="padding:7px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:12px;outline:none;width:160px">
+    </div>
+    <div id="ja-shop-list" style="font-size:12px;color:rgba(255,255,255,.4);padding:20px;text-align:center">
+      <i class="fas fa-spinner fa-spin"></i> 로딩 중...
+    </div>
+  </div>
+
+  <!-- ── 수동 JA 업체 등록 폼 (기존 유지, 접혀있음) ── -->
+  <div class="card" style="margin-bottom:16px;border-color:rgba(255,255,255,.08);opacity:.7">
+    <div class="card-header" style="margin-bottom:0">
+      <div class="card-title" style="font-size:13px;color:rgba(255,255,255,.5)"><i class="fas fa-keyboard" style="color:rgba(255,255,255,.3)"></i> 수동 JA 업체 등록 (고급)</div>
+      <button onclick="toggleJaShopForm()" id="ja-shop-form-toggle" style="padding:5px 10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:8px;color:rgba(255,255,255,.4);font-size:11px;cursor:pointer">
+        <i class="fas fa-chevron-down"></i> 펼치기
       </button>
     </div>
-    <div id="ja-shop-form" style="display:none">
+    <div id="ja-shop-form" style="display:none;margin-top:12px">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
         <div>
           <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:4px">업체명 (日) *</label>
@@ -25047,17 +25269,6 @@ https://seoulbeautytrip.com/video/v178051515735</textarea>
         <button onclick="toggleJaShopForm()" style="padding:10px 16px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:rgba(255,255,255,.5);font-size:13px;cursor:pointer">취소</button>
       </div>
       <div id="ja-shop-form-result" style="font-size:12px;margin-top:8px;color:rgba(255,255,255,.5)"></div>
-    </div>
-  </div>
-
-  <!-- 업체 목록 -->
-  <div class="card" style="margin-bottom:16px">
-    <div class="card-header" style="margin-bottom:12px">
-      <div class="card-title"><i class="fas fa-list" style="color:#60a5fa"></i> JA 업체 목록</div>
-      <input id="ja-shop-search" oninput="filterJaShops(this.value)" placeholder="업체명 검색..." style="padding:7px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:12px;outline:none;width:160px">
-    </div>
-    <div id="ja-shop-list" style="font-size:12px;color:rgba(255,255,255,.4);padding:20px;text-align:center">
-      <i class="fas fa-spinner fa-spin"></i> 로딩 중...
     </div>
   </div>
 
@@ -30580,25 +30791,136 @@ window.regenSeoAll = async function regenSeoAll(force) {
 // ═══════════════════════════════════════════════════════════
 
 var _jaLoaded = false;
+var jaEnShops = [];  // EN 업체 전체 목록 (번역 현황 확인용)
+var jaTranslatedIds = new Set(); // JA로 번역된 EN shop id 세트
 
-// JA 업체 + 영상 전체 로드
+// JA 업체 + 영상 + EN 업체 전체 로드
 function loadJaAll(){
   var _ah = {'x-admin-token': _GSK_TOKEN};
   Promise.all([
     fetch('/api/ja/shops', {headers:_ah}).then(function(r){ return r.json(); }).catch(function(){ return {shops:[]}; }),
-    fetch('/api/ja/videos', {headers:_ah}).then(function(r){ return r.json(); }).catch(function(){ return {videos:[]}; })
+    fetch('/api/ja/videos', {headers:_ah}).then(function(r){ return r.json(); }).catch(function(){ return {videos:[]}; }),
+    fetch('/api/shops', {headers:_ah}).then(function(r){ return r.json(); }).catch(function(){ return {shops:[]}; })
   ]).then(function(results){
     jaShops  = results[0].shops  || [];
     jaVideos = results[1].videos || [];
+    jaEnShops = results[2].shops || [];
+
+    // JA 번역된 EN shop id 세트 구축
+    jaTranslatedIds = new Set(jaShops.filter(function(s){ return s.en_shop_id; }).map(function(s){ return s.en_shop_id; }));
+
     // 통계
     var activeCount = jaShops.filter(function(s){ return s.active; }).length;
+    document.getElementById('ja-stat-en-shops').textContent = jaEnShops.length;
     document.getElementById('ja-stat-shops').textContent  = jaShops.length;
     document.getElementById('ja-stat-videos').textContent = jaVideos.length;
     document.getElementById('ja-stat-active').textContent = activeCount;
+    renderJaEnShopList();
     renderJaShops();
     renderJaVideos();
     _jaLoaded = true;
   }).catch(function(e){ console.error('[loadJaAll]', e); });
+}
+
+// EN 업체 목록 렌더 (번역 현황 포함)
+function renderJaEnShopList(){
+  var el = document.getElementById('ja-en-shop-list');
+  if(!el) return;
+  var q = (document.getElementById('ja-en-search')||{}).value || '';
+  var list = q ? jaEnShops.filter(function(s){ return s.name && s.name.toLowerCase().includes(q.toLowerCase()); }) : jaEnShops;
+  if(!list.length){ el.innerHTML = '<div style="padding:20px;text-align:center;color:rgba(255,255,255,.3)">EN 업체가 없습니다</div>'; return; }
+  var catIcon = {clinic:'🏥',headspa:'🧖',skincare:'✨',hair:'💇',makeup:'💄',nail:'💅',spa:'♨️',tattoo:'✏️',dental:'🦷'};
+  el.innerHTML = list.map(function(s){
+    var isTrans = jaTranslatedIds.has(s.id);
+    var jaShop = isTrans ? jaShops.find(function(js){ return js.en_shop_id === s.id; }) : null;
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.05)'+(isTrans?';background:rgba(52,211,153,.03)':'')+'">' +
+      '<div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">' +
+        (s.thumbnail ? '<img src="'+s.thumbnail+'" style="width:36px;height:36px;border-radius:8px;object-fit:cover;flex-shrink:0" class="safe-img" loading="lazy">' : '<div style="width:36px;height:36px;border-radius:8px;background:rgba(96,165,250,.12);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">'+(catIcon[s.category]||'🏪')+'</div>') +
+        '<div style="min-width:0">' +
+          '<div style="font-size:13px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(s.name||'(이름 없음)')+'</div>' +
+          '<div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:1px">'+(catIcon[s.category]||'')+(s.category||'')+' · '+(s.location||'')+(isTrans ? ' · <span style="color:#34d399">✅ JA: <a href="/ja/shop/'+(jaShop&&jaShop.slug||'')+'" target="_blank" style="color:#34d399">/ja/shop/'+((jaShop&&jaShop.slug)||'?')+'</a></span>' : ' · <span style="color:rgba(255,255,255,.25)">미번역</span>')+'</div>' +
+        '</div>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:6px;margin-left:8px;flex-shrink:0">' +
+        (isTrans
+          ? '<span style="font-size:10px;padding:3px 8px;border-radius:20px;background:rgba(52,211,153,.15);color:#34d399;white-space:nowrap">✅ 번역완료</span>'
+          : '<button data-id="'+s.id+'" onclick="translateOneShop(this)" style="padding:5px 11px;background:linear-gradient(135deg,rgba(255,77,141,.25),rgba(99,102,241,.25));border:1px solid rgba(255,77,141,.4);border-radius:6px;color:#FF85B3;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap"><i class="fas fa-language"></i> 🇯🇵 번역 등록</button>'
+        ) +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+// EN 업체 검색 필터
+function filterJaEnShops(q){
+  renderJaEnShopList();
+}
+
+// EN 업체 1개 JA 번역 등록
+async function translateOneShop(btn){
+  var id = btn.dataset.id;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 번역 중...';
+  try {
+    var r = await fetch('/api/ja/translate-shop', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','x-admin-token':_GSK_TOKEN},
+      body: JSON.stringify({shopId: id})
+    });
+    var d = await r.json();
+    if(d.ok){
+      btn.closest('div[style]').querySelector('div:last-child').innerHTML = '<span style="font-size:10px;padding:3px 8px;border-radius:20px;background:rgba(52,211,153,.15);color:#34d399;white-space:nowrap">✅ 번역완료</span>';
+      // 통계 업데이트
+      jaTranslatedIds.add(id);
+      document.getElementById('ja-stat-shops').textContent = jaTranslatedIds.size;
+      // JA 목록 갱신
+      loadJaAll();
+    } else if(d.error === 'already_exists'){
+      btn.innerHTML = '✅ 이미 등록됨';
+      btn.style.background = 'rgba(52,211,153,.15)';
+      btn.style.color = '#34d399';
+      btn.style.borderColor = 'rgba(52,211,153,.3)';
+    } else {
+      btn.disabled = false;
+      btn.innerHTML = '❌ 재시도';
+      alert('번역 오류: ' + (d.error || JSON.stringify(d)));
+    }
+  } catch(e){
+    btn.disabled = false;
+    btn.innerHTML = '❌ 재시도';
+    alert('요청 실패: ' + e.message);
+  }
+}
+
+// 미번역 EN 업체 전체 JA 번역 등록
+async function translateAllPending(){
+  var pending = jaEnShops.filter(function(s){ return !jaTranslatedIds.has(s.id); });
+  if(!pending.length){ alert('번역되지 않은 업체가 없습니다 ✅'); return; }
+  if(!confirm(pending.length + '개 업체를 JA 자동번역 등록하겠습니까?\n(GPT-4o-mini 사용, 완료까지 시간이 걸릴 수 있습니다)')) return;
+  var btn = document.getElementById('ja-translate-all-btn');
+  if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 처리 중...'; }
+  var progressEl = document.getElementById('ja-translate-progress');
+  if(progressEl) progressEl.style.display = 'block';
+  var done = 0, failed = 0;
+  for(var i = 0; i < pending.length; i++){
+    var s = pending[i];
+    if(progressEl) progressEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 처리 중 (' + (i+1) + '/' + pending.length + '): ' + s.name;
+    try {
+      var r = await fetch('/api/ja/translate-shop', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','x-admin-token':_GSK_TOKEN},
+        body: JSON.stringify({shopId: s.id})
+      });
+      var d = await r.json();
+      if(d.ok || d.error === 'already_exists') done++;
+      else failed++;
+    } catch(e){ failed++; }
+    // 연속 요청 사이 300ms 대기 (Rate limit 방지)
+    await new Promise(function(res){ setTimeout(res, 300); });
+  }
+  if(progressEl) progressEl.innerHTML = '✅ 완료! 성공: ' + done + '개' + (failed > 0 ? ', 실패: ' + failed + '개' : '');
+  if(btn){ btn.disabled = false; btn.innerHTML = '<i class="fas fa-magic"></i> 미번역 전체 등록'; }
+  loadJaAll();
 }
 
 // JA 업체 목록 렌더
@@ -30607,15 +30929,18 @@ function renderJaShops(){
   if(!el) return;
   var q = (document.getElementById('ja-shop-search')||{}).value || '';
   var list = q ? jaShops.filter(function(s){ return s.name && s.name.toLowerCase().includes(q.toLowerCase()); }) : jaShops;
+  var countEl = document.getElementById('ja-shops-count');
+  if(countEl) countEl.textContent = '총 ' + jaShops.length + '개';
   if(!list.length){ el.innerHTML = '<div style="padding:20px;text-align:center;color:rgba(255,255,255,.3)">등록된 JA 업체가 없습니다</div>'; return; }
   var catIcon = {clinic:'🏥',headspa:'🧖',skincare:'✨',hair:'💇',makeup:'💄',nail:'💅',spa:'♨️',tattoo:'✏️',dental:'🦷'};
   el.innerHTML = list.map(function(s){
+    var enLink = s.en_shop_id ? ' · <span style="color:#60a5fa;font-size:10px">EN:'+s.en_shop_id.substring(0,8)+'</span>' : '';
     return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.05)">' +
       '<div style="display:flex;align-items:center;gap:10px">' +
-        (s.cover_image ? '<img src="'+s.cover_image+'" style="width:36px;height:36px;border-radius:8px;object-fit:cover" class="safe-img">' : '<div style="width:36px;height:36px;border-radius:8px;background:rgba(255,77,141,.15);display:flex;align-items:center;justify-content:center;font-size:18px">'+(catIcon[s.category]||'🏪')+'</div>') +
+        (s.thumbnail ? '<img src="'+s.thumbnail+'" style="width:36px;height:36px;border-radius:8px;object-fit:cover" class="safe-img">' : '<div style="width:36px;height:36px;border-radius:8px;background:rgba(255,77,141,.15);display:flex;align-items:center;justify-content:center;font-size:18px">'+(catIcon[s.category]||'🏪')+'</div>') +
         '<div>' +
           '<div style="font-size:13px;font-weight:600;color:#fff">'+(s.name||'(이름 없음)')+'</div>' +
-          '<div style="font-size:11px;color:rgba(255,255,255,.4)">'+(catIcon[s.category]||'')+(s.category||'')+' · '+(s.area||'')+' · <a href="/ja/shop/'+(s.slug||s.id)+'" target="_blank" style="color:#60a5fa;text-decoration:none">/ja/shop/'+s.slug+'</a></div>' +
+          '<div style="font-size:11px;color:rgba(255,255,255,.4)">'+(catIcon[s.category]||'')+(s.category||'')+' · '+(s.location||s.area||'')+' · <a href="/ja/shop/'+(s.slug||s.id)+'" target="_blank" style="color:#60a5fa;text-decoration:none">/ja/shop/'+s.slug+'</a>'+enLink+'</div>' +
         '</div>' +
       '</div>' +
       '<div style="display:flex;align-items:center;gap:6px">' +

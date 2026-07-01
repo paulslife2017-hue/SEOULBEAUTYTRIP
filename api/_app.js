@@ -2509,7 +2509,9 @@ function rowToShop(r) {
       } catch {
         return null;
       }
-    })()
+    })(),
+    whatsapp: r.whatsapp || "",
+    en_shop_id: r.en_shop_id || ""
   };
 }
 function cloudinaryThumb(videoUrl) {
@@ -2954,6 +2956,14 @@ async function initDb(env) {
     }
     try {
       await sql`ALTER TABLE shops_ja ADD COLUMN IF NOT EXISTS photos JSONB DEFAULT '[]'`;
+    } catch (e) {
+    }
+    try {
+      await sql`ALTER TABLE shops_ja ADD COLUMN IF NOT EXISTS en_shop_id TEXT DEFAULT ''`;
+    } catch (e) {
+    }
+    try {
+      await sql`CREATE INDEX IF NOT EXISTS idx_sja_en_shop ON shops_ja(en_shop_id)`;
     } catch (e) {
     }
     await sql`CREATE TABLE IF NOT EXISTS videos_ja (
@@ -5138,6 +5148,17 @@ app.post("/api/quick-register", async (c) => {
       const _bgDesc = description;
       const _bgWhyChoose = whyChoose;
       const _bgSeoText = seoTextVal;
+      const _bgSlug = slug;
+      const _bgAddress = resolvedData.address || "";
+      const _bgHours = resolvedData.hours || "";
+      const _bgThumbnail = thumbnail;
+      const _bgPhotos = photos;
+      const _bgLat = resolvedData.lat || "";
+      const _bgLng = resolvedData.lng || "";
+      const _bgGmapUrl = gmapUrl;
+      const _bgPlaceId = resolvedData.placeId || resolvedData.googlePlaceId || "";
+      const _bgMetaDesc = metaDescription;
+      const _bgSeoKeywords = seoKeywords;
       const _bgTask = (async () => {
         if (_bgReviews.length > 0) {
           try {
@@ -5162,6 +5183,34 @@ app.post("/api/quick-register", async (c) => {
               reviews: _bgReviews,
               seoText: _bgSeoText,
               whyChoose: _bgWhyChoose
+            }, _bgKey, _bgSql);
+          } catch {
+          }
+        }
+        if (_bgKey) {
+          try {
+            await translateShopToJa({
+              id: _bgId,
+              name: _bgName,
+              slug: _bgSlug,
+              category: _bgCat,
+              location: _bgLoc,
+              address: _bgAddress,
+              hours: _bgHours,
+              rating: _bgRating,
+              reviewCount: _bgReviewCount,
+              description: _bgDesc,
+              whyChoose: _bgWhyChoose,
+              metaDescription: _bgMetaDesc,
+              seoKeywords: _bgSeoKeywords,
+              seoText: _bgSeoText,
+              thumbnail: _bgThumbnail,
+              photos: _bgPhotos,
+              lat: _bgLat,
+              lng: _bgLng,
+              google_map_url: _bgGmapUrl,
+              google_place_id: _bgPlaceId,
+              reviews: _bgReviews
             }, _bgKey, _bgSql);
           } catch {
           }
@@ -6211,6 +6260,121 @@ app.delete("/api/blogs/:id", async (c) => {
   } catch (e) {
     console.error("[DELETE /api/blogs/:id]", e?.message || e);
     return c.json({ ok: false, error: e?.message || "DB error" }, 500);
+  }
+});
+async function translateShopToJa(enShop, apiKey, sql) {
+  const id = enShop.id;
+  const existing = await sql`SELECT id FROM shops_ja WHERE en_shop_id=${id} LIMIT 1`;
+  if (existing.length > 0) return existing[0].id;
+  let jaName = enShop.name || "";
+  let jaDesc = "";
+  let jaWhyChoose = [];
+  let jaSeoText = "";
+  let jaMetaDesc = "";
+  if (apiKey) {
+    try {
+      const prompt = `You are a professional Japanese translator for a Seoul beauty travel site.
+Translate the following English shop information into natural Japanese for Japanese tourists visiting Seoul.
+Keep the shop name in English (do NOT translate the shop name).
+For seoText: rewrite it in Japanese as proper HTML with <h2 class="sp-seo-h2"> and <p class="sp-seo-p"> tags.
+Respond ONLY with valid JSON, no markdown:
+{
+  "description": "Japanese description (2-3 sentences, natural Japanese)",
+  "whyChoose": ["reason1 in Japanese", "reason2", "reason3", "reason4", "reason5"],
+  "metaDescription": "Japanese meta description (under 120 chars)",
+  "seoText": "Japanese SEO HTML text with sp-seo-h2/sp-seo-p tags (4 sections)"
+}
+
+SHOP DATA:
+name: ${enShop.name}
+category: ${enShop.category}
+location: ${enShop.location}
+description: ${enShop.description || ""}
+whyChoose: ${JSON.stringify(enShop.whyChoose || [])}
+rating: ${enShop.rating}
+reviewCount: ${enShop.reviewCount}`;
+      const r = await fetch("https://api.genspark.ai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({ model: "gpt-4o-mini", messages: [{ role: "user", content: prompt }], max_tokens: 1800, temperature: 0.3 })
+      });
+      if (r.ok) {
+        const d = await r.json();
+        const raw2 = d.choices?.[0]?.message?.content || "";
+        const jsonStr = raw2.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+        const parsed = JSON.parse(jsonStr);
+        jaDesc = parsed.description || "";
+        jaWhyChoose = parsed.whyChoose || [];
+        jaSeoText = parsed.seoText || "";
+        jaMetaDesc = parsed.metaDescription || "";
+      }
+    } catch {
+    }
+  }
+  if (!jaDesc) jaDesc = enShop.description || "";
+  if (!jaWhyChoose.length) jaWhyChoose = enShop.whyChoose || [];
+  if (!jaMetaDesc) jaMetaDesc = enShop.metaDescription || "";
+  if (!jaSeoText) jaSeoText = enShop.seoText || "";
+  const jaId = "sja" + Date.now() + Math.floor(Math.random() * 1e3);
+  const slug = enShop.slug || "";
+  await sql`INSERT INTO shops_ja (
+    id, name, slug, category, location, address,
+    google_map_url, google_map_embed, hours, price_range,
+    services, service_prices, description,
+    meta_description, seo_keywords, seo_text, why_choose,
+    rating, review_count, thumbnail, photos,
+    lat, lng, reviews, google_place_id,
+    active, created_at, en_shop_id, whatsapp
+  ) VALUES (
+    ${jaId}, ${enShop.name || ""}, ${slug}, ${enShop.category || ""},
+    ${enShop.location || ""}, ${enShop.address || ""},
+    ${enShop.googleMapUrl || enShop.google_map_url || ""}, ${enShop.googleMapEmbed || enShop.google_map_embed || ""},
+    ${enShop.hours || ""}, ${enShop.priceRange || enShop.price_range || ""},
+    ${JSON.stringify(enShop.services || [])}, ${JSON.stringify(enShop.servicePrices || enShop.service_prices || [])},
+    ${jaDesc}, ${jaMetaDesc},
+    ${enShop.seoKeywords || enShop.seo_keywords || ""}, ${jaSeoText},
+    ${JSON.stringify(jaWhyChoose)},
+    ${enShop.rating || 5}, ${enShop.reviewCount || enShop.review_count || 0},
+    ${enShop.thumbnail || ""}, ${JSON.stringify(enShop.photos || [])},
+    ${enShop.lat || ""}, ${enShop.lng || ""},
+    ${JSON.stringify(enShop.reviews || [])}, ${enShop.googlePlaceId || enShop.google_place_id || ""},
+    true, NOW(), ${id}, ${enShop.whatsapp || ""}
+  ) ON CONFLICT (id) DO NOTHING`;
+  return jaId;
+}
+app.post("/api/ja/translate-shop", async (c) => {
+  try {
+    const _aC = (c.req.header("Cookie") || "").match(/admin_token=([^;]+)/)?.[1] || "";
+    const _aS = c.req.header("x-admin-secret") || c.req.header("x-admin-token") || c.req.query("secret") || "";
+    if ((_aC || _aS) !== _getAdminSecret(c.env)) return c.json({ error: "Unauthorized" }, 401);
+    const sql = getDb(c.env);
+    const { shopId } = await c.req.json();
+    if (!shopId) return c.json({ error: "shopId required" }, 400);
+    const rows = await sql`SELECT * FROM shops WHERE id=${shopId} LIMIT 1`;
+    if (!rows.length) return c.json({ error: "EN shop not found" }, 404);
+    const enShop = rows[0];
+    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || "";
+    const jaId = await translateShopToJa({
+      ...enShop,
+      whyChoose: JSON.parse(enShop.why_choose || "[]"),
+      servicePrices: JSON.parse(enShop.service_prices || "[]"),
+      services: JSON.parse(enShop.services || "[]"),
+      reviews: JSON.parse(enShop.reviews || "[]"),
+      photos: JSON.parse(enShop.photos || "[]"),
+      googleMapUrl: enShop.google_map_url,
+      googleMapEmbed: enShop.google_map_embed,
+      googlePlaceId: enShop.google_place_id,
+      reviewCount: enShop.review_count,
+      metaDescription: enShop.meta_description,
+      seoKeywords: enShop.seo_keywords,
+      seoText: enShop.seo_text,
+      priceRange: enShop.price_range
+    }, apiKey, sql);
+    if (!jaId) return c.json({ error: "already_exists", message: "\uC774\uBBF8 JA \uBC88\uC5ED\uC774 \uC874\uC7AC\uD569\uB2C8\uB2E4" }, 409);
+    pingIndexNow([`https://seoulbeautytrip.com/ja/shop/${enShop.slug}`, `https://seoulbeautytrip.com/ja`]);
+    return c.json({ ok: true, jaId, slug: enShop.slug, enShopId: shopId });
+  } catch (e) {
+    return c.json({ error: e.message || "translate error" }, 500);
   }
 });
 app.get("/api/ja/shops", async (c) => {
@@ -7772,7 +7936,7 @@ app.get("/ja/shop/:slug", async (c) => {
     const shopRows = await withTimeout(sql`SELECT * FROM shops_ja WHERE slug=${slug}`, 15e3, []);
     if (!shopRows.length) return c.notFound();
     const shop = rowToShop(shopRows[0]);
-    const vidRows = await withTimeout(sql`SELECT * FROM videos WHERE shop_id=${shop.id} ORDER BY views DESC`, 15e3, []);
+    const vidRows = await withTimeout(sql`SELECT * FROM videos_ja WHERE shop_id=${shop.id} ORDER BY views DESC`, 15e3, []);
     const shopVideos = vidRows.map((r) => rowToVideo({ ...r, shop_name: shop.name }));
     const relatedPool = await withTimeout(sql`
     SELECT id, name, slug, category, location, thumbnail, rating, review_count, description
@@ -25327,27 +25491,31 @@ https://seoulbeautytrip.com/video/v178051515735</textarea>
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
     <div>
       <div style="font-size:16px;font-weight:700;color:#fff">\u{1F1EF}\u{1F1F5} \uC77C\uBCF8\uC5B4\uD310 \uC5C5\uCCB4\xB7\uC601\uC0C1 \uAD00\uB9AC</div>
-      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:3px">shops_ja / videos_ja \u2014 EN \uB370\uC774\uD130\uC640 \uC644\uC804 \uBD84\uB9AC\uB429\uB2C8\uB2E4</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:3px">EN \uC5C5\uCCB4\uC5D0\uC11C \uD55C \uD074\uB9AD\uC73C\uB85C JA \uBC88\uC5ED \uB4F1\uB85D \u2014 videos_ja\uB294 \uC644\uC804 \uBD84\uB9AC</div>
     </div>
     <div style="display:flex;gap:8px">
       <button onclick="loadJaAll()" style="padding:8px 14px;background:rgba(255,77,141,.15);border:1px solid rgba(255,77,141,.35);border-radius:8px;color:#FF4D8D;font-size:12px;font-weight:700;cursor:pointer">
         <i class="fas fa-sync-alt"></i> \uC0C8\uB85C\uACE0\uCE68
       </button>
       <a href="/ja/shops" target="_blank" style="padding:8px 14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.6);font-size:12px;text-decoration:none;display:inline-flex;align-items:center;gap:5px">
-        <i class="fas fa-external-link-alt"></i> JA \uC1FC\uD551\uBAA9\uB85D \uBCF4\uAE30
+        <i class="fas fa-external-link-alt"></i> JA \uD648 \uBCF4\uAE30
       </a>
     </div>
   </div>
 
   <!-- \uD1B5\uACC4 \uC694\uC57D -->
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
+    <div class="card" style="text-align:center;padding:14px 10px">
+      <div id="ja-stat-en-shops" style="font-size:24px;font-weight:800;color:#60a5fa">-</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:3px">EN \uC5C5\uCCB4</div>
+    </div>
     <div class="card" style="text-align:center;padding:14px 10px">
       <div id="ja-stat-shops" style="font-size:24px;font-weight:800;color:#FF4D8D">-</div>
-      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:3px">\uB4F1\uB85D \uC5C5\uCCB4</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:3px">JA \uBC88\uC5ED \uC644\uB8CC</div>
     </div>
     <div class="card" style="text-align:center;padding:14px 10px">
       <div id="ja-stat-videos" style="font-size:24px;font-weight:800;color:#a78bfa">-</div>
-      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:3px">\uB4F1\uB85D \uC601\uC0C1</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:3px">JA \uC601\uC0C1</div>
     </div>
     <div class="card" style="text-align:center;padding:14px 10px">
       <div id="ja-stat-active" style="font-size:24px;font-weight:800;color:#34d399">-</div>
@@ -25355,15 +25523,46 @@ https://seoulbeautytrip.com/video/v178051515735</textarea>
     </div>
   </div>
 
-  <!-- \uC5C5\uCCB4 \uB4F1\uB85D \uD3FC -->
-  <div class="card" style="margin-bottom:16px;border-color:rgba(255,77,141,.25);background:rgba(255,77,141,.04)">
+  <!-- \u2500\u2500 EN \uC5C5\uCCB4 \uBAA9\uB85D \u2192 JA \uBC88\uC5ED \uB4F1\uB85D \uD328\uB110 \u2500\u2500 -->
+  <div class="card" style="margin-bottom:16px;border-color:rgba(96,165,250,.25);background:rgba(96,165,250,.04)">
     <div class="card-header" style="margin-bottom:12px">
-      <div class="card-title"><i class="fas fa-plus-circle" style="color:#FF4D8D"></i> JA \uC5C5\uCCB4 \uB4F1\uB85D</div>
-      <button onclick="toggleJaShopForm()" id="ja-shop-form-toggle" style="padding:6px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.6);font-size:11px;cursor:pointer">
-        <i class="fas fa-chevron-down"></i> \uD3FC \uC5F4\uAE30
+      <div class="card-title"><i class="fas fa-language" style="color:#60a5fa"></i> EN \uC5C5\uCCB4 \u2192 JA \uBC88\uC5ED \uB4F1\uB85D</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input id="ja-en-search" oninput="filterJaEnShops(this.value)" placeholder="\uC5C5\uCCB4\uBA85 \uAC80\uC0C9..." style="padding:7px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:12px;outline:none;width:140px">
+        <button onclick="translateAllPending()" id="ja-translate-all-btn" style="padding:7px 12px;background:rgba(255,77,141,.15);border:1px solid rgba(255,77,141,.35);border-radius:8px;color:#FF4D8D;font-size:11px;font-weight:700;cursor:pointer">
+          <i class="fas fa-magic"></i> \uBBF8\uBC88\uC5ED \uC804\uCCB4 \uB4F1\uB85D
+        </button>
+      </div>
+    </div>
+    <div style="font-size:11px;color:rgba(255,255,255,.35);margin-bottom:10px;padding:0 2px">
+      \u2705 = \uC774\uBBF8 JA \uBC88\uC5ED \uC644\uB8CC &nbsp;|&nbsp; \u{1F1EF}\u{1F1F5} \uBC84\uD2BC = GPT-4o-mini\uB85C \uC790\uB3D9\uBC88\uC5ED \uD6C4 \uB4F1\uB85D
+    </div>
+    <div id="ja-en-shop-list" style="font-size:12px;color:rgba(255,255,255,.4);padding:20px;text-align:center">
+      <i class="fas fa-spinner fa-spin"></i> \uB85C\uB529 \uC911...
+    </div>
+    <div id="ja-translate-progress" style="display:none;padding:10px 12px;background:rgba(255,77,141,.08);border-radius:8px;margin-top:10px;font-size:12px;color:#FF4D8D"></div>
+  </div>
+
+  <!-- \u2500\u2500 JA \uC5C5\uCCB4 \uBAA9\uB85D (\uBC88\uC5ED \uC644\uB8CC\uB41C \uAC83\uB4E4) \u2500\u2500 -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-header" style="margin-bottom:12px">
+      <div class="card-title"><i class="fas fa-list" style="color:#60a5fa"></i> JA \uC5C5\uCCB4 \uBAA9\uB85D <span id="ja-shops-count" style="font-size:11px;color:rgba(255,255,255,.3);font-weight:400"></span></div>
+      <input id="ja-shop-search" oninput="filterJaShops(this.value)" placeholder="\uC5C5\uCCB4\uBA85 \uAC80\uC0C9..." style="padding:7px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:12px;outline:none;width:160px">
+    </div>
+    <div id="ja-shop-list" style="font-size:12px;color:rgba(255,255,255,.4);padding:20px;text-align:center">
+      <i class="fas fa-spinner fa-spin"></i> \uB85C\uB529 \uC911...
+    </div>
+  </div>
+
+  <!-- \u2500\u2500 \uC218\uB3D9 JA \uC5C5\uCCB4 \uB4F1\uB85D \uD3FC (\uAE30\uC874 \uC720\uC9C0, \uC811\uD600\uC788\uC74C) \u2500\u2500 -->
+  <div class="card" style="margin-bottom:16px;border-color:rgba(255,255,255,.08);opacity:.7">
+    <div class="card-header" style="margin-bottom:0">
+      <div class="card-title" style="font-size:13px;color:rgba(255,255,255,.5)"><i class="fas fa-keyboard" style="color:rgba(255,255,255,.3)"></i> \uC218\uB3D9 JA \uC5C5\uCCB4 \uB4F1\uB85D (\uACE0\uAE09)</div>
+      <button onclick="toggleJaShopForm()" id="ja-shop-form-toggle" style="padding:5px 10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:8px;color:rgba(255,255,255,.4);font-size:11px;cursor:pointer">
+        <i class="fas fa-chevron-down"></i> \uD3BC\uCE58\uAE30
       </button>
     </div>
-    <div id="ja-shop-form" style="display:none">
+    <div id="ja-shop-form" style="display:none;margin-top:12px">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
         <div>
           <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:4px">\uC5C5\uCCB4\uBA85 (\u65E5) *</label>
@@ -25419,17 +25618,6 @@ https://seoulbeautytrip.com/video/v178051515735</textarea>
         <button onclick="toggleJaShopForm()" style="padding:10px 16px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:rgba(255,255,255,.5);font-size:13px;cursor:pointer">\uCDE8\uC18C</button>
       </div>
       <div id="ja-shop-form-result" style="font-size:12px;margin-top:8px;color:rgba(255,255,255,.5)"></div>
-    </div>
-  </div>
-
-  <!-- \uC5C5\uCCB4 \uBAA9\uB85D -->
-  <div class="card" style="margin-bottom:16px">
-    <div class="card-header" style="margin-bottom:12px">
-      <div class="card-title"><i class="fas fa-list" style="color:#60a5fa"></i> JA \uC5C5\uCCB4 \uBAA9\uB85D</div>
-      <input id="ja-shop-search" oninput="filterJaShops(this.value)" placeholder="\uC5C5\uCCB4\uBA85 \uAC80\uC0C9..." style="padding:7px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:12px;outline:none;width:160px">
-    </div>
-    <div id="ja-shop-list" style="font-size:12px;color:rgba(255,255,255,.4);padding:20px;text-align:center">
-      <i class="fas fa-spinner fa-spin"></i> \uB85C\uB529 \uC911...
     </div>
   </div>
 
@@ -30952,25 +31140,137 @@ window.regenSeoAll = async function regenSeoAll(force) {
 // \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 
 var _jaLoaded = false;
+var jaEnShops = [];  // EN \uC5C5\uCCB4 \uC804\uCCB4 \uBAA9\uB85D (\uBC88\uC5ED \uD604\uD669 \uD655\uC778\uC6A9)
+var jaTranslatedIds = new Set(); // JA\uB85C \uBC88\uC5ED\uB41C EN shop id \uC138\uD2B8
 
-// JA \uC5C5\uCCB4 + \uC601\uC0C1 \uC804\uCCB4 \uB85C\uB4DC
+// JA \uC5C5\uCCB4 + \uC601\uC0C1 + EN \uC5C5\uCCB4 \uC804\uCCB4 \uB85C\uB4DC
 function loadJaAll(){
   var _ah = {'x-admin-token': _GSK_TOKEN};
   Promise.all([
     fetch('/api/ja/shops', {headers:_ah}).then(function(r){ return r.json(); }).catch(function(){ return {shops:[]}; }),
-    fetch('/api/ja/videos', {headers:_ah}).then(function(r){ return r.json(); }).catch(function(){ return {videos:[]}; })
+    fetch('/api/ja/videos', {headers:_ah}).then(function(r){ return r.json(); }).catch(function(){ return {videos:[]}; }),
+    fetch('/api/shops', {headers:_ah}).then(function(r){ return r.json(); }).catch(function(){ return {shops:[]}; })
   ]).then(function(results){
     jaShops  = results[0].shops  || [];
     jaVideos = results[1].videos || [];
+    jaEnShops = results[2].shops || [];
+
+    // JA \uBC88\uC5ED\uB41C EN shop id \uC138\uD2B8 \uAD6C\uCD95
+    jaTranslatedIds = new Set(jaShops.filter(function(s){ return s.en_shop_id; }).map(function(s){ return s.en_shop_id; }));
+
     // \uD1B5\uACC4
     var activeCount = jaShops.filter(function(s){ return s.active; }).length;
+    document.getElementById('ja-stat-en-shops').textContent = jaEnShops.length;
     document.getElementById('ja-stat-shops').textContent  = jaShops.length;
     document.getElementById('ja-stat-videos').textContent = jaVideos.length;
     document.getElementById('ja-stat-active').textContent = activeCount;
+    renderJaEnShopList();
     renderJaShops();
     renderJaVideos();
     _jaLoaded = true;
   }).catch(function(e){ console.error('[loadJaAll]', e); });
+}
+
+// EN \uC5C5\uCCB4 \uBAA9\uB85D \uB80C\uB354 (\uBC88\uC5ED \uD604\uD669 \uD3EC\uD568)
+function renderJaEnShopList(){
+  var el = document.getElementById('ja-en-shop-list');
+  if(!el) return;
+  var q = (document.getElementById('ja-en-search')||{}).value || '';
+  var list = q ? jaEnShops.filter(function(s){ return s.name && s.name.toLowerCase().includes(q.toLowerCase()); }) : jaEnShops;
+  if(!list.length){ el.innerHTML = '<div style="padding:20px;text-align:center;color:rgba(255,255,255,.3)">EN \uC5C5\uCCB4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4</div>'; return; }
+  var catIcon = {clinic:'\u{1F3E5}',headspa:'\u{1F9D6}',skincare:'\u2728',hair:'\u{1F487}',makeup:'\u{1F484}',nail:'\u{1F485}',spa:'\u2668\uFE0F',tattoo:'\u270F\uFE0F',dental:'\u{1F9B7}'};
+  el.innerHTML = list.map(function(s){
+    var isTrans = jaTranslatedIds.has(s.id);
+    var jaShop = isTrans ? jaShops.find(function(js){ return js.en_shop_id === s.id; }) : null;
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.05)'+(isTrans?';background:rgba(52,211,153,.03)':'')+'">' +
+      '<div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">' +
+        (s.thumbnail ? '<img src="'+s.thumbnail+'" style="width:36px;height:36px;border-radius:8px;object-fit:cover;flex-shrink:0" class="safe-img" loading="lazy">' : '<div style="width:36px;height:36px;border-radius:8px;background:rgba(96,165,250,.12);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">'+(catIcon[s.category]||'\u{1F3EA}')+'</div>') +
+        '<div style="min-width:0">' +
+          '<div style="font-size:13px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(s.name||'(\uC774\uB984 \uC5C6\uC74C)')+'</div>' +
+          '<div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:1px">'+(catIcon[s.category]||'')+(s.category||'')+' \xB7 '+(s.location||'')+(isTrans ? ' \xB7 <span style="color:#34d399">\u2705 JA: <a href="/ja/shop/'+(jaShop&&jaShop.slug||'')+'" target="_blank" style="color:#34d399">/ja/shop/'+((jaShop&&jaShop.slug)||'?')+'</a></span>' : ' \xB7 <span style="color:rgba(255,255,255,.25)">\uBBF8\uBC88\uC5ED</span>')+'</div>' +
+        '</div>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:6px;margin-left:8px;flex-shrink:0">' +
+        (isTrans
+          ? '<span style="font-size:10px;padding:3px 8px;border-radius:20px;background:rgba(52,211,153,.15);color:#34d399;white-space:nowrap">\u2705 \uBC88\uC5ED\uC644\uB8CC</span>'
+          : '<button data-id="'+s.id+'" onclick="translateOneShop(this)" style="padding:5px 11px;background:linear-gradient(135deg,rgba(255,77,141,.25),rgba(99,102,241,.25));border:1px solid rgba(255,77,141,.4);border-radius:6px;color:#FF85B3;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap"><i class="fas fa-language"></i> \u{1F1EF}\u{1F1F5} \uBC88\uC5ED \uB4F1\uB85D</button>'
+        ) +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+// EN \uC5C5\uCCB4 \uAC80\uC0C9 \uD544\uD130
+function filterJaEnShops(q){
+  renderJaEnShopList();
+}
+
+// EN \uC5C5\uCCB4 1\uAC1C JA \uBC88\uC5ED \uB4F1\uB85D
+async function translateOneShop(btn){
+  var id = btn.dataset.id;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> \uBC88\uC5ED \uC911...';
+  try {
+    var r = await fetch('/api/ja/translate-shop', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','x-admin-token':_GSK_TOKEN},
+      body: JSON.stringify({shopId: id})
+    });
+    var d = await r.json();
+    if(d.ok){
+      btn.closest('div[style]').querySelector('div:last-child').innerHTML = '<span style="font-size:10px;padding:3px 8px;border-radius:20px;background:rgba(52,211,153,.15);color:#34d399;white-space:nowrap">\u2705 \uBC88\uC5ED\uC644\uB8CC</span>';
+      // \uD1B5\uACC4 \uC5C5\uB370\uC774\uD2B8
+      jaTranslatedIds.add(id);
+      document.getElementById('ja-stat-shops').textContent = jaTranslatedIds.size;
+      // JA \uBAA9\uB85D \uAC31\uC2E0
+      loadJaAll();
+    } else if(d.error === 'already_exists'){
+      btn.innerHTML = '\u2705 \uC774\uBBF8 \uB4F1\uB85D\uB428';
+      btn.style.background = 'rgba(52,211,153,.15)';
+      btn.style.color = '#34d399';
+      btn.style.borderColor = 'rgba(52,211,153,.3)';
+    } else {
+      btn.disabled = false;
+      btn.innerHTML = '\u274C \uC7AC\uC2DC\uB3C4';
+      alert('\uBC88\uC5ED \uC624\uB958: ' + (d.error || JSON.stringify(d)));
+    }
+  } catch(e){
+    btn.disabled = false;
+    btn.innerHTML = '\u274C \uC7AC\uC2DC\uB3C4';
+    alert('\uC694\uCCAD \uC2E4\uD328: ' + e.message);
+  }
+}
+
+// \uBBF8\uBC88\uC5ED EN \uC5C5\uCCB4 \uC804\uCCB4 JA \uBC88\uC5ED \uB4F1\uB85D
+async function translateAllPending(){
+  var pending = jaEnShops.filter(function(s){ return !jaTranslatedIds.has(s.id); });
+  if(!pending.length){ alert('\uBC88\uC5ED\uB418\uC9C0 \uC54A\uC740 \uC5C5\uCCB4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4 \u2705'); return; }
+  if(!confirm(pending.length + '\uAC1C \uC5C5\uCCB4\uB97C JA \uC790\uB3D9\uBC88\uC5ED \uB4F1\uB85D\uD558\uACA0\uC2B5\uB2C8\uAE4C?
+(GPT-4o-mini \uC0AC\uC6A9, \uC644\uB8CC\uAE4C\uC9C0 \uC2DC\uAC04\uC774 \uAC78\uB9B4 \uC218 \uC788\uC2B5\uB2C8\uB2E4)')) return;
+  var btn = document.getElementById('ja-translate-all-btn');
+  if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> \uCC98\uB9AC \uC911...'; }
+  var progressEl = document.getElementById('ja-translate-progress');
+  if(progressEl) progressEl.style.display = 'block';
+  var done = 0, failed = 0;
+  for(var i = 0; i < pending.length; i++){
+    var s = pending[i];
+    if(progressEl) progressEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> \uCC98\uB9AC \uC911 (' + (i+1) + '/' + pending.length + '): ' + s.name;
+    try {
+      var r = await fetch('/api/ja/translate-shop', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','x-admin-token':_GSK_TOKEN},
+        body: JSON.stringify({shopId: s.id})
+      });
+      var d = await r.json();
+      if(d.ok || d.error === 'already_exists') done++;
+      else failed++;
+    } catch(e){ failed++; }
+    // \uC5F0\uC18D \uC694\uCCAD \uC0AC\uC774 300ms \uB300\uAE30 (Rate limit \uBC29\uC9C0)
+    await new Promise(function(res){ setTimeout(res, 300); });
+  }
+  if(progressEl) progressEl.innerHTML = '\u2705 \uC644\uB8CC! \uC131\uACF5: ' + done + '\uAC1C' + (failed > 0 ? ', \uC2E4\uD328: ' + failed + '\uAC1C' : '');
+  if(btn){ btn.disabled = false; btn.innerHTML = '<i class="fas fa-magic"></i> \uBBF8\uBC88\uC5ED \uC804\uCCB4 \uB4F1\uB85D'; }
+  loadJaAll();
 }
 
 // JA \uC5C5\uCCB4 \uBAA9\uB85D \uB80C\uB354
@@ -30979,15 +31279,18 @@ function renderJaShops(){
   if(!el) return;
   var q = (document.getElementById('ja-shop-search')||{}).value || '';
   var list = q ? jaShops.filter(function(s){ return s.name && s.name.toLowerCase().includes(q.toLowerCase()); }) : jaShops;
+  var countEl = document.getElementById('ja-shops-count');
+  if(countEl) countEl.textContent = '\uCD1D ' + jaShops.length + '\uAC1C';
   if(!list.length){ el.innerHTML = '<div style="padding:20px;text-align:center;color:rgba(255,255,255,.3)">\uB4F1\uB85D\uB41C JA \uC5C5\uCCB4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4</div>'; return; }
   var catIcon = {clinic:'\u{1F3E5}',headspa:'\u{1F9D6}',skincare:'\u2728',hair:'\u{1F487}',makeup:'\u{1F484}',nail:'\u{1F485}',spa:'\u2668\uFE0F',tattoo:'\u270F\uFE0F',dental:'\u{1F9B7}'};
   el.innerHTML = list.map(function(s){
+    var enLink = s.en_shop_id ? ' \xB7 <span style="color:#60a5fa;font-size:10px">EN:'+s.en_shop_id.substring(0,8)+'</span>' : '';
     return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.05)">' +
       '<div style="display:flex;align-items:center;gap:10px">' +
-        (s.cover_image ? '<img src="'+s.cover_image+'" style="width:36px;height:36px;border-radius:8px;object-fit:cover" class="safe-img">' : '<div style="width:36px;height:36px;border-radius:8px;background:rgba(255,77,141,.15);display:flex;align-items:center;justify-content:center;font-size:18px">'+(catIcon[s.category]||'\u{1F3EA}')+'</div>') +
+        (s.thumbnail ? '<img src="'+s.thumbnail+'" style="width:36px;height:36px;border-radius:8px;object-fit:cover" class="safe-img">' : '<div style="width:36px;height:36px;border-radius:8px;background:rgba(255,77,141,.15);display:flex;align-items:center;justify-content:center;font-size:18px">'+(catIcon[s.category]||'\u{1F3EA}')+'</div>') +
         '<div>' +
           '<div style="font-size:13px;font-weight:600;color:#fff">'+(s.name||'(\uC774\uB984 \uC5C6\uC74C)')+'</div>' +
-          '<div style="font-size:11px;color:rgba(255,255,255,.4)">'+(catIcon[s.category]||'')+(s.category||'')+' \xB7 '+(s.area||'')+' \xB7 <a href="/ja/shop/'+(s.slug||s.id)+'" target="_blank" style="color:#60a5fa;text-decoration:none">/ja/shop/'+s.slug+'</a></div>' +
+          '<div style="font-size:11px;color:rgba(255,255,255,.4)">'+(catIcon[s.category]||'')+(s.category||'')+' \xB7 '+(s.location||s.area||'')+' \xB7 <a href="/ja/shop/'+(s.slug||s.id)+'" target="_blank" style="color:#60a5fa;text-decoration:none">/ja/shop/'+s.slug+'</a>'+enLink+'</div>' +
         '</div>' +
       '</div>' +
       '<div style="display:flex;align-items:center;gap:6px">' +
