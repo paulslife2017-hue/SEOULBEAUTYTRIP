@@ -4685,7 +4685,7 @@ name: ${enShop.name}
 category: ${enShop.category}
 location: ${enShop.location}
 description: ${enShop.description || ''}
-whyChoose: ${JSON.stringify(enShop.whyChoose || [])}
+whyChoose: ${JSON.stringify(Array.isArray(enShop.whyChoose) ? enShop.whyChoose : [])}
 rating: ${enShop.rating}
 reviewCount: ${enShop.reviewCount}`
 
@@ -4709,7 +4709,7 @@ reviewCount: ${enShop.reviewCount}`
 
   // GPT 실패 폴백: EN 원문 그대로
   if (!jaDesc)      jaDesc      = enShop.description || ''
-  if (!jaWhyChoose.length) jaWhyChoose = enShop.whyChoose || []
+  if (!jaWhyChoose.length) jaWhyChoose = Array.isArray(enShop.whyChoose) ? enShop.whyChoose : []
   if (!jaMetaDesc)  jaMetaDesc  = enShop.metaDescription || ''
   if (!jaSeoText)   jaSeoText   = enShop.seoText || ''
 
@@ -4762,13 +4762,14 @@ app.post('/api/ja/translate-shop', async (c) => {
     const enShop = rows[0]
 
     const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || ''
+    const safeArr = (raw: any) => { if (!raw) return []; if (Array.isArray(raw)) return raw; try { const p=JSON.parse(raw); return Array.isArray(p)?p:[] } catch { return [] } }
     const jaId = await translateShopToJa({
       ...enShop,
-      whyChoose: JSON.parse(enShop.why_choose||'[]'),
-      servicePrices: JSON.parse(enShop.service_prices||'[]'),
-      services: JSON.parse(enShop.services||'[]'),
-      reviews: JSON.parse(enShop.reviews||'[]'),
-      photos: JSON.parse(enShop.photos||'[]'),
+      whyChoose: safeArr(enShop.why_choose),
+      servicePrices: safeArr(enShop.service_prices),
+      services: safeArr(enShop.services),
+      reviews: safeArr(enShop.reviews),
+      photos: safeArr(enShop.photos),
       googleMapUrl: enShop.google_map_url,
       googleMapEmbed: enShop.google_map_embed,
       googlePlaceId: enShop.google_place_id,
@@ -4785,6 +4786,74 @@ app.post('/api/ja/translate-shop', async (c) => {
     return c.json({ ok: true, jaId, slug: enShop.slug, enShopId: shopId })
   } catch(e: any) {
     return c.json({ error: e.message || 'translate error' }, 500)
+  }
+})
+
+// POST /api/ja/translate-all — EN 전체 업체 → shops_ja 일괄 번역 등록
+app.post('/api/ja/translate-all', async (c) => {
+  try {
+    const _aC = (c.req.header('Cookie') || '').match(/admin_token=([^;]+)/)?.[1] || ''
+    const _aS = c.req.header('x-admin-secret') || c.req.header('x-admin-token') || c.req.query('secret') || ''
+    if ((_aC || _aS) !== _getAdminSecret(c.env)) return c.json({ error: 'Unauthorized' }, 401)
+
+    await ensureDb(c.env)
+    const sql = getDb(c.env)
+    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || ''
+
+    // EN 전체 활성 업체 조회
+    const enShops = await sql`SELECT * FROM shops WHERE active=true ORDER BY created_at ASC`
+    const total = enShops.length
+
+    let translated = 0
+    let skipped = 0
+    const errors: string[] = []
+
+    // 안전한 JSON 파싱 헬퍼 — 파싱 실패 시 빈 배열 반환
+    const safeJsonArr = (raw: any): any[] => {
+      if (!raw) return []
+      if (Array.isArray(raw)) return raw
+      try { const p = JSON.parse(raw); return Array.isArray(p) ? p : [] } catch { return [] }
+    }
+
+    for (const enShop of enShops) {
+      try {
+        const jaId = await translateShopToJa({
+          ...enShop,
+          whyChoose: safeJsonArr(enShop.why_choose),
+          servicePrices: safeJsonArr(enShop.service_prices),
+          services: safeJsonArr(enShop.services),
+          reviews: safeJsonArr(enShop.reviews),
+          photos: safeJsonArr(enShop.photos),
+          googleMapUrl: enShop.google_map_url,
+          googleMapEmbed: enShop.google_map_embed,
+          googlePlaceId: enShop.google_place_id,
+          reviewCount: enShop.review_count,
+          metaDescription: enShop.meta_description,
+          seoKeywords: enShop.seo_keywords,
+          seoText: enShop.seo_text,
+          priceRange: enShop.price_range,
+        }, apiKey, sql)
+
+        if (jaId) {
+          translated++
+        } else {
+          skipped++ // en_shop_id 중복 → 이미 존재
+        }
+      } catch (e: any) {
+        errors.push(`${enShop.id}(${enShop.slug}): ${e.message || 'error'}`)
+      }
+    }
+
+    // 번역 완료된 업체 IndexNow 핑 (최대 50개)
+    if (translated > 0) {
+      const urls = enShops.slice(0, 50).map((s: any) => `https://seoulbeautytrip.com/ja/shop/${s.slug}`)
+      urls.push('https://seoulbeautytrip.com/ja')
+      pingIndexNow(urls)
+    }
+
+    return c.json({ ok: true, total, translated, skipped, errors })
+  } catch (e: any) {
+    return c.json({ error: e.message || 'batch translate error' }, 500)
   }
 })
 

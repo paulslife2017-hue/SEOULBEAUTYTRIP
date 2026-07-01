@@ -6290,7 +6290,7 @@ name: ${enShop.name}
 category: ${enShop.category}
 location: ${enShop.location}
 description: ${enShop.description || ""}
-whyChoose: ${JSON.stringify(enShop.whyChoose || [])}
+whyChoose: ${JSON.stringify(Array.isArray(enShop.whyChoose) ? enShop.whyChoose : [])}
 rating: ${enShop.rating}
 reviewCount: ${enShop.reviewCount}`;
       const r = await fetch("https://api.genspark.ai/v1/chat/completions", {
@@ -6312,7 +6312,7 @@ reviewCount: ${enShop.reviewCount}`;
     }
   }
   if (!jaDesc) jaDesc = enShop.description || "";
-  if (!jaWhyChoose.length) jaWhyChoose = enShop.whyChoose || [];
+  if (!jaWhyChoose.length) jaWhyChoose = Array.isArray(enShop.whyChoose) ? enShop.whyChoose : [];
   if (!jaMetaDesc) jaMetaDesc = enShop.metaDescription || "";
   if (!jaSeoText) jaSeoText = enShop.seoText || "";
   const jaId = "sja" + Date.now() + Math.floor(Math.random() * 1e3);
@@ -6354,13 +6354,23 @@ app.post("/api/ja/translate-shop", async (c) => {
     if (!rows.length) return c.json({ error: "EN shop not found" }, 404);
     const enShop = rows[0];
     const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || "";
+    const safeArr = (raw2) => {
+      if (!raw2) return [];
+      if (Array.isArray(raw2)) return raw2;
+      try {
+        const p = JSON.parse(raw2);
+        return Array.isArray(p) ? p : [];
+      } catch {
+        return [];
+      }
+    };
     const jaId = await translateShopToJa({
       ...enShop,
-      whyChoose: JSON.parse(enShop.why_choose || "[]"),
-      servicePrices: JSON.parse(enShop.service_prices || "[]"),
-      services: JSON.parse(enShop.services || "[]"),
-      reviews: JSON.parse(enShop.reviews || "[]"),
-      photos: JSON.parse(enShop.photos || "[]"),
+      whyChoose: safeArr(enShop.why_choose),
+      servicePrices: safeArr(enShop.service_prices),
+      services: safeArr(enShop.services),
+      reviews: safeArr(enShop.reviews),
+      photos: safeArr(enShop.photos),
       googleMapUrl: enShop.google_map_url,
       googleMapEmbed: enShop.google_map_embed,
       googlePlaceId: enShop.google_place_id,
@@ -6375,6 +6385,66 @@ app.post("/api/ja/translate-shop", async (c) => {
     return c.json({ ok: true, jaId, slug: enShop.slug, enShopId: shopId });
   } catch (e) {
     return c.json({ error: e.message || "translate error" }, 500);
+  }
+});
+app.post("/api/ja/translate-all", async (c) => {
+  try {
+    const _aC = (c.req.header("Cookie") || "").match(/admin_token=([^;]+)/)?.[1] || "";
+    const _aS = c.req.header("x-admin-secret") || c.req.header("x-admin-token") || c.req.query("secret") || "";
+    if ((_aC || _aS) !== _getAdminSecret(c.env)) return c.json({ error: "Unauthorized" }, 401);
+    await ensureDb(c.env);
+    const sql = getDb(c.env);
+    const apiKey = c.env?.GSK_TOKEN || c.env?.gsk_token || "";
+    const enShops = await sql`SELECT * FROM shops WHERE active=true ORDER BY created_at ASC`;
+    const total = enShops.length;
+    let translated = 0;
+    let skipped = 0;
+    const errors = [];
+    const safeJsonArr = (raw2) => {
+      if (!raw2) return [];
+      if (Array.isArray(raw2)) return raw2;
+      try {
+        const p = JSON.parse(raw2);
+        return Array.isArray(p) ? p : [];
+      } catch {
+        return [];
+      }
+    };
+    for (const enShop of enShops) {
+      try {
+        const jaId = await translateShopToJa({
+          ...enShop,
+          whyChoose: safeJsonArr(enShop.why_choose),
+          servicePrices: safeJsonArr(enShop.service_prices),
+          services: safeJsonArr(enShop.services),
+          reviews: safeJsonArr(enShop.reviews),
+          photos: safeJsonArr(enShop.photos),
+          googleMapUrl: enShop.google_map_url,
+          googleMapEmbed: enShop.google_map_embed,
+          googlePlaceId: enShop.google_place_id,
+          reviewCount: enShop.review_count,
+          metaDescription: enShop.meta_description,
+          seoKeywords: enShop.seo_keywords,
+          seoText: enShop.seo_text,
+          priceRange: enShop.price_range
+        }, apiKey, sql);
+        if (jaId) {
+          translated++;
+        } else {
+          skipped++;
+        }
+      } catch (e) {
+        errors.push(`${enShop.id}(${enShop.slug}): ${e.message || "error"}`);
+      }
+    }
+    if (translated > 0) {
+      const urls = enShops.slice(0, 50).map((s) => `https://seoulbeautytrip.com/ja/shop/${s.slug}`);
+      urls.push("https://seoulbeautytrip.com/ja");
+      pingIndexNow(urls);
+    }
+    return c.json({ ok: true, total, translated, skipped, errors });
+  } catch (e) {
+    return c.json({ error: e.message || "batch translate error" }, 500);
   }
 });
 app.get("/api/ja/shops", async (c) => {
