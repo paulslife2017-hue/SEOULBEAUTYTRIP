@@ -5449,6 +5449,197 @@ app.get('/ja', async (c) => {
       `<script>\n// ── 브라우저 언어 자동감지: 일본어 사용자를 /ja/로 리다이렉트 ──\n(function(){\n  try {\n    var lang = navigator.language || navigator.userLanguage || '';\n    // 이미 /ja/ 에서 온 경우 스킵 (referer 체크)\n    var ref = document.referrer || '';\n    if (ref.includes('/ja')) return;\n    // 이미 한번 감지해서 EN 선택한 경우 스킵 (localStorage 플래그)\n    if (localStorage.getItem('_sb_lang_pref') === 'en') return;\n    if (lang.startsWith('ja')) {\n      // 일본어 브라우저: /ja/ 로 리다이렉트\n      window.location.replace('/ja/');\n    }\n  } catch(e) {}\n})();`,
       `<script>\n// /ja 페이지 — 언어 감지 불필요, ja 선택 기록\ntry { localStorage.setItem('_sb_lang_pref','ja'); } catch(e) {}`
     )
+
+    // ══════════════════════════════════════════
+    // ── JA 전용: 맵/익스플로러/UI 전체 일본어화 ──
+    // ══════════════════════════════════════════
+
+    // ① Google Maps API — language=en → language=ja
+    html = html.replace(
+      'maps.googleapis.com/maps/api/js?key=AIzaSyCcM03wGoZrSkmCMOS-Vib-JR1oKNPsSkY&language=en&region=KR',
+      'maps.googleapis.com/maps/api/js?key=AIzaSyCcM03wGoZrSkmCMOS-Vib-JR1oKNPsSkY&language=ja&region=JP'
+    )
+
+    // ② Google Maps 링크 &hl=en → &hl=ja (embed + 외부링크 포함)
+    html = html.replace(/&hl=en/g, '&hl=ja')
+    html = html.replace(/&hl=en&output=embed/g, '&hl=ja&output=embed')
+
+    // ③ 하단 탭 (btab) 라벨 일본어화
+    html = html.replace(
+      '<button class="btab active" id="btab-reels" data-tab="reels" aria-label="Home">\n    <i class="fas fa-home"></i><span>Home</span>\n  </button>',
+      '<button class="btab active" id="btab-reels" data-tab="reels" aria-label="ホーム">\n    <i class="fas fa-home"></i><span>ホーム</span>\n  </button>'
+    )
+    html = html.replace(
+      '<button class="btab" id="btab-browse" data-tab="browse" aria-label="Explore">\n    <i class="fas fa-search"></i><span>Explore</span>\n  </button>',
+      '<button class="btab" id="btab-browse" data-tab="browse" aria-label="探す">\n    <i class="fas fa-search"></i><span>探す</span>\n  </button>'
+    )
+    html = html.replace(
+      '<button class="btab" id="btab-map" data-tab="map" aria-label="Map">\n    <i class="fas fa-map-marked-alt"></i><span>Map</span>\n  </button>',
+      '<button class="btab" id="btab-map" data-tab="map" aria-label="マップ">\n    <i class="fas fa-map-marked-alt"></i><span>マップ</span>\n  </button>'
+    )
+
+    // ④ PC 사이드 네비 라벨 일본어화
+    html = html.replace(
+      '<button class="pnav-btn active" id="pnav-reels" data-tab="reels" aria-label="Home">\n    <i class="fas fa-home"></i><span>Home</span>\n  </button>',
+      '<button class="pnav-btn active" id="pnav-reels" data-tab="reels" aria-label="ホーム">\n    <i class="fas fa-home"></i><span>ホーム</span>\n  </button>'
+    )
+    html = html.replace(
+      '<button class="pnav-btn" id="pnav-browse" data-tab="browse" aria-label="Explore">\n    <i class="fas fa-search"></i><span>Explore</span>\n  </button>',
+      '<button class="pnav-btn" id="pnav-browse" data-tab="browse" aria-label="探す">\n    <i class="fas fa-search"></i><span>探す</span>\n  </button>'
+    )
+    html = html.replace(
+      '<button class="pnav-btn" id="pnav-map" data-tab="map" aria-label="Map">\n    <i class="fas fa-map-marked-alt"></i><span>Map</span>\n  </button>',
+      '<button class="pnav-btn" id="pnav-map" data-tab="map" aria-label="マップ">\n    <i class="fas fa-map-marked-alt"></i><span>マップ</span>\n  </button>'
+    )
+
+    // ⑤ 맵 탑바 타이틀 + 에리어 필터 칩 일본어화
+    html = html.replace(
+      "'<div id=\"map-top-bar-title\">📍 Shop Map</div>'",
+      "'<div id=\"map-top-bar-title\">📍 ショップマップ</div>'"
+    )
+    html = html.replace(
+      "'<button class=\"map-area-chip on\" data-area=\"all\">All Seoul</button>'",
+      "'<button class=\"map-area-chip on\" data-area=\"all\">ソウル全域</button>'"
+    )
+
+    // ⑥ 맵 리스트 — "X shops nearby" / "No shops in this area" 일본어화
+    html = html.replace(
+      "handleLabel.textContent = shops.length + ' shops nearby';",
+      "handleLabel.textContent = shops.length + '件のショップ';"
+    )
+    html = html.replace(
+      "countPc.innerHTML = '<strong style=\"color:#fff\">' + shops.length + '</strong> shops'",
+      "countPc.innerHTML = '<strong style=\"color:#fff\">' + shops.length + '</strong> 件'"
+    )
+    html = html.replace(
+      "list.innerHTML = '<div class=\"map-no-coords\"><div style=\"font-size:28px;margin-bottom:8px\">🗺️</div>No shops in this area</div>';",
+      "list.innerHTML = '<div class=\"map-no-coords\"><div style=\"font-size:28px;margin-bottom:8px\">🗺️</div>このエリアにショップはありません</div>';"
+    )
+
+    // ⑦ 맵 카드 catLabel — 영어 → 일본어
+    html = html.replace(
+      "var catLabel = s.category ? (s.category.charAt(0).toUpperCase() + s.category.slice(1)) : '';",
+      "var _jaMapCatMap={clinic:'クリニック',headspa:'ヘッドスパ',hair:'ヘアサロン',makeup:'メイク',tattoo:'眉アート',skincare:'スキンケア',spa:'スパ',dental:'デンタル',nail:'ネイル'}; var catLabel = _jaMapCatMap[s.category] || (s.category ? (s.category.charAt(0).toUpperCase()+s.category.slice(1)) : '');"
+    )
+
+    // ⑧ 익스플로러 "All Seoul" 칩 일본어화
+    html = html.replace(
+      "'<button class=\"bw-chip on\" data-area=\"all\">&#127758; All Seoul</button>'",
+      "'<button class=\"bw-chip on\" data-area=\"all\">🌏 ソウル全域</button>'"
+    )
+    html = html.replace(
+      "var areaName = _bwArea === 'all' ? 'All Seoul'      : _bwArea;",
+      "var areaName = _bwArea === 'all' ? 'ソウル全域' : _bwArea;"
+    )
+
+    // ⑨ Beauty Advisor 패널 일본어화
+    html = html.replace(
+      "'    <div class=\"adv-name\">Beauty Advisor</div>'",
+      "'    <div class=\"adv-name\">ビューティアドバイザー</div>'"
+    )
+    html = html.replace(
+      "'    <div class=\"adv-role\">✦ FREE CONSULTATION</div>'",
+      "'    <div class=\"adv-role\">✦ 無料相談</div>'"
+    )
+    html = html.replace(
+      "'      <div class=\"adv-section-lbl\">Interested in</div>'",
+      "'      <div class=\"adv-section-lbl\">興味のある施術</div>'"
+    )
+    html = html.replace(
+      "'        <span class=\"adv-chip\" onclick=\"advChip(this,0)\">Other</span>'",
+      "'        <span class=\"adv-chip\" onclick=\"advChip(this,0)\">その他</span>'"
+    )
+    html = html.replace(
+      "'      <div class=\"adv-section-lbl\">Budget</div>'",
+      "'      <div class=\"adv-section-lbl\">予算</div>'"
+    )
+    html = html.replace(
+      "'        <span class=\"adv-chip\" onclick=\"advChip(this,1)\">Flexible</span>'",
+      "'        <span class=\"adv-chip\" onclick=\"advChip(this,1)\">おまかせ</span>'"
+    )
+    html = html.replace(
+      "'    <input id=\"adv-name\"  class=\"adv-inp\" type=\"text\" placeholder=\"Your name *\" maxlength=\"60\">'",
+      "'    <input id=\"adv-name\"  class=\"adv-inp\" type=\"text\" placeholder=\"お名前 *\" maxlength=\"60\">'"
+    )
+    html = html.replace(
+      "'    <input id=\"adv-kakao\" class=\"adv-inp\" type=\"text\" placeholder=\"KakaoTalk ID or WhatsApp *\" maxlength=\"80\">'",
+      "'    <input id=\"adv-kakao\" class=\"adv-inp\" type=\"text\" placeholder=\"WhatsApp / LINE ID *\" maxlength=\"80\">'"
+    )
+    html = html.replace(
+      "'      <i class=\"fas fa-paper-plane\"></i> Get Free Advice'",
+      "'      <i class=\"fas fa-paper-plane\"></i> 無料アドバイスを受ける'"
+    )
+    html = html.replace(
+      "'    <div class=\"adv-privacy\">🔒 Only shared with the clinic · No spam</div>'",
+      "'    <div class=\"adv-privacy\">🔒 クリニックのみ共有 · スパムなし</div>'"
+    )
+    // 성공 메시지
+    html = html.replace(
+      "'    <div class=\"adv-success-title\">Inquiry Sent!</div>'",
+      "'    <div class=\"adv-success-title\">お問い合わせ完了！</div>'"
+    )
+    html = html.replace(
+      "'    <div class=\"adv-success-msg\">Our Beauty Advisor will contact you<br>within 24h via KakaoTalk or WhatsApp.</div>'",
+      "'    <div class=\"adv-success-msg\">ビューティアドバイザーが<br>24時間以内にWhatsApp/LINEでご連絡します。</div>'"
+    )
+
+    // ⑩ advSubmit alert / 버튼 텍스트 일본어화
+    html = html.replace(
+      "if(!name.trim())  { alert('Please enter your name.');  return; }\n  if(!kakao.trim()) { alert('Please enter your KakaoTalk ID or WhatsApp.'); return; }\n  var btn = document.getElementById('adv-submit-btn');\n  if(btn){ btn.disabled=true; btn.innerHTML='<i class=\"fas fa-spinner fa-spin\"></i> Sending...'; }",
+      "if(!name.trim())  { alert('お名前を入力してください。');  return; }\n  if(!kakao.trim()) { alert('WhatsApp / LINE IDを入力してください。'); return; }\n  var btn = document.getElementById('adv-submit-btn');\n  if(btn){ btn.disabled=true; btn.innerHTML='<i class=\"fas fa-spinner fa-spin\"></i> 送信中...'; }"
+    )
+    html = html.replace(
+      "alert('Failed. Please try again.');\n      if(btn){ btn.disabled=false; btn.innerHTML='<i class=\"fas fa-paper-plane\"></i> Get Free Advice'; }\n    }\n  })\n  .catch(function(){\n    alert('Network error. Please try again.');\n    if(btn){ btn.disabled=false; btn.innerHTML='<i class=\"fas fa-paper-plane\"></i> Get Free Advice'; }",
+      "alert('送信に失敗しました。もう一度お試しください。');\n      if(btn){ btn.disabled=false; btn.innerHTML='<i class=\"fas fa-paper-plane\"></i> 無料アドバイスを受ける'; }\n    }\n  })\n  .catch(function(){\n    alert('ネットワークエラーが発生しました。もう一度お試しください。');\n    if(btn){ btn.disabled=false; btn.innerHTML='<i class=\"fas fa-paper-plane\"></i> 無料アドバイスを受ける'; }"
+    )
+
+    // ⑪ 카테고리 필터 버튼 추가 항목 일본어화
+    html = html.replace(
+      '<button class="cat" data-cat="hair"><i class="fas fa-cut"></i> Hair</button>',
+      '<button class="cat" data-cat="hair"><i class="fas fa-cut"></i> ヘアサロン</button>'
+    )
+    html = html.replace(
+      '<button class="cat" data-cat="skincare"><i class="fas fa-leaf"></i> Skincare</button>',
+      '<button class="cat" data-cat="skincare"><i class="fas fa-leaf"></i> スキンケア</button>'
+    )
+    html = html.replace(
+      '<button class="cat" data-cat="spa"><i class="fas fa-hot-tub"></i> Spa</button>',
+      '<button class="cat" data-cat="spa"><i class="fas fa-hot-tub"></i> スパ</button>'
+    )
+    html = html.replace(
+      '<button class="cat" data-cat="dental"><i class="fas fa-tooth"></i> Dental</button>',
+      '<button class="cat" data-cat="dental"><i class="fas fa-tooth"></i> 歯科</button>'
+    )
+    // so-chip 추가 항목
+    html = html.replace(
+      '<button class="so-chip" data-filter="hair">Hair</button>',
+      '<button class="so-chip" data-filter="hair">ヘアサロン</button>'
+    )
+    html = html.replace(
+      '<button class="so-chip" data-filter="skincare">Skincare</button>',
+      '<button class="so-chip" data-filter="skincare">スキンケア</button>'
+    )
+    html = html.replace(
+      '<button class="so-chip" data-filter="spa">Spa</button>',
+      '<button class="so-chip" data-filter="spa">スパ</button>'
+    )
+    html = html.replace(
+      '<button class="so-chip" data-filter="dental">Dental</button>',
+      '<button class="so-chip" data-filter="dental">歯科</button>'
+    )
+
+    // ⑫ 모달 BOOK 버튼 / 리뷰 섹션 텍스트 — lbl.textContent='Map' 일본어화
+    html = html.replace(
+      "if(lbl) lbl.textContent='Map';",
+      "if(lbl) lbl.textContent='マップ';"
+    )
+
+    // ⑬ lang 파라미터 전달 — JA 상담 폼 lang:'en' → lang:'ja'
+    html = html.replace(
+      "lang: 'en'\n    })",
+      "lang: 'ja'\n    })"
+    )
+
     return c.html(html)
   } catch(e: any) {
     console.error('[/ja route error]', e?.message || e)

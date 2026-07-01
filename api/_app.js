@@ -7018,6 +7018,182 @@ app.get("/ja", async (c) => {
 // /ja \uD398\uC774\uC9C0 \u2014 \uC5B8\uC5B4 \uAC10\uC9C0 \uBD88\uD544\uC694, ja \uC120\uD0DD \uAE30\uB85D
 try { localStorage.setItem('_sb_lang_pref','ja'); } catch(e) {}`
     );
+    html = html.replace(
+      "maps.googleapis.com/maps/api/js?key=AIzaSyCcM03wGoZrSkmCMOS-Vib-JR1oKNPsSkY&language=en&region=KR",
+      "maps.googleapis.com/maps/api/js?key=AIzaSyCcM03wGoZrSkmCMOS-Vib-JR1oKNPsSkY&language=ja&region=JP"
+    );
+    html = html.replace(/&hl=en/g, "&hl=ja");
+    html = html.replace(/&hl=en&output=embed/g, "&hl=ja&output=embed");
+    html = html.replace(
+      '<button class="btab active" id="btab-reels" data-tab="reels" aria-label="Home">\n    <i class="fas fa-home"></i><span>Home</span>\n  </button>',
+      '<button class="btab active" id="btab-reels" data-tab="reels" aria-label="\u30DB\u30FC\u30E0">\n    <i class="fas fa-home"></i><span>\u30DB\u30FC\u30E0</span>\n  </button>'
+    );
+    html = html.replace(
+      '<button class="btab" id="btab-browse" data-tab="browse" aria-label="Explore">\n    <i class="fas fa-search"></i><span>Explore</span>\n  </button>',
+      '<button class="btab" id="btab-browse" data-tab="browse" aria-label="\u63A2\u3059">\n    <i class="fas fa-search"></i><span>\u63A2\u3059</span>\n  </button>'
+    );
+    html = html.replace(
+      '<button class="btab" id="btab-map" data-tab="map" aria-label="Map">\n    <i class="fas fa-map-marked-alt"></i><span>Map</span>\n  </button>',
+      '<button class="btab" id="btab-map" data-tab="map" aria-label="\u30DE\u30C3\u30D7">\n    <i class="fas fa-map-marked-alt"></i><span>\u30DE\u30C3\u30D7</span>\n  </button>'
+    );
+    html = html.replace(
+      '<button class="pnav-btn active" id="pnav-reels" data-tab="reels" aria-label="Home">\n    <i class="fas fa-home"></i><span>Home</span>\n  </button>',
+      '<button class="pnav-btn active" id="pnav-reels" data-tab="reels" aria-label="\u30DB\u30FC\u30E0">\n    <i class="fas fa-home"></i><span>\u30DB\u30FC\u30E0</span>\n  </button>'
+    );
+    html = html.replace(
+      '<button class="pnav-btn" id="pnav-browse" data-tab="browse" aria-label="Explore">\n    <i class="fas fa-search"></i><span>Explore</span>\n  </button>',
+      '<button class="pnav-btn" id="pnav-browse" data-tab="browse" aria-label="\u63A2\u3059">\n    <i class="fas fa-search"></i><span>\u63A2\u3059</span>\n  </button>'
+    );
+    html = html.replace(
+      '<button class="pnav-btn" id="pnav-map" data-tab="map" aria-label="Map">\n    <i class="fas fa-map-marked-alt"></i><span>Map</span>\n  </button>',
+      '<button class="pnav-btn" id="pnav-map" data-tab="map" aria-label="\u30DE\u30C3\u30D7">\n    <i class="fas fa-map-marked-alt"></i><span>\u30DE\u30C3\u30D7</span>\n  </button>'
+    );
+    html = html.replace(
+      `'<div id="map-top-bar-title">\u{1F4CD} Shop Map</div>'`,
+      `'<div id="map-top-bar-title">\u{1F4CD} \u30B7\u30E7\u30C3\u30D7\u30DE\u30C3\u30D7</div>'`
+    );
+    html = html.replace(
+      `'<button class="map-area-chip on" data-area="all">All Seoul</button>'`,
+      `'<button class="map-area-chip on" data-area="all">\u30BD\u30A6\u30EB\u5168\u57DF</button>'`
+    );
+    html = html.replace(
+      "handleLabel.textContent = shops.length + ' shops nearby';",
+      "handleLabel.textContent = shops.length + '\u4EF6\u306E\u30B7\u30E7\u30C3\u30D7';"
+    );
+    html = html.replace(
+      `countPc.innerHTML = '<strong style="color:#fff">' + shops.length + '</strong> shops'`,
+      `countPc.innerHTML = '<strong style="color:#fff">' + shops.length + '</strong> \u4EF6'`
+    );
+    html = html.replace(
+      `list.innerHTML = '<div class="map-no-coords"><div style="font-size:28px;margin-bottom:8px">\u{1F5FA}\uFE0F</div>No shops in this area</div>';`,
+      `list.innerHTML = '<div class="map-no-coords"><div style="font-size:28px;margin-bottom:8px">\u{1F5FA}\uFE0F</div>\u3053\u306E\u30A8\u30EA\u30A2\u306B\u30B7\u30E7\u30C3\u30D7\u306F\u3042\u308A\u307E\u305B\u3093</div>';`
+    );
+    html = html.replace(
+      "var catLabel = s.category ? (s.category.charAt(0).toUpperCase() + s.category.slice(1)) : '';",
+      "var _jaMapCatMap={clinic:'\u30AF\u30EA\u30CB\u30C3\u30AF',headspa:'\u30D8\u30C3\u30C9\u30B9\u30D1',hair:'\u30D8\u30A2\u30B5\u30ED\u30F3',makeup:'\u30E1\u30A4\u30AF',tattoo:'\u7709\u30A2\u30FC\u30C8',skincare:'\u30B9\u30AD\u30F3\u30B1\u30A2',spa:'\u30B9\u30D1',dental:'\u30C7\u30F3\u30BF\u30EB',nail:'\u30CD\u30A4\u30EB'}; var catLabel = _jaMapCatMap[s.category] || (s.category ? (s.category.charAt(0).toUpperCase()+s.category.slice(1)) : '');"
+    );
+    html = html.replace(
+      `'<button class="bw-chip on" data-area="all">&#127758; All Seoul</button>'`,
+      `'<button class="bw-chip on" data-area="all">\u{1F30F} \u30BD\u30A6\u30EB\u5168\u57DF</button>'`
+    );
+    html = html.replace(
+      "var areaName = _bwArea === 'all' ? 'All Seoul'      : _bwArea;",
+      "var areaName = _bwArea === 'all' ? '\u30BD\u30A6\u30EB\u5168\u57DF' : _bwArea;"
+    );
+    html = html.replace(
+      `'    <div class="adv-name">Beauty Advisor</div>'`,
+      `'    <div class="adv-name">\u30D3\u30E5\u30FC\u30C6\u30A3\u30A2\u30C9\u30D0\u30A4\u30B6\u30FC</div>'`
+    );
+    html = html.replace(
+      `'    <div class="adv-role">\u2726 FREE CONSULTATION</div>'`,
+      `'    <div class="adv-role">\u2726 \u7121\u6599\u76F8\u8AC7</div>'`
+    );
+    html = html.replace(
+      `'      <div class="adv-section-lbl">Interested in</div>'`,
+      `'      <div class="adv-section-lbl">\u8208\u5473\u306E\u3042\u308B\u65BD\u8853</div>'`
+    );
+    html = html.replace(
+      `'        <span class="adv-chip" onclick="advChip(this,0)">Other</span>'`,
+      `'        <span class="adv-chip" onclick="advChip(this,0)">\u305D\u306E\u4ED6</span>'`
+    );
+    html = html.replace(
+      `'      <div class="adv-section-lbl">Budget</div>'`,
+      `'      <div class="adv-section-lbl">\u4E88\u7B97</div>'`
+    );
+    html = html.replace(
+      `'        <span class="adv-chip" onclick="advChip(this,1)">Flexible</span>'`,
+      `'        <span class="adv-chip" onclick="advChip(this,1)">\u304A\u307E\u304B\u305B</span>'`
+    );
+    html = html.replace(
+      `'    <input id="adv-name"  class="adv-inp" type="text" placeholder="Your name *" maxlength="60">'`,
+      `'    <input id="adv-name"  class="adv-inp" type="text" placeholder="\u304A\u540D\u524D *" maxlength="60">'`
+    );
+    html = html.replace(
+      `'    <input id="adv-kakao" class="adv-inp" type="text" placeholder="KakaoTalk ID or WhatsApp *" maxlength="80">'`,
+      `'    <input id="adv-kakao" class="adv-inp" type="text" placeholder="WhatsApp / LINE ID *" maxlength="80">'`
+    );
+    html = html.replace(
+      `'      <i class="fas fa-paper-plane"></i> Get Free Advice'`,
+      `'      <i class="fas fa-paper-plane"></i> \u7121\u6599\u30A2\u30C9\u30D0\u30A4\u30B9\u3092\u53D7\u3051\u308B'`
+    );
+    html = html.replace(
+      `'    <div class="adv-privacy">\u{1F512} Only shared with the clinic \xB7 No spam</div>'`,
+      `'    <div class="adv-privacy">\u{1F512} \u30AF\u30EA\u30CB\u30C3\u30AF\u306E\u307F\u5171\u6709 \xB7 \u30B9\u30D1\u30E0\u306A\u3057</div>'`
+    );
+    html = html.replace(
+      `'    <div class="adv-success-title">Inquiry Sent!</div>'`,
+      `'    <div class="adv-success-title">\u304A\u554F\u3044\u5408\u308F\u305B\u5B8C\u4E86\uFF01</div>'`
+    );
+    html = html.replace(
+      `'    <div class="adv-success-msg">Our Beauty Advisor will contact you<br>within 24h via KakaoTalk or WhatsApp.</div>'`,
+      `'    <div class="adv-success-msg">\u30D3\u30E5\u30FC\u30C6\u30A3\u30A2\u30C9\u30D0\u30A4\u30B6\u30FC\u304C<br>24\u6642\u9593\u4EE5\u5185\u306BWhatsApp/LINE\u3067\u3054\u9023\u7D61\u3057\u307E\u3059\u3002</div>'`
+    );
+    html = html.replace(
+      `if(!name.trim())  { alert('Please enter your name.');  return; }
+  if(!kakao.trim()) { alert('Please enter your KakaoTalk ID or WhatsApp.'); return; }
+  var btn = document.getElementById('adv-submit-btn');
+  if(btn){ btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Sending...'; }`,
+      `if(!name.trim())  { alert('\u304A\u540D\u524D\u3092\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044\u3002');  return; }
+  if(!kakao.trim()) { alert('WhatsApp / LINE ID\u3092\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044\u3002'); return; }
+  var btn = document.getElementById('adv-submit-btn');
+  if(btn){ btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> \u9001\u4FE1\u4E2D...'; }`
+    );
+    html = html.replace(
+      `alert('Failed. Please try again.');
+      if(btn){ btn.disabled=false; btn.innerHTML='<i class="fas fa-paper-plane"></i> Get Free Advice'; }
+    }
+  })
+  .catch(function(){
+    alert('Network error. Please try again.');
+    if(btn){ btn.disabled=false; btn.innerHTML='<i class="fas fa-paper-plane"></i> Get Free Advice'; }`,
+      `alert('\u9001\u4FE1\u306B\u5931\u6557\u3057\u307E\u3057\u305F\u3002\u3082\u3046\u4E00\u5EA6\u304A\u8A66\u3057\u304F\u3060\u3055\u3044\u3002');
+      if(btn){ btn.disabled=false; btn.innerHTML='<i class="fas fa-paper-plane"></i> \u7121\u6599\u30A2\u30C9\u30D0\u30A4\u30B9\u3092\u53D7\u3051\u308B'; }
+    }
+  })
+  .catch(function(){
+    alert('\u30CD\u30C3\u30C8\u30EF\u30FC\u30AF\u30A8\u30E9\u30FC\u304C\u767A\u751F\u3057\u307E\u3057\u305F\u3002\u3082\u3046\u4E00\u5EA6\u304A\u8A66\u3057\u304F\u3060\u3055\u3044\u3002');
+    if(btn){ btn.disabled=false; btn.innerHTML='<i class="fas fa-paper-plane"></i> \u7121\u6599\u30A2\u30C9\u30D0\u30A4\u30B9\u3092\u53D7\u3051\u308B'; }`
+    );
+    html = html.replace(
+      '<button class="cat" data-cat="hair"><i class="fas fa-cut"></i> Hair</button>',
+      '<button class="cat" data-cat="hair"><i class="fas fa-cut"></i> \u30D8\u30A2\u30B5\u30ED\u30F3</button>'
+    );
+    html = html.replace(
+      '<button class="cat" data-cat="skincare"><i class="fas fa-leaf"></i> Skincare</button>',
+      '<button class="cat" data-cat="skincare"><i class="fas fa-leaf"></i> \u30B9\u30AD\u30F3\u30B1\u30A2</button>'
+    );
+    html = html.replace(
+      '<button class="cat" data-cat="spa"><i class="fas fa-hot-tub"></i> Spa</button>',
+      '<button class="cat" data-cat="spa"><i class="fas fa-hot-tub"></i> \u30B9\u30D1</button>'
+    );
+    html = html.replace(
+      '<button class="cat" data-cat="dental"><i class="fas fa-tooth"></i> Dental</button>',
+      '<button class="cat" data-cat="dental"><i class="fas fa-tooth"></i> \u6B6F\u79D1</button>'
+    );
+    html = html.replace(
+      '<button class="so-chip" data-filter="hair">Hair</button>',
+      '<button class="so-chip" data-filter="hair">\u30D8\u30A2\u30B5\u30ED\u30F3</button>'
+    );
+    html = html.replace(
+      '<button class="so-chip" data-filter="skincare">Skincare</button>',
+      '<button class="so-chip" data-filter="skincare">\u30B9\u30AD\u30F3\u30B1\u30A2</button>'
+    );
+    html = html.replace(
+      '<button class="so-chip" data-filter="spa">Spa</button>',
+      '<button class="so-chip" data-filter="spa">\u30B9\u30D1</button>'
+    );
+    html = html.replace(
+      '<button class="so-chip" data-filter="dental">Dental</button>',
+      '<button class="so-chip" data-filter="dental">\u6B6F\u79D1</button>'
+    );
+    html = html.replace(
+      "if(lbl) lbl.textContent='Map';",
+      "if(lbl) lbl.textContent='\u30DE\u30C3\u30D7';"
+    );
+    html = html.replace(
+      "lang: 'en'\n    })",
+      "lang: 'ja'\n    })"
+    );
     return c.html(html);
   } catch (e) {
     console.error("[/ja route error]", e?.message || e);
