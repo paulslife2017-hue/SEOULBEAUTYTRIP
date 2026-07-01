@@ -401,8 +401,9 @@ Disallow: /
 User-agent: *
 Disallow: /api/
 Disallow: /admin/
+Allow: /ja/
 
-# Sitemap
+# Sitemap (EN + JA)
 Sitemap: https://seoulbeautytrip.com/sitemap.xml
 
 # LLM/AI citation guide (GEO)
@@ -5379,6 +5380,22 @@ app.get('/ja', async (c) => {
       '<title>Seoul Beauty for Foreigners — Clinics & Salons | Seoul Beauty Trip</title>',
       '<title>ソウルの美容・クリニック予約 | Seoul Beauty Trip</title>'
     )
+    // /ja 홈 SEO 메타태그 주입 — hreflang + canonical + og:locale + description
+    html = html.replace(
+      '<meta name="robots" content="index, follow">',
+      `<meta name="description" content="ソウルの人気美容クリニック・ヘアサロン・ヘッドスパを日本語で検索・予約。WhatsApp日本語対応、韓国語不要。観光客向け厳選57店舗。">
+<meta name="keywords" content="ソウル 美容クリニック,ソウル ヘアサロン,ソウル ヘッドスパ,韓国美容 日本語,ソウル観光 美容,Seoul beauty Japanese,ソウル クリニック 外国人">
+<link rel="canonical" href="https://seoulbeautytrip.com/ja">
+<link rel="alternate" hreflang="ja" href="https://seoulbeautytrip.com/ja">
+<link rel="alternate" hreflang="en" href="https://seoulbeautytrip.com/">
+<link rel="alternate" hreflang="x-default" href="https://seoulbeautytrip.com/">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:type" content="website">
+<meta property="og:title" content="ソウルの美容・クリニック予約 | Seoul Beauty Trip">
+<meta property="og:description" content="ソウルの人気美容クリニック・ヘアサロン・ヘッドスパを日本語で検索・予約。WhatsApp日本語対応、韓国語不要。">
+<meta property="og:url" content="https://seoulbeautytrip.com/ja">
+<meta name="robots" content="index, follow">`
+    )
     // 검색 placeholder
     html = html.replace(
       'placeholder="Search shops, area, category..."',
@@ -5701,9 +5718,17 @@ app.get('/ja/shops', async (c) => {
 </script>
 ${SB_TRACKER_SCRIPT}
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Seoul Beauty Catalog \u2014 All K-Beauty Shops | Seoul Beauty Trip</title>
-<meta name="description" content="Browse all Korean beauty salons in Seoul \u2014 foreigner-friendly with English support.">
+<title>ソウルの美容店舗一覧 — クリニック・サロン | Seoul Beauty Trip</title>
+<meta name="description" content="ソウルの人気美容クリニック・ヘアサロン・ヘッドスパを一覧表示。日本語予約対応、外国人向け。">
 <link rel="canonical" href="https://seoulbeautytrip.com/ja/shops">
+<link rel="alternate" hreflang="ja" href="https://seoulbeautytrip.com/ja/shops">
+<link rel="alternate" hreflang="en" href="https://seoulbeautytrip.com/shops">
+<link rel="alternate" hreflang="x-default" href="https://seoulbeautytrip.com/shops">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:type" content="website">
+<meta property="og:title" content="ソウルの美容店舗一覧 | Seoul Beauty Trip">
+<meta property="og:description" content="ソウルの人気美容クリニック・ヘアサロン・ヘッドスパを日本語で検索・予約。">
+<meta property="og:url" content="https://seoulbeautytrip.com/ja/shops">
 <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
@@ -6012,8 +6037,11 @@ app.get('/ja/blog', async (c) => {
 <meta name="description" content="ソウルの最高のヘッドスパ、ヘアサロン、スキンクリニックの専門ガイド。外国人向けKビューティーのヒント。">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="${base}/blog">
-<meta property="og:title" content="Seoul Beauty Blog — K-Beauty Guides & Tips">
-<meta property="og:description" content="Expert guides on the best head spas, hair salons, and skincare clinics in Seoul for foreign visitors.">
+<link rel="alternate" hreflang="ja" href="https://seoulbeautytrip.com/ja/blog">
+<link rel="alternate" hreflang="en" href="https://seoulbeautytrip.com/blog">
+<link rel="alternate" hreflang="x-default" href="https://seoulbeautytrip.com/blog">
+<meta property="og:title" content="ソウル美容ブログ — Kビューティーガイド | Seoul Beauty Trip">
+<meta property="og:description" content="ソウルの最高のヘッドスパ・ヘアサロン・スキンクリニックの専門ガイド。日本語対応、外国人向けKビューティーのヒント。">
 <meta property="og:url" content="${base}/blog">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Seoul Beauty Trip">
@@ -6129,8 +6157,11 @@ app.get('/ja/blog/category/:cat', async (c) => {
     .map(([k,v]) => `<a href="/ja/blog/category/${k}" style="display:inline-flex;align-items:center;padding:6px 14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.6);text-decoration:none;font-size:12px;font-weight:600;transition:all .2s" onmouseover="this.style.background='rgba(255,77,141,.15)';this.style.borderColor='rgba(255,77,141,.3)';this.style.color='#FF4D8D'" onmouseout="this.style.background='rgba(255,255,255,.06)';this.style.borderColor='rgba(255,255,255,.1)';this.style.color='rgba(255,255,255,.6)'">${v}</a>`)
     .join('')
 
-  const metaDesc = `Best ${catLabel} guides for foreigners in Seoul. Expert tips, salon reviews, pricing, and English-friendly booking — updated ${new Date().getFullYear()}.`
-  const canonicalUrl = `${base}/blog/category/${cat}`
+  // ── JA blog/category: 일본어 metaDesc + canonicalUrl
+  const metaDesc = `ソウルの${catLabel}情報を日本語でご紹介。人気サロン・クリニックの口コミ、料金、予約方法まで徹底解説。日本語対応店舗も掲載 ― ${new Date().getFullYear()}年版。`
+  const jaKeywords = `ソウル ${catLabel},韓国 ${catLabel} 日本語,ソウル 美容 日本人,${catLabel} 予約,韓国美容 ${catLabel},ソウル観光 ${catLabel},江南 ${catLabel},${catLabel} ガイド,韓国 ${catLabel} ブログ`
+  const canonicalUrl = `${base}/ja/blog/category/${cat}`
+  const enUrl = `${base}/blog/category/${cat}`
 
   const html = `<!DOCTYPE html>
 <html lang="ja">
@@ -6139,24 +6170,28 @@ app.get('/ja/blog/category/:cat', async (c) => {
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-1N9ZQRHLJ0"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-1N9ZQRHLJ0');</script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${catLabel} in Seoul — K-Beauty Guides for Foreigners | Seoul Beauty Trip</title>
+<title>ソウル${catLabel}ガイド — 日本語対応サロン情報 | Seoul Beauty Trip</title>
 <meta name="description" content="${metaDesc}">
+<meta name="keywords" content="${jaKeywords}">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="${canonicalUrl}">
-<meta property="og:title" content="${catLabel} in Seoul — K-Beauty Guides for Foreigners">
+<link rel="alternate" hreflang="ja" href="${canonicalUrl}">
+<link rel="alternate" hreflang="en" href="${enUrl}">
+<link rel="alternate" hreflang="x-default" href="${enUrl}">
+<meta property="og:title" content="ソウル${catLabel}ガイド — 日本語対応 | Seoul Beauty Trip">
 <meta property="og:description" content="${metaDesc}">
 <meta property="og:url" content="${canonicalUrl}">
 <meta property="og:type" content="website">
 <meta property="og:image" content="https://seoulbeautytrip.com/og-cover.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="${catLabel} in Seoul — K-Beauty Guides for Foreigners">
-<meta property="og:locale" content="en_US">
+<meta property="og:image:alt" content="ソウル${catLabel} — 日本語ガイド">
+<meta property="og:locale" content="ja_JP">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="${catLabel} in Seoul — K-Beauty Guides for Foreigners">
+<meta name="twitter:title" content="ソウル${catLabel}ガイド — 日本語対応 | Seoul Beauty Trip">
 <meta name="twitter:description" content="${metaDesc}">
 <meta name="twitter:image" content="https://seoulbeautytrip.com/og-cover.jpg">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"CollectionPage","url":"${canonicalUrl}","name":"${catLabel} Seoul Guide","description":"${metaDesc}","breadcrumb":{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"${base}"},{"@type":"ListItem","position":2,"name":"Blog","item":"${base}/blog"},{"@type":"ListItem","position":3,"name":"${catLabel}","item":"${canonicalUrl}"}]}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"CollectionPage","url":"${canonicalUrl}","name":"ソウル${catLabel}ガイド","description":"${metaDesc}","inLanguage":"ja","breadcrumb":{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"ホーム","item":"${base}/ja"},{"@type":"ListItem","position":2,"name":"ブログ","item":"${base}/ja/blog"},{"@type":"ListItem","position":3,"name":"${catLabel}","item":"${canonicalUrl}"}]}}</script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" media="print" onload="this.media='all'">
 <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"></noscript>
 <style>
@@ -6195,13 +6230,13 @@ body{background:#0d0d18;color:#fff;font-family:"Segoe UI",sans-serif;min-height:
 <nav class="nav">
   <a href="/ja" class="nav-logo">Seoul Beauty Trip</a>
   <div style="display:flex;align-items:center;gap:8px">
-    <a href="/ja/blog" class="nav-back"><i class="fas fa-arrow-left"></i> All Posts</a>
+    <a href="/ja/blog" class="nav-back"><i class="fas fa-arrow-left"></i> ブログ一覧</a>
     <a href="/ja/blog" style="font-size:11px;color:rgba(255,255,255,.35);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:4px 10px;text-decoration:none">EN</a>
   </div>
 </nav>
 <header class="blog-hero">
-  <div class="breadcrumb"><a href="/">Home</a> › <a href="/ja/blog">Blog</a> › ${catLabel}</div>
-  <h1><i class="fas fa-${cat==='headspa'?'spa':cat==='clinic'?'stethoscope':cat==='hair'?'cut':cat==='nail'?'hand-sparkles':cat==='makeup'?'star':cat==='skincare'?'leaf':cat==='tattoo'?'pen-nib':'hot-tub'}" style="color:#FF4D8D;margin-right:8px"></i>${catLabel} in Seoul</h1>
+  <div class="breadcrumb"><a href="/ja">ホーム</a> › <a href="/ja/blog">ブログ</a> › ${catLabel}</div>
+  <h1><i class="fas fa-${cat==='headspa'?'spa':cat==='clinic'?'stethoscope':cat==='hair'?'cut':cat==='nail'?'hand-sparkles':cat==='makeup'?'star':cat==='skincare'?'leaf':cat==='tattoo'?'pen-nib':'hot-tub'}" style="color:#FF4D8D;margin-right:8px"></i>ソウルの${catLabel}</h1>
   <p>外国人向け専門ガイド — 日本語対応サロン、正直なレビュー＆実際の料金</p>
   <div class="cat-nav">${otherCats}</div>
 </header>
@@ -6788,48 +6823,55 @@ app.get('/ja/shop/:slug', async (c) => {
     }
   }
 
-  const _metaDescLabels: Record<string,string> = {
-    clinic: _clinicSubtype.toLowerCase(), hair:'hair salon', headspa:'head spa & scalp clinic',
-    skincare:'skincare studio', makeup:'personal color & makeup', dental:'dental clinic', tattoo:'eyebrow tattoo & microblading studio'
-  }
-  const _catLbl2   = _metaDescLabels[_shopCat] || _shopCat
+  const _catLbl2   = (_shopCat) // unused in JA but kept for compat
   const _rating    = shop.rating ? shop.rating+'★' : ''
-  const _revs      = shop.reviewCount > 10 ? shop.reviewCount+'+ verified reviews' : shop.reviewCount > 0 ? shop.reviewCount+' reviews' : ''
+  const _revs      = shop.reviewCount > 10 ? shop.reviewCount+'件以上の口コミ' : shop.reviewCount > 0 ? shop.reviewCount+'件の口コミ' : ''
   const _svc1      = shop.services && shop.services.length > 0 ? shop.services[0] : ''
   const _svc2      = shop.services && shop.services.length > 1 ? shop.services[1] : ''
   const _svcPart   = _svc1 ? (_svc2 ? _svc1+' & '+_svc2 : _svc1) : ''
   const _areaClean = _shopArea.replace(', Seoul','').trim()
+  // JA 카테고리 라벨
+  const _jaCatDescMap: Record<string,string> = {
+    clinic:'スキンクリニック', hair:'ヘアサロン', headspa:'ヘッドスパ&スカルプケア',
+    skincare:'スキンケアスタジオ', makeup:'パーソナルカラー&メイク', dental:'歯科クリニック', tattoo:'眉アート&マイクロブレーディング'
+  }
+  const _jaCatDesc = _jaCatDescMap[_shopCat] || _shopCat
+  // JA 지역명
+  const _jaAreaMap: Record<string,string> = {
+    gangnam:'江南', seocho:'瑞草', myeongdong:'明洞', hongdae:'弘大',
+    itaewon:'梨泰院', sinsa:'新沙', apgujeong:'狎鴎亭', cheongdam:'清潭'
+  }
+  const _jaArea = _jaAreaMap[_areaClean.toLowerCase()] || _areaClean
   const _metaDesc  = (shop.metaDescription && shop.metaDescription.trim().length > 30)
-    ? trimDesc(shop.metaDescription.replace(/([\w][\w\s,]*?)\s+Seoul\s+Seoul/g,'$1, Seoul').replace(/Seoul,\s*Seoul/g,'Seoul'), 160)
-    : trimDesc(shop.name+' is a '+_rating+' foreigner-friendly '+_catLbl2+' in '+_areaClean+', Seoul.'
-       +(_revs?' '+_revs+'.':'')+(_svcPart?' Specializing in '+_svcPart+'.':'')
-       +' English booking via WhatsApp. Same-day appointments available.', 160)
+    ? trimDesc(shop.metaDescription, 160)
+    : trimDesc(`${shop.name}はソウル${_jaArea}の人気${_jaCatDesc}です。`
+       +(_revs?_revs+'。':'')+(_svcPart?`${_svcPart}などに対応。`:'')
+       +'WhatsApp・日本語でご予約いただけます。当日予約もOK。', 160)
 
   const _areaGn    = _shopArea.toLowerCase().includes('cheongdam')||_shopArea.toLowerCase().includes('apgujeong') ? 'Gangnam' : _shopArea
   const _n         = shop.name
-  const _catKwMap: Record<string,string[]> = {
-    clinic:  [_areaGn+' dermatology clinic foreigners',_areaGn+' skin clinic Seoul','laser clinic Seoul English','Korean dermatology foreigners','aesthetic clinic Seoul booking','skin treatment '+_areaGn+' Seoul'],
-    hair:    [_areaGn+' hair salon foreigners','hair salon Seoul English speaking','Korean hair salon foreigners','hair color Seoul English',_areaGn+' hair color Seoul'],
-    headspa: [_areaGn+' head spa foreigners','scalp treatment Seoul English','head spa Seoul foreigners','Korean head spa English',_areaGn+' scalp care Seoul'],
-    skincare:[_areaGn+' skincare foreigners','facial Seoul English speaking','skincare Seoul foreigners','Korean facial treatment English',_areaGn+' glow treatment Seoul'],
-    makeup:  [_areaGn+' personal color analysis','color analysis Seoul English','makeup Seoul foreigners','personal color Seoul English',_areaGn+' makeup consultation'],
-    dental:  [_areaGn+' dental clinic foreigners','dentist Seoul English speaking','dental Seoul foreigners','Korean dentist English',_areaGn+' tooth whitening Seoul'],
+  // JA 키워드
+  const _jaKwMap: Record<string,string[]> = {
+    clinic:  [_areaClean+'スキンクリニック 日本人', 'ソウル 皮膚科 日本語', 'ソウル クリニック 外国人', _areaClean+' 美容クリニック ソウル'],
+    hair:    [_areaClean+' ヘアサロン 日本人', 'ソウル ヘアカラー 外国人', '韓国ヘアサロン 日本語', _areaClean+' 美容院 ソウル'],
+    headspa: [_areaClean+' ヘッドスパ 日本人', 'ソウル スカルプケア 外国人', '韓国ヘッドスパ 日本語', _areaClean+' 頭皮ケア ソウル'],
+    skincare:[_areaClean+' スキンケア 日本人', 'ソウル フェイシャル 外国人', '韓国スキンケア 日本語', _areaClean+' 美容エステ ソウル'],
+    makeup:  [_areaClean+' パーソナルカラー 日本人', 'ソウル カラー診断 外国人', '韓国メイク 日本語'],
+    dental:  [_areaClean+' 歯科 日本人', 'ソウル 歯科クリニック 外国人', '韓国歯科 日本語'],
+    tattoo:  [_areaClean+' 眉アート 日本人', 'ソウル 眉タトゥー 外国人', '韓国アートメイク 日本語'],
   }
-  const _extras    = _catKwMap[_shopCat] || []
+  const _extras    = _jaKwMap[_shopCat] || []
   const _svcKw     = shop.services.slice(0,3)
-  const _base2     = [_n,_n+' Seoul',_n+' '+_areaGn,_n+' review',_n+' booking',_n+' foreigners',_n+' English','best '+_shopCat+' '+_areaGn+' Seoul']
-  // 2026 연도 키워드 자동 포함 (SEO 갱신)
-  const _year2026kw = [_n+' Seoul 2026', 'best '+_shopCat+' '+_areaGn+' Seoul 2026', _shopCat+' Seoul foreigners 2026']
-  const _keywords  = (shop.seoKeywords && shop.seoKeywords.trim().length > 20)
-    ? shop.seoKeywords.includes('2026') ? shop.seoKeywords : shop.seoKeywords+', '+_year2026kw.join(', ')
-    : [..._base2,..._extras,..._svcKw,..._year2026kw].join(', ')
+  const _base2     = [_n, _n+' ソウル', _n+' '+_jaArea, _n+' 口コミ', _n+' 予約', _n+' 日本語', 'ソウル '+_jaCatDesc+' '+_jaArea]
+  const _year2026kw = [_n+' ソウル 2026', 'ソウル '+_jaCatDesc+' '+_jaArea+' 2026', _jaCatDesc+' ソウル 日本人 2026']
+  const _keywords  = [..._base2,..._extras,..._svcKw,..._year2026kw].join(', ')
 
   const _ogCatLabels: Record<string,string> = {
-    clinic:'Dermatology Clinic', hair:'Hair Salon', headspa:'Head Spa',
-    skincare:'Skincare', makeup:'Makeup', dental:'Dental', tattoo:'Eyebrow Tattoo'
+    clinic:'スキンクリニック', hair:'ヘアサロン', headspa:'ヘッドスパ',
+    skincare:'スキンケア', makeup:'メイク', dental:'歯科', tattoo:'眉アート'
   }
   const _ogCatLabel = _ogCatLabels[_shopCat] || _shopCat
-  const _ogTitle   = shop.name+' | '+_shopArea.replace('Cheongdam','Gangnam').replace('Apgujeong','Gangnam')+' '+_ogCatLabel+' Seoul'
+  const _ogTitle   = shop.name+' | ソウル'+_jaArea+' '+_ogCatLabel
 
   const _schemaTypeMap: Record<string,string> = {
     clinic:'["MedicalClinic","HealthAndBeautyBusiness","LocalBusiness"]',
@@ -16263,9 +16305,13 @@ app.get('/sitemap.xml', async (c) => {
   const sql = getDb(c.env)
   let shopSlugs: string[] = []
   let blogSlugs: string[] = []
+  let jaShopSlugs: string[] = []
+  let jaBlogSlugs: string[] = []
   // lastmod용 날짜 맵 (실제 DB 날짜 사용)
   let shopDates: Record<string, string> = {}
   let blogDates: Record<string, string> = {}
+  let jaShopDates: Record<string, string> = {}
+  let jaBlogDates: Record<string, string> = {}
   const todayStr = new Date().toISOString().split('T')[0]
   try {
     const rows = await withTimeout(sql`SELECT slug, created_at FROM shops WHERE active=true AND slug IS NOT NULL AND slug!=''`, 15000, [])
@@ -16276,6 +16322,16 @@ app.get('/sitemap.xml', async (c) => {
       if (!s || s.startsWith('-') || _redirectSlugs.has(s)) continue
       shopSlugs.push(s)
       shopDates[s] = r.created_at ? new Date(r.created_at).toISOString().split('T')[0] : todayStr
+    }
+  } catch(e) {}
+  try {
+    // JA 업체 슬러그
+    const jaRows = await withTimeout(sql`SELECT slug, created_at FROM shops_ja WHERE active=true AND slug IS NOT NULL AND slug!=''`, 15000, [])
+    for (const r of jaRows) {
+      const s = r.slug as string
+      if (!s || s.startsWith('-')) continue
+      jaShopSlugs.push(s)
+      jaShopDates[s] = r.created_at ? new Date(r.created_at).toISOString().split('T')[0] : todayStr
     }
   } catch(e) {}
   try {
@@ -16291,6 +16347,21 @@ app.get('/sitemap.xml', async (c) => {
       blogSlugs.push(s)
       const rawDate = r.updated_at || r.created_at
       blogDates[s] = rawDate ? new Date(rawDate).toISOString().split('T')[0] : today
+    }
+  } catch(e) {}
+  try {
+    // JA 블로그 포스트
+    const jaBrows = await sql`SELECT slug, title, meta_description, content, created_at, updated_at FROM blog_posts_ja WHERE status='published' AND slug IS NOT NULL AND slug != '' AND title IS NOT NULL AND title != ''`
+    for (const r of jaBrows) {
+      const s = (r.slug || '') as string
+      const t = (r.title || '').toLowerCase()
+      const d = (r.meta_description || r.content || '')
+      if (s.startsWith('test-') || t.startsWith('test ')) continue
+      if (!d || d.trim().length < 20) continue
+      if (!r.content || r.content.trim().length < 200) continue
+      jaBlogSlugs.push(s)
+      const rawDate = r.updated_at || r.created_at
+      jaBlogDates[s] = rawDate ? new Date(rawDate).toISOString().split('T')[0] : today
     }
   } catch(e) {}
 
@@ -16391,8 +16462,12 @@ app.get('/sitemap.xml', async (c) => {
   const latestBlogDate = blogSlugs.length > 0
     ? Object.values(blogDates).sort().reverse()[0] || today
     : today
+  const latestJaShopDate = jaShopSlugs.length > 0
+    ? Object.values(jaShopDates).sort().reverse()[0] || today
+    : today
 
   const urls = [
+    // ── EN 페이지 ──
     `<url><loc>${base}/</loc><changefreq>daily</changefreq><priority>1.0</priority><lastmod>${latestBlogDate}</lastmod></url>`,
     `<url><loc>${base}/blog</loc><changefreq>daily</changefreq><priority>0.9</priority><lastmod>${latestBlogDate}</lastmod></url>`,
     `<url><loc>${base}/about</loc><changefreq>monthly</changefreq><priority>0.8</priority><lastmod>2026-06-01</lastmod></url>`,
@@ -16405,11 +16480,22 @@ app.get('/sitemap.xml', async (c) => {
     ),
     ...blogSlugs.map(slug =>
       `<url><loc>${base}/blog/${slug}</loc><changefreq>weekly</changefreq><priority>0.85</priority><lastmod>${blogDates[slug]||today}</lastmod></url>`
+    ),
+    // ── JA 페이지 ──
+    `<url><loc>${base}/ja</loc><changefreq>daily</changefreq><priority>0.95</priority><lastmod>${latestJaShopDate}</lastmod></url>`,
+    `<url><loc>${base}/ja/shops</loc><changefreq>weekly</changefreq><priority>0.85</priority><lastmod>${latestJaShopDate}</lastmod></url>`,
+    `<url><loc>${base}/ja/blog</loc><changefreq>weekly</changefreq><priority>0.8</priority><lastmod>${latestJaShopDate}</lastmod></url>`,
+    ...jaShopSlugs.map(slug =>
+      `<url><loc>${base}/ja/shop/${slug}</loc><changefreq>monthly</changefreq><priority>0.8</priority><lastmod>${jaShopDates[slug]||today}</lastmod></url>`
+    ),
+    ...jaBlogSlugs.map(slug =>
+      `<url><loc>${base}/ja/blog/${slug}</loc><changefreq>weekly</changefreq><priority>0.8</priority><lastmod>${jaBlogDates[slug]||today}</lastmod></url>`
     )
   ].join('\n  ')
   return c.body(`<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml"
         xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
         http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
   ${urls}
