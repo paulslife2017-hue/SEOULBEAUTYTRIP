@@ -10013,15 +10013,15 @@ app.post('/api/admin/sync-photos', async (c) => {
   return c.json({ total: shops.length, ok: results.filter(r => r.status === 'ok').length, results })
 })
 
-// PATCH /api/admin/patch-shop — 특정 업체 필드 직접 수정 (name, slug 등)
-// body: { id: string, name?: string, slug?: string, address?: string }
+// PATCH /api/admin/patch-shop — 특정 업체 필드 직접 수정 (name, slug, address, location 등)
+// body: { id: string, name?: string, slug?: string, address?: string, location?: string }
 app.patch('/api/admin/patch-shop', async (c) => {
   await ensureDb(c.env)
   const sql = getDb(c.env)
   const body: any = await c.req.json().catch(() => ({}))
-  const { id, name, slug, address } = body
+  const { id, name, slug, address, location } = body
   if (!id) return c.json({ error: 'id required' }, 400)
-  if (!name && !slug && !address) return c.json({ error: 'nothing to update' }, 400)
+  if (!name && !slug && !address && !location) return c.json({ error: 'nothing to update' }, 400)
 
   // 업데이트할 필드 구성
   let newSlug = slug
@@ -10045,9 +10045,11 @@ app.patch('/api/admin/patch-shop', async (c) => {
     await sql`UPDATE shops SET slug=${slug} WHERE id=${id}`
   } else if (address) {
     await sql`UPDATE shops SET address=${address} WHERE id=${id}`
+  } else if (location) {
+    await sql`UPDATE shops SET location=${location} WHERE id=${id}`
   }
 
-  const updated = await sql`SELECT id, name, slug, address FROM shops WHERE id=${id}`
+  const updated = await sql`SELECT id, name, slug, address, location FROM shops WHERE id=${id}`
   return c.json({ ok: true, shop: updated[0] || null })
 })
 

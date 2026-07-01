@@ -11225,9 +11225,9 @@ app.patch("/api/admin/patch-shop", async (c) => {
   await ensureDb(c.env);
   const sql = getDb(c.env);
   const body = await c.req.json().catch(() => ({}));
-  const { id, name, slug, address } = body;
+  const { id, name, slug, address, location } = body;
   if (!id) return c.json({ error: "id required" }, 400);
-  if (!name && !slug && !address) return c.json({ error: "nothing to update" }, 400);
+  if (!name && !slug && !address && !location) return c.json({ error: "nothing to update" }, 400);
   let newSlug = slug;
   if (name && !slug) {
     newSlug = name.toLowerCase().replace(/[^a-z0-9가-힣\s-]/g, "").trim().replace(/[\s]+/g, "-").replace(/-+/g, "-").slice(0, 80);
@@ -11242,8 +11242,10 @@ app.patch("/api/admin/patch-shop", async (c) => {
     await sql`UPDATE shops SET slug=${slug} WHERE id=${id}`;
   } else if (address) {
     await sql`UPDATE shops SET address=${address} WHERE id=${id}`;
+  } else if (location) {
+    await sql`UPDATE shops SET location=${location} WHERE id=${id}`;
   }
-  const updated = await sql`SELECT id, name, slug, address FROM shops WHERE id=${id}`;
+  const updated = await sql`SELECT id, name, slug, address, location FROM shops WHERE id=${id}`;
   return c.json({ ok: true, shop: updated[0] || null });
 });
 app.post("/api/admin/fill-summaries", async (c) => {
