@@ -8885,13 +8885,21 @@ function playSpVid(idx){
     _updateMuteBtn();
   });
 
-  // BOOK \uBC84\uD2BC \u2192 \uC5C5\uCCB4 \uC0C1\uC138 \uBAA8\uB2EC
+  // BOOK \uBC84\uD2BC \u2192 \uC5C5\uCCB4 \uC0C1\uC138 \uBAA8\uB2EC (\uD648 \uD53C\uB4DC) or WhatsApp \uC608\uC57D (shop SEO \uD398\uC774\uC9C0)
   var bookBtn = document.getElementById('sp-vid-ov-book');
   if(bookBtn && shopId){
     bookBtn.addEventListener('click', function(e){
       e.stopPropagation();
       if(vid && !vid.paused) vid.pause();
-      if(typeof openShopModal === 'function') openShopModal(shopId);
+      if(typeof openShopModal === 'function'){
+        // \uD648 \uD53C\uB4DC: \uC5C5\uCCB4 \uC0C1\uC138 \uBAA8\uB2EC \uC5F4\uAE30
+        openShopModal(shopId);
+      } else {
+        // shop SEO \uD398\uC774\uC9C0: \uBAA8\uB2EC \uC5C6\uC73C\uBBC0\uB85C \uD398\uC774\uC9C0 \uD558\uB2E8 \uC608\uC57D \uBC84\uD2BC\uC73C\uB85C \uC2A4\uD06C\uB864
+        ov.remove();
+        var waLink = document.querySelector('.sp-float a');
+        if(waLink){ waLink.scrollIntoView({behavior:'smooth', block:'center'}); }
+      }
     });
   }
 
@@ -12040,13 +12048,21 @@ function playSpVid(idx){
     _updateMuteBtn();
   });
 
-  // BOOK \uBC84\uD2BC \u2192 \uC5C5\uCCB4 \uC0C1\uC138 \uBAA8\uB2EC
+  // BOOK \uBC84\uD2BC \u2192 \uC5C5\uCCB4 \uC0C1\uC138 \uBAA8\uB2EC (\uD648 \uD53C\uB4DC) or WhatsApp \uC608\uC57D (shop SEO \uD398\uC774\uC9C0)
   var bookBtn = document.getElementById('sp-vid-ov-book');
   if(bookBtn && shopId){
     bookBtn.addEventListener('click', function(e){
       e.stopPropagation();
       if(vid && !vid.paused) vid.pause();
-      if(typeof openShopModal === 'function') openShopModal(shopId);
+      if(typeof openShopModal === 'function'){
+        // \uD648 \uD53C\uB4DC: \uC5C5\uCCB4 \uC0C1\uC138 \uBAA8\uB2EC \uC5F4\uAE30
+        openShopModal(shopId);
+      } else {
+        // shop SEO \uD398\uC774\uC9C0: \uBAA8\uB2EC \uC5C6\uC73C\uBBC0\uB85C \uD398\uC774\uC9C0 \uD558\uB2E8 \uC608\uC57D \uBC84\uD2BC\uC73C\uB85C \uC2A4\uD06C\uB864
+        ov.remove();
+        var waLink = document.querySelector('.sp-float a');
+        if(waLink){ waLink.scrollIntoView({behavior:'smooth', block:'center'}); }
+      }
     });
   }
 

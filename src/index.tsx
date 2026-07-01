@@ -7457,13 +7457,21 @@ function playSpVid(idx){
     _updateMuteBtn();
   });
 
-  // BOOK 버튼 → 업체 상세 모달
+  // BOOK 버튼 → 업체 상세 모달 (홈 피드) or WhatsApp 예약 (shop SEO 페이지)
   var bookBtn = document.getElementById('sp-vid-ov-book');
   if(bookBtn && shopId){
     bookBtn.addEventListener('click', function(e){
       e.stopPropagation();
       if(vid && !vid.paused) vid.pause();
-      if(typeof openShopModal === 'function') openShopModal(shopId);
+      if(typeof openShopModal === 'function'){
+        // 홈 피드: 업체 상세 모달 열기
+        openShopModal(shopId);
+      } else {
+        // shop SEO 페이지: 모달 없으므로 페이지 하단 예약 버튼으로 스크롤
+        ov.remove();
+        var waLink = document.querySelector('.sp-float a');
+        if(waLink){ waLink.scrollIntoView({behavior:'smooth', block:'center'}); }
+      }
     });
   }
 
@@ -10962,13 +10970,21 @@ function playSpVid(idx){
     _updateMuteBtn();
   });
 
-  // BOOK 버튼 → 업체 상세 모달
+  // BOOK 버튼 → 업체 상세 모달 (홈 피드) or WhatsApp 예약 (shop SEO 페이지)
   var bookBtn = document.getElementById('sp-vid-ov-book');
   if(bookBtn && shopId){
     bookBtn.addEventListener('click', function(e){
       e.stopPropagation();
       if(vid && !vid.paused) vid.pause();
-      if(typeof openShopModal === 'function') openShopModal(shopId);
+      if(typeof openShopModal === 'function'){
+        // 홈 피드: 업체 상세 모달 열기
+        openShopModal(shopId);
+      } else {
+        // shop SEO 페이지: 모달 없으므로 페이지 하단 예약 버튼으로 스크롤
+        ov.remove();
+        var waLink = document.querySelector('.sp-float a');
+        if(waLink){ waLink.scrollIntoView({behavior:'smooth', block:'center'}); }
+      }
     });
   }
 
