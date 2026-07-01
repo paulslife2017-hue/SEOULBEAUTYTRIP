@@ -6807,11 +6807,11 @@ app.get('/ja/shop/:slug', async (c) => {
   // name 기반 clinic 세부 타입 자동 감지 (plastic surgery vs dermatology vs aesthetic)
   const _clinicSubtype = (()=>{
     const nm = (shop.name||'').toLowerCase()
-    if(nm.includes('plastic surgery')) return 'Plastic Surgery Clinic'
-    if(nm.includes('aesthetic')) return 'Aesthetic Clinic'
-    if(nm.includes('dental') || nm.includes('dentist')) return 'Dental Clinic'
-    if(nm.includes('dermatology') || nm.includes('derma')) return 'Dermatology Clinic'
-    return 'Skin Clinic'
+    if(nm.includes('plastic surgery') || nm.includes('整形')) return '整形外科'
+    if(nm.includes('aesthetic') || nm.includes('エステ')) return 'エステクリニック'
+    if(nm.includes('dental') || nm.includes('dentist') || nm.includes('歯科')) return '歯科クリニック'
+    if(nm.includes('dermatology') || nm.includes('derma') || nm.includes('皮膚科')) return '皮膚科クリニック'
+    return 'スキンクリニック'
   })()
   const _catTitleLabels: Record<string,string> = {
     clinic: _clinicSubtype, hair:'ヘアサロン', headspa:'ヘッドスパ',
@@ -6819,17 +6819,16 @@ app.get('/ja/shop/:slug', async (c) => {
   }
   const _catLabel  = _catTitleLabels[_shopCat] || (_shopCat.charAt(0).toUpperCase()+_shopCat.slice(1))
   const _areaFinal = (['cheongdam','apgujeong','sinsa','nonhyeon'].some(a=>_shopArea.toLowerCase().includes(a))) ? 'Gangnam' : _shopArea
-  // title: 업체명 + 지역 + 카테고리 + Seoul (구글 검색 키워드 최적화, 65자 제한)
+  // title: 業体名 — エリア カテゴリ | Seoul Beauty Trip (日本語SEO最適化, 65字制限)
   const _titleSuffix = ' | Seoul Beauty Trip'
-  const _pageTitleFull = shop.name+' — '+_areaFinal+' '+_catLabel+' Seoul'+_titleSuffix
+  const _pageTitleFull = shop.name+' — '+_areaFinal+' '+_catLabel+_titleSuffix
   let _pageTitle = _pageTitleFull
   if (_pageTitleFull.length > 65) {
-    const _shortCat = _catLabel.split(' ').slice(-1)[0]
-    const _t2 = shop.name+' — '+_areaFinal+' '+_shortCat+' Seoul'+_titleSuffix
+    const _t2 = shop.name+' — '+_areaFinal+_titleSuffix
     if (_t2.length <= 65) { _pageTitle = _t2 }
     else {
       const _nameCut = shop.name.length > 35 ? shop.name.substring(0,35).trimEnd() : shop.name
-      _pageTitle = _nameCut+' — '+_shortCat+' '+_areaFinal+' Seoul'+_titleSuffix
+      _pageTitle = _nameCut+' — '+_areaFinal+_titleSuffix
     }
   }
 
@@ -6852,6 +6851,8 @@ app.get('/ja/shop/:slug', async (c) => {
     itaewon:'梨泰院', sinsa:'新沙', apgujeong:'狎鴎亭', cheongdam:'清潭'
   }
   const _jaArea = _jaAreaMap[_areaClean.toLowerCase()] || _areaClean
+  // タイトルのエリア名を日本語に置換（_jaAreaが定義された後）
+  _pageTitle = _pageTitle.replace(_areaFinal, _jaArea)
   const _metaDesc  = (shop.metaDescription && shop.metaDescription.trim().length > 30)
     ? trimDesc(shop.metaDescription, 160)
     : trimDesc(`${shop.name}はソウル${_jaArea}の人気${_jaCatDesc}です。`
@@ -7287,8 +7288,8 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 <body>
 <nav class="sp-nav" itemscope itemtype="https://schema.org/SiteNavigationElement">
   <div class="sp-nav-inner">
-    <a href="/" class="sp-nav-logo" itemprop="url"><span itemprop="name">Seoul Beauty Trip</span></a>
-    <a href="/" class="sp-nav-back" id="sp-nav-back-btn"><i class="fas fa-arrow-left"></i> <span id="sp-nav-back-label">Catalog</span></a>
+    <a href="/ja" class="sp-nav-logo" itemprop="url"><span itemprop="name">Seoul Beauty Trip</span></a>
+    <a href="/ja" class="sp-nav-back" id="sp-nav-back-btn"><i class="fas fa-arrow-left"></i> <span id="sp-nav-back-label">一覧</span></a>
 <script>
 (function(){
   var sp=new URLSearchParams(window.location.search);
@@ -7296,25 +7297,25 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
   var btn=document.getElementById('sp-nav-back-btn');
   var lbl=document.getElementById('sp-nav-back-label');
   if(fr==='map'){
-    if(btn) btn.href='/?tab=map';
-    if(lbl) lbl.textContent='Map';
+    if(btn) btn.href='/ja?tab=map';
+    if(lbl) lbl.textContent='マップ';
   } else if(fr==='browse'){
-    if(btn) btn.href='/?tab=browse';
-    if(lbl) lbl.textContent='Browse';
+    if(btn) btn.href='/ja?tab=browse';
+    if(lbl) lbl.textContent='エリア';
   } else if(fr==='search'){
-    if(btn) btn.href='/?search=1';
-    if(lbl) lbl.textContent='Search';
+    if(btn) btn.href='/ja?search=1';
+    if(lbl) lbl.textContent='検索';
   }
 })();
 </script>
   </div>
 </nav>
 <nav aria-label="breadcrumb" style="background:rgba(0,0,0,.35);padding:7px 16px;font-size:12px;color:rgba(255,255,255,.5);display:flex;align-items:center;gap:4px;flex-wrap:wrap">
-  <a href="/" style="color:rgba(255,255,255,.55);text-decoration:none">Home</a>
+  <a href="/ja" style="color:rgba(255,255,255,.55);text-decoration:none">ホーム</a>
   <span style="opacity:.4">›</span>
-  <a href="/best/${_bcCatSlug}/seoul" style="color:rgba(255,255,255,.55);text-decoration:none">${_bcCatName}</a>
+  <a href="/ja/shops" style="color:rgba(255,255,255,.55);text-decoration:none">サロン一覧</a>
   <span style="opacity:.4">›</span>
-  <a href="/best/${_bcCatSlug}/${_bcAreaSlug}" style="color:rgba(255,255,255,.55);text-decoration:none">${_shopArea}</a>
+  <a href="/ja/shops" style="color:rgba(255,255,255,.55);text-decoration:none">${_shopArea}</a>
   <span style="opacity:.4">›</span>
   <span style="color:rgba(255,255,255,.8)">${shop.name}</span>
 </nav>
@@ -7323,9 +7324,9 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
   <img class="sp-hero-img" src="${shop.thumbnail}" alt="${shop.name} ${_catLabel} in ${_areaFinal} Seoul — Best Korean Beauty for Foreigners" itemprop="image" width="800" height="600" fetchpriority="high">
   <div class="sp-hero-ov"></div>
   <div class="sp-hero-info">
-    <div class="sp-cat-badge">${catIcon} ${shop.category.charAt(0).toUpperCase()+shop.category.slice(1)} · ${_shopArea}</div>
+    <div class="sp-cat-badge">${catIcon} ${_catLabel} · ${_shopArea}</div>
     <h1 class="sp-title" itemprop="name">${shop.name}</h1>
-    <div class="sp-subtitle" style="font-size:13px;color:rgba(255,255,255,.65);margin-top:4px;font-weight:500;letter-spacing:.3px">${_catLabel} &middot; ${_areaFinal}, Seoul &middot; English Booking Available</div>
+    <div class="sp-subtitle" style="font-size:13px;color:rgba(255,255,255,.65);margin-top:4px;font-weight:500;letter-spacing:.3px">${_catLabel} &middot; ${_areaFinal}・ソウル &middot; 日本語対応予約OK</div>
     <div class="sp-loc"><i class="fas fa-map-marker-alt" style="color:var(--pk)"></i><span itemprop="addressLocality">${shop.location.toLowerCase().includes('seoul') ? shop.location : shop.location+', Seoul'}</span></div>
     <div style="margin-top:7px;display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.45);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.15);border-radius:20px;padding:5px 12px;width:fit-content;cursor:pointer;max-width:90vw;overflow:hidden" onclick="navigator.clipboard&&navigator.clipboard.writeText('${canonicalUrl}').then(function(){var el=document.getElementById('sp-url-copied');if(el){el.style.opacity='1';setTimeout(function(){el.style.opacity='0'},1500)}})">
       <i class="fas fa-link" style="color:rgba(255,255,255,.5);font-size:10px;flex-shrink:0"></i>
@@ -7335,7 +7336,7 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
     <div class="sp-rating">
       <span class="sp-stars">★★★★★</span>
       <span class="sp-rating-num">
-        ${shop.rating} (${shop.reviewCount} reviews)
+        ${shop.rating} (${shop.reviewCount}件の口コミ)
       </span>
     </div>
   </div>
@@ -7375,10 +7376,10 @@ ${(()=>{
     /* ── Info Grid (Area + Rating) ── */
     let infoCards2 = '';
     const locArea2 = shop.location ? shop.location.split(',')[0].trim() : '';
-    if(locArea2) infoCards2 += `<div class="sp-ig-card"><div class="sp-ig-label">Area</div><div class="sp-ig-val"><i class="fas fa-map-marker-alt"></i>${locArea2}</div></div>`;
+    if(locArea2) infoCards2 += `<div class="sp-ig-card"><div class="sp-ig-label">エリア</div><div class="sp-ig-val"><i class="fas fa-map-marker-alt"></i>${locArea2}</div></div>`;
     if(shop.reviewCount && shop.reviewCount > 0) {
       const starsHtml2 = '★'.repeat(Math.min(5,Math.round(Number(shop.rating||5)))) + '☆'.repeat(Math.max(0,5-Math.round(Number(shop.rating||5))));
-      infoCards2 += `<div class="sp-ig-card"><div class="sp-ig-label">Rating</div><div class="sp-ig-val"><span class="sp-ig-stars">${starsHtml2}</span>&nbsp;${shop.rating}</div></div>`;
+      infoCards2 += `<div class="sp-ig-card"><div class="sp-ig-label">評価</div><div class="sp-ig-val"><span class="sp-ig-stars">${starsHtml2}</span>&nbsp;${shop.rating}</div></div>`;
     }
     const infoGridHtml2 = infoCards2 ? `<div class="sp-info-grid">${infoCards2}</div>` : '';
 
@@ -7388,15 +7389,15 @@ ${(()=>{
       const _reviews2 = shop.reviewCount ? Number(shop.reviewCount).toLocaleString() : '';
       // 태그 결정
       const _tags: string[] = [];
-      _tags.push(`<span class="sp-about-tag tag-en"><i class="fas fa-comments" style="margin-right:3px"></i>English OK</span>`);
-      _tags.push(`<span class="sp-about-tag tag-intl"><i class="fas fa-globe" style="margin-right:3px"></i>Foreigner Friendly</span>`);
-      if(_rating2) _tags.push(`<span class="sp-about-tag tag-trust"><i class="fas fa-star" style="margin-right:3px"></i>${_rating2}★${_reviews2?' · '+_reviews2+' reviews':''}</span>`);
-      return `<div class="sp-about-box"><div class="sp-about-head"><div class="sp-about-icon"><i class="fas fa-store"></i></div><div class="sp-about-title">About</div></div><div class="sp-about-text" itemprop="description">${shop.description}</div><div class="sp-about-tags">${_tags.join('')}</div></div>`;
+      _tags.push(`<span class="sp-about-tag tag-en"><i class="fas fa-comments" style="margin-right:3px"></i>日本語OK</span>`);
+      _tags.push(`<span class="sp-about-tag tag-intl"><i class="fas fa-globe" style="margin-right:3px"></i>外国人歓迎</span>`);
+      if(_rating2) _tags.push(`<span class="sp-about-tag tag-trust"><i class="fas fa-star" style="margin-right:3px"></i>${_rating2}★${_reviews2?' · '+_reviews2+'件の口コミ':''}</span>`);
+      return `<div class="sp-about-box"><div class="sp-about-head"><div class="sp-about-icon"><i class="fas fa-store"></i></div><div class="sp-about-title">店舗情報</div></div><div class="sp-about-text" itemprop="description">${shop.description}</div><div class="sp-about-tags">${_tags.join('')}</div></div>`;
     })() : '';
 
     /* ── Editor's Note (운영자 검증 메시지) ── */
     const editorNoteVal = (shop.editor_note||shop.editorNote||'').trim();
-    const editorNoteHtml2 = editorNoteVal ? `<div class="sp-editor-note"><div class="sp-editor-note-head"><i class="fas fa-pen-nib"></i><span>Editor's Note</span><span class="sp-editor-verified"><i class="fas fa-circle-check"></i> Verified by Seoul Beauty Trip</span></div><p class="sp-editor-note-text">${editorNoteVal}</p></div>` : '';
+    const editorNoteHtml2 = editorNoteVal ? `<div class="sp-editor-note"><div class="sp-editor-note-head"><i class="fas fa-pen-nib"></i><span>編集部ノート</span><span class="sp-editor-verified"><i class="fas fa-circle-check"></i> Seoul Beauty Trip 確認済</span></div><p class="sp-editor-note-text">${editorNoteVal}</p></div>` : '';
 
     /* ── Hours (모달과 동일 방식) ── */
     let hoursHtml2 = '';
@@ -7411,11 +7412,11 @@ ${(()=>{
           const timeP = col2>-1 ? line.slice(col2+1).trim() : '';
           const isToday2 = dayNames2[today2] && dayP.toLowerCase().startsWith(dayNames2[today2].toLowerCase());
           const isClosed2 = timeP.toLowerCase().includes('closed');
-          return `<tr class="${isToday2?'sp-hours-today':''}"><td class="sp-hours-day">${dayP.slice(0,3).toUpperCase()}</td><td class="sp-hours-time${isClosed2?' closed':''}">${timeP||'Closed'}</td></tr>`;
+          return `<tr class="${isToday2?'sp-hours-today':''}"><td class="sp-hours-day">${dayP.slice(0,3).toUpperCase()}</td><td class="sp-hours-time${isClosed2?' closed':''}">${timeP||'定休日'}</td></tr>`;
         }).join('');
-        hoursHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-clock" style="color:var(--gold);margin-right:4px"></i>Hours</div><div class="sp-hours-wrap"><table class="sp-hours-table">${rows2}</table></div></div>`;
+        hoursHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-clock" style="color:var(--gold);margin-right:4px"></i>営業時間</div><div class="sp-hours-wrap"><table class="sp-hours-table">${rows2}</table></div></div>`;
       } else {
-        hoursHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-clock" style="color:var(--gold);margin-right:4px"></i>Hours</div><div class="sp-sec-body" itemprop="openingHours">${shop.hours}</div></div>`;
+        hoursHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-clock" style="color:var(--gold);margin-right:4px"></i>営業時間</div><div class="sp-sec-body" itemprop="openingHours">${shop.hours}</div></div>`;
       }
     }
 
@@ -7423,9 +7424,9 @@ ${(()=>{
     let priceHtml2 = '';
     if(shop.servicePrices && shop.servicePrices.length > 0) {
       const rows3 = shop.servicePrices.map((p:any)=>`<div class="sp-price-item"><span class="sp-price-name">${p.name}</span><span class="sp-price-val" itemprop="priceRange">${p.price}</span></div>`).join('');
-      priceHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-won-sign" style="color:var(--gold);margin-right:4px"></i>Price List</div><div class="sp-price-list">${rows3}</div></div>`;
+      priceHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-won-sign" style="color:var(--gold);margin-right:4px"></i>料金表</div><div class="sp-price-list">${rows3}</div></div>`;
     } else {
-      priceHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-won-sign" style="color:var(--gold);margin-right:4px"></i>Pricing</div><div class="sp-sec-body">Prices vary by treatment &amp; consultation. <span style="color:rgba(255,255,255,.35)">Contact us via WhatsApp below for a free quote.</span></div></div>`;
+      priceHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-won-sign" style="color:var(--gold);margin-right:4px"></i>料金</div><div class="sp-sec-body">施術・カウンセリングにより料金は異なります。<span style="color:rgba(255,255,255,.35)">WhatsAppで無料見積もり受付中。</span></div></div>`;
     }
 
     /* ── Services ── */
@@ -7433,17 +7434,17 @@ ${(()=>{
       const svcIcoMap: Record<string,string> = {clinic:'fa-syringe',headspa:'fa-spa',hair:'fa-scissors',tattoo:'fa-pen-nib',makeup:'fa-wand-magic-sparkles',skincare:'fa-droplet',dental:'fa-tooth',plastic_surgery:'fa-star-of-life'};
       const svcIco = svcIcoMap[shop.category] || 'fa-sparkles';
       const tags = shop.services.map((s:string)=>`<span class="sp-svc-tag"><i class="fas ${svcIco}"></i>${s}</span>`).join('');
-      return `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-list-check" style="color:var(--gold);margin-right:5px"></i>Services</div><div class="sp-svc-tags">${tags}</div></div>`;
+      return `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-list-check" style="color:var(--gold);margin-right:5px"></i>メニュー</div><div class="sp-svc-tags">${tags}</div></div>`;
     })() : '';
 
     /* ── Map ── */
     const mapHtml2 = (()=>{
-      if(!shop.lat || !shop.lng) return shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : '';
+      if(!shop.lat || !shop.lng) return shop.address ? `<div class="sp-sec"><div class="sp-sec-title">アクセス</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : '';
       const mlat2=parseFloat(shop.lat), mlng2=parseFloat(shop.lng), z=16;
       const tx=Math.floor((mlng2+180)/360*Math.pow(2,z)), ty=Math.floor((1-Math.log(Math.tan(mlat2*Math.PI/180)+1/Math.cos(mlat2*Math.PI/180))/Math.PI)/2*Math.pow(2,z));
       const t1=`https://tile.openstreetmap.org/${z}/${tx}/${ty}.png`, t2=`https://tile.openstreetmap.org/${z}/${tx+1}/${ty}.png`;
-      const gLink=`https://maps.google.com/?q=${mlat2},${mlng2}&hl=en`;
-      return `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map" style="cursor:pointer;overflow:hidden;position:relative" data-map-url="${gLink}" onclick="openMapUrl(this)"><div style="display:flex;height:100%;filter:saturate(0.8) brightness(0.75)"><img src="${t1}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"><img src="${t2}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"></div><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none"><i class="fas fa-map-marker-alt" style="font-size:32px;color:#e8414a;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6))"></i></div>${(shop.address||shop.location)?`<div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);backdrop-filter:blur(4px);color:#fff;font-size:11px;padding:4px 10px;border-radius:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:88%;pointer-events:none"><i class="fas fa-map-marker-alt" style="margin-right:4px;color:#FF4D8D"></i>${(shop.address||shop.location).trim()}</div>`:""}</div></div>`;
+      const gLink=`https://maps.google.com/?q=${mlat2},${mlng2}&hl=ja`;
+      return `<div class="sp-sec"><div class="sp-sec-title">アクセス</div><div class="sp-map" style="cursor:pointer;overflow:hidden;position:relative" data-map-url="${gLink}" onclick="openMapUrl(this)"><div style="display:flex;height:100%;filter:saturate(0.8) brightness(0.75)"><img src="${t1}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"><img src="${t2}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"></div><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none"><i class="fas fa-map-marker-alt" style="font-size:32px;color:#e8414a;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6))"></i></div>${(shop.address||shop.location)?`<div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);backdrop-filter:blur(4px);color:#fff;font-size:11px;padding:4px 10px;border-radius:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:88%;pointer-events:none"><i class="fas fa-map-marker-alt" style="margin-right:4px;color:#FF4D8D"></i>${(shop.address||shop.location).trim()}</div>`:""}</div></div>`;
     })();
 
     return addrHtml2 + infoGridHtml2 + descHtml2 + editorNoteHtml2 + priceHtml2 + svcHtml2 + hoursHtml2;
@@ -7460,12 +7461,12 @@ ${(()=>{
     }).join('');
     /* ── Map (리뷰 바로 뒤) ── */
     const mapHtml3 = (()=>{
-      if(!shop.lat || !shop.lng) return shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : '';
+      if(!shop.lat || !shop.lng) return shop.address ? `<div class="sp-sec"><div class="sp-sec-title">アクセス</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : '';
       const mlat3=parseFloat(shop.lat), mlng3=parseFloat(shop.lng), z=16;
       const tx=Math.floor((mlng3+180)/360*Math.pow(2,z)), ty=Math.floor((1-Math.log(Math.tan(mlat3*Math.PI/180)+1/Math.cos(mlat3*Math.PI/180))/Math.PI)/2*Math.pow(2,z));
       const t1=`https://tile.openstreetmap.org/${z}/${tx}/${ty}.png`, t2=`https://tile.openstreetmap.org/${z}/${tx+1}/${ty}.png`;
-      const gLink=`https://maps.google.com/?q=${mlat3},${mlng3}&hl=en`;
-      return `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map" style="cursor:pointer;overflow:hidden;position:relative" data-map-url="${gLink}" onclick="openMapUrl(this)"><div style="display:flex;height:100%;filter:saturate(0.8) brightness(0.75)"><img src="${t1}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"><img src="${t2}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"></div><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none"><i class="fas fa-map-marker-alt" style="font-size:32px;color:#e8414a;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6))"></i></div>${(shop.address||shop.location)?`<div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);backdrop-filter:blur(4px);color:#fff;font-size:11px;padding:4px 10px;border-radius:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:88%;pointer-events:none"><i class="fas fa-map-marker-alt" style="margin-right:4px;color:#FF4D8D"></i>${(shop.address||shop.location).trim()}</div>`:""}</div></div>`;
+      const gLink=`https://maps.google.com/?q=${mlat3},${mlng3}&hl=ja`;
+      return `<div class="sp-sec"><div class="sp-sec-title">アクセス</div><div class="sp-map" style="cursor:pointer;overflow:hidden;position:relative" data-map-url="${gLink}" onclick="openMapUrl(this)"><div style="display:flex;height:100%;filter:saturate(0.8) brightness(0.75)"><img src="${t1}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"><img src="${t2}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"></div><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none"><i class="fas fa-map-marker-alt" style="font-size:32px;color:#e8414a;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6))"></i></div>${(shop.address||shop.location)?`<div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);backdrop-filter:blur(4px);color:#fff;font-size:11px;padding:4px 10px;border-radius:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:88%;pointer-events:none"><i class="fas fa-map-marker-alt" style="margin-right:4px;color:#FF4D8D"></i>${(shop.address||shop.location).trim()}</div>`:""}</div></div>`;
     })();
 
     // ── 리뷰 블록 — 아바타 + 별점 + 더보기 토글 ──
@@ -7513,13 +7514,13 @@ ${(()=>{
               +(rs.vibe ? `<div class="sp-rv-summary-vibe">${rs.vibe}</div>` : '')
               +`<div class="sp-rv-summary-row">`
                 +(rs.strengths?.length ? `<div class="sp-rv-summary-col">`
-                  +`<div class="sp-rv-summary-label">What customers love</div>`
+                  +`<div class="sp-rv-summary-label">お客様が絶賛</div>`
                   +`<div class="sp-rv-summary-strengths">`
                     +rs.strengths.map((s:string)=>`<div class="sp-rv-summary-strength">${s}</div>`).join('')
                   +`</div>`
                 +`</div>` : '')
                 +(rs.bestFor ? `<div class="sp-rv-summary-col" style="margin-top:12px">`
-                  +`<div class="sp-rv-summary-label">Best for</div>`
+                  +`<div class="sp-rv-summary-label">こんな方におすすめ</div>`
                   +`<div class="sp-rv-summary-bestfor">👤 ${rs.bestFor}</div>`
                 +`</div>` : '')
               +`</div>`
@@ -7528,20 +7529,20 @@ ${(()=>{
 
     const reviewsBlock = shopReviews2.length
       ? `<div class="sp-sec">`
-          +`<div class="sp-sec-title"><i class="fas fa-star" style="color:var(--gold);margin-right:4px"></i>Google Reviews</div>`
+          +`<div class="sp-sec-title"><i class="fas fa-star" style="color:var(--gold);margin-right:4px"></i>Googleクチコミ</div>`
           +(bigRating!=='0.0'?`<div class="sp-reviews-header">`
             +`<div class="sp-reviews-score">`
               +`<div class="sp-reviews-big-num">${bigRating}</div>`
               +`<div class="sp-reviews-score-right">`
                 +`<div class="sp-reviews-stars-row">${starsBarHtml}</div>`
-                +(totalCnt?`<div class="sp-reviews-total">${totalCnt} Google reviews</div>`:'')
+                +(totalCnt?`<div class="sp-reviews-total">${totalCnt}件のGoogleクチコミ</div>`:'')
               +`</div>`
             +`</div>`
           +`</div>`:'')
           +summaryHtml
           +`<div class="sp-reviews-wrap">`
             +reviewCardsEnhanced
-            +(hasMore2?`<button class="sp-reviews-toggle" onclick="spToggleReviews(this)"><i class="fas fa-chevron-down"></i> Show all ${shopReviews2.length} reviews</button>`:'')
+            +(hasMore2?`<button class="sp-reviews-toggle" onclick="spToggleReviews(this)"><i class="fas fa-chevron-down"></i> クチコミを全件表示（${shopReviews2.length}件）</button>`:'')
           +`</div>`
         +`</div>`
       : '';
@@ -7577,7 +7578,7 @@ ${(()=>{
       const ico = wcIcons[bi % wcIcons.length];
       return `<div class="sp-why-item"><i class="fas ${ico} sp-why-icon"></i><span class="sp-why-text">${b}</span></div>`;
     }).join('');
-    return `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-trophy" style="color:var(--gold);margin-right:5px"></i>Why Choose ${shop.name}</div><div class="sp-why-list">${items}</div></div>`;
+    return `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-trophy" style="color:var(--gold);margin-right:5px"></i>${shop.name}が選ばれる理由</div><div class="sp-why-list">${items}</div></div>`;
   })()}
 
   ${(()=>{
@@ -7625,61 +7626,57 @@ ${(()=>{
           cleanSeo = cleanSeo.slice(0, _h2start) + (_nextH2 > 0 ? cleanSeo.slice(_nextH2) : '');
         }
       }
-      const _seoHead = '<div class="sp-seo-block-head"><i class="fas fa-magnifying-glass"></i><span>Travel Guide</span></div>';
+      const _seoHead = '<div class="sp-seo-block-head"><i class="fas fa-magnifying-glass"></i><span>旅行ガイド</span></div>';
       return '<div class="sp-seo-block">'+_seoHead+cleanSeo+'</div>';
     }
-    /* fallback: DB seo_text 없을 때 템플릿 — 업체별 다양화 (AI 호출 없음) */
+    /* fallback: DB seo_text 없을 때 일본어 템플릿 */
     const area3   = (shop.location||'Seoul').split(',')[0].trim();
-    const cat3    = ({clinic:'Skin Clinic',headspa:'Head Spa',hair:'Hair Salon',skincare:'Skincare',makeup:'Makeup',tattoo:'Eyebrow Tattoo',spa:'Spa',nail:'Nail Studio',dental:'Dental Clinic'} as Record<string,string>)[shop.category] || (shop.category.charAt(0).toUpperCase()+shop.category.slice(1));
-    const svcList = shop.services && shop.services.length > 0 ? shop.services.slice(0,4).join(', ') : cat3+' treatments';
+    const cat3ja  = ({clinic:'スキンクリニック',headspa:'ヘッドスパ',hair:'ヘアサロン',skincare:'スキンケア',makeup:'メイク',tattoo:'眉アート',spa:'スパ',nail:'ネイル',dental:'歯科クリニック'} as Record<string,string>)[shop.category] || _catLabel;
+    const svcList = shop.services && shop.services.length > 0 ? shop.services.slice(0,4).join('、') : cat3ja+'の施術';
     const areaGn  = (['cheongdam','apgujeong','sinsa','nonhyeon'].some(a=>area3.toLowerCase().includes(a))) ? 'Gangnam' : area3;
-    const revTxt  = shop.reviewCount > 10 ? ' With '+shop.reviewCount+'+ verified reviews and a '+shop.rating+'-star rating, it' : ' It';
-    // 업체명 기반 clinic 세부 타입 (Travel Guide 텍스트도 일관성 유지)
-    const _fbClinicType = (()=>{
+    const revTxtJa = shop.reviewCount > 10 ? shop.reviewCount+'件以上のクチコミで' : '';
+    const _fbClinicTypeJa = (()=>{
       const nm=(shop.name||'').toLowerCase();
-      if(nm.includes('plastic surgery')) return 'plastic surgery clinic';
-      if(nm.includes('aesthetic')) return 'aesthetic clinic';
-      if(nm.includes('dental')||nm.includes('dentist')) return 'dental clinic';
-      if(nm.includes('dermatology')||nm.includes('derma')) return 'dermatology clinic';
-      return 'skin clinic';
+      if(nm.includes('plastic surgery')) return '美容整形クリニック';
+      if(nm.includes('aesthetic')) return '美容クリニック';
+      if(nm.includes('dental')||nm.includes('dentist')) return '歯科クリニック';
+      if(nm.includes('dermatology')||nm.includes('derma')) return '皮膚科クリニック';
+      return 'スキンクリニック';
     })();
-    const _fbClinicTypeTitle = _fbClinicType.replace(/\b\w/g,c=>c.toUpperCase());
-    // 서비스 목록 기반 다양한 intro (중복 콘텐츠 방지)
     const _svc0 = shop.services&&shop.services.length>0 ? shop.services[0] : '';
     const _svc1b = shop.services&&shop.services.length>1 ? shop.services[1] : '';
-    const _introVariants = [
-      shop.name+' is a foreigner-friendly '+_fbClinicType+' in '+area3+', Seoul.'+revTxt+' is highly recommended by international visitors for its English-speaking staff and transparent pricing.',
-      'Located in the heart of '+areaGn+', '+shop.name+' is one of Seoul\'s most accessible '+_fbClinicType+'s for foreign patients. '+(_svc0?'Specializing in '+_svc0+(_svc1b?' and '+_svc1b:'')+', the':'The')+' clinic offers consultations in English and seamless WhatsApp booking.',
-      'International patients consistently praise '+shop.name+' for its professional care and English-friendly environment. Situated in '+area3+', this '+_fbClinicType+' makes quality Korean treatments accessible without the language barrier.',
+    const _introVariantsJa = [
+      shop.name+'は'+area3+'・ソウルにある日本人にも人気の'+_fbClinicTypeJa+'です。'+revTxtJa+'高い評価を得ており、WhatsAppで日本語対応の予約が可能です。',
+      'ソウル'+areaGn+'の中心部にある'+shop.name+'は、外国人にも通いやすい'+_fbClinicTypeJa+'です。'+(_svc0?_svc0+(_svc1b?'・'+_svc1b:'')+'などを専門とし、':'')+' 日本語でのカウンセリングもWhatsAppで受け付けています。',
+      '多くの日本人観光客から支持されている'+shop.name+'。'+area3+'・ソウルに位置し、高品質な韓国美容施術を言葉の壁なく体験できます。',
     ];
     const _introIdx = Math.abs(shop.name.charCodeAt(0)+shop.name.charCodeAt(1||0))%3;
-    const _introTxt = _introVariants[_introIdx];
+    const _introTxtJa = _introVariantsJa[_introIdx];
 
-    const _fbHead = '<div class="sp-seo-block-head"><i class="fas fa-magnifying-glass"></i><span>Travel Guide</span></div>';
+    const _fbHead = '<div class="sp-seo-block-head"><i class="fas fa-magnifying-glass"></i><span>旅行ガイド</span></div>';
     if(shop.category === 'clinic'){
       const treatments = shop.services && shop.services.length > 0
-        ? shop.services.slice(0,6).join(', ')
-        : 'laser toning, skin booster injections, RF lifting, acne treatment, chemical peels';
+        ? shop.services.slice(0,6).join('、')
+        : 'レーザートーニング、スキンブースター、RFリフティング、ニキビ治療、ピーリング';
       return '<div class="sp-seo-block">'+_fbHead
-        +'<h2 class="sp-seo-h2">'+shop.name+' \u2014 '+_fbClinicTypeTitle+' in '+areaGn+' for Foreigners (2026)</h2>'
-        +'<p class="sp-seo-p">'+_introTxt+'</p>'
-        +'<h2 class="sp-seo-h2">Treatments at '+shop.name+'</h2>'
-        +'<p class="sp-seo-p">'+shop.name+' offers a range of treatments popular with foreign visitors: '+treatments+'. Korean clinics use KFDA-approved equipment, with results often 40\u201360% more affordable than equivalent treatments in the US, UK, or Australia.</p>'
-        // Why Foreigners Choose 단락 제거 — sp-sec의 whyChoose bullets와 중복
+        +'<h2 class="sp-seo-h2">'+shop.name+' \u2014 '+areaGn+'の'+_fbClinicTypeJa+'（2026年最新）</h2>'
+        +'<p class="sp-seo-p">'+_introTxtJa+'</p>'
+        +'<h2 class="sp-seo-h2">'+shop.name+'の施術メニュー</h2>'
+        +'<p class="sp-seo-p">'+shop.name+'では'+treatments+'などの施術が可能です。韓国のクリニックはKFDA認定機器を使用し、日米欧と比較して40〜60%程度リーズナブルな価格で受けられます。</p>'
         +'</div>';
     }
 
     return '<div class="sp-seo-block">'+_fbHead
-      +'<h2 class="sp-seo-h2">'+shop.name+' \u2014 '+cat3+' in '+area3+', Seoul</h2>'
-      +'<p class="sp-seo-p">Looking for the best '+shop.category+' experience in '+area3+', Seoul? '+shop.name+' welcomes foreign visitors with English-friendly service and easy WhatsApp booking.'+revTxt+' offers an authentic Korean beauty experience tailored for international guests.</p>'
-      +'<h2 class="sp-seo-h2">Foreigner-Friendly '+cat3+' in '+area3+'</h2>'
-      +'<p class="sp-seo-p">Located in '+area3+', one of the top beauty districts in Seoul, '+shop.name+' specializes in '+svcList+'. The team provides English support throughout your visit \u2014 from consultation to aftercare \u2014 so you can relax and enjoy your treatment without language barriers. Book easily via WhatsApp through Seoul Beauty Trip.</p>'
+      +'<h2 class="sp-seo-h2">'+shop.name+' \u2014 '+area3+'・ソウルの'+cat3ja+'</h2>'
+      +'<p class="sp-seo-p">ソウル'+area3+'で'+cat3ja+'をお探しなら、'+shop.name+'がおすすめです。日本語でのWhatsApp予約に対応しており、言葉の心配なく本場の韓国美容を体験できます。'+revTxtJa+'高い評価を獲得しています。</p>'
+      +'<h2 class="sp-seo-h2">'+area3+'エリアで人気の'+cat3ja+'</h2>'
+      +'<p class="sp-seo-p">ソウル有数の美容激戦区・'+area3+'に位置する'+shop.name+'では、'+svcList+'などのメニューをご用意。カウンセリングからアフターケアまで日本語でサポートします。Seoul Beauty TripのWhatsAppから簡単にご予約いただけます。</p>'
       +'</div>';
   })()}
 
   ${relatedShops.length > 0 ? `
   <div class="sp-related">
-    <div class="sp-related-title"><i class="fas fa-th-large"></i> More ${shop.category.charAt(0).toUpperCase()+shop.category.slice(1)} in Seoul</div>
+    <div class="sp-related-title"><i class="fas fa-th-large"></i> ソウルの${_catLabel}をもっと見る</div>
     <div class="sp-rel-grid">
       ${relatedShops.map((r: any) => {
         const rArea = (r.location||'').split(',')[0].trim()
@@ -7707,7 +7704,7 @@ ${(()=>{
   <div style="padding:0 20px 20px">
     <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.35);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:6px">
       <i class="fas fa-map-marker-alt" style="color:var(--pk2);font-size:10px"></i>
-      Also in ${_shopAreaRaw || _areaFinal}
+      ${_shopAreaRaw || _areaFinal}の他のサロン
     </div>
     <div style="display:flex;flex-direction:column;gap:8px">
       ${nearbyCrossShops.map((r: any) => {
@@ -7738,7 +7735,7 @@ ${(()=>{
         <i class="fas fa-file-alt" style="color:#fff;font-size:14px"></i>
       </div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.4);letter-spacing:1px;text-transform:uppercase;margin-bottom:2px">Full Honest Review</div>
+        <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.4);letter-spacing:1px;text-transform:uppercase;margin-bottom:2px">詳細レビュー記事</div>
         <div style="font-size:12.5px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(reviewBlogTitle||'').replace(/"/g,"'")}</div>
       </div>
       <i class="fas fa-chevron-right" style="color:rgba(255,255,255,.3);font-size:11px;flex-shrink:0"></i>
@@ -7747,13 +7744,13 @@ ${(()=>{
 
   <!-- 내부 SEO 링크 세션: 구글이 페이지 주제와 사이트 구조를 파악하도록 돕는 다차원 링크 -->
   <div class="sp-seo-links" style="padding:0 20px 16px;margin-bottom:0">
-    <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.3);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:10px">Explore More in Seoul</div>
+    <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.3);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:10px">ソウルの美容をもっと見る</div>
     <div style="display:flex;flex-wrap:wrap;gap:7px">
-      <a href="/best/${shop.category}/seoul" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.65);font-size:11.5px;text-decoration:none" title="Best ${_catLabel} in Seoul for Foreigners"><i class="fas fa-crown" style="color:var(--pk);font-size:9px"></i>Best ${_catLabel} in Seoul</a>
-      ${_areaFinal !== 'Seoul' ? `<a href="/best/${shop.category}/${_areaFinal.toLowerCase()}" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.65);font-size:11.5px;text-decoration:none" title="Best ${_catLabel} in ${_areaFinal} Seoul"><i class="fas fa-map-marker-alt" style="color:var(--pk2);font-size:9px"></i>Best ${_catLabel} in ${_areaFinal}</a>` : ''}
-      <a href="/ja/blog" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.65);font-size:11.5px;text-decoration:none" title="Seoul Beauty Blog for Foreigners"><i class="fas fa-book-open" style="color:var(--pk);font-size:9px"></i>Seoul Beauty Guide</a>
-      <a href="/ja/blog/category/${shop.category}" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.65);font-size:11.5px;text-decoration:none" title="${_catLabel} Tips for Foreigners in Seoul"><i class="fas fa-feather-alt" style="color:var(--pk2);font-size:9px"></i>${_catLabel} Tips</a>
-      <a href="/" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.65);font-size:11.5px;text-decoration:none" title="Browse All Seoul Beauty Salons"><i class="fas fa-th-large" style="color:var(--pk2);font-size:9px"></i>All Beauty Salons</a>
+      <a href="/best/${shop.category}/seoul" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.65);font-size:11.5px;text-decoration:none" title="ソウルのおすすめ${_catLabel}"><i class="fas fa-crown" style="color:var(--pk);font-size:9px"></i>ソウルの人気${_catLabel}</a>
+      ${_areaFinal !== 'Seoul' ? `<a href="/best/${shop.category}/${_areaFinal.toLowerCase()}" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.65);font-size:11.5px;text-decoration:none" title="${_areaFinal}の${_catLabel}"><i class="fas fa-map-marker-alt" style="color:var(--pk2);font-size:9px"></i>${_areaFinal}の${_catLabel}</a>` : ''}
+      <a href="/ja/blog" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.65);font-size:11.5px;text-decoration:none" title="ソウル美容ガイド（日本語）"><i class="fas fa-book-open" style="color:var(--pk);font-size:9px"></i>ソウル美容ガイド</a>
+      <a href="/ja/blog/category/${shop.category}" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.65);font-size:11.5px;text-decoration:none" title="${_catLabel}の施術ガイド"><i class="fas fa-feather-alt" style="color:var(--pk2);font-size:9px"></i>${_catLabel}ガイド</a>
+      <a href="/" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.65);font-size:11.5px;text-decoration:none" title="ソウルの全サロン一覧"><i class="fas fa-th-large" style="color:var(--pk2);font-size:9px"></i>全サロン一覧</a>
     </div>
   </div>
 
@@ -7768,7 +7765,7 @@ ${(()=>{
     if(typeof gtag==='function')gtag('event','whatsapp_click',{event_category:'conversion',event_label:sn,shop_name:sn,shop_category:sc,page_location:window.location.href});
     if(typeof _sbSend==='function')_sbSend('book_click',{shop_id:si,shop_name:sn,shop_category:sc,target:'whatsapp'});
   })()">
-    <i class="fab fa-whatsapp" style="font-size:20px"></i> Book via WhatsApp
+    <i class="fab fa-whatsapp" style="font-size:20px"></i> WhatsAppで予約する
   </a>
 </div>
 
@@ -7843,12 +7840,12 @@ function spToggleReviews(btn){
   var isExpanded = btn.getAttribute('data-expanded')==='1';
   if(isExpanded){
     hidden.forEach(function(c){ c.classList.remove('sp-rv-show'); });
-    btn.innerHTML='<i class="fas fa-chevron-down"></i> Show all reviews';
+    btn.innerHTML='<i class="fas fa-chevron-down"></i> クチコミを閉じる';
     btn.setAttribute('data-expanded','0');
     btn.previousElementSibling && btn.previousElementSibling.scrollIntoView&&btn.previousElementSibling.scrollIntoView({behavior:'smooth',block:'nearest'});
   } else {
     wrap.querySelectorAll('.sp-rv-hidden').forEach(function(c){ c.classList.add('sp-rv-show'); });
-    btn.innerHTML='<i class="fas fa-chevron-up"></i> Show less';
+    btn.innerHTML='<i class="fas fa-chevron-up"></i> 閉じる';
     btn.setAttribute('data-expanded','1');
   }
 }

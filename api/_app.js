@@ -8296,11 +8296,11 @@ People: `);
     const _shopCat = shop.category;
     const _clinicSubtype = (() => {
       const nm = (shop.name || "").toLowerCase();
-      if (nm.includes("plastic surgery")) return "Plastic Surgery Clinic";
-      if (nm.includes("aesthetic")) return "Aesthetic Clinic";
-      if (nm.includes("dental") || nm.includes("dentist")) return "Dental Clinic";
-      if (nm.includes("dermatology") || nm.includes("derma")) return "Dermatology Clinic";
-      return "Skin Clinic";
+      if (nm.includes("plastic surgery") || nm.includes("\u6574\u5F62")) return "\u6574\u5F62\u5916\u79D1";
+      if (nm.includes("aesthetic") || nm.includes("\u30A8\u30B9\u30C6")) return "\u30A8\u30B9\u30C6\u30AF\u30EA\u30CB\u30C3\u30AF";
+      if (nm.includes("dental") || nm.includes("dentist") || nm.includes("\u6B6F\u79D1")) return "\u6B6F\u79D1\u30AF\u30EA\u30CB\u30C3\u30AF";
+      if (nm.includes("dermatology") || nm.includes("derma") || nm.includes("\u76AE\u819A\u79D1")) return "\u76AE\u819A\u79D1\u30AF\u30EA\u30CB\u30C3\u30AF";
+      return "\u30B9\u30AD\u30F3\u30AF\u30EA\u30CB\u30C3\u30AF";
     })();
     const _catTitleLabels = {
       clinic: _clinicSubtype,
@@ -8314,16 +8314,15 @@ People: `);
     const _catLabel = _catTitleLabels[_shopCat] || _shopCat.charAt(0).toUpperCase() + _shopCat.slice(1);
     const _areaFinal = ["cheongdam", "apgujeong", "sinsa", "nonhyeon"].some((a) => _shopArea.toLowerCase().includes(a)) ? "Gangnam" : _shopArea;
     const _titleSuffix = " | Seoul Beauty Trip";
-    const _pageTitleFull = shop.name + " \u2014 " + _areaFinal + " " + _catLabel + " Seoul" + _titleSuffix;
+    const _pageTitleFull = shop.name + " \u2014 " + _areaFinal + " " + _catLabel + _titleSuffix;
     let _pageTitle = _pageTitleFull;
     if (_pageTitleFull.length > 65) {
-      const _shortCat = _catLabel.split(" ").slice(-1)[0];
-      const _t2 = shop.name + " \u2014 " + _areaFinal + " " + _shortCat + " Seoul" + _titleSuffix;
+      const _t2 = shop.name + " \u2014 " + _areaFinal + _titleSuffix;
       if (_t2.length <= 65) {
         _pageTitle = _t2;
       } else {
         const _nameCut = shop.name.length > 35 ? shop.name.substring(0, 35).trimEnd() : shop.name;
-        _pageTitle = _nameCut + " \u2014 " + _shortCat + " " + _areaFinal + " Seoul" + _titleSuffix;
+        _pageTitle = _nameCut + " \u2014 " + _areaFinal + _titleSuffix;
       }
     }
     const _catLbl2 = _shopCat;
@@ -8354,6 +8353,7 @@ People: `);
       cheongdam: "\u6E05\u6F6D"
     };
     const _jaArea = _jaAreaMap[_areaClean.toLowerCase()] || _areaClean;
+    _pageTitle = _pageTitle.replace(_areaFinal, _jaArea);
     const _metaDesc = shop.metaDescription && shop.metaDescription.trim().length > 30 ? trimDesc(shop.metaDescription, 160) : trimDesc(`${shop.name}\u306F\u30BD\u30A6\u30EB${_jaArea}\u306E\u4EBA\u6C17${_jaCatDesc}\u3067\u3059\u3002` + (_revs ? _revs + "\u3002" : "") + (_svcPart ? `${_svcPart}\u306A\u3069\u306B\u5BFE\u5FDC\u3002` : "") + "WhatsApp\u30FB\u65E5\u672C\u8A9E\u3067\u3054\u4E88\u7D04\u3044\u305F\u3060\u3051\u307E\u3059\u3002\u5F53\u65E5\u4E88\u7D04\u3082OK\u3002", 160);
     const _areaGn = _shopArea.toLowerCase().includes("cheongdam") || _shopArea.toLowerCase().includes("apgujeong") ? "Gangnam" : _shopArea;
     const _n = shop.name;
@@ -8798,8 +8798,8 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
 <body>
 <nav class="sp-nav" itemscope itemtype="https://schema.org/SiteNavigationElement">
   <div class="sp-nav-inner">
-    <a href="/" class="sp-nav-logo" itemprop="url"><span itemprop="name">Seoul Beauty Trip</span></a>
-    <a href="/" class="sp-nav-back" id="sp-nav-back-btn"><i class="fas fa-arrow-left"></i> <span id="sp-nav-back-label">Catalog</span></a>
+    <a href="/ja" class="sp-nav-logo" itemprop="url"><span itemprop="name">Seoul Beauty Trip</span></a>
+    <a href="/ja" class="sp-nav-back" id="sp-nav-back-btn"><i class="fas fa-arrow-left"></i> <span id="sp-nav-back-label">\u4E00\u89A7</span></a>
 <script>
 (function(){
   var sp=new URLSearchParams(window.location.search);
@@ -8807,25 +8807,25 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
   var btn=document.getElementById('sp-nav-back-btn');
   var lbl=document.getElementById('sp-nav-back-label');
   if(fr==='map'){
-    if(btn) btn.href='/?tab=map';
-    if(lbl) lbl.textContent='Map';
+    if(btn) btn.href='/ja?tab=map';
+    if(lbl) lbl.textContent='\u30DE\u30C3\u30D7';
   } else if(fr==='browse'){
-    if(btn) btn.href='/?tab=browse';
-    if(lbl) lbl.textContent='Browse';
+    if(btn) btn.href='/ja?tab=browse';
+    if(lbl) lbl.textContent='\u30A8\u30EA\u30A2';
   } else if(fr==='search'){
-    if(btn) btn.href='/?search=1';
-    if(lbl) lbl.textContent='Search';
+    if(btn) btn.href='/ja?search=1';
+    if(lbl) lbl.textContent='\u691C\u7D22';
   }
 })();
 </script>
   </div>
 </nav>
 <nav aria-label="breadcrumb" style="background:rgba(0,0,0,.35);padding:7px 16px;font-size:12px;color:rgba(255,255,255,.5);display:flex;align-items:center;gap:4px;flex-wrap:wrap">
-  <a href="/" style="color:rgba(255,255,255,.55);text-decoration:none">Home</a>
+  <a href="/ja" style="color:rgba(255,255,255,.55);text-decoration:none">\u30DB\u30FC\u30E0</a>
   <span style="opacity:.4">\u203A</span>
-  <a href="/best/${_bcCatSlug}/seoul" style="color:rgba(255,255,255,.55);text-decoration:none">${_bcCatName}</a>
+  <a href="/ja/shops" style="color:rgba(255,255,255,.55);text-decoration:none">\u30B5\u30ED\u30F3\u4E00\u89A7</a>
   <span style="opacity:.4">\u203A</span>
-  <a href="/best/${_bcCatSlug}/${_bcAreaSlug}" style="color:rgba(255,255,255,.55);text-decoration:none">${_shopArea}</a>
+  <a href="/ja/shops" style="color:rgba(255,255,255,.55);text-decoration:none">${_shopArea}</a>
   <span style="opacity:.4">\u203A</span>
   <span style="color:rgba(255,255,255,.8)">${shop.name}</span>
 </nav>
@@ -8834,9 +8834,9 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
   <img class="sp-hero-img" src="${shop.thumbnail}" alt="${shop.name} ${_catLabel} in ${_areaFinal} Seoul \u2014 Best Korean Beauty for Foreigners" itemprop="image" width="800" height="600" fetchpriority="high">
   <div class="sp-hero-ov"></div>
   <div class="sp-hero-info">
-    <div class="sp-cat-badge">${catIcon} ${shop.category.charAt(0).toUpperCase() + shop.category.slice(1)} \xB7 ${_shopArea}</div>
+    <div class="sp-cat-badge">${catIcon} ${_catLabel} \xB7 ${_shopArea}</div>
     <h1 class="sp-title" itemprop="name">${shop.name}</h1>
-    <div class="sp-subtitle" style="font-size:13px;color:rgba(255,255,255,.65);margin-top:4px;font-weight:500;letter-spacing:.3px">${_catLabel} &middot; ${_areaFinal}, Seoul &middot; English Booking Available</div>
+    <div class="sp-subtitle" style="font-size:13px;color:rgba(255,255,255,.65);margin-top:4px;font-weight:500;letter-spacing:.3px">${_catLabel} &middot; ${_areaFinal}\u30FB\u30BD\u30A6\u30EB &middot; \u65E5\u672C\u8A9E\u5BFE\u5FDC\u4E88\u7D04OK</div>
     <div class="sp-loc"><i class="fas fa-map-marker-alt" style="color:var(--pk)"></i><span itemprop="addressLocality">${shop.location.toLowerCase().includes("seoul") ? shop.location : shop.location + ", Seoul"}</span></div>
     <div style="margin-top:7px;display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.45);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.15);border-radius:20px;padding:5px 12px;width:fit-content;cursor:pointer;max-width:90vw;overflow:hidden" onclick="navigator.clipboard&&navigator.clipboard.writeText('${canonicalUrl}').then(function(){var el=document.getElementById('sp-url-copied');if(el){el.style.opacity='1';setTimeout(function(){el.style.opacity='0'},1500)}})">
       <i class="fas fa-link" style="color:rgba(255,255,255,.5);font-size:10px;flex-shrink:0"></i>
@@ -8846,7 +8846,7 @@ body{background:var(--bg);color:#fff;font-family:var(--ff-sans);min-height:100vh
     <div class="sp-rating">
       <span class="sp-stars">\u2605\u2605\u2605\u2605\u2605</span>
       <span class="sp-rating-num">
-        ${shop.rating} (${shop.reviewCount} reviews)
+        ${shop.rating} (${shop.reviewCount}\u4EF6\u306E\u53E3\u30B3\u30DF)
       </span>
     </div>
   </div>
@@ -8880,23 +8880,23 @@ ${(() => {
       const addrHtml2 = shop.address ? `<div class="sp-addr-row"><i class="fas fa-location-dot"></i><span itemprop="address">${shop.address}</span></div>` : "";
       let infoCards2 = "";
       const locArea2 = shop.location ? shop.location.split(",")[0].trim() : "";
-      if (locArea2) infoCards2 += `<div class="sp-ig-card"><div class="sp-ig-label">Area</div><div class="sp-ig-val"><i class="fas fa-map-marker-alt"></i>${locArea2}</div></div>`;
+      if (locArea2) infoCards2 += `<div class="sp-ig-card"><div class="sp-ig-label">\u30A8\u30EA\u30A2</div><div class="sp-ig-val"><i class="fas fa-map-marker-alt"></i>${locArea2}</div></div>`;
       if (shop.reviewCount && shop.reviewCount > 0) {
         const starsHtml2 = "\u2605".repeat(Math.min(5, Math.round(Number(shop.rating || 5)))) + "\u2606".repeat(Math.max(0, 5 - Math.round(Number(shop.rating || 5))));
-        infoCards2 += `<div class="sp-ig-card"><div class="sp-ig-label">Rating</div><div class="sp-ig-val"><span class="sp-ig-stars">${starsHtml2}</span>&nbsp;${shop.rating}</div></div>`;
+        infoCards2 += `<div class="sp-ig-card"><div class="sp-ig-label">\u8A55\u4FA1</div><div class="sp-ig-val"><span class="sp-ig-stars">${starsHtml2}</span>&nbsp;${shop.rating}</div></div>`;
       }
       const infoGridHtml2 = infoCards2 ? `<div class="sp-info-grid">${infoCards2}</div>` : "";
       const descHtml2 = shop.description ? (() => {
         const _rating2 = shop.rating ? Number(shop.rating).toFixed(1) : "";
         const _reviews2 = shop.reviewCount ? Number(shop.reviewCount).toLocaleString() : "";
         const _tags = [];
-        _tags.push(`<span class="sp-about-tag tag-en"><i class="fas fa-comments" style="margin-right:3px"></i>English OK</span>`);
-        _tags.push(`<span class="sp-about-tag tag-intl"><i class="fas fa-globe" style="margin-right:3px"></i>Foreigner Friendly</span>`);
-        if (_rating2) _tags.push(`<span class="sp-about-tag tag-trust"><i class="fas fa-star" style="margin-right:3px"></i>${_rating2}\u2605${_reviews2 ? " \xB7 " + _reviews2 + " reviews" : ""}</span>`);
-        return `<div class="sp-about-box"><div class="sp-about-head"><div class="sp-about-icon"><i class="fas fa-store"></i></div><div class="sp-about-title">About</div></div><div class="sp-about-text" itemprop="description">${shop.description}</div><div class="sp-about-tags">${_tags.join("")}</div></div>`;
+        _tags.push(`<span class="sp-about-tag tag-en"><i class="fas fa-comments" style="margin-right:3px"></i>\u65E5\u672C\u8A9EOK</span>`);
+        _tags.push(`<span class="sp-about-tag tag-intl"><i class="fas fa-globe" style="margin-right:3px"></i>\u5916\u56FD\u4EBA\u6B53\u8FCE</span>`);
+        if (_rating2) _tags.push(`<span class="sp-about-tag tag-trust"><i class="fas fa-star" style="margin-right:3px"></i>${_rating2}\u2605${_reviews2 ? " \xB7 " + _reviews2 + "\u4EF6\u306E\u53E3\u30B3\u30DF" : ""}</span>`);
+        return `<div class="sp-about-box"><div class="sp-about-head"><div class="sp-about-icon"><i class="fas fa-store"></i></div><div class="sp-about-title">\u5E97\u8217\u60C5\u5831</div></div><div class="sp-about-text" itemprop="description">${shop.description}</div><div class="sp-about-tags">${_tags.join("")}</div></div>`;
       })() : "";
       const editorNoteVal = (shop.editor_note || shop.editorNote || "").trim();
-      const editorNoteHtml2 = editorNoteVal ? `<div class="sp-editor-note"><div class="sp-editor-note-head"><i class="fas fa-pen-nib"></i><span>Editor's Note</span><span class="sp-editor-verified"><i class="fas fa-circle-check"></i> Verified by Seoul Beauty Trip</span></div><p class="sp-editor-note-text">${editorNoteVal}</p></div>` : "";
+      const editorNoteHtml2 = editorNoteVal ? `<div class="sp-editor-note"><div class="sp-editor-note-head"><i class="fas fa-pen-nib"></i><span>\u7DE8\u96C6\u90E8\u30CE\u30FC\u30C8</span><span class="sp-editor-verified"><i class="fas fa-circle-check"></i> Seoul Beauty Trip \u78BA\u8A8D\u6E08</span></div><p class="sp-editor-note-text">${editorNoteVal}</p></div>` : "";
       let hoursHtml2 = "";
       if (shop.hours) {
         const days2 = shop.hours.split(/\s*[|]\s*|\s*\/\s*/).map((s) => s.trim()).filter(Boolean);
@@ -8909,33 +8909,33 @@ ${(() => {
             const timeP = col2 > -1 ? line.slice(col2 + 1).trim() : "";
             const isToday2 = dayNames2[today2] && dayP.toLowerCase().startsWith(dayNames2[today2].toLowerCase());
             const isClosed2 = timeP.toLowerCase().includes("closed");
-            return `<tr class="${isToday2 ? "sp-hours-today" : ""}"><td class="sp-hours-day">${dayP.slice(0, 3).toUpperCase()}</td><td class="sp-hours-time${isClosed2 ? " closed" : ""}">${timeP || "Closed"}</td></tr>`;
+            return `<tr class="${isToday2 ? "sp-hours-today" : ""}"><td class="sp-hours-day">${dayP.slice(0, 3).toUpperCase()}</td><td class="sp-hours-time${isClosed2 ? " closed" : ""}">${timeP || "\u5B9A\u4F11\u65E5"}</td></tr>`;
           }).join("");
-          hoursHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-clock" style="color:var(--gold);margin-right:4px"></i>Hours</div><div class="sp-hours-wrap"><table class="sp-hours-table">${rows2}</table></div></div>`;
+          hoursHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-clock" style="color:var(--gold);margin-right:4px"></i>\u55B6\u696D\u6642\u9593</div><div class="sp-hours-wrap"><table class="sp-hours-table">${rows2}</table></div></div>`;
         } else {
-          hoursHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-clock" style="color:var(--gold);margin-right:4px"></i>Hours</div><div class="sp-sec-body" itemprop="openingHours">${shop.hours}</div></div>`;
+          hoursHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-clock" style="color:var(--gold);margin-right:4px"></i>\u55B6\u696D\u6642\u9593</div><div class="sp-sec-body" itemprop="openingHours">${shop.hours}</div></div>`;
         }
       }
       let priceHtml2 = "";
       if (shop.servicePrices && shop.servicePrices.length > 0) {
         const rows3 = shop.servicePrices.map((p) => `<div class="sp-price-item"><span class="sp-price-name">${p.name}</span><span class="sp-price-val" itemprop="priceRange">${p.price}</span></div>`).join("");
-        priceHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-won-sign" style="color:var(--gold);margin-right:4px"></i>Price List</div><div class="sp-price-list">${rows3}</div></div>`;
+        priceHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-won-sign" style="color:var(--gold);margin-right:4px"></i>\u6599\u91D1\u8868</div><div class="sp-price-list">${rows3}</div></div>`;
       } else {
-        priceHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-won-sign" style="color:var(--gold);margin-right:4px"></i>Pricing</div><div class="sp-sec-body">Prices vary by treatment &amp; consultation. <span style="color:rgba(255,255,255,.35)">Contact us via WhatsApp below for a free quote.</span></div></div>`;
+        priceHtml2 = `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-won-sign" style="color:var(--gold);margin-right:4px"></i>\u6599\u91D1</div><div class="sp-sec-body">\u65BD\u8853\u30FB\u30AB\u30A6\u30F3\u30BB\u30EA\u30F3\u30B0\u306B\u3088\u308A\u6599\u91D1\u306F\u7570\u306A\u308A\u307E\u3059\u3002<span style="color:rgba(255,255,255,.35)">WhatsApp\u3067\u7121\u6599\u898B\u7A4D\u3082\u308A\u53D7\u4ED8\u4E2D\u3002</span></div></div>`;
       }
       const svcHtml2 = shop.services && shop.services.length > 0 ? (() => {
         const svcIcoMap = { clinic: "fa-syringe", headspa: "fa-spa", hair: "fa-scissors", tattoo: "fa-pen-nib", makeup: "fa-wand-magic-sparkles", skincare: "fa-droplet", dental: "fa-tooth", plastic_surgery: "fa-star-of-life" };
         const svcIco = svcIcoMap[shop.category] || "fa-sparkles";
         const tags = shop.services.map((s) => `<span class="sp-svc-tag"><i class="fas ${svcIco}"></i>${s}</span>`).join("");
-        return `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-list-check" style="color:var(--gold);margin-right:5px"></i>Services</div><div class="sp-svc-tags">${tags}</div></div>`;
+        return `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-list-check" style="color:var(--gold);margin-right:5px"></i>\u30E1\u30CB\u30E5\u30FC</div><div class="sp-svc-tags">${tags}</div></div>`;
       })() : "";
       const mapHtml2 = (() => {
-        if (!shop.lat || !shop.lng) return shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : "";
+        if (!shop.lat || !shop.lng) return shop.address ? `<div class="sp-sec"><div class="sp-sec-title">\u30A2\u30AF\u30BB\u30B9</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : "";
         const mlat2 = parseFloat(shop.lat), mlng2 = parseFloat(shop.lng), z = 16;
         const tx = Math.floor((mlng2 + 180) / 360 * Math.pow(2, z)), ty = Math.floor((1 - Math.log(Math.tan(mlat2 * Math.PI / 180) + 1 / Math.cos(mlat2 * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, z));
         const t1 = `https://tile.openstreetmap.org/${z}/${tx}/${ty}.png`, t2 = `https://tile.openstreetmap.org/${z}/${tx + 1}/${ty}.png`;
-        const gLink = `https://maps.google.com/?q=${mlat2},${mlng2}&hl=en`;
-        return `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map" style="cursor:pointer;overflow:hidden;position:relative" data-map-url="${gLink}" onclick="openMapUrl(this)"><div style="display:flex;height:100%;filter:saturate(0.8) brightness(0.75)"><img src="${t1}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"><img src="${t2}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"></div><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none"><i class="fas fa-map-marker-alt" style="font-size:32px;color:#e8414a;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6))"></i></div>${shop.address || shop.location ? `<div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);backdrop-filter:blur(4px);color:#fff;font-size:11px;padding:4px 10px;border-radius:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:88%;pointer-events:none"><i class="fas fa-map-marker-alt" style="margin-right:4px;color:#FF4D8D"></i>${(shop.address || shop.location).trim()}</div>` : ""}</div></div>`;
+        const gLink = `https://maps.google.com/?q=${mlat2},${mlng2}&hl=ja`;
+        return `<div class="sp-sec"><div class="sp-sec-title">\u30A2\u30AF\u30BB\u30B9</div><div class="sp-map" style="cursor:pointer;overflow:hidden;position:relative" data-map-url="${gLink}" onclick="openMapUrl(this)"><div style="display:flex;height:100%;filter:saturate(0.8) brightness(0.75)"><img src="${t1}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"><img src="${t2}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"></div><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none"><i class="fas fa-map-marker-alt" style="font-size:32px;color:#e8414a;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6))"></i></div>${shop.address || shop.location ? `<div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);backdrop-filter:blur(4px);color:#fff;font-size:11px;padding:4px 10px;border-radius:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:88%;pointer-events:none"><i class="fas fa-map-marker-alt" style="margin-right:4px;color:#FF4D8D"></i>${(shop.address || shop.location).trim()}</div>` : ""}</div></div>`;
       })();
       return addrHtml2 + infoGridHtml2 + descHtml2 + editorNoteHtml2 + priceHtml2 + svcHtml2 + hoursHtml2;
     })()}
@@ -8949,12 +8949,12 @@ ${(() => {
         return `<div class="sp-review-card"><div class="sp-review-top"><span class="sp-review-author">${rv.author || rv.author_name || "Guest"}</span><span class="sp-review-stars">${rvStars}</span></div><div class="sp-review-text">${rv.text || ""}</div>${rv.time ? `<div class="sp-review-time">${rv.time}</div>` : ""}</div>`;
       }).join("");
       const mapHtml3 = (() => {
-        if (!shop.lat || !shop.lng) return shop.address ? `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : "";
+        if (!shop.lat || !shop.lng) return shop.address ? `<div class="sp-sec"><div class="sp-sec-title">\u30A2\u30AF\u30BB\u30B9</div><div class="sp-sec-body"><i class="fas fa-map-marker-alt" style="color:#FF4D8D;margin-right:6px"></i>${shop.address}</div></div>` : "";
         const mlat3 = parseFloat(shop.lat), mlng3 = parseFloat(shop.lng), z = 16;
         const tx = Math.floor((mlng3 + 180) / 360 * Math.pow(2, z)), ty = Math.floor((1 - Math.log(Math.tan(mlat3 * Math.PI / 180) + 1 / Math.cos(mlat3 * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, z));
         const t1 = `https://tile.openstreetmap.org/${z}/${tx}/${ty}.png`, t2 = `https://tile.openstreetmap.org/${z}/${tx + 1}/${ty}.png`;
-        const gLink = `https://maps.google.com/?q=${mlat3},${mlng3}&hl=en`;
-        return `<div class="sp-sec"><div class="sp-sec-title">Location</div><div class="sp-map" style="cursor:pointer;overflow:hidden;position:relative" data-map-url="${gLink}" onclick="openMapUrl(this)"><div style="display:flex;height:100%;filter:saturate(0.8) brightness(0.75)"><img src="${t1}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"><img src="${t2}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"></div><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none"><i class="fas fa-map-marker-alt" style="font-size:32px;color:#e8414a;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6))"></i></div>${shop.address || shop.location ? `<div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);backdrop-filter:blur(4px);color:#fff;font-size:11px;padding:4px 10px;border-radius:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:88%;pointer-events:none"><i class="fas fa-map-marker-alt" style="margin-right:4px;color:#FF4D8D"></i>${(shop.address || shop.location).trim()}</div>` : ""}</div></div>`;
+        const gLink = `https://maps.google.com/?q=${mlat3},${mlng3}&hl=ja`;
+        return `<div class="sp-sec"><div class="sp-sec-title">\u30A2\u30AF\u30BB\u30B9</div><div class="sp-map" style="cursor:pointer;overflow:hidden;position:relative" data-map-url="${gLink}" onclick="openMapUrl(this)"><div style="display:flex;height:100%;filter:saturate(0.8) brightness(0.75)"><img src="${t1}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"><img src="${t2}" style="width:50%;height:100%;object-fit:cover;flex-shrink:0" loading="lazy"></div><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none"><i class="fas fa-map-marker-alt" style="font-size:32px;color:#e8414a;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6))"></i></div>${shop.address || shop.location ? `<div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);backdrop-filter:blur(4px);color:#fff;font-size:11px;padding:4px 10px;border-radius:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:88%;pointer-events:none"><i class="fas fa-map-marker-alt" style="margin-right:4px;color:#FF4D8D"></i>${(shop.address || shop.location).trim()}</div>` : ""}</div></div>`;
       })();
       const avatarColors = ["#e8414a", "#e87b41", "#c9a84c", "#41a8e8", "#7b41e8", "#41e87b", "#e841c9", "#41e8c9"];
       const reviewCardsEnhanced = shopReviews2.map((rv, ri) => {
@@ -8978,8 +8978,8 @@ ${(() => {
         else starsBarHtml += `<span class="sp-reviews-star"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="rgba(255,255,255,.18)"/></svg></span>`;
       }
       const rs = shop.reviewSummary;
-      const summaryHtml = rs ? typeof rs === "string" ? `<div class="sp-rv-summary"><div class="sp-rv-summary-vibe">${rs}</div></div>` : `<div class="sp-rv-summary">` + (rs.vibe ? `<div class="sp-rv-summary-vibe">${rs.vibe}</div>` : "") + `<div class="sp-rv-summary-row">` + (rs.strengths?.length ? `<div class="sp-rv-summary-col"><div class="sp-rv-summary-label">What customers love</div><div class="sp-rv-summary-strengths">` + rs.strengths.map((s) => `<div class="sp-rv-summary-strength">${s}</div>`).join("") + `</div></div>` : "") + (rs.bestFor ? `<div class="sp-rv-summary-col" style="margin-top:12px"><div class="sp-rv-summary-label">Best for</div><div class="sp-rv-summary-bestfor">\u{1F464} ${rs.bestFor}</div></div>` : "") + `</div></div>` : "";
-      const reviewsBlock = shopReviews2.length ? `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-star" style="color:var(--gold);margin-right:4px"></i>Google Reviews</div>` + (bigRating !== "0.0" ? `<div class="sp-reviews-header"><div class="sp-reviews-score"><div class="sp-reviews-big-num">${bigRating}</div><div class="sp-reviews-score-right"><div class="sp-reviews-stars-row">${starsBarHtml}</div>` + (totalCnt ? `<div class="sp-reviews-total">${totalCnt} Google reviews</div>` : "") + `</div></div></div>` : "") + summaryHtml + `<div class="sp-reviews-wrap">` + reviewCardsEnhanced + (hasMore2 ? `<button class="sp-reviews-toggle" onclick="spToggleReviews(this)"><i class="fas fa-chevron-down"></i> Show all ${shopReviews2.length} reviews</button>` : "") + `</div></div>` : "";
+      const summaryHtml = rs ? typeof rs === "string" ? `<div class="sp-rv-summary"><div class="sp-rv-summary-vibe">${rs}</div></div>` : `<div class="sp-rv-summary">` + (rs.vibe ? `<div class="sp-rv-summary-vibe">${rs.vibe}</div>` : "") + `<div class="sp-rv-summary-row">` + (rs.strengths?.length ? `<div class="sp-rv-summary-col"><div class="sp-rv-summary-label">\u304A\u5BA2\u69D8\u304C\u7D76\u8CDB</div><div class="sp-rv-summary-strengths">` + rs.strengths.map((s) => `<div class="sp-rv-summary-strength">${s}</div>`).join("") + `</div></div>` : "") + (rs.bestFor ? `<div class="sp-rv-summary-col" style="margin-top:12px"><div class="sp-rv-summary-label">\u3053\u3093\u306A\u65B9\u306B\u304A\u3059\u3059\u3081</div><div class="sp-rv-summary-bestfor">\u{1F464} ${rs.bestFor}</div></div>` : "") + `</div></div>` : "";
+      const reviewsBlock = shopReviews2.length ? `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-star" style="color:var(--gold);margin-right:4px"></i>Google\u30AF\u30C1\u30B3\u30DF</div>` + (bigRating !== "0.0" ? `<div class="sp-reviews-header"><div class="sp-reviews-score"><div class="sp-reviews-big-num">${bigRating}</div><div class="sp-reviews-score-right"><div class="sp-reviews-stars-row">${starsBarHtml}</div>` + (totalCnt ? `<div class="sp-reviews-total">${totalCnt}\u4EF6\u306EGoogle\u30AF\u30C1\u30B3\u30DF</div>` : "") + `</div></div></div>` : "") + summaryHtml + `<div class="sp-reviews-wrap">` + reviewCardsEnhanced + (hasMore2 ? `<button class="sp-reviews-toggle" onclick="spToggleReviews(this)"><i class="fas fa-chevron-down"></i> \u30AF\u30C1\u30B3\u30DF\u3092\u5168\u4EF6\u8868\u793A\uFF08${shopReviews2.length}\u4EF6\uFF09</button>` : "") + `</div></div>` : "";
       return reviewsBlock + mapHtml3;
     })()}
 
@@ -9005,7 +9005,7 @@ ${(() => {
         const ico = wcIcons[bi % wcIcons.length];
         return `<div class="sp-why-item"><i class="fas ${ico} sp-why-icon"></i><span class="sp-why-text">${b}</span></div>`;
       }).join("");
-      return `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-trophy" style="color:var(--gold);margin-right:5px"></i>Why Choose ${shop.name}</div><div class="sp-why-list">${items}</div></div>`;
+      return `<div class="sp-sec"><div class="sp-sec-title"><i class="fas fa-trophy" style="color:var(--gold);margin-right:5px"></i>${shop.name}\u304C\u9078\u3070\u308C\u308B\u7406\u7531</div><div class="sp-why-list">${items}</div></div>`;
     })()}
 
   ${(() => {
@@ -9041,43 +9041,42 @@ ${(() => {
             cleanSeo = cleanSeo.slice(0, _h2start) + (_nextH2 > 0 ? cleanSeo.slice(_nextH2) : "");
           }
         }
-        const _seoHead = '<div class="sp-seo-block-head"><i class="fas fa-magnifying-glass"></i><span>Travel Guide</span></div>';
+        const _seoHead = '<div class="sp-seo-block-head"><i class="fas fa-magnifying-glass"></i><span>\u65C5\u884C\u30AC\u30A4\u30C9</span></div>';
         return '<div class="sp-seo-block">' + _seoHead + cleanSeo + "</div>";
       }
       const area3 = (shop.location || "Seoul").split(",")[0].trim();
-      const cat3 = { clinic: "Skin Clinic", headspa: "Head Spa", hair: "Hair Salon", skincare: "Skincare", makeup: "Makeup", tattoo: "Eyebrow Tattoo", spa: "Spa", nail: "Nail Studio", dental: "Dental Clinic" }[shop.category] || shop.category.charAt(0).toUpperCase() + shop.category.slice(1);
-      const svcList = shop.services && shop.services.length > 0 ? shop.services.slice(0, 4).join(", ") : cat3 + " treatments";
+      const cat3ja = { clinic: "\u30B9\u30AD\u30F3\u30AF\u30EA\u30CB\u30C3\u30AF", headspa: "\u30D8\u30C3\u30C9\u30B9\u30D1", hair: "\u30D8\u30A2\u30B5\u30ED\u30F3", skincare: "\u30B9\u30AD\u30F3\u30B1\u30A2", makeup: "\u30E1\u30A4\u30AF", tattoo: "\u7709\u30A2\u30FC\u30C8", spa: "\u30B9\u30D1", nail: "\u30CD\u30A4\u30EB", dental: "\u6B6F\u79D1\u30AF\u30EA\u30CB\u30C3\u30AF" }[shop.category] || _catLabel;
+      const svcList = shop.services && shop.services.length > 0 ? shop.services.slice(0, 4).join("\u3001") : cat3ja + "\u306E\u65BD\u8853";
       const areaGn = ["cheongdam", "apgujeong", "sinsa", "nonhyeon"].some((a) => area3.toLowerCase().includes(a)) ? "Gangnam" : area3;
-      const revTxt = shop.reviewCount > 10 ? " With " + shop.reviewCount + "+ verified reviews and a " + shop.rating + "-star rating, it" : " It";
-      const _fbClinicType = (() => {
+      const revTxtJa = shop.reviewCount > 10 ? shop.reviewCount + "\u4EF6\u4EE5\u4E0A\u306E\u30AF\u30C1\u30B3\u30DF\u3067" : "";
+      const _fbClinicTypeJa = (() => {
         const nm = (shop.name || "").toLowerCase();
-        if (nm.includes("plastic surgery")) return "plastic surgery clinic";
-        if (nm.includes("aesthetic")) return "aesthetic clinic";
-        if (nm.includes("dental") || nm.includes("dentist")) return "dental clinic";
-        if (nm.includes("dermatology") || nm.includes("derma")) return "dermatology clinic";
-        return "skin clinic";
+        if (nm.includes("plastic surgery")) return "\u7F8E\u5BB9\u6574\u5F62\u30AF\u30EA\u30CB\u30C3\u30AF";
+        if (nm.includes("aesthetic")) return "\u7F8E\u5BB9\u30AF\u30EA\u30CB\u30C3\u30AF";
+        if (nm.includes("dental") || nm.includes("dentist")) return "\u6B6F\u79D1\u30AF\u30EA\u30CB\u30C3\u30AF";
+        if (nm.includes("dermatology") || nm.includes("derma")) return "\u76AE\u819A\u79D1\u30AF\u30EA\u30CB\u30C3\u30AF";
+        return "\u30B9\u30AD\u30F3\u30AF\u30EA\u30CB\u30C3\u30AF";
       })();
-      const _fbClinicTypeTitle = _fbClinicType.replace(/\b\w/g, (c2) => c2.toUpperCase());
       const _svc0 = shop.services && shop.services.length > 0 ? shop.services[0] : "";
       const _svc1b = shop.services && shop.services.length > 1 ? shop.services[1] : "";
-      const _introVariants = [
-        shop.name + " is a foreigner-friendly " + _fbClinicType + " in " + area3 + ", Seoul." + revTxt + " is highly recommended by international visitors for its English-speaking staff and transparent pricing.",
-        "Located in the heart of " + areaGn + ", " + shop.name + " is one of Seoul's most accessible " + _fbClinicType + "s for foreign patients. " + (_svc0 ? "Specializing in " + _svc0 + (_svc1b ? " and " + _svc1b : "") + ", the" : "The") + " clinic offers consultations in English and seamless WhatsApp booking.",
-        "International patients consistently praise " + shop.name + " for its professional care and English-friendly environment. Situated in " + area3 + ", this " + _fbClinicType + " makes quality Korean treatments accessible without the language barrier."
+      const _introVariantsJa = [
+        shop.name + "\u306F" + area3 + "\u30FB\u30BD\u30A6\u30EB\u306B\u3042\u308B\u65E5\u672C\u4EBA\u306B\u3082\u4EBA\u6C17\u306E" + _fbClinicTypeJa + "\u3067\u3059\u3002" + revTxtJa + "\u9AD8\u3044\u8A55\u4FA1\u3092\u5F97\u3066\u304A\u308A\u3001WhatsApp\u3067\u65E5\u672C\u8A9E\u5BFE\u5FDC\u306E\u4E88\u7D04\u304C\u53EF\u80FD\u3067\u3059\u3002",
+        "\u30BD\u30A6\u30EB" + areaGn + "\u306E\u4E2D\u5FC3\u90E8\u306B\u3042\u308B" + shop.name + "\u306F\u3001\u5916\u56FD\u4EBA\u306B\u3082\u901A\u3044\u3084\u3059\u3044" + _fbClinicTypeJa + "\u3067\u3059\u3002" + (_svc0 ? _svc0 + (_svc1b ? "\u30FB" + _svc1b : "") + "\u306A\u3069\u3092\u5C02\u9580\u3068\u3057\u3001" : "") + " \u65E5\u672C\u8A9E\u3067\u306E\u30AB\u30A6\u30F3\u30BB\u30EA\u30F3\u30B0\u3082WhatsApp\u3067\u53D7\u3051\u4ED8\u3051\u3066\u3044\u307E\u3059\u3002",
+        "\u591A\u304F\u306E\u65E5\u672C\u4EBA\u89B3\u5149\u5BA2\u304B\u3089\u652F\u6301\u3055\u308C\u3066\u3044\u308B" + shop.name + "\u3002" + area3 + "\u30FB\u30BD\u30A6\u30EB\u306B\u4F4D\u7F6E\u3057\u3001\u9AD8\u54C1\u8CEA\u306A\u97D3\u56FD\u7F8E\u5BB9\u65BD\u8853\u3092\u8A00\u8449\u306E\u58C1\u306A\u304F\u4F53\u9A13\u3067\u304D\u307E\u3059\u3002"
       ];
       const _introIdx = Math.abs(shop.name.charCodeAt(0) + shop.name.charCodeAt(1)) % 3;
-      const _introTxt = _introVariants[_introIdx];
-      const _fbHead = '<div class="sp-seo-block-head"><i class="fas fa-magnifying-glass"></i><span>Travel Guide</span></div>';
+      const _introTxtJa = _introVariantsJa[_introIdx];
+      const _fbHead = '<div class="sp-seo-block-head"><i class="fas fa-magnifying-glass"></i><span>\u65C5\u884C\u30AC\u30A4\u30C9</span></div>';
       if (shop.category === "clinic") {
-        const treatments = shop.services && shop.services.length > 0 ? shop.services.slice(0, 6).join(", ") : "laser toning, skin booster injections, RF lifting, acne treatment, chemical peels";
-        return '<div class="sp-seo-block">' + _fbHead + '<h2 class="sp-seo-h2">' + shop.name + " \u2014 " + _fbClinicTypeTitle + " in " + areaGn + ' for Foreigners (2026)</h2><p class="sp-seo-p">' + _introTxt + '</p><h2 class="sp-seo-h2">Treatments at ' + shop.name + '</h2><p class="sp-seo-p">' + shop.name + " offers a range of treatments popular with foreign visitors: " + treatments + ". Korean clinics use KFDA-approved equipment, with results often 40\u201360% more affordable than equivalent treatments in the US, UK, or Australia.</p></div>";
+        const treatments = shop.services && shop.services.length > 0 ? shop.services.slice(0, 6).join("\u3001") : "\u30EC\u30FC\u30B6\u30FC\u30C8\u30FC\u30CB\u30F3\u30B0\u3001\u30B9\u30AD\u30F3\u30D6\u30FC\u30B9\u30BF\u30FC\u3001RF\u30EA\u30D5\u30C6\u30A3\u30F3\u30B0\u3001\u30CB\u30AD\u30D3\u6CBB\u7642\u3001\u30D4\u30FC\u30EA\u30F3\u30B0";
+        return '<div class="sp-seo-block">' + _fbHead + '<h2 class="sp-seo-h2">' + shop.name + " \u2014 " + areaGn + "\u306E" + _fbClinicTypeJa + '\uFF082026\u5E74\u6700\u65B0\uFF09</h2><p class="sp-seo-p">' + _introTxtJa + '</p><h2 class="sp-seo-h2">' + shop.name + '\u306E\u65BD\u8853\u30E1\u30CB\u30E5\u30FC</h2><p class="sp-seo-p">' + shop.name + "\u3067\u306F" + treatments + "\u306A\u3069\u306E\u65BD\u8853\u304C\u53EF\u80FD\u3067\u3059\u3002\u97D3\u56FD\u306E\u30AF\u30EA\u30CB\u30C3\u30AF\u306FKFDA\u8A8D\u5B9A\u6A5F\u5668\u3092\u4F7F\u7528\u3057\u3001\u65E5\u7C73\u6B27\u3068\u6BD4\u8F03\u3057\u306640\u301C60%\u7A0B\u5EA6\u30EA\u30FC\u30BA\u30CA\u30D6\u30EB\u306A\u4FA1\u683C\u3067\u53D7\u3051\u3089\u308C\u307E\u3059\u3002</p></div>";
       }
-      return '<div class="sp-seo-block">' + _fbHead + '<h2 class="sp-seo-h2">' + shop.name + " \u2014 " + cat3 + " in " + area3 + ', Seoul</h2><p class="sp-seo-p">Looking for the best ' + shop.category + " experience in " + area3 + ", Seoul? " + shop.name + " welcomes foreign visitors with English-friendly service and easy WhatsApp booking." + revTxt + ' offers an authentic Korean beauty experience tailored for international guests.</p><h2 class="sp-seo-h2">Foreigner-Friendly ' + cat3 + " in " + area3 + '</h2><p class="sp-seo-p">Located in ' + area3 + ", one of the top beauty districts in Seoul, " + shop.name + " specializes in " + svcList + ". The team provides English support throughout your visit \u2014 from consultation to aftercare \u2014 so you can relax and enjoy your treatment without language barriers. Book easily via WhatsApp through Seoul Beauty Trip.</p></div>";
+      return '<div class="sp-seo-block">' + _fbHead + '<h2 class="sp-seo-h2">' + shop.name + " \u2014 " + area3 + "\u30FB\u30BD\u30A6\u30EB\u306E" + cat3ja + '</h2><p class="sp-seo-p">\u30BD\u30A6\u30EB' + area3 + "\u3067" + cat3ja + "\u3092\u304A\u63A2\u3057\u306A\u3089\u3001" + shop.name + "\u304C\u304A\u3059\u3059\u3081\u3067\u3059\u3002\u65E5\u672C\u8A9E\u3067\u306EWhatsApp\u4E88\u7D04\u306B\u5BFE\u5FDC\u3057\u3066\u304A\u308A\u3001\u8A00\u8449\u306E\u5FC3\u914D\u306A\u304F\u672C\u5834\u306E\u97D3\u56FD\u7F8E\u5BB9\u3092\u4F53\u9A13\u3067\u304D\u307E\u3059\u3002" + revTxtJa + '\u9AD8\u3044\u8A55\u4FA1\u3092\u7372\u5F97\u3057\u3066\u3044\u307E\u3059\u3002</p><h2 class="sp-seo-h2">' + area3 + "\u30A8\u30EA\u30A2\u3067\u4EBA\u6C17\u306E" + cat3ja + '</h2><p class="sp-seo-p">\u30BD\u30A6\u30EB\u6709\u6570\u306E\u7F8E\u5BB9\u6FC0\u6226\u533A\u30FB' + area3 + "\u306B\u4F4D\u7F6E\u3059\u308B" + shop.name + "\u3067\u306F\u3001" + svcList + "\u306A\u3069\u306E\u30E1\u30CB\u30E5\u30FC\u3092\u3054\u7528\u610F\u3002\u30AB\u30A6\u30F3\u30BB\u30EA\u30F3\u30B0\u304B\u3089\u30A2\u30D5\u30BF\u30FC\u30B1\u30A2\u307E\u3067\u65E5\u672C\u8A9E\u3067\u30B5\u30DD\u30FC\u30C8\u3057\u307E\u3059\u3002Seoul Beauty Trip\u306EWhatsApp\u304B\u3089\u7C21\u5358\u306B\u3054\u4E88\u7D04\u3044\u305F\u3060\u3051\u307E\u3059\u3002</p></div>";
     })()}
 
   ${relatedShops.length > 0 ? `
   <div class="sp-related">
-    <div class="sp-related-title"><i class="fas fa-th-large"></i> More ${shop.category.charAt(0).toUpperCase() + shop.category.slice(1)} in Seoul</div>
+    <div class="sp-related-title"><i class="fas fa-th-large"></i> \u30BD\u30A6\u30EB\u306E${_catLabel}\u3092\u3082\u3063\u3068\u898B\u308B</div>
     <div class="sp-rel-grid">
       ${relatedShops.map((r) => {
       const rArea = (r.location || "").split(",")[0].trim();
@@ -9105,7 +9104,7 @@ ${(() => {
   <div style="padding:0 20px 20px">
     <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.35);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:6px">
       <i class="fas fa-map-marker-alt" style="color:var(--pk2);font-size:10px"></i>
-      Also in ${_shopAreaRaw || _areaFinal}
+      ${_shopAreaRaw || _areaFinal}\u306E\u4ED6\u306E\u30B5\u30ED\u30F3
     </div>
     <div style="display:flex;flex-direction:column;gap:8px">
       ${nearbyCrossShops.map((r) => {
@@ -9136,7 +9135,7 @@ ${(() => {
         <i class="fas fa-file-alt" style="color:#fff;font-size:14px"></i>
       </div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.4);letter-spacing:1px;text-transform:uppercase;margin-bottom:2px">Full Honest Review</div>
+        <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.4);letter-spacing:1px;text-transform:uppercase;margin-bottom:2px">\u8A73\u7D30\u30EC\u30D3\u30E5\u30FC\u8A18\u4E8B</div>
         <div style="font-size:12.5px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(reviewBlogTitle || "").replace(/"/g, "'")}</div>
       </div>
       <i class="fas fa-chevron-right" style="color:rgba(255,255,255,.3);font-size:11px;flex-shrink:0"></i>
@@ -9145,13 +9144,13 @@ ${(() => {
 
   <!-- \uB0B4\uBD80 SEO \uB9C1\uD06C \uC138\uC158: \uAD6C\uAE00\uC774 \uD398\uC774\uC9C0 \uC8FC\uC81C\uC640 \uC0AC\uC774\uD2B8 \uAD6C\uC870\uB97C \uD30C\uC545\uD558\uB3C4\uB85D \uB3D5\uB294 \uB2E4\uCC28\uC6D0 \uB9C1\uD06C -->
   <div class="sp-seo-links" style="padding:0 20px 16px;margin-bottom:0">
-    <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.3);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:10px">Explore More in Seoul</div>
+    <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.3);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:10px">\u30BD\u30A6\u30EB\u306E\u7F8E\u5BB9\u3092\u3082\u3063\u3068\u898B\u308B</div>
     <div style="display:flex;flex-wrap:wrap;gap:7px">
-      <a href="/best/${shop.category}/seoul" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.65);font-size:11.5px;text-decoration:none" title="Best ${_catLabel} in Seoul for Foreigners"><i class="fas fa-crown" style="color:var(--pk);font-size:9px"></i>Best ${_catLabel} in Seoul</a>
-      ${_areaFinal !== "Seoul" ? `<a href="/best/${shop.category}/${_areaFinal.toLowerCase()}" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.65);font-size:11.5px;text-decoration:none" title="Best ${_catLabel} in ${_areaFinal} Seoul"><i class="fas fa-map-marker-alt" style="color:var(--pk2);font-size:9px"></i>Best ${_catLabel} in ${_areaFinal}</a>` : ""}
-      <a href="/ja/blog" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.65);font-size:11.5px;text-decoration:none" title="Seoul Beauty Blog for Foreigners"><i class="fas fa-book-open" style="color:var(--pk);font-size:9px"></i>Seoul Beauty Guide</a>
-      <a href="/ja/blog/category/${shop.category}" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.65);font-size:11.5px;text-decoration:none" title="${_catLabel} Tips for Foreigners in Seoul"><i class="fas fa-feather-alt" style="color:var(--pk2);font-size:9px"></i>${_catLabel} Tips</a>
-      <a href="/" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.65);font-size:11.5px;text-decoration:none" title="Browse All Seoul Beauty Salons"><i class="fas fa-th-large" style="color:var(--pk2);font-size:9px"></i>All Beauty Salons</a>
+      <a href="/best/${shop.category}/seoul" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.65);font-size:11.5px;text-decoration:none" title="\u30BD\u30A6\u30EB\u306E\u304A\u3059\u3059\u3081${_catLabel}"><i class="fas fa-crown" style="color:var(--pk);font-size:9px"></i>\u30BD\u30A6\u30EB\u306E\u4EBA\u6C17${_catLabel}</a>
+      ${_areaFinal !== "Seoul" ? `<a href="/best/${shop.category}/${_areaFinal.toLowerCase()}" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.65);font-size:11.5px;text-decoration:none" title="${_areaFinal}\u306E${_catLabel}"><i class="fas fa-map-marker-alt" style="color:var(--pk2);font-size:9px"></i>${_areaFinal}\u306E${_catLabel}</a>` : ""}
+      <a href="/ja/blog" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.65);font-size:11.5px;text-decoration:none" title="\u30BD\u30A6\u30EB\u7F8E\u5BB9\u30AC\u30A4\u30C9\uFF08\u65E5\u672C\u8A9E\uFF09"><i class="fas fa-book-open" style="color:var(--pk);font-size:9px"></i>\u30BD\u30A6\u30EB\u7F8E\u5BB9\u30AC\u30A4\u30C9</a>
+      <a href="/ja/blog/category/${shop.category}" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.65);font-size:11.5px;text-decoration:none" title="${_catLabel}\u306E\u65BD\u8853\u30AC\u30A4\u30C9"><i class="fas fa-feather-alt" style="color:var(--pk2);font-size:9px"></i>${_catLabel}\u30AC\u30A4\u30C9</a>
+      <a href="/" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:rgba(255,255,255,.65);font-size:11.5px;text-decoration:none" title="\u30BD\u30A6\u30EB\u306E\u5168\u30B5\u30ED\u30F3\u4E00\u89A7"><i class="fas fa-th-large" style="color:var(--pk2);font-size:9px"></i>\u5168\u30B5\u30ED\u30F3\u4E00\u89A7</a>
     </div>
   </div>
 
@@ -9166,7 +9165,7 @@ ${(() => {
     if(typeof gtag==='function')gtag('event','whatsapp_click',{event_category:'conversion',event_label:sn,shop_name:sn,shop_category:sc,page_location:window.location.href});
     if(typeof _sbSend==='function')_sbSend('book_click',{shop_id:si,shop_name:sn,shop_category:sc,target:'whatsapp'});
   })()">
-    <i class="fab fa-whatsapp" style="font-size:20px"></i> Book via WhatsApp
+    <i class="fab fa-whatsapp" style="font-size:20px"></i> WhatsApp\u3067\u4E88\u7D04\u3059\u308B
   </a>
 </div>
 
@@ -9241,12 +9240,12 @@ function spToggleReviews(btn){
   var isExpanded = btn.getAttribute('data-expanded')==='1';
   if(isExpanded){
     hidden.forEach(function(c){ c.classList.remove('sp-rv-show'); });
-    btn.innerHTML='<i class="fas fa-chevron-down"></i> Show all reviews';
+    btn.innerHTML='<i class="fas fa-chevron-down"></i> \u30AF\u30C1\u30B3\u30DF\u3092\u9589\u3058\u308B';
     btn.setAttribute('data-expanded','0');
     btn.previousElementSibling && btn.previousElementSibling.scrollIntoView&&btn.previousElementSibling.scrollIntoView({behavior:'smooth',block:'nearest'});
   } else {
     wrap.querySelectorAll('.sp-rv-hidden').forEach(function(c){ c.classList.add('sp-rv-show'); });
-    btn.innerHTML='<i class="fas fa-chevron-up"></i> Show less';
+    btn.innerHTML='<i class="fas fa-chevron-up"></i> \u9589\u3058\u308B';
     btn.setAttribute('data-expanded','1');
   }
 }
